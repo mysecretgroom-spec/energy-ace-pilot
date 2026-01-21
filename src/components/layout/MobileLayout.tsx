@@ -1,26 +1,44 @@
 import { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface MobileLayoutProps {
   children: ReactNode;
   title?: string;
   showNav?: boolean;
+  showBackButton?: boolean;
 }
 
 export const MobileLayout = ({
   children,
   title,
   showNav = true,
+  showBackButton = false,
 }: MobileLayoutProps) => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       {title && (
         <header className="sticky top-0 z-40 glass border-b border-border safe-top">
-          <div className="flex items-center justify-center h-14 px-4">
-            <h1 className="text-lg font-display font-semibold text-foreground">
+          <div className="flex items-center h-14 px-4">
+            {showBackButton && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="mr-2"
+                onClick={() => navigate(-1)}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <h1 className={`text-lg font-display font-semibold text-foreground ${!showBackButton ? 'flex-1 text-center' : ''}`}>
               {title}
             </h1>
+            {showBackButton && <div className="w-10" />}
           </div>
         </header>
       )}

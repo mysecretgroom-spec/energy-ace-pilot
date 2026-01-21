@@ -71,6 +71,56 @@ export type Database = {
         }
         Relationships: []
       }
+      commissions: {
+        Row: {
+          bonus_survente: number | null
+          created_at: string
+          date_calcul: string
+          date_paiement: string | null
+          id: string
+          montant_base: number
+          montant_commission: number
+          paye: boolean | null
+          taux_commission: number
+          user_id: string
+          vente_id: string
+        }
+        Insert: {
+          bonus_survente?: number | null
+          created_at?: string
+          date_calcul?: string
+          date_paiement?: string | null
+          id?: string
+          montant_base: number
+          montant_commission: number
+          paye?: boolean | null
+          taux_commission: number
+          user_id: string
+          vente_id: string
+        }
+        Update: {
+          bonus_survente?: number | null
+          created_at?: string
+          date_calcul?: string
+          date_paiement?: string | null
+          id?: string
+          montant_base?: number
+          montant_commission?: number
+          paye?: boolean | null
+          taux_commission?: number
+          user_id?: string
+          vente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: false
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_commissions: {
         Row: {
           bonus_survente: number | null
@@ -555,6 +605,118 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          date_envoi: string
+          date_lecture: string | null
+          id: string
+          lue: boolean | null
+          message: string
+          rdv_id: string | null
+          titre: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+          vente_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          date_envoi?: string
+          date_lecture?: string | null
+          id?: string
+          lue?: boolean | null
+          message: string
+          rdv_id?: string | null
+          titre: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+          vente_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          date_envoi?: string
+          date_lecture?: string | null
+          id?: string
+          lue?: boolean | null
+          message?: string
+          rdv_id?: string | null
+          titre?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+          vente_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_rdv_id_fkey"
+            columns: ["rdv_id"]
+            isOneToOne: false
+            referencedRelation: "rdv"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: false
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objectifs: {
+        Row: {
+          annee: number
+          created_at: string
+          id: string
+          mois: number
+          objectif_ca: number | null
+          objectif_rdv: number | null
+          objectif_ventes: number | null
+          realise_ca: number | null
+          realise_rdv: number | null
+          realise_ventes: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          annee: number
+          created_at?: string
+          id?: string
+          mois: number
+          objectif_ca?: number | null
+          objectif_rdv?: number | null
+          objectif_ventes?: number | null
+          realise_ca?: number | null
+          realise_rdv?: number | null
+          realise_ventes?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          annee?: number
+          created_at?: string
+          id?: string
+          mois?: number
+          objectif_ca?: number | null
+          objectif_rdv?: number | null
+          objectif_ventes?: number | null
+          realise_ca?: number | null
+          realise_rdv?: number | null
+          realise_ventes?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -665,6 +827,90 @@ export type Database = {
           },
         ]
       }
+      ventes: {
+        Row: {
+          client_id: string
+          created_at: string
+          date_installation_prevue: string | null
+          date_installation_reelle: string | null
+          date_paiement: string | null
+          date_signature: string | null
+          etude_id: string | null
+          id: string
+          montant_acompte: number | null
+          montant_ht: number
+          montant_solde: number | null
+          montant_ttc: number
+          nombre_panneaux: number | null
+          notes: string | null
+          numero_contrat: string | null
+          puissance_kwc: number | null
+          status: Database["public"]["Enums"]["vente_status"]
+          type_installation: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          date_installation_prevue?: string | null
+          date_installation_reelle?: string | null
+          date_paiement?: string | null
+          date_signature?: string | null
+          etude_id?: string | null
+          id?: string
+          montant_acompte?: number | null
+          montant_ht: number
+          montant_solde?: number | null
+          montant_ttc: number
+          nombre_panneaux?: number | null
+          notes?: string | null
+          numero_contrat?: string | null
+          puissance_kwc?: number | null
+          status?: Database["public"]["Enums"]["vente_status"]
+          type_installation?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          date_installation_prevue?: string | null
+          date_installation_reelle?: string | null
+          date_paiement?: string | null
+          date_signature?: string | null
+          etude_id?: string | null
+          id?: string
+          montant_acompte?: number | null
+          montant_ht?: number
+          montant_solde?: number | null
+          montant_ttc?: number
+          nombre_panneaux?: number | null
+          notes?: string | null
+          numero_contrat?: string | null
+          puissance_kwc?: number | null
+          status?: Database["public"]["Enums"]["vente_status"]
+          type_installation?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ventes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_etude_id_fkey"
+            columns: ["etude_id"]
+            isOneToOne: false
+            referencedRelation: "etudes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -688,6 +934,15 @@ export type Database = {
         | "hotel"
         | "parking"
         | "autre"
+      notification_type:
+        | "rappel_rdv"
+        | "relance_client"
+        | "commission_paye"
+        | "objectif_atteint"
+        | "nouveau_rdv"
+        | "vente_signee"
+        | "installation_prevue"
+        | "autre"
       project_type:
         | "photovoltaique"
         | "pompe_chaleur"
@@ -701,6 +956,13 @@ export type Database = {
         | "r2_prestudy"
         | "signe"
         | "negatif"
+        | "annule"
+      vente_status:
+        | "en_negociation"
+        | "signe"
+        | "en_installation"
+        | "installe"
+        | "paye"
         | "annule"
     }
     CompositeTypes: {
@@ -846,6 +1108,16 @@ export const Constants = {
         "parking",
         "autre",
       ],
+      notification_type: [
+        "rappel_rdv",
+        "relance_client",
+        "commission_paye",
+        "objectif_atteint",
+        "nouveau_rdv",
+        "vente_signee",
+        "installation_prevue",
+        "autre",
+      ],
       project_type: [
         "photovoltaique",
         "pompe_chaleur",
@@ -860,6 +1132,14 @@ export const Constants = {
         "r2_prestudy",
         "signe",
         "negatif",
+        "annule",
+      ],
+      vente_status: [
+        "en_negociation",
+        "signe",
+        "en_installation",
+        "installe",
+        "paye",
         "annule",
       ],
     },
