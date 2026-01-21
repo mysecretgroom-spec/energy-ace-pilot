@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RdvActions } from "@/components/planning/RdvActions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmailImport } from "@/components/planning/EmailImport";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -15,6 +21,7 @@ import {
   ChevronRight,
   Car,
   CalendarX,
+  Mail,
 } from "lucide-react";
 
 type ViewMode = "jour" | "semaine" | "mois";
@@ -51,6 +58,7 @@ const Planning = () => {
   const [rdvList, setRdvList] = useState<RdvData[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalDistance, setTotalDistance] = useState<number>(0);
+  const [emailImportOpen, setEmailImportOpen] = useState(false);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("fr-FR", {
@@ -257,20 +265,34 @@ const Planning = () => {
           </Button>
         </div>
 
-        {/* Distance totale */}
-        {rdvList.length > 0 && (
-          <Card className="bg-muted/50">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Car className="h-4 w-4" />
-                  <span>RDV du jour</span>
-                </div>
-                <span className="font-semibold text-foreground">{rdvList.length} rendez-vous</span>
+        {/* Header avec import email et compteur */}
+        <Card className="bg-muted/50">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Car className="h-4 w-4" />
+                <span>{rdvList.length} rendez-vous</span>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8">
+                    <Mail className="h-3.5 w-3.5" />
+                    Import email
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md p-0 overflow-hidden">
+                  <EmailImport
+                    onSuccess={() => {
+                      setEmailImportOpen(false);
+                      fetchRdvs();
+                    }}
+                    onCancel={() => setEmailImportOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Loading state */}
         {loading && (
@@ -303,9 +325,26 @@ const Planning = () => {
               <h3 className="font-semibold text-foreground mb-2">
                 Aucun RDV prévu
               </h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-4">
                 Vous n'avez pas de rendez-vous pour cette période.
               </p>
+              <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Mail className="h-4 w-4" />
+                    Importer depuis un email
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md p-0 overflow-hidden">
+                  <EmailImport
+                    onSuccess={() => {
+                      setEmailImportOpen(false);
+                      fetchRdvs();
+                    }}
+                    onCancel={() => setEmailImportOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         )}
