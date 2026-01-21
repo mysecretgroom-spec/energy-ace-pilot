@@ -24,9 +24,39 @@ interface ParsedRdv {
   commentaire?: string;
 }
 
+interface GeocodeResult {
+  latitude: number;
+  longitude: number;
+}
+
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+      {
+        headers: {
+          "User-Agent": "SolarFlow-CRM/1.0",
+        },
+      }
+    );
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon),
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error("Geocoding error:", err);
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -178,6 +208,12 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
 
     // Create new client if not found
     if (!clientId) {
+      // Geocode the address
+      let coords: GeocodeResult | null = null;
+      if (parsed.adresse) {
+        coords = await geocodeAddress(parsed.adresse);
+      }
+
       const { data: newClient, error: clientError } = await supabase
         .from("clients")
         .insert({
@@ -188,6 +224,8 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           telephone: parsed.telephone || null,
           email: parsed.email || null,
           source: `Email: ${sender_email}`,
+          latitude: coords?.latitude || null,
+          longitude: coords?.longitude || null,
         })
         .select("id")
         .single();
@@ -247,7 +285,12 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
       rdvId = existing.id;
       action = "updated";
     } else {
-      // Create new RDV
+      // Create new RDV - geocode the address
+      let coords: GeocodeResult | null = null;
+      if (parsed.adresse) {
+        coords = await geocodeAddress(parsed.adresse);
+      }
+
       const { data: newRdv, error: rdvError } = await supabase
         .from("rdv")
         .insert({
@@ -259,6 +302,8 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           status: "nouveau",
           commentaire: parsed.commentaire || null,
           email_source_id: subject,
+          latitude: coords?.latitude || null,
+          longitude: coords?.longitude || null,
           historique: [
             {
               action: "Créé via email",
