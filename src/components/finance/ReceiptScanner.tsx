@@ -6,14 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Camera, Loader2, Check, X } from "lucide-react";
+import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro } from "lucide-react";
 import { toast } from "sonner";
 
 interface OCRResult {
-  montant: number | null;
+  montant_ttc: number | null;
+  montant_ht: number | null;
+  tva: number | null;
+  taux_tva: number | null;
   date: string | null;
   categorie: string | null;
   description: string | null;
+  commercant: string | null;
 }
 
 const categories = [
@@ -38,10 +42,14 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
 
   // Form state (editable after OCR)
-  const [montant, setMontant] = useState<string>("");
+  const [montantTTC, setMontantTTC] = useState<string>("");
+  const [montantHT, setMontantHT] = useState<string>("");
+  const [tva, setTva] = useState<string>("");
+  const [tauxTva, setTauxTva] = useState<string>("");
   const [dateFrais, setDateFrais] = useState<string>(new Date().toISOString().split("T")[0]);
   const [categorie, setCategorie] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [commercant, setCommercant] = useState<string>("");
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,10 +78,14 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         setOcrResult(result);
 
         // Pre-fill form with OCR results
-        if (result.montant) setMontant(result.montant.toString());
+        if (result.montant_ttc) setMontantTTC(result.montant_ttc.toString());
+        if (result.montant_ht) setMontantHT(result.montant_ht.toString());
+        if (result.tva) setTva(result.tva.toString());
+        if (result.taux_tva) setTauxTva(result.taux_tva.toString());
         if (result.date) setDateFrais(result.date);
         if (result.categorie) setCategorie(result.categorie);
         if (result.description) setDescription(result.description);
+        if (result.commercant) setCommercant(result.commercant);
 
         toast.success("Facture analysée avec succès");
       } catch (err) {
@@ -88,8 +100,8 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!montant || !categorie) {
-      toast.error("Montant et catégorie sont obligatoires");
+    if (!montantTTC || !categorie) {
+      toast.error("Montant TTC et catégorie sont obligatoires");
       return;
     }
 
@@ -97,12 +109,18 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
     try {
       const { error } = await supabase.from("frais").insert({
         user_id: user.id,
-        montant: parseFloat(montant),
+        montant: parseFloat(montantTTC),
         date_frais: dateFrais,
         categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "autre",
-        description: description || null,
-        ocr_data: ocrResult as any,
-        justificatif_url: imagePreview, // In production, upload to storage first
+        description: commercant ? `${commercant} - ${description}` : description || null,
+        ocr_data: {
+          ...ocrResult,
+          montant_ttc: parseFloat(montantTTC) || null,
+          montant_ht: montantHT ? parseFloat(montantHT) : null,
+          tva: tva ? parseFloat(tva) : null,
+          taux_tva: tauxTva ? parseFloat(tauxTva) : null,
+        } as any,
+        justificatif_url: imagePreview,
       });
 
       if (error) throw error;
@@ -114,6 +132,18 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
       toast.error("Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Calculate TVA from TTC if rate is known
+  const calculateFromTTC = (ttcValue: string, rate: string) => {
+    const ttc = parseFloat(ttcValue);
+    const tauxDecimal = parseFloat(rate) / 100;
+    if (!isNaN(ttc) && !isNaN(tauxDecimal) && tauxDecimal > 0) {
+      const ht = ttc / (1 + tauxDecimal);
+      const tvaCalc = ttc - ht;
+      setMontantHT(ht.toFixed(2));
+      setTva(tvaCalc.toFixed(2));
     }
   };
 
@@ -160,27 +190,130 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
             {scanning && (
               <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2">Analyse en cours...</span>
+                <span className="ml-2">Analyse IA en cours...</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* OCR Results Summary */}
+        {ocrResult && !scanning && (
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Receipt className="h-4 w-4 text-primary" />
+              Informations détectées par l'IA
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {ocrResult.commercant && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Building2 className="h-3 w-3" />
+                  {ocrResult.commercant}
+                </div>
+              )}
+              {ocrResult.date && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(ocrResult.date).toLocaleDateString("fr-FR")}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* Form (shown after OCR or if user wants to fill manually) */}
         {(ocrResult || imagePreview) && !scanning && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="montant">Montant (€)</Label>
-                <Input
-                  id="montant"
-                  type="number"
-                  step="0.01"
-                  value={montant}
-                  onChange={(e) => setMontant(e.target.value)}
-                  placeholder="0.00"
-                />
+            {/* Commercant */}
+            <div className="space-y-2">
+              <Label htmlFor="commercant" className="flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                Commerçant / Enseigne
+              </Label>
+              <Input
+                id="commercant"
+                value={commercant}
+                onChange={(e) => setCommercant(e.target.value)}
+                placeholder="Ex: Total, Sodexo, Ibis..."
+              />
+            </div>
+
+            {/* Montants TTC / HT / TVA */}
+            <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Euro className="h-4 w-4 text-primary" />
+                Montants
               </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="montantTTC" className="text-xs">
+                    Montant TTC *
+                  </Label>
+                  <Input
+                    id="montantTTC"
+                    type="number"
+                    step="0.01"
+                    value={montantTTC}
+                    onChange={(e) => {
+                      setMontantTTC(e.target.value);
+                      if (tauxTva) calculateFromTTC(e.target.value, tauxTva);
+                    }}
+                    placeholder="0.00"
+                    className="font-semibold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tauxTva" className="text-xs">
+                    Taux TVA (%)
+                  </Label>
+                  <Input
+                    id="tauxTva"
+                    type="number"
+                    step="0.1"
+                    value={tauxTva}
+                    onChange={(e) => {
+                      setTauxTva(e.target.value);
+                      if (montantTTC) calculateFromTTC(montantTTC, e.target.value);
+                    }}
+                    placeholder="20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="montantHT" className="text-xs text-muted-foreground">
+                    Montant HT
+                  </Label>
+                  <Input
+                    id="montantHT"
+                    type="number"
+                    step="0.01"
+                    value={montantHT}
+                    onChange={(e) => setMontantHT(e.target.value)}
+                    placeholder="0.00"
+                    className="text-muted-foreground"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tva" className="text-xs text-muted-foreground">
+                    TVA (€)
+                  </Label>
+                  <Input
+                    id="tva"
+                    type="number"
+                    step="0.01"
+                    value={tva}
+                    onChange={(e) => setTva(e.target.value)}
+                    placeholder="0.00"
+                    className="text-muted-foreground"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Date et Catégorie */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
                 <Input
@@ -190,22 +323,21 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                   onChange={(e) => setDateFrais(e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="categorie">Catégorie</Label>
-              <Select value={categorie} onValueChange={setCategorie}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une catégorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="categorie">Catégorie *</Label>
+                <Select value={categorie} onValueChange={setCategorie}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">

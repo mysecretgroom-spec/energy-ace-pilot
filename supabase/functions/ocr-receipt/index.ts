@@ -10,10 +10,14 @@ interface OCRRequest {
 }
 
 interface OCRResponse {
-  montant: number | null;
+  montant_ttc: number | null;
+  montant_ht: number | null;
+  tva: number | null;
+  taux_tva: number | null;
   date: string | null;
   categorie: string | null;
   description: string | null;
+  commercant: string | null;
   raw_text?: string;
 }
 
@@ -57,15 +61,19 @@ serve(async (req) => {
               {
                 type: "text",
                 text: `Analyse cette image de facture/ticket et extrais les informations suivantes en JSON:
-- montant: le montant total en euros (nombre décimal)
+- montant_ttc: le montant TOTAL TTC (toutes taxes comprises) en euros (nombre décimal)
+- montant_ht: le montant HT (hors taxes) en euros si visible (nombre décimal ou null)
+- tva: le montant de la TVA en euros si visible (nombre décimal ou null)
+- taux_tva: le taux de TVA en pourcentage si visible (ex: 20 pour 20%, nombre ou null)
 - date: la date au format YYYY-MM-DD
 - categorie: une des catégories suivantes: "carburant", "peage", "repas", "hotel", "parking", "autre"
 - description: une courte description de la dépense
+- commercant: le nom du commerce/enseigne
 
 Réponds UNIQUEMENT avec le JSON, sans markdown ni explication. Exemple:
-{"montant": 45.50, "date": "2026-01-21", "categorie": "carburant", "description": "Plein essence Total"}
+{"montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "categorie": "carburant", "description": "Plein essence", "commercant": "Total Access"}
 
-Si tu ne peux pas lire certaines informations, mets null pour ces champs.`,
+Si tu ne peux pas lire certaines informations, mets null pour ces champs. Si le HT n'est pas visible mais que tu as le TTC et le taux TVA, calcule-le.`,
               },
               {
                 type: "image_url",
@@ -103,10 +111,14 @@ Si tu ne peux pas lire certaines informations, mets null pour ces champs.`,
     } catch {
       console.error("Failed to parse AI response:", content);
       result = {
-        montant: null,
+        montant_ttc: null,
+        montant_ht: null,
+        tva: null,
+        taux_tva: null,
         date: null,
         categorie: null,
         description: null,
+        commercant: null,
         raw_text: content,
       };
     }
