@@ -23,6 +23,50 @@ interface OCRResponse {
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
+// Mapping of merchant patterns to categories
+const merchantCategoryMap: Record<string, string[]> = {
+  carburant: [
+    "total", "shell", "bp", "esso", "avia", "intermarche", "leclerc", "carrefour", 
+    "super u", "auchan", "casino", "station", "petrole", "essence", "gazole", "diesel",
+    "engie", "elan", "dyneff", "vito"
+  ],
+  peage: [
+    "sanef", "aprr", "vinci", "cofiroute", "asf", "escota", "area", "autoroute", 
+    "peage", "péage", "toll", "a-way"
+  ],
+  repas: [
+    "mcdo", "mcdonald", "burger", "kfc", "subway", "pizza", "resto", "restaurant",
+    "brasserie", "cafe", "café", "bistro", "grill", "sushi", "kebab", "snack",
+    "boulangerie", "patisserie", "pâtisserie", "traiteur", "buffalo", "hippopotamus",
+    "courtepaille", "flunch", "leon", "paul", "starbucks", "quick", "five guys"
+  ],
+  hotel: [
+    "hotel", "hôtel", "ibis", "novotel", "mercure", "accor", "b&b", "premiere classe",
+    "campanile", "kyriad", "best western", "radisson", "marriott", "hilton", "holiday inn",
+    "formule 1", "f1", "logis", "comfort inn", "airbnb", "booking"
+  ],
+  parking: [
+    "parking", "parc auto", "effia", "indigo", "q-park", "vinci park", "interparking",
+    "saemes", "zenpark", "onepark", "parcmetre"
+  ]
+};
+
+function deduceCategoryFromMerchant(merchantName: string | null): string | null {
+  if (!merchantName) return null;
+  
+  const lowerName = merchantName.toLowerCase();
+  
+  for (const [category, keywords] of Object.entries(merchantCategoryMap)) {
+    for (const keyword of keywords) {
+      if (lowerName.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -108,6 +152,14 @@ Si tu ne peux pas lire certaines informations, mets null pour ces champs. Si le 
       // Clean up potential markdown formatting
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       result = JSON.parse(cleanContent);
+      
+      // If no category was detected by AI, try to deduce from merchant name
+      if (!result.categorie && result.commercant) {
+        const deducedCategory = deduceCategoryFromMerchant(result.commercant);
+        if (deducedCategory) {
+          result.categorie = deducedCategory;
+        }
+      }
     } catch {
       console.error("Failed to parse AI response:", content);
       result = {
