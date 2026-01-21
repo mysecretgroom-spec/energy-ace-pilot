@@ -4,11 +4,10 @@ import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RdvActions } from "@/components/planning/RdvActions";
 import {
   Clock,
   MapPin,
-  Navigation,
-  Phone,
   ChevronLeft,
   ChevronRight,
   Car,
@@ -23,7 +22,11 @@ const planningData = [
     time: "09:00",
     duration: "1h30",
     client: "M. Dupont",
-    address: "12 rue de la Paix, 69001 Lyon",
+    clientId: "client-1",
+    phone: "06 12 34 56 78",
+    address: "12 rue de la Paix",
+    city: "Lyon",
+    postalCode: "69001",
     status: "nouveau" as RdvStatus,
     type: "Photovoltaïque",
     distance: "15 km",
@@ -34,7 +37,11 @@ const planningData = [
     time: "11:30",
     duration: "2h",
     client: "Mme Martin",
-    address: "45 avenue Victor Hugo, 69100 Villeurbanne",
+    clientId: "client-2",
+    phone: "06 98 76 54 32",
+    address: "45 avenue Victor Hugo",
+    city: "Villeurbanne",
+    postalCode: "69100",
     status: "r2" as RdvStatus,
     type: "Pompe à chaleur",
     distance: "8 km",
@@ -45,7 +52,11 @@ const planningData = [
     time: "14:00",
     duration: "1h30",
     client: "M. Bernard",
-    address: "8 place Bellecour, 69002 Lyon",
+    clientId: "client-3",
+    phone: "06 11 22 33 44",
+    address: "8 place Bellecour",
+    city: "Lyon",
+    postalCode: "69002",
     status: "r2_prestudy" as RdvStatus,
     type: "Photovoltaïque",
     distance: "45 km",
@@ -57,7 +68,11 @@ const planningData = [
     time: "17:00",
     duration: "1h",
     client: "Mme Leroy",
-    address: "23 rue de la République, 69003 Lyon",
+    clientId: "client-4",
+    phone: "06 55 66 77 88",
+    address: "23 rue de la République",
+    city: "Lyon",
+    postalCode: "69003",
     status: "signe" as RdvStatus,
     type: "Isolation",
     distance: "3 km",
@@ -89,11 +104,6 @@ const Planning = () => {
     setCurrentDate(newDate);
   };
 
-  const openNavigation = (address: string) => {
-    const encoded = encodeURIComponent(address);
-    // Essayer d'ouvrir Waze, sinon Google Maps
-    window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, "_blank");
-  };
 
   return (
     <MobileLayout title="Planning">
@@ -191,10 +201,10 @@ const Planning = () => {
                         </p>
                       </div>
 
-                      {/* Adresse */}
+                      {/* Adresse complète */}
                       <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                        <span>{rdv.address}</span>
+                        <span>{rdv.address}, {rdv.postalCode} {rdv.city}</span>
                       </div>
 
                       {/* Alerte trajet */}
@@ -206,22 +216,14 @@ const Planning = () => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-9 w-9 rounded-full"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        className="h-9 w-9 rounded-full bg-gradient-hero"
-                        onClick={() => openNavigation(rdv.address)}
-                      >
-                        <Navigation className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <RdvActions
+                      rdvId={rdv.id}
+                      clientId={rdv.clientId}
+                      clientPhone={rdv.phone}
+                      address={rdv.address}
+                      city={rdv.city}
+                      postalCode={rdv.postalCode}
+                    />
                   </div>
                 </CardContent>
               </Card>
