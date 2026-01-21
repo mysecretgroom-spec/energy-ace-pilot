@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CalendarPlus, Loader2, Check, X, Search } from "lucide-react";
 import { toast } from "sonner";
+import { geocodeAndUpdateClient, geocodeAndUpdateRdv } from "@/hooks/useGeocode";
 
 interface QuickRdvFormProps {
   onSuccess?: () => void;
@@ -112,6 +113,8 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
     const prenom = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : null;
     const nom = nameParts.length > 1 ? nameParts[nameParts.length - 1] : clientName;
 
+    const fullAddress = [address, postalCode, city].filter(Boolean).join(", ");
+
     const { data, error } = await supabase
       .from("clients")
       .insert({
@@ -129,6 +132,11 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
     if (error) {
       console.error("Error creating client:", error);
       return null;
+    }
+
+    // Geocode the address in background
+    if (fullAddress) {
+      geocodeAndUpdateClient(data.id, fullAddress).catch(console.error);
     }
 
     return data.id;
@@ -157,7 +165,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
       const dateHeure = new Date(`${dateRdv}T${timeRdv}`);
       const fullAddress = [address, postalCode, city].filter(Boolean).join(", ");
 
-      const { error } = await supabase.from("rdv").insert({
+      const { data: rdvData, error } = await supabase.from("rdv").insert({
         user_id: user.id,
         client_id: clientId,
         date_heure: dateHeure.toISOString(),
@@ -166,9 +174,14 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
         adresse: fullAddress || null,
         commentaire: commentaire || null,
         status: "nouveau",
-      });
+      }).select("id").single();
 
       if (error) throw error;
+
+      // Geocode the RDV address in background
+      if (rdvData && fullAddress) {
+        geocodeAndUpdateRdv(rdvData.id, fullAddress).catch(console.error);
+      }
 
       toast.success("RDV créé avec succès");
       onSuccess?.();
