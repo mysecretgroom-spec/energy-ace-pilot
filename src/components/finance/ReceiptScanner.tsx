@@ -43,7 +43,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isPdf, setIsPdf] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
 
   // Form state (editable after OCR)
@@ -89,21 +89,20 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
     if (!file) return;
 
     const isPdfFile = file.type === "application/pdf";
-    setIsPdf(isPdfFile);
 
     // Convert to base64
     const reader = new FileReader();
     reader.onload = async (event) => {
-      let base64 = event.target?.result as string;
+      const base64 = event.target?.result as string;
       let imageForOcr = base64;
 
-      // If PDF, convert first page to image
+      // If PDF, show PDF preview and convert first page to image for OCR
       if (isPdfFile) {
+        setPdfPreview(base64);
+        setImagePreview(null);
         setScanning(true);
         try {
-          toast.info("Conversion du PDF en cours...");
           imageForOcr = await convertPdfToImage(base64);
-          setImagePreview(imageForOcr);
         } catch (err) {
           console.error("PDF conversion error:", err);
           toast.error("Erreur lors de la conversion du PDF");
@@ -112,6 +111,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         }
       } else {
         setImagePreview(base64);
+        setPdfPreview(null);
         setScanning(true);
       }
 
@@ -255,6 +255,23 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           </div>
         )}
 
+        {/* PDF preview */}
+        {pdfPreview && (
+          <div className="relative">
+            <iframe
+              src={pdfPreview}
+              title="Facture PDF"
+              className="w-full h-48 rounded-lg border"
+            />
+            {scanning && (
+              <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2">Analyse IA en cours...</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* OCR Results Summary */}
         {ocrResult && !scanning && (
           <div className="bg-muted/50 rounded-lg p-3 space-y-2">
@@ -280,7 +297,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         )}
 
         {/* Form (shown after OCR or if user wants to fill manually) */}
-        {(ocrResult || imagePreview) && !scanning && (
+        {(ocrResult || imagePreview || pdfPreview) && !scanning && (
           <div className="space-y-4">
             {/* Commercant */}
             <div className="space-y-2">
