@@ -21,6 +21,8 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           nom: string
           notes: string | null
           prenom: string | null
@@ -37,6 +39,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nom: string
           notes?: string | null
           prenom?: string | null
@@ -53,6 +57,8 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           nom?: string
           notes?: string | null
           prenom?: string | null
@@ -598,11 +604,15 @@ export type Database = {
           commentaire: string | null
           created_at: string
           date_heure: string
+          distance_km: number | null
           duree_minutes: number | null
           email_source_id: string | null
           historique: Json | null
           id: string
+          latitude: number | null
+          longitude: number | null
           status: Database["public"]["Enums"]["rdv_status"]
+          travel_time_minutes: number | null
           type_projet: Database["public"]["Enums"]["project_type"]
           updated_at: string
           user_id: string
@@ -613,11 +623,15 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           date_heure: string
+          distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
           historique?: Json | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           status?: Database["public"]["Enums"]["rdv_status"]
+          travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
           updated_at?: string
           user_id: string
@@ -628,11 +642,15 @@ export type Database = {
           commentaire?: string | null
           created_at?: string
           date_heure?: string
+          distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
           historique?: Json | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           status?: Database["public"]["Enums"]["rdv_status"]
+          travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
           updated_at?: string
           user_id?: string
