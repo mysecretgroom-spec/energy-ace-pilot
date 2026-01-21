@@ -6,8 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro } from "lucide-react";
+import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro, FileText } from "lucide-react";
 import { toast } from "sonner";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface OCRResult {
   montant_ttc: number | null;
@@ -39,6 +43,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
 
   // Form state (editable after OCR)
@@ -51,21 +56,69 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [description, setDescription] = useState<string>("");
   const [commercant, setCommercant] = useState<string>("");
 
+  // Convert PDF to image using PDF.js
+  const convertPdfToImage = async (pdfDataUrl: string): Promise<string> => {
+    const pdfData = atob(pdfDataUrl.split(",")[1]);
+    const pdfArray = new Uint8Array(pdfData.length);
+    for (let i = 0; i < pdfData.length; i++) {
+      pdfArray[i] = pdfData.charCodeAt(i);
+    }
+
+    const loadingTask = pdfjsLib.getDocument({ data: pdfArray });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1); // Get first page
+
+    const scale = 2; // Higher scale for better OCR
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d")!;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    return canvas.toDataURL("image/png");
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isPdfFile = file.type === "application/pdf";
+    setIsPdf(isPdfFile);
+
     // Convert to base64
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      setImagePreview(base64);
-      
+      let base64 = event.target?.result as string;
+      let imageForOcr = base64;
+
+      // If PDF, convert first page to image
+      if (isPdfFile) {
+        setScanning(true);
+        try {
+          toast.info("Conversion du PDF en cours...");
+          imageForOcr = await convertPdfToImage(base64);
+          setImagePreview(imageForOcr);
+        } catch (err) {
+          console.error("PDF conversion error:", err);
+          toast.error("Erreur lors de la conversion du PDF");
+          setScanning(false);
+          return;
+        }
+      } else {
+        setImagePreview(base64);
+        setScanning(true);
+      }
+
       // Run OCR
-      setScanning(true);
       try {
         const response = await supabase.functions.invoke("ocr-receipt", {
-          body: { image_base64: base64 },
+          body: { image_base64: imageForOcr },
         });
 
         if (response.error) {
@@ -161,7 +214,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               capture="environment"
               onChange={handleFileSelect}
               className="hidden"
@@ -171,9 +224,15 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
               htmlFor="receipt-input"
               className="flex flex-col items-center gap-2 cursor-pointer"
             >
-              <Camera className="h-12 w-12 text-muted-foreground" />
+              <div className="flex items-center gap-3">
+                <Camera className="h-10 w-10 text-muted-foreground" />
+                <FileText className="h-10 w-10 text-muted-foreground" />
+              </div>
               <span className="text-sm text-muted-foreground">
-                Prendre une photo ou sélectionner une image
+                Photo, image ou PDF
+              </span>
+              <span className="text-xs text-muted-foreground/70">
+                Formats acceptés : JPG, PNG, PDF
               </span>
             </label>
           </div>
