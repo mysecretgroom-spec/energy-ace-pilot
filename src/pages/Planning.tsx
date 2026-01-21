@@ -1,88 +1,56 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RdvActions } from "@/components/planning/RdvActions";
+import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Clock,
   MapPin,
   ChevronLeft,
   ChevronRight,
   Car,
+  CalendarX,
 } from "lucide-react";
 
 type ViewMode = "jour" | "semaine" | "mois";
 
-// Données de démonstration
-const planningData = [
-  {
-    id: "1",
-    time: "09:00",
-    duration: "1h30",
-    client: "M. Dupont",
-    clientId: "client-1",
-    phone: "06 12 34 56 78",
-    address: "12 rue de la Paix",
-    city: "Lyon",
-    postalCode: "69001",
-    status: "nouveau" as RdvStatus,
-    type: "Photovoltaïque",
-    distance: "15 km",
-    travelTime: "25 min",
-  },
-  {
-    id: "2",
-    time: "11:30",
-    duration: "2h",
-    client: "Mme Martin",
-    clientId: "client-2",
-    phone: "06 98 76 54 32",
-    address: "45 avenue Victor Hugo",
-    city: "Villeurbanne",
-    postalCode: "69100",
-    status: "r2" as RdvStatus,
-    type: "Pompe à chaleur",
-    distance: "8 km",
-    travelTime: "15 min",
-  },
-  {
-    id: "3",
-    time: "14:00",
-    duration: "1h30",
-    client: "M. Bernard",
-    clientId: "client-3",
-    phone: "06 11 22 33 44",
-    address: "8 place Bellecour",
-    city: "Lyon",
-    postalCode: "69002",
-    status: "r2_prestudy" as RdvStatus,
-    type: "Photovoltaïque",
-    distance: "45 km",
-    travelTime: "50 min",
-    alert: true,
-  },
-  {
-    id: "4",
-    time: "17:00",
-    duration: "1h",
-    client: "Mme Leroy",
-    clientId: "client-4",
-    phone: "06 55 66 77 88",
-    address: "23 rue de la République",
-    city: "Lyon",
-    postalCode: "69003",
-    status: "signe" as RdvStatus,
-    type: "Isolation",
-    distance: "3 km",
-    travelTime: "10 min",
-  },
-];
+interface RdvData {
+  id: string;
+  time: string;
+  duration: string;
+  client: string;
+  clientId: string;
+  phone: string | null;
+  address: string;
+  city: string;
+  postalCode: string;
+  status: RdvStatus;
+  type: string;
+  distance?: string;
+  travelTime?: string;
+  alert?: boolean;
+}
+
+const projectTypeLabels: Record<string, string> = {
+  photovoltaique: "Photovoltaïque",
+  pompe_chaleur: "Pompe à chaleur",
+  isolation: "Isolation",
+  ballon_thermo: "Ballon thermodynamique",
+  autre: "Autre",
+};
 
 const Planning = () => {
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("jour");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [rdvList, setRdvList] = useState<RdvData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalDistance, setTotalDistance] = useState<number>(0);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("fr-FR", {
@@ -104,6 +72,153 @@ const Planning = () => {
     setCurrentDate(newDate);
   };
 
+  // Parse address to extract street, postal code and city
+  const parseAddress = (fullAddress: string | null) => {
+    if (!fullAddress) return { address: "", postalCode: "", city: "" };
+    
+    // Try to match pattern: "street, postalCode city" or "street postalCode city"
+    const match = fullAddress.match(/^(.+?),?\s*(\d{5})\s+(.+)$/);
+    if (match) {
+      return {
+        address: match[1].trim(),
+        postalCode: match[2],
+        city: match[3].trim(),
+      };
+    }
+    
+    return { address: fullAddress, postalCode: "", city: "" };
+  };
+
+  const fetchRdvs = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      let startDate: Date;
+      let endDate: Date;
+
+      if (viewMode === "jour") {
+        startDate = new Date(currentDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(currentDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (viewMode === "semaine") {
+        // Start from Monday
+        startDate = new Date(currentDate);
+        const dayOfWeek = startDate.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startDate.setDate(startDate.getDate() + diff);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        // Month view
+        startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+
+      const { data, error } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          duree_minutes,
+          adresse,
+          status,
+          type_projet,
+          client_id,
+          clients!inner(
+            id,
+            nom,
+            prenom,
+            telephone,
+            adresse,
+            code_postal,
+            ville
+          )
+        `)
+        .eq("user_id", user.id)
+        .gte("date_heure", startDate.toISOString())
+        .lte("date_heure", endDate.toISOString())
+        .order("date_heure", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching RDVs:", error);
+        setLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setRdvList([]);
+        setTotalDistance(0);
+        setLoading(false);
+        return;
+      }
+
+      // Transform data
+      const transformedRdvs: RdvData[] = data.map((rdv) => {
+        const dateHeure = new Date(rdv.date_heure);
+        const clientData = rdv.clients as {
+          id: string;
+          nom: string;
+          prenom: string | null;
+          telephone: string | null;
+          adresse: string | null;
+          code_postal: string | null;
+          ville: string | null;
+        };
+
+        // Use RDV address or client address
+        const rdvAddress = rdv.adresse || clientData.adresse || "";
+        const parsed = parseAddress(rdvAddress);
+        
+        // Prefer client's structured address data if available
+        const finalAddress = clientData.adresse || parsed.address;
+        const finalPostalCode = clientData.code_postal || parsed.postalCode;
+        const finalCity = clientData.ville || parsed.city;
+
+        const durationMinutes = rdv.duree_minutes || 90;
+        const hours = Math.floor(durationMinutes / 60);
+        const mins = durationMinutes % 60;
+        const durationStr = hours > 0 
+          ? (mins > 0 ? `${hours}h${mins}` : `${hours}h`)
+          : `${mins} min`;
+
+        return {
+          id: rdv.id,
+          time: dateHeure.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+          duration: durationStr,
+          client: clientData.prenom 
+            ? `${clientData.prenom} ${clientData.nom}`
+            : clientData.nom,
+          clientId: clientData.id,
+          phone: clientData.telephone,
+          address: finalAddress,
+          city: finalCity,
+          postalCode: finalPostalCode,
+          status: rdv.status as RdvStatus,
+          type: projectTypeLabels[rdv.type_projet] || rdv.type_projet,
+          // Distance/travel time will be calculated by edge function in future
+          distance: undefined,
+          travelTime: undefined,
+          alert: false,
+        };
+      });
+
+      setRdvList(transformedRdvs);
+      // Calculate total distance would require geocoding - placeholder for now
+      setTotalDistance(0);
+    } catch (err) {
+      console.error("Error in fetchRdvs:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, currentDate, viewMode]);
+
+  useEffect(() => {
+    fetchRdvs();
+  }, [fetchRdvs]);
 
   return (
     <MobileLayout title="Planning">
@@ -143,103 +258,139 @@ const Planning = () => {
         </div>
 
         {/* Distance totale */}
-        <Card className="bg-muted/50">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Car className="h-4 w-4" />
-                <span>Distance totale</span>
-              </div>
-              <span className="font-semibold text-foreground">71 km</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Liste des RDV */}
-        <div className="space-y-3">
-          {planningData.map((rdv, index) => (
-            <div key={rdv.id} className="relative">
-              {/* Ligne de trajet entre les RDV */}
-              {index > 0 && (
-                <div className="absolute -top-3 left-6 flex items-center gap-2 text-xs text-muted-foreground bg-background px-2 py-1 rounded z-10">
-                  <Car className="h-3 w-3" />
-                  <span>{rdv.travelTime}</span>
-                  <span>•</span>
-                  <span>{rdv.distance}</span>
+        {rdvList.length > 0 && (
+          <Card className="bg-muted/50">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Car className="h-4 w-4" />
+                  <span>RDV du jour</span>
                 </div>
-              )}
+                <span className="font-semibold text-foreground">{rdvList.length} rendez-vous</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-              <Card
-                className={`shadow-card overflow-hidden ${
-                  rdv.alert
-                    ? "border-secondary/50 bg-secondary/5"
-                    : ""
-                }`}
-              >
+        {/* Loading state */}
+        {loading && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="shadow-card">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 space-y-2">
-                      {/* Heure et statut */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-primary font-semibold">
-                          <Clock className="h-4 w-4" />
-                          <span>{rdv.time}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          ({rdv.duration})
-                        </span>
-                        <StatusBadge status={rdv.status} />
-                      </div>
-
-                      {/* Client et type */}
-                      <div>
-                        <h3 className="font-semibold text-foreground">
-                          {rdv.client}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {rdv.type}
-                        </p>
-                      </div>
-
-                      {/* Adresse complète */}
-                      <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                        <span>{rdv.address}, {rdv.postalCode} {rdv.city}</span>
-                      </div>
-
-                      {/* Alerte trajet */}
-                      {rdv.alert && (
-                        <p className="text-xs text-secondary font-medium">
-                          ⚠️ Trajet long - Prévoir du temps
-                        </p>
-                      )}
+                    <div className="flex-1 space-y-3">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-4 w-full" />
                     </div>
-
-                    {/* Actions */}
-                    <RdvActions
-                      rdvId={rdv.id}
-                      clientId={rdv.clientId}
-                      clientPhone={rdv.phone}
-                      address={rdv.address}
-                      city={rdv.city}
-                      postalCode={rdv.postalCode}
-                    />
+                    <div className="flex flex-col gap-2">
+                      <Skeleton className="h-9 w-9 rounded-full" />
+                      <Skeleton className="h-9 w-9 rounded-full" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* Info trajet retour */}
-        <Card className="bg-muted/30">
-          <CardContent className="p-3">
-            <div className="text-sm text-center text-muted-foreground">
-              📍 Distance 1er RDV demain depuis dernier RDV :{" "}
-              <span className="font-semibold text-foreground">32 km</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Empty state */}
+        {!loading && rdvList.length === 0 && (
+          <Card className="shadow-card">
+            <CardContent className="p-8 text-center">
+              <CalendarX className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground mb-2">
+                Aucun RDV prévu
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Vous n'avez pas de rendez-vous pour cette période.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Liste des RDV */}
+        {!loading && rdvList.length > 0 && (
+          <div className="space-y-3">
+            {rdvList.map((rdv, index) => (
+              <div key={rdv.id} className="relative">
+                {/* Ligne de trajet entre les RDV */}
+                {index > 0 && rdv.travelTime && rdv.distance && (
+                  <div className="absolute -top-3 left-6 flex items-center gap-2 text-xs text-muted-foreground bg-background px-2 py-1 rounded z-10">
+                    <Car className="h-3 w-3" />
+                    <span>{rdv.travelTime}</span>
+                    <span>•</span>
+                    <span>{rdv.distance}</span>
+                  </div>
+                )}
+
+                <Card
+                  className={`shadow-card overflow-hidden ${
+                    rdv.alert
+                      ? "border-secondary/50 bg-secondary/5"
+                      : ""
+                  }`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        {/* Heure et statut */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 text-primary font-semibold">
+                            <Clock className="h-4 w-4" />
+                            <span>{rdv.time}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            ({rdv.duration})
+                          </span>
+                          <StatusBadge status={rdv.status} />
+                        </div>
+
+                        {/* Client et type */}
+                        <div>
+                          <h3 className="font-semibold text-foreground">
+                            {rdv.client}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {rdv.type}
+                          </p>
+                        </div>
+
+                        {/* Adresse complète */}
+                        <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                          <span>
+                            {[rdv.address, rdv.postalCode, rdv.city]
+                              .filter(Boolean)
+                              .join(", ") || "Adresse non renseignée"}
+                          </span>
+                        </div>
+
+                        {/* Alerte trajet */}
+                        {rdv.alert && (
+                          <p className="text-xs text-secondary font-medium">
+                            ⚠️ Trajet long - Prévoir du temps
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <RdvActions
+                        rdvId={rdv.id}
+                        clientId={rdv.clientId}
+                        clientPhone={rdv.phone || undefined}
+                        address={rdv.address}
+                        city={rdv.city}
+                        postalCode={rdv.postalCode}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </MobileLayout>
   );
