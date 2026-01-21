@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RdvActions } from "@/components/planning/RdvActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmailImport } from "@/components/planning/EmailImport";
+import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import {
   Car,
   CalendarX,
   Mail,
+  Plus,
 } from "lucide-react";
 
 type ViewMode = "jour" | "semaine" | "mois";
@@ -59,6 +61,7 @@ const Planning = () => {
   const [loading, setLoading] = useState(true);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [emailImportOpen, setEmailImportOpen] = useState(false);
+  const [quickRdvOpen, setQuickRdvOpen] = useState(false);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("fr-FR", {
@@ -265,7 +268,7 @@ const Planning = () => {
           </Button>
         </div>
 
-        {/* Header avec import email et compteur */}
+        {/* Header avec actions */}
         <Card className="bg-muted/50">
           <CardContent className="p-3">
             <div className="flex items-center justify-between text-sm">
@@ -273,23 +276,43 @@ const Planning = () => {
                 <Car className="h-4 w-4" />
                 <span>{rdvList.length} rendez-vous</span>
               </div>
-              <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-8">
-                    <Mail className="h-3.5 w-3.5" />
-                    Import email
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md p-0 overflow-hidden">
-                  <EmailImport
-                    onSuccess={() => {
-                      setEmailImportOpen(false);
-                      fetchRdvs();
-                    }}
-                    onCancel={() => setEmailImportOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+              <div className="flex gap-2">
+                <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5 h-8 bg-gradient-hero">
+                      <Plus className="h-3.5 w-3.5" />
+                      Nouveau RDV
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+                    <QuickRdvForm
+                      defaultDate={currentDate}
+                      onSuccess={() => {
+                        setQuickRdvOpen(false);
+                        fetchRdvs();
+                      }}
+                      onCancel={() => setQuickRdvOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1.5 h-8">
+                      <Mail className="h-3.5 w-3.5" />
+                      Email
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md p-0 overflow-hidden">
+                    <EmailImport
+                      onSuccess={() => {
+                        setEmailImportOpen(false);
+                        fetchRdvs();
+                      }}
+                      onCancel={() => setEmailImportOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </CardContent>
         </Card>
