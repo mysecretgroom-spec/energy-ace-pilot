@@ -1,0 +1,517 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { MobileLayout } from "@/components/layout/MobileLayout";
+import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Navigation,
+  MessageCircle,
+  Calendar,
+  FileText,
+  Image,
+  Plus,
+  Clock,
+  Euro,
+  CheckCircle2,
+  XCircle,
+  Edit,
+  Trash2,
+  Sun,
+  Zap,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+
+interface Client {
+  id: string;
+  nom: string;
+  prenom: string | null;
+  email: string | null;
+  telephone: string | null;
+  telephone_secondaire: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  notes: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+interface Rdv {
+  id: string;
+  date_heure: string;
+  duree_minutes: number | null;
+  adresse: string | null;
+  type_projet: string;
+  status: RdvStatus;
+  commentaire: string | null;
+}
+
+interface Etude {
+  id: string;
+  puissance_kwc: number | null;
+  prix_total: number | null;
+  verdict: string | null;
+  created_at: string;
+}
+
+interface Document {
+  id: string;
+  type_document: string;
+  nom: string;
+  url: string;
+  created_at: string;
+}
+
+interface HistoriqueAction {
+  id: string;
+  action_type: string;
+  description: string | null;
+  created_at: string;
+}
+
+const ClientDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [client, setClient] = useState<Client | null>(null);
+  const [rdvs, setRdvs] = useState<Rdv[]>([]);
+  const [etudes, setEtudes] = useState<Etude[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [historique, setHistorique] = useState<HistoriqueAction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("info");
+
+  useEffect(() => {
+    if (id && user) {
+      fetchClientData();
+    }
+  }, [id, user]);
+
+  const fetchClientData = async () => {
+    if (!id) return;
+
+    setLoading(true);
+
+    // Fetch client
+    const { data: clientData, error: clientError } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (clientError || !clientData) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Client introuvable",
+      });
+      navigate("/clients");
+      return;
+    }
+
+    setClient(clientData);
+
+    // Fetch RDVs
+    const { data: rdvData } = await supabase
+      .from("rdv")
+      .select("*")
+      .eq("client_id", id)
+      .order("date_heure", { ascending: false });
+
+    setRdvs((rdvData as Rdv[]) || []);
+
+    // Fetch Études
+    const { data: etudesData } = await supabase
+      .from("etudes")
+      .select("*")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false });
+
+    setEtudes((etudesData as Etude[]) || []);
+
+    // Fetch Documents
+    const { data: docsData } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false });
+
+    setDocuments((docsData as Document[]) || []);
+
+    // Fetch Historique
+    const { data: histData } = await supabase
+      .from("historique_actions")
+      .select("*")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    setHistorique((histData as HistoriqueAction[]) || []);
+
+    setLoading(false);
+  };
+
+  const openPhone = () => {
+    if (client?.telephone) {
+      window.open(`tel:${client.telephone}`, "_self");
+    }
+  };
+
+  const openWhatsApp = () => {
+    if (client?.telephone) {
+      const phone = client.telephone.replace(/\s/g, "").replace(/^0/, "33");
+      window.open(`https://wa.me/${phone}`, "_blank");
+    }
+  };
+
+  const openNavigation = () => {
+    if (client?.adresse) {
+      const address = `${client.adresse}, ${client.code_postal} ${client.ville}`;
+      window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank");
+    }
+  };
+
+  const openEmail = () => {
+    if (client?.email) {
+      window.open(`mailto:${client.email}`, "_self");
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("fr-FR", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getVerdictBadge = (verdict: string | null) => {
+    switch (verdict) {
+      case "valide":
+        return <Badge className="bg-status-signed text-white">Valide</Badge>;
+      case "a_etudier":
+        return <Badge className="bg-status-reported text-black">À étudier</Badge>;
+      case "invalide":
+        return <Badge className="bg-status-negative text-white">Invalide</Badge>;
+      default:
+        return <Badge variant="outline">En cours</Badge>;
+    }
+  };
+
+  if (loading) {
+    return (
+      <MobileLayout title="Chargement...">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-pulse text-muted-foreground">Chargement...</div>
+        </div>
+      </MobileLayout>
+    );
+  }
+
+  if (!client) {
+    return null;
+  }
+
+  return (
+    <MobileLayout>
+      <div className="p-4 space-y-4">
+        {/* Header avec retour */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/clients")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-xl font-display font-bold text-foreground">
+              {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Client depuis {formatDate(client.created_at)}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions rapides */}
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            variant="outline"
+            className="flex flex-col h-16 gap-1"
+            onClick={openPhone}
+            disabled={!client.telephone}
+          >
+            <Phone className="h-5 w-5 text-primary" />
+            <span className="text-xs">Appeler</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex flex-col h-16 gap-1"
+            onClick={openWhatsApp}
+            disabled={!client.telephone}
+          >
+            <MessageCircle className="h-5 w-5 text-status-signed" />
+            <span className="text-xs">WhatsApp</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex flex-col h-16 gap-1"
+            onClick={openNavigation}
+            disabled={!client.adresse}
+          >
+            <Navigation className="h-5 w-5 text-secondary" />
+            <span className="text-xs">Itinéraire</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="flex flex-col h-16 gap-1"
+            onClick={openEmail}
+            disabled={!client.email}
+          >
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            <span className="text-xs">Email</span>
+          </Button>
+        </div>
+
+        {/* Onglets */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="info">Info</TabsTrigger>
+            <TabsTrigger value="rdv">RDV ({rdvs.length})</TabsTrigger>
+            <TabsTrigger value="etudes">Études ({etudes.length})</TabsTrigger>
+            <TabsTrigger value="docs">Docs ({documents.length})</TabsTrigger>
+          </TabsList>
+
+          {/* Tab Info */}
+          <TabsContent value="info" className="space-y-4 mt-4">
+            <Card className="shadow-card">
+              <CardContent className="p-4 space-y-3">
+                {client.telephone && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{client.telephone}</span>
+                  </div>
+                )}
+                {client.telephone_secondaire && (
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{client.telephone_secondaire}</span>
+                  </div>
+                )}
+                {client.email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{client.email}</span>
+                  </div>
+                )}
+                {client.adresse && (
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">
+                      {client.adresse}
+                      {client.code_postal && `, ${client.code_postal}`}
+                      {client.ville && ` ${client.ville}`}
+                    </span>
+                  </div>
+                )}
+                {client.source && (
+                  <div className="pt-2 border-t">
+                    <span className="text-xs text-muted-foreground">
+                      Source : {client.source}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {client.notes && (
+              <Card className="shadow-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Notes</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="text-sm text-muted-foreground">{client.notes}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Historique récent */}
+            <Card className="shadow-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Historique récent</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {historique.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucune action enregistrée</p>
+                ) : (
+                  <div className="space-y-2">
+                    {historique.slice(0, 5).map((action) => (
+                      <div key={action.id} className="flex items-start gap-2 text-xs">
+                        <Clock className="h-3 w-3 text-muted-foreground mt-0.5" />
+                        <div>
+                          <span className="text-foreground">{action.description || action.action_type}</span>
+                          <span className="text-muted-foreground ml-2">
+                            {formatDateTime(action.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab RDV */}
+          <TabsContent value="rdv" className="space-y-3 mt-4">
+            <Button className="w-full bg-gradient-hero gap-2">
+              <Plus className="h-4 w-4" />
+              Nouveau RDV
+            </Button>
+
+            {rdvs.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center">
+                  <Calendar className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucun RDV pour ce client</p>
+                </CardContent>
+              </Card>
+            ) : (
+              rdvs.map((rdv) => (
+                <Card key={rdv.id} className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-primary">
+                            {formatDateTime(rdv.date_heure)}
+                          </span>
+                          <StatusBadge status={rdv.status} />
+                        </div>
+                        <p className="text-sm text-muted-foreground capitalize">
+                          {rdv.type_projet.replace("_", " ")}
+                        </p>
+                        {rdv.adresse && (
+                          <p className="text-xs text-muted-foreground">{rdv.adresse}</p>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          {/* Tab Études */}
+          <TabsContent value="etudes" className="space-y-3 mt-4">
+            <Button className="w-full bg-gradient-hero gap-2" onClick={() => navigate(`/etude/new?client=${id}`)}>
+              <Sun className="h-4 w-4" />
+              Nouvelle étude
+            </Button>
+
+            {etudes.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center">
+                  <Zap className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucune étude pour ce client</p>
+                </CardContent>
+              </Card>
+            ) : (
+              etudes.map((etude) => (
+                <Card key={etude.id} className="shadow-card cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          {etude.puissance_kwc && (
+                            <span className="font-semibold">{etude.puissance_kwc} kWc</span>
+                          )}
+                          {getVerdictBadge(etude.verdict)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(etude.created_at)}
+                        </p>
+                      </div>
+                      {etude.prix_total && (
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">
+                            {etude.prix_total.toLocaleString("fr-FR")} €
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          {/* Tab Documents */}
+          <TabsContent value="docs" className="space-y-3 mt-4">
+            <Button variant="outline" className="w-full gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un document
+            </Button>
+
+            {documents.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center">
+                  <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucun document</p>
+                </CardContent>
+              </Card>
+            ) : (
+              documents.map((doc) => (
+                <Card key={doc.id} className="shadow-card">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        {doc.type_document === "cni" ? (
+                          <Image className="h-4 w-4" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium truncate">{doc.nom}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {doc.type_document.replace("_", " ")} • {formatDate(doc.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </MobileLayout>
+  );
+};
+
+export default ClientDetail;
