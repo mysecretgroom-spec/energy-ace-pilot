@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
+import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -21,6 +22,7 @@ import {
   Plus,
   ParkingSquare,
   HelpCircle,
+  FolderOpen,
 } from "lucide-react";
 
 // Données de démonstration
@@ -61,6 +63,7 @@ const Finance = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("ventes");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
   const [totaux, setTotaux] = useState({
     jour: 0,
@@ -248,7 +251,7 @@ const Finance = () => {
                 <DialogTrigger asChild>
                   <Button className="flex-1 bg-gradient-hero gap-2">
                     <Camera className="h-4 w-4" />
-                    Scanner facture
+                    Scanner
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="p-0 max-w-md">
@@ -258,6 +261,19 @@ const Finance = () => {
                   />
                 </DialogContent>
               </Dialog>
+              
+              <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    Factures
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="p-0 max-w-lg max-h-[85vh]">
+                  <ReceiptGallery onClose={() => setGalleryOpen(false)} />
+                </DialogContent>
+              </Dialog>
+              
               <ExportFraisPDF 
                 frais={fraisData} 
                 periode={new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} 
