@@ -1,21 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
+import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import {
   TrendingUp,
-  TrendingDown,
   Euro,
   Receipt,
   Camera,
-  Download,
   Calendar,
   Fuel,
   Utensils,
   Building2,
   Car,
   Plus,
+  ParkingSquare,
+  HelpCircle,
 } from "lucide-react";
 
 // Données de démonstration
@@ -26,50 +31,91 @@ const venteStats = {
   avgDeal: 11250,
 };
 
-const fraisData = [
-  {
-    id: "1",
-    date: "21/01/2026",
-    category: "Carburant",
-    description: "Plein essence",
-    amount: 85.5,
-    icon: Fuel,
-  },
-  {
-    id: "2",
-    date: "20/01/2026",
-    category: "Repas",
-    description: "Déjeuner client",
-    amount: 32.0,
-    icon: Utensils,
-  },
-  {
-    id: "3",
-    date: "19/01/2026",
-    category: "Hôtel",
-    description: "Nuit Lyon centre",
-    amount: 89.0,
-    icon: Building2,
-  },
-  {
-    id: "4",
-    date: "18/01/2026",
-    category: "Péage",
-    description: "A6 Lyon-Mâcon",
-    amount: 12.4,
-    icon: Car,
-  },
-];
-
-const totauxFrais = {
-  jour: 85.5,
-  semaine: 218.9,
-  mois: 876.5,
-  annee: 12450,
+const categoryIcons: Record<string, React.ElementType> = {
+  carburant: Fuel,
+  repas: Utensils,
+  hotel: Building2,
+  peage: Car,
+  parking: ParkingSquare,
+  autre: HelpCircle,
 };
 
+const categoryLabels: Record<string, string> = {
+  carburant: "Carburant",
+  repas: "Repas",
+  hotel: "Hôtel",
+  peage: "Péage",
+  parking: "Parking",
+  autre: "Autre",
+};
+
+interface FraisItem {
+  id: string;
+  montant: number;
+  date_frais: string;
+  categorie: string;
+  description?: string | null;
+}
+
 const Finance = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("ventes");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [fraisData, setFraisData] = useState<FraisItem[]>([]);
+  const [totaux, setTotaux] = useState({
+    jour: 0,
+    semaine: 0,
+    mois: 0,
+    annee: 0,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchFrais = async () => {
+      const now = new Date();
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+      const { data: allFrais } = await supabase
+        .from("frais")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("date_frais", startOfYear.toISOString().split("T")[0])
+        .order("date_frais", { ascending: false });
+
+      if (allFrais) {
+        setFraisData(allFrais.slice(0, 10));
+
+        const jourTotal = allFrais
+          .filter(f => f.date_frais >= startOfDay.toISOString().split("T")[0])
+          .reduce((sum, f) => sum + Number(f.montant), 0);
+        const semaineTotal = allFrais
+          .filter(f => f.date_frais >= startOfWeek.toISOString().split("T")[0])
+          .reduce((sum, f) => sum + Number(f.montant), 0);
+        const moisTotal = allFrais
+          .filter(f => f.date_frais >= startOfMonth.toISOString().split("T")[0])
+          .reduce((sum, f) => sum + Number(f.montant), 0);
+        const anneeTotal = allFrais.reduce((sum, f) => sum + Number(f.montant), 0);
+
+        setTotaux({
+          jour: jourTotal,
+          semaine: semaineTotal,
+          mois: moisTotal,
+          annee: anneeTotal,
+        });
+      }
+    };
+
+    fetchFrais();
+  }, [user, scannerOpen]);
 
   return (
     <MobileLayout title="Finance">
@@ -165,7 +211,7 @@ const Finance = () => {
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totauxFrais.jour.toFixed(2)} €
+                    {totaux.jour.toFixed(2)} €
                   </p>
                   <p className="text-xs text-muted-foreground">Aujourd'hui</p>
                 </CardContent>
@@ -173,7 +219,7 @@ const Finance = () => {
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totauxFrais.semaine.toFixed(2)} €
+                    {totaux.semaine.toFixed(2)} €
                   </p>
                   <p className="text-xs text-muted-foreground">Cette semaine</p>
                 </CardContent>
@@ -181,7 +227,7 @@ const Finance = () => {
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totauxFrais.mois.toFixed(2)} €
+                    {totaux.mois.toFixed(2)} €
                   </p>
                   <p className="text-xs text-muted-foreground">Ce mois</p>
                 </CardContent>
@@ -189,7 +235,7 @@ const Finance = () => {
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totauxFrais.annee.toLocaleString("fr-FR")} €
+                    {totaux.annee.toLocaleString("fr-FR")} €
                   </p>
                   <p className="text-xs text-muted-foreground">Cette année</p>
                 </CardContent>
@@ -198,13 +244,24 @@ const Finance = () => {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button className="flex-1 bg-gradient-hero gap-2">
-                <Camera className="h-4 w-4" />
-                Scanner facture
-              </Button>
-              <Button variant="outline" size="icon">
-                <Download className="h-4 w-4" />
-              </Button>
+              <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex-1 bg-gradient-hero gap-2">
+                    <Camera className="h-4 w-4" />
+                    Scanner facture
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="p-0 max-w-md">
+                  <ReceiptScanner 
+                    onSuccess={() => setScannerOpen(false)} 
+                    onCancel={() => setScannerOpen(false)} 
+                  />
+                </DialogContent>
+              </Dialog>
+              <ExportFraisPDF 
+                frais={fraisData} 
+                periode={new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} 
+              />
             </div>
 
             {/* Liste des frais */}
@@ -212,31 +269,39 @@ const Finance = () => {
               <h3 className="text-sm font-semibold text-foreground">
                 Derniers frais
               </h3>
-              {fraisData.map((frais) => {
-                const Icon = frais.icon;
-                return (
-                  <Card key={frais.id} className="shadow-card">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-muted">
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-foreground">
-                            {frais.description}
+              {fraisData.length === 0 ? (
+                <Card className="shadow-card">
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    Aucun frais enregistré
+                  </CardContent>
+                </Card>
+              ) : (
+                fraisData.map((frais) => {
+                  const Icon = categoryIcons[frais.categorie] || HelpCircle;
+                  return (
+                    <Card key={frais.id} className="shadow-card">
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-muted">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">
+                              {frais.description || categoryLabels[frais.categorie]}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
+                            </p>
+                          </div>
+                          <p className="font-semibold text-destructive">
+                            -{Number(frais.montant).toFixed(2)} €
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {frais.date} • {frais.category}
-                          </p>
                         </div>
-                        <p className="font-semibold text-destructive">
-                          -{frais.amount.toFixed(2)} €
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </div>
 
             {/* Ajouter frais manuel */}
