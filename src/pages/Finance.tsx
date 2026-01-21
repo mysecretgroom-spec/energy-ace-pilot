@@ -7,8 +7,11 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
+import { ExpenseChart } from "@/components/finance/ExpenseChart";
+import { VATReport } from "@/components/finance/VATReport";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Json } from "@/integrations/supabase/types";
 import {
   TrendingUp,
   Euro,
@@ -56,7 +59,8 @@ interface FraisItem {
   montant: number;
   date_frais: string;
   categorie: string;
-  description?: string | null;
+  description: string | null;
+  ocr_data: Json | null;
 }
 
 const Finance = () => {
@@ -65,6 +69,7 @@ const Finance = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
+  const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]);
   const [totaux, setTotaux] = useState({
     jour: 0,
     semaine: 0,
@@ -89,12 +94,13 @@ const Finance = () => {
 
       const { data: allFrais } = await supabase
         .from("frais")
-        .select("*")
+        .select("id, montant, date_frais, categorie, description, ocr_data")
         .eq("user_id", user.id)
         .gte("date_frais", startOfYear.toISOString().split("T")[0])
         .order("date_frais", { ascending: false });
 
       if (allFrais) {
+        setAllFraisData(allFrais);
         setFraisData(allFrais.slice(0, 10));
 
         const jourTotal = allFrais
@@ -245,8 +251,11 @@ const Finance = () => {
               </Card>
             </div>
 
+            {/* Expense Chart */}
+            <ExpenseChart frais={allFraisData} />
+
             {/* Actions */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
                 <DialogTrigger asChild>
                   <Button className="flex-1 bg-gradient-hero gap-2">
@@ -273,7 +282,14 @@ const Finance = () => {
                   <ReceiptGallery onClose={() => setGalleryOpen(false)} />
                 </DialogContent>
               </Dialog>
-              
+            </div>
+            
+            {/* Export & Reports */}
+            <div className="flex gap-2">
+              <VATReport 
+                frais={allFraisData} 
+                periode={new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} 
+              />
               <ExportFraisPDF 
                 frais={fraisData} 
                 periode={new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} 
