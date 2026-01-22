@@ -1,0 +1,115 @@
+import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface SyncResult {
+  success: boolean;
+  imported: number;
+  updated: number;
+  skipped: number;
+  total: number;
+  errors?: string[];
+}
+
+export function useGoogleCalendarSync() {
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const { toast } = useToast();
+
+  const checkGoogleConnection = useCallback(async (): Promise<boolean> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return false;
+
+      const { data, error } = await supabase
+        .from("google_tokens")
+        .select("id, expires_at")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      return !!data && !error;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const syncCalendar = useCallback(async (options?: {
+    daysAhead?: number;
+    daysBefore?: number;
+  }): Promise<SyncResult | null> => {
+    setSyncing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          variant: "destructive",
+          title: "Non connecté",
+          description: "Veuillez vous connecter pour synchroniser.",
+        });
+        return null;
+      }
+
+      const params = new URLSearchParams({
+        action: "sync",
+        daysAhead: String(options?.daysAhead || 30),
+        daysBefore: String(options?.daysBefore || 7),
+      });
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-google-calendar?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (result.code === "GOOGLE_NOT_CONNECTED") {
+          toast({
+            variant: "destructive",
+            title: "Google non connecté",
+            description: "Veuillez d'abord connecter votre compte Google.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Erreur de synchronisation",
+            description: result.error || "Une erreur est survenue.",
+          });
+        }
+        return null;
+      }
+
+      setLastSync(new Date());
+
+      toast({
+        title: "Synchronisation terminée",
+        description: `${result.imported} importés, ${result.updated} mis à jour, ${result.skipped} ignorés`,
+      });
+
+      return result as SyncResult;
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de synchroniser avec Google Calendar.",
+      });
+      return null;
+    } finally {
+      setSyncing(false);
+    }
+  }, [toast]);
+
+  return {
+    syncing,
+    lastSync,
+    syncCalendar,
+    checkGoogleConnection,
+  };
+}

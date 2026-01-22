@@ -8,6 +8,7 @@ import { RdvActions } from "@/components/planning/RdvActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmailImport } from "@/components/planning/EmailImport";
 import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
+import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import {
   Dialog,
   DialogContent,
@@ -277,6 +278,7 @@ const Planning = () => {
                 <span>{rdvList.length} rendez-vous</span>
               </div>
               <div className="flex gap-2">
+                <GoogleCalendarSync onSyncComplete={fetchRdvs} />
                 <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5 h-8 bg-gradient-hero">
