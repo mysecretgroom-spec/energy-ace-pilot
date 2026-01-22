@@ -14,6 +14,7 @@ import Finance from "./pages/Finance";
 import Ventes from "./pages/Ventes";
 import Notifications from "./pages/Notifications";
 import Parametres from "./pages/Parametres";
+import Profil from "./pages/Profil";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/ventes" element={<ProtectedRoute><Ventes /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
+            <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
