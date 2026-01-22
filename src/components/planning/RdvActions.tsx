@@ -1,26 +1,44 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Phone, FileText, FolderOpen, Calculator, MessageCircle } from "lucide-react";
+import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2 } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type RdvType = 'standard' | 'external_installation';
 
 interface RdvActionsProps {
   rdvId: string;
   clientId: string;
   clientPhone?: string;
+  clientName: string;
   address: string;
   city?: string;
   postalCode?: string;
+  typeRdv: RdvType;
+  onRefresh: () => void;
 }
 
 export function RdvActions({ 
   rdvId, 
   clientId, 
   clientPhone, 
+  clientName,
   address,
   city,
-  postalCode 
+  postalCode,
+  typeRdv,
+  onRefresh,
 }: RdvActionsProps) {
   const navigate = useNavigate();
+  const [switching, setSwitching] = useState(false);
 
   const handleCall = () => {
     if (clientPhone) {
@@ -42,6 +60,40 @@ export function RdvActions({
 
   const handleNewEtude = () => {
     navigate(`/etude/new?clientId=${clientId}&rdvId=${rdvId}`);
+  };
+
+  const handleSwitchType = async (newType: RdvType) => {
+    setSwitching(true);
+    try {
+      const { error } = await supabase
+        .from("rdv")
+        .update({ type_rdv: newType })
+        .eq("id", rdvId);
+
+      if (error) throw error;
+
+      toast.success(
+        newType === 'external_installation' 
+          ? "Marqué comme installation externe" 
+          : "Marqué comme RDV standard"
+      );
+      onRefresh();
+    } catch (err) {
+      console.error("Error switching type:", err);
+      toast.error("Erreur lors du changement de type");
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const handleCreateVente = () => {
+    // Navigate to CRM with pre-filled data via URL params
+    const params = new URLSearchParams({
+      clientId,
+      clientName,
+      type: 'external_installation',
+    });
+    navigate(`/crm?newVente=true&${params.toString()}`);
   };
 
   return (
@@ -88,16 +140,68 @@ export function RdvActions({
         <FolderOpen className="h-4 w-4" />
       </Button>
 
-      {/* Nouvelle étude */}
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 rounded-full"
-        onClick={handleNewEtude}
-        title="Nouvelle étude"
-      >
-        <Calculator className="h-4 w-4" />
-      </Button>
+      {/* Nouvelle étude (seulement pour RDV standard) */}
+      {typeRdv === 'standard' && (
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-9 w-9 rounded-full"
+          onClick={handleNewEtude}
+          title="Nouvelle étude"
+        >
+          <Calculator className="h-4 w-4" />
+        </Button>
+      )}
+
+      {/* Switch type RDV */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="outline"
+            className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
+            disabled={switching}
+            title="Changer type RDV"
+          >
+            {switching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem 
+            onClick={() => handleSwitchType('standard')}
+            disabled={typeRdv === 'standard'}
+            className="gap-2"
+          >
+            <Calculator className="h-4 w-4" />
+            RDV Standard
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={() => handleSwitchType('external_installation')}
+            disabled={typeRdv === 'external_installation'}
+            className="gap-2"
+          >
+            <Wrench className="h-4 w-4" />
+            Installation Externe
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Créer vente (seulement pour installation externe) */}
+      {typeRdv === 'external_installation' && (
+        <Button
+          size="icon"
+          variant="default"
+          className="h-9 w-9 rounded-full bg-amber-500 hover:bg-amber-600"
+          onClick={handleCreateVente}
+          title="Créer la vente"
+        >
+          <Euro className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }

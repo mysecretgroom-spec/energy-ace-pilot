@@ -501,9 +501,12 @@ const Planning = () => {
                         rdvId={rdv.id}
                         clientId={rdv.clientId}
                         clientPhone={rdv.phone || undefined}
+                        clientName={rdv.client}
                         address={rdv.address}
                         city={rdv.city}
                         postalCode={rdv.postalCode}
+                        typeRdv={rdv.typeRdv}
+                        onRefresh={fetchRdvs}
                       />
                     </div>
                   </CardContent>
