@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 
 interface CommissionTier {
   tranche_min: number;
@@ -11,9 +12,10 @@ interface BouquetCommission {
   id: string;
   nom_bouquet: string;
   puissance_kwc: number;
-  prix_recommande: number;
+  prix_recommande: number; // Stored as HT in DB
   commission_fixe: number;
   commission_pct: number;
+  commission_hejja: number;
 }
 
 interface CommissionConfig {
@@ -78,7 +80,7 @@ export const useCommissions = () => {
   const fetchBouquetCommissions = async (): Promise<BouquetCommission[]> => {
     const { data, error } = await supabase
       .from("data_prix_bouquets")
-      .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct")
+      .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, commission_hejja")
       .eq("actif", true)
       .order("puissance_kwc", { ascending: true });
 
@@ -93,22 +95,34 @@ export const useCommissions = () => {
       puissance_kwc: Number(b.puissance_kwc),
       prix_recommande: Number(b.prix_recommande),
       commission_fixe: Number(b.commission_fixe || 0),
-      commission_pct: Number(b.commission_pct || 0)
+      commission_pct: Number(b.commission_pct || 0),
+      commission_hejja: Number(b.commission_hejja || 0)
     }));
   };
 
   /**
    * Calcule la commission pour un montant de vente donné
-   * @param montantVente Montant HT de la vente
-   * @param prixRecommande Prix recommandé HT (pour calcul bonus survente)
+   * IMPORTANT: Le montant de vente est toujours saisi en TTC, on le convertit en HT pour les calculs
+   * 
+   * @param montantVenteTTC Montant TTC de la vente (tel que saisi par l'utilisateur)
+   * @param prixRecommandeTTC Prix recommandé TTC (pour calcul bonus survente)
    * @param bouquetId ID du bouquet vendu (pour mode bouquet)
+   * @param puissanceKwc Puissance en kWc (pour déterminer le taux TVA applicable)
    */
   const calculateCommission = async (
-    montantVente: number,
-    prixRecommande?: number,
-    bouquetId?: string
+    montantVenteTTC: number,
+    prixRecommandeTTC?: number,
+    bouquetId?: string,
+    puissanceKwc: number = 3
   ): Promise<CalculatedCommission | null> => {
     const config = await fetchConfig();
+    
+    // Déterminer le taux de TVA selon la puissance
+    const tauxTVA = getTauxTVAByPuissance(puissanceKwc);
+    
+    // Convertir les montants TTC en HT pour les calculs de commission
+    const montantVenteHT = ttcToHT(montantVenteTTC, tauxTVA);
+    const prixRecommandeHT = prixRecommandeTTC ? ttcToHT(prixRecommandeTTC, tauxTVA) : undefined;
     
     if (config.mode_calcul === "bouquet" && bouquetId) {
       // Mode bouquet
@@ -120,18 +134,20 @@ export const useCommissions = () => {
         return null;
       }
 
-      const commissionBase = bouquet.commission_fixe + (montantVente * (bouquet.commission_pct / 100));
+      // Les commissions sont calculées sur le montant HT
+      const commissionBase = bouquet.commission_fixe + (montantVenteHT * (bouquet.commission_pct / 100));
       let bonusSurvente = 0;
 
-      // Calcul de la survente
-      const prixReco = prixRecommande || bouquet.prix_recommande;
-      if (montantVente > prixReco) {
-        const surventeAmount = montantVente - prixReco;
-        bonusSurvente = surventeAmount * (config.part_survente_pct / 100);
+      // Calcul de la survente sur les montants HT
+      // Le prix recommandé du bouquet est stocké en HT dans la base
+      const prixRecoHT = prixRecommandeHT || bouquet.prix_recommande;
+      if (montantVenteHT > prixRecoHT) {
+        const surventeAmountHT = montantVenteHT - prixRecoHT;
+        bonusSurvente = surventeAmountHT * (config.part_survente_pct / 100);
       }
 
       return {
-        montant_base: montantVente,
+        montant_base: montantVenteHT,
         taux_commission: bouquet.commission_pct,
         bonus_survente: bonusSurvente,
         montant_commission: commissionBase + bonusSurvente,
@@ -139,23 +155,23 @@ export const useCommissions = () => {
       };
     }
 
-    // Mode pourcentage (par défaut)
+    // Mode pourcentage (par défaut) - calculs sur montant HT
     const tiers = await fetchCommissionTiers();
     
     if (tiers.length === 0) {
       // Fallback si pas de tranches définies
       return {
-        montant_base: montantVente,
+        montant_base: montantVenteHT,
         taux_commission: 5,
         bonus_survente: 0,
-        montant_commission: montantVente * 0.05,
+        montant_commission: montantVenteHT * 0.05,
         mode: "pourcentage"
       };
     }
 
-    // Trouver la tranche applicable
+    // Trouver la tranche applicable (basée sur le montant HT)
     const applicableTier = tiers.find(
-      tier => montantVente >= tier.tranche_min && montantVente <= tier.tranche_max
+      tier => montantVenteHT >= tier.tranche_min && montantVenteHT <= tier.tranche_max
     );
 
     if (!applicableTier) {
@@ -164,10 +180,10 @@ export const useCommissions = () => {
       const taux = lastTier.taux_commission / 100;
       
       return {
-        montant_base: montantVente,
+        montant_base: montantVenteHT,
         taux_commission: lastTier.taux_commission,
         bonus_survente: 0,
-        montant_commission: montantVente * taux,
+        montant_commission: montantVenteHT * taux,
         mode: "pourcentage"
       };
     }
@@ -175,17 +191,17 @@ export const useCommissions = () => {
     const taux = applicableTier.taux_commission / 100;
     let bonusSurvente = 0;
 
-    // Calcul du bonus survente
-    if (prixRecommande && montantVente > prixRecommande) {
-      const surventeAmount = montantVente - prixRecommande;
-      bonusSurvente = surventeAmount * (config.part_survente_pct / 100);
+    // Calcul du bonus survente sur le montant HT
+    if (prixRecommandeHT && montantVenteHT > prixRecommandeHT) {
+      const surventeAmountHT = montantVenteHT - prixRecommandeHT;
+      bonusSurvente = surventeAmountHT * (config.part_survente_pct / 100);
     }
 
-    const commissionBase = montantVente * taux;
+    const commissionBase = montantVenteHT * taux;
     const montantTotal = commissionBase + bonusSurvente;
 
     return {
-      montant_base: montantVente,
+      montant_base: montantVenteHT,
       taux_commission: applicableTier.taux_commission,
       bonus_survente: bonusSurvente,
       montant_commission: montantTotal,
@@ -195,15 +211,22 @@ export const useCommissions = () => {
 
   /**
    * Crée une commission en base pour une vente
+   * @param userId ID de l'utilisateur
+   * @param venteId ID de la vente
+   * @param montantVenteTTC Montant TTC de la vente
+   * @param prixRecommandeTTC Prix recommandé TTC (optionnel)
+   * @param bouquetId ID du bouquet (optionnel)
+   * @param puissanceKwc Puissance en kWc (pour taux TVA)
    */
   const createCommission = async (
     userId: string,
     venteId: string,
-    montantVente: number,
-    prixRecommande?: number,
-    bouquetId?: string
+    montantVenteTTC: number,
+    prixRecommandeTTC?: number,
+    bouquetId?: string,
+    puissanceKwc: number = 3
   ): Promise<boolean> => {
-    const commission = await calculateCommission(montantVente, prixRecommande, bouquetId);
+    const commission = await calculateCommission(montantVenteTTC, prixRecommandeTTC, bouquetId, puissanceKwc);
     
     if (!commission) {
       console.error("Impossible de calculer la commission");

@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/table";
 import { FileText, Download, Calculator, TrendingDown, TrendingUp } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
+import { ttcToHT, calculerTVA, TVA_RATES } from "@/lib/tva";
 
 interface FraisWithOCR {
   id: string;
-  montant: number;
+  montant: number; // Montant saisi (TTC par défaut)
   date_frais: string;
   categorie: string;
   description: string | null;
@@ -55,13 +56,18 @@ const categoryLabels: Record<string, string> = {
 export function VATReport({ frais, periode }: VATReportProps) {
   const [open, setOpen] = useState(false);
 
-  // Calculate VAT totals from OCR data
+  // Calculate VAT totals - prioritize OCR data, fallback to calculated values
+  // Les montants saisis sont en TTC, on les convertit en HT pour le rapport
   const vatData = frais.map((f) => {
     const ocr = f.ocr_data as OCRData | null;
     const ttc = ocr?.montant_ttc ?? Number(f.montant);
-    const tva = ocr?.tva ?? null;
-    const ht = ocr?.montant_ht ?? (tva !== null ? ttc - tva : null);
-    const taux = ocr?.taux_tva ?? null;
+    
+    // Si on a les données OCR, les utiliser
+    // Sinon, calculer à partir du TTC avec le taux selon la catégorie
+    const tauxDefaut = getTauxByCategorie(f.categorie);
+    const tva = ocr?.tva ?? calculerTVA(ttc, tauxDefaut);
+    const ht = ocr?.montant_ht ?? ttcToHT(ttc, tauxDefaut);
+    const taux = ocr?.taux_tva ?? tauxDefaut;
     
     return {
       ...f,
@@ -73,24 +79,40 @@ export function VATReport({ frais, periode }: VATReportProps) {
     };
   });
 
-  // Sum totals
+  // Détermine le taux de TVA par défaut selon la catégorie de frais
+  function getTauxByCategorie(categorie: string): number {
+    switch (categorie) {
+      case "carburant":
+        return TVA_RATES.STANDARD; // 20%
+      case "repas":
+        return TVA_RATES.INTERMEDIAIRE; // 10%
+      case "hotel":
+        return TVA_RATES.INTERMEDIAIRE; // 10%
+      case "peage":
+        return TVA_RATES.STANDARD; // 20%
+      case "parking":
+        return TVA_RATES.STANDARD; // 20%
+      default:
+        return TVA_RATES.STANDARD; // 20%
+    }
+  }
+
+  // Sum totals - maintenant tous les frais ont des valeurs HT/TVA calculées
   const totalTTC = vatData.reduce((sum, item) => sum + item.ttc, 0);
-  const totalTVA = vatData.reduce((sum, item) => sum + (item.tva ?? 0), 0);
-  const totalHT = vatData.reduce((sum, item) => sum + (item.ht ?? item.ttc), 0);
-  const itemsWithVAT = vatData.filter((v) => v.tva !== null).length;
+  const totalTVA = vatData.reduce((sum, item) => sum + item.tva, 0);
+  const totalHT = vatData.reduce((sum, item) => sum + item.ht, 0);
+  const itemsWithVAT = vatData.length; // Tous les items ont maintenant une TVA calculée
 
   // Group by VAT rate
   const byRate: Record<number, { ht: number; tva: number; count: number }> = {};
   vatData.forEach((item) => {
-    if (item.taux !== null && item.tva !== null) {
-      const rate = item.taux;
-      if (!byRate[rate]) {
-        byRate[rate] = { ht: 0, tva: 0, count: 0 };
-      }
-      byRate[rate].ht += item.ht ?? 0;
-      byRate[rate].tva += item.tva;
-      byRate[rate].count += 1;
+    const rate = item.taux;
+    if (!byRate[rate]) {
+      byRate[rate] = { ht: 0, tva: 0, count: 0 };
     }
+    byRate[rate].ht += item.ht;
+    byRate[rate].tva += item.tva;
+    byRate[rate].count += 1;
   });
 
   const downloadCSV = () => {
@@ -101,9 +123,9 @@ export function VATReport({ frais, periode }: VATReportProps) {
       categoryLabels[item.categorie] ?? item.categorie,
       item.description ?? "",
       item.ttc.toFixed(2),
-      item.ht?.toFixed(2) ?? "",
-      item.tva?.toFixed(2) ?? "",
-      item.taux ? `${item.taux}%` : "",
+      item.ht.toFixed(2),
+      item.tva.toFixed(2),
+      `${item.taux}%`,
     ]);
 
     // Add totals row
@@ -240,13 +262,13 @@ export function VATReport({ frais, periode }: VATReportProps) {
                         {item.ttc.toFixed(2)} €
                       </TableCell>
                       <TableCell className="text-xs py-2 text-right">
-                        {item.ht !== null ? `${item.ht.toFixed(2)} €` : "-"}
+                        {item.ht.toFixed(2)} €
                       </TableCell>
                       <TableCell className="text-xs py-2 text-right text-status-signed font-medium">
-                        {item.tva !== null ? `${item.tva.toFixed(2)} €` : "-"}
+                        {item.tva.toFixed(2)} €
                       </TableCell>
                       <TableCell className="text-xs py-2 text-right text-muted-foreground">
-                        {item.taux !== null ? `${item.taux}%` : "-"}
+                        {item.taux}%
                       </TableCell>
                     </TableRow>
                   ))}
