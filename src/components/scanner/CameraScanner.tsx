@@ -67,6 +67,11 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
   const handleCapture = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
 
+    // Haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
