@@ -57,7 +57,7 @@ const Login = () => {
     } else {
       toast({
         title: "Connexion réussie",
-        description: "Bienvenue sur SolarFlow !",
+        description: "Bienvenue sur DébalePro !",
       });
       navigate("/");
     }
@@ -88,7 +88,7 @@ const Login = () => {
             <Sun className="h-8 w-8 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-display">SolarFlow</CardTitle>
+            <CardTitle className="text-2xl font-display">DébalePro</CardTitle>
             <CardDescription>Connectez-vous à votre espace commercial</CardDescription>
           </div>
         </CardHeader>
