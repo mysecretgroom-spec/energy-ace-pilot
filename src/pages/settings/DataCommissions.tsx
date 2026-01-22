@@ -36,7 +36,9 @@ interface BouquetData {
   prix_max: number;
   commission_fixe: number | null;
   commission_pct: number | null;
+  commission_hejja: number | null;
   actif: boolean;
+  description: string | null;
 }
 
 interface ConfigCommission {
@@ -51,20 +53,31 @@ const DataCommissions = () => {
   const [bouquets, setBouquets] = useState<BouquetData[]>([]);
   const [config, setConfig] = useState<ConfigCommission | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<CommissionData | null>(null);
-  const [editBouquet, setEditBouquet] = useState<BouquetData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Dialogs state
+  const [isTrancheDialogOpen, setIsTrancheDialogOpen] = useState(false);
   const [isBouquetDialogOpen, setIsBouquetDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [editTranche, setEditTranche] = useState<CommissionData | null>(null);
+  const [editBouquet, setEditBouquet] = useState<BouquetData | null>(null);
+  
+  // Form data
+  const [trancheFormData, setTrancheFormData] = useState({
     tranche_min: "0",
     tranche_max: "15000",
     taux_commission: "10",
     bonus_survente: "0",
   });
+  
   const [bouquetFormData, setBouquetFormData] = useState({
-    commission_fixe: "0",
-    commission_pct: "0",
+    nom_bouquet: "",
+    puissance_kwc: "3",
+    prix_recommande: "10000",
+    prix_max: "12000",
+    commission_fixe: "500",
+    commission_hejja: "300",
+    description: "",
   });
+  
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -116,61 +129,53 @@ const DataCommissions = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
+  // Tranche handlers
+  const openAddTrancheDialog = () => {
+    setEditTranche(null);
+    setTrancheFormData({
       tranche_min: "0",
       tranche_max: "15000",
       taux_commission: "10",
       bonus_survente: "0",
     });
-    setIsDialogOpen(true);
+    setIsTrancheDialogOpen(true);
   };
 
-  const openEditDialog = (item: CommissionData) => {
-    setEditItem(item);
-    setFormData({
+  const openEditTrancheDialog = (item: CommissionData) => {
+    setEditTranche(item);
+    setTrancheFormData({
       tranche_min: item.tranche_min.toString(),
       tranche_max: item.tranche_max.toString(),
       taux_commission: item.taux_commission.toString(),
       bonus_survente: (item.bonus_survente || 0).toString(),
     });
-    setIsDialogOpen(true);
+    setIsTrancheDialogOpen(true);
   };
 
-  const openBouquetEditDialog = (bouquet: BouquetData) => {
-    setEditBouquet(bouquet);
-    setBouquetFormData({
-      commission_fixe: (bouquet.commission_fixe || 0).toString(),
-      commission_pct: (bouquet.commission_pct || 0).toString(),
-    });
-    setIsBouquetDialogOpen(true);
-  };
-
-  const handleSave = async () => {
+  const handleSaveTranche = async () => {
     setSaving(true);
     try {
       const payload = {
-        tranche_min: parseFloat(formData.tranche_min) || 0,
-        tranche_max: parseFloat(formData.tranche_max) || 999999,
-        taux_commission: parseFloat(formData.taux_commission) || 0,
-        bonus_survente: parseFloat(formData.bonus_survente) || 0,
+        tranche_min: parseFloat(trancheFormData.tranche_min) || 0,
+        tranche_max: parseFloat(trancheFormData.tranche_max) || 999999,
+        taux_commission: parseFloat(trancheFormData.taux_commission) || 0,
+        bonus_survente: parseFloat(trancheFormData.bonus_survente) || 0,
       };
 
-      if (editItem) {
+      if (editTranche) {
         const { error } = await supabase
           .from("data_commissions")
           .update(payload)
-          .eq("id", editItem.id);
+          .eq("id", editTranche.id);
         if (error) throw error;
-        toast.success("Commission modifiée");
+        toast.success("Tranche modifiée");
       } else {
         const { error } = await supabase.from("data_commissions").insert(payload);
         if (error) throw error;
-        toast.success("Commission ajoutée");
+        toast.success("Tranche ajoutée");
       }
 
-      setIsDialogOpen(false);
+      setIsTrancheDialogOpen(false);
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
@@ -180,34 +185,7 @@ const DataCommissions = () => {
     }
   };
 
-  const handleSaveBouquet = async () => {
-    if (!editBouquet) return;
-    
-    setSaving(true);
-    try {
-      const payload = {
-        commission_fixe: parseFloat(bouquetFormData.commission_fixe) || 0,
-        commission_pct: parseFloat(bouquetFormData.commission_pct) || 0,
-      };
-
-      const { error } = await supabase
-        .from("data_prix_bouquets")
-        .update(payload)
-        .eq("id", editBouquet.id);
-      
-      if (error) throw error;
-      toast.success("Commission bouquet mise à jour");
-      setIsBouquetDialogOpen(false);
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur sauvegarde bouquet:", error);
-      toast.error(error.message || "Erreur lors de la sauvegarde");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
+  const handleDeleteTranche = async (id: string) => {
     if (!confirm("Supprimer cette tranche ?")) return;
 
     try {
@@ -218,6 +196,105 @@ const DataCommissions = () => {
     } catch (error: any) {
       console.error("Erreur suppression:", error);
       toast.error(error.message || "Erreur lors de la suppression");
+    }
+  };
+
+  // Bouquet handlers
+  const openAddBouquetDialog = () => {
+    setEditBouquet(null);
+    setBouquetFormData({
+      nom_bouquet: "",
+      puissance_kwc: "3",
+      prix_recommande: "10000",
+      prix_max: "12000",
+      commission_fixe: "500",
+      commission_hejja: "300",
+      description: "",
+    });
+    setIsBouquetDialogOpen(true);
+  };
+
+  const openEditBouquetDialog = (bouquet: BouquetData) => {
+    setEditBouquet(bouquet);
+    setBouquetFormData({
+      nom_bouquet: bouquet.nom_bouquet,
+      puissance_kwc: bouquet.puissance_kwc.toString(),
+      prix_recommande: bouquet.prix_recommande.toString(),
+      prix_max: bouquet.prix_max.toString(),
+      commission_fixe: (bouquet.commission_fixe || 0).toString(),
+      commission_hejja: (bouquet.commission_hejja || 0).toString(),
+      description: bouquet.description || "",
+    });
+    setIsBouquetDialogOpen(true);
+  };
+
+  const handleSaveBouquet = async () => {
+    if (!bouquetFormData.nom_bouquet.trim()) {
+      toast.error("Le nom du bouquet est requis");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const payload = {
+        nom_bouquet: bouquetFormData.nom_bouquet.trim(),
+        puissance_kwc: parseFloat(bouquetFormData.puissance_kwc) || 0,
+        prix_recommande: parseFloat(bouquetFormData.prix_recommande) || 0,
+        prix_max: parseFloat(bouquetFormData.prix_max) || 0,
+        commission_fixe: parseFloat(bouquetFormData.commission_fixe) || 0,
+        commission_hejja: parseFloat(bouquetFormData.commission_hejja) || 0,
+        description: bouquetFormData.description.trim() || null,
+        actif: true,
+      };
+
+      if (editBouquet) {
+        const { error } = await supabase
+          .from("data_prix_bouquets")
+          .update(payload)
+          .eq("id", editBouquet.id);
+        if (error) throw error;
+        toast.success("Bouquet modifié");
+      } else {
+        const { error } = await supabase.from("data_prix_bouquets").insert(payload);
+        if (error) throw error;
+        toast.success("Bouquet ajouté");
+      }
+
+      setIsBouquetDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      console.error("Erreur sauvegarde bouquet:", error);
+      toast.error(error.message || "Erreur lors de la sauvegarde");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteBouquet = async (id: string) => {
+    if (!confirm("Supprimer ce bouquet ?")) return;
+
+    try {
+      const { error } = await supabase.from("data_prix_bouquets").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Bouquet supprimé");
+      fetchData();
+    } catch (error: any) {
+      console.error("Erreur suppression:", error);
+      toast.error(error.message || "Erreur lors de la suppression");
+    }
+  };
+
+  const toggleBouquetActif = async (bouquet: BouquetData) => {
+    try {
+      const { error } = await supabase
+        .from("data_prix_bouquets")
+        .update({ actif: !bouquet.actif })
+        .eq("id", bouquet.id);
+      if (error) throw error;
+      toast.success(bouquet.actif ? "Bouquet désactivé" : "Bouquet activé");
+      fetchData();
+    } catch (error: any) {
+      toast.error("Erreur lors de la mise à jour");
     }
   };
 
@@ -295,9 +372,6 @@ const DataCommissions = () => {
                   />
                   <span className="text-sm text-muted-foreground">% du montant HT de survente</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Si le prix de vente dépasse le prix recommandé, le commercial perçoit cette part de la différence.
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -319,8 +393,8 @@ const DataCommissions = () => {
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {config?.mode_calcul === "bouquet"
-                  ? `Commission fixe + % du prix selon le bouquet vendu. Survente : ${config?.part_survente_pct || 50}% pour le commercial.`
-                  : `Taux appliqué sur le montant de la vente selon les tranches de prix. Survente : ${config?.part_survente_pct || 50}% pour le commercial.`}
+                  ? `Commission selon le bouquet vendu. Survente : ${config?.part_survente_pct || 50}% pour le commercial.`
+                  : `Taux appliqué selon les tranches de prix. Survente : ${config?.part_survente_pct || 50}% pour le commercial.`}
               </p>
             </div>
           </CardContent>
@@ -341,7 +415,7 @@ const DataCommissions = () => {
           {/* Tranches Tab */}
           <TabsContent value="pourcentage" className="space-y-4">
             {isAdmin && (
-              <Button onClick={openAddDialog} className="w-full gap-2">
+              <Button onClick={openAddTrancheDialog} className="w-full gap-2">
                 <Plus className="h-4 w-4" />
                 Ajouter une tranche
               </Button>
@@ -383,7 +457,7 @@ const DataCommissions = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => openEditDialog(item)}
+                                onClick={() => openEditTrancheDialog(item)}
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
@@ -391,7 +465,7 @@ const DataCommissions = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive"
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() => handleDeleteTranche(item.id)}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -405,44 +479,28 @@ const DataCommissions = () => {
                 </CardContent>
               </Card>
             )}
-
-            {tranches.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    Exemple de calcul
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">
-                    Pour une vente à 15 000€ avec un taux de {tranches[0]?.taux_commission || 10}% :
-                  </p>
-                  <p className="font-bold text-lg text-primary">
-                    Commission = {formatCurrency(15000 * ((tranches[0]?.taux_commission || 10) / 100))}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    + {config?.part_survente_pct || 50}% de la survente si prix {">"} recommandé
-                  </p>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           {/* Bouquets Tab */}
           <TabsContent value="bouquet" className="space-y-4">
+            {isAdmin && (
+              <Button onClick={openAddBouquetDialog} className="w-full gap-2">
+                <Plus className="h-4 w-4" />
+                Ajouter un bouquet travaux
+              </Button>
+            )}
+
             {bouquets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">Aucun bouquet configuré</p>
-                  <p className="text-xs mt-1">Allez dans Bouquets pour en créer</p>
                 </CardContent>
               </Card>
             ) : (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Commissions par bouquet</CardTitle>
+                  <CardTitle className="text-base">Bouquets travaux</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {bouquets.map((bouquet) => (
@@ -450,45 +508,64 @@ const DataCommissions = () => {
                       key={bouquet.id}
                       className={`p-3 rounded-lg border ${bouquet.actif ? "bg-card" : "bg-muted/50 opacity-60"}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {bouquet.puissance_kwc} kWc • Prix reco: {formatCurrency(bouquet.prix_recommande)}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{bouquet.nom_bouquet}</p>
+                            {!bouquet.actif && (
+                              <Badge variant="secondary" className="text-xs">Inactif</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {bouquet.puissance_kwc} kWc
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {(bouquet.commission_fixe || 0) > 0 && (
-                            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                              {formatCurrency(bouquet.commission_fixe || 0)}
-                            </Badge>
-                          )}
-                          {(bouquet.commission_pct || 0) > 0 && (
-                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                              +{bouquet.commission_pct}%
-                            </Badge>
-                          )}
-                          {isAdmin && (
+                        {isAdmin && (
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => openBouquetEditDialog(bouquet)}
+                              onClick={() => openEditBouquetDialog(bouquet)}
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
-                          )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive"
+                              onClick={() => handleDeleteBouquet(bouquet.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2 bg-muted/50 rounded">
+                          <p className="text-muted-foreground">Prix standard</p>
+                          <p className="font-medium">{formatCurrency(bouquet.prix_recommande)}</p>
+                          <Badge className="mt-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Com: {formatCurrency(bouquet.commission_fixe || 0)}
+                          </Badge>
+                        </div>
+                        <div className="p-2 bg-amber-500/10 rounded border border-amber-500/20">
+                          <p className="text-muted-foreground">Prix HEJJA</p>
+                          <p className="font-medium">{formatCurrency(bouquet.prix_max)}</p>
+                          <Badge className="mt-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            Com: {formatCurrency(bouquet.commission_hejja || 0)}
+                          </Badge>
                         </div>
                       </div>
-                      {bouquet.actif && ((bouquet.commission_fixe || 0) > 0 || (bouquet.commission_pct || 0) > 0) && (
-                        <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
-                          Commission totale estimée :{" "}
-                          <span className="font-medium text-foreground">
-                            {formatCurrency(
-                              (bouquet.commission_fixe || 0) +
-                              bouquet.prix_recommande * ((bouquet.commission_pct || 0) / 100)
-                            )}
-                          </span>
+
+                      {isAdmin && (
+                        <div className="mt-2 pt-2 border-t flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Activer ce bouquet</span>
+                          <Switch
+                            checked={bouquet.actif}
+                            onCheckedChange={() => toggleBouquetActif(bouquet)}
+                          />
                         </div>
                       )}
                     </div>
@@ -497,6 +574,7 @@ const DataCommissions = () => {
               </Card>
             )}
 
+            {/* Exemple survente */}
             {bouquets.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
@@ -507,27 +585,26 @@ const DataCommissions = () => {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <p className="text-muted-foreground">
-                    Bouquet vendu à 18 000€ HT (prix reco: 15 000€) :
+                    Bouquet vendu à 14 000€ HT (prix standard: 10 000€) :
                   </p>
                   <div className="space-y-1">
                     <p>
                       Commission de base :{" "}
                       <span className="font-medium">
-                        {formatCurrency((bouquets[0]?.commission_fixe || 500) + 15000 * ((bouquets[0]?.commission_pct || 5) / 100))}
+                        {formatCurrency(bouquets[0]?.commission_fixe || 500)}
                       </span>
                     </p>
                     <p>
-                      Survente ({config?.part_survente_pct || 50}% de 3 000€) :{" "}
+                      Survente ({config?.part_survente_pct || 50}% de 4 000€) :{" "}
                       <span className="font-medium text-amber-600">
-                        +{formatCurrency(3000 * ((config?.part_survente_pct || 50) / 100))}
+                        +{formatCurrency(4000 * ((config?.part_survente_pct || 50) / 100))}
                       </span>
                     </p>
                     <p className="font-bold text-lg text-primary pt-1">
                       Total ={" "}
                       {formatCurrency(
                         (bouquets[0]?.commission_fixe || 500) +
-                        15000 * ((bouquets[0]?.commission_pct || 5) / 100) +
-                        3000 * ((config?.part_survente_pct || 50) / 100)
+                        4000 * ((config?.part_survente_pct || 50) / 100)
                       )}
                     </p>
                   </div>
@@ -538,96 +615,144 @@ const DataCommissions = () => {
         </Tabs>
 
         {/* Dialog Tranches */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isTrancheDialogOpen} onOpenChange={setIsTrancheDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editItem ? "Modifier la tranche" : "Ajouter une tranche"}
+                {editTranche ? "Modifier la tranche" : "Ajouter une tranche"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Tranche min (€)</label>
+                  <Label>Tranche min (€)</Label>
                   <Input
                     type="number"
-                    value={formData.tranche_min}
-                    onChange={(e) => setFormData({ ...formData, tranche_min: e.target.value })}
+                    value={trancheFormData.tranche_min}
+                    onChange={(e) => setTrancheFormData({ ...trancheFormData, tranche_min: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Tranche max (€)</label>
+                  <Label>Tranche max (€)</Label>
                   <Input
                     type="number"
-                    value={formData.tranche_max}
-                    onChange={(e) => setFormData({ ...formData, tranche_max: e.target.value })}
+                    value={trancheFormData.tranche_max}
+                    onChange={(e) => setTrancheFormData({ ...trancheFormData, tranche_max: e.target.value })}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Taux commission (%)</label>
+                  <Label>Taux commission (%)</Label>
                   <Input
                     type="number"
                     step="0.5"
-                    value={formData.taux_commission}
-                    onChange={(e) => setFormData({ ...formData, taux_commission: e.target.value })}
+                    value={trancheFormData.taux_commission}
+                    onChange={(e) => setTrancheFormData({ ...trancheFormData, taux_commission: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Bonus survente (%)</label>
+                  <Label>Bonus survente (%)</Label>
                   <Input
                     type="number"
                     step="0.5"
-                    value={formData.bonus_survente}
-                    onChange={(e) => setFormData({ ...formData, bonus_survente: e.target.value })}
+                    value={trancheFormData.bonus_survente}
+                    onChange={(e) => setTrancheFormData({ ...trancheFormData, bonus_survente: e.target.value })}
                   />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={saving}>
+              <Button variant="outline" onClick={() => setIsTrancheDialogOpen(false)} disabled={saving}>
                 Annuler
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSaveTranche} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
+                {editTranche ? "Modifier" : "Ajouter"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Dialog Bouquet Commission */}
+        {/* Dialog Bouquet */}
         <Dialog open={isBouquetDialogOpen} onOpenChange={setIsBouquetDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
-                Commission - {editBouquet?.nom_bouquet}
+                {editBouquet ? "Modifier le bouquet" : "Ajouter un bouquet travaux"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg text-sm">
-                <p><strong>Puissance :</strong> {editBouquet?.puissance_kwc} kWc</p>
-                <p><strong>Prix recommandé :</strong> {formatCurrency(editBouquet?.prix_recommande || 0)}</p>
-              </div>
               <div>
-                <label className="text-sm font-medium">Commission fixe (€)</label>
+                <Label>Nom du bouquet *</Label>
                 <Input
-                  type="number"
-                  value={bouquetFormData.commission_fixe}
-                  onChange={(e) => setBouquetFormData({ ...bouquetFormData, commission_fixe: e.target.value })}
+                  value={bouquetFormData.nom_bouquet}
+                  onChange={(e) => setBouquetFormData({ ...bouquetFormData, nom_bouquet: e.target.value })}
+                  placeholder="Ex: Pack 3 kWc Standard"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Montant fixe par vente</p>
               </div>
+              
               <div>
-                <label className="text-sm font-medium">Commission variable (%)</label>
+                <Label>Puissance (kWc)</Label>
                 <Input
                   type="number"
                   step="0.5"
-                  value={bouquetFormData.commission_pct}
-                  onChange={(e) => setBouquetFormData({ ...bouquetFormData, commission_pct: e.target.value })}
+                  value={bouquetFormData.puissance_kwc}
+                  onChange={(e) => setBouquetFormData({ ...bouquetFormData, puissance_kwc: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Pourcentage du prix de vente</p>
+              </div>
+
+              <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                <p className="text-sm font-medium">Mode Standard</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Prix (€ HT)</Label>
+                    <Input
+                      type="number"
+                      value={bouquetFormData.prix_recommande}
+                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, prix_recommande: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Commission (€)</Label>
+                    <Input
+                      type="number"
+                      value={bouquetFormData.commission_fixe}
+                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, commission_fixe: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/20 space-y-3">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Mode HEJJA</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Prix HEJJA (€ HT)</Label>
+                    <Input
+                      type="number"
+                      value={bouquetFormData.prix_max}
+                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, prix_max: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Commission HEJJA (€)</Label>
+                    <Input
+                      type="number"
+                      value={bouquetFormData.commission_hejja}
+                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, commission_hejja: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label>Description (optionnelle)</Label>
+                <Input
+                  value={bouquetFormData.description}
+                  onChange={(e) => setBouquetFormData({ ...bouquetFormData, description: e.target.value })}
+                  placeholder="Détails du bouquet..."
+                />
               </div>
             </div>
             <DialogFooter>
@@ -636,7 +761,7 @@ const DataCommissions = () => {
               </Button>
               <Button onClick={handleSaveBouquet} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Enregistrer
+                {editBouquet ? "Modifier" : "Ajouter"}
               </Button>
             </DialogFooter>
           </DialogContent>
