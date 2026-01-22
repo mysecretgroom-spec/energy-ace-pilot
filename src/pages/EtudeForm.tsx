@@ -378,8 +378,8 @@ const EtudeForm = () => {
 
     // === PRODUCTION ANNUELLE ===
     // Deux modes de calcul :
-    // - PSH : Puissance × PSH × Rendement (coefficient orientation déjà inclus dans rendement)
-    // - Heures : Puissance × Heures × 0.18 × Rendement
+    // - PSH : Puissance × PSH × Rendement
+    // - Heures : Puissance × Heures × Rendement
     const pshData = dataPsh.find((p) => p.department_code === departement);
     const pshValue = pshData?.psh_value || 1200;
     
@@ -389,7 +389,7 @@ const EtudeForm = () => {
       productionAnnuelle = puissance * pshValue * rendementCoeff;
     } else {
       // Méthode Heures d'ensoleillement
-      productionAnnuelle = puissance * heuresEnsoleillement * 0.18 * rendementCoeff;
+      productionAnnuelle = puissance * heuresEnsoleillement * rendementCoeff;
     }
 
     // === SURPLUS DE PRODUCTION ===
@@ -1260,7 +1260,7 @@ const EtudeForm = () => {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Formule: Puissance × PSH × Coeff. orientation × Rendement
+                  Formule: Puissance × PSH × Rendement
                 </p>
               </div>
             ) : (
@@ -1273,7 +1273,7 @@ const EtudeForm = () => {
                   className="h-9"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Formule: Puissance × Heures × 0.18 × Coeff. orientation × Rendement
+                  Formule: Puissance × Heures × Rendement
                 </p>
               </div>
             )}
