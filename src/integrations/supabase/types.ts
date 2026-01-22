@@ -483,112 +483,187 @@ export type Database = {
       }
       etudes: {
         Row: {
+          amperage_disjoncteur: number | null
           autoconsommation_kwh: number | null
           autoconsommation_pct: number | null
+          autre_surcout: number | null
           client_id: string
           consommation_annuelle_kwh: number | null
           created_at: string
           duree_financement_mois: number | null
+          eco_tva: number | null
+          economie_autoconso_mensuelle: number | null
+          emplacement_boitier: string | null
+          etat_toiture: string | null
           facture_annuelle_euros: number | null
           gain_autoconso_euros: number | null
           gain_total_annuel: number | null
           id: string
           inclinaison: number | null
           mensualite_estimee: number | null
+          mode_financement: string | null
           mode_hejja_prix: boolean | null
           mode_hejja_psh: boolean | null
           nombre_panneaux: number | null
           notes: string | null
+          numero_pdl: string | null
+          ombre_toiture: string | null
           orientation: string | null
           photo_compteur: string | null
           photo_inclinaison: string | null
           photo_tableau: string | null
           photo_toiture: string | null
+          potentiel_faisabilite: string | null
+          prime_autoconsommation: number | null
           prix_installation: number | null
           prix_total: number | null
           production_annuelle_kwh: number | null
           puissance_kwc: number | null
           rdv_id: string | null
+          rendement_productivite: number | null
           resultat_mensuel: number | null
+          resultat_transfert_charge: number | null
           revente_euros: number | null
           revente_kwh: number | null
+          revente_mensuelle_estimee: number | null
           support: string | null
+          surcout_compteur: number | null
+          surcout_support: number | null
           surcouts: Json | null
+          surface_installation_m2: number | null
+          surface_toiture: string | null
+          surplus_production_kwh: number | null
+          taux_financement: number | null
+          total_aides: number | null
+          total_aides_deduites: number | null
+          type_compteur_electrique: string | null
+          type_raccordement: string | null
           type_revente: string | null
+          type_toiture: string | null
           updated_at: string
           user_id: string
           verdict: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Insert: {
+          amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
+          autre_surcout?: number | null
           client_id: string
           consommation_annuelle_kwh?: number | null
           created_at?: string
           duree_financement_mois?: number | null
+          eco_tva?: number | null
+          economie_autoconso_mensuelle?: number | null
+          emplacement_boitier?: string | null
+          etat_toiture?: string | null
           facture_annuelle_euros?: number | null
           gain_autoconso_euros?: number | null
           gain_total_annuel?: number | null
           id?: string
           inclinaison?: number | null
           mensualite_estimee?: number | null
+          mode_financement?: string | null
           mode_hejja_prix?: boolean | null
           mode_hejja_psh?: boolean | null
           nombre_panneaux?: number | null
           notes?: string | null
+          numero_pdl?: string | null
+          ombre_toiture?: string | null
           orientation?: string | null
           photo_compteur?: string | null
           photo_inclinaison?: string | null
           photo_tableau?: string | null
           photo_toiture?: string | null
+          potentiel_faisabilite?: string | null
+          prime_autoconsommation?: number | null
           prix_installation?: number | null
           prix_total?: number | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
           rdv_id?: string | null
+          rendement_productivite?: number | null
           resultat_mensuel?: number | null
+          resultat_transfert_charge?: number | null
           revente_euros?: number | null
           revente_kwh?: number | null
+          revente_mensuelle_estimee?: number | null
           support?: string | null
+          surcout_compteur?: number | null
+          surcout_support?: number | null
           surcouts?: Json | null
+          surface_installation_m2?: number | null
+          surface_toiture?: string | null
+          surplus_production_kwh?: number | null
+          taux_financement?: number | null
+          total_aides?: number | null
+          total_aides_deduites?: number | null
+          type_compteur_electrique?: string | null
+          type_raccordement?: string | null
           type_revente?: string | null
+          type_toiture?: string | null
           updated_at?: string
           user_id: string
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Update: {
+          amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
+          autre_surcout?: number | null
           client_id?: string
           consommation_annuelle_kwh?: number | null
           created_at?: string
           duree_financement_mois?: number | null
+          eco_tva?: number | null
+          economie_autoconso_mensuelle?: number | null
+          emplacement_boitier?: string | null
+          etat_toiture?: string | null
           facture_annuelle_euros?: number | null
           gain_autoconso_euros?: number | null
           gain_total_annuel?: number | null
           id?: string
           inclinaison?: number | null
           mensualite_estimee?: number | null
+          mode_financement?: string | null
           mode_hejja_prix?: boolean | null
           mode_hejja_psh?: boolean | null
           nombre_panneaux?: number | null
           notes?: string | null
+          numero_pdl?: string | null
+          ombre_toiture?: string | null
           orientation?: string | null
           photo_compteur?: string | null
           photo_inclinaison?: string | null
           photo_tableau?: string | null
           photo_toiture?: string | null
+          potentiel_faisabilite?: string | null
+          prime_autoconsommation?: number | null
           prix_installation?: number | null
           prix_total?: number | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
           rdv_id?: string | null
+          rendement_productivite?: number | null
           resultat_mensuel?: number | null
+          resultat_transfert_charge?: number | null
           revente_euros?: number | null
           revente_kwh?: number | null
+          revente_mensuelle_estimee?: number | null
           support?: string | null
+          surcout_compteur?: number | null
+          surcout_support?: number | null
           surcouts?: Json | null
+          surface_installation_m2?: number | null
+          surface_toiture?: string | null
+          surplus_production_kwh?: number | null
+          taux_financement?: number | null
+          total_aides?: number | null
+          total_aides_deduites?: number | null
+          type_compteur_electrique?: string | null
+          type_raccordement?: string | null
           type_revente?: string | null
+          type_toiture?: string | null
           updated_at?: string
           user_id?: string
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
