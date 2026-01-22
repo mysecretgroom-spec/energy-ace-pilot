@@ -550,6 +550,7 @@ const Planning = () => {
                         postalCode={rdv.postalCode}
                         typeRdv={rdv.typeRdv}
                         currentStatus={rdv.status}
+                        etudeId={rdv.etudeId}
                         onRefresh={fetchRdvs}
                       />
                     </div>

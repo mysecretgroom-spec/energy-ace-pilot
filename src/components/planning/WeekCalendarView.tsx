@@ -110,6 +110,7 @@ export function WeekCalendarView({ currentDate, rdvList, onRdvClick, onStatusCha
                       city={rdv.city}
                       postalCode={rdv.postalCode}
                       currentStatus={rdv.status}
+                      etudeId={rdv.etudeId}
                       onStatusChange={(newStatus) => onStatusChange?.(rdv.id, newStatus)}
                     >
                       <Card

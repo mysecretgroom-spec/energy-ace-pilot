@@ -26,6 +26,7 @@ interface RdvActionsProps {
   postalCode?: string;
   typeRdv: RdvType;
   currentStatus: RdvStatus;
+  etudeId?: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: RdvStatus) => void;
 }
@@ -40,6 +41,7 @@ export function RdvActions({
   postalCode,
   typeRdv,
   currentStatus,
+  etudeId,
   onRefresh,
   onStatusChange,
 }: RdvActionsProps) {
@@ -115,6 +117,7 @@ export function RdvActions({
         currentStatus={currentStatus}
         clientName={clientName}
         clientId={clientId}
+        etudeId={etudeId}
         onStatusChange={handleStatusChangeInternal}
         compact
       />
