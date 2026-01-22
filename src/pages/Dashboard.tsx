@@ -384,7 +384,7 @@ const Dashboard = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Pipeline Ventes</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate("/ventes")}>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/crm")}>
                 Gérer <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -409,7 +409,7 @@ const Dashboard = () => {
 
         {/* Stats rapides */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate("/clients")}>
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate("/crm")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Users className="h-5 w-5 text-primary" />
