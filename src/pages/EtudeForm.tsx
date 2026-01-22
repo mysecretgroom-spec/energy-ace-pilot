@@ -124,10 +124,14 @@ const EtudeForm = () => {
   const { toast } = useToast();
   const clientId = searchParams.get("clientId") || searchParams.get("client");
   const rdvId = searchParams.get("rdvId") || searchParams.get("rdv");
+  const etudeId = searchParams.get("etudeId") || searchParams.get("etude");
+  const isEditMode = !!etudeId;
 
   // Form state
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentEtudeId, setCurrentEtudeId] = useState<string | null>(etudeId);
+  const [originalClassification, setOriginalClassification] = useState<string>("");
   
   // Client info
   const [clientName, setClientName] = useState("");
@@ -243,11 +247,17 @@ const EtudeForm = () => {
 
   // Load data on mount
   useEffect(() => {
-    loadReferenceData();
-    if (clientId) {
-      loadClientInfo();
-    }
-  }, [clientId]);
+    const init = async () => {
+      await loadReferenceData();
+      if (clientId) {
+        await loadClientInfo();
+      }
+      if (etudeId) {
+        await loadExistingEtude();
+      }
+    };
+    init();
+  }, [clientId, etudeId]);
 
   // Recalculate when inputs change
   useEffect(() => {
@@ -339,6 +349,70 @@ const EtudeForm = () => {
         setDepartement(deptCode);
       } else {
         console.log("[DEBUG] Pas de code postal pour ce client");
+      }
+    }
+  };
+
+  // Charger une étude existante pour modification
+  const loadExistingEtude = async () => {
+    if (!etudeId) return;
+
+    const { data: etude } = await supabase
+      .from("etudes")
+      .select("*")
+      .eq("id", etudeId)
+      .maybeSingle();
+
+    if (etude) {
+      setCurrentEtudeId(etude.id);
+      // Consommation
+      setConsoAnnuelle(etude.consommation_annuelle_kwh || 0);
+      setFactureMensuelle(etude.facture_annuelle_euros ? etude.facture_annuelle_euros / 12 : 0);
+      // Visite technique - Toiture
+      setOmbreToiture(etude.ombre_toiture || "0 à 5%");
+      setSurfaceToiture(etude.surface_toiture || "OK");
+      setTypeToiture(etude.type_toiture || "TUILE");
+      setEtatToiture(etude.etat_toiture || "OK");
+      // Compteur électrique
+      setTypeCompteurElectrique(etude.type_compteur_electrique || "Linky");
+      setNumeroPdl(etude.numero_pdl || "");
+      setTypeRaccordement(etude.type_raccordement || "MONOPHASÉ");
+      // Tableau électrique
+      setAmperageDisjoncteur(etude.amperage_disjoncteur || 45);
+      setEmplacementBoitier(etude.emplacement_boitier || "À côté");
+      // Résultat visite
+      setPotentielFaisabilite(etude.potentiel_faisabilite || "Faisable");
+      // Préconisation
+      setPuissanceKwc(etude.puissance_kwc || 0);
+      setTypeRevente(etude.type_revente || "surplus");
+      setSupportInstallation(etude.support || "TOITURE SURIMPOSITION");
+      setOrientation(etude.orientation || "SUD");
+      setInclinaison(etude.inclinaison || 30);
+      // Données techniques
+      setSurfaceInstallation(etude.surface_installation_m2 || 0);
+      setRendementProductivite(etude.rendement_productivite || 100);
+      // Surcoûts
+      setSelectedSurcouts(etude.surcouts as string[] || []);
+      setSurcoutSupport(etude.surcout_support || 0);
+      setSurcoutCompteur(etude.surcout_compteur || 0);
+      setAutreSurcout(etude.autre_surcout || 0);
+      // Modes
+      setModeHejjaPsh(etude.mode_hejja_psh || false);
+      setModeHejjaPrix(etude.mode_hejja_prix || false);
+      // Classification
+      setClassification(etude.classification || "");
+      setOriginalClassification(etude.classification || "");
+      setClassificationComment(etude.classification_comment || "");
+
+      // Charger l'historique des classifications
+      const { data: history } = await supabase
+        .from("etudes_classification_history")
+        .select("*")
+        .eq("etude_id", etudeId)
+        .order("created_at", { ascending: false });
+
+      if (history) {
+        setClassificationHistory(history);
       }
     }
   };
@@ -577,7 +651,7 @@ const EtudeForm = () => {
 
     setSaving(true);
 
-    const { data, error } = await supabase.from("etudes").insert({
+    const etudeData = {
       user_id: user.id,
       client_id: clientId,
       rdv_id: rdvId || null,
@@ -642,7 +716,33 @@ const EtudeForm = () => {
       classification_comment: classificationComment || null,
       classification_updated_at: classification ? new Date().toISOString() : null,
       classification_updated_by: classification ? user.id : null,
-    }).select().single();
+    };
+
+    let savedEtudeId: string | null = null;
+    let error: Error | null = null;
+
+    if (isEditMode && currentEtudeId) {
+      // UPDATE existing étude
+      const result = await supabase
+        .from("etudes")
+        .update(etudeData)
+        .eq("id", currentEtudeId)
+        .select()
+        .single();
+      
+      error = result.error;
+      savedEtudeId = currentEtudeId;
+    } else {
+      // INSERT new étude
+      const result = await supabase
+        .from("etudes")
+        .insert(etudeData)
+        .select()
+        .single();
+      
+      error = result.error;
+      savedEtudeId = result.data?.id || null;
+    }
 
     if (error) {
       console.error("Erreur sauvegarde:", error);
@@ -653,10 +753,11 @@ const EtudeForm = () => {
       });
       setSaving(false);
     } else {
-      // Sauvegarder l'historique de classification si une classification est définie
-      if (classification && data) {
+      // Sauvegarder l'historique de classification si la classification a changé
+      const classificationChanged = classification !== originalClassification;
+      if (classification && savedEtudeId && classificationChanged) {
         await supabase.from("etudes_classification_history").insert({
-          etude_id: data.id,
+          etude_id: savedEtudeId,
           user_id: user.id,
           classification: classification,
           comment: classificationComment || null,
@@ -666,6 +767,13 @@ const EtudeForm = () => {
       // Afficher l'animation de succès
       setShowSuccess(true);
       setSaving(false);
+      
+      toast({
+        title: isEditMode ? "Étude modifiée" : "Étude créée",
+        description: isEditMode 
+          ? "L'étude a été mise à jour avec succès" 
+          : "L'étude a été enregistrée avec succès",
+      });
       
       // Attendre l'animation avant de naviguer
       setTimeout(() => {
@@ -915,7 +1023,7 @@ const EtudeForm = () => {
 
   if (loading) {
     return (
-      <MobileLayout title="Nouvelle étude">
+      <MobileLayout title={isEditMode ? "Modifier l'étude" : "Nouvelle étude"}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
