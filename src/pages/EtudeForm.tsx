@@ -1384,8 +1384,13 @@ const EtudeForm = () => {
             {usePshCalculation ? (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">PSH (kWh/kWc/an)</span>
-                  <span className="font-bold text-amber-600">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">PSH (kWh/kWc/an)</span>
+                    <span className="text-xs text-amber-600/70">
+                      {dataPsh.find(p => p.department_code === departement)?.department_name ?? "—"}
+                    </span>
+                  </div>
+                  <span className="font-bold text-amber-600 text-lg">
                     {dataPsh.find(p => p.department_code === departement)?.psh_value ?? "N/A"}
                   </span>
                 </div>
