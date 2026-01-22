@@ -21,6 +21,7 @@ import {
   Share2,
   Loader2,
   FileSearch,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,7 +29,19 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DocumentContext, ScanPage } from "./AddDocumentFlow";
 import { generatePdfFromPages, generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
-import { performOcr, type OcrResult } from "./services/ocrService";
+
+// AI OCR result type from edge function
+interface AIExtractedData {
+  montant_ttc: number | null;
+  montant_ht: number | null;
+  tva: number | null;
+  taux_tva: number | null;
+  date: string | null;
+  categorie: string | null;
+  description: string | null;
+  commercant: string | null;
+  raw_text?: string;
+}
 
 interface ReviewDocumentProps {
   context: DocumentContext;
@@ -83,8 +96,7 @@ export function ReviewDocument({
   // OCR state
   const [enableOcr, setEnableOcr] = useState(context === "finance");
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
+  const [ocrResult, setOcrResult] = useState<AIExtractedData | null>(null);
 
   // Common fields
   const [title, setTitle] = useState("");
@@ -94,7 +106,9 @@ export function ReviewDocument({
 
   // Finance-specific fields
   const [montantTTC, setMontantTTC] = useState("");
+  const [montantHT, setMontantHT] = useState("");
   const [tva, setTva] = useState("");
+  const [tauxTva, setTauxTva] = useState("20");
   const [fournisseur, setFournisseur] = useState("");
 
   const categories = context === "finance" ? FINANCE_CATEGORIES : CLIENT_DOC_CATEGORIES;
@@ -136,54 +150,69 @@ export function ReviewDocument({
     generatePdf();
   }, [pages, importedFile]);
 
-  // Run OCR when enabled and we have pages
+  // Run AI OCR via edge function
   const runOcr = useCallback(async () => {
     if (!enableOcr || pages.length === 0) return;
 
     setIsOcrProcessing(true);
-    setOcrProgress(0);
 
     try {
       // Use the first page for OCR
       const firstPage = pages[0];
-      const result = await performOcr(firstPage.imageData, (progress) => {
-        setOcrProgress(progress);
+      
+      // Call the AI-powered edge function
+      const { data, error } = await supabase.functions.invoke("ocr-receipt", {
+        body: { image_base64: firstPage.imageData },
       });
 
+      if (error) throw error;
+
+      const result = data as AIExtractedData;
       setOcrResult(result);
 
-      // Auto-fill fields from OCR result
-      if (result.extractedData.montant) {
-        setMontantTTC(result.extractedData.montant.toFixed(2).replace(".", ","));
+      // Auto-fill fields from AI extraction
+      if (result.montant_ttc) {
+        setMontantTTC(result.montant_ttc.toFixed(2).replace(".", ","));
       }
-      if (result.extractedData.tva) {
-        setTva(result.extractedData.tva.toFixed(2).replace(".", ","));
+      if (result.montant_ht) {
+        setMontantHT(result.montant_ht.toFixed(2).replace(".", ","));
       }
-      if (result.extractedData.date) {
-        setDate(result.extractedData.date);
+      if (result.tva) {
+        setTva(result.tva.toFixed(2).replace(".", ","));
       }
-      if (result.extractedData.fournisseur) {
-        setFournisseur(result.extractedData.fournisseur);
+      if (result.taux_tva) {
+        setTauxTva(result.taux_tva.toString());
       }
-      if (result.extractedData.description && !category) {
-        setCategory(result.extractedData.description);
+      if (result.date) {
+        setDate(result.date);
+      }
+      if (result.commercant) {
+        setFournisseur(result.commercant);
+      }
+      if (result.categorie && !category) {
+        setCategory(result.categorie);
+      }
+      if (result.description && !title) {
+        setTitle(result.description);
       }
 
       toast({
-        title: "OCR terminé",
-        description: `Confiance: ${result.confidence.toFixed(0)}%`,
+        title: "Extraction IA terminée",
+        description: result.commercant 
+          ? `${result.commercant} - ${result.montant_ttc?.toFixed(2) || "?"} €`
+          : "Données extraites avec succès",
       });
     } catch (error) {
-      console.error("OCR error:", error);
+      console.error("AI OCR error:", error);
       toast({
-        title: "Erreur OCR",
-        description: "Impossible d'extraire le texte",
+        title: "Erreur d'extraction",
+        description: "Impossible d'analyser la facture",
         variant: "destructive",
       });
     } finally {
       setIsOcrProcessing(false);
     }
-  }, [enableOcr, pages, category]);
+  }, [enableOcr, pages, category, title]);
 
   const handleDownload = useCallback(() => {
     if (!pdfBlob) return;
@@ -257,15 +286,16 @@ export function ReviewDocument({
           context_source: context,
           page_count: pages.length || 1,
           thumbnails_urls: thumbnails.length > 0 ? thumbnails : null,
-          extracted_text: ocrResult?.text || null,
+          extracted_text: ocrResult?.raw_text || null,
           metadata: {
             originalFileName: importedFile?.name,
             category,
             notes,
-            ocrConfidence: ocrResult?.confidence || null,
             montant: montant,
+            montant_ht: montantHT ? parseFloat(montantHT.replace(",", ".")) : null,
             tva: tvaAmount,
-            fournisseur: fournisseur || ocrResult?.extractedData?.fournisseur || null,
+            taux_tva: tauxTva ? parseFloat(tauxTva) : null,
+            fournisseur: fournisseur || ocrResult?.commercant || null,
           },
         }])
         .select()
@@ -285,9 +315,14 @@ export function ReviewDocument({
           document_id: docData.id,
           justificatif_url: fileUrl,
           ocr_data: ocrResult ? {
-            text: ocrResult.text,
-            confidence: ocrResult.confidence,
-            extractedData: ocrResult.extractedData,
+            montant_ttc: ocrResult.montant_ttc,
+            montant_ht: ocrResult.montant_ht,
+            tva: ocrResult.tva,
+            taux_tva: ocrResult.taux_tva,
+            date: ocrResult.date,
+            categorie: ocrResult.categorie,
+            commercant: ocrResult.commercant,
+            description: ocrResult.description,
           } : null,
         }]);
 
@@ -445,15 +480,17 @@ export function ReviewDocument({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Extraction en cours...
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    Analyse IA en cours...
                   </div>
-                  <Progress value={ocrProgress} className="h-2" />
                 </div>
               )}
 
               {ocrResult && (
-                <div className="text-xs text-muted-foreground">
-                  ✓ Extraction terminée (confiance: {ocrResult.confidence.toFixed(0)}%)
+                <div className="text-xs text-green-600 flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Extraction IA terminée
+                  {ocrResult.commercant && ` • ${ocrResult.commercant}`}
                 </div>
               )}
             </div>
