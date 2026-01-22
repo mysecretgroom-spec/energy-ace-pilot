@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -20,11 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-
 import { toast } from "sonner";
-import { Euro, Loader2, Zap, Plus, Pencil, Trash2 } from "lucide-react";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Euro, Loader2, Zap, Plus, Trash2, Save, RotateCcw } from "lucide-react";
 
 interface TarifData {
   id: string;
@@ -34,6 +24,8 @@ interface TarifData {
   prix_kwh: number;
   date_effet: string;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const typeLabels: Record<string, string> = {
@@ -44,18 +36,10 @@ const typeLabels: Record<string, string> = {
 
 const DataTarifs = () => {
   const [data, setData] = useState<TarifData[]>([]);
+  const [originalData, setOriginalData] = useState<TarifData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<TarifData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    type_revente: "revente_surplus",
-    puissance_min: "0",
-    puissance_max: "9",
-    prix_kwh: "0.13",
-    date_effet: new Date().toISOString().split("T")[0],
-    actif: true,
-  });
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -71,7 +55,14 @@ const DataTarifs = () => {
         .order("puissance_min", { ascending: true });
 
       if (error) throw error;
-      setData(tarifData || []);
+      const formattedData = (tarifData || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setData(formattedData);
+      setOriginalData(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement tarifs:", error);
       toast.error("Erreur lors du chargement");
@@ -80,78 +71,81 @@ const DataTarifs = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
+  const handleAddNew = () => {
+    const newItem: TarifData = {
+      id: `new-${Date.now()}`,
       type_revente: "revente_surplus",
-      puissance_min: "0",
-      puissance_max: "9",
-      prix_kwh: "0.13",
+      puissance_min: 0,
+      puissance_max: 9,
+      prix_kwh: 0.13,
       date_effet: new Date().toISOString().split("T")[0],
       actif: true,
-    });
-    setIsDialogOpen(true);
+      isNew: true,
+      isModified: true,
+    };
+    setData([newItem, ...data]);
+    setHasChanges(true);
   };
 
-  const openEditDialog = (item: TarifData) => {
-    setEditItem(item);
-    setFormData({
-      type_revente: item.type_revente,
-      puissance_min: item.puissance_min.toString(),
-      puissance_max: item.puissance_max.toString(),
-      prix_kwh: item.prix_kwh.toString(),
-      date_effet: item.date_effet,
-      actif: item.actif,
-    });
-    setIsDialogOpen(true);
+  const handleFieldChange = (id: string, field: keyof TarifData, value: any) => {
+    setData(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer ce tarif ?")) return;
+    setData(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = {
-        type_revente: formData.type_revente,
-        puissance_min: parseFloat(formData.puissance_min) || 0,
-        puissance_max: parseFloat(formData.puissance_max) || 999,
-        prix_kwh: parseFloat(formData.prix_kwh) || 0,
-        date_effet: formData.date_effet,
-        actif: formData.actif,
-      };
+      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalData.filter(o => !currentIds.has(o.id));
 
-      if (editItem) {
-        const { error } = await supabase
-          .from("data_tarifs_revente")
-          .update(payload)
-          .eq("id", editItem.id);
+      for (const item of toDelete) {
+        const { error } = await supabase.from("data_tarifs_revente").delete().eq("id", item.id);
         if (error) throw error;
-        toast.success("Tarif modifié");
-      } else {
-        const { error } = await supabase.from("data_tarifs_revente").insert(payload);
-        if (error) throw error;
-        toast.success("Tarif ajouté");
       }
 
-      setIsDialogOpen(false);
+      for (const item of data) {
+        const payload = {
+          type_revente: item.type_revente,
+          puissance_min: item.puissance_min,
+          puissance_max: item.puissance_max,
+          prix_kwh: item.prix_kwh,
+          date_effet: item.date_effet,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("data_tarifs_revente").insert(payload);
+          if (error) throw error;
+        } else if (item.isModified) {
+          const { error } = await supabase.from("data_tarifs_revente").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
       toast.error(error.message || "Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce tarif ?")) return;
-
-    try {
-      const { error } = await supabase.from("data_tarifs_revente").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Tarif supprimé");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
     }
   };
 
@@ -166,7 +160,7 @@ const DataTarifs = () => {
 
   return (
     <MobileLayout title="Tarifs revente" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-green-500/10 border-green-500/20">
           <CardContent className="p-4 flex items-start gap-3">
@@ -174,14 +168,14 @@ const DataTarifs = () => {
             <div>
               <p className="font-medium text-sm">Tarifs de rachat EDF OA</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Prix de rachat du kWh selon le type de contrat et la puissance installée.
+                Modifiez directement les valeurs puis cliquez sur "Enregistrer".
               </p>
             </div>
           </CardContent>
         </Card>
 
         {/* Actions */}
-        <Button onClick={openAddDialog} className="w-full gap-2">
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
           <Plus className="h-4 w-4" />
           Ajouter un tarif
         </Button>
@@ -210,42 +204,77 @@ const DataTarifs = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
                   {items.map((item) => (
-                    <div key={item.id} className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm">
-                          {item.puissance_min} - {item.puissance_max} kWc
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-green-600">
-                            {(item.prix_kwh * 100).toFixed(2)} c€/kWh
-                          </span>
-                          {!item.actif && (
-                            <Badge variant="secondary">Inactif</Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                    <div key={item.id} className={`p-3 space-y-2 ${item.isModified ? "bg-amber-500/5" : ""}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Select
+                          value={item.type_revente}
+                          onValueChange={(v) => handleFieldChange(item.id, "type_revente", v)}
+                        >
+                          <SelectTrigger className="w-36 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="revente_totale">Revente totale</SelectItem>
+                            <SelectItem value="revente_surplus">Revente surplus</SelectItem>
+                            <SelectItem value="autoconsommation">Autoconsommation</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={item.puissance_min}
+                            onChange={(e) => handleFieldChange(item.id, "puissance_min", parseFloat(e.target.value) || 0)}
+                            className="w-16 h-8 text-xs"
+                            placeholder="Min"
+                          />
+                          <span className="text-xs">-</span>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={item.puissance_max}
+                            onChange={(e) => handleFieldChange(item.id, "puissance_max", parseFloat(e.target.value) || 0)}
+                            className="w-16 h-8 text-xs"
+                            placeholder="Max"
+                          />
+                          <span className="text-xs text-muted-foreground">kWc</span>
                         </div>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            step="0.001"
+                            value={item.prix_kwh}
+                            onChange={(e) => handleFieldChange(item.id, "prix_kwh", parseFloat(e.target.value) || 0)}
+                            className="w-20 h-8 text-xs"
+                          />
+                          <span className="text-xs text-muted-foreground">€/kWh</span>
+                        </div>
+                        {item.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
+                        {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Depuis le{" "}
-                        {format(new Date(item.date_effet), "d MMMM yyyy", {
-                          locale: fr,
-                        })}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          type="date"
+                          value={item.date_effet}
+                          onChange={(e) => handleFieldChange(item.id, "date_effet", e.target.value)}
+                          className="w-36 h-8 text-xs"
+                        />
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Actif</span>
+                          <Switch
+                            checked={item.actif}
+                            onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive ml-auto"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -253,103 +282,34 @@ const DataTarifs = () => {
             </Card>
           ))
         )}
-
-        {/* Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editItem ? "Modifier le tarif" : "Ajouter un tarif"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Type de revente</label>
-                <Select
-                  value={formData.type_revente}
-                  onValueChange={(v) =>
-                    setFormData({ ...formData, type_revente: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="revente_totale">Revente totale</SelectItem>
-                    <SelectItem value="revente_surplus">Revente surplus</SelectItem>
-                    <SelectItem value="autoconsommation">Autoconsommation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Puissance min (kWc)</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.puissance_min}
-                    onChange={(e) =>
-                      setFormData({ ...formData, puissance_min: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Puissance max (kWc)</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.puissance_max}
-                    onChange={(e) =>
-                      setFormData({ ...formData, puissance_max: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Prix kWh (€)</label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={formData.prix_kwh}
-                  onChange={(e) =>
-                    setFormData({ ...formData, prix_kwh: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Date d'effet</label>
-                <Input
-                  type="date"
-                  value={formData.date_effet}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date_effet: e.target.value })
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Actif</label>
-                <Switch
-                  checked={formData.actif}
-                  onCheckedChange={(c) => setFormData({ ...formData, actif: c })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };
