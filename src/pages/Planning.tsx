@@ -14,6 +14,7 @@ import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import { GmailSync } from "@/components/planning/GmailSync";
 import { WeekCalendarView } from "@/components/planning/WeekCalendarView";
 import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
+import { RouteMap } from "@/components/planning/RouteMap";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ import {
   Wrench,
   Route,
   ArrowRight,
+  Map,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -64,6 +66,8 @@ interface RdvData {
   isR2?: boolean;
   r2Type?: string | null;
   etudeId?: string | null;
+  latitude?: number;
+  longitude?: number;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -84,6 +88,7 @@ const Planning = () => {
   const [emailImportOpen, setEmailImportOpen] = useState(false);
   const [quickRdvOpen, setQuickRdvOpen] = useState(false);
   const [selectedRdv, setSelectedRdv] = useState<RdvData | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   // Use planning routes hook for day view distances
   const { 
@@ -191,6 +196,8 @@ const Planning = () => {
           is_r2,
           r2_type,
           etude_id,
+          latitude,
+          longitude,
           clients!inner(
             id,
             nom,
@@ -198,7 +205,9 @@ const Planning = () => {
             telephone,
             adresse,
             code_postal,
-            ville
+            ville,
+            latitude,
+            longitude
           )
         `)
         .eq("user_id", user.id)
@@ -229,6 +238,8 @@ const Planning = () => {
           adresse: string | null;
           code_postal: string | null;
           ville: string | null;
+          latitude: number | null;
+          longitude: number | null;
         };
 
         // Use RDV address or client address
@@ -270,6 +281,8 @@ const Planning = () => {
           isR2: rdv.is_r2 || false,
           r2Type: rdv.r2_type,
           etudeId: rdv.etude_id,
+          latitude: rdv.latitude || clientData.latitude || undefined,
+          longitude: rdv.longitude || clientData.longitude || undefined,
         };
       });
 
@@ -353,6 +366,18 @@ const Planning = () => {
                     <span>{totalDistance} km</span>
                   </div>
                 )}
+                {/* Bouton carte */}
+                {viewMode === "jour" && rdvListWithRoutes.length > 0 && (
+                  <Button
+                    variant={showMap ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1.5 h-7"
+                    onClick={() => setShowMap(!showMap)}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Carte
+                  </Button>
+                )}
               </div>
               <div className="flex gap-2">
                 <GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
@@ -398,6 +423,24 @@ const Planning = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Carte interactive */}
+        {viewMode === "jour" && showMap && rdvListWithRoutes.length > 0 && (
+          <RouteMap
+            rdvList={rdvListWithRoutes.map(rdv => ({
+              id: rdv.id,
+              time: rdv.time,
+              client: rdv.client,
+              address: [rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(", "),
+              status: rdv.status,
+              latitude: rdv.latitude,
+              longitude: rdv.longitude,
+              isR2: rdv.isR2,
+              typeRdv: rdv.typeRdv,
+            }))}
+            onClose={() => setShowMap(false)}
+          />
+        )}
 
         {/* Loading state */}
         {loading && (
