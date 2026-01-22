@@ -1460,6 +1460,7 @@ export type Database = {
           puissance_kwc: number | null
           status: Database["public"]["Enums"]["vente_status"]
           type_installation: string | null
+          type_vente: Database["public"]["Enums"]["vente_type"]
           updated_at: string
           user_id: string
         }
@@ -1484,6 +1485,7 @@ export type Database = {
           puissance_kwc?: number | null
           status?: Database["public"]["Enums"]["vente_status"]
           type_installation?: string | null
+          type_vente?: Database["public"]["Enums"]["vente_type"]
           updated_at?: string
           user_id: string
         }
@@ -1508,6 +1510,7 @@ export type Database = {
           puissance_kwc?: number | null
           status?: Database["public"]["Enums"]["vente_status"]
           type_installation?: string | null
+          type_vente?: Database["public"]["Enums"]["vente_type"]
           updated_at?: string
           user_id?: string
         }
@@ -1629,6 +1632,7 @@ export type Database = {
         | "attente_financement"
         | "envoi_pose"
         | "attente_paiement"
+      vente_type: "standard" | "external_installation"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1819,6 +1823,7 @@ export const Constants = {
         "envoi_pose",
         "attente_paiement",
       ],
+      vente_type: ["standard", "external_installation"],
     },
   },
 } as const

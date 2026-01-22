@@ -13,12 +13,14 @@ import {
   XCircle,
   Euro,
   MinusCircle,
+  Wrench,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DecomDialog } from "./DecomDialog";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteType = 'standard' | 'external_installation';
 
 interface Vente {
   id: string;
@@ -28,6 +30,7 @@ interface Vente {
   montant_ttc: number;
   puissance_kwc: number | null;
   status: VenteStatus;
+  type_vente?: VenteType;
   decom_montant?: number | null;
   decom_raison?: string | null;
   client: {
@@ -79,6 +82,7 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
   const decomMontant = vente.decom_montant || 0;
   const rawCommission = commission ? commission.montant_commission + commission.bonus_survente : 0;
   const totalCommission = Math.max(0, rawCommission - decomMontant);
+  const isExternalInstallation = vente.type_vente === 'external_installation';
 
   const clientName = vente.client 
     ? `${vente.client.prenom || ""} ${vente.client.nom}`.trim() 
@@ -92,7 +96,7 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
   return (
     <>
       <Card 
-        className={`cursor-pointer hover:bg-muted/50 transition-colors relative ${isSelected ? "border-primary bg-primary/5" : ""}`}
+        className={`cursor-pointer hover:bg-muted/50 transition-colors relative ${isSelected ? "border-primary bg-primary/5" : ""} ${isExternalInstallation ? "border-l-4 border-l-amber-500" : ""}`}
         onClick={onClick}
       >
         <CardContent className="p-4">
@@ -101,15 +105,27 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
               {selectionMode && (
                 <Checkbox checked={isSelected} className="mr-1" />
               )}
-              <User className="h-4 w-4 text-muted-foreground" />
+              {isExternalInstallation ? (
+                <Wrench className="h-4 w-4 text-amber-600" />
+              ) : (
+                <User className="h-4 w-4 text-muted-foreground" />
+              )}
               <span className="font-medium">
                 {vente.client?.nom} {vente.client?.prenom || ""}
               </span>
             </div>
-            <Badge className={`${config.color} flex items-center gap-1`}>
-              {config.icon}
-              {config.label}
-            </Badge>
+            <div className="flex items-center gap-1">
+              {isExternalInstallation && (
+                <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-[10px]">
+                  <Wrench className="h-2.5 w-2.5 mr-0.5" />
+                  Externe
+                </Badge>
+              )}
+              <Badge className={`${config.color} flex items-center gap-1`}>
+                {config.icon}
+                {config.label}
+              </Badge>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">

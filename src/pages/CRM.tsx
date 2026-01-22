@@ -46,6 +46,8 @@ interface Client {
   created_at: string;
 }
 
+type VenteType = 'standard' | 'external_installation';
+
 interface Vente {
   id: string;
   numero_contrat: string | null;
@@ -54,6 +56,7 @@ interface Vente {
   montant_ttc: number;
   puissance_kwc: number | null;
   status: VenteStatus;
+  type_vente: VenteType;
   notes: string | null;
   created_at: string;
   decom_montant?: number | null;
@@ -106,7 +109,8 @@ const CRM = () => {
     puissance_kwc: "",
     numero_contrat: "",
     date_signature: "",
-    notes: ""
+    notes: "",
+    type_vente: "standard" as VenteType
   });
 
   useEffect(() => {
@@ -233,7 +237,10 @@ const CRM = () => {
         numero_contrat: formData.numero_contrat || null,
         date_signature: formData.date_signature || null,
         notes: formData.notes || null,
-        status: formData.date_signature ? 'signe' : 'en_negociation'
+        type_vente: formData.type_vente,
+        status: formData.type_vente === 'external_installation' 
+          ? 'paye'  // Les installations externes sont directement marquées comme payées
+          : (formData.date_signature ? 'signe' : 'en_negociation')
       });
 
       if (error) throw error;
@@ -248,7 +255,8 @@ const CRM = () => {
         puissance_kwc: "",
         numero_contrat: "",
         date_signature: "",
-        notes: ""
+        notes: "",
+        type_vente: "standard"
       });
       fetchVentes();
     } catch (error) {
@@ -398,6 +406,28 @@ const CRM = () => {
                   <DialogTitle>Nouvelle vente</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
+                  {/* Type de vente */}
+                  <div className="space-y-2">
+                    <Label>Type de vente</Label>
+                    <Select 
+                      value={formData.type_vente} 
+                      onValueChange={(v: VenteType) => setFormData(prev => ({ ...prev, type_vente: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="standard">Vente standard</SelectItem>
+                        <SelectItem value="external_installation">Installation pour un autre commercial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formData.type_vente === 'external_installation' && (
+                      <p className="text-xs text-muted-foreground bg-amber-500/10 p-2 rounded border border-amber-200">
+                        💡 Cette vente sera directement marquée comme "Payée" et hors pipeline standard.
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Client *</Label>
                     <Select value={formData.client_id} onValueChange={handleClientChange}>
