@@ -166,7 +166,7 @@ const DataPSH = () => {
             <div>
               <p className="font-medium text-sm">Peak Sun Hours (PSH)</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Données d'ensoleillement par département : jours riches/pauvres, heures annuelles et PSH (kWh/m²/an).
+                Données d'ensoleillement par département : jours riches/pauvres, heures annuelles et PSH (kWh/kWc/an).
               </p>
             </div>
           </CardContent>
@@ -265,7 +265,7 @@ const DataPSH = () => {
                       <div className="flex items-center gap-1.5">
                         <Sun className="h-3 w-3 text-primary" />
                         <span className="text-muted-foreground">PSH: </span>
-                        <strong className="text-primary">{item.psh_value} kWh/m²/an</strong>
+                        <strong className="text-primary">{item.psh_value} kWh/kWc/an</strong>
                       </div>
                     </div>
                   </div>
@@ -346,7 +346,7 @@ const DataPSH = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">PSH (kWh/m²/an)</label>
+                  <label className="text-sm font-medium">PSH (kWh/kWc/an)</label>
                   <Input
                     type="number"
                     value={formData.psh_value}
@@ -357,7 +357,7 @@ const DataPSH = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">PSH Max (kWh/m²/an)</label>
+                  <label className="text-sm font-medium">PSH Max (kWh/kWc/an)</label>
                   <Input
                     type="number"
                     value={formData.max_psh_value}
