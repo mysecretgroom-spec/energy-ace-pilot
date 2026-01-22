@@ -7,21 +7,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import imageCompression from "browser-image-compression";
 
-export type PhotoCategory = "tableau_electrique" | "compteur" | "toiture" | "autre";
+import { QuickPhotoCategory, QUICK_PHOTO_LABELS, PhotoCategory } from "@/lib/documentCategories";
+
+// Re-export for backward compatibility
+export type { PhotoCategory };
 
 interface QuickPhotoButtonProps {
   clientId: string;
-  category: PhotoCategory;
+  category: QuickPhotoCategory;
   label: string;
   onPhotoSaved?: () => void;
 }
-
-const categoryLabels: Record<PhotoCategory, string> = {
-  tableau_electrique: "Tableau électrique",
-  compteur: "Compteur électrique",
-  toiture: "Toiture",
-  autre: "Photo",
-};
 
 export function QuickPhotoButton({
   clientId,
@@ -58,7 +54,7 @@ export function QuickPhotoButton({
           const imageData = event.target?.result as string;
           await savePendingDocument({
             clientId,
-            nom: `${categoryLabels[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
+            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
             typeDocument: "photo_chantier",
             imageData,
             mimeType: compressedFile.type,
@@ -94,7 +90,7 @@ export function QuickPhotoButton({
       const { error: dbError } = await supabase.from("documents").insert({
         user_id: user.id,
         client_id: clientId,
-        nom: `${categoryLabels[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
+        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
         type_document: "photo_chantier",
         url: urlData.publicUrl,
         taille_bytes: compressedFile.size,
@@ -107,7 +103,7 @@ export function QuickPhotoButton({
       setHasPhoto(true);
       toast({
         title: "Photo enregistrée",
-        description: `${categoryLabels[category]} ajouté au dossier client`,
+        description: `${QUICK_PHOTO_LABELS[category]} ajouté au dossier client`,
       });
 
       onPhotoSaved?.();
@@ -194,19 +190,19 @@ export function QuickPhotoGroup({ clientId, onPhotoSaved }: QuickPhotoGroupProps
     <div className="flex flex-wrap gap-2 py-2">
       <QuickPhotoButton
         clientId={clientId}
-        category="toiture"
+        category="photo_toiture"
         label="Toiture"
         onPhotoSaved={onPhotoSaved}
       />
       <QuickPhotoButton
         clientId={clientId}
-        category="compteur"
+        category="photo_compteur"
         label="Compteur"
         onPhotoSaved={onPhotoSaved}
       />
       <QuickPhotoButton
         clientId={clientId}
-        category="tableau_electrique"
+        category="photo_tableau"
         label="Tableau"
         onPhotoSaved={onPhotoSaved}
       />

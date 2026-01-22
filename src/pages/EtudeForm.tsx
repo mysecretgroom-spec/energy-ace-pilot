@@ -1336,7 +1336,7 @@ const EtudeForm = () => {
               {clientId && (
                 <QuickPhotoButton
                   clientId={clientId}
-                  category="toiture"
+                  category="photo_toiture"
                   label="Photo"
                 />
               )}
@@ -1448,7 +1448,7 @@ const EtudeForm = () => {
               {clientId && (
                 <QuickPhotoButton
                   clientId={clientId}
-                  category="compteur"
+                  category="photo_compteur"
                   label="Photo"
                 />
               )}
@@ -1506,7 +1506,7 @@ const EtudeForm = () => {
               {clientId && (
                 <QuickPhotoButton
                   clientId={clientId}
-                  category="tableau_electrique"
+                  category="photo_tableau"
                   label="Photo"
                 />
               )}

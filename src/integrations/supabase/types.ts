@@ -1598,6 +1598,22 @@ export type Database = {
         | "contrat"
         | "plan"
         | "assurance"
+        | "photo_tableau"
+        | "photo_compteur"
+        | "photo_toiture"
+        | "cni_monsieur_recto"
+        | "cni_madame_recto"
+        | "cni_monsieur_verso"
+        | "cni_madame_verso"
+        | "rib"
+        | "avis_impots"
+        | "taxe_fonciere"
+        | "acte_notarie"
+        | "fiche_paie_monsieur"
+        | "fiche_paie_madame"
+        | "attestation_retraite"
+        | "attestation_invalidite"
+        | "bilans"
       etude_verdict: "valide" | "a_etudier" | "invalide"
       frais_categorie:
         | "carburant"
@@ -1784,6 +1800,22 @@ export const Constants = {
         "contrat",
         "plan",
         "assurance",
+        "photo_tableau",
+        "photo_compteur",
+        "photo_toiture",
+        "cni_monsieur_recto",
+        "cni_madame_recto",
+        "cni_monsieur_verso",
+        "cni_madame_verso",
+        "rib",
+        "avis_impots",
+        "taxe_fonciere",
+        "acte_notarie",
+        "fiche_paie_monsieur",
+        "fiche_paie_madame",
+        "attestation_retraite",
+        "attestation_invalidite",
+        "bilans",
       ],
       etude_verdict: ["valide", "a_etudier", "invalide"],
       frais_categorie: [
