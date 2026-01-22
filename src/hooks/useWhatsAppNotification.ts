@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { EtudeData, getEtudePdfBlob } from "@/lib/exportEtudePdf";
 
 interface SendWhatsAppParams {
   clientName: string;
@@ -10,6 +11,7 @@ interface SendWhatsAppParams {
   r2DateTime?: string | null;
   userId: string;
   cqTime?: string;
+  pdfData?: EtudeData; // Pour r2_prestudy - envoi du PDF
 }
 
 // Default templates with placeholders
@@ -66,7 +68,8 @@ _Envoyé depuis SolarFlow_`,
 📆 *RDV R2 prévu:*
 {{r2_date}}
 
-Une pré-étude sera effectuée avant le second rendez-vous.
+📄 *Document PDF joint:*
+L'étude technique a été partagée séparément.
 
 {{comment}}
 
@@ -109,6 +112,7 @@ export const useWhatsAppNotification = () => {
     r2DateTime,
     userId,
     cqTime,
+    pdfData,
   }: SendWhatsAppParams): Promise<boolean> => {
     try {
       // Fetch notification settings
@@ -176,8 +180,43 @@ export const useWhatsAppNotification = () => {
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-      // Open WhatsApp in new tab
-      window.open(whatsappUrl, "_blank");
+      // Pour r2_prestudy, partager le PDF en utilisant l'API Web Share si disponible
+      if (classification === "r2_prestudy" && pdfData) {
+        try {
+          const pdfBlob = getEtudePdfBlob(pdfData);
+          const fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+          const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            // Partager le PDF via Web Share API
+            await navigator.share({
+              files: [file],
+              title: `Étude ${pdfData.clientPrenom} ${pdfData.clientNom}`,
+              text: message,
+            });
+          } else {
+            // Fallback: Télécharger le PDF et ouvrir WhatsApp
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            // Ouvrir WhatsApp après le téléchargement
+            window.open(whatsappUrl, "_blank");
+          }
+        } catch (shareError) {
+          console.log("[WhatsApp] Fallback vers WhatsApp classique:", shareError);
+          // En cas d'erreur de partage, ouvrir WhatsApp normalement
+          window.open(whatsappUrl, "_blank");
+        }
+      } else {
+        // Open WhatsApp in new tab (comportement standard)
+        window.open(whatsappUrl, "_blank");
+      }
 
       return true;
     } catch (error) {
