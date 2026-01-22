@@ -517,36 +517,51 @@ export type Database = {
       documents: {
         Row: {
           client_id: string
+          context_source: string | null
           created_at: string
           etude_id: string | null
+          extracted_text: string | null
           id: string
+          metadata: Json | null
           mime_type: string | null
           nom: string
+          page_count: number | null
           taille_bytes: number | null
+          thumbnails_urls: string[] | null
           type_document: Database["public"]["Enums"]["document_type"]
           url: string
           user_id: string
         }
         Insert: {
           client_id: string
+          context_source?: string | null
           created_at?: string
           etude_id?: string | null
+          extracted_text?: string | null
           id?: string
+          metadata?: Json | null
           mime_type?: string | null
           nom: string
+          page_count?: number | null
           taille_bytes?: number | null
+          thumbnails_urls?: string[] | null
           type_document?: Database["public"]["Enums"]["document_type"]
           url: string
           user_id: string
         }
         Update: {
           client_id?: string
+          context_source?: string | null
           created_at?: string
           etude_id?: string | null
+          extracted_text?: string | null
           id?: string
+          metadata?: Json | null
           mime_type?: string | null
           nom?: string
+          page_count?: number | null
           taille_bytes?: number | null
+          thumbnails_urls?: string[] | null
           type_document?: Database["public"]["Enums"]["document_type"]
           url?: string
           user_id?: string
@@ -858,6 +873,7 @@ export type Database = {
           created_at: string
           date_frais: string
           description: string | null
+          document_id: string | null
           id: string
           justificatif_url: string | null
           montant: number
@@ -869,6 +885,7 @@ export type Database = {
           created_at?: string
           date_frais?: string
           description?: string | null
+          document_id?: string | null
           id?: string
           justificatif_url?: string | null
           montant: number
@@ -880,13 +897,22 @@ export type Database = {
           created_at?: string
           date_frais?: string
           description?: string | null
+          document_id?: string | null
           id?: string
           justificatif_url?: string | null
           montant?: number
           ocr_data?: Json | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "frais_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gmail_imports: {
         Row: {
@@ -1555,6 +1581,11 @@ export type Database = {
         | "bon_commande"
         | "devis"
         | "autre"
+        | "facture_frais"
+        | "photo_chantier"
+        | "contrat"
+        | "plan"
+        | "assurance"
       etude_verdict: "valide" | "a_etudier" | "invalide"
       frais_categorie:
         | "carburant"
@@ -1734,6 +1765,11 @@ export const Constants = {
         "bon_commande",
         "devis",
         "autre",
+        "facture_frais",
+        "photo_chantier",
+        "contrat",
+        "plan",
+        "assurance",
       ],
       etude_verdict: ["valide", "a_etudier", "invalide"],
       frais_categorie: [
