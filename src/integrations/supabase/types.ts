@@ -145,6 +145,36 @@ export type Database = {
         }
         Relationships: []
       }
+      data_calibres: {
+        Row: {
+          actif: boolean
+          calibre_amperes: number
+          created_at: string
+          id: string
+          intensite_max_a: number
+          puissance_kva: number
+          usage_typique: string | null
+        }
+        Insert: {
+          actif?: boolean
+          calibre_amperes: number
+          created_at?: string
+          id?: string
+          intensite_max_a: number
+          puissance_kva: number
+          usage_typique?: string | null
+        }
+        Update: {
+          actif?: boolean
+          calibre_amperes?: number
+          created_at?: string
+          id?: string
+          intensite_max_a?: number
+          puissance_kva?: number
+          usage_typique?: string | null
+        }
+        Relationships: []
+      }
       data_commissions: {
         Row: {
           bonus_survente: number | null
@@ -169,6 +199,33 @@ export type Database = {
           taux_commission?: number
           tranche_max?: number
           tranche_min?: number
+        }
+        Relationships: []
+      }
+      data_compteurs: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          id: string
+          montant: number
+          type_compteur: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          montant?: number
+          type_compteur: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          montant?: number
+          type_compteur?: string
         }
         Relationships: []
       }
