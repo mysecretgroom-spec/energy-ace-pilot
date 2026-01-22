@@ -4,13 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   FileText,
   Image,
   Download,
@@ -18,9 +11,11 @@ import {
   CheckSquare,
   Square,
   FileArchive,
+  Eye,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PDFDocument } from "pdf-lib";
+import { DocumentPreview } from "./DocumentPreview";
 
 interface DocumentItem {
   id: string;
@@ -42,7 +37,12 @@ export function MultiDocumentSelector({
 }: MultiDocumentSelectorProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  
+  // Preview state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDocuments, setPreviewDocuments] = useState<DocumentItem[]>([]);
+  const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
 
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -93,6 +93,30 @@ export function MultiDocumentSelector({
     if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
     return response.arrayBuffer();
   };
+
+  // Open preview for a single document
+  const openSinglePreview = useCallback((doc: DocumentItem) => {
+    setPreviewDocuments([doc]);
+    setPreviewInitialIndex(0);
+    setPreviewOpen(true);
+  }, []);
+
+  // Open preview for selected documents
+  const openSelectedPreview = useCallback(() => {
+    if (selectedIds.size === 0) {
+      toast({
+        title: "Sélection vide",
+        description: "Veuillez sélectionner au moins un document",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const selectedDocs = documents.filter((d) => selectedIds.has(d.id));
+    setPreviewDocuments(selectedDocs);
+    setPreviewInitialIndex(0);
+    setPreviewOpen(true);
+  }, [selectedIds, documents]);
 
   const generateCombinedPdf = useCallback(async () => {
     if (selectedIds.size === 0) {
@@ -195,105 +219,142 @@ export function MultiDocumentSelector({
   const isAllSelected = selectedIds.size === documents.length && documents.length > 0;
 
   return (
-    <div className="space-y-3">
-      {/* Selection controls */}
-      {documents.length > 0 && (
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={selectAll}
-            className="gap-2"
-          >
-            {isAllSelected ? (
-              <CheckSquare className="h-4 w-4" />
-            ) : (
-              <Square className="h-4 w-4" />
-            )}
-            {isAllSelected ? "Désélectionner tout" : "Tout sélectionner"}
-          </Button>
-
-          {selectedIds.size > 0 && (
+    <>
+      <div className="space-y-3">
+        {/* Selection controls */}
+        {documents.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
+              variant="ghost"
               size="sm"
-              onClick={generateCombinedPdf}
-              disabled={isGenerating}
+              onClick={selectAll}
               className="gap-2"
             >
-              {isGenerating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {isAllSelected ? (
+                <CheckSquare className="h-4 w-4" />
               ) : (
-                <FileArchive className="h-4 w-4" />
+                <Square className="h-4 w-4" />
               )}
-              Générer PDF ({selectedIds.size})
+              {isAllSelected ? "Désélectionner" : "Tout sélectionner"}
             </Button>
-          )}
-        </div>
-      )}
 
-      {/* Document list */}
-      {documents.map((doc) => {
-        const isSelected = selectedIds.has(doc.id);
-        const fileType = getFileType(doc.url);
-
-        return (
-          <Card
-            key={doc.id}
-            className={`shadow-card cursor-pointer transition-all ${
-              isSelected ? "ring-2 ring-primary bg-primary/5" : ""
-            }`}
-            onClick={() => toggleSelection(doc.id)}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleSelection(doc.id)}
-                  onClick={(e) => e.stopPropagation()}
-                />
-
-                <div className="p-2 rounded-lg bg-muted flex-shrink-0">
-                  {fileType === "image" ? (
-                    <Image className="h-4 w-4 text-primary" />
-                  ) : (
-                    <FileText className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-
-                {/* Thumbnail if available */}
-                {doc.thumbnails_urls && doc.thumbnails_urls[0] && (
-                  <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
-                    <img
-                      src={doc.thumbnails_urls[0]}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{doc.nom}</p>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {doc.type_document.replace("_", " ")} • {formatDate(doc.created_at)}
-                  </p>
-                </div>
-
+            {selectedIds.size > 0 && (
+              <div className="flex gap-2 ml-auto">
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(doc.url, "_blank");
-                  }}
+                  variant="outline"
+                  size="sm"
+                  onClick={openSelectedPreview}
+                  className="gap-2"
                 >
-                  <Download className="h-4 w-4" />
+                  <Eye className="h-4 w-4" />
+                  Prévisualiser ({selectedIds.size})
+                </Button>
+                
+                <Button
+                  size="sm"
+                  onClick={generateCombinedPdf}
+                  disabled={isGenerating}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileArchive className="h-4 w-4" />
+                  )}
+                  PDF combiné
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+            )}
+          </div>
+        )}
+
+        {/* Document list */}
+        {documents.map((doc) => {
+          const isSelected = selectedIds.has(doc.id);
+          const fileType = getFileType(doc.url);
+
+          return (
+            <Card
+              key={doc.id}
+              className={`shadow-card cursor-pointer transition-all ${
+                isSelected ? "ring-2 ring-primary bg-primary/5" : ""
+              }`}
+              onClick={() => toggleSelection(doc.id)}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleSelection(doc.id)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  <div className="p-2 rounded-lg bg-muted flex-shrink-0">
+                    {fileType === "image" ? (
+                      <Image className="h-4 w-4 text-primary" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+
+                  {/* Thumbnail if available */}
+                  {doc.thumbnails_urls && doc.thumbnails_urls[0] && (
+                    <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+                      <img
+                        src={doc.thumbnails_urls[0]}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.nom}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {doc.type_document.replace(/_/g, " ")} • {formatDate(doc.created_at)}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openSinglePreview(doc);
+                      }}
+                      title="Prévisualiser"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(doc.url, "_blank");
+                      }}
+                      title="Télécharger"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Preview dialog */}
+      <DocumentPreview
+        isOpen={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        documents={previewDocuments}
+        initialIndex={previewInitialIndex}
+      />
+    </>
   );
 }
