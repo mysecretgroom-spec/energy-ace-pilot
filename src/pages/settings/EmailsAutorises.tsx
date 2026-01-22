@@ -8,22 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, Mail, Loader2 } from "lucide-react";
+import { Plus, Trash2, Mail, Loader2, Save, RotateCcw } from "lucide-react";
 
 interface EmailAutorise {
   id: string;
   email: string;
   nom_source: string | null;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const EmailsAutorises = () => {
   const { user } = useAuth();
   const [emails, setEmails] = useState<EmailAutorise[]>([]);
+  const [originalEmails, setOriginalEmails] = useState<EmailAutorise[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newEmail, setNewEmail] = useState("");
-  const [newNomSource, setNewNomSource] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (user) fetchEmails();
@@ -40,7 +42,14 @@ const EmailsAutorises = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setEmails(data || []);
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setEmails(formattedData);
+      setOriginalEmails(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement emails:", error);
       toast.error("Erreur lors du chargement");
@@ -49,119 +58,119 @@ const EmailsAutorises = () => {
     }
   };
 
-  const handleAdd = async () => {
-    if (!user || !newEmail.trim()) return;
-    
-    // Validate email format
+  const handleAddNew = () => {
+    if (!user) return;
+    const newItem: EmailAutorise = {
+      id: `new-${Date.now()}`,
+      email: "",
+      nom_source: null,
+      actif: true,
+      isNew: true,
+      isModified: true,
+    };
+    setEmails([newItem, ...emails]);
+    setHasChanges(true);
+  };
+
+  const handleFieldChange = (id: string, field: keyof EmailAutorise, value: any) => {
+    setEmails(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer cet email ?")) return;
+    setEmails(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setEmails(JSON.parse(JSON.stringify(originalEmails)));
+    setHasChanges(false);
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    // Validate
+    const invalidItems = emails.filter(item => !item.email);
+    if (invalidItems.length > 0) {
+      toast.error("L'email est obligatoire");
+      return;
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail.trim())) {
+    const invalidEmails = emails.filter(item => !emailRegex.test(item.email.trim()));
+    if (invalidEmails.length > 0) {
       toast.error("Format d'email invalide");
       return;
     }
 
-    setAdding(true);
+    setSaving(true);
     try {
-      const { error } = await supabase.from("emails_autorises").insert({
-        user_id: user.id,
-        email: newEmail.trim().toLowerCase(),
-        nom_source: newNomSource.trim() || null,
-        actif: true,
-      });
+      const currentIds = new Set(emails.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalEmails.filter(o => !currentIds.has(o.id));
 
-      if (error) throw error;
-      
-      toast.success("Email ajouté");
-      setNewEmail("");
-      setNewNomSource("");
+      for (const item of toDelete) {
+        const { error } = await supabase.from("emails_autorises").delete().eq("id", item.id);
+        if (error) throw error;
+      }
+
+      for (const item of emails) {
+        const payload = {
+          user_id: user.id,
+          email: item.email.trim().toLowerCase(),
+          nom_source: item.nom_source?.trim() || null,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("emails_autorises").insert(payload);
+          if (error) {
+            if (error.code === "23505") {
+              toast.error(`L'email ${item.email} existe déjà`);
+              return;
+            }
+            throw error;
+          }
+        } else if (item.isModified) {
+          const { error } = await supabase.from("emails_autorises").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
       fetchEmails();
     } catch (error: any) {
-      console.error("Erreur ajout email:", error);
-      if (error.code === "23505") {
-        toast.error("Cet email existe déjà");
-      } else {
-        toast.error("Erreur lors de l'ajout");
-      }
+      console.error("Erreur sauvegarde:", error);
+      toast.error(error.message || "Erreur lors de la sauvegarde");
     } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleToggle = async (id: string, actif: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("emails_autorises")
-        .update({ actif: !actif })
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      setEmails(prev => prev.map(e => e.id === id ? { ...e, actif: !actif } : e));
-    } catch (error) {
-      console.error("Erreur toggle:", error);
-      toast.error("Erreur lors de la modification");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("emails_autorises")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-      
-      setEmails(prev => prev.filter(e => e.id !== id));
-      toast.success("Email supprimé");
-    } catch (error) {
-      console.error("Erreur suppression:", error);
-      toast.error("Erreur lors de la suppression");
+      setSaving(false);
     }
   };
 
   return (
     <MobileLayout title="Emails autorisés" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
-              Seuls les emails de ces expéditeurs pourront créer des RDV via l'import email.
+              Modifiez directement les emails puis cliquez sur "Enregistrer".
             </p>
           </CardContent>
         </Card>
 
         {/* Ajouter un email */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Ajouter un expéditeur</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Input
-              placeholder="email@exemple.com"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              type="email"
-            />
-            <Input
-              placeholder="Nom source (optionnel)"
-              value={newNomSource}
-              onChange={(e) => setNewNomSource(e.target.value)}
-            />
-            <Button 
-              className="w-full" 
-              onClick={handleAdd}
-              disabled={!newEmail.trim() || adding}
-            >
-              {adding ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Plus className="h-4 w-4 mr-2" />
-              )}
-              Ajouter
-            </Button>
-          </CardContent>
-        </Card>
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          Ajouter un expéditeur
+        </Button>
 
         {/* Liste des emails */}
         <Card>
@@ -184,25 +193,36 @@ const EmailsAutorises = () => {
             ) : (
               <div className="divide-y divide-border">
                 {emails.map((email) => (
-                  <div key={email.id} className="p-4 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{email.email}</p>
-                      {email.nom_source && (
-                        <p className="text-xs text-muted-foreground">{email.nom_source}</p>
-                      )}
+                  <div key={email.id} className={`p-4 space-y-2 ${email.isModified ? "bg-amber-500/5" : ""}`}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="email"
+                        value={email.email}
+                        onChange={(e) => handleFieldChange(email.id, "email", e.target.value)}
+                        className="h-8 flex-1 text-sm"
+                        placeholder="email@exemple.com"
+                      />
+                      {email.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
+                      {email.isModified && !email.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
+                      <Switch
+                        checked={email.actif}
+                        onCheckedChange={(c) => handleFieldChange(email.id, "actif", c)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDelete(email.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Switch
-                      checked={email.actif}
-                      onCheckedChange={() => handleToggle(email.id, email.actif)}
+                    <Input
+                      value={email.nom_source || ""}
+                      onChange={(e) => handleFieldChange(email.id, "nom_source", e.target.value || null)}
+                      className="h-8 text-xs"
+                      placeholder="Nom source (optionnel)"
                     />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => handleDelete(email.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -210,6 +230,33 @@ const EmailsAutorises = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };

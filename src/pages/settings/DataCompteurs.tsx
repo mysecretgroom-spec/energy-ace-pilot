@@ -5,17 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { Zap, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Zap, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
 
 interface CompteurData {
   id: string;
@@ -23,21 +15,16 @@ interface CompteurData {
   montant: number;
   description: string | null;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const DataCompteurs = () => {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [data, setData] = useState<CompteurData[]>([]);
+  const [originalData, setOriginalData] = useState<CompteurData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<CompteurData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    type_compteur: "",
-    montant: "",
-    description: "",
-    actif: true,
-  });
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -52,7 +39,14 @@ const DataCompteurs = () => {
         .order("type_compteur", { ascending: true });
 
       if (error) throw error;
-      setData(compteurData || []);
+      const formattedData = (compteurData || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setData(formattedData);
+      setOriginalData(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement compteurs:", error);
       toast.error("Erreur lors du chargement");
@@ -61,57 +55,77 @@ const DataCompteurs = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
-      type_compteur: "",
-      montant: "0",
-      description: "",
+  const handleAddNew = () => {
+    const newItem: CompteurData = {
+      id: `new-${Date.now()}`,
+      type_compteur: "NOUVEAU",
+      montant: 0,
+      description: null,
       actif: true,
-    });
-    setIsDialogOpen(true);
+      isNew: true,
+      isModified: true,
+    };
+    setData([newItem, ...data]);
+    setHasChanges(true);
   };
 
-  const openEditDialog = (item: CompteurData) => {
-    setEditItem(item);
-    setFormData({
-      type_compteur: item.type_compteur,
-      montant: item.montant.toString(),
-      description: item.description || "",
-      actif: item.actif,
-    });
-    setIsDialogOpen(true);
+  const handleFieldChange = (id: string, field: keyof CompteurData, value: any) => {
+    setData(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer ce type de compteur ?")) return;
+    setData(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
-    if (!formData.type_compteur) {
-      toast.error("Veuillez remplir le type de compteur");
+    const invalidItems = data.filter(item => !item.type_compteur);
+    if (invalidItems.length > 0) {
+      toast.error("Le type est obligatoire pour tous les compteurs");
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        type_compteur: formData.type_compteur.toUpperCase(),
-        montant: parseFloat(formData.montant) || 0,
-        description: formData.description || null,
-        actif: formData.actif,
-      };
+      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalData.filter(o => !currentIds.has(o.id));
 
-      if (editItem) {
-        const { error } = await supabase
-          .from("data_compteurs")
-          .update(payload)
-          .eq("id", editItem.id);
+      for (const item of toDelete) {
+        const { error } = await supabase.from("data_compteurs").delete().eq("id", item.id);
         if (error) throw error;
-        toast.success("Type de compteur modifié");
-      } else {
-        const { error } = await supabase.from("data_compteurs").insert(payload);
-        if (error) throw error;
-        toast.success("Type de compteur ajouté");
       }
 
-      setIsDialogOpen(false);
+      for (const item of data) {
+        const payload = {
+          type_compteur: item.type_compteur.toUpperCase(),
+          montant: item.montant,
+          description: item.description,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("data_compteurs").insert(payload);
+          if (error) throw error;
+        } else if (item.isModified) {
+          const { error } = await supabase.from("data_compteurs").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
@@ -121,23 +135,9 @@ const DataCompteurs = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce type de compteur ?")) return;
-
-    try {
-      const { error } = await supabase.from("data_compteurs").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Type de compteur supprimé");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
-    }
-  };
-
   return (
     <MobileLayout title="Types de compteurs" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-blue-500/10 border-blue-500/20">
           <CardContent className="p-4 flex items-start gap-3">
@@ -145,19 +145,17 @@ const DataCompteurs = () => {
             <div>
               <p className="font-medium text-sm">Types de compteurs</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Définissez les types de compteurs (monophasé, triphasé) avec leurs surcoûts éventuels.
+                Modifiez directement les valeurs puis cliquez sur "Enregistrer".
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions admin */}
-        {isAdmin && (
-          <Button onClick={openAddDialog} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un type
-          </Button>
-        )}
+        {/* Actions */}
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          Ajouter un type
+        </Button>
 
         {/* Liste */}
         <Card>
@@ -168,7 +166,7 @@ const DataCompteurs = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {loading || roleLoading ? (
+            {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -181,119 +179,81 @@ const DataCompteurs = () => {
                 {data.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 flex items-center justify-between"
+                    className={`p-4 space-y-2 ${item.isModified ? "bg-amber-500/5" : ""}`}
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.type_compteur}</span>
-                        {!item.actif && (
-                          <Badge variant="secondary" className="text-xs">Inactif</Badge>
-                        )}
+                    <div className="flex items-center gap-3">
+                      <Input
+                        value={item.type_compteur}
+                        onChange={(e) => handleFieldChange(item.id, "type_compteur", e.target.value)}
+                        className="h-8 font-medium text-sm w-32"
+                        placeholder="Type"
+                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={item.montant}
+                          onChange={(e) => handleFieldChange(item.id, "montant", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm w-24"
+                        />
+                        <span className="text-sm text-muted-foreground">€</span>
                       </div>
-                      {item.description && (
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right mr-2">
-                        <p className="font-bold text-primary">
-                          {item.montant.toLocaleString()} €
-                        </p>
+                      {item.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
+                      {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Switch
+                          checked={item.actif}
+                          onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      {isAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
                     </div>
+                    <Input
+                      value={item.description || ""}
+                      onChange={(e) => handleFieldChange(item.id, "description", e.target.value || null)}
+                      className="h-8 text-xs"
+                      placeholder="Description optionnelle..."
+                    />
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Dialog d'édition */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editItem ? "Modifier le type" : "Ajouter un type"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Type de compteur</label>
-                <Input
-                  value={formData.type_compteur}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type_compteur: e.target.value })
-                  }
-                  placeholder="MONOPHASÉ, TRIPHASÉ..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Montant (€)</label>
-                <Input
-                  type="number"
-                  value={formData.montant}
-                  onChange={(e) =>
-                    setFormData({ ...formData, montant: e.target.value })
-                  }
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Input
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Description optionnelle..."
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Actif</label>
-                <Switch
-                  checked={formData.actif}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, actif: checked })
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };

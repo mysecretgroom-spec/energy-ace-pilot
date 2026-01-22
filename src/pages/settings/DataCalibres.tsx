@@ -5,17 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { Gauge, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Gauge, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
 
 interface CalibreData {
   id: string;
@@ -24,22 +16,16 @@ interface CalibreData {
   intensite_max_a: number;
   usage_typique: string | null;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const DataCalibres = () => {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [data, setData] = useState<CalibreData[]>([]);
+  const [originalData, setOriginalData] = useState<CalibreData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<CalibreData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    calibre_amperes: "",
-    puissance_kva: "",
-    intensite_max_a: "",
-    usage_typique: "",
-    actif: true,
-  });
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -54,7 +40,14 @@ const DataCalibres = () => {
         .order("calibre_amperes", { ascending: true });
 
       if (error) throw error;
-      setData(calibreData || []);
+      const formattedData = (calibreData || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setData(formattedData);
+      setOriginalData(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement calibres:", error);
       toast.error("Erreur lors du chargement");
@@ -63,61 +56,79 @@ const DataCalibres = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
-      calibre_amperes: "",
-      puissance_kva: "",
-      intensite_max_a: "",
-      usage_typique: "",
+  const handleAddNew = () => {
+    const newItem: CalibreData = {
+      id: `new-${Date.now()}`,
+      calibre_amperes: 15,
+      puissance_kva: 3,
+      intensite_max_a: 15,
+      usage_typique: null,
       actif: true,
-    });
-    setIsDialogOpen(true);
+      isNew: true,
+      isModified: true,
+    };
+    setData([newItem, ...data]);
+    setHasChanges(true);
   };
 
-  const openEditDialog = (item: CalibreData) => {
-    setEditItem(item);
-    setFormData({
-      calibre_amperes: item.calibre_amperes.toString(),
-      puissance_kva: item.puissance_kva.toString(),
-      intensite_max_a: item.intensite_max_a.toString(),
-      usage_typique: item.usage_typique || "",
-      actif: item.actif,
-    });
-    setIsDialogOpen(true);
+  const handleFieldChange = (id: string, field: keyof CalibreData, value: any) => {
+    setData(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer ce calibre ?")) return;
+    setData(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
-    if (!formData.calibre_amperes || !formData.puissance_kva) {
-      toast.error("Veuillez remplir les champs obligatoires");
+    const invalidItems = data.filter(item => !item.calibre_amperes || !item.puissance_kva);
+    if (invalidItems.length > 0) {
+      toast.error("Calibre et puissance sont obligatoires");
       return;
     }
 
     setSaving(true);
     try {
-      const calibre = parseInt(formData.calibre_amperes);
-      const payload = {
-        calibre_amperes: calibre,
-        puissance_kva: parseFloat(formData.puissance_kva),
-        intensite_max_a: parseInt(formData.intensite_max_a) || calibre,
-        usage_typique: formData.usage_typique || null,
-        actif: formData.actif,
-      };
+      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalData.filter(o => !currentIds.has(o.id));
 
-      if (editItem) {
-        const { error } = await supabase
-          .from("data_calibres")
-          .update(payload)
-          .eq("id", editItem.id);
+      for (const item of toDelete) {
+        const { error } = await supabase.from("data_calibres").delete().eq("id", item.id);
         if (error) throw error;
-        toast.success("Calibre modifié");
-      } else {
-        const { error } = await supabase.from("data_calibres").insert(payload);
-        if (error) throw error;
-        toast.success("Calibre ajouté");
       }
 
-      setIsDialogOpen(false);
+      for (const item of data) {
+        const payload = {
+          calibre_amperes: item.calibre_amperes,
+          puissance_kva: item.puissance_kva,
+          intensite_max_a: item.intensite_max_a || item.calibre_amperes,
+          usage_typique: item.usage_typique,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("data_calibres").insert(payload);
+          if (error) throw error;
+        } else if (item.isModified) {
+          const { error } = await supabase.from("data_calibres").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
@@ -127,23 +138,9 @@ const DataCalibres = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce calibre ?")) return;
-
-    try {
-      const { error } = await supabase.from("data_calibres").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Calibre supprimé");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
-    }
-  };
-
   return (
     <MobileLayout title="Calibres disjoncteur" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-orange-500/10 border-orange-500/20">
           <CardContent className="p-4 flex items-start gap-3">
@@ -151,19 +148,17 @@ const DataCalibres = () => {
             <div>
               <p className="font-medium text-sm">Calibres de disjoncteur</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Correspondance entre calibre (A), puissance d'abonnement (kVA) et usage typique.
+                Modifiez directement les valeurs puis cliquez sur "Enregistrer".
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions admin */}
-        {isAdmin && (
-          <Button onClick={openAddDialog} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un calibre
-          </Button>
-        )}
+        {/* Actions */}
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          Ajouter un calibre
+        </Button>
 
         {/* Liste */}
         <Card>
@@ -174,7 +169,7 @@ const DataCalibres = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {loading || roleLoading ? (
+            {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -187,135 +182,95 @@ const DataCalibres = () => {
                 {data.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 space-y-2"
+                    className={`p-4 space-y-2 ${item.isModified ? "bg-amber-500/5" : ""}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="font-mono text-base px-3 py-1">
-                          {item.calibre_amperes} A
-                        </Badge>
-                        <div>
-                          <p className="font-bold text-primary">{item.puissance_kva} kVA</p>
-                          <p className="text-xs text-muted-foreground">Max: {item.intensite_max_a} A</p>
-                        </div>
-                        {!item.actif && (
-                          <Badge variant="secondary" className="text-xs">Inactif</Badge>
-                        )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={item.calibre_amperes}
+                          onChange={(e) => handleFieldChange(item.id, "calibre_amperes", parseInt(e.target.value) || 0)}
+                          className="h-8 text-sm w-16"
+                        />
+                        <span className="text-sm text-muted-foreground">A</span>
                       </div>
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={item.puissance_kva}
+                          onChange={(e) => handleFieldChange(item.id, "puissance_kva", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm w-16"
+                        />
+                        <span className="text-sm text-muted-foreground">kVA</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">Max:</span>
+                        <Input
+                          type="number"
+                          value={item.intensite_max_a}
+                          onChange={(e) => handleFieldChange(item.id, "intensite_max_a", parseInt(e.target.value) || 0)}
+                          className="h-8 text-sm w-16"
+                        />
+                        <span className="text-sm text-muted-foreground">A</span>
+                      </div>
+                      {item.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
+                      {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
+                      <div className="flex items-center gap-2 ml-auto">
+                        <Switch
+                          checked={item.actif}
+                          onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    {item.usage_typique && (
-                      <p className="text-xs text-muted-foreground pl-1">
-                        {item.usage_typique}
-                      </p>
-                    )}
+                    <Input
+                      value={item.usage_typique || ""}
+                      onChange={(e) => handleFieldChange(item.id, "usage_typique", e.target.value || null)}
+                      className="h-8 text-xs"
+                      placeholder="Usage typique (ex: Maison standard avec...)"
+                    />
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Dialog d'édition */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editItem ? "Modifier le calibre" : "Ajouter un calibre"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Calibre (A)</label>
-                  <Input
-                    type="number"
-                    value={formData.calibre_amperes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, calibre_amperes: e.target.value })
-                    }
-                    placeholder="15, 30, 45..."
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Puissance (kVA)</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.puissance_kva}
-                    onChange={(e) =>
-                      setFormData({ ...formData, puissance_kva: e.target.value })
-                    }
-                    placeholder="3, 6, 9..."
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Intensité max (A)</label>
-                <Input
-                  type="number"
-                  value={formData.intensite_max_a}
-                  onChange={(e) =>
-                    setFormData({ ...formData, intensite_max_a: e.target.value })
-                  }
-                  placeholder="15, 30, 45..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Usage typique</label>
-                <Input
-                  value={formData.usage_typique}
-                  onChange={(e) =>
-                    setFormData({ ...formData, usage_typique: e.target.value })
-                  }
-                  placeholder="Maison standard avec..."
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Actif</label>
-                <Switch
-                  checked={formData.actif}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, actif: checked })
-                  }
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };

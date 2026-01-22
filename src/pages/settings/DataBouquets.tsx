@@ -6,17 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { Calculator, Loader2, Package, Plus, Pencil, Trash2 } from "lucide-react";
+import { Calculator, Loader2, Package, Plus, Trash2, Save, RotateCcw } from "lucide-react";
 
 interface BouquetData {
   id: string;
@@ -26,23 +18,16 @@ interface BouquetData {
   prix_max: number;
   description: string | null;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const DataBouquets = () => {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [data, setData] = useState<BouquetData[]>([]);
+  const [originalData, setOriginalData] = useState<BouquetData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<BouquetData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    nom_bouquet: "",
-    puissance_kwc: "",
-    prix_recommande: "",
-    prix_max: "",
-    description: "",
-    actif: true,
-  });
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -57,7 +42,14 @@ const DataBouquets = () => {
         .order("puissance_kwc", { ascending: true });
 
       if (error) throw error;
-      setData(bouquetData || []);
+      const formattedData = (bouquetData || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setData(formattedData);
+      setOriginalData(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement bouquets:", error);
       toast.error("Erreur lors du chargement");
@@ -66,83 +58,87 @@ const DataBouquets = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
-      nom_bouquet: "",
-      puissance_kwc: "3",
-      prix_recommande: "10000",
-      prix_max: "12000",
-      description: "",
+  const handleAddNew = () => {
+    const newItem: BouquetData = {
+      id: `new-${Date.now()}`,
+      nom_bouquet: "Nouveau bouquet",
+      puissance_kwc: 3,
+      prix_recommande: 10000,
+      prix_max: 12000,
+      description: null,
       actif: true,
-    });
-    setIsDialogOpen(true);
+      isNew: true,
+      isModified: true,
+    };
+    setData([newItem, ...data]);
+    setHasChanges(true);
   };
 
-  const openEditDialog = (item: BouquetData) => {
-    setEditItem(item);
-    setFormData({
-      nom_bouquet: item.nom_bouquet,
-      puissance_kwc: item.puissance_kwc.toString(),
-      prix_recommande: item.prix_recommande.toString(),
-      prix_max: item.prix_max.toString(),
-      description: item.description || "",
-      actif: item.actif,
-    });
-    setIsDialogOpen(true);
+  const handleFieldChange = (id: string, field: keyof BouquetData, value: any) => {
+    setData(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer ce bouquet ?")) return;
+    setData(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
-    if (!formData.nom_bouquet) {
-      toast.error("Le nom est obligatoire");
+    const invalidItems = data.filter(item => !item.nom_bouquet);
+    if (invalidItems.length > 0) {
+      toast.error("Le nom est obligatoire pour tous les bouquets");
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        nom_bouquet: formData.nom_bouquet,
-        puissance_kwc: parseFloat(formData.puissance_kwc) || 0,
-        prix_recommande: parseFloat(formData.prix_recommande) || 0,
-        prix_max: parseFloat(formData.prix_max) || 0,
-        description: formData.description || null,
-        actif: formData.actif,
-      };
+      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalData.filter(o => !currentIds.has(o.id));
 
-      if (editItem) {
-        const { error } = await supabase
-          .from("data_prix_bouquets")
-          .update(payload)
-          .eq("id", editItem.id);
+      for (const item of toDelete) {
+        const { error } = await supabase.from("data_prix_bouquets").delete().eq("id", item.id);
         if (error) throw error;
-        toast.success("Bouquet modifié");
-      } else {
-        const { error } = await supabase.from("data_prix_bouquets").insert(payload);
-        if (error) throw error;
-        toast.success("Bouquet ajouté");
       }
 
-      setIsDialogOpen(false);
+      for (const item of data) {
+        const payload = {
+          nom_bouquet: item.nom_bouquet,
+          puissance_kwc: item.puissance_kwc,
+          prix_recommande: item.prix_recommande,
+          prix_max: item.prix_max,
+          description: item.description,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("data_prix_bouquets").insert(payload);
+          if (error) throw error;
+        } else if (item.isModified) {
+          const { error } = await supabase.from("data_prix_bouquets").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
       toast.error(error.message || "Erreur lors de la sauvegarde");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce bouquet ?")) return;
-
-    try {
-      const { error } = await supabase.from("data_prix_bouquets").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Bouquet supprimé");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
     }
   };
 
@@ -156,7 +152,7 @@ const DataBouquets = () => {
 
   return (
     <MobileLayout title="Prix bouquets" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="p-4 flex items-start gap-3">
@@ -164,23 +160,20 @@ const DataBouquets = () => {
             <div>
               <p className="font-medium text-sm">Tarifs installations</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Prix des installations selon la puissance. Le prix recommandé est
-                la base de calcul, le prix max est le plafond autorisé.
+                Modifiez directement les valeurs puis cliquez sur "Enregistrer".
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions admin */}
-        {isAdmin && (
-          <Button onClick={openAddDialog} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un bouquet
-          </Button>
-        )}
+        {/* Actions */}
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          Ajouter un bouquet
+        </Button>
 
         {/* Liste */}
-        {loading || roleLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -194,158 +187,117 @@ const DataBouquets = () => {
         ) : (
           <div className="space-y-3">
             {data.map((item) => (
-              <Card key={item.id} className={!item.actif ? "opacity-60" : ""}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{item.nom_bouquet}</h3>
-                        {!item.actif && <Badge variant="secondary">Inactif</Badge>}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {item.puissance_kwc} kWc
-                      </p>
+              <Card key={item.id} className={`transition-all ${item.isModified ? "border-amber-500/50 bg-amber-500/5" : ""} ${!item.actif ? "opacity-60" : ""}`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        value={item.nom_bouquet}
+                        onChange={(e) => handleFieldChange(item.id, "nom_bouquet", e.target.value)}
+                        className="h-8 font-medium text-sm flex-1"
+                        placeholder="Nom du bouquet"
+                      />
+                      {item.isNew && <Badge className="bg-green-500">Nouveau</Badge>}
+                      {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600">Modifié</Badge>}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-lg font-bold">
-                        {item.puissance_kwc} kWc
-                      </Badge>
-                      {isAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
+                    <div className="flex items-center gap-2 ml-2">
+                      <Switch
+                        checked={item.actif}
+                        onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-
-                  {item.description && (
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {item.description}
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-xs text-muted-foreground">Prix recommandé</p>
-                      <p className="font-bold text-primary">
-                        {formatCurrency(item.prix_recommande)}
-                      </p>
+                      <label className="text-xs text-muted-foreground">Puissance</label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.5"
+                          value={item.puissance_kwc}
+                          onChange={(e) => handleFieldChange(item.id, "puissance_kwc", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                        <span className="text-xs text-muted-foreground">kWc</span>
+                      </div>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Prix maximum</p>
-                      <p className="font-bold text-amber-600">
-                        {formatCurrency(item.prix_max)}
-                      </p>
+                      <label className="text-xs text-muted-foreground">Prix reco.</label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={item.prix_recommande}
+                          onChange={(e) => handleFieldChange(item.id, "prix_recommande", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                        <span className="text-xs text-muted-foreground">€</span>
+                      </div>
                     </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Prix max</label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          value={item.prix_max}
+                          onChange={(e) => handleFieldChange(item.id, "prix_max", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                        <span className="text-xs text-muted-foreground">€</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Description</label>
+                    <Textarea
+                      value={item.description || ""}
+                      onChange={(e) => handleFieldChange(item.id, "description", e.target.value || null)}
+                      className="text-xs min-h-[60px]"
+                      placeholder="Description optionnelle..."
+                    />
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
-
-        {/* Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editItem ? "Modifier le bouquet" : "Ajouter un bouquet"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Nom du bouquet</label>
-                <Input
-                  value={formData.nom_bouquet}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nom_bouquet: e.target.value })
-                  }
-                  placeholder="Starter 3kWc..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Puissance (kWc)</label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  value={formData.puissance_kwc}
-                  onChange={(e) =>
-                    setFormData({ ...formData, puissance_kwc: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Prix recommandé (€)</label>
-                  <Input
-                    type="number"
-                    value={formData.prix_recommande}
-                    onChange={(e) =>
-                      setFormData({ ...formData, prix_recommande: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Prix max (€)</label>
-                  <Input
-                    type="number"
-                    value={formData.prix_max}
-                    onChange={(e) =>
-                      setFormData({ ...formData, prix_max: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Description optionnelle..."
-                  rows={2}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Actif</label>
-                <Switch
-                  checked={formData.actif}
-                  onCheckedChange={(c) => setFormData({ ...formData, actif: c })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };
