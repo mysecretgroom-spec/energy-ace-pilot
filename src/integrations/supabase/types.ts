@@ -565,6 +565,10 @@ export type Database = {
           autoconsommation_kwh: number | null
           autoconsommation_pct: number | null
           autre_surcout: number | null
+          classification: string | null
+          classification_comment: string | null
+          classification_updated_at: string | null
+          classification_updated_by: string | null
           client_id: string
           consommation_annuelle_kwh: number | null
           created_at: string
@@ -627,6 +631,10 @@ export type Database = {
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
           autre_surcout?: number | null
+          classification?: string | null
+          classification_comment?: string | null
+          classification_updated_at?: string | null
+          classification_updated_by?: string | null
           client_id: string
           consommation_annuelle_kwh?: number | null
           created_at?: string
@@ -689,6 +697,10 @@ export type Database = {
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
           autre_surcout?: number | null
+          classification?: string | null
+          classification_comment?: string | null
+          classification_updated_at?: string | null
+          classification_updated_by?: string | null
           client_id?: string
           consommation_annuelle_kwh?: number | null
           created_at?: string
@@ -759,6 +771,41 @@ export type Database = {
             columns: ["rdv_id"]
             isOneToOne: false
             referencedRelation: "rdv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etudes_classification_history: {
+        Row: {
+          classification: string
+          comment: string | null
+          created_at: string
+          etude_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          classification: string
+          comment?: string | null
+          created_at?: string
+          etude_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          classification?: string
+          comment?: string | null
+          created_at?: string
+          etude_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etudes_classification_history_etude_id_fkey"
+            columns: ["etude_id"]
+            isOneToOne: false
+            referencedRelation: "etudes"
             referencedColumns: ["id"]
           },
         ]
