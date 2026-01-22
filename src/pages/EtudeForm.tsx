@@ -198,7 +198,7 @@ const EtudeForm = () => {
 
   // Mode HEJJA
   const [modeHejjaActive, setModeHejjaActive] = useState(false);
-  const [modeHejjaPsh, setModeHejjaPsh] = useState(false);
+  const [modeHejjaPsh, setModeHejjaPsh] = useState(true);
   const [modeHejjaPrix, setModeHejjaPrix] = useState(false);
   const [prixManuel, setPrixManuel] = useState<number | "">("");
   const [showPinDialog, setShowPinDialog] = useState(false);
