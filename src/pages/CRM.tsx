@@ -437,22 +437,46 @@ const CRM = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Montant HT *</Label>
-                      <Input
-                        type="number"
-                        value={formData.montant_ht}
-                        onChange={(e) => setFormData(prev => ({ ...prev, montant_ht: e.target.value }))}
-                        placeholder="0"
-                      />
+                      <Label className="flex items-center gap-2">
+                        Montant HT *
+                        <Badge variant="outline" className="text-xs font-normal bg-muted">HT</Badge>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={formData.montant_ht}
+                          onChange={(e) => {
+                            const ht = e.target.value;
+                            const ttc = ht ? (parseFloat(ht) * 1.2).toFixed(2) : "";
+                            setFormData(prev => ({ ...prev, montant_ht: ht, montant_ttc: ttc }));
+                          }}
+                          placeholder="0"
+                          className="pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Hors taxes (base commissions)</p>
                     </div>
                     <div className="space-y-2">
-                      <Label>Montant TTC *</Label>
-                      <Input
-                        type="number"
-                        value={formData.montant_ttc}
-                        onChange={(e) => setFormData(prev => ({ ...prev, montant_ttc: e.target.value }))}
-                        placeholder="0"
-                      />
+                      <Label className="flex items-center gap-2">
+                        Montant TTC *
+                        <Badge className="text-xs font-normal bg-primary/20 text-primary border-0">TTC</Badge>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={formData.montant_ttc}
+                          onChange={(e) => {
+                            const ttc = e.target.value;
+                            const ht = ttc ? (parseFloat(ttc) / 1.2).toFixed(2) : "";
+                            setFormData(prev => ({ ...prev, montant_ttc: ttc, montant_ht: ht }));
+                          }}
+                          placeholder="0"
+                          className="pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Toutes taxes comprises</p>
                     </div>
                   </div>
 
