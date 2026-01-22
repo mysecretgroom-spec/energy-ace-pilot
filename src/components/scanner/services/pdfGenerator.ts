@@ -9,6 +9,19 @@ const COMPRESSION_OPTIONS = {
   fileType: "image/jpeg" as const,
 };
 
+// Convert Uint8Array to base64 string (safe for large files)
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const CHUNK_SIZE = 0x8000; // 32KB chunks
+  const chunks: string[] = [];
+  
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    chunks.push(String.fromCharCode(...chunk));
+  }
+  
+  return btoa(chunks.join(""));
+}
+
 async function compressImage(dataUrl: string): Promise<Uint8Array> {
   // Convert data URL to blob
   const response = await fetch(dataUrl);
@@ -128,10 +141,8 @@ export async function generatePdfFromFile(
   const arrayBuffer = await file.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
 
-  // Compress the image first
-  const dataUrl = `data:${file.type};base64,${btoa(
-    String.fromCharCode(...uint8Array)
-  )}`;
+  // Compress the image first - use safe base64 encoding for large files
+  const dataUrl = `data:${file.type};base64,${uint8ArrayToBase64(uint8Array)}`;
   const compressedData = await compressImage(dataUrl);
 
   // Embed based on type
