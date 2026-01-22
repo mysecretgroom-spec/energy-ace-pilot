@@ -1204,9 +1204,22 @@ const EtudeForm = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-display font-bold text-foreground">
-              Étude Photovoltaïque
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-display font-bold text-foreground">
+                Étude Photovoltaïque
+              </h1>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs font-medium",
+                  isEditMode 
+                    ? "bg-amber-500/10 text-amber-600 border-amber-300" 
+                    : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
+                )}
+              >
+                {isEditMode ? "Modification" : "Nouvelle"}
+              </Badge>
+            </div>
             {clientName && (
               <p className="text-sm text-muted-foreground">
                 {clientPrenom} {clientName} • {clientVille}
