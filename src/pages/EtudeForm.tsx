@@ -851,6 +851,9 @@ const EtudeForm = () => {
       
       // Envoyer notification WhatsApp au confirmateur si classification définie
       if (classification && classificationChanged) {
+        // Construire les données PDF pour r2_prestudy
+        const pdfDataForWhatsApp = classification === "r2_prestudy" ? buildPdfData() : undefined;
+        
         await sendWhatsAppNotification({
           clientName: clientName,
           clientPrenom: clientPrenom,
@@ -859,6 +862,7 @@ const EtudeForm = () => {
           r2DateTime: r2DateTime,
           userId: user.id,
           cqTime: cqTime,
+          pdfData: pdfDataForWhatsApp || undefined,
         });
       }
 
