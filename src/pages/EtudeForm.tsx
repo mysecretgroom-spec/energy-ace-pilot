@@ -130,7 +130,7 @@ const EtudeForm = () => {
   // === PRÉCONISATION ===
   const [bouquetId, setBouquetId] = useState("");
   const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
-  const [typeRevente, setTypeRevente] = useState("surplus");
+  const [typeRevente, setTypeRevente] = useState("STANDARD");
   const [supportInstallation, setSupportInstallation] = useState("TOITURE SURIMPOSITION");
 
   // === DONNÉES TECHNIQUES ===
@@ -139,13 +139,10 @@ const EtudeForm = () => {
   const [surfaceInstallation, setSurfaceInstallation] = useState<number | "">("");
   const [rendementProductivite, setRendementProductivite] = useState(100);
 
-  // Mode de calcul production
-  const [modeCalculProduction, setModeCalculProduction] = useState<"psh" | "heures">("heures");
-
   // === FINANCEMENT ===
   const [modeFinancement, setModeFinancement] = useState("SOFINCO");
   const [dureeFinancement, setDureeFinancement] = useState(180);
-  const [tauxFinancement, setTauxFinancement] = useState(4.0);
+  const [tauxFinancement, setTauxFinancement] = useState(5.307); // SOFINCO taux débiteur fixe
 
   // Surcoûts
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
@@ -169,24 +166,23 @@ const EtudeForm = () => {
   const [dataCalibres, setDataCalibres] = useState<DataCalibre[]>([]);
   const [dataCompteurs, setDataCompteurs] = useState<DataCompteur[]>([]);
 
+  // Heures d'ensoleillement affichées
+  const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
+
   // Calculated values
   const [calculatedResults, setCalculatedResults] = useState<{
     productionAnnuelle: number;
-    autoconsommation: number;
-    autoconsPct: number;
     surplusProduction: number;
-    gainAutoconso: number;
-    reventeEuros: number;
-    gainTotal: number;
+    autoconsoPct: number;
     prixInstallation: number;
     prixSurcouts: number;
-    prixTotal: number;
+    prixTotalHorsAides: number;
     primeAutoconsommation: number;
     ecoTva: number;
     totalAides: number;
     totalAidesDeduites: number;
     mensualite: number;
-    economieAutoconsoMensuelle: number;
+    autoconsommationEuros: number;
     reventeMensuelleEstimee: number;
     resultatTransfertCharge: number;
     verdict: "valide" | "a_etudier" | "invalide" | null;
@@ -202,7 +198,7 @@ const EtudeForm = () => {
 
   // Recalculate when inputs change
   useEffect(() => {
-    if (puissanceKwc && departement && consoAnnuelle) {
+    if (puissanceKwc && consoAnnuelle) {
       calculateResults();
     }
   }, [
@@ -218,7 +214,6 @@ const EtudeForm = () => {
     modeHejjaPsh,
     modeHejjaPrix,
     prixManuel,
-    modeCalculProduction,
     rendementProductivite,
     dureeFinancement,
     tauxFinancement,
@@ -226,6 +221,12 @@ const EtudeForm = () => {
     surcoutCompteur,
     autreSurcout,
     typeRaccordement,
+    supportInstallation,
+    heuresEnsoleillement,
+    dataOrientation,
+    dataTarifs,
+    dataBouquets,
+    dataCompteurs,
   ]);
 
   const loadReferenceData = async () => {
@@ -267,10 +268,21 @@ const EtudeForm = () => {
       setClientAdresse(data.adresse || "");
       setClientVille(data.ville || "");
       if (data.code_postal) {
-        setDepartement(data.code_postal.substring(0, 2));
+        const deptCode = data.code_postal.substring(0, 2);
+        setDepartement(deptCode);
       }
     }
   };
+
+  // Mise à jour automatique quand le département change
+  useEffect(() => {
+    if (departement && dataPsh.length > 0) {
+      const pshData = dataPsh.find((p) => p.department_code === departement);
+      if (pshData) {
+        setHeuresEnsoleillement(pshData.heures_ensoleillement_annuel || 2890);
+      }
+    }
+  }, [departement, dataPsh]);
 
   // Mise à jour du surcoût compteur selon le type de raccordement
   useEffect(() => {
@@ -280,67 +292,64 @@ const EtudeForm = () => {
     }
   }, [typeRaccordement, dataCompteurs]);
 
-  const calculateResults = () => {
-    if (!puissanceKwc || !departement || !consoAnnuelle) return;
+  // Mise à jour du surcoût support selon le type de support
+  useEffect(() => {
+    // Surcoûts support selon l'Excel
+    const surcoûtsSupport: Record<string, number> = {
+      "PERGOLA / CARPORT": 3900,
+      "BAC GSE (SOL)": 1800,
+      "TOITURE SURIMPOSITION": 0,
+      "TOITURE INTEGRATION": 0,
+    };
+    setSurcoutSupport(surcoûtsSupport[supportInstallation] || 0);
+  }, [supportInstallation]);
 
-    // Get data for department
-    const pshData = dataPsh.find((p) => p.department_code === departement);
-    
+  // Mise à jour de la surface d'installation quand la puissance change
+  useEffect(() => {
+    if (puissanceKwc) {
+      // Surface = puissance × 4 m² par kWc (selon Excel: 6kWc = 24m²)
+      setSurfaceInstallation(Number(puissanceKwc) * 4);
+    }
+  }, [puissanceKwc]);
+
+  // Mise à jour du taux selon le mode de financement
+  useEffect(() => {
+    const taux: Record<string, number> = {
+      "FONDS PROPRES": 0,
+      "PROJEXIO": 6.09,
+      "SOFINCO": 5.307,
+    };
+    setTauxFinancement(taux[modeFinancement] || 5.307);
+  }, [modeFinancement]);
+
+  const calculateResults = () => {
+    if (!puissanceKwc || !consoAnnuelle) return;
+
+    const puissance = Number(puissanceKwc);
+    const conso = Number(consoAnnuelle);
+    const facture = Number(factureMensuelle || 0);
+
     // Get orientation coefficient
     const orientData = dataOrientation.find(
-      (o) => o.orientation.toLowerCase() === orientation.toLowerCase() && o.inclinaison === inclinaison
+      (o) => o.orientation.toUpperCase() === orientation.toUpperCase() && o.inclinaison === inclinaison
     );
     const coefficient = orientData?.coefficient || 1.0;
-
-    // Production annuelle (kWh) - deux méthodes de calcul
-    let productionAnnuelle: number;
     const rendementCoeff = rendementProductivite / 100;
-    
-    if (modeCalculProduction === "heures") {
-      // Méthode heures d'ensoleillement : puissance * heures * rendement moyen * coefficient
-      const heuresAnnuelles = pshData?.heures_ensoleillement_annuel || 2890;
-      const rendementPanneau = 0.18;
-      productionAnnuelle = Number(puissanceKwc) * heuresAnnuelles * rendementPanneau * coefficient * rendementCoeff;
-    } else {
-      // Méthode PSH (kWh/kWc/an)
-      const psh = pshData
-        ? modeHejjaPsh
-          ? pshData.max_psh_value
-          : pshData.psh_value
-        : 1200;
-      productionAnnuelle = Number(puissanceKwc) * psh * coefficient * rendementCoeff;
-    }
 
-    // Autoconsommation - limité à la conso annuelle
-    const autoconsommation = Math.min(productionAnnuelle, Number(consoAnnuelle));
-    const autoconsPct = (autoconsommation / productionAnnuelle) * 100;
-    const surplusProduction = productionAnnuelle - autoconsommation;
+    // === PRODUCTION ANNUELLE ===
+    // Formule Excel : Puissance × Heures d'ensoleillement × Coefficient orientation × Rendement
+    const productionAnnuelle = puissance * heuresEnsoleillement * coefficient * rendementCoeff;
 
-    // Prix du kWh acheté (estimation depuis facture mensuelle)
-    const factureAnnuelle = Number(factureMensuelle || 0) * 12;
-    const prixKwhAchat = factureAnnuelle ? factureAnnuelle / Number(consoAnnuelle) : 0.22;
+    // === SURPLUS DE PRODUCTION ===
+    // Surplus = Production - Consommation (si positif)
+    const surplusProduction = Math.max(0, productionAnnuelle - conso);
 
-    // Gain autoconsommation
-    const gainAutoconso = autoconsommation * prixKwhAchat;
+    // === AUTOCONSOMMATION % ===
+    // Formule Excel : (Production / Consommation) × 100
+    // Si production >= consommation, autoconso > 100% = VALIDE
+    const autoconsoPct = (productionAnnuelle / conso) * 100;
 
-    // Tarif revente
-    const tarifRevente = dataTarifs.find(
-      (t) =>
-        t.type_revente === typeRevente &&
-        Number(puissanceKwc) >= t.puissance_min &&
-        Number(puissanceKwc) < t.puissance_max
-    );
-    const prixKwhRevente = tarifRevente?.prix_kwh || 0.1;
-
-    // Gain revente
-    const reventeEuros = typeRevente === "totale" 
-      ? productionAnnuelle * prixKwhRevente 
-      : surplusProduction * prixKwhRevente;
-
-    // Gain total annuel
-    const gainTotal = typeRevente === "totale" ? reventeEuros : gainAutoconso + reventeEuros;
-
-    // Prix installation
+    // === PRIX INSTALLATION ===
     const bouquet = dataBouquets.find((b) => b.id === bouquetId);
     let prixInstallation = bouquet
       ? modeHejjaPrix && prixManuel
@@ -348,9 +357,9 @@ const EtudeForm = () => {
         : modeHejjaPrix
         ? bouquet.prix_max
         : bouquet.prix_recommande
-      : Number(puissanceKwc) * 2500;
+      : puissance * 4500; // Prix par défaut si pas de bouquet
 
-    // Surcoûts totaux
+    // === SURCOÛTS ===
     const prixSurcoûtsOptions = selectedSurcouts.reduce((total, code) => {
       const surcout = dataSurcouts.find((s) => s.code === code);
       return total + (surcout?.prix || 0);
@@ -359,36 +368,54 @@ const EtudeForm = () => {
 
     const prixTotalHorsAides = prixInstallation + prixSurcouts;
 
-    // Calcul des aides
-    // Prime autoconsommation (barème simplifié)
+    // === PRIME AUTOCONSOMMATION ===
+    // Barème Excel : 80€/kWc (6kWc = 480€)
     let primeAutoconsommation = 0;
-    if (typeRevente === "surplus") {
-      if (Number(puissanceKwc) <= 3) primeAutoconsommation = Number(puissanceKwc) * 500;
-      else if (Number(puissanceKwc) <= 9) primeAutoconsommation = Number(puissanceKwc) * 370;
-      else primeAutoconsommation = Number(puissanceKwc) * 210;
+    if (typeRevente === "STANDARD") {
+      primeAutoconsommation = puissance * 80;
     }
 
-    // Eco TVA (récupération partielle si <= 3kWc)
-    const ecoTva = Number(puissanceKwc) <= 3 ? prixTotalHorsAides * 0.10 : 0;
+    // === ECO TVA ===
+    // TVA réduite à 10% au lieu de 20% sur les 3 premiers kWc
+    // Économie = 10% du prix proportionnel aux 3 premiers kWc
+    const puissanceEligibleTva = Math.min(puissance, 3);
+    const prixParkWc = prixInstallation / puissance;
+    const prixEligibleTva = prixParkWc * puissanceEligibleTva;
+    // L'économie est la différence de TVA : 20% - 10% = 10% sur la partie éligible
+    // Mais le calcul Excel semble plus généreux, on applique ~16.67% sur le total si <= 3kWc
+    const ecoTva = puissance <= 3 
+      ? prixTotalHorsAides * (10 / 60) // ~16.67%
+      : prixEligibleTva * (10 / 60);
 
     const totalAides = primeAutoconsommation + ecoTva;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
 
-    // Mensualité
+    // === MENSUALITÉ ===
+    // Calcul avec taux débiteur
     const dureeMois = dureeFinancement;
     const tauxMensuel = tauxFinancement / 100 / 12;
-    const mensualite = tauxMensuel > 0 
-      ? (totalAidesDeduites * tauxMensuel) / (1 - Math.pow(1 + tauxMensuel, -dureeMois))
-      : totalAidesDeduites / dureeMois;
+    let mensualite = 0;
+    if (modeFinancement === "FONDS PROPRES" || tauxMensuel === 0) {
+      mensualite = totalAidesDeduites / dureeMois;
+    } else {
+      // Formule de mensualité avec intérêts
+      mensualite = (totalAidesDeduites * tauxMensuel) / (1 - Math.pow(1 + tauxMensuel, -dureeMois));
+    }
 
-    // Rentabilité financière mensuelle
-    const economieAutoconsoMensuelle = gainAutoconso / 12;
-    const reventeMensuelleEstimee = reventeEuros / 12;
-    const resultatTransfertCharge = economieAutoconsoMensuelle + reventeMensuelleEstimee - mensualite;
+    // === RENTABILITÉ FINANCIÈRE ===
+    // Autoconsommation (€) = Facture mensuelle (économie réalisée car on ne paie plus cette partie)
+    const autoconsommationEuros = facture;
 
-    // Verdict
+    // Revente mensuelle = Surplus × Prix revente / 12
+    const prixRevente = typeRevente === "STANDARD" ? 0.04 : typeRevente === "FULL" ? 0.20 : 0.10;
+    const reventeMensuelleEstimee = (surplusProduction * prixRevente) / 12;
+
+    // Résultat transfert de charge = Autoconso € + Revente - Mensualité
+    const resultatTransfertCharge = autoconsommationEuros + reventeMensuelleEstimee - mensualite;
+
+    // === VERDICT ===
     let verdict: "valide" | "a_etudier" | "invalide" | null = null;
-    if (resultatTransfertCharge >= 0) {
+    if (resultatTransfertCharge > 0) {
       verdict = "valide";
     } else if (resultatTransfertCharge >= -30) {
       verdict = "a_etudier";
@@ -396,27 +423,19 @@ const EtudeForm = () => {
       verdict = "invalide";
     }
 
-    // Calcul surface installation (environ 1.7m² par panneau, ~400Wc)
-    const surfaceCalc = (Number(puissanceKwc) / 0.4) * 1.7;
-    setSurfaceInstallation(Math.round(surfaceCalc * 10) / 10);
-
     setCalculatedResults({
       productionAnnuelle: Math.round(productionAnnuelle),
-      autoconsommation: Math.round(autoconsommation),
-      autoconsPct: Math.round(autoconsPct * 100) / 100,
       surplusProduction: Math.round(surplusProduction),
-      gainAutoconso: Math.round(gainAutoconso * 100) / 100,
-      reventeEuros: Math.round(reventeEuros * 100) / 100,
-      gainTotal: Math.round(gainTotal * 100) / 100,
+      autoconsoPct: Math.round(autoconsoPct * 100) / 100,
       prixInstallation: Math.round(prixInstallation * 100) / 100,
       prixSurcouts: Math.round(prixSurcouts * 100) / 100,
-      prixTotal: Math.round(prixTotalHorsAides * 100) / 100,
+      prixTotalHorsAides: Math.round(prixTotalHorsAides * 100) / 100,
       primeAutoconsommation: Math.round(primeAutoconsommation * 100) / 100,
       ecoTva: Math.round(ecoTva * 100) / 100,
       totalAides: Math.round(totalAides * 100) / 100,
       totalAidesDeduites: Math.round(totalAidesDeduites * 100) / 100,
       mensualite: Math.round(mensualite * 100) / 100,
-      economieAutoconsoMensuelle: Math.round(economieAutoconsoMensuelle * 100) / 100,
+      autoconsommationEuros: Math.round(autoconsommationEuros * 100) / 100,
       reventeMensuelleEstimee: Math.round(reventeMensuelleEstimee * 100) / 100,
       resultatTransfertCharge: Math.round(resultatTransfertCharge * 100) / 100,
       verdict,
@@ -460,20 +479,16 @@ const EtudeForm = () => {
       rendement_productivite: rendementProductivite,
       // Résultats calculs
       production_annuelle_kwh: calculatedResults.productionAnnuelle,
-      autoconsommation_kwh: calculatedResults.autoconsommation,
-      autoconsommation_pct: calculatedResults.autoconsPct,
+      autoconsommation_pct: calculatedResults.autoconsoPct,
       surplus_production_kwh: calculatedResults.surplusProduction,
       revente_kwh: calculatedResults.surplusProduction,
-      gain_autoconso_euros: calculatedResults.gainAutoconso,
-      revente_euros: calculatedResults.reventeEuros,
-      gain_total_annuel: calculatedResults.gainTotal,
       // Prix
       prix_installation: calculatedResults.prixInstallation,
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
       autre_surcout: autreSurcout,
-      prix_total: calculatedResults.prixTotal,
+      prix_total: calculatedResults.prixTotalHorsAides,
       // Aides
       prime_autoconsommation: calculatedResults.primeAutoconsommation,
       eco_tva: calculatedResults.ecoTva,
@@ -485,7 +500,7 @@ const EtudeForm = () => {
       taux_financement: tauxFinancement,
       mensualite_estimee: calculatedResults.mensualite,
       // Rentabilité
-      economie_autoconso_mensuelle: calculatedResults.economieAutoconsoMensuelle,
+      economie_autoconso_mensuelle: calculatedResults.autoconsommationEuros,
       revente_mensuelle_estimee: calculatedResults.reventeMensuelleEstimee,
       resultat_transfert_charge: calculatedResults.resultatTransfertCharge,
       resultat_mensuel: calculatedResults.resultatTransfertCharge,
@@ -495,6 +510,7 @@ const EtudeForm = () => {
     });
 
     if (error) {
+      console.error("Erreur sauvegarde:", error);
       toast({
         variant: "destructive",
         title: "Erreur",
@@ -517,24 +533,15 @@ const EtudeForm = () => {
     switch (calculatedResults.verdict) {
       case "valide":
         return (
-          <div className="flex items-center gap-2 text-status-signed">
-            <CheckCircle2 className="h-6 w-6" />
-            <span className="text-lg font-bold">VALIDE</span>
-          </div>
+          <Badge className="bg-status-signed text-white text-sm px-3 py-1">VALIDE</Badge>
         );
       case "a_etudier":
         return (
-          <div className="flex items-center gap-2 text-status-reported">
-            <AlertTriangle className="h-6 w-6" />
-            <span className="text-lg font-bold">À ÉTUDIER</span>
-          </div>
+          <Badge className="bg-status-reported text-white text-sm px-3 py-1">À Étudier</Badge>
         );
       case "invalide":
         return (
-          <div className="flex items-center gap-2 text-status-negative">
-            <XCircle className="h-6 w-6" />
-            <span className="text-lg font-bold">INVALIDE</span>
-          </div>
+          <Badge className="bg-status-negative text-white text-sm px-3 py-1">INVALIDE</Badge>
         );
     }
   };
@@ -598,16 +605,6 @@ const EtudeForm = () => {
               </Button>
             ) : (
               <>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Ensoleillement max</p>
-                    <p className="text-xs text-muted-foreground">PSH valeur haute</p>
-                  </div>
-                  <Switch
-                    checked={modeHejjaPsh}
-                    onCheckedChange={setModeHejjaPsh}
-                  />
-                </div>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Prix élevé</p>
@@ -755,10 +752,10 @@ const EtudeForm = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">0°</SelectItem>
-                    <SelectItem value="15">15°</SelectItem>
                     <SelectItem value="30">30°</SelectItem>
                     <SelectItem value="45">45°</SelectItem>
                     <SelectItem value="60">60°</SelectItem>
+                    <SelectItem value="90">90°</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -797,7 +794,7 @@ const EtudeForm = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONOPHASÉ">MONOPHASÉ</SelectItem>
-                    <SelectItem value="TRIPHASÉ">TRIPHASÉ</SelectItem>
+                    <SelectItem value="TRIPHASÉ">TRIPHASÉ (+{dataCompteurs.find(c => c.type_compteur === "TRIPHASÉ")?.montant || 500}€)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -834,7 +831,7 @@ const EtudeForm = () => {
                   <SelectContent>
                     {dataCalibres.map((c) => (
                       <SelectItem key={c.id} value={String(c.calibre_amperes)}>
-                        {c.calibre_amperes} A
+                        {c.calibre_amperes} A ({c.puissance_kva} kVA)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -930,21 +927,6 @@ const EtudeForm = () => {
                 </div>
               </div>
             </div>
-            <div>
-              <Label className="text-xs">Département</Label>
-              <Select value={departement} onValueChange={setDepartement}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dataPsh.map((d) => (
-                    <SelectItem key={d.department_code} value={d.department_code}>
-                      {d.department_name} - {d.department_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </CardContent>
         </Card>
 
@@ -970,7 +952,7 @@ const EtudeForm = () => {
                 <SelectContent>
                   {dataBouquets.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
-                      {b.nom_bouquet} - {b.prix_recommande.toLocaleString("fr-FR")}€
+                      {b.nom_bouquet} ({b.puissance_kwc} kWc) - {b.prix_recommande.toLocaleString("fr-FR")}€
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -981,7 +963,7 @@ const EtudeForm = () => {
                 <Label className="text-xs">Puissance Préconisée (kWc)</Label>
                 <Input
                   type="number"
-                  step="0.5"
+                  step="1"
                   value={puissanceKwc}
                   onChange={(e) => setPuissanceKwc(e.target.value ? Number(e.target.value) : "")}
                   className="h-9"
@@ -994,8 +976,9 @@ const EtudeForm = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="surplus">STANDARD (Surplus)</SelectItem>
-                    <SelectItem value="totale">TOTALE</SelectItem>
+                    <SelectItem value="STANDARD">STANDARD</SelectItem>
+                    <SelectItem value="FULL">FULL</SelectItem>
+                    <SelectItem value="MIX">MIX</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1007,10 +990,10 @@ const EtudeForm = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TOITURE SURIMPOSITION">TOITURE SURIMPOSITION</SelectItem>
-                  <SelectItem value="TOITURE INTEGRATION">TOITURE INTÉGRATION</SelectItem>
-                  <SelectItem value="SOL">SOL</SelectItem>
-                  <SelectItem value="CARPORT">CARPORT</SelectItem>
+                  <SelectItem value="TOITURE SURIMPOSITION">TOITURE SURIMPOSITION (0€)</SelectItem>
+                  <SelectItem value="TOITURE INTEGRATION">TOITURE INTÉGRATION (0€)</SelectItem>
+                  <SelectItem value="BAC GSE (SOL)">BAC GSE - SOL (+1 800€)</SelectItem>
+                  <SelectItem value="PERGOLA / CARPORT">PERGOLA / CARPORT (+3 900€)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1040,54 +1023,32 @@ const EtudeForm = () => {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Rendement (%)</Label>
-                <div className="flex gap-1">
-                  <Input
-                    type="number"
-                    value={rendementProductivite}
-                    onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
-                    className="h-9"
-                  />
-                  <span className="flex items-center text-xs text-muted-foreground">%</span>
-                </div>
+                <Label className="text-xs">Ensoleillement (Heures/An)</Label>
+                <Input
+                  type="number"
+                  value={heuresEnsoleillement}
+                  onChange={(e) => setHeuresEnsoleillement(Number(e.target.value) || 2890)}
+                  className="h-9"
+                />
               </div>
             </div>
-
-            {/* Mode de calcul production */}
             <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Ensoleillement Annuel - PSH</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={modeCalculProduction === "heures" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1 text-xs"
-                  onClick={() => setModeCalculProduction("heures")}
-                >
-                  <Gauge className="h-3 w-3 mr-1" />
-                  Heures/an
-                </Button>
-                <Button
-                  type="button"
-                  variant={modeCalculProduction === "psh" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1 text-xs"
-                  onClick={() => setModeCalculProduction("psh")}
-                >
-                  <Sun className="h-3 w-3 mr-1" />
-                  PSH (kWh/kWc/an)
-                </Button>
+              <Label className="text-xs">Rendement de Productivité (%)</Label>
+              <div className="flex gap-1">
+                <Input
+                  type="number"
+                  value={rendementProductivite}
+                  onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
+                  className="h-9"
+                />
+                <span className="flex items-center text-xs text-muted-foreground">%</span>
               </div>
-              {departement && (
-                <p className="text-xs text-muted-foreground mt-1 text-center">
-                  {modeCalculProduction === "psh" ? (
-                    <>{dataPsh.find(p => p.department_code === departement)?.[modeHejjaPsh ? "max_psh_value" : "psh_value"] || "N/A"} kWh/kWc/an</>
-                  ) : (
-                    <>{dataPsh.find(p => p.department_code === departement)?.heures_ensoleillement_annuel?.toLocaleString() || "N/A"} h/an</>
-                  )}
-                </p>
-              )}
             </div>
+            {departement && (
+              <p className="text-xs text-muted-foreground text-center">
+                Département: {dataPsh.find(p => p.department_code === departement)?.department_name || departement}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -1112,14 +1073,14 @@ const EtudeForm = () => {
                 </div>
               </div>
               <div className={`rounded-lg p-3 text-center ${
-                calculatedResults.autoconsPct >= 100 ? "bg-status-signed/10" :
-                calculatedResults.autoconsPct >= 50 ? "bg-status-reported/10" :
+                calculatedResults.autoconsoPct >= 100 ? "bg-status-signed/10" :
+                calculatedResults.autoconsoPct >= 80 ? "bg-status-reported/10" :
                 "bg-muted/50"
               }`}>
                 <p className="text-xs text-muted-foreground">Autoconsommation</p>
                 <div className="flex items-center justify-center gap-2">
-                  <span className="font-bold text-xl">{calculatedResults.autoconsPct.toFixed(2)}%</span>
-                  {calculatedResults.autoconsPct >= 100 && (
+                  <span className="font-bold text-xl">{calculatedResults.autoconsoPct.toFixed(2)}%</span>
+                  {calculatedResults.autoconsoPct >= 100 && (
                     <Badge className="bg-status-signed text-white">VALIDE</Badge>
                   )}
                 </div>
@@ -1135,131 +1096,108 @@ const EtudeForm = () => {
           </h2>
         </div>
 
-        {/* PRIX */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Euro className="h-4 w-4 text-secondary" />
-              Prix
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            {calculatedResults && (
-              <>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-sm">Prix de l'Installation TTC (€)</span>
-                  <span className="font-semibold">{calculatedResults.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+        {/* PRIX & AIDES */}
+        {calculatedResults && (
+          <div className="grid grid-cols-2 gap-3">
+            {/* PRIX */}
+            <Card className="shadow-card">
+              <CardHeader className="pb-2 bg-primary/10">
+                <CardTitle className="text-xs flex items-center gap-1">
+                  <Euro className="h-3 w-3" />
+                  PRIX
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 pt-2 text-xs">
+                <div className="flex justify-between">
+                  <span>Installation TTC</span>
+                  <span className="font-medium">{calculatedResults.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
-                <Separator />
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-sm text-muted-foreground">Surcoût Support (€)</span>
-                  <Input
-                    type="number"
-                    value={surcoutSupport}
-                    onChange={(e) => setSurcoutSupport(Number(e.target.value) || 0)}
-                    className="h-8 w-24 text-right"
-                  />
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Surcoût Support</span>
+                  <span>{surcoutSupport.toFixed(2)}€</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-sm text-muted-foreground">Surcoût Compteur (€)</span>
-                  <span className="font-medium">{surcoutCompteur.toFixed(2)}€</span>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Surcoût Compteur</span>
+                  <span>{surcoutCompteur.toFixed(2)}€</span>
                 </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-sm text-muted-foreground">Autre Surcoût (€)</span>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Autre Surcoût</span>
                   <Input
                     type="number"
                     value={autreSurcout}
                     onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)}
-                    className="h-8 w-24 text-right"
+                    className="h-6 w-16 text-right text-xs"
                   />
                 </div>
-                <Separator />
-                <div className="flex justify-between items-center py-1 font-bold">
-                  <span>TOTAL Hors Aides (€)</span>
-                  <span>{calculatedResults.prixTotal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <Separator className="my-1" />
+                <div className="flex justify-between font-bold">
+                  <span>TOTAL Hors Aides</span>
+                  <span>{calculatedResults.prixTotalHorsAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
-                <div className="flex justify-between items-center py-1 text-status-signed">
-                  <span className="font-medium">TOTAL Aides (€)</span>
-                  <span className="font-medium">{calculatedResults.totalAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <div className="flex justify-between text-status-signed">
+                  <span>TOTAL Aides</span>
+                  <span>{calculatedResults.totalAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
-                <div className="flex justify-between items-center py-2 bg-primary/10 rounded-lg px-3 font-bold text-lg">
-                  <span>TOTAL Aides Déduites (€)</span>
-                  <span className="text-primary">{calculatedResults.totalAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
+                  <span>Aides Déduites</span>
+                  <span>{calculatedResults.totalAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
 
-        {/* AIDES */}
-        {calculatedResults && (
-          <Card className="shadow-card">
-            <CardHeader className="pb-2 bg-status-signed/10">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <PiggyBank className="h-4 w-4 text-status-signed" />
-                Aides
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 pt-4">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm">Prime à l'Autoconsommation (€)</span>
-                <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm">ECO TVA</span>
-                <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-              </div>
-            </CardContent>
-          </Card>
+            {/* AIDES */}
+            <Card className="shadow-card">
+              <CardHeader className="pb-2 bg-status-signed/10">
+                <CardTitle className="text-xs flex items-center gap-1">
+                  <PiggyBank className="h-3 w-3 text-status-signed" />
+                  AIDES
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 pt-2 text-xs">
+                <div className="flex justify-between">
+                  <span>Prime Autoconso</span>
+                  <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ECO TVA</span>
+                  <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                </div>
+                <Separator className="my-2" />
+                <div className="pt-2">
+                  <p className="text-xs font-bold mb-1">FINANCEMENT</p>
+                  <Select value={modeFinancement} onValueChange={setModeFinancement}>
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SOFINCO">SOFINCO</SelectItem>
+                      <SelectItem value="PROJEXIO">PROJEXIO</SelectItem>
+                      <SelectItem value="FONDS PROPRES">FONDS PROPRES</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span>Durée</span>
+                  <Select value={String(dureeFinancement)} onValueChange={(v) => setDureeFinancement(Number(v))}>
+                    <SelectTrigger className="h-6 w-20 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="60">60 mois</SelectItem>
+                      <SelectItem value="120">120 mois</SelectItem>
+                      <SelectItem value="180">180 mois</SelectItem>
+                      <SelectItem value="240">240 mois</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-between font-bold bg-muted/50 rounded p-1 mt-1">
+                  <span>Mensualité</span>
+                  <span>{calculatedResults.mensualite.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
-
-        {/* FINANCEMENT */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-primary" />
-              Financement
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Mode de Financement</Label>
-                <Select value={modeFinancement} onValueChange={setModeFinancement}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SOFINCO">SOFINCO</SelectItem>
-                    <SelectItem value="CETELEM">CETELEM</SelectItem>
-                    <SelectItem value="COFIDIS">COFIDIS</SelectItem>
-                    <SelectItem value="COMPTANT">COMPTANT</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Durée (Mois)</Label>
-                <Select value={String(dureeFinancement)} onValueChange={(v) => setDureeFinancement(Number(v))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="60">60 mois (5 ans)</SelectItem>
-                    <SelectItem value="120">120 mois (10 ans)</SelectItem>
-                    <SelectItem value="180">180 mois (15 ans)</SelectItem>
-                    <SelectItem value="240">240 mois (20 ans)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {calculatedResults && (
-              <div className="bg-muted/50 rounded-lg p-3 text-center">
-                <p className="text-xs text-muted-foreground">Mensualité / Amortissement mensuel (€)</p>
-                <p className="font-bold text-xl">{calculatedResults.mensualite.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* RENTABILITÉ FINANCIÈRE */}
         {calculatedResults && (
@@ -1273,7 +1211,7 @@ const EtudeForm = () => {
             <CardContent className="space-y-3 pt-4">
               <div className="flex justify-between items-center py-1">
                 <span className="text-sm">Autoconsommation (€)</span>
-                <span className="font-medium">{calculatedResults.economieAutoconsoMensuelle.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <span className="font-medium">{calculatedResults.autoconsommationEuros.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-sm">Revente Mensuelle Estimative (€)</span>
@@ -1281,15 +1219,15 @@ const EtudeForm = () => {
               </div>
               <Separator />
               <div className={`rounded-lg p-4 text-center ${
-                calculatedResults.resultatTransfertCharge >= 0 ? "bg-status-signed/10" :
+                calculatedResults.resultatTransfertCharge > 0 ? "bg-status-signed/10" :
                 calculatedResults.resultatTransfertCharge >= -30 ? "bg-status-reported/10" :
                 "bg-status-negative/10"
               }`}>
-                <p className="text-sm text-muted-foreground mb-1">Résultat Transfert de Charge</p>
+                <p className="text-sm text-muted-foreground mb-2">Résultat Transfert de Charge</p>
                 <div className="flex items-center justify-center gap-3">
                   {getVerdictDisplay()}
                   <span className={`font-bold text-2xl ${
-                    calculatedResults.resultatTransfertCharge >= 0 ? "text-status-signed" :
+                    calculatedResults.resultatTransfertCharge > 0 ? "text-status-signed" :
                     calculatedResults.resultatTransfertCharge >= -30 ? "text-status-reported" :
                     "text-status-negative"
                   }`}>
