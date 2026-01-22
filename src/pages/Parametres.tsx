@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
+import { toast } from "sonner";
 import {
   User,
   Mail,
@@ -29,13 +30,13 @@ const settingsSections = [
         icon: User,
         label: "Mon profil",
         description: "Nom, téléphone, email",
-        action: "navigate",
+        path: "/profil",
       },
       {
         icon: Bell,
         label: "Notifications",
         description: "Alertes RDV, rappels",
-        action: "navigate",
+        path: "/notifications",
       },
     ],
   },
@@ -46,13 +47,13 @@ const settingsSections = [
         icon: Mail,
         label: "Emails autorisés",
         description: "Sources d'import RDV",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
       {
         icon: Clock,
         label: "Tolérance matching",
         description: "±2h pour détection doublons",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
     ],
   },
@@ -63,31 +64,31 @@ const settingsSections = [
         icon: Sun,
         label: "PSH / Heures ensoleillement",
         description: "Par département",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
       {
         icon: MapPin,
         label: "Orientation / Inclinaison",
         description: "Coefficients de production",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
       {
         icon: Euro,
         label: "Tarifs revente",
         description: "Prix kWh revente/autoconso",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
       {
         icon: Calculator,
         label: "Prix bouquets",
         description: "Tarifs installations",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
       {
         icon: Percent,
         label: "Commissions",
         description: "Grilles de rémunération",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
     ],
   },
@@ -98,7 +99,7 @@ const settingsSections = [
         icon: Shield,
         label: "Code PIN / Biométrie",
         description: "Accès mode interne",
-        action: "navigate",
+        path: null, // TODO: future feature
       },
     ],
   },
@@ -155,10 +156,20 @@ const Parametres = () => {
               <CardContent className="p-0 divide-y divide-border">
                 {section.items.map((item) => {
                   const Icon = item.icon;
+                  const handleClick = () => {
+                    if (item.path) {
+                      navigate(item.path);
+                    } else {
+                      toast.info("Fonctionnalité à venir", {
+                        description: "Cette option sera disponible prochainement"
+                      });
+                    }
+                  };
                   return (
                     <div
                       key={item.label}
                       className="flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={handleClick}
                     >
                       <div className="p-2 rounded-lg bg-primary/10">
                         <Icon className="h-4 w-4 text-primary" />
