@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
+
 import { toast } from "sonner";
 import { Euro, Loader2, Zap, Plus, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -43,7 +43,6 @@ const typeLabels: Record<string, string> = {
 };
 
 const DataTarifs = () => {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [data, setData] = useState<TarifData[]>([]);
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<TarifData | null>(null);
@@ -181,16 +180,14 @@ const DataTarifs = () => {
           </CardContent>
         </Card>
 
-        {/* Actions admin */}
-        {isAdmin && (
-          <Button onClick={openAddDialog} className="w-full gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un tarif
-          </Button>
-        )}
+        {/* Actions */}
+        <Button onClick={openAddDialog} className="w-full gap-2">
+          <Plus className="h-4 w-4" />
+          Ajouter un tarif
+        </Button>
 
         {/* Liste par type */}
-        {loading || roleLoading ? (
+        {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -225,26 +222,22 @@ const DataTarifs = () => {
                           {!item.actif && (
                             <Badge variant="secondary">Inactif</Badge>
                           )}
-                          {isAdmin && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => openEditDialog(item)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => handleDelete(item.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditDialog(item)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
