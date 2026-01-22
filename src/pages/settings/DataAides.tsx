@@ -6,13 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Gift, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Gift, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
 
 interface AideData {
   id: string;
@@ -34,6 +27,8 @@ interface AideData {
   puissance_max: number;
   conditions: string | null;
   actif: boolean;
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const typeCalculLabels: Record<string, string> = {
@@ -44,21 +39,10 @@ const typeCalculLabels: Record<string, string> = {
 
 const DataAides = () => {
   const [data, setData] = useState<AideData[]>([]);
+  const [originalData, setOriginalData] = useState<AideData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editItem, setEditItem] = useState<AideData | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    code: "",
-    nom: "",
-    description: "",
-    type_calcul: "par_kwc",
-    valeur: "0",
-    puissance_min: "0",
-    puissance_max: "9",
-    conditions: "",
-    actif: true,
-  });
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -73,7 +57,14 @@ const DataAides = () => {
         .order("nom", { ascending: true });
 
       if (error) throw error;
-      setData(aidesData || []);
+      const formattedData = (aidesData || []).map(item => ({
+        ...item,
+        isNew: false,
+        isModified: false,
+      }));
+      setData(formattedData);
+      setOriginalData(JSON.parse(JSON.stringify(formattedData)));
+      setHasChanges(false);
     } catch (error) {
       console.error("Erreur chargement aides:", error);
       toast.error("Erreur lors du chargement");
@@ -82,73 +73,92 @@ const DataAides = () => {
     }
   };
 
-  const openAddDialog = () => {
-    setEditItem(null);
-    setFormData({
+  const handleAddNew = () => {
+    const newItem: AideData = {
+      id: `new-${Date.now()}`,
       code: "",
-      nom: "",
-      description: "",
+      nom: "Nouvelle aide",
+      description: null,
       type_calcul: "par_kwc",
-      valeur: "0",
-      puissance_min: "0",
-      puissance_max: "9",
-      conditions: "",
+      valeur: 0,
+      puissance_min: 0,
+      puissance_max: 999,
+      conditions: null,
       actif: true,
-    });
-    setIsDialogOpen(true);
+      isNew: true,
+      isModified: true,
+    };
+    setData([newItem, ...data]);
+    setHasChanges(true);
   };
 
-  const openEditDialog = (item: AideData) => {
-    setEditItem(item);
-    setFormData({
-      code: item.code,
-      nom: item.nom,
-      description: item.description || "",
-      type_calcul: item.type_calcul,
-      valeur: item.valeur.toString(),
-      puissance_min: item.puissance_min.toString(),
-      puissance_max: item.puissance_max.toString(),
-      conditions: item.conditions || "",
-      actif: item.actif,
-    });
-    setIsDialogOpen(true);
+  const handleFieldChange = (id: string, field: keyof AideData, value: any) => {
+    setData(prev => prev.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: value, isModified: true };
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Supprimer cette aide ?")) return;
+    setData(prev => prev.filter(item => item.id !== id));
+    setHasChanges(true);
+  };
+
+  const handleReset = () => {
+    if (!confirm("Annuler toutes les modifications ?")) return;
+    setData(JSON.parse(JSON.stringify(originalData)));
+    setHasChanges(false);
   };
 
   const handleSave = async () => {
-    if (!formData.code || !formData.nom) {
-      toast.error("Code et nom requis");
+    // Validate
+    const invalidItems = data.filter(item => !item.code || !item.nom);
+    if (invalidItems.length > 0) {
+      toast.error("Code et nom requis pour toutes les aides");
       return;
     }
 
     setSaving(true);
     try {
-      const payload = {
-        code: formData.code,
-        nom: formData.nom,
-        description: formData.description || null,
-        type_calcul: formData.type_calcul,
-        valeur: parseFloat(formData.valeur) || 0,
-        puissance_min: parseFloat(formData.puissance_min) || 0,
-        puissance_max: parseFloat(formData.puissance_max) || 999,
-        conditions: formData.conditions || null,
-        actif: formData.actif,
-      };
+      // Find items to delete (in original but not in current)
+      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
+      const toDelete = originalData.filter(o => !currentIds.has(o.id));
 
-      if (editItem) {
-        const { error } = await supabase
-          .from("data_aides")
-          .update(payload)
-          .eq("id", editItem.id);
+      // Delete removed items
+      for (const item of toDelete) {
+        const { error } = await supabase.from("data_aides").delete().eq("id", item.id);
         if (error) throw error;
-        toast.success("Aide modifiée");
-      } else {
-        const { error } = await supabase.from("data_aides").insert(payload);
-        if (error) throw error;
-        toast.success("Aide ajoutée");
       }
 
-      setIsDialogOpen(false);
-      fetchData();
+      // Upsert all current items
+      for (const item of data) {
+        const payload = {
+          code: item.code,
+          nom: item.nom,
+          description: item.description,
+          type_calcul: item.type_calcul,
+          valeur: item.valeur,
+          puissance_min: item.puissance_min,
+          puissance_max: item.puissance_max,
+          conditions: item.conditions,
+          actif: item.actif,
+        };
+
+        if (item.isNew) {
+          const { error } = await supabase.from("data_aides").insert(payload);
+          if (error) throw error;
+        } else if (item.isModified) {
+          const { error } = await supabase.from("data_aides").update(payload).eq("id", item.id);
+          if (error) throw error;
+        }
+      }
+
+      toast.success("Modifications enregistrées");
+      fetchData(); // Reload to get fresh data
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
       toast.error(error.message || "Erreur lors de la sauvegarde");
@@ -157,23 +167,9 @@ const DataAides = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer cette aide ?")) return;
-
-    try {
-      const { error } = await supabase.from("data_aides").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Aide supprimée");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erreur suppression:", error);
-      toast.error(error.message || "Erreur lors de la suppression");
-    }
-  };
-
   return (
     <MobileLayout title="Aides & Primes" showBackButton>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-32">
         {/* Info */}
         <Card className="bg-green-500/10 border-green-500/20">
           <CardContent className="p-4 flex items-start gap-3">
@@ -181,14 +177,14 @@ const DataAides = () => {
             <div>
               <p className="font-medium text-sm">Aides et primes</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Configurez les primes autoconsommation, éco TVA et autres aides applicables aux études.
+                Modifiez directement les valeurs puis cliquez sur "Enregistrer".
               </p>
             </div>
           </CardContent>
         </Card>
 
         {/* Actions */}
-        <Button onClick={openAddDialog} className="w-full gap-2">
+        <Button onClick={handleAddNew} variant="outline" className="w-full gap-2">
           <Plus className="h-4 w-4" />
           Ajouter une aide
         </Button>
@@ -208,37 +204,24 @@ const DataAides = () => {
         ) : (
           <div className="space-y-3">
             {data.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{item.nom}</span>
-                        {!item.actif && (
-                          <Badge variant="secondary">Inactif</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-green-600 font-bold">
-                        {item.valeur} {typeCalculLabels[item.type_calcul] || item.type_calcul}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {item.puissance_min} - {item.puissance_max} kWc
-                      </p>
-                      {item.conditions && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.conditions}
-                        </p>
-                      )}
+              <Card key={item.id} className={`transition-all ${item.isModified ? "border-amber-500/50 bg-amber-500/5" : ""}`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={item.nom}
+                        onChange={(e) => handleFieldChange(item.id, "nom", e.target.value)}
+                        className="h-8 font-medium text-sm w-40"
+                        placeholder="Nom de l'aide"
+                      />
+                      {item.isNew && <Badge className="bg-green-500">Nouveau</Badge>}
+                      {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600">Modifié</Badge>}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEditDialog(item)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={item.actif}
+                        onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
+                      />
                       <Button
                         variant="ghost"
                         size="icon"
@@ -249,142 +232,112 @@ const DataAides = () => {
                       </Button>
                     </div>
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Code</label>
+                      <Input
+                        value={item.code}
+                        onChange={(e) => handleFieldChange(item.id, "code", e.target.value)}
+                        className="h-8 text-xs"
+                        placeholder="ex: prime_autoconso"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Type de calcul</label>
+                      <Select
+                        value={item.type_calcul}
+                        onValueChange={(v) => handleFieldChange(item.id, "type_calcul", v)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="par_kwc">€ par kWc</SelectItem>
+                          <SelectItem value="pourcentage">Pourcentage %</SelectItem>
+                          <SelectItem value="fixe">Montant fixe €</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Valeur</label>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.valeur}
+                          onChange={(e) => handleFieldChange(item.id, "valeur", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                        <span className="text-xs text-muted-foreground">{typeCalculLabels[item.type_calcul]}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Min kWc</label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={item.puissance_min}
+                        onChange={(e) => handleFieldChange(item.id, "puissance_min", parseFloat(e.target.value) || 0)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Max kWc</label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={item.puissance_max}
+                        onChange={(e) => handleFieldChange(item.id, "puissance_max", parseFloat(e.target.value) || 0)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Conditions</label>
+                    <Input
+                      value={item.conditions || ""}
+                      onChange={(e) => handleFieldChange(item.id, "conditions", e.target.value || null)}
+                      className="h-8 text-xs"
+                      placeholder="Conditions d'éligibilité"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
-
-        {/* Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editItem ? "Modifier l'aide" : "Ajouter une aide"}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Code</label>
-                  <Input
-                    value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value })
-                    }
-                    placeholder="prime_autoconso"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Nom</label>
-                  <Input
-                    value={formData.nom}
-                    onChange={(e) =>
-                      setFormData({ ...formData, nom: e.target.value })
-                    }
-                    placeholder="Prime autoconsommation"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <Input
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Description de l'aide"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Type de calcul</label>
-                  <Select
-                    value={formData.type_calcul}
-                    onValueChange={(v) =>
-                      setFormData({ ...formData, type_calcul: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="par_kwc">€ par kWc</SelectItem>
-                      <SelectItem value="pourcentage">Pourcentage</SelectItem>
-                      <SelectItem value="fixe">Montant fixe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Valeur</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.valeur}
-                    onChange={(e) =>
-                      setFormData({ ...formData, valeur: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Puissance min (kWc)</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.puissance_min}
-                    onChange={(e) =>
-                      setFormData({ ...formData, puissance_min: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Puissance max (kWc)</label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={formData.puissance_max}
-                    onChange={(e) =>
-                      setFormData({ ...formData, puissance_max: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Conditions</label>
-                <Input
-                  value={formData.conditions}
-                  onChange={(e) =>
-                    setFormData({ ...formData, conditions: e.target.value })
-                  }
-                  placeholder="Conditions d'éligibilité"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Actif</label>
-                <Switch
-                  checked={formData.actif}
-                  onCheckedChange={(c) => setFormData({ ...formData, actif: c })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={saving}
-              >
-                Annuler
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editItem ? "Modifier" : "Ajouter"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      {/* Fixed bottom bar with save button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Annuler
+          </Button>
+          <Button
+            className="flex-1 gap-2 bg-gradient-hero"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Enregistrer
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };
