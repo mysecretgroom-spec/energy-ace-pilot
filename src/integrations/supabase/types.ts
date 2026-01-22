@@ -547,6 +547,51 @@ export type Database = {
         }
         Relationships: []
       }
+      google_sync_history: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          events_exported: number | null
+          events_imported: number | null
+          events_skipped: number | null
+          events_updated: number | null
+          id: string
+          started_at: string
+          status: string
+          sync_type: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          events_exported?: number | null
+          events_imported?: number | null
+          events_skipped?: number | null
+          events_updated?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          events_exported?: number | null
+          events_imported?: number | null
+          events_skipped?: number | null
+          events_updated?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       google_tokens: {
         Row: {
           access_token: string

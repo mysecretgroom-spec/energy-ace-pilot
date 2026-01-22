@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
 import {
   User,
   Mail,
@@ -135,6 +136,14 @@ const Parametres = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Google Account Section */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground px-1">
+            Intégrations
+          </h3>
+          <GoogleAccountSettings />
+        </div>
 
         {/* Sections de paramètres */}
         {settingsSections.map((section) => (
