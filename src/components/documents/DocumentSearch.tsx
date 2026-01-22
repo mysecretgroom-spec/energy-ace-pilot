@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, FileText, X, Loader2 } from "lucide-react";
+import { Search, FileText, X, Loader2, AlertTriangle, Euro, Store } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+
+interface OcrMetadata {
+  montant?: number;
+  tva?: number;
+  fournisseur?: string;
+  ocrConfidence?: number;
+  category?: string;
+}
 
 interface SearchResult {
   id: string;
@@ -20,6 +28,7 @@ interface SearchResult {
   client_id: string;
   client_name?: string;
   context_source?: string;
+  metadata?: OcrMetadata | null;
 }
 
 interface DocumentSearchProps {
@@ -79,6 +88,7 @@ export function DocumentSearch({ clientId, onSelectDocument }: DocumentSearchPro
           created_at,
           client_id,
           context_source,
+          metadata,
           clients (nom, prenom)
         `)
         .eq("user_id", user.id)
@@ -95,7 +105,7 @@ export function DocumentSearch({ clientId, onSelectDocument }: DocumentSearchPro
 
       if (error) throw error;
 
-      // Format results with client name
+      // Format results with client name and metadata
       const formattedResults: SearchResult[] = (data || []).map((doc: any) => ({
         id: doc.id,
         nom: doc.nom,
@@ -108,6 +118,7 @@ export function DocumentSearch({ clientId, onSelectDocument }: DocumentSearchPro
           ? `${doc.clients.prenom || ""} ${doc.clients.nom || ""}`.trim()
           : undefined,
         context_source: doc.context_source,
+        metadata: doc.metadata as OcrMetadata | null,
       }));
 
       setResults(formattedResults);
@@ -167,6 +178,37 @@ export function DocumentSearch({ clientId, onSelectDocument }: DocumentSearchPro
     return labels[type] || type;
   };
 
+  // OCR quality indicator
+  const getOcrQuality = (doc: SearchResult) => {
+    const confidence = doc.metadata?.ocrConfidence;
+    
+    // No OCR performed
+    if (confidence === undefined || confidence === null) {
+      return null;
+    }
+    
+    // Low quality - text not readable
+    if (confidence < 50) {
+      return "low";
+    }
+    
+    // Medium quality
+    if (confidence < 75) {
+      return "medium";
+    }
+    
+    // Good quality
+    return "good";
+  };
+
+  const formatAmount = (amount: number | undefined) => {
+    if (!amount) return null;
+    return new Intl.NumberFormat("fr-FR", {
+      style: "currency",
+      currency: "EUR",
+    }).format(amount);
+  };
+
   return (
     <div className="space-y-3">
       {/* Search Input */}
@@ -208,49 +250,98 @@ export function DocumentSearch({ clientId, onSelectDocument }: DocumentSearchPro
       {!isSearching && results.length > 0 && (
         <ScrollArea className="max-h-[400px]">
           <div className="space-y-2">
-            {results.map((doc) => (
-              <Card
-                key={doc.id}
-                className="cursor-pointer hover:bg-accent/50 transition-colors"
-                onClick={() => onSelectDocument?.(doc)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <FileText className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm truncate">
-                          {highlightMatch(doc.nom, debouncedQuery)}
-                        </span>
-                        <Badge variant="outline" className="text-xs flex-shrink-0">
-                          {getTypeLabel(doc.type_document)}
-                        </Badge>
-                      </div>
-
-                      {doc.extracted_text && debouncedQuery && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {highlightMatch(
-                            getExcerpt(doc.extracted_text, debouncedQuery) || "",
-                            debouncedQuery
-                          )}
-                        </p>
-                      )}
-
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        {doc.client_name && !clientId && (
-                          <span className="truncate">{doc.client_name}</span>
+            {results.map((doc) => {
+              const ocrQuality = getOcrQuality(doc);
+              const hasExtractedData = doc.metadata?.montant || doc.metadata?.fournisseur;
+              
+              return (
+                <Card
+                  key={doc.id}
+                  className={`cursor-pointer hover:bg-accent/50 transition-colors ${
+                    ocrQuality === "low" ? "border-destructive/50" : ""
+                  }`}
+                  onClick={() => onSelectDocument?.(doc)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-3">
+                      {/* Icon with quality indicator */}
+                      <div className={`h-10 w-10 rounded flex items-center justify-center flex-shrink-0 ${
+                        ocrQuality === "low" 
+                          ? "bg-destructive/10" 
+                          : "bg-primary/10"
+                      }`}>
+                        {ocrQuality === "low" ? (
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-primary" />
                         )}
-                        <span>
-                          {format(new Date(doc.created_at), "dd MMM yyyy", { locale: fr })}
-                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm truncate">
+                            {highlightMatch(doc.nom, debouncedQuery)}
+                          </span>
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {getTypeLabel(doc.type_document)}
+                          </Badge>
+                        </div>
+
+                        {/* OCR Quality Warning */}
+                        {ocrQuality === "low" && (
+                          <div className="flex items-center gap-1.5 mb-1.5 text-xs text-destructive bg-destructive/10 rounded px-2 py-1">
+                            <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                            <span>Texte illisible - Rapprochez-vous du document</span>
+                          </div>
+                        )}
+
+                        {/* Extracted data: Amount and Supplier */}
+                        {hasExtractedData && ocrQuality !== "low" && (
+                          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                            {doc.metadata?.montant && (
+                              <div className="flex items-center gap-1 text-sm font-medium text-primary">
+                                <Euro className="h-3.5 w-3.5" />
+                                <span>{formatAmount(doc.metadata.montant)}</span>
+                              </div>
+                            )}
+                            {doc.metadata?.fournisseur && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Store className="h-3 w-3" />
+                                <span className="truncate max-w-[150px]">
+                                  {doc.metadata.fournisseur}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Extracted text excerpt */}
+                        {doc.extracted_text && debouncedQuery && ocrQuality !== "low" && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {highlightMatch(
+                              getExcerpt(doc.extracted_text, debouncedQuery) || "",
+                              debouncedQuery
+                            )}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          {doc.client_name && !clientId && (
+                            <span className="truncate">{doc.client_name}</span>
+                          )}
+                          <span>
+                            {format(new Date(doc.created_at), "dd MMM yyyy", { locale: fr })}
+                          </span>
+                          {ocrQuality === "medium" && (
+                            <span className="text-amber-500">(qualité moyenne)</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </ScrollArea>
       )}

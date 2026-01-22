@@ -240,6 +240,9 @@ export function ReviewDocument({
       const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
 
       // Create document record
+      const montant = montantTTC ? parseFloat(montantTTC.replace(",", ".")) : null;
+      const tvaAmount = tva ? parseFloat(tva.replace(",", ".")) : null;
+      
       const { data: docData, error: docError } = await supabase
         .from("documents")
         .insert([{
@@ -256,7 +259,10 @@ export function ReviewDocument({
             originalFileName: importedFile?.name,
             category,
             notes,
-            ocrConfidence: ocrResult?.confidence,
+            ocrConfidence: ocrResult?.confidence || null,
+            montant: montant,
+            tva: tvaAmount,
+            fournisseur: fournisseur || ocrResult?.extractedData?.fournisseur || null,
           },
         }])
         .select()
@@ -265,9 +271,7 @@ export function ReviewDocument({
       if (docError) throw docError;
 
       // If finance context, create frais record
-      if (context === "finance" && montantTTC) {
-        const montant = parseFloat(montantTTC.replace(",", "."));
-        const tvaAmount = tva ? parseFloat(tva.replace(",", ".")) : null;
+      if (context === "finance" && montant) {
 
         const { error: fraisError } = await supabase.from("frais").insert([{
           user_id: user.id,
