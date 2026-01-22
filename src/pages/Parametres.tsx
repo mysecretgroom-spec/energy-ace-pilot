@@ -129,7 +129,7 @@ const settingsSections = [
         icon: Shield,
         label: "Code PIN / Biométrie",
         description: "Accès mode interne",
-        path: null, // TODO: PIN/biometric setup
+        path: "/parametres/securite",
       },
     ],
   },
