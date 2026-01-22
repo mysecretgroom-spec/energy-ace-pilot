@@ -7,7 +7,9 @@ interface EtudeData {
   clientPrenom: string;
   clientAdresse: string;
   clientVille: string;
+  clientCodePostal: string;
   departement: string;
+  dateEtude: string;
   
   // Visite technique
   ombreToiture: string;
@@ -105,20 +107,30 @@ const generatePdfDoc = (data: EtudeData): jsPDF => {
   
   // === EN-TÊTE ===
   doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 30, "F");
+  doc.rect(0, 0, pageWidth, 40, "F");
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("ÉTUDE PHOTOVOLTAÏQUE", pageWidth / 2, 15, { align: "center" });
+  doc.text("ÉTUDE PHOTOVOLTAÏQUE", pageWidth / 2, 12, { align: "center" });
   
-  doc.setFontSize(10);
+  // Infos client dans l'en-tête
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${data.clientPrenom} ${data.clientNom}`, pageWidth / 2, 22, { align: "center" });
+  
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`${data.clientPrenom} ${data.clientNom} • ${data.clientVille}`, pageWidth / 2, 23, { align: "center" });
+  doc.text(data.clientAdresse, pageWidth / 2, 28, { align: "center" });
+  doc.text(`${data.clientCodePostal} ${data.clientVille} (${data.departement})`, pageWidth / 2, 33, { align: "center" });
   
-  yPos = 40;
+  // Date de l'étude en haut à droite
+  doc.setFontSize(8);
+  doc.text(`Étude du ${data.dateEtude}`, pageWidth - 14, 38, { align: "right" });
   
-  // === INFORMATIONS CLIENT ===
+  yPos = 50;
+  
+  // === INFORMATIONS COMPLÉMENTAIRES ===
   doc.setTextColor(...darkColor);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
@@ -130,14 +142,15 @@ const generatePdfDoc = (data: EtudeData): jsPDF => {
     head: [],
     body: [
       ["Client", `${data.clientPrenom} ${data.clientNom}`],
-      ["Adresse", data.clientAdresse],
-      ["Ville", `${data.clientVille} (${data.departement})`],
+      ["Adresse complète", `${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`],
+      ["Département", data.departement],
+      ["Date de l'étude", data.dateEtude],
       ["N° PDL", data.numeroPdl || "Non renseigné"],
     ],
     theme: "plain",
     styles: { fontSize: 9, cellPadding: 2 },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 40 },
+      0: { fontStyle: "bold", cellWidth: 45 },
       1: { cellWidth: "auto" },
     },
     margin: { left: 14, right: 14 },
