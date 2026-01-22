@@ -33,6 +33,38 @@ import { useToast } from "@/hooks/use-toast";
 import { AddDocumentFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
+import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
+
+interface ClientMetadata {
+  situation_familiale?: string;
+  proprietaire?: boolean;
+  type_habitation?: string;
+  surface_habitable?: number;
+  annee_construction?: number;
+  type_chauffage?: string;
+  facture_energie?: number;
+  revenus_fiscaux?: number;
+  nb_personnes_foyer?: number;
+  type_toiture?: string;
+  orientation_toiture?: string;
+  projet_motivation?: string;
+  budget_estime?: number;
+  urgence?: string;
+  notes_supplementaires?: string;
+  last_email_update?: string;
+}
+
+interface RdvMetadata {
+  ai_extracted?: boolean;
+  extraction_date?: string;
+  motivation?: string;
+  budget_estime?: number;
+  urgence?: string;
+  type_toiture?: string;
+  orientation_toiture?: string;
+  facture_energie?: number;
+  type_chauffage?: string;
+}
 
 interface Client {
   id: string;
@@ -47,6 +79,7 @@ interface Client {
   notes: string | null;
   source: string | null;
   created_at: string;
+  metadata: ClientMetadata | null;
 }
 
 interface Rdv {
@@ -57,6 +90,7 @@ interface Rdv {
   type_projet: string;
   status: RdvStatus;
   commentaire: string | null;
+  metadata: RdvMetadata | null;
 }
 
 interface Etude {
@@ -125,7 +159,10 @@ const ClientDetail = () => {
       return;
     }
 
-    setClient(clientData);
+    setClient({
+      ...clientData,
+      metadata: clientData.metadata as ClientMetadata | null,
+    });
 
     // Fetch RDVs
     const { data: rdvData } = await supabase
@@ -134,7 +171,10 @@ const ClientDetail = () => {
       .eq("client_id", id)
       .order("date_heure", { ascending: false });
 
-    setRdvs((rdvData as Rdv[]) || []);
+    setRdvs((rdvData || []).map(r => ({
+      ...r,
+      metadata: r.metadata as RdvMetadata | null,
+    })) as Rdv[]);
 
     // Fetch Études
     const { data: etudesData } = await supabase
@@ -350,6 +390,9 @@ const ClientDetail = () => {
               </CardContent>
             </Card>
 
+            {/* AI Extracted Info */}
+            <AIExtractedInfo metadata={client.metadata} type="client" />
+
             {client.notes && (
               <Card className="shadow-card">
                 <CardHeader className="pb-2">
@@ -425,6 +468,12 @@ const ClientDetail = () => {
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
+                    {/* AI Extracted Info for RDV */}
+                    {rdv.metadata && Object.keys(rdv.metadata).length > 0 && (
+                      <div className="mt-3 pt-3 border-t">
+                        <AIExtractedInfo metadata={rdv.metadata} type="rdv" />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))
