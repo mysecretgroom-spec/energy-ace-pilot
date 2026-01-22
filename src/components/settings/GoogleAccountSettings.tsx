@@ -61,16 +61,21 @@ export function GoogleAccountSettings() {
     if (!user) return;
 
     try {
-      // Using type assertion since google_sync_history was just created
-      const { data, error } = await (supabase
-        .from("google_sync_history" as any)
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10) as any);
-
-      if (error) throw error;
-      setSyncHistory(data || []);
+      // Direct fetch to bypass TypeScript type checking for newly created table
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/google_sync_history?user_id=eq.${user.id}&order=created_at.desc&limit=10`,
+        {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSyncHistory(data || []);
+      }
     } catch (err) {
       console.error("Error fetching sync history:", err);
     }
