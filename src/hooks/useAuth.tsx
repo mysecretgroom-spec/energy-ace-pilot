@@ -26,6 +26,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Save Google tokens when user signs in with Google
+        if (event === "SIGNED_IN" && session?.provider_token && session?.user) {
+          // Check if provider is google
+          const provider = session.user.app_metadata?.provider;
+          if (provider === "google") {
+            try {
+              // Upsert google tokens
+              await supabase
+                .from("google_tokens")
+                .upsert({
+                  user_id: session.user.id,
+                  access_token: session.provider_token,
+                  refresh_token: session.provider_refresh_token || null,
+                  expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour default
+                  scopes: ["calendar", "gmail.readonly", "drive.file"],
+                  updated_at: new Date().toISOString(),
+                }, {
+                  onConflict: "user_id",
+                });
+            } catch (err) {
+              console.error("Error saving Google tokens:", err);
+            }
+          }
+        }
       }
     );
 
@@ -91,6 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         provider: "google",
         options: {
           redirectTo: window.location.origin,
+          scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.file",
         },
       });
       if (error) throw error;
