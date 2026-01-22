@@ -2,3 +2,6 @@ project_id = "yobyzsgqnoaxvfsbpwkp"
 
 [functions.sync-gmail-rdv]
 verify_jwt = false
+
+[functions.scheduled-gmail-sync]
+verify_jwt = false
