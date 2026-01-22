@@ -86,6 +86,17 @@ interface DataCompteur {
   montant: number;
 }
 
+interface DataAide {
+  id: string;
+  code: string;
+  nom: string;
+  type_calcul: string;
+  valeur: number;
+  puissance_min: number;
+  puissance_max: number;
+  actif: boolean;
+}
+
 const EtudeForm = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -165,6 +176,7 @@ const EtudeForm = () => {
   const [dataSurcouts, setDataSurcouts] = useState<DataSurcout[]>([]);
   const [dataCalibres, setDataCalibres] = useState<DataCalibre[]>([]);
   const [dataCompteurs, setDataCompteurs] = useState<DataCompteur[]>([]);
+  const [dataAides, setDataAides] = useState<DataAide[]>([]);
 
   // Heures d'ensoleillement affichées
   const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
@@ -227,12 +239,13 @@ const EtudeForm = () => {
     dataTarifs,
     dataBouquets,
     dataCompteurs,
+    dataAides,
   ]);
 
   const loadReferenceData = async () => {
     setLoading(true);
 
-    const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes] = await Promise.all([
+    const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes, aidesRes] = await Promise.all([
       supabase.from("data_psh").select("*").order("department_code"),
       supabase.from("data_orientation").select("*"),
       supabase.from("data_tarifs_revente").select("*").eq("actif", true),
@@ -240,6 +253,7 @@ const EtudeForm = () => {
       supabase.from("data_surcouts").select("*").eq("actif", true),
       supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
       supabase.from("data_compteurs").select("*").eq("actif", true),
+      supabase.from("data_aides").select("*").eq("actif", true),
     ]);
 
     if (pshRes.data) setDataPsh(pshRes.data);
@@ -249,6 +263,7 @@ const EtudeForm = () => {
     if (surcoutsRes.data) setDataSurcouts(surcoutsRes.data);
     if (calibresRes.data) setDataCalibres(calibresRes.data);
     if (compteursRes.data) setDataCompteurs(compteursRes.data);
+    if (aidesRes.data) setDataAides(aidesRes.data);
 
     setLoading(false);
   };
@@ -368,24 +383,40 @@ const EtudeForm = () => {
 
     const prixTotalHorsAides = prixInstallation + prixSurcouts;
 
-    // === PRIME AUTOCONSOMMATION ===
-    // Barème Excel : 80€/kWc (6kWc = 480€)
+    // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
     let primeAutoconsommation = 0;
     if (typeRevente === "STANDARD") {
-      primeAutoconsommation = puissance * 80;
+      // Chercher l'aide prime_autoconso applicable selon la puissance
+      const primeAide = dataAides.find(
+        (a) => a.code.startsWith("prime_autoconso") && 
+               puissance >= a.puissance_min && 
+               puissance < a.puissance_max
+      );
+      if (primeAide) {
+        if (primeAide.type_calcul === "par_kwc") {
+          primeAutoconsommation = puissance * primeAide.valeur;
+        } else if (primeAide.type_calcul === "fixe") {
+          primeAutoconsommation = primeAide.valeur;
+        }
+      }
     }
 
-    // === ECO TVA ===
-    // TVA réduite à 10% au lieu de 20% sur les 3 premiers kWc
-    // Économie = 10% du prix proportionnel aux 3 premiers kWc
-    const puissanceEligibleTva = Math.min(puissance, 3);
-    const prixParkWc = prixInstallation / puissance;
-    const prixEligibleTva = prixParkWc * puissanceEligibleTva;
-    // L'économie est la différence de TVA : 20% - 10% = 10% sur la partie éligible
-    // Mais le calcul Excel semble plus généreux, on applique ~16.67% sur le total si <= 3kWc
-    const ecoTva = puissance <= 3 
-      ? prixTotalHorsAides * (10 / 60) // ~16.67%
-      : prixEligibleTva * (10 / 60);
+    // === ECO TVA (depuis data_aides) ===
+    // Chercher l'aide eco_tva applicable
+    const ecoTvaAide = dataAides.find(
+      (a) => a.code === "eco_tva" && 
+             puissance >= a.puissance_min && 
+             puissance <= a.puissance_max
+    );
+    let ecoTva = 0;
+    if (ecoTvaAide) {
+      if (ecoTvaAide.type_calcul === "pourcentage") {
+        // Pourcentage de réduction TVA sur le prix
+        ecoTva = prixTotalHorsAides * (ecoTvaAide.valeur / 60); // 10% TVA au lieu de 20% = économie de ~16.67%
+      } else if (ecoTvaAide.type_calcul === "fixe") {
+        ecoTva = ecoTvaAide.valeur;
+      }
+    }
 
     const totalAides = primeAutoconsommation + ecoTva;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;

@@ -23,6 +23,7 @@ import {
   Moon,
   Zap,
   Gauge,
+  Gift,
 } from "lucide-react";
 
 const settingsSections = [
@@ -104,6 +105,12 @@ const settingsSections = [
         label: "Calibres disjoncteur",
         description: "Ampérage et puissances",
         path: "/parametres/data-calibres",
+      },
+      {
+        icon: Gift,
+        label: "Aides & Primes",
+        description: "Prime autoconso, éco TVA",
+        path: "/parametres/data-aides",
       },
     ],
   },

@@ -145,6 +145,51 @@ export type Database = {
         }
         Relationships: []
       }
+      data_aides: {
+        Row: {
+          actif: boolean
+          code: string
+          conditions: string | null
+          created_at: string
+          description: string | null
+          id: string
+          nom: string
+          puissance_max: number | null
+          puissance_min: number | null
+          type_calcul: string
+          updated_at: string
+          valeur: number
+        }
+        Insert: {
+          actif?: boolean
+          code: string
+          conditions?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom: string
+          puissance_max?: number | null
+          puissance_min?: number | null
+          type_calcul?: string
+          updated_at?: string
+          valeur?: number
+        }
+        Update: {
+          actif?: boolean
+          code?: string
+          conditions?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom?: string
+          puissance_max?: number | null
+          puissance_min?: number | null
+          type_calcul?: string
+          updated_at?: string
+          valeur?: number
+        }
+        Relationships: []
+      }
       data_calibres: {
         Row: {
           actif: boolean
