@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { format, startOfWeek, endOfWeek } from "date-fns";
+import { fr } from "date-fns/locale";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +12,8 @@ import { EmailImport } from "@/components/planning/EmailImport";
 import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import { GmailSync } from "@/components/planning/GmailSync";
+import { WeekCalendarView } from "@/components/planning/WeekCalendarView";
+import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +43,7 @@ type RdvType = 'standard' | 'external_installation';
 
 interface RdvData {
   id: string;
+  date: Date;
   time: string;
   duration: string;
   client: string;
@@ -76,13 +81,31 @@ const Planning = () => {
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [emailImportOpen, setEmailImportOpen] = useState(false);
   const [quickRdvOpen, setQuickRdvOpen] = useState(false);
+  const [selectedRdv, setSelectedRdv] = useState<RdvData | null>(null);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("fr-FR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+  // Handle click on calendar RDV
+  const handleCalendarRdvClick = (rdv: RdvData) => {
+    setSelectedRdv(rdv);
+    // Navigate to client detail or open RDV actions
+    navigate(`/clients/${rdv.clientId}`);
+  };
+
+  // Handle click on calendar day (month view)
+  const handleDayClick = (date: Date) => {
+    setCurrentDate(date);
+    setViewMode("jour");
+  };
+
+  const formatDateHeader = (date: Date) => {
+    if (viewMode === "jour") {
+      return format(date, "EEEE d MMMM", { locale: fr });
+    } else if (viewMode === "semaine") {
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+      return `${format(weekStart, "d", { locale: fr })} - ${format(weekEnd, "d MMMM yyyy", { locale: fr })}`;
+    } else {
+      return format(date, "MMMM yyyy", { locale: fr });
+    }
   };
 
   const navigateDate = (direction: "prev" | "next") => {
@@ -216,6 +239,7 @@ const Planning = () => {
 
         return {
           id: rdv.id,
+          date: dateHeure,
           time: dateHeure.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
           duration: durationStr,
           client: clientData.prenom 
@@ -279,7 +303,7 @@ const Planning = () => {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <h2 className="text-base font-semibold text-foreground capitalize">
-            {formatDate(currentDate)}
+            {formatDateHeader(currentDate)}
           </h2>
           <Button
             variant="ghost"
@@ -364,8 +388,8 @@ const Planning = () => {
           </div>
         )}
 
-        {/* Empty state */}
-        {!loading && rdvList.length === 0 && (
+        {/* Empty state (day view only) */}
+        {!loading && viewMode === "jour" && rdvList.length === 0 && (
           <Card className="shadow-card">
             <CardContent className="p-8 text-center">
               <CalendarX className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -373,7 +397,7 @@ const Planning = () => {
                 Aucun RDV prévu
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Vous n'avez pas de rendez-vous pour cette période.
+                Vous n'avez pas de rendez-vous pour cette journée.
               </p>
               <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
                 <DialogTrigger asChild>
@@ -396,8 +420,26 @@ const Planning = () => {
           </Card>
         )}
 
-        {/* Liste des RDV */}
-        {!loading && rdvList.length > 0 && (
+        {/* Week Calendar View */}
+        {!loading && viewMode === "semaine" && (
+          <WeekCalendarView
+            currentDate={currentDate}
+            rdvList={rdvList}
+            onRdvClick={handleCalendarRdvClick}
+          />
+        )}
+
+        {/* Month Calendar View */}
+        {!loading && viewMode === "mois" && (
+          <MonthCalendarView
+            currentDate={currentDate}
+            rdvList={rdvList}
+            onDayClick={handleDayClick}
+          />
+        )}
+
+        {/* Liste des RDV (only in day view) */}
+        {!loading && viewMode === "jour" && rdvList.length > 0 && (
           <div className="space-y-3">
             {rdvList.map((rdv, index) => (
               <div key={rdv.id} className="relative">
