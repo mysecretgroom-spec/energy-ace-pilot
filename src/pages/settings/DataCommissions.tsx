@@ -68,6 +68,9 @@ const DataCommissions = () => {
     bonus_survente: "0",
   });
   
+  const [useTauxUnique, setUseTauxUnique] = useState(false);
+  const [tauxUnique, setTauxUnique] = useState("10");
+  
   const [bouquetFormData, setBouquetFormData] = useState({
     nom_bouquet: "",
     puissance_kwc: "3",
@@ -321,38 +324,34 @@ const DataCommissions = () => {
   return (
     <MobileLayout title="Grilles commissions" showBackButton>
       <div className="p-4 space-y-4 pb-24">
-        {/* Config Mode */}
+        {/* Config Mode - Bouton Switch Principal */}
         {isAdmin && config && (
           <Card className="border-primary/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
-                Configuration
+                Mode de commission
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="font-medium">Mode de calcul</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {config.mode_calcul === "pourcentage" 
-                      ? "Basé sur les tranches de prix" 
-                      : "Basé sur les bouquets vendus"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${config.mode_calcul === "pourcentage" ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                    %
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Percent className={`h-5 w-5 ${config.mode_calcul === "pourcentage" ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium ${config.mode_calcul === "pourcentage" ? "text-foreground" : "text-muted-foreground"}`}>
+                    Pourcentage
                   </span>
-                  <Switch
-                    checked={config.mode_calcul === "bouquet"}
-                    onCheckedChange={(checked) => 
-                      updateConfig({ mode_calcul: checked ? "bouquet" : "pourcentage" })
-                    }
-                  />
-                  <span className={`text-sm ${config.mode_calcul === "bouquet" ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                </div>
+                <Switch
+                  checked={config.mode_calcul === "bouquet"}
+                  onCheckedChange={(checked) => 
+                    updateConfig({ mode_calcul: checked ? "bouquet" : "pourcentage" })
+                  }
+                />
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm font-medium ${config.mode_calcul === "bouquet" ? "text-foreground" : "text-muted-foreground"}`}>
                     Bouquet
                   </span>
+                  <Package className={`h-5 w-5 ${config.mode_calcul === "bouquet" ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
               </div>
 
@@ -400,82 +399,130 @@ const DataCommissions = () => {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue={config?.mode_calcul || "pourcentage"} className="w-full">
+        <Tabs defaultValue="bouquet" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pourcentage" className="gap-2">
-              <Percent className="h-4 w-4" />
-              Tranches %
-            </TabsTrigger>
             <TabsTrigger value="bouquet" className="gap-2">
               <Package className="h-4 w-4" />
               Bouquets
+            </TabsTrigger>
+            <TabsTrigger value="pourcentage" className="gap-2">
+              <Percent className="h-4 w-4" />
+              Tranches %
             </TabsTrigger>
           </TabsList>
 
           {/* Tranches Tab */}
           <TabsContent value="pourcentage" className="space-y-4">
+            {/* Option Taux Unique */}
             {isAdmin && (
-              <Button onClick={openAddTrancheDialog} className="w-full gap-2">
-                <Plus className="h-4 w-4" />
-                Ajouter une tranche
-              </Button>
-            )}
-
-            {tranches.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Aucune tranche configurée</p>
+              <Card className="border-primary/20">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Taux unique</p>
+                      <p className="text-xs text-muted-foreground">
+                        Appliquer le même taux à toutes les ventes
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useTauxUnique}
+                      onCheckedChange={setUseTauxUnique}
+                    />
+                  </div>
+                  {useTauxUnique && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={tauxUnique}
+                        onChange={(e) => setTauxUnique(e.target.value)}
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">% sur toutes les ventes</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            ) : (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Tranches de prix</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {tranches.map((item) => (
-                    <div key={item.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-sm">
-                            {formatCurrency(item.tranche_min)} - {formatCurrency(item.tranche_max)}
-                          </p>
+            )}
+
+            {!useTauxUnique && (
+              <>
+                {isAdmin && (
+                  <Button onClick={openAddTrancheDialog} className="w-full gap-2">
+                    <Plus className="h-4 w-4" />
+                    Ajouter une tranche
+                  </Button>
+                )}
+
+                {tranches.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Aucune tranche configurée</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Tranches de prix</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {tranches.map((item) => (
+                        <div key={item.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">
+                                {formatCurrency(item.tranche_min)} - {formatCurrency(item.tranche_max)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                {item.taux_commission}%
+                              </Badge>
+                              {item.bonus_survente && item.bonus_survente > 0 && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                                  +{item.bonus_survente}%
+                                </Badge>
+                              )}
+                              {isAdmin && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => openEditTrancheDialog(item)}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive"
+                                    onClick={() => handleDeleteTranche(item.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <Progress value={(item.taux_commission / maxTaux) * 100} className="h-2" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                            {item.taux_commission}%
-                          </Badge>
-                          {item.bonus_survente && item.bonus_survente > 0 && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-300">
-                              +{item.bonus_survente}%
-                            </Badge>
-                          )}
-                          {isAdmin && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => openEditTrancheDialog(item)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => handleDeleteTranche(item.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <Progress value={(item.taux_commission / maxTaux) * 100} className="h-2" />
-                    </div>
-                  ))}
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+
+            {useTauxUnique && (
+              <Card className="bg-muted/50">
+                <CardContent className="py-8 text-center">
+                  <Percent className="h-12 w-12 mx-auto mb-3 text-primary" />
+                  <p className="font-bold text-2xl text-primary">{tauxUnique}%</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Taux unique appliqué à toutes les ventes
+                  </p>
                 </CardContent>
               </Card>
             )}
