@@ -373,27 +373,23 @@ const EtudeForm = () => {
     const conso = Number(consoAnnuelle);
     const facture = Number(factureMensuelle || 0);
 
-    // Get orientation coefficient
-    const orientData = dataOrientation.find(
-      (o) => o.orientation.toUpperCase() === orientation.toUpperCase() && o.inclinaison === inclinaison
-    );
-    const coefficient = orientData?.coefficient || 1.0;
+    // Get orientation coefficient (maintenant stocké dans rendementProductivite en %)
     const rendementCoeff = rendementProductivite / 100;
 
     // === PRODUCTION ANNUELLE ===
     // Deux modes de calcul :
-    // - PSH : Puissance × PSH × Coefficient orientation × Rendement
-    // - Heures : Puissance × Heures × 0.18 × Coefficient orientation × Rendement
+    // - PSH : Puissance × PSH × Rendement (coefficient orientation déjà inclus dans rendement)
+    // - Heures : Puissance × Heures × 0.18 × Rendement
     const pshData = dataPsh.find((p) => p.department_code === departement);
     const pshValue = pshData?.psh_value || 1200;
     
     let productionAnnuelle = 0;
     if (usePshCalculation) {
       // Méthode PSH (kWh/kWc/an)
-      productionAnnuelle = puissance * pshValue * coefficient * rendementCoeff;
+      productionAnnuelle = puissance * pshValue * rendementCoeff;
     } else {
       // Méthode Heures d'ensoleillement
-      productionAnnuelle = puissance * heuresEnsoleillement * 0.18 * coefficient * rendementCoeff;
+      productionAnnuelle = puissance * heuresEnsoleillement * 0.18 * rendementCoeff;
     }
 
     // === SURPLUS DE PRODUCTION ===
