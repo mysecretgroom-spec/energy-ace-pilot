@@ -28,6 +28,7 @@ interface Vente {
   montant_ht: number;
   puissance_kwc: number | null;
   decom_montant?: number | null;
+  type_vente?: 'standard' | 'external_installation';
 }
 
 export const useVenteCommissions = (ventes: Vente[]) => {
@@ -55,6 +56,21 @@ export const useVenteCommissions = (ventes: Vente[]) => {
       const newCommissions = new Map<string, CommissionData>();
 
       ventes.forEach(vente => {
+        // Pour les installations externes: commission = montant HT complet (c'est un tarif fixe facturé)
+        if (vente.type_vente === 'external_installation') {
+          const decomMontant = vente.decom_montant || 0;
+          newCommissions.set(vente.id, {
+            vente_id: vente.id,
+            montant_commission: vente.montant_ht,
+            bonus_survente: 0,
+            decom_montant: decomMontant,
+            commission_nette: Math.max(0, vente.montant_ht - decomMontant),
+            taux_commission: 100, // 100% car c'est un forfait
+            montant_base: vente.montant_ht,
+          });
+          return;
+        }
+
         if (!vente.puissance_kwc) {
           newCommissions.set(vente.id, {
             vente_id: vente.id,
