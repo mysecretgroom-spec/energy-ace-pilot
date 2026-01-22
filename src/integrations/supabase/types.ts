@@ -1426,6 +1426,7 @@ export type Database = {
           id: string
           updated_at: string
           user_id: string
+          vente_auto_transition_weeks: number
         }
         Insert: {
           created_at?: string
@@ -1435,6 +1436,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id: string
+          vente_auto_transition_weeks?: number
         }
         Update: {
           created_at?: string
@@ -1444,6 +1446,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+          vente_auto_transition_weeks?: number
         }
         Relationships: []
       }
