@@ -144,10 +144,40 @@ const CRM = () => {
   }, [user]);
 
   const fetchClients = async () => {
+    if (!user) return;
     setClientsLoading(true);
+    
+    // Only fetch clients that have at least one RDV with active status
+    // Active statuses: nouveau, reporte, r2, r2_prestudy, signe
+    const activeStatuses = ['nouveau', 'reporte', 'r2', 'r2_prestudy', 'signe'] as const;
+    
+    // First get RDVs with active status to find active client IDs
+    const { data: rdvData, error: rdvError } = await supabase
+      .from("rdv")
+      .select("client_id")
+      .eq("user_id", user.id)
+      .in("status", activeStatuses);
+    
+    if (rdvError) {
+      console.error("Error fetching active RDVs:", rdvError);
+      setClientsLoading(false);
+      return;
+    }
+    
+    // Get unique client IDs from active RDVs
+    const activeClientIds = [...new Set(rdvData?.map(r => r.client_id) || [])];
+    
+    if (activeClientIds.length === 0) {
+      setClients([]);
+      setClientsLoading(false);
+      return;
+    }
+    
+    // Fetch only clients with active RDVs
     const { data, error } = await supabase
       .from("clients")
       .select("*")
+      .in("id", activeClientIds)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
