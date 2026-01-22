@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { Footer } from "./Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -46,6 +47,9 @@ export const MobileLayout = ({
 
       {/* Main Content */}
       <main className={`flex-1 ${showNav ? "pb-20" : ""}`}>{children}</main>
+
+      {/* Footer */}
+      <Footer />
 
       {/* Offline Indicator */}
       <OfflineIndicator />
