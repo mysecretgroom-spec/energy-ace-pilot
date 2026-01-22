@@ -24,7 +24,9 @@ import {
   Lock,
   Compass,
   Gauge,
+  ShieldCheck,
 } from "lucide-react";
+import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -97,9 +99,11 @@ const EtudeForm = () => {
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
 
   // Mode HEJJA
+  const [modeHejjaActive, setModeHejjaActive] = useState(false);
   const [modeHejjaPsh, setModeHejjaPsh] = useState(false);
   const [modeHejjaPrix, setModeHejjaPrix] = useState(false);
   const [prixManuel, setPrixManuel] = useState<number | "">("");
+  const [showPinDialog, setShowPinDialog] = useState(false);
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -399,47 +403,91 @@ const EtudeForm = () => {
         </div>
 
         {/* Mode HEJJA */}
-        <Card className="shadow-card border-primary/30 bg-primary/5">
+        <Card className={`shadow-card border-2 transition-all ${modeHejjaActive ? "border-amber-500 bg-amber-500/5" : "border-primary/30 bg-primary/5"}`}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Lock className="h-4 w-4" />
-              Mode Interne HEJJA
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                {modeHejjaActive ? (
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+                Mode Interne HEJJA
+              </CardTitle>
+              {modeHejjaActive && (
+                <Badge className="bg-amber-500 text-white">ACTIF</Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Ensoleillement max</p>
-                <p className="text-xs text-muted-foreground">PSH valeur haute</p>
-              </div>
-              <Switch
-                checked={modeHejjaPsh}
-                onCheckedChange={setModeHejjaPsh}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Prix élevé</p>
-                <p className="text-xs text-muted-foreground">Grille prix max</p>
-              </div>
-              <Switch
-                checked={modeHejjaPrix}
-                onCheckedChange={setModeHejjaPrix}
-              />
-            </div>
-            {modeHejjaPrix && (
-              <div className="pt-2">
-                <Label>Prix manuel (optionnel)</Label>
-                <Input
-                  type="number"
-                  placeholder="Prix en €"
-                  value={prixManuel}
-                  onChange={(e) => setPrixManuel(e.target.value ? Number(e.target.value) : "")}
-                />
-              </div>
+            {!modeHejjaActive ? (
+              <Button
+                variant="outline"
+                className="w-full gap-2 border-primary/30"
+                onClick={() => setShowPinDialog(true)}
+              >
+                <Lock className="h-4 w-4" />
+                Déverrouiller le mode HEJJA
+              </Button>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Ensoleillement max</p>
+                    <p className="text-xs text-muted-foreground">PSH valeur haute</p>
+                  </div>
+                  <Switch
+                    checked={modeHejjaPsh}
+                    onCheckedChange={setModeHejjaPsh}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Prix élevé</p>
+                    <p className="text-xs text-muted-foreground">Grille prix max</p>
+                  </div>
+                  <Switch
+                    checked={modeHejjaPrix}
+                    onCheckedChange={setModeHejjaPrix}
+                  />
+                </div>
+                {modeHejjaPrix && (
+                  <div className="pt-2">
+                    <Label>Prix manuel (optionnel)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Prix en €"
+                      value={prixManuel}
+                      onChange={(e) => setPrixManuel(e.target.value ? Number(e.target.value) : "")}
+                    />
+                  </div>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => {
+                    setModeHejjaActive(false);
+                    setModeHejjaPsh(false);
+                    setModeHejjaPrix(false);
+                    setPrixManuel("");
+                  }}
+                >
+                  Désactiver le mode HEJJA
+                </Button>
+              </>
             )}
           </CardContent>
         </Card>
+
+        {/* PIN Dialog */}
+        <PinDialog
+          open={showPinDialog}
+          onOpenChange={setShowPinDialog}
+          onSuccess={() => setModeHejjaActive(true)}
+          title="Mode HEJJA"
+          description="Entrez le code PIN interne pour activer le mode HEJJA"
+        />
 
         {/* Consommation */}
         <Card className="shadow-card">
