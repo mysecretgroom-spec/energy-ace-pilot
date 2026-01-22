@@ -24,6 +24,7 @@ import {
   Zap,
   Gauge,
   Gift,
+  CreditCard,
 } from "lucide-react";
 
 const settingsSections = [
@@ -111,6 +112,12 @@ const settingsSections = [
         label: "Aides & Primes",
         description: "Prime autoconso, éco TVA",
         path: "/parametres/data-aides",
+      },
+      {
+        icon: CreditCard,
+        label: "Financements",
+        description: "Taux, TAEG, durées",
+        path: "/parametres/data-financements",
       },
     ],
   },

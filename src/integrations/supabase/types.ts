@@ -274,6 +274,39 @@ export type Database = {
         }
         Relationships: []
       }
+      data_financements: {
+        Row: {
+          actif: boolean
+          created_at: string
+          duree_mois: number
+          id: string
+          nom: string
+          taeg: number
+          taux_effectif: number
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          duree_mois?: number
+          id?: string
+          nom: string
+          taeg?: number
+          taux_effectif?: number
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          duree_mois?: number
+          id?: string
+          nom?: string
+          taeg?: number
+          taux_effectif?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       data_orientation: {
         Row: {
           coefficient: number

@@ -97,6 +97,15 @@ interface DataAide {
   actif: boolean;
 }
 
+interface DataFinancement {
+  id: string;
+  nom: string;
+  taux_effectif: number;
+  taeg: number;
+  duree_mois: number;
+  actif: boolean;
+}
+
 const EtudeForm = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -151,9 +160,11 @@ const EtudeForm = () => {
   const [rendementProductivite, setRendementProductivite] = useState(100);
 
   // === FINANCEMENT ===
-  const [modeFinancement, setModeFinancement] = useState("SOFINCO");
-  const [dureeFinancement, setDureeFinancement] = useState(180);
-  const [tauxFinancement, setTauxFinancement] = useState(5.307); // SOFINCO taux débiteur fixe
+  const [financementId, setFinancementId] = useState("");
+  const [mensualiteManuelle, setMensualiteManuelle] = useState<number | "">("");
+
+  // === PRIX MANUEL ===
+  const [prixInstallationManuel, setPrixInstallationManuel] = useState<number | "">("");
 
   // Surcoûts
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
@@ -177,7 +188,7 @@ const EtudeForm = () => {
   const [dataCalibres, setDataCalibres] = useState<DataCalibre[]>([]);
   const [dataCompteurs, setDataCompteurs] = useState<DataCompteur[]>([]);
   const [dataAides, setDataAides] = useState<DataAide[]>([]);
-
+  const [dataFinancements, setDataFinancements] = useState<DataFinancement[]>([]);
   // Heures d'ensoleillement affichées
   const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
 
@@ -224,11 +235,11 @@ const EtudeForm = () => {
     selectedSurcouts,
     bouquetId,
     modeHejjaPsh,
-    modeHejjaPrix,
     prixManuel,
+    prixInstallationManuel,
     rendementProductivite,
-    dureeFinancement,
-    tauxFinancement,
+    financementId,
+    mensualiteManuelle,
     surcoutSupport,
     surcoutCompteur,
     autreSurcout,
@@ -240,12 +251,13 @@ const EtudeForm = () => {
     dataBouquets,
     dataCompteurs,
     dataAides,
+    dataFinancements,
   ]);
 
   const loadReferenceData = async () => {
     setLoading(true);
 
-    const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes, aidesRes] = await Promise.all([
+    const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes, aidesRes, financementsRes] = await Promise.all([
       supabase.from("data_psh").select("*").order("department_code"),
       supabase.from("data_orientation").select("*"),
       supabase.from("data_tarifs_revente").select("*").eq("actif", true),
@@ -254,6 +266,7 @@ const EtudeForm = () => {
       supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
       supabase.from("data_compteurs").select("*").eq("actif", true),
       supabase.from("data_aides").select("*").eq("actif", true),
+      supabase.from("data_financements").select("*").eq("actif", true).order("duree_mois"),
     ]);
 
     if (pshRes.data) setDataPsh(pshRes.data);
@@ -264,6 +277,7 @@ const EtudeForm = () => {
     if (calibresRes.data) setDataCalibres(calibresRes.data);
     if (compteursRes.data) setDataCompteurs(compteursRes.data);
     if (aidesRes.data) setDataAides(aidesRes.data);
+    if (financementsRes.data) setDataFinancements(financementsRes.data);
 
     setLoading(false);
   };
@@ -327,15 +341,7 @@ const EtudeForm = () => {
     }
   }, [puissanceKwc]);
 
-  // Mise à jour du taux selon le mode de financement
-  useEffect(() => {
-    const taux: Record<string, number> = {
-      "FONDS PROPRES": 0,
-      "PROJEXIO": 6.09,
-      "SOFINCO": 5.307,
-    };
-    setTauxFinancement(taux[modeFinancement] || 5.307);
-  }, [modeFinancement]);
+  // Rien à faire ici maintenant - le taux vient de dataFinancements
 
   const calculateResults = () => {
     if (!puissanceKwc || !consoAnnuelle) return;
@@ -366,13 +372,20 @@ const EtudeForm = () => {
 
     // === PRIX INSTALLATION ===
     const bouquet = dataBouquets.find((b) => b.id === bouquetId);
-    let prixInstallation = bouquet
-      ? modeHejjaPrix && prixManuel
+    
+    // Priorité : prixInstallationManuel > prixManuel (mode HEJJA) > prix bouquet
+    let prixInstallation = 0;
+    if (prixInstallationManuel) {
+      prixInstallation = Number(prixInstallationManuel);
+    } else if (bouquet) {
+      prixInstallation = modeHejjaPrix && prixManuel
         ? Number(prixManuel)
         : modeHejjaPrix
         ? bouquet.prix_max
-        : bouquet.prix_recommande
-      : puissance * 4500; // Prix par défaut si pas de bouquet
+        : bouquet.prix_recommande;
+    } else {
+      prixInstallation = puissance * 4500; // Prix par défaut si pas de bouquet
+    }
 
     // === SURCOÛTS ===
     const prixSurcoûtsOptions = selectedSurcouts.reduce((total, code) => {
@@ -429,11 +442,16 @@ const EtudeForm = () => {
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
 
     // === MENSUALITÉ ===
-    // Calcul avec taux débiteur
-    const dureeMois = dureeFinancement;
-    const tauxMensuel = tauxFinancement / 100 / 12;
+    // Si mensualité manuelle, l'utiliser, sinon calculer
     let mensualite = 0;
-    if (modeFinancement === "FONDS PROPRES" || tauxMensuel === 0) {
+    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
+    const dureeMois = selectedFinancement?.duree_mois || 180;
+    const tauxEffectif = selectedFinancement?.taux_effectif || 0;
+    const tauxMensuel = tauxEffectif / 100 / 12;
+    
+    if (mensualiteManuelle) {
+      mensualite = Number(mensualiteManuelle);
+    } else if (tauxMensuel === 0) {
       mensualite = totalAidesDeduites / dureeMois;
     } else {
       // Formule de mensualité avec intérêts
@@ -533,9 +551,10 @@ const EtudeForm = () => {
       total_aides: calculatedResults.totalAides,
       total_aides_deduites: calculatedResults.totalAidesDeduites,
       // Financement
-      mode_financement: modeFinancement,
-      duree_financement_mois: dureeFinancement,
-      taux_financement: tauxFinancement,
+      financement_id: financementId || null,
+      mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
+      duree_financement_mois: dataFinancements.find(f => f.id === financementId)?.duree_mois || null,
+      taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
       mensualite_estimee: calculatedResults.mensualite,
       // Rentabilité
       economie_autoconso_mensuelle: calculatedResults.autoconsommationEuros,
@@ -1146,7 +1165,18 @@ const EtudeForm = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 pt-2 text-xs">
-                <div className="flex justify-between">
+                <div>
+                  <label className="text-xs text-muted-foreground">Prix Installation TTC</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={prixInstallationManuel || ""}
+                    onChange={(e) => setPrixInstallationManuel(e.target.value ? Number(e.target.value) : "")}
+                    placeholder={`Base: ${calculatedResults.prixInstallation.toFixed(0)}€`}
+                    className="h-7 text-xs font-medium"
+                  />
+                </div>
+                <div className="flex justify-between pt-1">
                   <span>Installation TTC</span>
                   <span className="font-medium">{calculatedResults.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
@@ -1203,30 +1233,41 @@ const EtudeForm = () => {
                 <Separator className="my-2" />
                 <div className="pt-2">
                   <p className="text-xs font-bold mb-1">FINANCEMENT</p>
-                  <Select value={modeFinancement} onValueChange={setModeFinancement}>
+                  <Select value={financementId} onValueChange={setFinancementId}>
                     <SelectTrigger className="h-7 text-xs">
-                      <SelectValue />
+                      <SelectValue placeholder="Sélectionner" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="SOFINCO">SOFINCO</SelectItem>
-                      <SelectItem value="PROJEXIO">PROJEXIO</SelectItem>
-                      <SelectItem value="FONDS PROPRES">FONDS PROPRES</SelectItem>
+                      {dataFinancements.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.nom} ({f.taux_effectif}% - {f.duree_mois} mois)
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex justify-between mt-1">
-                  <span>Durée</span>
-                  <Select value={String(dureeFinancement)} onValueChange={(v) => setDureeFinancement(Number(v))}>
-                    <SelectTrigger className="h-6 w-20 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="60">60 mois</SelectItem>
-                      <SelectItem value="120">120 mois</SelectItem>
-                      <SelectItem value="180">180 mois</SelectItem>
-                      <SelectItem value="240">240 mois</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {financementId && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <div className="flex justify-between">
+                      <span>Taux effectif</span>
+                      <span>{dataFinancements.find(f => f.id === financementId)?.taux_effectif}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>TAEG</span>
+                      <span>{dataFinancements.find(f => f.id === financementId)?.taeg}%</span>
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2">
+                  <label className="text-xs text-muted-foreground">Mensualité manuelle</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={mensualiteManuelle}
+                    onChange={(e) => setMensualiteManuelle(e.target.value ? Number(e.target.value) : "")}
+                    placeholder={`Calculée: ${calculatedResults.mensualite.toFixed(2)}€`}
+                    className="h-7 text-xs"
+                  />
                 </div>
                 <div className="flex justify-between font-bold bg-muted/50 rounded p-1 mt-1">
                   <span>Mensualité</span>
