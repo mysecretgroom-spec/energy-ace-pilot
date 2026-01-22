@@ -1,10 +1,12 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, X, RotateCcw, AlertCircle, Upload } from "lucide-react";
+import { Camera, X, RotateCcw, AlertCircle, Upload, Zap, ZapOff } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
+import { EdgeOverlay } from "./EdgeOverlay";
 
 interface CameraScannerProps {
-  onCapture: (imageData: string) => void;
+  onCapture: (imageData: string, detectedQuad?: DetectedQuad) => void;
   onCancel: () => void;
   pageCount: number;
 }
@@ -14,11 +16,27 @@ type CameraState = "requesting" | "active" | "error" | "denied";
 export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [autoCapture, setAutoCapture] = useState(true);
+  const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  // Real-time edge detection
+  const { detectedQuad, isStable, reset } = useRealtimeEdgeDetection({
+    videoRef,
+    enabled: cameraState === "active" && !isCapturing,
+    onStableDetection: (quad) => {
+      if (autoCapture && !isCapturing) {
+        performCapture(quad);
+      }
+    },
+  });
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -46,6 +64,14 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        
+        // Get video dimensions once loaded
+        const video = videoRef.current;
+        setVideoDimensions({
+          width: video.videoWidth,
+          height: video.videoHeight,
+        });
+        
         setCameraState("active");
       }
     } catch (error: unknown) {
@@ -64,18 +90,56 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
     return () => stopCamera();
   }, [startCamera, stopCamera]);
 
-  const handleCapture = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+  // Update container dimensions
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setContainerDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+    
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
+
+  // Update video dimensions when metadata loads
+  const handleVideoMetadata = useCallback(() => {
+    if (videoRef.current) {
+      setVideoDimensions({
+        width: videoRef.current.videoWidth,
+        height: videoRef.current.videoHeight,
+      });
+    }
+  }, []);
+
+  const performCapture = useCallback((quad?: DetectedQuad) => {
+    if (!videoRef.current || !canvasRef.current || isCapturing) return;
+
+    setIsCapturing(true);
 
     // Haptic feedback
     if (navigator.vibrate) {
       navigator.vibrate(50);
     }
 
+    // Flash effect
+    const flash = document.createElement("div");
+    flash.className = "fixed inset-0 bg-white z-[100] pointer-events-none";
+    flash.style.animation = "flash 200ms ease-out";
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 200);
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      setIsCapturing(false);
+      return;
+    }
 
     // Set canvas size to match video
     canvas.width = video.videoWidth;
@@ -86,8 +150,20 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
 
     // Get image data
     const imageData = canvas.toDataURL("image/jpeg", 0.92);
-    onCapture(imageData);
-  }, [onCapture]);
+    
+    // Reset detection state
+    reset();
+    
+    // Small delay to show flash
+    setTimeout(() => {
+      onCapture(imageData, quad || undefined);
+      setIsCapturing(false);
+    }, 100);
+  }, [onCapture, reset, isCapturing]);
+
+  const handleManualCapture = useCallback(() => {
+    performCapture(detectedQuad || undefined);
+  }, [performCapture, detectedQuad]);
 
   const handleSwitchCamera = useCallback(() => {
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
@@ -130,10 +206,20 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
     onCancel();
   }, [stopCamera, onCancel]);
 
+  const toggleAutoCapture = useCallback(() => {
+    setAutoCapture((prev) => !prev);
+    toast({
+      title: autoCapture ? "Capture auto désactivée" : "Capture auto activée",
+      description: autoCapture 
+        ? "Appuyez sur le bouton pour capturer" 
+        : "Le document sera capturé automatiquement",
+    });
+  }, [autoCapture]);
+
   // Error/denied states
   if (cameraState === "denied") {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Accès caméra refusé</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
@@ -161,7 +247,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
 
   if (cameraState === "error") {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Caméra non disponible</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
@@ -189,6 +275,14 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
 
   return (
     <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+      {/* Flash animation keyframes */}
+      <style>{`
+        @keyframes flash {
+          0% { opacity: 0.8; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+      
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
         <Button
@@ -199,9 +293,16 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
         >
           <X className="h-6 w-6" />
         </Button>
-        <span className="text-white font-medium">
-          {pageCount > 0 ? `Page ${pageCount + 1}` : "Scanner"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-white font-medium">
+            {pageCount > 0 ? `Page ${pageCount + 1}` : "Scanner"}
+          </span>
+          {autoCapture && (
+            <span className="px-2 py-0.5 bg-green-500/80 text-white text-xs rounded-full">
+              Auto
+            </span>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -213,24 +314,44 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
       </div>
 
       {/* Video feed */}
-      <div className="flex-1 relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden">
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
+          onLoadedMetadata={handleVideoMetadata}
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Document guide overlay */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-8 sm:inset-16 border-2 border-white/60 rounded-lg">
-            <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-lg" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-lg" />
-            <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-lg" />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-lg" />
+        {/* Edge detection overlay */}
+        {cameraState === "active" && (
+          <EdgeOverlay
+            quad={detectedQuad}
+            isStable={isStable}
+            videoWidth={videoDimensions.width}
+            videoHeight={videoDimensions.height}
+            containerWidth={containerDimensions.width}
+            containerHeight={containerDimensions.height}
+          />
+        )}
+
+        {/* Document guide overlay (shown when no detection) */}
+        {!detectedQuad && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-8 sm:inset-16 border-2 border-white/40 border-dashed rounded-lg">
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-white/60 rounded-tl-lg" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-white/60 rounded-tr-lg" />
+              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-white/60 rounded-bl-lg" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-white/60 rounded-br-lg" />
+            </div>
+            <div className="absolute inset-x-0 top-1/3 text-center">
+              <p className="text-white/80 text-sm font-medium bg-black/30 px-4 py-2 rounded-full inline-block">
+                Placez le document dans le cadre
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Loading state */}
         {cameraState === "requesting" && (
@@ -244,19 +365,55 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
       </div>
 
       {/* Footer with capture button */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center p-6 pb-24 bg-gradient-to-t from-black/60 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-6 p-6 pb-24 bg-gradient-to-t from-black/60 to-transparent">
+        {/* Auto-capture toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`text-white hover:bg-white/20 ${autoCapture ? "bg-green-500/30" : ""}`}
+          onClick={toggleAutoCapture}
+        >
+          {autoCapture ? (
+            <Zap className="h-6 w-6 text-green-400" />
+          ) : (
+            <ZapOff className="h-6 w-6" />
+          )}
+        </Button>
+        
+        {/* Capture button */}
         <Button
           size="lg"
-          className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black shadow-lg"
-          onClick={handleCapture}
-          disabled={cameraState !== "active"}
+          className={`h-16 w-16 rounded-full shadow-lg transition-all ${
+            isStable && autoCapture
+              ? "bg-green-500 hover:bg-green-600 scale-110"
+              : "bg-white hover:bg-white/90"
+          } text-black`}
+          onClick={handleManualCapture}
+          disabled={cameraState !== "active" || isCapturing}
         >
           <Camera className="h-8 w-8" />
         </Button>
+        
+        {/* Import button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="h-6 w-6" />
+        </Button>
       </div>
 
-      {/* Hidden canvas for capture */}
+      {/* Hidden elements */}
       <canvas ref={canvasRef} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,application/pdf"
+        onChange={handleFileImport}
+        className="hidden"
+      />
     </div>
   );
 }
