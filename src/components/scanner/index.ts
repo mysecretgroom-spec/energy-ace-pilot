@@ -4,6 +4,8 @@ export { CameraScanner } from "./CameraScanner";
 export { CropEditor } from "./CropEditor";
 export { PageManager } from "./PageManager";
 export { ReviewDocument } from "./ReviewDocument";
+export { QuickPhotoButton, QuickPhotoGroup } from "./QuickPhotoButton";
+export type { PhotoCategory } from "./QuickPhotoButton";
 export * from "./services/ocrService";
 export * from "./services/edgeDetection";
 export * from "./services/imageEnhancement";
