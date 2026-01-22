@@ -92,7 +92,7 @@ export function RdvStatusSelector({
   const [signePrixTTC, setSignePrixTTC] = useState("");
   const [signePrixHT, setSignePrixHT] = useState("");
 
-  const handleStatusSelect = (newStatus: RdvStatus) => {
+  const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
     // If R2 or R2 Pré-étude, show date picker dialog
@@ -104,10 +104,38 @@ export function RdvStatusSelector({
       setR2Time("10:00");
       setShowR2Dialog(true);
     } else if (newStatus === "signe") {
-      // Show signé dialog for power and price
-      setSignePuissance("");
-      setSignePrixTTC("");
-      setSignePrixHT("");
+      // Show signé dialog for power and price - prefill from étude if available
+      if (etudeId) {
+        const { data: etude } = await supabase
+          .from("etudes")
+          .select("puissance_kwc, prix_total")
+          .eq("id", etudeId)
+          .maybeSingle();
+        
+        if (etude) {
+          const puissance = etude.puissance_kwc?.toString() || "";
+          const prixTTC = etude.prix_total?.toString() || "";
+          setSignePuissance(puissance);
+          setSignePrixTTC(prixTTC);
+          // Calculate HT
+          if (prixTTC && puissance) {
+            const ttc = parseFloat(prixTTC);
+            const puissanceNum = parseFloat(puissance);
+            if (!isNaN(ttc) && ttc > 0) {
+              const tauxTVA = !isNaN(puissanceNum) && puissanceNum <= 3 ? 0.10 : 0.20;
+              setSignePrixHT((ttc / (1 + tauxTVA)).toFixed(2));
+            }
+          }
+        } else {
+          setSignePuissance("");
+          setSignePrixTTC("");
+          setSignePrixHT("");
+        }
+      } else {
+        setSignePuissance("");
+        setSignePrixTTC("");
+        setSignePrixHT("");
+      }
       setShowSigneDialog(true);
     } else {
       // Direct status change for other statuses
