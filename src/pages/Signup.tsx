@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -37,6 +38,7 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
@@ -45,6 +47,15 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!acceptedTerms) {
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Vous devez accepter les conditions d'utilisation",
+      });
+      return;
+    }
 
     if (password !== confirmPassword) {
       toast({
@@ -216,6 +227,24 @@ const Signup = () => {
                 required
                 autoComplete="new-password"
               />
+            </div>
+
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+              />
+              <Label htmlFor="terms" className="text-sm font-normal leading-tight cursor-pointer">
+                J'accepte les{" "}
+                <Link to="/conditions" className="text-primary hover:underline" target="_blank">
+                  conditions d'utilisation
+                </Link>{" "}
+                et la{" "}
+                <Link to="/confidentialite" className="text-primary hover:underline" target="_blank">
+                  politique de confidentialité
+                </Link>
+              </Label>
             </div>
 
             <Button
