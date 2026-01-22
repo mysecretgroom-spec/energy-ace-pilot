@@ -440,13 +440,15 @@ const EtudeForm = () => {
     const prixTotalHorsAides = prixInstallation + prixSurcouts;
 
     // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
+    // La prime s'applique pour autoconsommation et surplus (pas pour revente_totale)
     let primeAutoconsommation = 0;
-    if (typeRevente === "STANDARD") {
+    if (typeRevente === "autoconsommation" || typeRevente === "surplus") {
       // Chercher l'aide prime_autoconso applicable selon la puissance
       const primeAide = dataAides.find(
         (a) => a.code.startsWith("prime_autoconso") && 
-               puissance >= a.puissance_min && 
-               puissance < a.puissance_max
+               a.actif &&
+               puissance >= (a.puissance_min || 0) && 
+               puissance <= (a.puissance_max || 999)
       );
       if (primeAide) {
         if (primeAide.type_calcul === "par_kwc") {
