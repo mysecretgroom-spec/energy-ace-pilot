@@ -259,6 +259,17 @@ const EtudeForm = () => {
     verdict: "valide" | "a_etudier" | "invalide" | null;
   } | null>(null);
 
+  // Auto-disable HEJJA mode when leaving the page
+  useEffect(() => {
+    return () => {
+      // Cleanup: reset HEJJA mode on unmount
+      setModeHejjaActive(false);
+      setModeHejjaPsh(false);
+      setModeHejjaPrix(false);
+      setPrixManuel("");
+    };
+  }, []);
+
   // Load data on mount
   useEffect(() => {
     const init = async () => {
