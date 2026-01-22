@@ -5,6 +5,8 @@ interface CommissionData {
   vente_id: string;
   montant_commission: number;
   bonus_survente: number;
+  decom_montant: number;
+  commission_nette: number;
   taux_commission: number;
   montant_base: number;
 }
@@ -25,6 +27,7 @@ interface Vente {
   id: string;
   montant_ht: number;
   puissance_kwc: number | null;
+  decom_montant?: number | null;
 }
 
 export const useVenteCommissions = (ventes: Vente[]) => {
@@ -57,6 +60,8 @@ export const useVenteCommissions = (ventes: Vente[]) => {
             vente_id: vente.id,
             montant_commission: 0,
             bonus_survente: 0,
+            decom_montant: 0,
+            commission_nette: 0,
             taux_commission: 0,
             montant_base: vente.montant_ht,
           });
@@ -83,10 +88,17 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           bonusSurvente = surventeBase * (partSurventePct / 100);
         }
 
+        // Get decom from vente
+        const decomMontant = vente.decom_montant || 0;
+        const commissionBrute = baseCommission + bonusSurvente;
+        const commissionNette = Math.max(0, commissionBrute - decomMontant);
+
         newCommissions.set(vente.id, {
           vente_id: vente.id,
           montant_commission: baseCommission,
           bonus_survente: bonusSurvente,
+          decom_montant: decomMontant,
+          commission_nette: commissionNette,
           taux_commission: tauxCommission,
           montant_base: vente.montant_ht,
         });
@@ -110,7 +122,7 @@ export const useVenteCommissions = (ventes: Vente[]) => {
     return venteIds.reduce((total, id) => {
       const comm = commissions.get(id);
       if (comm) {
-        return total + comm.montant_commission + comm.bonus_survente;
+        return total + comm.commission_nette;
       }
       return total;
     }, 0);

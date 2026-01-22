@@ -56,6 +56,8 @@ interface Vente {
   status: VenteStatus;
   notes: string | null;
   created_at: string;
+  decom_montant?: number | null;
+  decom_raison?: string | null;
   client: {
     id: string;
     nom: string;
@@ -611,6 +613,7 @@ const CRM = () => {
                       selectionMode={selectionMode}
                       isSelected={isSelected}
                       onClick={handleCardClick}
+                      onRefresh={fetchVentes}
                     />
                   );
                 })}

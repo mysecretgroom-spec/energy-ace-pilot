@@ -1333,6 +1333,8 @@ export type Database = {
           date_installation_reelle: string | null
           date_paiement: string | null
           date_signature: string | null
+          decom_montant: number | null
+          decom_raison: string | null
           etude_id: string | null
           id: string
           montant_acompte: number | null
@@ -1355,6 +1357,8 @@ export type Database = {
           date_installation_reelle?: string | null
           date_paiement?: string | null
           date_signature?: string | null
+          decom_montant?: number | null
+          decom_raison?: string | null
           etude_id?: string | null
           id?: string
           montant_acompte?: number | null
@@ -1377,6 +1381,8 @@ export type Database = {
           date_installation_reelle?: string | null
           date_paiement?: string | null
           date_signature?: string | null
+          decom_montant?: number | null
+          decom_raison?: string | null
           etude_id?: string | null
           id?: string
           montant_acompte?: number | null

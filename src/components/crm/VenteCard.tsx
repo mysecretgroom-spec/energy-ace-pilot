@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { 
   User, 
   Calendar, 
@@ -11,9 +12,11 @@ import {
   CheckCircle2,
   XCircle,
   Euro,
+  MinusCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { DecomDialog } from "./DecomDialog";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
 
@@ -25,6 +28,8 @@ interface Vente {
   montant_ttc: number;
   puissance_kwc: number | null;
   status: VenteStatus;
+  decom_montant?: number | null;
+  decom_raison?: string | null;
   client: {
     id: string;
     nom: string;
@@ -43,6 +48,7 @@ interface VenteCardProps {
   selectionMode: boolean;
   isSelected: boolean;
   onClick: () => void;
+  onRefresh?: () => void;
 }
 
 const statusConfig: Record<VenteStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -67,69 +73,109 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClick }: VenteCardProps) => {
+export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClick, onRefresh }: VenteCardProps) => {
+  const [decomDialogOpen, setDecomDialogOpen] = useState(false);
   const config = statusConfig[vente.status];
-  const totalCommission = commission ? commission.montant_commission + commission.bonus_survente : 0;
+  const decomMontant = vente.decom_montant || 0;
+  const rawCommission = commission ? commission.montant_commission + commission.bonus_survente : 0;
+  const totalCommission = Math.max(0, rawCommission - decomMontant);
+
+  const clientName = vente.client 
+    ? `${vente.client.prenom || ""} ${vente.client.nom}`.trim() 
+    : "Client";
+
+  const handleDecomClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDecomDialogOpen(true);
+  };
 
   return (
-    <Card 
-      className={`cursor-pointer hover:bg-muted/50 transition-colors relative ${isSelected ? "border-primary bg-primary/5" : ""}`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {selectionMode && (
-              <Checkbox checked={isSelected} className="mr-1" />
-            )}
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">
-              {vente.client?.nom} {vente.client?.prenom || ""}
-            </span>
-          </div>
-          <Badge className={`${config.color} flex items-center gap-1`}>
-            {config.icon}
-            {config.label}
-          </Badge>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-lg font-bold text-primary">
-              {formatCurrency(vente.montant_ttc)}
-            </p>
+    <>
+      <Card 
+        className={`cursor-pointer hover:bg-muted/50 transition-colors relative ${isSelected ? "border-primary bg-primary/5" : ""}`}
+        onClick={onClick}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2">
-              {vente.puissance_kwc && (
-                <span className="text-xs text-muted-foreground">
-                  {vente.puissance_kwc} kWc
-                </span>
+              {selectionMode && (
+                <Checkbox checked={isSelected} className="mr-1" />
               )}
-              {totalCommission > 0 && (
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-200">
-                  Com: {formatCurrency(totalCommission)}
-                </Badge>
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">
+                {vente.client?.nom} {vente.client?.prenom || ""}
+              </span>
+            </div>
+            <Badge className={`${config.color} flex items-center gap-1`}>
+              {config.icon}
+              {config.label}
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-lg font-bold text-primary">
+                {formatCurrency(vente.montant_ttc)}
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {vente.puissance_kwc && (
+                  <span className="text-xs text-muted-foreground">
+                    {vente.puissance_kwc} kWc
+                  </span>
+                )}
+                {rawCommission > 0 && (
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-200">
+                    Com: {formatCurrency(totalCommission)}
+                  </Badge>
+                )}
+                {decomMontant > 0 && (
+                  <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-200">
+                    Décom: -{formatCurrency(decomMontant)}
+                  </Badge>
+                )}
+                {!selectionMode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={handleDecomClick}
+                  >
+                    <MinusCircle className="h-3 w-3 mr-1" />
+                    Décom
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="text-right space-y-1">
+              {vente.date_signature && (
+                <p className="text-xs flex items-center gap-1 text-muted-foreground justify-end">
+                  <Calendar className="h-3 w-3" />
+                  {format(new Date(vente.date_signature), "d MMM yyyy", { locale: fr })}
+                </p>
+              )}
+              {vente.numero_contrat && (
+                <p className="text-xs text-muted-foreground">
+                  {vente.numero_contrat}
+                </p>
               )}
             </div>
           </div>
-          <div className="text-right space-y-1">
-            {vente.date_signature && (
-              <p className="text-xs flex items-center gap-1 text-muted-foreground justify-end">
-                <Calendar className="h-3 w-3" />
-                {format(new Date(vente.date_signature), "d MMM yyyy", { locale: fr })}
-              </p>
-            )}
-            {vente.numero_contrat && (
-              <p className="text-xs text-muted-foreground">
-                {vente.numero_contrat}
-              </p>
-            )}
-          </div>
-        </div>
 
-        {!selectionMode && (
-          <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        )}
-      </CardContent>
-    </Card>
+          {!selectionMode && (
+            <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          )}
+        </CardContent>
+      </Card>
+
+      <DecomDialog
+        venteId={vente.id}
+        clientName={clientName}
+        currentDecom={decomMontant}
+        currentRaison={vente.decom_raison || null}
+        open={decomDialogOpen}
+        onOpenChange={setDecomDialogOpen}
+        onSaved={() => onRefresh?.()}
+      />
+    </>
   );
 };
