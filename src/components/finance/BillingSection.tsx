@@ -72,6 +72,14 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
 
       if (ventesError) throw ventesError;
 
+      // If no ventes in attente_paiement, just set empty and return
+      if (!ventesData || ventesData.length === 0) {
+        setVentes([]);
+        setTotalBillable(0);
+        setLoading(false);
+        return;
+      }
+
       // Fetch commission config
       const [tiersRes, bouquetsRes, configRes] = await Promise.all([
         supabase.from("data_commissions").select("*").order("tranche_min"),
