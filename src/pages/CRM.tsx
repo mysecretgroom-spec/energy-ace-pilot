@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PipelineKanban } from "@/components/crm/PipelineKanban";
 import {
   Search,
   Phone,
@@ -29,6 +30,7 @@ import {
   XCircle,
   Loader2,
   Users,
+  Kanban,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -265,14 +267,18 @@ const CRM = () => {
       <div className="p-4 space-y-4 pb-24">
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="clients" className="gap-2">
-              <Users className="h-4 w-4" />
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="clients" className="gap-1 text-xs">
+              <Users className="h-3.5 w-3.5" />
               Clients
             </TabsTrigger>
-            <TabsTrigger value="ventes" className="gap-2">
-              <Euro className="h-4 w-4" />
+            <TabsTrigger value="ventes" className="gap-1 text-xs">
+              <Euro className="h-3.5 w-3.5" />
               Ventes
+            </TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-1 text-xs">
+              <Kanban className="h-3.5 w-3.5" />
+              Pipeline
             </TabsTrigger>
           </TabsList>
 
@@ -580,6 +586,17 @@ const CRM = () => {
                   );
                 })}
               </div>
+            )}
+          </TabsContent>
+
+          {/* Pipeline Tab */}
+          <TabsContent value="pipeline" className="mt-4">
+            {ventesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <PipelineKanban ventes={ventes} onRefresh={fetchVentes} />
             )}
           </TabsContent>
         </Tabs>
