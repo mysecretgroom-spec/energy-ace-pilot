@@ -307,11 +307,15 @@ const EtudeForm = () => {
   const loadClientInfo = async () => {
     if (!clientId) return;
 
+    console.log("[DEBUG] Loading client info for clientId:", clientId);
+
     const { data } = await supabase
       .from("clients")
       .select("nom, prenom, adresse, ville, code_postal")
       .eq("id", clientId)
       .maybeSingle();
+
+    console.log("[DEBUG] Client data loaded:", data);
 
     if (data) {
       setClientName(data.nom || "");
@@ -320,17 +324,24 @@ const EtudeForm = () => {
       setClientVille(data.ville || "");
       if (data.code_postal) {
         const deptCode = data.code_postal.substring(0, 2);
+        console.log("[DEBUG] Code postal:", data.code_postal, "=> Département extrait:", deptCode);
         setDepartement(deptCode);
+      } else {
+        console.log("[DEBUG] Pas de code postal pour ce client");
       }
     }
   };
 
   // Mise à jour automatique quand le département change
   useEffect(() => {
+    console.log("[DEBUG] useEffect département:", departement, "| dataPsh.length:", dataPsh.length);
     if (departement && dataPsh.length > 0) {
       const pshData = dataPsh.find((p) => p.department_code === departement);
+      console.log("[DEBUG] PSH trouvé pour", departement, ":", pshData);
       if (pshData) {
         setHeuresEnsoleillement(pshData.heures_ensoleillement_annuel || 2890);
+      } else {
+        console.log("[DEBUG] Aucun PSH trouvé! Codes disponibles:", dataPsh.map(p => p.department_code).slice(0, 10));
       }
     }
   }, [departement, dataPsh]);
