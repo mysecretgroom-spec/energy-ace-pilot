@@ -89,7 +89,10 @@ interface VenteStats {
   caMonth: number;
   caPrevMonth: number;
   commissionsMonth: number;
-  commissionsPending: number;
+  // Nouvelles catégories de commissions
+  comPotentielle: number;  // Tous contrats signés non annulés
+  comAVenir: number;       // envoi_pose, en_installation
+  comDuSur: number;        // installe, attente_paiement
   signedCount: number;
   avgDeal: number;
   ventesEnCours: number;
@@ -148,13 +151,48 @@ const Finance = () => {
         const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-        // Fetch all ventes for the user
+        // Fetch all ventes for the user (toutes, pas juste ce mois)
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, date_signature, created_at")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at")
           .eq("user_id", user.id);
 
         if (error) throw error;
+
+        // Fetch commission config and tiers
+        const [tiersRes, bouquetsRes, configRes] = await Promise.all([
+          supabase.from("data_commissions").select("*").order("tranche_min"),
+          supabase.from("data_prix_bouquets").select("puissance_kwc, prix_hejja, prix_recommande").eq("actif", true),
+          supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+        ]);
+
+        const tiers = tiersRes.data || [];
+        const bouquets = bouquetsRes.data || [];
+        const partSurventePct = configRes.data?.part_survente_pct || 50;
+
+        // Helper to calculate commission for a vente
+        const calcCommission = (v: typeof ventes[0]) => {
+          if (!v.puissance_kwc) return 0;
+          
+          const bouquet = bouquets.find(b => b.puissance_kwc === v.puissance_kwc);
+          const prixRecommande = bouquet?.prix_recommande || 0;
+          
+          const tier = tiers.find(
+            t => v.montant_ht >= t.tranche_min && v.montant_ht <= t.tranche_max
+          ) || tiers[tiers.length - 1];
+          
+          const tauxCommission = tier?.taux_commission || 0;
+          const baseCommission = v.montant_ht * (tauxCommission / 100);
+          
+          let bonusSurvente = 0;
+          if (prixRecommande > 0 && v.montant_ht > prixRecommande) {
+            const surventeBase = v.montant_ht - prixRecommande;
+            bonusSurvente = surventeBase * (partSurventePct / 100);
+          }
+          
+          const decomMontant = v.decom_montant || 0;
+          return Math.max(0, baseCommission + bonusSurvente - decomMontant);
+        };
 
         // Calculate stats
         const ventesThisMonth = ventes?.filter(v => {
@@ -168,36 +206,42 @@ const Finance = () => {
         }) || [];
 
         const signedThisMonth = ventesThisMonth.filter(v => 
-          ["signe", "installe", "paye"].includes(v.status)
+          !["en_negociation", "annule"].includes(v.status)
         );
         
         const signedPrevMonth = ventesPrevMonth.filter(v => 
-          ["signe", "installe", "paye"].includes(v.status)
+          !["en_negociation", "annule"].includes(v.status)
         );
 
         const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
         const caPrevMonth = signedPrevMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
 
-        // Fetch commissions
-        const { data: commissions } = await supabase
-          .from("commissions")
-          .select("montant_commission, paye, date_calcul")
-          .eq("user_id", user.id);
+        // Commissions this month
+        const commissionsMonth = signedThisMonth.reduce((sum, v) => sum + calcCommission(v), 0);
 
-        const commissionsThisMonth = commissions?.filter(c => {
-          const date = new Date(c.date_calcul);
-          return date >= startOfMonth;
-        }) || [];
+        // Com potentielle: tous contrats signés non annulés (toutes périodes)
+        const ventesSigneesNonAnnulees = ventes?.filter(v => 
+          !["en_negociation", "annule", "paye"].includes(v.status)
+        ) || [];
+        const comPotentielle = ventesSigneesNonAnnulees.reduce((sum, v) => sum + calcCommission(v), 0);
 
-        const commissionsMonth = commissionsThisMonth.reduce((sum, c) => sum + Number(c.montant_commission || 0), 0);
-        const commissionsPending = commissions?.filter(c => !c.paye)
-          .reduce((sum, c) => sum + Number(c.montant_commission || 0), 0) || 0;
+        // Com à venir: envoi_pose, en_installation
+        const ventesAVenir = ventes?.filter(v => 
+          ["envoi_pose", "en_installation"].includes(v.status)
+        ) || [];
+        const comAVenir = ventesAVenir.reduce((sum, v) => sum + calcCommission(v), 0);
+
+        // Com du sûr: installe, attente_paiement
+        const ventesDuSur = ventes?.filter(v => 
+          ["installe", "attente_paiement"].includes(v.status)
+        ) || [];
+        const comDuSur = ventesDuSur.reduce((sum, v) => sum + calcCommission(v), 0);
 
         const signedCount = signedThisMonth.length;
         const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
 
         const ventesEnCours = ventes?.filter(v => 
-          ["en_negociation", "signe"].includes(v.status)
+          ["en_negociation", "signe", "cq_a_faire", "cq_fait", "attente_financement"].includes(v.status)
         ).length || 0;
 
         const ventesAnnulees = ventesThisMonth.filter(v => v.status === "annule").length;
@@ -206,7 +250,9 @@ const Finance = () => {
           caMonth,
           caPrevMonth,
           commissionsMonth,
-          commissionsPending,
+          comPotentielle,
+          comAVenir,
+          comDuSur,
           signedCount,
           avgDeal,
           ventesEnCours,
@@ -443,7 +489,7 @@ const Finance = () => {
                   </CardContent>
                 </Card>
 
-                {/* Stats grid */}
+                {/* Stats grid - 2 cols */}
                 <div className="grid grid-cols-2 gap-3">
                   <Card className="shadow-card">
                     <CardContent className="p-4 text-center">
@@ -464,7 +510,7 @@ const Finance = () => {
                         {venteStats.signedCount}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Dossiers signés
+                        Dossiers signés ce mois
                       </p>
                     </CardContent>
                   </Card>
@@ -483,33 +529,69 @@ const Finance = () => {
 
                   <Card className="shadow-card">
                     <CardContent className="p-4 text-center">
-                      <Clock className="h-6 w-6 mx-auto mb-2 text-amber-500" />
-                      <p className="text-xl font-bold text-foreground">
-                        {venteStats.commissionsPending.toLocaleString("fr-FR")} €
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Commissions en attente
-                      </p>
+                      <CheckCircle className="h-6 w-6 mx-auto mb-2 text-status-signed" />
+                      <p className="text-sm text-muted-foreground">En cours</p>
+                      <p className="text-lg font-bold text-foreground">{venteStats.ventesEnCours}</p>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Ventes en cours / annulées */}
-                <Card className="shadow-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-status-signed" />
-                          <span className="text-sm text-muted-foreground">En cours:</span>
-                          <span className="font-semibold">{venteStats.ventesEnCours}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Ban className="h-4 w-4 text-destructive" />
-                          <span className="text-sm text-muted-foreground">Annulées:</span>
-                          <span className="font-semibold">{venteStats.ventesAnnulees}</span>
+                {/* Répartition des commissions */}
+                <Card className="shadow-card border-primary/20">
+                  <CardContent className="p-4 space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
+                    
+                    {/* Com Potentielle */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-200">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-amber-600" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-700">Com. Potentielle</p>
+                          <p className="text-xs text-amber-600/80">Contrats signés non annulés</p>
                         </div>
                       </div>
+                      <p className="text-lg font-bold text-amber-700">
+                        {venteStats.comPotentielle.toLocaleString("fr-FR")} €
+                      </p>
+                    </div>
+                    
+                    {/* Com À Venir */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-200">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-700">Com. À Venir</p>
+                          <p className="text-xs text-blue-600/80">Envoi pose / En installation</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-blue-700">
+                        {venteStats.comAVenir.toLocaleString("fr-FR")} €
+                      </p>
+                    </div>
+                    
+                    {/* Com Du Sûr */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-green-700">Com. Du Sûr</p>
+                          <p className="text-xs text-green-600/80">Posé / Attente paiement</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-green-700">
+                        {venteStats.comDuSur.toLocaleString("fr-FR")} €
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Ventes annulées */}
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Ban className="h-4 w-4 text-destructive" />
+                      <span className="text-sm text-muted-foreground">Annulées ce mois:</span>
+                      <span className="font-semibold">{venteStats.ventesAnnulees}</span>
                     </div>
                   </CardContent>
                 </Card>
