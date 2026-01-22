@@ -123,6 +123,17 @@ const settingsSections = [
     ],
   },
   {
+    title: "Automatisations",
+    items: [
+      {
+        icon: Clock,
+        label: "Transition ventes",
+        description: "Délai Posé → Attente paiement",
+        path: "/parametres/ventes",
+      },
+    ],
+  },
+  {
     title: "Sécurité",
     items: [
       {
