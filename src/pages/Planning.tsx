@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import {
   Clock,
   MapPin,
@@ -33,6 +34,8 @@ import {
   RefreshCw,
   FileText,
   Wrench,
+  Route,
+  ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -78,10 +81,18 @@ const Planning = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [rdvList, setRdvList] = useState<RdvData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalDistance, setTotalDistance] = useState<number>(0);
   const [emailImportOpen, setEmailImportOpen] = useState(false);
   const [quickRdvOpen, setQuickRdvOpen] = useState(false);
   const [selectedRdv, setSelectedRdv] = useState<RdvData | null>(null);
+
+  // Use planning routes hook for day view distances
+  const { 
+    rdvs: routeRdvs, 
+    loading: routesLoading, 
+    totalDistance, 
+    tomorrowFirstDistance,
+    refetch: refetchRoutes 
+  } = usePlanningRoutes(currentDate);
 
   // Handle click on calendar RDV
   const handleCalendarRdvClick = (rdv: RdvData) => {
@@ -203,7 +214,6 @@ const Planning = () => {
 
       if (!data || data.length === 0) {
         setRdvList([]);
-        setTotalDistance(0);
         setLoading(false);
         return;
       }
@@ -253,7 +263,7 @@ const Planning = () => {
           status: rdv.status as RdvStatus,
           type: projectTypeLabels[rdv.type_projet] || rdv.type_projet,
           typeRdv: (rdv.type_rdv as RdvType) || 'standard',
-          // Distance/travel time will be calculated by edge function in future
+          // Distance/travel time will be merged from routes hook for day view
           distance: undefined,
           travelTime: undefined,
           alert: false,
@@ -264,14 +274,28 @@ const Planning = () => {
       });
 
       setRdvList(transformedRdvs);
-      // Calculate total distance would require geocoding - placeholder for now
-      setTotalDistance(0);
     } catch (err) {
       console.error("Error in fetchRdvs:", err);
     } finally {
       setLoading(false);
     }
   }, [user, currentDate, viewMode]);
+
+  // Merge route data with rdvList for day view
+  const rdvListWithRoutes: RdvData[] = viewMode === "jour" && routeRdvs.length > 0
+    ? rdvList.map((rdv) => {
+        const routeRdv = routeRdvs.find((r) => r.id === rdv.id);
+        if (routeRdv) {
+          return {
+            ...rdv,
+            distance: routeRdv.distance,
+            travelTime: routeRdv.travelTime,
+            alert: routeRdv.alert,
+          };
+        }
+        return rdv;
+      })
+    : rdvList;
 
   useEffect(() => {
     fetchRdvs();
@@ -318,13 +342,21 @@ const Planning = () => {
         <Card className="bg-muted/50">
           <CardContent className="p-3">
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Car className="h-4 w-4" />
-                <span>{rdvList.length} rendez-vous</span>
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Car className="h-4 w-4" />
+                  <span>{rdvListWithRoutes.length} RDV</span>
+                </div>
+                {viewMode === "jour" && totalDistance > 0 && (
+                  <div className="flex items-center gap-1.5 text-primary font-medium">
+                    <Route className="h-4 w-4" />
+                    <span>{totalDistance} km</span>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
-                <GoogleCalendarSync onSyncComplete={fetchRdvs} />
-                <GmailSync onSyncComplete={fetchRdvs} />
+                <GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
+                <GmailSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
                 <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5 h-8 bg-gradient-hero">
@@ -338,6 +370,7 @@ const Planning = () => {
                       onSuccess={() => {
                         setQuickRdvOpen(false);
                         fetchRdvs();
+                        refetchRoutes();
                       }}
                       onCancel={() => setQuickRdvOpen(false)}
                     />
@@ -355,6 +388,7 @@ const Planning = () => {
                       onSuccess={() => {
                         setEmailImportOpen(false);
                         fetchRdvs();
+                        refetchRoutes();
                       }}
                       onCancel={() => setEmailImportOpen(false)}
                     />
@@ -389,7 +423,7 @@ const Planning = () => {
         )}
 
         {/* Empty state (day view only) */}
-        {!loading && viewMode === "jour" && rdvList.length === 0 && (
+        {!loading && viewMode === "jour" && rdvListWithRoutes.length === 0 && (
           <Card className="shadow-card">
             <CardContent className="p-8 text-center">
               <CalendarX className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -407,14 +441,15 @@ const Planning = () => {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md p-0 overflow-hidden">
-                  <EmailImport
-                    onSuccess={() => {
-                      setEmailImportOpen(false);
-                      fetchRdvs();
-                    }}
-                    onCancel={() => setEmailImportOpen(false)}
-                  />
-                </DialogContent>
+                    <EmailImport
+                      onSuccess={() => {
+                        setEmailImportOpen(false);
+                        fetchRdvs();
+                        refetchRoutes();
+                      }}
+                      onCancel={() => setEmailImportOpen(false)}
+                    />
+                  </DialogContent>
               </Dialog>
             </CardContent>
           </Card>
@@ -440,17 +475,24 @@ const Planning = () => {
         )}
 
         {/* Liste des RDV (only in day view) */}
-        {!loading && viewMode === "jour" && rdvList.length > 0 && (
-          <div className="space-y-3">
-            {rdvList.map((rdv, index) => (
+        {!loading && viewMode === "jour" && rdvListWithRoutes.length > 0 && (
+          <div className="space-y-4">
+            {rdvListWithRoutes.map((rdv, index) => (
               <div key={rdv.id} className="relative">
                 {/* Ligne de trajet entre les RDV */}
                 {index > 0 && rdv.travelTime && rdv.distance && (
-                  <div className="absolute -top-3 left-6 flex items-center gap-2 text-xs text-muted-foreground bg-background px-2 py-1 rounded z-10">
-                    <Car className="h-3 w-3" />
-                    <span>{rdv.travelTime}</span>
-                    <span>•</span>
-                    <span>{rdv.distance}</span>
+                  <div className={`flex items-center justify-center gap-3 py-2 mb-2 rounded-lg border border-dashed ${
+                    rdv.alert ? "border-secondary bg-secondary/10" : "border-muted-foreground/30 bg-muted/30"
+                  }`}>
+                    <Car className={`h-4 w-4 ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`}>
+                      {rdv.travelTime}
+                    </span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className={`text-sm font-medium ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`}>
+                      {rdv.distance}
+                    </span>
+                    {rdv.alert && <span className="text-secondary text-xs">⚠️</span>}
                   </div>
                 )}
 
@@ -551,13 +593,35 @@ const Planning = () => {
                         typeRdv={rdv.typeRdv}
                         currentStatus={rdv.status}
                         etudeId={rdv.etudeId}
-                        onRefresh={fetchRdvs}
+                        onRefresh={() => { fetchRdvs(); refetchRoutes(); }}
                       />
                     </div>
                   </CardContent>
                 </Card>
               </div>
             ))}
+
+            {/* Distance vers le premier RDV du lendemain */}
+            {tomorrowFirstDistance && (
+              <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                      <span>Vers 1er RDV demain</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-primary font-medium">
+                        <Car className="h-4 w-4" />
+                        <span>{tomorrowFirstDistance.duration_minutes} min</span>
+                      </div>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-primary font-medium">{tomorrowFirstDistance.distance_km} km</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
