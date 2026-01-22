@@ -32,7 +32,10 @@ import {
   FileText,
   CreditCard,
   PiggyBank,
+  Download,
+  Check,
 } from "lucide-react";
+import { exportEtudePdf, EtudeData } from "@/lib/exportEtudePdf";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -178,6 +181,10 @@ const EtudeForm = () => {
   const [modeHejjaPrix, setModeHejjaPrix] = useState(false);
   const [prixManuel, setPrixManuel] = useState<number | "">("");
   const [showPinDialog, setShowPinDialog] = useState(false);
+
+  // Animation de succès
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -573,15 +580,114 @@ const EtudeForm = () => {
         title: "Erreur",
         description: "Impossible de sauvegarder l'étude",
       });
+      setSaving(false);
     } else {
-      toast({
-        title: "Étude sauvegardée",
-        description: "L'étude a été enregistrée avec succès",
-      });
-      navigate(`/clients/${clientId}`);
+      // Afficher l'animation de succès
+      setShowSuccess(true);
+      setSaving(false);
+      
+      // Attendre l'animation avant de naviguer
+      setTimeout(() => {
+        setShowSuccess(false);
+        navigate(`/clients/${clientId}`);
+      }, 1500);
     }
+  };
 
-    setSaving(false);
+  const handleExportPdf = () => {
+    if (!calculatedResults) return;
+    
+    setExporting(true);
+    
+    const selectedBouquet = dataBouquets.find(b => b.id === bouquetId);
+    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
+    
+    const pdfData: EtudeData = {
+      // Client
+      clientNom: clientName,
+      clientPrenom: clientPrenom,
+      clientAdresse: clientAdresse,
+      clientVille: clientVille,
+      departement: departement,
+      
+      // Visite technique
+      ombreToiture: ombreToiture,
+      surfaceToiture: surfaceToiture,
+      typeToiture: typeToiture,
+      etatToiture: etatToiture,
+      orientation: orientation,
+      inclinaison: inclinaison,
+      
+      // Compteur
+      typeCompteurElectrique: typeCompteurElectrique,
+      numeroPdl: numeroPdl,
+      typeRaccordement: typeRaccordement,
+      amperageDisjoncteur: amperageDisjoncteur,
+      emplacementBoitier: emplacementBoitier,
+      potentielFaisabilite: potentielFaisabilite,
+      
+      // Consommation
+      consoAnnuelle: Number(consoAnnuelle) || 0,
+      factureMensuelle: Number(factureMensuelle) || 0,
+      
+      // Préconisation
+      bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
+      puissanceKwc: Number(puissanceKwc) || 0,
+      typeRevente: typeRevente,
+      supportInstallation: supportInstallation,
+      
+      // Données techniques
+      surfaceInstallation: Number(surfaceInstallation) || 0,
+      heuresEnsoleillement: heuresEnsoleillement,
+      rendementProductivite: rendementProductivite,
+      
+      // Résultats calculs
+      productionAnnuelle: calculatedResults.productionAnnuelle,
+      surplusProduction: calculatedResults.surplusProduction,
+      autoconsoPct: calculatedResults.autoconsoPct,
+      
+      // Prix
+      prixInstallation: calculatedResults.prixInstallation,
+      surcoutSupport: surcoutSupport,
+      surcoutCompteur: surcoutCompteur,
+      autreSurcout: autreSurcout,
+      prixTotalHorsAides: calculatedResults.prixTotalHorsAides,
+      
+      // Aides
+      primeAutoconsommation: calculatedResults.primeAutoconsommation,
+      ecoTva: calculatedResults.ecoTva,
+      totalAides: calculatedResults.totalAides,
+      totalAidesDeduites: calculatedResults.totalAidesDeduites,
+      
+      // Financement
+      financementNom: selectedFinancement?.nom || "Non défini",
+      tauxFinancement: selectedFinancement?.taux_effectif || 0,
+      dureeMois: selectedFinancement?.duree_mois || 180,
+      mensualite: calculatedResults.mensualite,
+      
+      // Rentabilité
+      autoconsommationEuros: calculatedResults.autoconsommationEuros,
+      reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
+      resultatTransfertCharge: calculatedResults.resultatTransfertCharge,
+      verdict: calculatedResults.verdict || "invalide",
+    };
+    
+    try {
+      exportEtudePdf(pdfData);
+      toast({
+        title: "PDF exporté",
+        description: "L'étude a été téléchargée",
+      });
+    } catch (error) {
+      console.error("Erreur export PDF:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible d'exporter le PDF",
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const getVerdictDisplay = () => {
@@ -615,6 +721,19 @@ const EtudeForm = () => {
 
   return (
     <MobileLayout>
+      {/* Overlay de succès avec animation */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col items-center gap-4 animate-scale-in">
+            <div className="h-20 w-20 rounded-full bg-status-signed flex items-center justify-center">
+              <Check className="h-10 w-10 text-white animate-[bounce_0.5s_ease-in-out]" />
+            </div>
+            <p className="text-lg font-bold text-foreground">Étude sauvegardée !</p>
+            <p className="text-sm text-muted-foreground">Redirection en cours...</p>
+          </div>
+        </div>
+      )}
+
       <div className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -1319,13 +1438,27 @@ const EtudeForm = () => {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2 pb-8">
+        <div className="flex gap-2 pt-2 pb-8">
           <Button
             variant="outline"
-            className="flex-1"
+            size="sm"
             onClick={() => navigate(-1)}
           >
             Annuler
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={handleExportPdf}
+            disabled={!calculatedResults || exporting}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            PDF
           </Button>
           <Button
             className="flex-1 bg-gradient-hero gap-2"
