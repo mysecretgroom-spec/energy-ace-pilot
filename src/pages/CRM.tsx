@@ -91,6 +91,9 @@ const CRM = () => {
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [ventesLoading, setVentesLoading] = useState(true);
   const [venteFilter, setVenteFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | VenteType>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [qontoDialogOpen, setQontoDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -192,9 +195,17 @@ const CRM = () => {
     }).format(amount);
   };
 
-  const filteredVentes = venteFilter === "all" 
-    ? ventes 
-    : ventes.filter(v => v.status === venteFilter);
+  const filteredVentes = ventes.filter(v => {
+    // Filter by status
+    if (venteFilter !== "all" && v.status !== venteFilter) return false;
+    // Filter by type
+    if (typeFilter !== "all" && v.type_vente !== typeFilter) return false;
+    // Filter by date range
+    const signatureDate = v.date_signature || v.created_at;
+    if (dateFrom && new Date(signatureDate) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(signatureDate) > new Date(dateTo + "T23:59:59")) return false;
+    return true;
+  });
 
   const clientEtudes = etudes.filter(e => e.client_id === formData.client_id);
   const totalCA = ventes.filter(v => v.status !== 'annule').reduce((sum, v) => sum + v.montant_ttc, 0);
@@ -595,15 +606,65 @@ const CRM = () => {
               </Button>
             </div>
 
-            {/* Ventes filter tabs */}
-            <Tabs value={venteFilter} onValueChange={setVenteFilter}>
-              <TabsList className="w-full grid grid-cols-4">
-                <TabsTrigger value="all">Tout</TabsTrigger>
-                <TabsTrigger value="en_negociation">Négo</TabsTrigger>
-                <TabsTrigger value="signe">Signées</TabsTrigger>
-                <TabsTrigger value="paye">Payées</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Filters section */}
+            <div className="space-y-3">
+              {/* Type filter */}
+              <div className="flex gap-2">
+                <Select value={typeFilter} onValueChange={(v: "all" | VenteType) => setTypeFilter(v)}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Type de vente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les types</SelectItem>
+                    <SelectItem value="standard">Ventes standard</SelectItem>
+                    <SelectItem value="external_installation">Installations externes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date range filter */}
+              <div className="flex gap-2 items-center">
+                <div className="flex-1">
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    placeholder="Du"
+                    className="text-xs"
+                  />
+                </div>
+                <span className="text-muted-foreground text-sm">→</span>
+                <div className="flex-1">
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    placeholder="Au"
+                    className="text-xs"
+                  />
+                </div>
+                {(dateFrom || dateTo) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => { setDateFrom(""); setDateTo(""); }}
+                    className="px-2"
+                  >
+                    ✕
+                  </Button>
+                )}
+              </div>
+
+              {/* Status filter tabs */}
+              <Tabs value={venteFilter} onValueChange={setVenteFilter}>
+                <TabsList className="w-full grid grid-cols-4">
+                  <TabsTrigger value="all">Tout</TabsTrigger>
+                  <TabsTrigger value="en_negociation">Négo</TabsTrigger>
+                  <TabsTrigger value="signe">Signées</TabsTrigger>
+                  <TabsTrigger value="paye">Payées</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
             {/* Ventes list */}
             {ventesLoading ? (
