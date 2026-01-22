@@ -12,10 +12,13 @@ interface NavigationButtonProps {
   city?: string;
   postalCode?: string;
   className?: string;
+  size?: "default" | "sm";
 }
 
-export function NavigationButton({ address, city, postalCode, className }: NavigationButtonProps) {
-  const fullAddress = [address, postalCode, city].filter(Boolean).join(", ");
+export function NavigationButton({ address, city, postalCode, className, size = "default" }: NavigationButtonProps) {
+  const fullAddress = [address, postalCode, city].filter(Boolean).join(",");
+  const sizeClasses = size === "sm" ? "h-8 w-8" : "h-9 w-9";
+  const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
   const encodedAddress = encodeURIComponent(fullAddress);
 
   const openWaze = () => {
@@ -35,9 +38,9 @@ export function NavigationButton({ address, city, postalCode, className }: Navig
       <DropdownMenuTrigger asChild>
         <Button
           size="icon"
-          className={`h-9 w-9 rounded-full bg-gradient-hero ${className}`}
+          className={`${sizeClasses} rounded-full bg-gradient-hero ${className}`}
         >
-          <Navigation className="h-4 w-4" />
+          <Navigation className={iconSize} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

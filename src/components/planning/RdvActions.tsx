@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2 } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
+import { RdvStatusSelector } from "./RdvStatusSelector";
+import { RdvStatus } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -23,7 +25,9 @@ interface RdvActionsProps {
   city?: string;
   postalCode?: string;
   typeRdv: RdvType;
+  currentStatus: RdvStatus;
   onRefresh: () => void;
+  onStatusChange?: (newStatus: RdvStatus) => void;
 }
 
 export function RdvActions({ 
@@ -35,7 +39,9 @@ export function RdvActions({
   city,
   postalCode,
   typeRdv,
+  currentStatus,
   onRefresh,
+  onStatusChange,
 }: RdvActionsProps) {
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
@@ -96,8 +102,20 @@ export function RdvActions({
     navigate(`/crm?newVente=true&${params.toString()}`);
   };
 
+  const handleStatusChangeInternal = (newStatus: RdvStatus) => {
+    onStatusChange?.(newStatus);
+    onRefresh();
+  };
+
   return (
     <div className="flex flex-col gap-2">
+      {/* Sélecteur de statut */}
+      <RdvStatusSelector
+        rdvId={rdvId}
+        currentStatus={currentStatus}
+        onStatusChange={handleStatusChangeInternal}
+        compact
+      />
       {/* Appeler */}
       <Button
         size="icon"
