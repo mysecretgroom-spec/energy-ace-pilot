@@ -36,7 +36,26 @@ import {
   CheckCircle,
   Clock,
   Ban,
+  Pencil,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const categoryIcons: Record<string, React.ElementType> = {
@@ -102,6 +121,20 @@ const Finance = () => {
     description: "",
     date_frais: new Date().toISOString().split("T")[0],
   });
+  
+  // Edit/Delete state
+  const [editingFrais, setEditingFrais] = useState<FraisItem | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fraisToDelete, setFraisToDelete] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    montant: "",
+    categorie: "autre",
+    description: "",
+    date_frais: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch ventes stats
   useEffect(() => {
@@ -270,6 +303,84 @@ const Finance = () => {
       toast.error("Erreur lors de l'ajout");
     } finally {
       setSavingFrais(false);
+    }
+  };
+
+  const openEditDialog = (frais: FraisItem) => {
+    setEditingFrais(frais);
+    setEditForm({
+      montant: String(frais.montant),
+      categorie: frais.categorie,
+      description: frais.description || "",
+      date_frais: frais.date_frais,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditFrais = async () => {
+    if (!user || !editingFrais || !editForm.montant) {
+      toast.error("Veuillez renseigner un montant");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("frais")
+        .update({
+          montant: parseFloat(editForm.montant),
+          categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "autre",
+          description: editForm.description || null,
+          date_frais: editForm.date_frais,
+        })
+        .eq("id", editingFrais.id);
+
+      if (error) throw error;
+
+      toast.success("Frais modifié");
+      setEditDialogOpen(false);
+      setEditingFrais(null);
+      
+      // Refresh data
+      setAddFraisOpen(prev => !prev);
+      setTimeout(() => setAddFraisOpen(false), 0);
+    } catch (err) {
+      console.error("Error editing frais:", err);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const openDeleteDialog = (fraisId: string) => {
+    setFraisToDelete(fraisId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteFrais = async () => {
+    if (!fraisToDelete) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("frais")
+        .delete()
+        .eq("id", fraisToDelete);
+
+      if (error) throw error;
+
+      toast.success("Frais supprimé");
+      setDeleteDialogOpen(false);
+      setFraisToDelete(null);
+      
+      // Refresh data
+      setAddFraisOpen(prev => !prev);
+      setTimeout(() => setAddFraisOpen(false), 0);
+    } catch (err) {
+      console.error("Error deleting frais:", err);
+      toast.error("Erreur lors de la suppression");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -537,17 +648,37 @@ const Finance = () => {
                           <div className="p-2 rounded-lg bg-muted">
                             <Icon className="h-4 w-4 text-muted-foreground" />
                           </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {frais.description || categoryLabels[frais.categorie]}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
                             </p>
                           </div>
-                          <p className="font-semibold text-destructive">
+                          <p className="font-semibold text-destructive whitespace-nowrap">
                             -{Number(frais.montant).toFixed(2)} €
                           </p>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(frais)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Modifier
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => openDeleteDialog(frais.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </CardContent>
                     </Card>
@@ -635,6 +766,109 @@ const Finance = () => {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Dialog */}
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Modifier le frais</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-montant">Montant TTC (€)</Label>
+                    <Input
+                      id="edit-montant"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={editForm.montant}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, montant: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-categorie">Catégorie</Label>
+                    <Select
+                      value={editForm.categorie}
+                      onValueChange={(v) => setEditForm(prev => ({ ...prev, categorie: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(categoryLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-date">Date</Label>
+                    <Input
+                      id="edit-date"
+                      type="date"
+                      value={editForm.date_frais}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, date_frais: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-description">Description (optionnel)</Label>
+                    <Input
+                      id="edit-description"
+                      placeholder="Ex: Station Total, Restaurant..."
+                      value={editForm.description}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <Button 
+                    className="w-full" 
+                    onClick={handleEditFrais}
+                    disabled={savingEdit}
+                  >
+                    {savingEdit ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enregistrement...
+                      </>
+                    ) : (
+                      "Enregistrer les modifications"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer ce frais ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cette action est irréversible. Le frais sera définitivement supprimé.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteFrais}
+                    disabled={deleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Suppression...
+                      </>
+                    ) : (
+                      "Supprimer"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
         </Tabs>
       </div>
