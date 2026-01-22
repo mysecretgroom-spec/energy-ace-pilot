@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Planning from "./pages/Planning";
 import CRM from "./pages/CRM";
 import ClientDetail from "./pages/ClientDetail";
+import VenteDetail from "./pages/VenteDetail";
 import EtudeForm from "./pages/EtudeForm";
 import Finance from "./pages/Finance";
 import Notifications from "./pages/Notifications";
@@ -62,6 +63,7 @@ const App = () => {
                 <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
                 <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+                <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
                 <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
                 <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
                 <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
