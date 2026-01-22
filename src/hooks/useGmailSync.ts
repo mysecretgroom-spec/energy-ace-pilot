@@ -18,6 +18,12 @@ export interface GmailSyncResult {
   message?: string;
 }
 
+export interface GmailSyncOptions {
+  days?: number;
+  fromDate?: string; // format: YYYY/MM/DD
+  toDate?: string;   // format: YYYY/MM/DD
+}
+
 export function useGmailSync() {
   const [syncing, setSyncing] = useState(false);
   const [lastResult, setLastResult] = useState<GmailSyncResult | null>(null);
@@ -65,7 +71,7 @@ export function useGmailSync() {
     }
   }, []);
 
-  const syncGmail = useCallback(async (): Promise<GmailSyncResult | null> => {
+  const syncGmail = useCallback(async (options?: GmailSyncOptions): Promise<GmailSyncResult | null> => {
     setSyncing(true);
     setLastResult(null);
 
@@ -83,7 +89,12 @@ export function useGmailSync() {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json"
-          }
+          },
+          body: JSON.stringify({
+            days: options?.days,
+            fromDate: options?.fromDate,
+            toDate: options?.toDate
+          })
         }
       );
 

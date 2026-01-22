@@ -107,6 +107,14 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body for period options
+    let body: { days?: number; fromDate?: string; toDate?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      // No body or invalid JSON, use defaults
+    }
+
     // Support both regular auth and service role calls with x-user-id header (for cron)
     let userId = await getUserIdFromAuth(req.headers.get("Authorization"));
     
@@ -158,9 +166,23 @@ serve(async (req) => {
     const authorizedEmailList = authorizedEmails.map(e => e.email.toLowerCase());
     console.log("Authorized emails:", authorizedEmailList);
 
-    // Build Gmail query for authorized senders (last 7 days)
+    // Build Gmail query for authorized senders with configurable period
     const fromQuery = authorizedEmailList.map(e => `from:${e}`).join(" OR ");
-    const query = `(${fromQuery}) newer_than:7d`;
+    
+    // Determine date filter based on provided options
+    let dateFilter: string;
+    if (body.fromDate && body.toDate) {
+      // Custom date range: format YYYY/MM/DD
+      dateFilter = `after:${body.fromDate} before:${body.toDate}`;
+    } else if (body.fromDate) {
+      dateFilter = `after:${body.fromDate}`;
+    } else {
+      // Use days parameter, default to 7 days
+      const days = body.days || 7;
+      dateFilter = `newer_than:${days}d`;
+    }
+    
+    const query = `(${fromQuery}) ${dateFilter}`;
     console.log("Gmail query:", query);
 
     // Fetch messages from Gmail
