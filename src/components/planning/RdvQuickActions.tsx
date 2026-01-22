@@ -89,6 +89,7 @@ export function RdvQuickActions({
             <RdvStatusSelector
               rdvId={rdvId}
               currentStatus={currentStatus}
+              clientName={clientName}
               onStatusChange={onStatusChange}
             />
           </div>

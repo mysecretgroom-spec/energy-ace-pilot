@@ -2,6 +2,8 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RdvStatus } from "@/components/ui/status-badge";
+import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Select,
   SelectContent,
@@ -14,6 +16,8 @@ import { Loader2 } from "lucide-react";
 interface RdvStatusSelectorProps {
   rdvId: string;
   currentStatus: RdvStatus;
+  clientName: string;
+  clientPrenom?: string;
   onStatusChange?: (newStatus: RdvStatus) => void;
   compact?: boolean;
 }
@@ -28,17 +32,32 @@ const statusOptions: { value: RdvStatus; label: string; color: string }[] = [
   { value: "annule", label: "Annulé", color: "bg-gray-500" },
 ];
 
+// Map RDV status to WhatsApp classification
+const statusToClassification: Record<RdvStatus, string> = {
+  nouveau: "attente",
+  reporte: "attente",
+  r2: "r2",
+  r2_prestudy: "r2_prestudy",
+  signe: "positif",
+  negatif: "negatif",
+  annule: "annule",
+};
+
 export function RdvStatusSelector({
   rdvId,
   currentStatus,
+  clientName,
+  clientPrenom,
   onStatusChange,
   compact = false,
 }: RdvStatusSelectorProps) {
+  const { user } = useAuth();
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState<RdvStatus>(currentStatus);
 
   const handleStatusChange = async (newStatus: RdvStatus) => {
-    if (newStatus === status) return;
+    if (newStatus === status || !user) return;
     
     setUpdating(true);
     try {
@@ -54,6 +73,17 @@ export function RdvStatusSelector({
       
       const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
       toast.success(`Statut changé en "${statusLabel}"`);
+
+      // Send WhatsApp notification to confirmateur
+      const classification = statusToClassification[newStatus];
+      if (classification) {
+        await sendWhatsAppNotification({
+          clientName,
+          clientPrenom,
+          classification,
+          userId: user.id,
+        });
+      }
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error("Erreur lors du changement de statut");
