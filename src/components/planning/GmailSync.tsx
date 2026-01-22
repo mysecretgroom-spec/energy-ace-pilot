@@ -13,8 +13,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Mail, Loader2, Check, AlertCircle, RefreshCw } from "lucide-react";
-import { useGmailSync, GmailSyncResult } from "@/hooks/useGmailSync";
+import { useGmailSync, GmailSyncResult, GmailSyncOptions } from "@/hooks/useGmailSync";
 import { useNavigate } from "react-router-dom";
+import { GmailSyncDialog } from "./GmailSyncDialog";
 
 interface GmailSyncProps {
   onSyncComplete?: () => void;
@@ -26,6 +27,7 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [hasAuthorizedEmails, setHasAuthorizedEmails] = useState<boolean | null>(null);
   const [showPopover, setShowPopover] = useState(false);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
 
   useEffect(() => {
     const check = async () => {
@@ -39,8 +41,8 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
     check();
   }, [checkGoogleConnection, checkAuthorizedEmails]);
 
-  const handleSync = async () => {
-    const result = await syncGmail();
+  const handleSync = async (options: GmailSyncOptions) => {
+    const result = await syncGmail(options);
     if (result && (result.imported > 0 || result.updated > 0)) {
       onSyncComplete?.();
     }
@@ -107,39 +109,48 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
   }
 
   return (
-    <Popover open={showPopover} onOpenChange={setShowPopover}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleSync}
-          disabled={syncing}
-          className="relative"
-        >
-          {syncing ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <Mail className="h-5 w-5" />
-          )}
-          {lastResult && !syncing && (
-            <span className="absolute -top-1 -right-1">
-              {lastResult.imported + lastResult.updated > 0 ? (
-                <Badge variant="default" className="h-4 min-w-4 px-1 text-[10px] bg-green-500">
-                  {lastResult.imported + lastResult.updated}
-                </Badge>
-              ) : lastResult.errors > 0 ? (
-                <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]">
-                  !
-                </Badge>
-              ) : null}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
-        <SyncResultContent result={lastResult} onClose={() => setShowPopover(false)} />
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={showPopover} onOpenChange={setShowPopover}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowSyncDialog(true)}
+            disabled={syncing}
+            className="relative"
+          >
+            {syncing ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Mail className="h-5 w-5" />
+            )}
+            {lastResult && !syncing && (
+              <span className="absolute -top-1 -right-1">
+                {lastResult.imported + lastResult.updated > 0 ? (
+                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[10px] bg-green-500">
+                    {lastResult.imported + lastResult.updated}
+                  </Badge>
+                ) : lastResult.errors > 0 ? (
+                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]">
+                    !
+                  </Badge>
+                ) : null}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="end">
+          <SyncResultContent result={lastResult} onClose={() => setShowPopover(false)} />
+        </PopoverContent>
+      </Popover>
+
+      <GmailSyncDialog
+        open={showSyncDialog}
+        onOpenChange={setShowSyncDialog}
+        onSync={handleSync}
+        syncing={syncing}
+      />
+    </>
   );
 }
 
