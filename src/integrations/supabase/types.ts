@@ -802,10 +802,12 @@ export type Database = {
           distance_km: number | null
           duree_minutes: number | null
           email_source_id: string | null
+          google_event_id: string | null
           historique: Json | null
           id: string
           latitude: number | null
           longitude: number | null
+          source: string | null
           status: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes: number | null
           type_projet: Database["public"]["Enums"]["project_type"]
@@ -821,10 +823,12 @@ export type Database = {
           distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
+          google_event_id?: string | null
           historique?: Json | null
           id?: string
           latitude?: number | null
           longitude?: number | null
+          source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
@@ -840,10 +844,12 @@ export type Database = {
           distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
+          google_event_id?: string | null
           historique?: Json | null
           id?: string
           latitude?: number | null
           longitude?: number | null
+          source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
