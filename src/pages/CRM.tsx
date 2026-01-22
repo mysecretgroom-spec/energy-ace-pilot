@@ -30,7 +30,9 @@ import {
   Users,
   Kanban,
   CheckCircle2,
+  Filter,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
 
@@ -86,6 +88,7 @@ const CRM = () => {
   // Clients state
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const [showActiveOnly, setShowActiveOnly] = useState(true);
   
   // Ventes state
   const [ventes, setVentes] = useState<Vente[]>([]);
@@ -141,47 +144,60 @@ const CRM = () => {
       fetchClients();
       fetchVentes();
     }
-  }, [user]);
+  }, [user, showActiveOnly]);
 
   const fetchClients = async () => {
     if (!user) return;
     setClientsLoading(true);
     
-    // Only fetch clients that have at least one RDV with active status
-    // Active statuses: nouveau, reporte, r2, r2_prestudy, signe
-    const activeStatuses = ['nouveau', 'reporte', 'r2', 'r2_prestudy', 'signe'] as const;
-    
-    // First get RDVs with active status to find active client IDs
-    const { data: rdvData, error: rdvError } = await supabase
-      .from("rdv")
-      .select("client_id")
-      .eq("user_id", user.id)
-      .in("status", activeStatuses);
-    
-    if (rdvError) {
-      console.error("Error fetching active RDVs:", rdvError);
-      setClientsLoading(false);
-      return;
-    }
-    
-    // Get unique client IDs from active RDVs
-    const activeClientIds = [...new Set(rdvData?.map(r => r.client_id) || [])];
-    
-    if (activeClientIds.length === 0) {
-      setClients([]);
-      setClientsLoading(false);
-      return;
-    }
-    
-    // Fetch only clients with active RDVs
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .in("id", activeClientIds)
-      .order("created_at", { ascending: false });
+    if (showActiveOnly) {
+      // Only fetch clients that have at least one RDV with active status
+      // Active statuses: nouveau, reporte, r2, r2_prestudy, signe
+      const activeStatuses = ['nouveau', 'reporte', 'r2', 'r2_prestudy', 'signe'] as const;
+      
+      // First get RDVs with active status to find active client IDs
+      const { data: rdvData, error: rdvError } = await supabase
+        .from("rdv")
+        .select("client_id")
+        .eq("user_id", user.id)
+        .in("status", activeStatuses);
+      
+      if (rdvError) {
+        console.error("Error fetching active RDVs:", rdvError);
+        setClientsLoading(false);
+        return;
+      }
+      
+      // Get unique client IDs from active RDVs
+      const activeClientIds = [...new Set(rdvData?.map(r => r.client_id) || [])];
+      
+      if (activeClientIds.length === 0) {
+        setClients([]);
+        setClientsLoading(false);
+        return;
+      }
+      
+      // Fetch only clients with active RDVs
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .in("id", activeClientIds)
+        .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setClients(data);
+      if (!error && data) {
+        setClients(data);
+      }
+    } else {
+      // Fetch all clients
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setClients(data);
+      }
     }
     setClientsLoading(false);
   };
@@ -361,10 +377,23 @@ const CRM = () => {
               />
             </div>
 
+            {/* Toggle for active clients filter */}
+            <div className="flex items-center justify-between px-1 py-2 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Clients actifs uniquement</span>
+              </div>
+              <Switch
+                checked={showActiveOnly}
+                onCheckedChange={setShowActiveOnly}
+              />
+            </div>
+
             {/* Stats */}
             <div className="flex items-center justify-between px-1 text-sm">
               <span className="text-muted-foreground">
                 {filteredClients.length} client{filteredClients.length > 1 ? "s" : ""}
+                {showActiveOnly && " actif" + (filteredClients.length > 1 ? "s" : "")}
               </span>
               <Button size="sm" className="bg-gradient-hero gap-1">
                 <Plus className="h-4 w-4" />
