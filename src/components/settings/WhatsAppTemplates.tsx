@@ -34,6 +34,9 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 
 🎉 Excellent ! Le client est intéressé et prêt à avancer.
 
+📞 *CQ prévu:*
+{{cq_date}}
+
 {{comment}}
 
 ---
@@ -217,6 +220,7 @@ export const WhatsAppTemplates = () => {
           <Badge variant="outline">{"{{client_name}}"}</Badge>
           <Badge variant="outline">{"{{date}}"}</Badge>
           <Badge variant="outline">{"{{r2_date}}"}</Badge>
+          <Badge variant="outline">{"{{cq_date}}"}</Badge>
           <Badge variant="outline">{"{{comment}}"}</Badge>
         </div>
       </CardHeader>

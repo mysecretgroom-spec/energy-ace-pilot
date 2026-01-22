@@ -21,6 +21,9 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 
 🎉 Excellent ! Le client est intéressé et prêt à avancer.
 
+📞 *CQ prévu:*
+{{cq_date}}
+
 {{comment}}
 
 ---
@@ -142,6 +145,15 @@ export const useWhatsAppNotification = () => {
         r2DateStr = format(r2Date, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
+      // Calculate CQ date (next day at same time or default 10:00)
+      let cqDateStr = "";
+      if (classification === "positif") {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0); // Default CQ at 10:00
+        cqDateStr = format(tomorrow, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
+      }
+
       // Format comment
       const commentText = comment ? `💬 Commentaire:\n${comment}` : "";
 
@@ -153,6 +165,7 @@ export const useWhatsAppNotification = () => {
         .replace(/\{\{client_name\}\}/g, fullName)
         .replace(/\{\{date\}\}/g, dateStr)
         .replace(/\{\{r2_date\}\}/g, r2DateStr || "Non défini")
+        .replace(/\{\{cq_date\}\}/g, cqDateStr || "Non défini")
         .replace(/\{\{comment\}\}/g, commentText);
 
       // Encode message for URL
