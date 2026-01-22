@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
@@ -12,8 +15,10 @@ import { VATReport } from "@/components/finance/VATReport";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Json } from "@/integrations/supabase/types";
+import { toast } from "sonner";
 import {
   TrendingUp,
+  TrendingDown,
   Euro,
   Receipt,
   Camera,
@@ -26,15 +31,13 @@ import {
   ParkingSquare,
   HelpCircle,
   FolderOpen,
+  FileText,
+  Loader2,
+  CheckCircle,
+  Clock,
+  Ban,
 } from "lucide-react";
-
-// Données de démonstration
-const venteStats = {
-  caMonth: 45000,
-  commissionsMonth: 4500,
-  signedCount: 4,
-  avgDeal: 11250,
-};
+import { Skeleton } from "@/components/ui/skeleton";
 
 const categoryIcons: Record<string, React.ElementType> = {
   carburant: Fuel,
@@ -63,20 +66,130 @@ interface FraisItem {
   ocr_data: Json | null;
 }
 
+interface VenteStats {
+  caMonth: number;
+  caPrevMonth: number;
+  commissionsMonth: number;
+  commissionsPending: number;
+  signedCount: number;
+  avgDeal: number;
+  ventesEnCours: number;
+  ventesAnnulees: number;
+}
+
 const Finance = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("ventes");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
   const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]);
+  const [venteStats, setVenteStats] = useState<VenteStats | null>(null);
+  const [loadingVentes, setLoadingVentes] = useState(true);
+  const [savingFrais, setSavingFrais] = useState(false);
   const [totaux, setTotaux] = useState({
     jour: 0,
     semaine: 0,
     mois: 0,
     annee: 0,
   });
+  
+  // Form state for manual expense
+  const [newFrais, setNewFrais] = useState({
+    montant: "",
+    categorie: "autre",
+    description: "",
+    date_frais: new Date().toISOString().split("T")[0],
+  });
 
+  // Fetch ventes stats
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchVenteStats = async () => {
+      setLoadingVentes(true);
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        // Fetch all ventes for the user
+        const { data: ventes, error } = await supabase
+          .from("ventes")
+          .select("id, montant_ttc, montant_ht, status, date_signature, created_at")
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        // Calculate stats
+        const ventesThisMonth = ventes?.filter(v => {
+          const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
+          return date >= startOfMonth;
+        }) || [];
+
+        const ventesPrevMonth = ventes?.filter(v => {
+          const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
+          return date >= startOfPrevMonth && date <= endOfPrevMonth;
+        }) || [];
+
+        const signedThisMonth = ventesThisMonth.filter(v => 
+          ["signe", "installe", "paye"].includes(v.status)
+        );
+        
+        const signedPrevMonth = ventesPrevMonth.filter(v => 
+          ["signe", "installe", "paye"].includes(v.status)
+        );
+
+        const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+        const caPrevMonth = signedPrevMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+
+        // Fetch commissions
+        const { data: commissions } = await supabase
+          .from("commissions")
+          .select("montant_commission, paye, date_calcul")
+          .eq("user_id", user.id);
+
+        const commissionsThisMonth = commissions?.filter(c => {
+          const date = new Date(c.date_calcul);
+          return date >= startOfMonth;
+        }) || [];
+
+        const commissionsMonth = commissionsThisMonth.reduce((sum, c) => sum + Number(c.montant_commission || 0), 0);
+        const commissionsPending = commissions?.filter(c => !c.paye)
+          .reduce((sum, c) => sum + Number(c.montant_commission || 0), 0) || 0;
+
+        const signedCount = signedThisMonth.length;
+        const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
+
+        const ventesEnCours = ventes?.filter(v => 
+          ["en_negociation", "signe"].includes(v.status)
+        ).length || 0;
+
+        const ventesAnnulees = ventesThisMonth.filter(v => v.status === "annule").length;
+
+        setVenteStats({
+          caMonth,
+          caPrevMonth,
+          commissionsMonth,
+          commissionsPending,
+          signedCount,
+          avgDeal,
+          ventesEnCours,
+          ventesAnnulees,
+        });
+      } catch (err) {
+        console.error("Error fetching vente stats:", err);
+      } finally {
+        setLoadingVentes(false);
+      }
+    };
+
+    fetchVenteStats();
+  }, [user]);
+
+  // Fetch frais
   useEffect(() => {
     if (!user) return;
 
@@ -124,7 +237,45 @@ const Finance = () => {
     };
 
     fetchFrais();
-  }, [user, scannerOpen]);
+  }, [user, scannerOpen, addFraisOpen]);
+
+  const handleAddFrais = async () => {
+    if (!user || !newFrais.montant) {
+      toast.error("Veuillez renseigner un montant");
+      return;
+    }
+
+    setSavingFrais(true);
+    try {
+      const { error } = await supabase.from("frais").insert({
+        user_id: user.id,
+        montant: parseFloat(newFrais.montant),
+        categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "autre",
+        description: newFrais.description || null,
+        date_frais: newFrais.date_frais,
+      });
+
+      if (error) throw error;
+
+      toast.success("Frais ajouté");
+      setAddFraisOpen(false);
+      setNewFrais({
+        montant: "",
+        categorie: "autre",
+        description: "",
+        date_frais: new Date().toISOString().split("T")[0],
+      });
+    } catch (err) {
+      console.error("Error adding frais:", err);
+      toast.error("Erreur lors de l'ajout");
+    } finally {
+      setSavingFrais(false);
+    }
+  };
+
+  const caVariation = venteStats && venteStats.caPrevMonth > 0 
+    ? ((venteStats.caMonth - venteStats.caPrevMonth) / venteStats.caPrevMonth * 100)
+    : 0;
 
   return (
     <MobileLayout title="Finance">
@@ -148,69 +299,138 @@ const Finance = () => {
 
           {/* Tab Ventes */}
           <TabsContent value="ventes" className="space-y-4 mt-4">
-            {/* CA du mois */}
-            <Card className="bg-gradient-hero text-primary-foreground shadow-card">
-              <CardContent className="p-6">
-                <div className="text-center space-y-2">
-                  <p className="text-sm opacity-90">Chiffre d'affaires ce mois</p>
-                  <p className="text-4xl font-bold">
-                    {venteStats.caMonth.toLocaleString("fr-FR")} €
-                  </p>
-                  <div className="flex items-center justify-center gap-1 text-sm">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>+15% vs mois dernier</span>
-                  </div>
+            {loadingVentes ? (
+              <div className="space-y-4">
+                <Skeleton className="h-32 w-full" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Skeleton className="h-24" />
+                  <Skeleton className="h-24" />
+                  <Skeleton className="h-24 col-span-2" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            ) : venteStats ? (
+              <>
+                {/* CA du mois */}
+                <Card className="bg-gradient-hero text-primary-foreground shadow-card">
+                  <CardContent className="p-6">
+                    <div className="text-center space-y-2">
+                      <p className="text-sm opacity-90">Chiffre d'affaires ce mois</p>
+                      <p className="text-4xl font-bold">
+                        {venteStats.caMonth.toLocaleString("fr-FR")} €
+                      </p>
+                      {caVariation !== 0 && (
+                        <div className={`flex items-center justify-center gap-1 text-sm ${caVariation >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                          {caVariation >= 0 ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )}
+                          <span>{caVariation >= 0 ? '+' : ''}{caVariation.toFixed(0)}% vs mois dernier</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="shadow-card">
-                <CardContent className="p-4 text-center">
-                  <Euro className="h-6 w-6 mx-auto mb-2 text-primary" />
-                  <p className="text-2xl font-bold text-foreground">
-                    {venteStats.commissionsMonth.toLocaleString("fr-FR")} €
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Commissions
-                  </p>
-                </CardContent>
-              </Card>
+                {/* Stats grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="shadow-card">
+                    <CardContent className="p-4 text-center">
+                      <Euro className="h-6 w-6 mx-auto mb-2 text-primary" />
+                      <p className="text-2xl font-bold text-foreground">
+                        {venteStats.commissionsMonth.toLocaleString("fr-FR")} €
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Commissions ce mois
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              <Card className="shadow-card">
-                <CardContent className="p-4 text-center">
-                  <Calendar className="h-6 w-6 mx-auto mb-2 text-secondary" />
-                  <p className="text-2xl font-bold text-foreground">
-                    {venteStats.signedCount}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Dossiers signés
-                  </p>
-                </CardContent>
-              </Card>
+                  <Card className="shadow-card">
+                    <CardContent className="p-4 text-center">
+                      <Calendar className="h-6 w-6 mx-auto mb-2 text-secondary" />
+                      <p className="text-2xl font-bold text-foreground">
+                        {venteStats.signedCount}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Dossiers signés
+                      </p>
+                    </CardContent>
+                  </Card>
 
-              <Card className="shadow-card col-span-2">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
+                  <Card className="shadow-card">
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="h-6 w-6 mx-auto mb-2 text-status-signed" />
+                      <p className="text-xl font-bold text-foreground">
+                        {venteStats.avgDeal.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €
+                      </p>
+                      <p className="text-xs text-muted-foreground">
                         Panier moyen
                       </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="shadow-card">
+                    <CardContent className="p-4 text-center">
+                      <Clock className="h-6 w-6 mx-auto mb-2 text-amber-500" />
                       <p className="text-xl font-bold text-foreground">
-                        {venteStats.avgDeal.toLocaleString("fr-FR")} €
+                        {venteStats.commissionsPending.toLocaleString("fr-FR")} €
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        Commissions en attente
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Ventes en cours / annulées */}
+                <Card className="shadow-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-status-signed" />
+                          <span className="text-sm text-muted-foreground">En cours:</span>
+                          <span className="font-semibold">{venteStats.ventesEnCours}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Ban className="h-4 w-4 text-destructive" />
+                          <span className="text-sm text-muted-foreground">Annulées:</span>
+                          <span className="font-semibold">{venteStats.ventesAnnulees}</span>
+                        </div>
+                      </div>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-status-signed" />
-                  </div>
+                  </CardContent>
+                </Card>
+
+                {/* Rentabilité Nette */}
+                <Card className="shadow-card border-primary/20 bg-primary/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Rentabilité nette (Comm. - Frais)
+                        </p>
+                        <p className={`text-2xl font-bold ${
+                          (venteStats.commissionsMonth - totaux.mois) >= 0 
+                            ? 'text-status-signed' 
+                            : 'text-destructive'
+                        }`}>
+                          {(venteStats.commissionsMonth - totaux.mois).toLocaleString("fr-FR")} €
+                        </p>
+                      </div>
+                      <FileText className="h-8 w-8 text-primary/50" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  Aucune donnée de vente disponible
                 </CardContent>
               </Card>
-            </div>
-
-            {/* CTA rentabilité */}
-            <Button variant="outline" className="w-full">
-              Voir détail rentabilité
-            </Button>
+            )}
           </TabsContent>
 
           {/* Tab Frais */}
@@ -337,10 +557,84 @@ const Finance = () => {
             </div>
 
             {/* Ajouter frais manuel */}
-            <Button variant="outline" className="w-full gap-2">
-              <Plus className="h-4 w-4" />
-              Ajouter frais manuel
-            </Button>
+            <Dialog open={addFraisOpen} onOpenChange={setAddFraisOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <Plus className="h-4 w-4" />
+                  Ajouter frais manuel
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Ajouter un frais</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="montant">Montant TTC (€)</Label>
+                    <Input
+                      id="montant"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newFrais.montant}
+                      onChange={(e) => setNewFrais(prev => ({ ...prev, montant: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="categorie">Catégorie</Label>
+                    <Select
+                      value={newFrais.categorie}
+                      onValueChange={(v) => setNewFrais(prev => ({ ...prev, categorie: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(categoryLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={newFrais.date_frais}
+                      onChange={(e) => setNewFrais(prev => ({ ...prev, date_frais: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description (optionnel)</Label>
+                    <Input
+                      id="description"
+                      placeholder="Ex: Station Total, Restaurant..."
+                      value={newFrais.description}
+                      onChange={(e) => setNewFrais(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <Button 
+                    className="w-full" 
+                    onClick={handleAddFrais}
+                    disabled={savingFrais}
+                  >
+                    {savingFrais ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enregistrement...
+                      </>
+                    ) : (
+                      "Enregistrer"
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>
