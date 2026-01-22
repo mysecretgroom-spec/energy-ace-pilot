@@ -1194,15 +1194,13 @@ const EtudeForm = () => {
                     <SelectValue placeholder="Choisir un type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Extraire les types uniques depuis dataTarifs */}
                     {[...new Set(dataTarifs.map(t => t.type_revente))].map((type) => {
-                      const tarif = dataTarifs.find(t => t.type_revente === type);
-                      const label = type === "autoconsommation" ? "Autoconsommation (surplus)" :
+                      const label = type === "autoconsommation" ? "Autoconsommation" :
                                     type === "revente_totale" ? "Revente totale" :
                                     type === "surplus" ? "Surplus" : type;
                       return (
                         <SelectItem key={type} value={type}>
-                          {label} ({tarif?.prix_kwh?.toFixed(4) || "N/A"} €/kWh)
+                          {label}
                         </SelectItem>
                       );
                     })}
