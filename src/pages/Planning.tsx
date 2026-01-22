@@ -548,6 +548,7 @@ const Planning = () => {
                         city={rdv.city}
                         postalCode={rdv.postalCode}
                         typeRdv={rdv.typeRdv}
+                        currentStatus={rdv.status}
                         onRefresh={fetchRdvs}
                       />
                     </div>

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Clock, Wrench, RefreshCw } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
+import { RdvQuickActions } from "./RdvQuickActions";
 
 interface RdvData {
   id: string;
@@ -13,6 +14,10 @@ interface RdvData {
   date: Date;
   client: string;
   clientId: string;
+  phone?: string | null;
+  address?: string;
+  city?: string;
+  postalCode?: string;
   status: RdvStatus;
   type: string;
   typeRdv: 'standard' | 'external_installation';
@@ -24,9 +29,10 @@ interface WeekCalendarViewProps {
   currentDate: Date;
   rdvList: RdvData[];
   onRdvClick?: (rdv: RdvData) => void;
+  onStatusChange?: (rdvId: string, newStatus: RdvStatus) => void;
 }
 
-export function WeekCalendarView({ currentDate, rdvList, onRdvClick }: WeekCalendarViewProps) {
+export function WeekCalendarView({ currentDate, rdvList, onRdvClick, onStatusChange }: WeekCalendarViewProps) {
   // Get Monday of the current week
   const weekStart = useMemo(() => {
     return startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -93,36 +99,48 @@ export function WeekCalendarView({ currentDate, rdvList, onRdvClick }: WeekCalen
                   </p>
                 ) : (
                   dayRdvs.map((rdv) => (
-                    <Card
+                    <RdvQuickActions
                       key={rdv.id}
-                      onClick={() => onRdvClick?.(rdv)}
-                      className={`p-1.5 cursor-pointer hover:bg-muted/50 transition-colors ${
-                        rdv.typeRdv === "external_installation"
-                          ? "border-l-2 border-l-amber-500 bg-amber-500/5"
-                          : rdv.isR2
-                          ? "border-l-2 border-l-status-r2 bg-status-r2/5"
-                          : ""
-                      }`}
+                      rdvId={rdv.id}
+                      clientId={rdv.clientId}
+                      clientName={rdv.client}
+                      clientPhone={rdv.phone}
+                      time={rdv.time}
+                      address={rdv.address || ""}
+                      city={rdv.city}
+                      postalCode={rdv.postalCode}
+                      currentStatus={rdv.status}
+                      onStatusChange={(newStatus) => onStatusChange?.(rdv.id, newStatus)}
                     >
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <Clock className="h-2.5 w-2.5 text-primary" />
-                        <span className="text-[10px] font-semibold text-primary">
-                          {rdv.time}
-                        </span>
-                        {rdv.typeRdv === "external_installation" && (
-                          <Wrench className="h-2.5 w-2.5 text-amber-500" />
-                        )}
-                        {rdv.isR2 && (
-                          <RefreshCw className="h-2.5 w-2.5 text-status-r2" />
-                        )}
-                      </div>
-                      <p className="text-[10px] font-medium text-foreground truncate">
-                        {rdv.client}
-                      </p>
-                      <div className="mt-0.5">
-                        <StatusBadge status={rdv.status} className="text-[8px] px-1 py-0" />
-                      </div>
-                    </Card>
+                      <Card
+                        className={`p-1.5 cursor-pointer hover:bg-muted/50 transition-colors ${
+                          rdv.typeRdv === "external_installation"
+                            ? "border-l-2 border-l-amber-500 bg-amber-500/5"
+                            : rdv.isR2
+                            ? "border-l-2 border-l-status-r2 bg-status-r2/5"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 mb-0.5">
+                          <Clock className="h-2.5 w-2.5 text-primary" />
+                          <span className="text-[10px] font-semibold text-primary">
+                            {rdv.time}
+                          </span>
+                          {rdv.typeRdv === "external_installation" && (
+                            <Wrench className="h-2.5 w-2.5 text-amber-500" />
+                          )}
+                          {rdv.isR2 && (
+                            <RefreshCw className="h-2.5 w-2.5 text-status-r2" />
+                          )}
+                        </div>
+                        <p className="text-[10px] font-medium text-foreground truncate">
+                          {rdv.client}
+                        </p>
+                        <div className="mt-0.5">
+                          <StatusBadge status={rdv.status} className="text-[8px] px-1 py-0" />
+                        </div>
+                      </Card>
+                    </RdvQuickActions>
                   ))
                 )}
               </div>
