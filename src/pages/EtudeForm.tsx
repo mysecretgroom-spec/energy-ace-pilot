@@ -132,6 +132,7 @@ const EtudeForm = () => {
   const [clientPrenom, setClientPrenom] = useState("");
   const [clientAdresse, setClientAdresse] = useState("");
   const [clientVille, setClientVille] = useState("");
+  const [clientCodePostal, setClientCodePostal] = useState("");
   const [departement, setDepartement] = useState("");
 
   // === VISITE TECHNIQUE - TOITURE ===
@@ -322,6 +323,7 @@ const EtudeForm = () => {
       setClientPrenom(data.prenom || "");
       setClientAdresse(data.adresse || "");
       setClientVille(data.ville || "");
+      setClientCodePostal(data.code_postal || "");
       if (data.code_postal) {
         const deptCode = data.code_postal.substring(0, 2);
         console.log("[DEBUG] Code postal:", data.code_postal, "=> Département extrait:", deptCode);
@@ -664,7 +666,9 @@ const EtudeForm = () => {
       clientPrenom: clientPrenom,
       clientAdresse: clientAdresse,
       clientVille: clientVille,
+      clientCodePostal: clientCodePostal,
       departement: departement,
+      dateEtude: new Date().toLocaleDateString("fr-FR"),
       
       // Visite technique
       ombreToiture: ombreToiture,
@@ -761,7 +765,9 @@ const EtudeForm = () => {
       clientPrenom: clientPrenom,
       clientAdresse: clientAdresse,
       clientVille: clientVille,
+      clientCodePostal: clientCodePostal,
       departement: departement,
+      dateEtude: new Date().toLocaleDateString("fr-FR"),
       ombreToiture: ombreToiture,
       surfaceToiture: surfaceToiture,
       typeToiture: typeToiture,
