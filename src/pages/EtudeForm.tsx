@@ -1375,11 +1375,11 @@ const EtudeForm = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">PSH (kWh/kWc/an)</span>
                   <span className="font-bold text-amber-600">
-                    {dataPsh.find(p => p.department_code === departement)?.psh_value || "N/A"}
+                    {dataPsh.find(p => p.department_code === departement)?.psh_value ?? "N/A"}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Formule: Puissance × PSH × Rendement
+                <p className="text-xs text-muted-foreground mt-2">
+                  Formule : Puissance × PSH × Rendement
                 </p>
               </div>
             ) : (
