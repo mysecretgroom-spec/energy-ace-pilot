@@ -200,6 +200,7 @@ export type Database = {
         Row: {
           actif: boolean
           commission_fixe: number | null
+          commission_hejja: number | null
           commission_pct: number | null
           created_at: string
           description: string | null
@@ -213,6 +214,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           commission_fixe?: number | null
+          commission_hejja?: number | null
           commission_pct?: number | null
           created_at?: string
           description?: string | null
@@ -226,6 +228,7 @@ export type Database = {
         Update: {
           actif?: boolean
           commission_fixe?: number | null
+          commission_hejja?: number | null
           commission_pct?: number | null
           created_at?: string
           description?: string | null
