@@ -9,6 +9,7 @@ interface SendWhatsAppParams {
   comment?: string;
   r2DateTime?: string | null;
   userId: string;
+  cqTime?: string;
 }
 
 // Default templates with placeholders
@@ -107,6 +108,7 @@ export const useWhatsAppNotification = () => {
     comment,
     r2DateTime,
     userId,
+    cqTime,
   }: SendWhatsAppParams): Promise<boolean> => {
     try {
       // Fetch notification settings
@@ -145,12 +147,14 @@ export const useWhatsAppNotification = () => {
         r2DateStr = format(r2Date, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
-      // Calculate CQ date (next day at same time or default 10:00)
+      // Calculate CQ date (next day at specified time or default 10:00)
       let cqDateStr = "";
       if (classification === "positif") {
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(10, 0, 0, 0); // Default CQ at 10:00
+        // Use provided cqTime or default to 10:00
+        const [hours, minutes] = (cqTime || "10:00").split(":").map(Number);
+        tomorrow.setHours(hours, minutes, 0, 0);
         cqDateStr = format(tomorrow, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 

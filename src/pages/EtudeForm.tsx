@@ -214,6 +214,7 @@ const EtudeForm = () => {
   const [classificationComment, setClassificationComment] = useState<string>("");
   const [r2DateHeure, setR2DateHeure] = useState<Date | undefined>(undefined);
   const [r2Time, setR2Time] = useState<string>("10:00");
+  const [cqTime, setCqTime] = useState<string>("10:00");
   const [classificationHistory, setClassificationHistory] = useState<{
     id: string;
     classification: string;
@@ -260,6 +261,7 @@ const EtudeForm = () => {
   useEffect(() => {
     const init = async () => {
       await loadReferenceData();
+      await loadDefaultCqTime();
       if (clientId) {
         await loadClientInfo();
       }
@@ -269,6 +271,21 @@ const EtudeForm = () => {
     };
     init();
   }, [clientId, etudeId]);
+
+  // Load default CQ time from settings
+  const loadDefaultCqTime = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("settings_notifications")
+      .select("default_cq_time")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data?.default_cq_time) {
+      // Extract HH:mm from time string
+      const timeStr = data.default_cq_time.substring(0, 5);
+      setCqTime(timeStr);
+    }
+  };
 
   // Recalculate when inputs change
   useEffect(() => {
@@ -841,7 +858,42 @@ const EtudeForm = () => {
           comment: classificationComment,
           r2DateTime: r2DateTime,
           userId: user.id,
+          cqTime: cqTime,
         });
+      }
+
+      // Créer une vente automatiquement si statut Positif et changement de classification
+      if (classification === "positif" && classificationChanged && savedEtudeId && clientId) {
+        // Vérifier s'il existe déjà une vente pour cette étude
+        const { data: existingVente } = await supabase
+          .from("ventes")
+          .select("id")
+          .eq("etude_id", savedEtudeId)
+          .maybeSingle();
+
+        if (!existingVente) {
+          // Créer la vente
+          const { error: venteError } = await supabase.from("ventes").insert({
+            user_id: user.id,
+            client_id: clientId,
+            etude_id: savedEtudeId,
+            montant_ht: calculatedResults?.prixTotalHorsAides || 0,
+            montant_ttc: calculatedResults?.prixTotalHorsAides || 0,
+            puissance_kwc: Number(puissanceKwc) || null,
+            nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5), // ~500W par panneau
+            type_installation: supportInstallation,
+            status: "signe",
+            date_signature: new Date().toISOString(),
+            notes: classificationComment || "Vente créée automatiquement depuis étude positive",
+          });
+
+          if (!venteError) {
+            toast({
+              title: "Vente créée",
+              description: `Une vente de ${(calculatedResults?.prixTotalHorsAides || 0).toLocaleString("fr-FR")}€ a été enregistrée`,
+            });
+          }
+        }
       }
       
       // Afficher l'animation de succès
@@ -1982,6 +2034,25 @@ const EtudeForm = () => {
                       RDV prévu le {format(r2DateHeure, "EEEE d MMMM yyyy", { locale: fr })} à {r2Time}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Heure du CQ pour statut Positif */}
+              {classification === "positif" && (
+                <div className="p-3 bg-status-signed/10 rounded-lg border border-status-signed/30 space-y-3">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-status-signed" />
+                    Heure du CQ (lendemain)
+                  </Label>
+                  <Input
+                    type="time"
+                    value={cqTime}
+                    onChange={(e) => setCqTime(e.target.value)}
+                    className="w-32"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Contrôle Qualité prévu demain à {cqTime}
+                  </p>
                 </div>
               )}
               

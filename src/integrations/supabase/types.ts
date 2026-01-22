@@ -1273,6 +1273,7 @@ export type Database = {
           confirmateur_name: string | null
           confirmateur_phone: string | null
           created_at: string
+          default_cq_time: string | null
           id: string
           send_to_all: boolean | null
           updated_at: string
@@ -1283,6 +1284,7 @@ export type Database = {
           confirmateur_name?: string | null
           confirmateur_phone?: string | null
           created_at?: string
+          default_cq_time?: string | null
           id?: string
           send_to_all?: boolean | null
           updated_at?: string
@@ -1293,6 +1295,7 @@ export type Database = {
           confirmateur_name?: string | null
           confirmateur_phone?: string | null
           created_at?: string
+          default_cq_time?: string | null
           id?: string
           send_to_all?: boolean | null
           updated_at?: string

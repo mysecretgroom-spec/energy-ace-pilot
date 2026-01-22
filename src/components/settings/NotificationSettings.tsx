@@ -14,6 +14,7 @@ interface NotificationSettings {
   confirmateur_phone: string;
   confirmateur_name: string;
   whatsapp_enabled: boolean;
+  default_cq_time: string;
 }
 
 export const NotificationSettings = () => {
@@ -24,6 +25,7 @@ export const NotificationSettings = () => {
     confirmateur_phone: "",
     confirmateur_name: "",
     whatsapp_enabled: true,
+    default_cq_time: "10:00",
   });
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export const NotificationSettings = () => {
         confirmateur_phone: data.confirmateur_phone || "",
         confirmateur_name: data.confirmateur_name || "",
         whatsapp_enabled: data.whatsapp_enabled ?? true,
+        default_cq_time: data.default_cq_time || "10:00",
       });
     }
     setLoading(false);
@@ -64,6 +67,7 @@ export const NotificationSettings = () => {
       confirmateur_phone: cleanPhone,
       confirmateur_name: settings.confirmateur_name,
       whatsapp_enabled: settings.whatsapp_enabled,
+      default_cq_time: settings.default_cq_time,
     };
 
     let error;
@@ -150,6 +154,21 @@ export const NotificationSettings = () => {
           />
           <p className="text-xs text-muted-foreground">
             Format international avec indicatif pays (ex: +33 pour la France)
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="default_cq_time">Heure par défaut du CQ (Positif)</Label>
+          <Input
+            id="default_cq_time"
+            type="time"
+            value={settings.default_cq_time}
+            onChange={(e) =>
+              setSettings((s) => ({ ...s, default_cq_time: e.target.value }))
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Heure du Contrôle Qualité prévu le lendemain (statut Positif)
           </p>
         </div>
 
