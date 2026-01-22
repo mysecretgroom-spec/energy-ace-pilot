@@ -158,7 +158,7 @@ const ClientDetail = () => {
         title: "Erreur",
         description: "Client introuvable",
       });
-      navigate("/clients");
+      navigate("/crm");
       return;
     }
 
