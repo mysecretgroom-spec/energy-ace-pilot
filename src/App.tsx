@@ -33,6 +33,8 @@ import DataAides from "./pages/settings/DataAides";
 import DataFinancements from "./pages/settings/DataFinancements";
 import WhatsAppSettings from "./pages/settings/WhatsAppSettings";
 import SecuritySettings from "./pages/settings/SecuritySettings";
+import Confidentialite from "./pages/Confidentialite";
+import Conditions from "./pages/Conditions";
 import React, { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -87,6 +89,8 @@ const App = () => {
                 <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                 <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
                 <Route path="/install" element={<Install />} />
+                <Route path="/confidentialite" element={<Confidentialite />} />
+                <Route path="/conditions" element={<Conditions />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
