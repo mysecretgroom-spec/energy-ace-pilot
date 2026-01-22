@@ -221,13 +221,13 @@ const EtudeForm = () => {
       const rendementPanneau = 0.18;
       productionAnnuelle = Number(puissanceKwc) * heuresAnnuelles * rendementPanneau * coefficient;
     } else {
-      // Méthode PSH (kWh/m²/an) - formule classique
+      // Méthode PSH (kWh/kWc/an) - formule classique
       const psh = pshData
         ? modeHejjaPsh
           ? pshData.max_psh_value
           : pshData.psh_value
         : 1200;
-      // PSH est en kWh/m²/an, production = puissance * PSH * coefficient
+      // PSH est en kWh/kWc/an, production = puissance * PSH * coefficient
       productionAnnuelle = Number(puissanceKwc) * psh * coefficient;
     }
 
@@ -628,7 +628,7 @@ const EtudeForm = () => {
                   onClick={() => setModeCalculProduction("psh")}
                 >
                   <Sun className="h-3 w-3 mr-1" />
-                  PSH (kWh/m²/an)
+                  PSH (kWh/kWc/an)
                 </Button>
                 <Button
                   type="button"
@@ -644,7 +644,7 @@ const EtudeForm = () => {
               {departement && (
                 <p className="text-xs text-muted-foreground mt-1">
                   {modeCalculProduction === "psh" ? (
-                    <>PSH: {dataPsh.find(p => p.department_code === departement)?.[modeHejjaPsh ? "max_psh_value" : "psh_value"] || "N/A"} kWh/m²/an</>
+                    <>PSH: {dataPsh.find(p => p.department_code === departement)?.[modeHejjaPsh ? "max_psh_value" : "psh_value"] || "N/A"} kWh/kWc/an</>
                   ) : (
                     <>Heures: {dataPsh.find(p => p.department_code === departement)?.heures_ensoleillement_annuel?.toLocaleString() || "N/A"} h/an</>
                   )}
