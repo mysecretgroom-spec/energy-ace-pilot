@@ -61,12 +61,13 @@ export function GoogleAccountSettings() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from("google_sync_history")
+      // Using type assertion since google_sync_history was just created
+      const { data, error } = await (supabase
+        .from("google_sync_history" as any)
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(10) as any);
 
       if (error) throw error;
       setSyncHistory(data || []);
