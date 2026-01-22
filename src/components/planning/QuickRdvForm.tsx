@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePushToGoogleCalendar } from "@/hooks/usePushToGoogleCalendar";
 import { CalendarPlus, Loader2, Check, X, Search } from "lucide-react";
 import { toast } from "sonner";
 import { geocodeAndUpdateClient, geocodeAndUpdateRdv } from "@/hooks/useGeocode";
@@ -43,6 +44,7 @@ const projectTypes = [
 
 export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormProps) {
   const { user } = useAuth();
+  const { pushRdvToCalendar } = usePushToGoogleCalendar();
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -181,6 +183,15 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
       // Geocode the RDV address in background
       if (rdvData && fullAddress) {
         geocodeAndUpdateRdv(rdvData.id, fullAddress).catch(console.error);
+      }
+
+      // Push to Google Calendar in background (non-blocking)
+      if (rdvData) {
+        pushRdvToCalendar(rdvData.id).then((result) => {
+          if (result?.success) {
+            console.log("RDV synced to Google Calendar:", result.action);
+          }
+        }).catch(console.error);
       }
 
       toast.success("RDV créé avec succès");
