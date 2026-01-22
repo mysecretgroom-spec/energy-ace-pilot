@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,6 +79,7 @@ interface Etude {
 const CRM = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("clients");
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -115,6 +116,25 @@ const CRM = () => {
     notes: "",
     type_vente: "standard" as VenteType
   });
+
+  // Handle URL params for pre-filled vente creation
+  useEffect(() => {
+    const newVente = searchParams.get("newVente");
+    const clientId = searchParams.get("clientId");
+    const type = searchParams.get("type") as VenteType | null;
+
+    if (newVente === "true" && clientId) {
+      setActiveTab("ventes");
+      setFormData(prev => ({
+        ...prev,
+        client_id: clientId,
+        type_vente: type || "standard",
+      }));
+      setDialogOpen(true);
+      // Clear the URL params
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (user) {
