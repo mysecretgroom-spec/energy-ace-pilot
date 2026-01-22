@@ -198,6 +198,7 @@ const EtudeForm = () => {
   const [dataFinancements, setDataFinancements] = useState<DataFinancement[]>([]);
   // Heures d'ensoleillement affichées
   const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
+  const [usePshCalculation, setUsePshCalculation] = useState(true); // true = PSH, false = Heures
 
   // Calculated values
   const [calculatedResults, setCalculatedResults] = useState<{
@@ -259,6 +260,8 @@ const EtudeForm = () => {
     dataCompteurs,
     dataAides,
     dataFinancements,
+    usePshCalculation,
+    dataPsh,
   ]);
 
   const loadReferenceData = async () => {
@@ -365,8 +368,20 @@ const EtudeForm = () => {
     const rendementCoeff = rendementProductivite / 100;
 
     // === PRODUCTION ANNUELLE ===
-    // Formule Excel : Puissance × Heures d'ensoleillement × Coefficient orientation × Rendement
-    const productionAnnuelle = puissance * heuresEnsoleillement * coefficient * rendementCoeff;
+    // Deux modes de calcul :
+    // - PSH : Puissance × PSH × Coefficient orientation × Rendement
+    // - Heures : Puissance × Heures × 0.18 × Coefficient orientation × Rendement
+    const pshData = dataPsh.find((p) => p.department_code === departement);
+    const pshValue = pshData?.psh_value || 1200;
+    
+    let productionAnnuelle = 0;
+    if (usePshCalculation) {
+      // Méthode PSH (kWh/kWc/an)
+      productionAnnuelle = puissance * pshValue * coefficient * rendementCoeff;
+    } else {
+      // Méthode Heures d'ensoleillement
+      productionAnnuelle = puissance * heuresEnsoleillement * 0.18 * coefficient * rendementCoeff;
+    }
 
     // === SURPLUS DE PRODUCTION ===
     // Surplus = Production - Consommation (si positif)
@@ -1077,7 +1092,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-3 pt-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Consommation (kWh)</Label>
+                <Label className="text-xs">Consommation annuelle</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
@@ -1086,11 +1101,11 @@ const EtudeForm = () => {
                     onChange={(e) => setConsoAnnuelle(e.target.value ? Number(e.target.value) : "")}
                     className="h-9"
                   />
-                  <span className="flex items-center text-xs text-muted-foreground">kWh</span>
+                  <span className="flex items-center text-xs text-muted-foreground">kWh/an</span>
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Facture Mensuelle (€)</Label>
+                <Label className="text-xs">Facture mensuelle (hors abo)</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
@@ -1099,10 +1114,22 @@ const EtudeForm = () => {
                     onChange={(e) => setFactureMensuelle(e.target.value ? Number(e.target.value) : "")}
                     className="h-9"
                   />
-                  <span className="flex items-center text-xs text-muted-foreground">€</span>
+                  <span className="flex items-center text-xs text-muted-foreground">€/mois</span>
                 </div>
               </div>
             </div>
+            {/* Prix unitaire calculé */}
+            {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
+              <div className="bg-muted/50 rounded-lg p-2 text-center">
+                <p className="text-xs text-muted-foreground">Prix unitaire kWh (calculé)</p>
+                <p className="font-bold text-primary">
+                  {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Facture annuelle : {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")} €
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1185,6 +1212,50 @@ const EtudeForm = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
+            {/* Switch mode de calcul */}
+            <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Sun className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-medium">Mode de calcul production</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>Heures</span>
+                <Switch
+                  checked={usePshCalculation}
+                  onCheckedChange={setUsePshCalculation}
+                />
+                <span className={`text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
+              </div>
+            </div>
+            
+            {/* Affichage conditionnel selon le mode */}
+            {usePshCalculation ? (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">PSH (kWh/kWc/an)</span>
+                  <span className="font-bold text-amber-600">
+                    {dataPsh.find(p => p.department_code === departement)?.psh_value || "N/A"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Formule: Puissance × PSH × Coeff. orientation × Rendement
+                </p>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Heures d'ensoleillement (Heures/An)</Label>
+                <Input
+                  type="number"
+                  value={heuresEnsoleillement}
+                  onChange={(e) => setHeuresEnsoleillement(Number(e.target.value) || 2890)}
+                  className="h-9"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Formule: Puissance × Heures × 0.18 × Coeff. orientation × Rendement
+                </p>
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Surface d'installation (m²)</Label>
@@ -1199,30 +1270,22 @@ const EtudeForm = () => {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Ensoleillement (Heures/An)</Label>
-                <Input
-                  type="number"
-                  value={heuresEnsoleillement}
-                  onChange={(e) => setHeuresEnsoleillement(Number(e.target.value) || 2890)}
-                  className="h-9"
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Rendement de Productivité (%)</Label>
-              <div className="flex gap-1">
-                <Input
-                  type="number"
-                  value={rendementProductivite}
-                  onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
-                  className="h-9"
-                />
-                <span className="flex items-center text-xs text-muted-foreground">%</span>
+                <Label className="text-xs">Rendement (%)</Label>
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    value={rendementProductivite}
+                    onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
+                    className="h-9"
+                  />
+                  <span className="flex items-center text-xs text-muted-foreground">%</span>
+                </div>
               </div>
             </div>
             {departement && (
               <p className="text-xs text-muted-foreground text-center">
                 Département: {dataPsh.find(p => p.department_code === departement)?.department_name || departement}
+                {usePshCalculation && ` • PSH: ${dataPsh.find(p => p.department_code === departement)?.psh_value || "N/A"} kWh/kWc/an`}
               </p>
             )}
           </CardContent>
