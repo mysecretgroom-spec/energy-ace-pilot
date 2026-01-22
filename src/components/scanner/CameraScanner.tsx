@@ -183,7 +183,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
         <Button
@@ -239,7 +239,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount }: CameraScannerP
       </div>
 
       {/* Footer with capture button */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center p-6 pb-safe bg-gradient-to-t from-black/60 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center p-6 pb-24 bg-gradient-to-t from-black/60 to-transparent">
         <Button
           size="lg"
           className="h-16 w-16 rounded-full bg-white hover:bg-white/90 text-black shadow-lg"

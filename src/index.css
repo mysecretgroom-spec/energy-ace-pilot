@@ -156,6 +156,10 @@
   .safe-top {
     padding-top: env(safe-area-inset-top, 0);
   }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
 }
 
 @layer utilities {

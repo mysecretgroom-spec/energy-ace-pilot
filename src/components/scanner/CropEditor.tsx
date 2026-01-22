@@ -385,7 +385,7 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
   const displayImageSrc = enhancedImage || imageData;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/80">
         <Button
@@ -495,7 +495,7 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between p-4 bg-black/80">
+      <div className="flex items-center justify-between p-4 pb-20 bg-black/80">
         <p className="text-white/70 text-sm">
           Déplacez les points pour ajuster
         </p>
