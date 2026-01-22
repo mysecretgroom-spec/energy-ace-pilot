@@ -331,9 +331,6 @@ const DataCommissions = () => {
               <CardTitle className="text-base flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
                 Mode de commission
-                {!isAdmin && (
-                  <Badge variant="secondary" className="text-xs">Lecture seule</Badge>
-                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -349,7 +346,6 @@ const DataCommissions = () => {
                   onCheckedChange={(checked) => 
                     updateConfig({ mode_calcul: checked ? "bouquet" : "pourcentage" })
                   }
-                  disabled={!isAdmin}
                 />
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-medium ${config.mode_calcul === "bouquet" ? "text-foreground" : "text-muted-foreground"}`}>
@@ -372,7 +368,6 @@ const DataCommissions = () => {
                     className="w-24"
                     min={0}
                     max={100}
-                    disabled={!isAdmin}
                   />
                   <span className="text-sm text-muted-foreground">% du montant HT de survente</span>
                 </div>
@@ -431,7 +426,6 @@ const DataCommissions = () => {
                   <Switch
                     checked={useTauxUnique}
                     onCheckedChange={setUseTauxUnique}
-                    disabled={!isAdmin}
                   />
                 </div>
                 {useTauxUnique && (
@@ -442,7 +436,6 @@ const DataCommissions = () => {
                       value={tauxUnique}
                       onChange={(e) => setTauxUnique(e.target.value)}
                       className="w-24"
-                      disabled={!isAdmin}
                     />
                     <span className="text-sm text-muted-foreground">% sur toutes les ventes</span>
                   </div>
@@ -452,12 +445,10 @@ const DataCommissions = () => {
 
             {!useTauxUnique && (
               <>
-                {isAdmin && (
-                  <Button onClick={openAddTrancheDialog} className="w-full gap-2">
-                    <Plus className="h-4 w-4" />
-                    Ajouter une tranche
-                  </Button>
-                )}
+                <Button onClick={openAddTrancheDialog} className="w-full gap-2">
+                  <Plus className="h-4 w-4" />
+                  Ajouter une tranche
+                </Button>
 
                 {tranches.length === 0 ? (
                   <Card>
@@ -489,26 +480,22 @@ const DataCommissions = () => {
                                   +{item.bonus_survente}%
                                 </Badge>
                               )}
-                              {isAdmin && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => openEditTrancheDialog(item)}
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive"
-                                    onClick={() => handleDeleteTranche(item.id)}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => openEditTrancheDialog(item)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => handleDeleteTranche(item.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
                           </div>
                           <Progress value={(item.taux_commission / maxTaux) * 100} className="h-2" />
@@ -535,12 +522,10 @@ const DataCommissions = () => {
 
           {/* Bouquets Tab */}
           <TabsContent value="bouquet" className="space-y-4">
-            {isAdmin && (
-              <Button onClick={openAddBouquetDialog} className="w-full gap-2">
-                <Plus className="h-4 w-4" />
-                Ajouter un bouquet travaux
-              </Button>
-            )}
+            <Button onClick={openAddBouquetDialog} className="w-full gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un bouquet travaux
+            </Button>
 
             {bouquets.length === 0 ? (
               <Card>
@@ -572,26 +557,24 @@ const DataCommissions = () => {
                             {bouquet.puissance_kwc} kWc
                           </p>
                         </div>
-                        {isAdmin && (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openEditBouquetDialog(bouquet)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => handleDeleteBouquet(bouquet.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditBouquetDialog(bouquet)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleDeleteBouquet(bouquet.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
