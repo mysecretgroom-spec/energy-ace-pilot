@@ -260,13 +260,13 @@ const EtudeForm = () => {
   // Load data on mount
   useEffect(() => {
     const init = async () => {
-      await loadReferenceData();
+      const financements = await loadReferenceData();
       await loadDefaultCqTime();
       if (clientId) {
         await loadClientInfo();
       }
       if (etudeId) {
-        await loadExistingEtude();
+        await loadExistingEtude(financements);
       }
     };
     init();
@@ -324,7 +324,7 @@ const EtudeForm = () => {
     dataPsh,
   ]);
 
-  const loadReferenceData = async () => {
+  const loadReferenceData = async (): Promise<DataFinancement[]> => {
     setLoading(true);
 
     const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes, aidesRes, financementsRes] = await Promise.all([
@@ -350,6 +350,7 @@ const EtudeForm = () => {
     if (financementsRes.data) setDataFinancements(financementsRes.data);
 
     setLoading(false);
+    return financementsRes.data || [];
   };
 
   const loadClientInfo = async () => {
@@ -382,7 +383,7 @@ const EtudeForm = () => {
   };
 
   // Charger une étude existante pour modification
-  const loadExistingEtude = async () => {
+  const loadExistingEtude = async (financements: DataFinancement[]) => {
     if (!etudeId) return;
 
     const { data: etude } = await supabase
@@ -424,9 +425,24 @@ const EtudeForm = () => {
       setSurcoutSupport(etude.surcout_support || 0);
       setSurcoutCompteur(etude.surcout_compteur || 0);
       setAutreSurcout(etude.autre_surcout || 0);
+      // Prix manuel (si différent du prix calculé, on considère qu'il y a un prix manuel)
+      if (etude.prix_installation) {
+        setPrixInstallationManuel(etude.prix_installation);
+      }
+      // Mensualité manuelle
+      if (etude.mensualite_estimee) {
+        setMensualiteManuelle(etude.mensualite_estimee);
+      }
       // Modes
-      setModeHejjaPsh(etude.mode_hejja_psh || false);
+      setModeHejjaPsh(etude.mode_hejja_psh ?? true);
       setModeHejjaPrix(etude.mode_hejja_prix || false);
+      // Financement - restaurer l'ID basé sur le nom
+      if (etude.mode_financement && financements.length > 0) {
+        const financement = financements.find(f => f.nom === etude.mode_financement);
+        if (financement) {
+          setFinancementId(financement.id);
+        }
+      }
       // Classification
       setClassification(etude.classification || "");
       setOriginalClassification(etude.classification || "");
