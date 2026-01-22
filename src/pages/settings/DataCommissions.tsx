@@ -34,9 +34,9 @@ interface BouquetData {
   puissance_kwc: number;
   prix_recommande: number;
   prix_max: number;
+  prix_hejja: number | null;
   commission_fixe: number | null;
   commission_pct: number | null;
-  commission_hejja: number | null;
   actif: boolean;
   description: string | null;
 }
@@ -75,9 +75,9 @@ const DataCommissions = () => {
     nom_bouquet: "",
     puissance_kwc: "3",
     prix_recommande: "10000",
-    prix_max: "12000",
+    prix_hejja: "12000",
+    prix_max: "15000",
     commission_fixe: "500",
-    commission_hejja: "300",
     description: "",
   });
   
@@ -209,9 +209,9 @@ const DataCommissions = () => {
       nom_bouquet: "",
       puissance_kwc: "3",
       prix_recommande: "10000",
-      prix_max: "12000",
+      prix_hejja: "12000",
+      prix_max: "15000",
       commission_fixe: "500",
-      commission_hejja: "300",
       description: "",
     });
     setIsBouquetDialogOpen(true);
@@ -223,9 +223,9 @@ const DataCommissions = () => {
       nom_bouquet: bouquet.nom_bouquet,
       puissance_kwc: bouquet.puissance_kwc.toString(),
       prix_recommande: bouquet.prix_recommande.toString(),
+      prix_hejja: (bouquet.prix_hejja || 0).toString(),
       prix_max: bouquet.prix_max.toString(),
       commission_fixe: (bouquet.commission_fixe || 0).toString(),
-      commission_hejja: (bouquet.commission_hejja || 0).toString(),
       description: bouquet.description || "",
     });
     setIsBouquetDialogOpen(true);
@@ -243,9 +243,9 @@ const DataCommissions = () => {
         nom_bouquet: bouquetFormData.nom_bouquet.trim(),
         puissance_kwc: parseFloat(bouquetFormData.puissance_kwc) || 0,
         prix_recommande: parseFloat(bouquetFormData.prix_recommande) || 0,
+        prix_hejja: parseFloat(bouquetFormData.prix_hejja) || 0,
         prix_max: parseFloat(bouquetFormData.prix_max) || 0,
         commission_fixe: parseFloat(bouquetFormData.commission_fixe) || 0,
-        commission_hejja: parseFloat(bouquetFormData.commission_hejja) || 0,
         description: bouquetFormData.description.trim() || null,
         actif: true,
       };
@@ -587,10 +587,10 @@ const DataCommissions = () => {
                         </div>
                         <div className="p-2 bg-amber-500/10 rounded border border-amber-500/20">
                           <p className="text-muted-foreground">Prix HEJJA</p>
-                          <p className="font-medium">{formatCurrency(bouquet.prix_max)}</p>
-                          <Badge className="mt-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                            Com: {formatCurrency(bouquet.commission_hejja || 0)}
-                          </Badge>
+                          <p className="font-medium">{formatCurrency(bouquet.prix_hejja || 0)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Survente: {formatCurrency((bouquet.prix_hejja || 0) - bouquet.prix_recommande)}
+                          </p>
                         </div>
                       </div>
 
@@ -771,11 +771,11 @@ const DataCommissions = () => {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Commission HEJJA (€)</Label>
+                    <Label className="text-xs">Prix HEJJA TTC (€)</Label>
                     <Input
                       type="number"
-                      value={bouquetFormData.commission_hejja}
-                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, commission_hejja: e.target.value })}
+                      value={bouquetFormData.prix_hejja}
+                      onChange={(e) => setBouquetFormData({ ...bouquetFormData, prix_hejja: e.target.value })}
                     />
                   </div>
                 </div>

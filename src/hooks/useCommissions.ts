@@ -12,10 +12,10 @@ interface BouquetCommission {
   id: string;
   nom_bouquet: string;
   puissance_kwc: number;
-  prix_recommande: number; // Stored as HT in DB
+  prix_recommande: number; // Prix normal TTC
+  prix_hejja: number; // Prix Hejja TTC (survente = prix_hejja - prix_recommande)
   commission_fixe: number;
   commission_pct: number;
-  commission_hejja: number;
 }
 
 interface CommissionConfig {
@@ -80,7 +80,7 @@ export const useCommissions = () => {
   const fetchBouquetCommissions = async (): Promise<BouquetCommission[]> => {
     const { data, error } = await supabase
       .from("data_prix_bouquets")
-      .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, commission_hejja")
+      .select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_hejja, commission_fixe, commission_pct")
       .eq("actif", true)
       .order("puissance_kwc", { ascending: true });
 
@@ -94,9 +94,9 @@ export const useCommissions = () => {
       nom_bouquet: b.nom_bouquet,
       puissance_kwc: Number(b.puissance_kwc),
       prix_recommande: Number(b.prix_recommande),
+      prix_hejja: Number(b.prix_hejja || 0),
       commission_fixe: Number(b.commission_fixe || 0),
-      commission_pct: Number(b.commission_pct || 0),
-      commission_hejja: Number(b.commission_hejja || 0)
+      commission_pct: Number(b.commission_pct || 0)
     }));
   };
 
