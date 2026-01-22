@@ -17,11 +17,29 @@ interface ParsedRdv {
   nom: string;
   prenom?: string;
   adresse?: string;
+  code_postal?: string;
+  ville?: string;
   telephone?: string;
   email?: string;
   date_heure?: string;
   type_projet?: string;
   commentaire?: string;
+  // Extended info from AI analysis
+  situation_familiale?: string;
+  proprietaire?: boolean;
+  type_habitation?: string;
+  surface_habitable?: number;
+  annee_construction?: number;
+  type_chauffage?: string;
+  facture_energie?: number;
+  revenus_fiscaux?: number;
+  nb_personnes_foyer?: number;
+  type_toiture?: string;
+  orientation_toiture?: string;
+  projet_motivation?: string;
+  budget_estime?: number;
+  urgence?: string;
+  notes_supplementaires?: string;
 }
 
 interface GeocodeResult {
@@ -108,26 +126,58 @@ serve(async (req) => {
         messages: [
           {
             role: "user",
-            content: `Extrais les informations du RDV de cet email et retourne un JSON:
+            content: `Tu es un assistant spécialisé dans l'extraction d'informations de leads pour des projets d'énergie renouvelable (photovoltaïque, pompe à chaleur, isolation, etc.).
+
+Analyse cet email et extrais TOUTES les informations utiles en JSON:
 
 Sujet: ${subject}
 Corps: ${body}
 
-Extrais:
-- nom: nom de famille du client (obligatoire)
-- prenom: prénom (optionnel)
-- adresse: adresse complète (optionnel)
-- telephone: numéro de téléphone (optionnel)
-- email: email du client (optionnel)
-- date_heure: date et heure du RDV au format ISO (YYYY-MM-DDTHH:MM:SS) (optionnel)
-- type_projet: "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", ou "autre" (optionnel)
-- commentaire: autres informations utiles (optionnel)
+INFORMATIONS À EXTRAIRE (retourne null si non trouvé):
 
-Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
-{"nom": "Dupont", "prenom": "Jean", "adresse": "12 rue de la Paix, 69001 Lyon", "telephone": "0612345678", "date_heure": "2026-01-22T09:00:00", "type_projet": "photovoltaique"}`,
+CONTACT (obligatoire: nom)
+- nom: nom de famille du client
+- prenom: prénom
+- adresse: adresse complète (numéro, rue)
+- code_postal: code postal (5 chiffres)
+- ville: nom de la ville
+- telephone: numéro de téléphone (format français)
+- email: adresse email du client
+
+RDV
+- date_heure: date et heure du RDV au format ISO (YYYY-MM-DDTHH:MM:SS)
+- type_projet: "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "batterie", ou "autre"
+
+PROFIL CLIENT
+- situation_familiale: "celibataire", "marie", "pacse", "divorce", "veuf"
+- proprietaire: true/false (est propriétaire du logement?)
+- nb_personnes_foyer: nombre de personnes dans le foyer
+
+HABITAT
+- type_habitation: "maison", "appartement", "immeuble"
+- surface_habitable: surface en m²
+- annee_construction: année de construction
+- type_chauffage: "electrique", "gaz", "fioul", "bois", "pac", "autre"
+
+ÉNERGIE & FINANCES
+- facture_energie: montant facture énergie annuelle ou mensuelle en euros
+- revenus_fiscaux: revenus fiscaux de référence
+- budget_estime: budget envisagé pour le projet
+
+TOITURE (pour projets photovoltaïques)
+- type_toiture: "tuiles", "ardoises", "bac_acier", "tole", "autre"
+- orientation_toiture: "sud", "sud-est", "sud-ouest", "est", "ouest", "nord"
+
+CONTEXTE
+- projet_motivation: pourquoi le client est intéressé (économies, écologie, autonomie...)
+- urgence: "urgent", "moyen_terme", "informatif"
+- notes_supplementaires: autres infos importantes non classées ailleurs
+- commentaire: résumé court des points clés
+
+Réponds UNIQUEMENT avec le JSON, sans markdown ni explication.`,
           },
         ],
-        max_tokens: 500,
+        max_tokens: 1000,
       }),
     });
 
@@ -208,11 +258,34 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
 
     // Create new client if not found
     if (!clientId) {
+      // Build full address for geocoding
+      const fullAddress = [parsed.adresse, parsed.code_postal, parsed.ville]
+        .filter(Boolean)
+        .join(", ");
+
       // Geocode the address
       let coords: GeocodeResult | null = null;
-      if (parsed.adresse) {
-        coords = await geocodeAddress(parsed.adresse);
+      if (fullAddress) {
+        coords = await geocodeAddress(fullAddress);
       }
+
+      // Build metadata JSON with all extracted info
+      const clientMetadata: Record<string, unknown> = {};
+      if (parsed.situation_familiale) clientMetadata.situation_familiale = parsed.situation_familiale;
+      if (parsed.proprietaire !== undefined) clientMetadata.proprietaire = parsed.proprietaire;
+      if (parsed.type_habitation) clientMetadata.type_habitation = parsed.type_habitation;
+      if (parsed.surface_habitable) clientMetadata.surface_habitable = parsed.surface_habitable;
+      if (parsed.annee_construction) clientMetadata.annee_construction = parsed.annee_construction;
+      if (parsed.type_chauffage) clientMetadata.type_chauffage = parsed.type_chauffage;
+      if (parsed.facture_energie) clientMetadata.facture_energie = parsed.facture_energie;
+      if (parsed.revenus_fiscaux) clientMetadata.revenus_fiscaux = parsed.revenus_fiscaux;
+      if (parsed.nb_personnes_foyer) clientMetadata.nb_personnes_foyer = parsed.nb_personnes_foyer;
+      if (parsed.type_toiture) clientMetadata.type_toiture = parsed.type_toiture;
+      if (parsed.orientation_toiture) clientMetadata.orientation_toiture = parsed.orientation_toiture;
+      if (parsed.projet_motivation) clientMetadata.projet_motivation = parsed.projet_motivation;
+      if (parsed.budget_estime) clientMetadata.budget_estime = parsed.budget_estime;
+      if (parsed.urgence) clientMetadata.urgence = parsed.urgence;
+      if (parsed.notes_supplementaires) clientMetadata.notes_supplementaires = parsed.notes_supplementaires;
 
       const { data: newClient, error: clientError } = await supabase
         .from("clients")
@@ -220,12 +293,16 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           user_id,
           nom: parsed.nom,
           prenom: parsed.prenom || null,
-          adresse: parsed.adresse || null,
+          adresse: fullAddress || parsed.adresse || null,
+          code_postal: parsed.code_postal || null,
+          ville: parsed.ville || null,
           telephone: parsed.telephone || null,
           email: parsed.email || null,
           source: `Email: ${sender_email}`,
           latitude: coords?.latitude || null,
           longitude: coords?.longitude || null,
+          notes: parsed.notes_supplementaires || null,
+          metadata: Object.keys(clientMetadata).length > 0 ? clientMetadata : null,
         })
         .select("id")
         .single();
@@ -238,6 +315,43 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
         });
       }
       clientId = newClient.id;
+    } else {
+      // Update existing client with new extracted info (merge metadata)
+      const updateMetadata: Record<string, unknown> = {};
+      if (parsed.situation_familiale) updateMetadata.situation_familiale = parsed.situation_familiale;
+      if (parsed.proprietaire !== undefined) updateMetadata.proprietaire = parsed.proprietaire;
+      if (parsed.type_habitation) updateMetadata.type_habitation = parsed.type_habitation;
+      if (parsed.surface_habitable) updateMetadata.surface_habitable = parsed.surface_habitable;
+      if (parsed.annee_construction) updateMetadata.annee_construction = parsed.annee_construction;
+      if (parsed.type_chauffage) updateMetadata.type_chauffage = parsed.type_chauffage;
+      if (parsed.facture_energie) updateMetadata.facture_energie = parsed.facture_energie;
+      if (parsed.revenus_fiscaux) updateMetadata.revenus_fiscaux = parsed.revenus_fiscaux;
+      if (parsed.nb_personnes_foyer) updateMetadata.nb_personnes_foyer = parsed.nb_personnes_foyer;
+      if (parsed.type_toiture) updateMetadata.type_toiture = parsed.type_toiture;
+      if (parsed.orientation_toiture) updateMetadata.orientation_toiture = parsed.orientation_toiture;
+      if (parsed.projet_motivation) updateMetadata.projet_motivation = parsed.projet_motivation;
+      if (parsed.budget_estime) updateMetadata.budget_estime = parsed.budget_estime;
+      if (parsed.urgence) updateMetadata.urgence = parsed.urgence;
+      
+      if (Object.keys(updateMetadata).length > 0) {
+        // Get existing metadata and merge
+        const { data: existingClient } = await supabase
+          .from("clients")
+          .select("metadata")
+          .eq("id", clientId)
+          .single();
+        
+        const mergedMetadata = {
+          ...(existingClient?.metadata as Record<string, unknown> || {}),
+          ...updateMetadata,
+          last_email_update: new Date().toISOString(),
+        };
+
+        await supabase
+          .from("clients")
+          .update({ metadata: mergedMetadata })
+          .eq("id", clientId);
+      }
     }
 
     // 4. Check for duplicate RDV (same client, same time window)
@@ -285,10 +399,27 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
       action = "updated";
     } else {
       // Create new RDV (type_rdv defaults to 'standard' - user can change it manually)
+      const fullAddress = [parsed.adresse, parsed.code_postal, parsed.ville]
+        .filter(Boolean)
+        .join(", ");
+        
       let coords: GeocodeResult | null = null;
-      if (parsed.adresse) {
-        coords = await geocodeAddress(parsed.adresse);
+      if (fullAddress || parsed.adresse) {
+        coords = await geocodeAddress(fullAddress || parsed.adresse!);
       }
+
+      // Build RDV metadata with extracted info
+      const rdvMetadata: Record<string, unknown> = {
+        ai_extracted: true,
+        extraction_date: new Date().toISOString(),
+      };
+      if (parsed.projet_motivation) rdvMetadata.motivation = parsed.projet_motivation;
+      if (parsed.budget_estime) rdvMetadata.budget_estime = parsed.budget_estime;
+      if (parsed.urgence) rdvMetadata.urgence = parsed.urgence;
+      if (parsed.type_toiture) rdvMetadata.type_toiture = parsed.type_toiture;
+      if (parsed.orientation_toiture) rdvMetadata.orientation_toiture = parsed.orientation_toiture;
+      if (parsed.facture_energie) rdvMetadata.facture_energie = parsed.facture_energie;
+      if (parsed.type_chauffage) rdvMetadata.type_chauffage = parsed.type_chauffage;
 
       const { data: newRdv, error: rdvError } = await supabase
         .from("rdv")
@@ -296,7 +427,7 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           user_id,
           client_id: clientId,
           date_heure: rdvDateTime.toISOString(),
-          adresse: parsed.adresse || null,
+          adresse: fullAddress || parsed.adresse || null,
           type_projet: parsed.type_projet || "photovoltaique",
           type_rdv: "standard", // Default to standard, user changes manually if needed
           status: "nouveau",
@@ -304,11 +435,13 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           email_source_id: subject,
           latitude: coords?.latitude || null,
           longitude: coords?.longitude || null,
+          metadata: rdvMetadata,
           historique: [
             {
-              action: "Créé via email",
+              action: "Créé via email (IA)",
               date: new Date().toISOString(),
               source: sender_email,
+              extracted_fields: Object.keys(parsed).filter(k => parsed[k as keyof ParsedRdv] != null),
             },
           ],
         })
