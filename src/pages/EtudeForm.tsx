@@ -153,7 +153,7 @@ const EtudeForm = () => {
   // === PRÉCONISATION ===
   const [bouquetId, setBouquetId] = useState("");
   const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
-  const [typeRevente, setTypeRevente] = useState("STANDARD");
+  const [typeRevente, setTypeRevente] = useState("autoconsommation");
   const [supportInstallation, setSupportInstallation] = useState("TOITURE SURIMPOSITION");
 
   // === DONNÉES TECHNIQUES ===
@@ -494,7 +494,13 @@ const EtudeForm = () => {
     const autoconsommationEuros = facture;
 
     // Revente mensuelle = Surplus × Prix revente / 12
-    const prixRevente = typeRevente === "STANDARD" ? 0.04 : typeRevente === "FULL" ? 0.20 : 0.10;
+    // Chercher le tarif de revente applicable selon le type et la puissance
+    const tarifRevente = dataTarifs.find(
+      (t) => t.type_revente === typeRevente && 
+             puissance >= t.puissance_min && 
+             puissance <= t.puissance_max
+    );
+    const prixRevente = tarifRevente?.prix_kwh || 0.10;
     const reventeMensuelleEstimee = (surplusProduction * prixRevente) / 12;
 
     // Résultat transfert de charge = Autoconso € + Revente - Mensualité
@@ -1185,12 +1191,21 @@ const EtudeForm = () => {
                 <Label className="text-xs">Type de Revente</Label>
                 <Select value={typeRevente} onValueChange={setTypeRevente}>
                   <SelectTrigger className="h-9">
-                    <SelectValue />
+                    <SelectValue placeholder="Choisir un type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="STANDARD">STANDARD</SelectItem>
-                    <SelectItem value="FULL">FULL</SelectItem>
-                    <SelectItem value="MIX">MIX</SelectItem>
+                    {/* Extraire les types uniques depuis dataTarifs */}
+                    {[...new Set(dataTarifs.map(t => t.type_revente))].map((type) => {
+                      const tarif = dataTarifs.find(t => t.type_revente === type);
+                      const label = type === "autoconsommation" ? "Autoconsommation (surplus)" :
+                                    type === "revente_totale" ? "Revente totale" :
+                                    type === "surplus" ? "Surplus" : type;
+                      return (
+                        <SelectItem key={type} value={type}>
+                          {label} ({tarif?.prix_kwh?.toFixed(4) || "N/A"} €/kWh)
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
