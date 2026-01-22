@@ -28,6 +28,7 @@ import DataCompteurs from "./pages/settings/DataCompteurs";
 import DataCalibres from "./pages/settings/DataCalibres";
 import DataAides from "./pages/settings/DataAides";
 import DataFinancements from "./pages/settings/DataFinancements";
+import WhatsAppSettings from "./pages/settings/WhatsAppSettings";
 import React, { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const App = () => {
                 <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
                 <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
                 <Route path="/parametres/data-financements" element={<ProtectedRoute><DataFinancements /></ProtectedRoute>} />
+                <Route path="/parametres/whatsapp" element={<ProtectedRoute><WhatsAppSettings /></ProtectedRoute>} />
                 <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
