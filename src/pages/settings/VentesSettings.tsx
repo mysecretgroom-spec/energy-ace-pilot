@@ -69,7 +69,7 @@ const VentesSettings = () => {
 
   if (loading) {
     return (
-      <MobileLayout title="Paramètres Ventes">
+      <MobileLayout title="Paramètres Ventes" showBackButton>
         <div className="p-4 flex justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
@@ -78,7 +78,7 @@ const VentesSettings = () => {
   }
 
   return (
-    <MobileLayout title="Paramètres Ventes">
+    <MobileLayout title="Paramètres Ventes" showBackButton>
       <div className="p-4 space-y-6 pb-8">
         <Card className="shadow-card">
           <CardHeader>
