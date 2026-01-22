@@ -38,6 +38,8 @@ import {
   Eye,
   MessageSquare,
   Tag,
+  History,
+  Clock,
 } from "lucide-react";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
@@ -198,6 +200,13 @@ const EtudeForm = () => {
   // Classification du dossier
   const [classification, setClassification] = useState<string>("");
   const [classificationComment, setClassificationComment] = useState<string>("");
+  const [classificationHistory, setClassificationHistory] = useState<{
+    id: string;
+    classification: string;
+    comment: string | null;
+    created_at: string;
+  }[]>([]);
+  const [existingEtudeId, setExistingEtudeId] = useState<string | null>(null);
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -568,7 +577,7 @@ const EtudeForm = () => {
 
     setSaving(true);
 
-    const { error } = await supabase.from("etudes").insert({
+    const { data, error } = await supabase.from("etudes").insert({
       user_id: user.id,
       client_id: clientId,
       rdv_id: rdvId || null,
@@ -629,7 +638,11 @@ const EtudeForm = () => {
       verdict: calculatedResults.verdict,
       mode_hejja_psh: modeHejjaPsh,
       mode_hejja_prix: modeHejjaPrix,
-    });
+      classification: classification || null,
+      classification_comment: classificationComment || null,
+      classification_updated_at: classification ? new Date().toISOString() : null,
+      classification_updated_by: classification ? user.id : null,
+    }).select().single();
 
     if (error) {
       console.error("Erreur sauvegarde:", error);
@@ -640,6 +653,16 @@ const EtudeForm = () => {
       });
       setSaving(false);
     } else {
+      // Sauvegarder l'historique de classification si une classification est définie
+      if (classification && data) {
+        await supabase.from("etudes_classification_history").insert({
+          etude_id: data.id,
+          user_id: user.id,
+          classification: classification,
+          comment: classificationComment || null,
+        });
+      }
+      
       // Afficher l'animation de succès
       setShowSuccess(true);
       setSaving(false);
@@ -872,6 +895,21 @@ const EtudeForm = () => {
         return (
           <Badge className="bg-status-negative text-white text-sm px-3 py-1">INVALIDE</Badge>
         );
+    }
+  };
+
+  const getClassificationLabel = (value: string) => {
+    switch (value) {
+      case "positif":
+        return "✅ Positif - Vente signée";
+      case "negatif":
+        return "❌ Négatif - Projet abandonné";
+      case "r2":
+        return "📈 R2 - Second rendez-vous";
+      case "r2_prestudy":
+        return "⚠️ R2 Pré-étude - En attente";
+      default:
+        return value;
     }
   };
 
@@ -1720,6 +1758,40 @@ const EtudeForm = () => {
                   className="min-h-[80px]"
                 />
               </div>
+              
+              {/* Historique des classifications */}
+              {classificationHistory.length > 0 && (
+                <div className="pt-2 border-t">
+                  <Label className="text-xs flex items-center gap-1 mb-2">
+                    <History className="h-3 w-3" />
+                    Historique des changements
+                  </Label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {classificationHistory.map((entry) => (
+                      <div key={entry.id} className="text-xs p-2 bg-muted rounded-md">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">
+                            {getClassificationLabel(entry.classification)}
+                          </span>
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(entry.created_at).toLocaleDateString("fr-FR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                        {entry.comment && (
+                          <p className="text-muted-foreground mt-1 italic">"{entry.comment}"</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
