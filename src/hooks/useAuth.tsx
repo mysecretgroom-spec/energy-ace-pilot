@@ -19,46 +19,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to save Google tokens
+  const saveGoogleTokens = async (session: Session) => {
+    if (!session?.provider_token || !session?.user) return;
+    
+    const provider = session.user.app_metadata?.provider;
+    if (provider !== "google") return;
+
+    try {
+      console.log("Saving Google tokens for user:", session.user.id);
+      const { error } = await supabase
+        .from("google_tokens")
+        .upsert({
+          user_id: session.user.id,
+          access_token: session.provider_token,
+          refresh_token: session.provider_refresh_token || null,
+          expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+          scopes: ["calendar", "gmail.readonly", "drive.file"],
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "user_id",
+        });
+      
+      if (error) {
+        console.error("Error saving Google tokens:", error);
+      } else {
+        console.log("Google tokens saved successfully");
+      }
+    } catch (err) {
+      console.error("Error saving Google tokens:", err);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state change:", event, "provider_token:", !!session?.provider_token);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
         // Save Google tokens when user signs in with Google
-        if (event === "SIGNED_IN" && session?.provider_token && session?.user) {
-          // Check if provider is google
-          const provider = session.user.app_metadata?.provider;
-          if (provider === "google") {
-            try {
-              // Upsert google tokens
-              await supabase
-                .from("google_tokens")
-                .upsert({
-                  user_id: session.user.id,
-                  access_token: session.provider_token,
-                  refresh_token: session.provider_refresh_token || null,
-                  expires_at: new Date(Date.now() + 3600 * 1000).toISOString(), // 1 hour default
-                  scopes: ["calendar", "gmail.readonly", "drive.file"],
-                  updated_at: new Date().toISOString(),
-                }, {
-                  onConflict: "user_id",
-                });
-            } catch (err) {
-              console.error("Error saving Google tokens:", err);
-            }
-          }
+        if (event === "SIGNED_IN" && session?.provider_token) {
+          await saveGoogleTokens(session);
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // THEN check for existing session - this catches OAuth callback
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log("Initial session check, provider_token:", !!session?.provider_token);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Also try to save tokens from initial session (OAuth callback)
+      if (session?.provider_token) {
+        await saveGoogleTokens(session);
+      }
     });
 
     return () => subscription.unsubscribe();
