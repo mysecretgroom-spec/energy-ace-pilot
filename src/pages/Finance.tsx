@@ -13,6 +13,7 @@ import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
 import { VATReport } from "@/components/finance/VATReport";
+import { BillingSection } from "@/components/finance/BillingSection";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Json } from "@/integrations/supabase/types";
@@ -626,6 +627,9 @@ const Finance = () => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Section Facturation - Dossiers en attente de paiement */}
+                <BillingSection />
 
                 {/* Ventes annulées */}
                 <Card className="shadow-card">
