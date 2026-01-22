@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PipelineKanban } from "@/components/crm/PipelineKanban";
 import { CommissionInvoice } from "@/components/crm/CommissionInvoice";
+import { VenteSelectionBar } from "@/components/crm/VenteSelectionBar";
+import { QontoInvoice } from "@/components/crm/QontoInvoice";
 import {
   Search,
   Phone,
@@ -106,7 +109,10 @@ const CRM = () => {
   const [venteFilter, setVenteFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [commissionDialogOpen, setCommissionDialogOpen] = useState(false);
+  const [qontoDialogOpen, setQontoDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedVenteIds, setSelectedVenteIds] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
   
   // Form state for new vente
   const [formData, setFormData] = useState({
@@ -547,15 +553,47 @@ const CRM = () => {
               onOpenChange={setCommissionDialogOpen} 
             />
 
+            {/* Selection bar */}
+            {selectedVenteIds.length > 0 && (
+              <VenteSelectionBar
+                selectedIds={selectedVenteIds}
+                onClear={() => {
+                  setSelectedVenteIds([]);
+                  setSelectionMode(false);
+                }}
+                onRefresh={fetchVentes}
+                onGenerateInvoice={() => setQontoDialogOpen(true)}
+              />
+            )}
+
+            {/* Qonto Invoice Dialog */}
+            <QontoInvoice
+              venteIds={selectedVenteIds}
+              ventes={ventes}
+              open={qontoDialogOpen}
+              onOpenChange={setQontoDialogOpen}
+            />
+
             {/* Actions bar */}
             <div className="flex gap-2">
+              <Button 
+                variant={selectionMode ? "default" : "outline"} 
+                className="flex-1"
+                onClick={() => {
+                  setSelectionMode(!selectionMode);
+                  if (selectionMode) setSelectedVenteIds([]);
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                {selectionMode ? "Annuler sélection" : "Sélectionner"}
+              </Button>
               <Button 
                 variant="outline" 
                 className="flex-1"
                 onClick={() => setCommissionDialogOpen(true)}
               >
                 <Receipt className="h-4 w-4 mr-2" />
-                Facture commissions
+                Facture PDF
               </Button>
             </div>
 
@@ -585,15 +623,35 @@ const CRM = () => {
               <div className="space-y-3">
                 {filteredVentes.map((vente) => {
                   const config = statusConfig[vente.status];
+                  const isSelected = selectedVenteIds.includes(vente.id);
+
+                  const handleCardClick = () => {
+                    if (selectionMode) {
+                      setSelectedVenteIds(prev => 
+                        prev.includes(vente.id) 
+                          ? prev.filter(id => id !== vente.id)
+                          : [...prev, vente.id]
+                      );
+                    } else {
+                      navigate(`/ventes/${vente.id}`);
+                    }
+                  };
+
                   return (
                     <Card 
                       key={vente.id} 
-                      className="cursor-pointer hover:bg-muted/50 transition-colors relative"
-                      onClick={() => navigate(`/ventes/${vente.id}`)}
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors relative ${isSelected ? "border-primary bg-primary/5" : ""}`}
+                      onClick={handleCardClick}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
+                            {selectionMode && (
+                              <Checkbox 
+                                checked={isSelected}
+                                className="mr-1"
+                              />
+                            )}
                             <User className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">
                               {vente.client?.nom} {vente.client?.prenom || ""}
@@ -631,7 +689,9 @@ const CRM = () => {
                           </div>
                         </div>
 
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        {!selectionMode && (
+                          <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        )}
                       </CardContent>
                     </Card>
                   );
