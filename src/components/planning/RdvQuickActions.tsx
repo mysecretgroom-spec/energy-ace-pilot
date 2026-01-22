@@ -90,6 +90,7 @@ export function RdvQuickActions({
               rdvId={rdvId}
               currentStatus={currentStatus}
               clientName={clientName}
+              clientId={clientId}
               onStatusChange={onStatusChange}
             />
           </div>
