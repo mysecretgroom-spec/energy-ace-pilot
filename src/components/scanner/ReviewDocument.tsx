@@ -9,7 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -63,18 +65,8 @@ const FINANCE_CATEGORIES = [
   { value: "autre", label: "Autre" },
 ];
 
-const CLIENT_DOC_CATEGORIES = [
-  { value: "cni", label: "Carte d'identité" },
-  { value: "justificatif_domicile", label: "Justificatif de domicile" },
-  { value: "facture_energie", label: "Facture énergie" },
-  { value: "bon_commande", label: "Bon de commande" },
-  { value: "devis", label: "Devis" },
-  { value: "contrat", label: "Contrat" },
-  { value: "plan", label: "Plan" },
-  { value: "photo_chantier", label: "Photo chantier" },
-  { value: "assurance", label: "Assurance" },
-  { value: "autre", label: "Autre" },
-];
+// Import categories from centralized lib
+import { CLIENT_DOC_CATEGORIES, getGroupedCategories } from "@/lib/documentCategories";
 
 export function ReviewDocument({
   context,
@@ -111,7 +103,7 @@ export function ReviewDocument({
   const [tauxTva, setTauxTva] = useState("20");
   const [fournisseur, setFournisseur] = useState("");
 
-  const categories = context === "finance" ? FINANCE_CATEGORIES : CLIENT_DOC_CATEGORIES;
+  
 
   // Generate PDF on mount
   useEffect(() => {
@@ -514,12 +506,29 @@ export function ReviewDocument({
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionner une catégorie" />
                 </SelectTrigger>
-                <SelectContent className="z-[70] bg-popover">
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="z-[70] bg-popover max-h-80">
+                  {context === "finance" ? (
+                    // Simple list for finance categories
+                    FINANCE_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    // Grouped categories for client documents
+                    Array.from(getGroupedCategories().entries()).map(([groupName, cats]) => (
+                      <SelectGroup key={groupName}>
+                        <SelectLabel className="text-xs font-semibold text-muted-foreground">
+                          {groupName}
+                        </SelectLabel>
+                        {cats.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
