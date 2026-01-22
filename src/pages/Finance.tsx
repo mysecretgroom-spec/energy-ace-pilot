@@ -90,10 +90,12 @@ interface VenteStats {
   caMonth: number;
   caPrevMonth: number;
   commissionsMonth: number;
-  // Nouvelles catégories de commissions
-  comPotentielle: number;  // Tous contrats signés non annulés
+  // Catégories mutuellement exclusives (sans doublon)
+  comEnAttente: number;    // signe, cq_a_faire, cq_fait, attente_financement
   comAVenir: number;       // envoi_pose, en_installation
   comDuSur: number;        // installe, attente_paiement
+  comPayees: number;       // paye
+  comPotentielleTotale: number; // Somme des 3 catégories non payées
   signedCount: number;
   avgDeal: number;
   ventesEnCours: number;
@@ -221,11 +223,13 @@ const Finance = () => {
         // Commissions this month
         const commissionsMonth = signedThisMonth.reduce((sum, v) => sum + calcCommission(v), 0);
 
-        // Com potentielle: tous contrats signés non annulés (toutes périodes)
-        const ventesSigneesNonAnnulees = ventes?.filter(v => 
-          !["en_negociation", "annule", "paye"].includes(v.status)
+        // === Catégories mutuellement exclusives (chaque vente dans UNE seule catégorie) ===
+        
+        // Com en attente: signe, cq_a_faire, cq_fait, attente_financement
+        const ventesEnAttente = ventes?.filter(v => 
+          ["signe", "cq_a_faire", "cq_fait", "attente_financement"].includes(v.status)
         ) || [];
-        const comPotentielle = ventesSigneesNonAnnulees.reduce((sum, v) => sum + calcCommission(v), 0);
+        const comEnAttente = ventesEnAttente.reduce((sum, v) => sum + calcCommission(v), 0);
 
         // Com à venir: envoi_pose, en_installation
         const ventesAVenir = ventes?.filter(v => 
@@ -238,6 +242,13 @@ const Finance = () => {
           ["installe", "attente_paiement"].includes(v.status)
         ) || [];
         const comDuSur = ventesDuSur.reduce((sum, v) => sum + calcCommission(v), 0);
+
+        // Com payées: paye
+        const ventesPayees = ventes?.filter(v => v.status === "paye") || [];
+        const comPayees = ventesPayees.reduce((sum, v) => sum + calcCommission(v), 0);
+
+        // Total potentiel = somme des 3 catégories non payées (sans doublon)
+        const comPotentielleTotale = comEnAttente + comAVenir + comDuSur;
 
         const signedCount = signedThisMonth.length;
         const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
@@ -252,9 +263,11 @@ const Finance = () => {
           caMonth,
           caPrevMonth,
           commissionsMonth,
-          comPotentielle,
+          comEnAttente,
           comAVenir,
           comDuSur,
+          comPayees,
+          comPotentielleTotale,
           signedCount,
           avgDeal,
           ventesEnCours,
@@ -538,22 +551,22 @@ const Finance = () => {
                   </Card>
                 </div>
 
-                {/* Répartition des commissions */}
+                {/* Répartition des commissions (catégories mutuellement exclusives) */}
                 <Card className="shadow-card border-primary/20">
                   <CardContent className="p-4 space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
                     
-                    {/* Com Potentielle */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-200">
+                    {/* Com En Attente */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-200">
                       <div className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-amber-600" />
+                        <Clock className="h-5 w-5 text-orange-600" />
                         <div>
-                          <p className="text-sm font-medium text-amber-700">Com. Potentielle</p>
-                          <p className="text-xs text-amber-600/80">Contrats signés non annulés</p>
+                          <p className="text-sm font-medium text-orange-700">Com. En Attente</p>
+                          <p className="text-xs text-orange-600/80">Signé / CQ / Financement</p>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-amber-700">
-                        {venteStats.comPotentielle.toLocaleString("fr-FR")} €
+                      <p className="text-lg font-bold text-orange-700">
+                        {venteStats.comEnAttente.toLocaleString("fr-FR")} €
                       </p>
                     </div>
                     
@@ -582,6 +595,33 @@ const Finance = () => {
                       </div>
                       <p className="text-lg font-bold text-green-700">
                         {venteStats.comDuSur.toLocaleString("fr-FR")} €
+                      </p>
+                    </div>
+
+                    {/* Séparateur et Total */}
+                    <div className="border-t border-dashed pt-3 mt-2">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/15 border-2 border-amber-400">
+                        <div className="flex items-center gap-2">
+                          <Euro className="h-5 w-5 text-amber-700" />
+                          <p className="text-sm font-bold text-amber-800">TOTAL POTENTIEL</p>
+                        </div>
+                        <p className="text-xl font-bold text-amber-800">
+                          {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Com Payées */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-emerald-700" />
+                        <div>
+                          <p className="text-sm font-medium text-emerald-700">Déjà payées</p>
+                          <p className="text-xs text-emerald-600/80">Commissions encaissées</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-emerald-700">
+                        {venteStats.comPayees.toLocaleString("fr-FR")} €
                       </p>
                     </div>
                   </CardContent>
