@@ -672,11 +672,11 @@ const Finance = () => {
             {/* Actions */}
             <div className="flex gap-2 flex-wrap">
               <Button 
-                className="flex-1 bg-gradient-hero gap-2"
+                className="flex-1 bg-gradient-hero gap-2 h-12"
                 onClick={() => setDocumentFlowOpen(true)}
               >
-                <Camera className="h-4 w-4" />
-                Scanner facture
+                <Plus className="h-5 w-5" />
+                Ajouter une facture
               </Button>
               
               <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>

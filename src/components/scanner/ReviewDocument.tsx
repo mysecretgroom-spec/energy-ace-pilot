@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -17,8 +19,8 @@ import {
   Plus,
   Download,
   Share2,
-  FileText,
   Loader2,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DocumentContext, ScanPage } from "./AddDocumentFlow";
 import { generatePdfFromPages, generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
+import { performOcr, type OcrResult } from "./services/ocrService";
 
 interface ReviewDocumentProps {
   context: DocumentContext;
@@ -43,10 +46,7 @@ const FINANCE_CATEGORIES = [
   { value: "peage", label: "Péage" },
   { value: "repas", label: "Repas" },
   { value: "hotel", label: "Hôtel" },
-  { value: "fournitures", label: "Fournitures" },
-  { value: "telecom", label: "Télécom" },
-  { value: "assurance", label: "Assurance" },
-  { value: "entretien", label: "Entretien véhicule" },
+  { value: "parking", label: "Parking" },
   { value: "autre", label: "Autre" },
 ];
 
@@ -57,7 +57,6 @@ const CLIENT_DOC_CATEGORIES = [
   { value: "plan", label: "Plan" },
   { value: "photo_chantier", label: "Photo chantier" },
   { value: "assurance", label: "Assurance" },
-  { value: "technique", label: "Document technique" },
   { value: "autre", label: "Autre" },
 ];
 
@@ -77,6 +76,12 @@ export function ReviewDocument({
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [pdfSize, setPdfSize] = useState<number>(0);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+
+  // OCR state
+  const [enableOcr, setEnableOcr] = useState(context === "finance");
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
 
   // Common fields
   const [title, setTitle] = useState("");
@@ -127,6 +132,55 @@ export function ReviewDocument({
 
     generatePdf();
   }, [pages, importedFile]);
+
+  // Run OCR when enabled and we have pages
+  const runOcr = useCallback(async () => {
+    if (!enableOcr || pages.length === 0) return;
+
+    setIsOcrProcessing(true);
+    setOcrProgress(0);
+
+    try {
+      // Use the first page for OCR
+      const firstPage = pages[0];
+      const result = await performOcr(firstPage.imageData, (progress) => {
+        setOcrProgress(progress);
+      });
+
+      setOcrResult(result);
+
+      // Auto-fill fields from OCR result
+      if (result.extractedData.montant) {
+        setMontantTTC(result.extractedData.montant.toFixed(2).replace(".", ","));
+      }
+      if (result.extractedData.tva) {
+        setTva(result.extractedData.tva.toFixed(2).replace(".", ","));
+      }
+      if (result.extractedData.date) {
+        setDate(result.extractedData.date);
+      }
+      if (result.extractedData.fournisseur) {
+        setFournisseur(result.extractedData.fournisseur);
+      }
+      if (result.extractedData.description && !category) {
+        setCategory(result.extractedData.description);
+      }
+
+      toast({
+        title: "OCR terminé",
+        description: `Confiance: ${result.confidence.toFixed(0)}%`,
+      });
+    } catch (error) {
+      console.error("OCR error:", error);
+      toast({
+        title: "Erreur OCR",
+        description: "Impossible d'extraire le texte",
+        variant: "destructive",
+      });
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  }, [enableOcr, pages, category]);
 
   const handleDownload = useCallback(() => {
     if (!pdfBlob) return;
@@ -191,16 +245,18 @@ export function ReviewDocument({
         .insert([{
           user_id: user.id,
           client_id: relatedClientId || "00000000-0000-0000-0000-000000000000",
-          type_document: context === "finance" ? "facture" : (category as any),
+          type_document: context === "finance" ? "facture_frais" : (category as any),
           nom: title,
           url: fileUrl,
           context_source: context,
           page_count: pages.length || 1,
           thumbnails_urls: thumbnails.length > 0 ? thumbnails : null,
+          extracted_text: ocrResult?.text || null,
           metadata: {
             originalFileName: importedFile?.name,
             category,
             notes,
+            ocrConfidence: ocrResult?.confidence,
           },
         }])
         .select()
@@ -216,13 +272,16 @@ export function ReviewDocument({
         const { error: fraisError } = await supabase.from("frais").insert([{
           user_id: user.id,
           montant,
-          montant_ht: tvaAmount ? montant - tvaAmount : null,
-          tva: tvaAmount,
           date_frais: date,
           categorie: category as any,
           description: fournisseur || title,
           document_id: docData.id,
           justificatif_url: fileUrl,
+          ocr_data: ocrResult ? {
+            text: ocrResult.text,
+            confidence: ocrResult.confidence,
+            extractedData: ocrResult.extractedData,
+          } : null,
         }]);
 
         if (fraisError) throw fraisError;
@@ -264,6 +323,7 @@ export function ReviewDocument({
     montantTTC,
     tva,
     fournisseur,
+    ocrResult,
     onSuccess,
   ]);
 
@@ -340,6 +400,54 @@ export function ReviewDocument({
                 >
                   <Plus className="h-5 w-5 text-muted-foreground" />
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* OCR Toggle - only for finance context with scanned pages */}
+          {context === "finance" && pages.length > 0 && (
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileSearch className="h-4 w-4 text-primary" />
+                  <Label htmlFor="ocr-toggle" className="font-medium">
+                    Extraction automatique (OCR)
+                  </Label>
+                </div>
+                <Switch
+                  id="ocr-toggle"
+                  checked={enableOcr}
+                  onCheckedChange={setEnableOcr}
+                  disabled={isOcrProcessing}
+                />
+              </div>
+              
+              {enableOcr && !ocrResult && !isOcrProcessing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={runOcr}
+                  className="w-full"
+                >
+                  <FileSearch className="h-4 w-4 mr-2" />
+                  Lancer l'extraction
+                </Button>
+              )}
+
+              {isOcrProcessing && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Extraction en cours...
+                  </div>
+                  <Progress value={ocrProgress} className="h-2" />
+                </div>
+              )}
+
+              {ocrResult && (
+                <div className="text-xs text-muted-foreground">
+                  ✓ Extraction terminée (confiance: {ocrResult.confidence.toFixed(0)}%)
+                </div>
               )}
             </div>
           )}

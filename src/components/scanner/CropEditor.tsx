@@ -1,6 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, X, RotateCw, Move } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Check, X, RotateCw, Move, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
+import { detectDocumentEdges, preloadOpenCV, isOpenCVAvailable } from "./services/edgeDetection";
+import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
 
 interface CropEditorProps {
   imageData: string;
@@ -33,16 +37,76 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+  
+  // Enhancement states
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [autoEnhance, setAutoEnhance] = useState(false);
+  const [blackAndWhite, setBlackAndWhite] = useState(false);
+  const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
-  // Load image and set initial crop points
+  // Preload OpenCV on mount
+  useEffect(() => {
+    preloadOpenCV();
+  }, []);
+
+  // Load image and try auto-detection
   useEffect(() => {
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       imageRef.current = img;
       setImageSize({ width: img.width, height: img.height });
+
+      // Try auto-detection with OpenCV
+      setIsDetecting(true);
+      try {
+        const edges = await detectDocumentEdges(imageData);
+        if (edges && edges.confidence > 0.3) {
+          // Convert image coordinates to display coordinates (will be done after display size is set)
+          // Store detected edges in state to apply after display size calculation
+          (window as any).__detectedEdges = edges;
+        }
+      } catch (error) {
+        console.error("Edge detection failed:", error);
+      } finally {
+        setIsDetecting(false);
+      }
     };
     img.src = imageData;
   }, [imageData]);
+
+  // Apply image enhancements
+  useEffect(() => {
+    const applyEnhancements = async () => {
+      if (!imageData) return;
+      
+      if (!autoEnhance && !blackAndWhite) {
+        setEnhancedImage(null);
+        return;
+      }
+
+      setIsEnhancing(true);
+      try {
+        let result = imageData;
+        
+        if (autoEnhance) {
+          result = await enhanceForDocument(result);
+        }
+        
+        if (blackAndWhite) {
+          result = await convertToBlackAndWhite(result);
+        }
+        
+        setEnhancedImage(result);
+      } catch (error) {
+        console.error("Enhancement failed:", error);
+      } finally {
+        setIsEnhancing(false);
+      }
+    };
+
+    applyEnhancements();
+  }, [imageData, autoEnhance, blackAndWhite]);
 
   // Calculate display size and initial crop points
   useEffect(() => {
@@ -70,19 +134,57 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
 
     setDisplaySize({ width: displayWidth, height: displayHeight, offsetX, offsetY });
 
-    // Set initial crop points (10% margin)
-    const margin = 0.1;
-    setCropPoints({
-      topLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * margin },
-      topRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * margin },
-      bottomRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * (1 - margin) },
-      bottomLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * (1 - margin) },
-    });
+    // Check for auto-detected edges
+    const detectedEdges = (window as any).__detectedEdges;
+    if (detectedEdges) {
+      // Convert image coordinates to display coordinates
+      const scaleX = displayWidth / imageSize.width;
+      const scaleY = displayHeight / imageSize.height;
+      
+      setCropPoints({
+        topLeft: { x: offsetX + detectedEdges.topLeft.x * scaleX, y: offsetY + detectedEdges.topLeft.y * scaleY },
+        topRight: { x: offsetX + detectedEdges.topRight.x * scaleX, y: offsetY + detectedEdges.topRight.y * scaleY },
+        bottomRight: { x: offsetX + detectedEdges.bottomRight.x * scaleX, y: offsetY + detectedEdges.bottomRight.y * scaleY },
+        bottomLeft: { x: offsetX + detectedEdges.bottomLeft.x * scaleX, y: offsetY + detectedEdges.bottomLeft.y * scaleY },
+      });
+      delete (window as any).__detectedEdges;
+    } else {
+      // Set initial crop points (10% margin)
+      const margin = 0.1;
+      setCropPoints({
+        topLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * margin },
+        topRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * margin },
+        bottomRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * (1 - margin) },
+        bottomLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * (1 - margin) },
+      });
+    }
   }, [imageSize, rotation]);
 
   const handleRotate = useCallback(() => {
     setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
   }, []);
+
+  const handleAutoDetect = useCallback(async () => {
+    setIsDetecting(true);
+    try {
+      const edges = await detectDocumentEdges(imageData);
+      if (edges && edges.confidence > 0.2) {
+        const scaleX = displaySize.width / imageSize.width;
+        const scaleY = displaySize.height / imageSize.height;
+        
+        setCropPoints({
+          topLeft: { x: displaySize.offsetX + edges.topLeft.x * scaleX, y: displaySize.offsetY + edges.topLeft.y * scaleY },
+          topRight: { x: displaySize.offsetX + edges.topRight.x * scaleX, y: displaySize.offsetY + edges.topRight.y * scaleY },
+          bottomRight: { x: displaySize.offsetX + edges.bottomRight.x * scaleX, y: displaySize.offsetY + edges.bottomRight.y * scaleY },
+          bottomLeft: { x: displaySize.offsetX + edges.bottomLeft.x * scaleX, y: displaySize.offsetY + edges.bottomLeft.y * scaleY },
+        });
+      }
+    } catch (error) {
+      console.error("Auto-detect failed:", error);
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [imageData, displaySize, imageSize]);
 
   const handlePointerDown = useCallback(
     (handle: keyof CropPoints) => (e: React.PointerEvent) => {
@@ -129,7 +231,11 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    const img = imageRef.current;
+    // Use enhanced image if available
+    const sourceImage = enhancedImage ? enhancedImage : imageData;
+    
+    const img = new Image();
+    img.src = sourceImage;
 
     // Convert display coordinates back to image coordinates
     const scaleX = imageSize.width / displaySize.width;
@@ -169,7 +275,7 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
       
       if (rotation === 90 || rotation === 270) {
         ctx.drawImage(
-          img,
+          imageRef.current,
           minX, minY, cropWidth, cropHeight,
           -cropHeight / 2, -cropWidth / 2, cropHeight, cropWidth
         );
@@ -179,14 +285,14 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
         canvas.height = temp;
       } else {
         ctx.drawImage(
-          img,
+          imageRef.current,
           minX, minY, cropWidth, cropHeight,
           -cropWidth / 2, -cropHeight / 2, cropWidth, cropHeight
         );
       }
     } else {
       ctx.drawImage(
-        img,
+        imageRef.current,
         minX, minY, cropWidth, cropHeight,
         0, 0, cropWidth, cropHeight
       );
@@ -210,7 +316,7 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
     const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.7);
 
     return { cropped, thumbnail };
-  }, [imageRef, cropPoints, imageSize, displaySize, rotation]);
+  }, [imageRef, cropPoints, imageSize, displaySize, rotation, enhancedImage, imageData]);
 
   const handleComplete = useCallback(() => {
     const result = generateCroppedImage();
@@ -276,6 +382,8 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
     );
   };
 
+  const displayImageSrc = enhancedImage || imageData;
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
@@ -288,7 +396,9 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
         >
           <X className="h-6 w-6" />
         </Button>
-        <span className="text-white font-medium">Recadrer</span>
+        <span className="text-white font-medium">
+          {isDetecting ? "Détection..." : "Recadrer"}
+        </span>
         <Button
           variant="ghost"
           size="icon"
@@ -299,6 +409,50 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
         </Button>
       </div>
 
+      {/* Enhancement controls */}
+      <div className="flex items-center justify-center gap-4 px-4 py-2 bg-black/60">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-white hover:bg-white/20 gap-2"
+          onClick={handleAutoDetect}
+          disabled={isDetecting}
+        >
+          {isDetecting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Wand2 className="h-4 w-4" />
+          )}
+          Auto
+        </Button>
+        
+        <div className="flex items-center gap-2">
+          <Switch
+            id="enhance"
+            checked={autoEnhance}
+            onCheckedChange={setAutoEnhance}
+            disabled={isEnhancing}
+          />
+          <Label htmlFor="enhance" className="text-white text-xs flex items-center gap-1">
+            <SunMedium className="h-3 w-3" />
+            Améliorer
+          </Label>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Switch
+            id="bw"
+            checked={blackAndWhite}
+            onCheckedChange={setBlackAndWhite}
+            disabled={isEnhancing}
+          />
+          <Label htmlFor="bw" className="text-white text-xs flex items-center gap-1">
+            <Contrast className="h-3 w-3" />
+            N&B
+          </Label>
+        </div>
+      </div>
+
       {/* Image area */}
       <div
         ref={containerRef}
@@ -307,10 +461,17 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
+        {/* Loading overlay */}
+        {(isDetecting || isEnhancing) && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+            <Loader2 className="h-8 w-8 text-white animate-spin" />
+          </div>
+        )}
+
         {/* Image */}
         {imageSize.width > 0 && (
           <img
-            src={imageData}
+            src={displayImageSrc}
             alt="Document"
             className="absolute"
             style={{

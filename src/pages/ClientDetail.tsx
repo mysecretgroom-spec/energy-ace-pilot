@@ -486,12 +486,11 @@ const ClientDetail = () => {
           {/* Tab Documents et Photos */}
           <TabsContent value="docs" className="space-y-3 mt-4">
             <Button 
-              variant="outline" 
-              className="w-full gap-2"
+              className="w-full gap-2 h-12 bg-gradient-hero"
               onClick={() => setShowDocumentFlow(true)}
             >
-              <Camera className="h-4 w-4" />
-              Ajouter doc / photo
+              <Plus className="h-5 w-5" />
+              Ajouter un document
             </Button>
 
             {documents.length === 0 ? (
