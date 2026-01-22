@@ -28,11 +28,14 @@ import {
   Plus,
   RefreshCw,
   FileText,
+  Wrench,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 
 type ViewMode = "jour" | "semaine" | "mois";
+
+type RdvType = 'standard' | 'external_installation';
 
 interface RdvData {
   id: string;
@@ -46,6 +49,7 @@ interface RdvData {
   postalCode: string;
   status: RdvStatus;
   type: string;
+  typeRdv: RdvType;
   distance?: string;
   travelTime?: string;
   alert?: boolean;
@@ -148,6 +152,7 @@ const Planning = () => {
           adresse,
           status,
           type_projet,
+          type_rdv,
           client_id,
           is_r2,
           r2_type,
@@ -223,6 +228,7 @@ const Planning = () => {
           postalCode: finalPostalCode,
           status: rdv.status as RdvStatus,
           type: projectTypeLabels[rdv.type_projet] || rdv.type_projet,
+          typeRdv: (rdv.type_rdv as RdvType) || 'standard',
           // Distance/travel time will be calculated by edge function in future
           distance: undefined,
           travelTime: undefined,
@@ -407,7 +413,9 @@ const Planning = () => {
 
                 <Card
                   className={`shadow-card overflow-hidden ${
-                    rdv.isR2
+                    rdv.typeRdv === 'external_installation'
+                      ? "border-l-4 border-l-amber-500 bg-amber-500/5"
+                      : rdv.isR2
                       ? "border-2 border-status-r2 bg-status-r2/5"
                       : rdv.alert
                       ? "border-secondary/50 bg-secondary/5"
@@ -417,6 +425,16 @@ const Planning = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 space-y-2">
+                        {/* Badge Installation Externe */}
+                        {rdv.typeRdv === 'external_installation' && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-amber-500 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                              <Wrench className="h-3 w-3" />
+                              Installation Externe
+                            </Badge>
+                          </div>
+                        )}
+                        
                         {/* Badge R2 si applicable */}
                         {rdv.isR2 && (
                           <div className="flex items-center gap-2 mb-1">

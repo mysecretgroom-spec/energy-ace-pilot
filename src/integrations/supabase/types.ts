@@ -1283,6 +1283,7 @@ export type Database = {
           status: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes: number | null
           type_projet: Database["public"]["Enums"]["project_type"]
+          type_rdv: Database["public"]["Enums"]["rdv_type"]
           updated_at: string
           user_id: string
         }
@@ -1307,6 +1308,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
+          type_rdv?: Database["public"]["Enums"]["rdv_type"]
           updated_at?: string
           user_id: string
         }
@@ -1331,6 +1333,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
           type_projet?: Database["public"]["Enums"]["project_type"]
+          type_rdv?: Database["public"]["Enums"]["rdv_type"]
           updated_at?: string
           user_id?: string
         }
@@ -1620,6 +1623,7 @@ export type Database = {
         | "signe"
         | "negatif"
         | "annule"
+      rdv_type: "standard" | "external_installation"
       vente_status:
         | "en_negociation"
         | "signe"
@@ -1810,6 +1814,7 @@ export const Constants = {
         "negatif",
         "annule",
       ],
+      rdv_type: ["standard", "external_installation"],
       vente_status: [
         "en_negociation",
         "signe",

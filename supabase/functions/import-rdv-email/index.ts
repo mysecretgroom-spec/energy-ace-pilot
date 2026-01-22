@@ -22,6 +22,8 @@ interface ParsedRdv {
   date_heure?: string;
   type_projet?: string;
   commentaire?: string;
+  is_installation?: boolean; // Nouveau: indique si c'est une confirmation d'installation
+  is_external_installation?: boolean; // Nouveau: indique si c'est une installation pour un autre commercial
 }
 
 interface GeocodeResult {
@@ -32,6 +34,38 @@ interface GeocodeResult {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Mots-clés pour détecter les confirmations d'installation
+const INSTALLATION_KEYWORDS = [
+  "confirmation de pose",
+  "date de pose",
+  "installation prévue",
+  "planification pose",
+  "pose confirmée",
+  "rdv poseur",
+  "intervention technicien",
+  "équipe de pose",
+];
+
+// Mots-clés pour détecter les installations externes (pour un autre commercial)
+const EXTERNAL_INSTALLATION_KEYWORDS = [
+  "installation externe",
+  "pose pour",
+  "intervention pour collègue",
+  "remplacement commercial",
+  "installation confrère",
+  "dépannage",
+  "à la place de",
+];
+
+function detectEmailType(subject: string, body: string): { isInstallation: boolean; isExternal: boolean } {
+  const fullText = `${subject} ${body}`.toLowerCase();
+  
+  const isInstallation = INSTALLATION_KEYWORDS.some(keyword => fullText.includes(keyword.toLowerCase()));
+  const isExternal = EXTERNAL_INSTALLATION_KEYWORDS.some(keyword => fullText.includes(keyword.toLowerCase()));
+  
+  return { isInstallation, isExternal };
+}
 
 async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
   try {
@@ -89,6 +123,9 @@ serve(async (req) => {
       );
     }
 
+    // Détecter le type d'email avant le parsing AI
+    const emailType = detectEmailType(subject, body);
+
     // 2. Parse email content with AI
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
@@ -122,9 +159,11 @@ Extrais:
 - date_heure: date et heure du RDV au format ISO (YYYY-MM-DDTHH:MM:SS) (optionnel)
 - type_projet: "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", ou "autre" (optionnel)
 - commentaire: autres informations utiles (optionnel)
+- is_installation: true si c'est une confirmation de pose/installation (pas un RDV commercial)
+- is_external_installation: true si c'est une installation pour un autre commercial/collègue
 
 Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
-{"nom": "Dupont", "prenom": "Jean", "adresse": "12 rue de la Paix, 69001 Lyon", "telephone": "0612345678", "date_heure": "2026-01-22T09:00:00", "type_projet": "photovoltaique"}`,
+{"nom": "Dupont", "prenom": "Jean", "adresse": "12 rue de la Paix, 69001 Lyon", "telephone": "0612345678", "date_heure": "2026-01-22T09:00:00", "type_projet": "photovoltaique", "is_installation": false, "is_external_installation": false}`,
           },
         ],
         max_tokens: 500,
@@ -167,6 +206,13 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
         }
       );
     }
+
+    // Combiner la détection par mots-clés et l'analyse AI
+    const isInstallation = emailType.isInstallation || parsed.is_installation === true;
+    const isExternalInstallation = emailType.isExternal || parsed.is_external_installation === true;
+    
+    // Déterminer le type de RDV
+    const typeRdv = isExternalInstallation ? 'external_installation' : 'standard';
 
     // 3. Find or create client with deduplication
     // Priority: email > telephone > (nom + adresse)
@@ -240,52 +286,115 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
       clientId = newClient.id;
     }
 
-    // 4. Check for duplicate RDV (same client + similar date/time ± 2 hours)
+    // 4. Enhanced duplicate detection
     const rdvDateTime = parsed.date_heure ? new Date(parsed.date_heure) : new Date();
-    const toleranceHours = 2;
+    
+    // Pour les installations, chercher aussi les RDV existants du même client 
+    // avec une plage horaire élargie (même journée)
+    const toleranceHours = isInstallation ? 12 : 2; // 12h pour installation, 2h pour RDV commercial
     const minDate = new Date(rdvDateTime.getTime() - toleranceHours * 60 * 60 * 1000);
     const maxDate = new Date(rdvDateTime.getTime() + toleranceHours * 60 * 60 * 1000);
 
-    const { data: existingRdv } = await supabase
+    // Chercher les RDV existants pour ce client dans la plage horaire
+    const { data: existingRdvs } = await supabase
       .from("rdv")
-      .select("id, date_heure, status, historique, commentaire")
+      .select("id, date_heure, status, historique, commentaire, type_rdv")
       .eq("user_id", user_id)
       .eq("client_id", clientId)
       .gte("date_heure", minDate.toISOString())
       .lte("date_heure", maxDate.toISOString())
-      .limit(1);
+      .order("date_heure", { ascending: true });
 
     let rdvId: string;
-    let action: "created" | "updated";
+    let action: "created" | "updated" | "skipped";
 
-    if (existingRdv?.length) {
-      // Update existing RDV with new info, keep status
-      const existing = existingRdv[0];
-      const historique = Array.isArray(existing.historique) ? existing.historique : [];
-      historique.push({
-        action: "MAJ via email",
-        date: new Date().toISOString(),
-        source: sender_email,
-      });
+    // Logique de déduplication améliorée
+    if (existingRdvs && existingRdvs.length > 0) {
+      // Si c'est un mail d'installation et qu'un RDV commercial existe déjà -> mettre à jour
+      const existingCommercial = existingRdvs.find(r => r.type_rdv === 'standard' || !r.type_rdv);
+      const existingSameType = existingRdvs.find(r => r.type_rdv === typeRdv);
+      
+      if (isInstallation && existingCommercial && !existingSameType) {
+        // C'est une confirmation d'installation pour un RDV commercial existant
+        // On met à jour le RDV existant avec les infos de pose
+        const existing = existingCommercial;
+        const historique = Array.isArray(existing.historique) ? existing.historique : [];
+        historique.push({
+          action: "Confirmation installation via email",
+          date: new Date().toISOString(),
+          source: sender_email,
+          type: isExternalInstallation ? "external_installation" : "installation",
+        });
 
-      const updateData: Record<string, unknown> = {
-        historique,
-        email_source_id: subject,
-      };
+        const updateData: Record<string, unknown> = {
+          historique,
+          email_source_id: subject,
+        };
 
-      // Only update missing fields
-      if (parsed.adresse) updateData.adresse = parsed.adresse;
-      if (parsed.commentaire) {
-        updateData.commentaire = existing.commentaire 
-          ? `${existing.commentaire}\n---\n${parsed.commentaire}`
-          : parsed.commentaire;
+        // Mettre à jour la date si c'est une confirmation de pose
+        if (parsed.date_heure) {
+          updateData.date_heure = rdvDateTime.toISOString();
+        }
+        if (parsed.adresse) updateData.adresse = parsed.adresse;
+        if (parsed.commentaire) {
+          updateData.commentaire = existing.commentaire 
+            ? `${existing.commentaire}\n---\n[POSE] ${parsed.commentaire}`
+            : `[POSE] ${parsed.commentaire}`;
+        }
+        // Marquer comme installation externe si applicable
+        if (isExternalInstallation) {
+          updateData.type_rdv = 'external_installation';
+        }
+
+        await supabase.from("rdv").update(updateData).eq("id", existing.id);
+        rdvId = existing.id;
+        action = "updated";
+      } else if (existingSameType) {
+        // Un RDV du même type existe déjà -> mettre à jour
+        const existing = existingSameType;
+        const historique = Array.isArray(existing.historique) ? existing.historique : [];
+        historique.push({
+          action: "MAJ via email",
+          date: new Date().toISOString(),
+          source: sender_email,
+        });
+
+        const updateData: Record<string, unknown> = {
+          historique,
+          email_source_id: subject,
+        };
+
+        if (parsed.adresse) updateData.adresse = parsed.adresse;
+        if (parsed.commentaire) {
+          updateData.commentaire = existing.commentaire 
+            ? `${existing.commentaire}\n---\n${parsed.commentaire}`
+            : parsed.commentaire;
+        }
+
+        await supabase.from("rdv").update(updateData).eq("id", existing.id);
+        rdvId = existing.id;
+        action = "updated";
+      } else {
+        // Cas particulier: RDV existant de type différent mais même créneau
+        // On peut choisir de skip ou créer un nouveau
+        // Pour éviter la confusion, on skip avec un message
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: "skipped",
+            reason: "RDV similaire existant détecté",
+            existing_rdv_id: existingRdvs[0].id,
+            client_id: clientId,
+            parsed,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
       }
-
-      await supabase.from("rdv").update(updateData).eq("id", existing.id);
-      rdvId = existing.id;
-      action = "updated";
     } else {
-      // Create new RDV - geocode the address
+      // Aucun RDV existant -> créer nouveau
       let coords: GeocodeResult | null = null;
       if (parsed.adresse) {
         coords = await geocodeAddress(parsed.adresse);
@@ -299,6 +408,7 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           date_heure: rdvDateTime.toISOString(),
           adresse: parsed.adresse || null,
           type_projet: parsed.type_projet || "photovoltaique",
+          type_rdv: typeRdv,
           status: "nouveau",
           commentaire: parsed.commentaire || null,
           email_source_id: subject,
@@ -306,7 +416,7 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
           longitude: coords?.longitude || null,
           historique: [
             {
-              action: "Créé via email",
+              action: isExternalInstallation ? "Créé via email (installation externe)" : "Créé via email",
               date: new Date().toISOString(),
               source: sender_email,
             },
@@ -332,6 +442,9 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
         action,
         rdv_id: rdvId,
         client_id: clientId,
+        type_rdv: typeRdv,
+        is_installation: isInstallation,
+        is_external_installation: isExternalInstallation,
         parsed,
       }),
       {
