@@ -26,6 +26,7 @@ import {
   Trash2,
   Sun,
   Zap,
+  Pencil,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +35,7 @@ import { AddDocumentFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
+import { EditClientDialog } from "@/components/client/EditClientDialog";
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -130,6 +132,7 @@ const ClientDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
   const [showDocumentFlow, setShowDocumentFlow] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     if (id && user) {
@@ -285,7 +288,7 @@ const ClientDetail = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/clients")}
+            onClick={() => navigate("/crm")}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -297,6 +300,13 @@ const ClientDetail = () => {
               Client depuis {formatDate(client.created_at)}
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowEditDialog(true)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Actions rapides */}
@@ -351,7 +361,19 @@ const ClientDetail = () => {
           {/* Tab Info */}
           <TabsContent value="info" className="space-y-4 mt-4">
             <Card className="shadow-card">
-              <CardContent className="p-4 space-y-3">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm">Coordonnées</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 gap-1"
+                  onClick={() => setShowEditDialog(true)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Modifier
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
                 {client.telephone && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
@@ -572,7 +594,6 @@ const ClientDetail = () => {
         </Tabs>
 
         {/* Document Flow Modal */}
-        {/* Document Flow Modal */}
         <AddDocumentFlow
           context="client_docs"
           relatedClientId={id}
@@ -582,6 +603,14 @@ const ClientDetail = () => {
             fetchClientData();
           }}
           onCancel={() => setShowDocumentFlow(false)}
+        />
+
+        {/* Edit Client Dialog */}
+        <EditClientDialog
+          client={client}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onSuccess={fetchClientData}
         />
       </div>
     </MobileLayout>
