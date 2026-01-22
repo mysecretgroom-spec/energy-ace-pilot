@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'en_installation' | 'installe' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
 
 interface Vente {
   id: string;
@@ -45,36 +45,64 @@ const pipelineColumns: { status: VenteStatus; label: string; color: string; bgCo
   { 
     status: 'en_negociation', 
     label: 'Négociation', 
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-500/10 border-blue-200',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-500/10 border-amber-200',
     icon: <Clock className="h-4 w-4" />
   },
   { 
     status: 'signe', 
     label: 'Signé', 
-    color: 'text-green-600',
-    bgColor: 'bg-green-500/10 border-green-200',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-500/10 border-blue-200',
     icon: <CheckCircle2 className="h-4 w-4" />
   },
   { 
-    status: 'en_installation', 
-    label: 'Installation', 
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-500/10 border-amber-200',
+    status: 'cq_a_faire', 
+    label: 'CQ à faire', 
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-500/10 border-orange-200',
+    icon: <Clock className="h-4 w-4" />
+  },
+  { 
+    status: 'cq_fait', 
+    label: 'CQ fait', 
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-500/10 border-cyan-200',
+    icon: <CheckCircle2 className="h-4 w-4" />
+  },
+  { 
+    status: 'attente_financement', 
+    label: 'Att. Financement', 
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-500/10 border-yellow-200',
+    icon: <Clock className="h-4 w-4" />
+  },
+  { 
+    status: 'envoi_pose', 
+    label: 'Envoi pose', 
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-500/10 border-indigo-200',
     icon: <TrendingUp className="h-4 w-4" />
   },
   { 
     status: 'installe', 
-    label: 'Installé', 
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-500/10 border-purple-200',
+    label: 'Posé', 
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-500/10 border-emerald-200',
     icon: <CheckCircle2 className="h-4 w-4" />
+  },
+  { 
+    status: 'attente_paiement', 
+    label: 'Att. Paiement', 
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-500/10 border-pink-200',
+    icon: <Clock className="h-4 w-4" />
   },
   { 
     status: 'paye', 
     label: 'Payé', 
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-500/10 border-emerald-200',
+    color: 'text-green-600',
+    bgColor: 'bg-green-500/10 border-green-200',
     icon: <Euro className="h-4 w-4" />
   },
 ];

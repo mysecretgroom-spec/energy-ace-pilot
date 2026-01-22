@@ -58,8 +58,13 @@ interface Client {
 const statusLabels: Record<VenteStatus, string> = {
   en_negociation: "En négociation",
   signe: "Signé",
+  cq_a_faire: "CQ à faire",
+  cq_fait: "CQ fait",
+  attente_financement: "Attente financement",
+  envoi_pose: "Envoi en pose",
   en_installation: "En installation",
-  installe: "Installé",
+  installe: "Posé",
+  attente_paiement: "Attente paiement",
   paye: "Payé",
   annule: "Annulé",
 };
@@ -67,8 +72,13 @@ const statusLabels: Record<VenteStatus, string> = {
 const statusColors: Record<VenteStatus, string> = {
   en_negociation: "bg-amber-500/10 text-amber-600 border-amber-200",
   signe: "bg-blue-500/10 text-blue-600 border-blue-200",
+  cq_a_faire: "bg-orange-500/10 text-orange-600 border-orange-200",
+  cq_fait: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
+  attente_financement: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
+  envoi_pose: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
   en_installation: "bg-purple-500/10 text-purple-600 border-purple-200",
   installe: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+  attente_paiement: "bg-pink-500/10 text-pink-600 border-pink-200",
   paye: "bg-green-500/10 text-green-600 border-green-200",
   annule: "bg-red-500/10 text-red-600 border-red-200",
 };
@@ -277,8 +287,13 @@ const VenteDetail = () => {
               <SelectContent>
                 <SelectItem value="en_negociation">En négociation</SelectItem>
                 <SelectItem value="signe">Signé</SelectItem>
+                <SelectItem value="cq_a_faire">CQ à faire</SelectItem>
+                <SelectItem value="cq_fait">CQ fait</SelectItem>
+                <SelectItem value="attente_financement">Attente financement</SelectItem>
+                <SelectItem value="envoi_pose">Envoi en pose</SelectItem>
                 <SelectItem value="en_installation">En installation</SelectItem>
-                <SelectItem value="installe">Installé</SelectItem>
+                <SelectItem value="installe">Posé</SelectItem>
+                <SelectItem value="attente_paiement">Attente paiement</SelectItem>
                 <SelectItem value="paye">Payé</SelectItem>
                 <SelectItem value="annule">Annulé</SelectItem>
               </SelectContent>
