@@ -5,7 +5,7 @@ import { WhatsAppTemplates } from "@/components/settings/WhatsAppTemplates";
 const WhatsAppSettings = () => {
   return (
     <MobileLayout title="WhatsApp" showBackButton>
-      <div className="p-4 space-y-6">
+      <div className="p-4 pb-8 space-y-6">
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
             Envoi WhatsApp Confirmateur

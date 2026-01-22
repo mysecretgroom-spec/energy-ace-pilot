@@ -121,7 +121,7 @@ export default function GmailAutoSync() {
   if (loading) {
     return (
       <MobileLayout title="Sync Gmail Auto">
-        <div className="p-4 space-y-4">
+        <div className="p-4 pb-8 space-y-4">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-32 w-full" />
         </div>
@@ -131,7 +131,7 @@ export default function GmailAutoSync() {
 
   return (
     <MobileLayout title="Sync Gmail Auto">
-      <div className="p-4 space-y-4">
+      <div className="p-4 pb-8 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/parametres")}>
