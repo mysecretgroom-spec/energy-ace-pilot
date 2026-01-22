@@ -34,8 +34,14 @@ import {
   PiggyBank,
   Download,
   Check,
+  Share2,
+  Eye,
+  MessageSquare,
+  Tag,
 } from "lucide-react";
-import { exportEtudePdf, EtudeData } from "@/lib/exportEtudePdf";
+import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -185,6 +191,12 @@ const EtudeForm = () => {
   // Animation de succès
   const [showSuccess, setShowSuccess] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string>("");
+
+  // Classification du dossier
+  const [classification, setClassification] = useState<string>("");
+  const [classificationComment, setClassificationComment] = useState<string>("");
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -700,6 +712,10 @@ const EtudeForm = () => {
       reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
       resultatTransfertCharge: calculatedResults.resultatTransfertCharge,
       verdict: calculatedResults.verdict || "invalide",
+      
+      // Classification
+      classification: classification || undefined,
+      classificationComment: classificationComment || undefined,
     };
     
     try {
@@ -717,6 +733,106 @@ const EtudeForm = () => {
       });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const buildPdfData = (): EtudeData | null => {
+    if (!calculatedResults) return null;
+    
+    const selectedBouquet = dataBouquets.find(b => b.id === bouquetId);
+    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
+    
+    return {
+      clientNom: clientName,
+      clientPrenom: clientPrenom,
+      clientAdresse: clientAdresse,
+      clientVille: clientVille,
+      departement: departement,
+      ombreToiture: ombreToiture,
+      surfaceToiture: surfaceToiture,
+      typeToiture: typeToiture,
+      etatToiture: etatToiture,
+      orientation: orientation,
+      inclinaison: inclinaison,
+      typeCompteurElectrique: typeCompteurElectrique,
+      numeroPdl: numeroPdl,
+      typeRaccordement: typeRaccordement,
+      amperageDisjoncteur: amperageDisjoncteur,
+      emplacementBoitier: emplacementBoitier,
+      potentielFaisabilite: potentielFaisabilite,
+      consoAnnuelle: Number(consoAnnuelle) || 0,
+      factureMensuelle: Number(factureMensuelle) || 0,
+      bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
+      puissanceKwc: Number(puissanceKwc) || 0,
+      typeRevente: typeRevente,
+      supportInstallation: supportInstallation,
+      surfaceInstallation: Number(surfaceInstallation) || 0,
+      heuresEnsoleillement: heuresEnsoleillement,
+      rendementProductivite: rendementProductivite,
+      productionAnnuelle: calculatedResults.productionAnnuelle,
+      surplusProduction: calculatedResults.surplusProduction,
+      autoconsoPct: calculatedResults.autoconsoPct,
+      prixInstallation: calculatedResults.prixInstallation,
+      surcoutSupport: surcoutSupport,
+      surcoutCompteur: surcoutCompteur,
+      autreSurcout: autreSurcout,
+      prixTotalHorsAides: calculatedResults.prixTotalHorsAides,
+      primeAutoconsommation: calculatedResults.primeAutoconsommation,
+      ecoTva: calculatedResults.ecoTva,
+      totalAides: calculatedResults.totalAides,
+      totalAidesDeduites: calculatedResults.totalAidesDeduites,
+      financementNom: selectedFinancement?.nom || "Non défini",
+      tauxFinancement: selectedFinancement?.taux_effectif || 0,
+      dureeMois: selectedFinancement?.duree_mois || 180,
+      mensualite: calculatedResults.mensualite,
+      autoconsommationEuros: calculatedResults.autoconsommationEuros,
+      reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
+      resultatTransfertCharge: calculatedResults.resultatTransfertCharge,
+      verdict: calculatedResults.verdict || "invalide",
+      classification: classification || undefined,
+      classificationComment: classificationComment || undefined,
+    };
+  };
+
+  const handlePreview = () => {
+    const pdfData = buildPdfData();
+    if (!pdfData) return;
+    
+    const dataUrl = getEtudePdfDataUrl(pdfData);
+    setPdfDataUrl(dataUrl);
+    setShowPreview(true);
+  };
+
+  const handleShare = async () => {
+    const pdfData = buildPdfData();
+    if (!pdfData) return;
+    
+    try {
+      const blob = getEtudePdfBlob(pdfData);
+      const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Étude photovoltaïque - ${clientPrenom} ${clientName}`,
+          text: `Étude de faisabilité pour ${clientPrenom} ${clientName}`,
+          files: [file],
+        });
+      } else {
+        // Fallback: télécharger le PDF
+        exportEtudePdf(pdfData);
+        toast({
+          title: "PDF téléchargé",
+          description: "Partagez-le depuis vos fichiers",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur partage:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de partager le PDF",
+      });
     }
   };
 
@@ -1526,14 +1642,102 @@ const EtudeForm = () => {
           </Card>
         )}
 
+        {/* CLASSIFICATION DU DOSSIER */}
+        {calculatedResults && (
+          <Card className="shadow-card">
+            <CardHeader className="pb-2 bg-muted/50">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Tag className="h-4 w-4 text-primary" />
+                Classification du Dossier
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4">
+              <div>
+                <Label className="text-xs">Statut du dossier</Label>
+                <Select value={classification} onValueChange={setClassification}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choisir une classification" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="positif">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-status-signed" />
+                        Positif - Vente signée
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="negatif">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-status-negative" />
+                        Négatif - Projet abandonné
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="r2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-status-r2" />
+                        R2 - Second rendez-vous
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="r2_prestudy">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-status-reported" />
+                        R2 Pré-étude - En attente
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Commentaire</Label>
+                <Textarea
+                  placeholder="Ajouter un commentaire sur le dossier..."
+                  value={classificationComment}
+                  onChange={(e) => setClassificationComment(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Preview PDF Dialog */}
+        <Dialog open={showPreview} onOpenChange={setShowPreview}>
+          <DialogContent className="max-w-4xl h-[85vh] p-0">
+            <DialogHeader className="p-4 pb-2">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Aperçu de l'étude
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-hidden px-4 pb-4">
+              {pdfDataUrl && (
+                <iframe
+                  src={pdfDataUrl}
+                  className="w-full h-full rounded-lg border"
+                  title="Aperçu PDF"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Actions */}
-        <div className="flex gap-2 pt-2 pb-8">
+        <div className="flex flex-wrap gap-2 pt-2 pb-8">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
           >
             Annuler
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={handlePreview}
+            disabled={!calculatedResults}
+          >
+            <Eye className="h-4 w-4" />
+            Aperçu
           </Button>
           <Button
             variant="outline"
@@ -1548,6 +1752,16 @@ const EtudeForm = () => {
               <Download className="h-4 w-4" />
             )}
             PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={handleShare}
+            disabled={!calculatedResults}
+          >
+            <Share2 className="h-4 w-4" />
+            Partager
           </Button>
           <Button
             className="flex-1 bg-gradient-hero gap-2"

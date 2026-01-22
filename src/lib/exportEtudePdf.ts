@@ -69,6 +69,10 @@ interface EtudeData {
   reventeMensuelleEstimee: number;
   resultatTransfertCharge: number;
   verdict: string;
+  
+  // Classification
+  classification?: string;
+  classificationComment?: string;
 }
 
 const formatEuros = (value: number): string => {
@@ -86,7 +90,7 @@ const formatNumber = (value: number, decimals: number = 0): string => {
   }).format(value);
 };
 
-export const exportEtudePdf = (data: EtudeData): void => {
+const generatePdfDoc = (data: EtudeData): jsPDF => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -337,6 +341,38 @@ export const exportEtudePdf = (data: EtudeData): void => {
   
   yPos += 30;
   
+  // === CLASSIFICATION (si présente) ===
+  if (data.classification) {
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, yPos - 2, pageWidth - 28, 8, "F");
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...primaryColor);
+    doc.text("CLASSIFICATION DOSSIER", 16, yPos + 4);
+    yPos += 12;
+    
+    const classificationLabels: Record<string, string> = {
+      positif: "POSITIF - Vente signée",
+      negatif: "NÉGATIF - Projet abandonné",
+      r2: "R2 - Second rendez-vous planifié",
+      r2_prestudy: "R2 PRÉ-ÉTUDE - En attente d'analyse",
+    };
+    
+    doc.setTextColor(...darkColor);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
+    yPos += 6;
+    
+    if (data.classificationComment) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(data.classificationComment, pageWidth - 28);
+      doc.text(lines, 14, yPos);
+      yPos += lines.length * 4 + 4;
+    }
+  }
+  
   // === PIED DE PAGE ===
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(8);
@@ -348,9 +384,23 @@ export const exportEtudePdf = (data: EtudeData): void => {
   });
   doc.text(`Étude générée le ${today} • SolarFlow`, pageWidth / 2, 285, { align: "center" });
   
-  // Sauvegarde
+  return doc;
+};
+
+export const exportEtudePdf = (data: EtudeData): void => {
+  const doc = generatePdfDoc(data);
   const fileName = `Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
+};
+
+export const getEtudePdfBlob = (data: EtudeData): Blob => {
+  const doc = generatePdfDoc(data);
+  return doc.output("blob");
+};
+
+export const getEtudePdfDataUrl = (data: EtudeData): string => {
+  const doc = generatePdfDoc(data);
+  return doc.output("datauristring");
 };
 
 export type { EtudeData };
