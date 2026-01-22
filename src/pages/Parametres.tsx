@@ -21,6 +21,8 @@ import {
   Compass,
   Clock,
   Moon,
+  Zap,
+  Gauge,
 } from "lucide-react";
 
 const settingsSections = [
@@ -90,6 +92,18 @@ const settingsSections = [
         label: "Commissions",
         description: "Grilles de rémunération",
         path: "/parametres/data-commissions",
+      },
+      {
+        icon: Zap,
+        label: "Types de compteurs",
+        description: "Monophasé, triphasé",
+        path: "/parametres/data-compteurs",
+      },
+      {
+        icon: Gauge,
+        label: "Calibres disjoncteur",
+        description: "Ampérage et puissances",
+        path: "/parametres/data-calibres",
       },
     ],
   },
