@@ -325,12 +325,15 @@ const DataCommissions = () => {
     <MobileLayout title="Grilles commissions" showBackButton>
       <div className="p-4 space-y-4 pb-24">
         {/* Config Mode - Bouton Switch Principal */}
-        {isAdmin && config && (
+        {config && (
           <Card className="border-primary/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
                 Mode de commission
+                {!isAdmin && (
+                  <Badge variant="secondary" className="text-xs">Lecture seule</Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -346,6 +349,7 @@ const DataCommissions = () => {
                   onCheckedChange={(checked) => 
                     updateConfig({ mode_calcul: checked ? "bouquet" : "pourcentage" })
                   }
+                  disabled={!isAdmin}
                 />
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-medium ${config.mode_calcul === "bouquet" ? "text-foreground" : "text-muted-foreground"}`}>
@@ -368,6 +372,7 @@ const DataCommissions = () => {
                     className="w-24"
                     min={0}
                     max={100}
+                    disabled={!isAdmin}
                   />
                   <span className="text-sm text-muted-foreground">% du montant HT de survente</span>
                 </div>
@@ -414,36 +419,36 @@ const DataCommissions = () => {
           {/* Tranches Tab */}
           <TabsContent value="pourcentage" className="space-y-4">
             {/* Option Taux Unique */}
-            {isAdmin && (
-              <Card className="border-primary/20">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Taux unique</p>
-                      <p className="text-xs text-muted-foreground">
-                        Appliquer le même taux à toutes les ventes
-                      </p>
-                    </div>
-                    <Switch
-                      checked={useTauxUnique}
-                      onCheckedChange={setUseTauxUnique}
-                    />
+            <Card className="border-primary/20">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Taux unique</p>
+                    <p className="text-xs text-muted-foreground">
+                      Appliquer le même taux à toutes les ventes
+                    </p>
                   </div>
-                  {useTauxUnique && (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        step="0.5"
-                        value={tauxUnique}
-                        onChange={(e) => setTauxUnique(e.target.value)}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">% sur toutes les ventes</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                  <Switch
+                    checked={useTauxUnique}
+                    onCheckedChange={setUseTauxUnique}
+                    disabled={!isAdmin}
+                  />
+                </div>
+                {useTauxUnique && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.5"
+                      value={tauxUnique}
+                      onChange={(e) => setTauxUnique(e.target.value)}
+                      className="w-24"
+                      disabled={!isAdmin}
+                    />
+                    <span className="text-sm text-muted-foreground">% sur toutes les ventes</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {!useTauxUnique && (
               <>
