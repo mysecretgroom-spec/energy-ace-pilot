@@ -502,8 +502,9 @@ const EtudeForm = () => {
     }
 
     // === RENTABILITÉ FINANCIÈRE ===
-    // Autoconsommation (€) = Facture mensuelle (économie réalisée car on ne paie plus cette partie)
-    const autoconsommationEuros = facture;
+    // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle
+    const autoconsoPctCapped = Math.min(autoconsoPct, 100);
+    const autoconsommationEuros = (autoconsoPctCapped / 100) * facture;
 
     // Revente mensuelle = Surplus × Prix revente / 12
     // Chercher le tarif de revente applicable selon le type et la puissance
