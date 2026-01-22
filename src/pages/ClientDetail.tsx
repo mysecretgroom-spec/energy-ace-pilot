@@ -442,7 +442,7 @@ const ClientDetail = () => {
               </Card>
             ) : (
               etudes.map((etude) => (
-                <Card key={etude.id} className="shadow-card cursor-pointer hover:shadow-lg transition-shadow">
+                <Card key={etude.id} className="shadow-card hover:shadow-lg transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
@@ -456,13 +456,22 @@ const ClientDetail = () => {
                           {formatDate(etude.created_at)}
                         </p>
                       </div>
-                      {etude.prix_total && (
-                        <div className="text-right">
-                          <p className="font-bold text-foreground">
-                            {etude.prix_total.toLocaleString("fr-FR")} €
-                          </p>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {etude.prix_total && (
+                          <div className="text-right">
+                            <p className="font-bold text-foreground">
+                              {etude.prix_total.toLocaleString("fr-FR")} €
+                            </p>
+                          </div>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => navigate(`/etude/edit?etude=${etude.id}&client=${id}`)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
