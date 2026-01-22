@@ -1,9 +1,10 @@
 import React, { useState, useRef } from "react";
-import { Camera, Upload, Check, Loader2 } from "lucide-react";
+import { Camera, Upload, Check, Loader2, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import imageCompression from "browser-image-compression";
 
 export type PhotoCategory = "tableau_electrique" | "compteur" | "toiture" | "autre";
@@ -34,6 +35,7 @@ export function QuickPhotoButton({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isOnline, savePendingDocument } = useOfflineDocuments();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -49,12 +51,33 @@ export function QuickPhotoButton({
         useWebWorker: true,
       });
 
-      // Generate unique filename
+      // If offline, save to IndexedDB
+      if (!isOnline) {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const imageData = event.target?.result as string;
+          await savePendingDocument({
+            clientId,
+            nom: `${categoryLabels[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
+            typeDocument: "photo_chantier",
+            imageData,
+            mimeType: compressedFile.type,
+            contextSource: category,
+          });
+          setHasPhoto(true);
+          onPhotoSaved?.();
+        };
+        reader.readAsDataURL(compressedFile);
+        setIsUploading(false);
+        if (e.target) e.target.value = "";
+        return;
+      }
+
+      // Online: upload directly
       const timestamp = Date.now();
       const extension = file.name.split(".").pop() || "jpg";
       const fileName = `${clientId}/${category}_${timestamp}.${extension}`;
 
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(fileName, compressedFile, {
@@ -64,12 +87,10 @@ export function QuickPhotoButton({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("documents")
         .getPublicUrl(fileName);
 
-      // Save document reference in database
       const { error: dbError } = await supabase.from("documents").insert({
         user_id: user.id,
         client_id: clientId,
@@ -99,7 +120,6 @@ export function QuickPhotoButton({
       });
     } finally {
       setIsUploading(false);
-      // Reset input
       if (e.target) e.target.value = "";
     }
   };
@@ -114,7 +134,6 @@ export function QuickPhotoButton({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Hidden file inputs */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -131,7 +150,6 @@ export function QuickPhotoButton({
         onChange={handleFileChange}
       />
 
-      {/* Camera button */}
       <Button
         type="button"
         variant="outline"
@@ -144,13 +162,14 @@ export function QuickPhotoButton({
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : hasPhoto ? (
           <Check className="h-3.5 w-3.5" />
+        ) : !isOnline ? (
+          <WifiOff className="h-3.5 w-3.5" />
         ) : (
           <Camera className="h-3.5 w-3.5" />
         )}
         {label}
       </Button>
 
-      {/* Upload from gallery */}
       <Button
         type="button"
         variant="ghost"
