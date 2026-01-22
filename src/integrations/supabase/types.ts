@@ -121,6 +121,30 @@ export type Database = {
           },
         ]
       }
+      config_commissions: {
+        Row: {
+          created_at: string
+          id: string
+          mode_calcul: string
+          part_survente_pct: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mode_calcul?: string
+          part_survente_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mode_calcul?: string
+          part_survente_pct?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       data_commissions: {
         Row: {
           bonus_survente: number | null
@@ -175,6 +199,8 @@ export type Database = {
       data_prix_bouquets: {
         Row: {
           actif: boolean
+          commission_fixe: number | null
+          commission_pct: number | null
           created_at: string
           description: string | null
           id: string
@@ -186,6 +212,8 @@ export type Database = {
         }
         Insert: {
           actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -197,6 +225,8 @@ export type Database = {
         }
         Update: {
           actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
           created_at?: string
           description?: string | null
           id?: string
