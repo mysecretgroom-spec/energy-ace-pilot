@@ -32,6 +32,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AddDocumentFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
+import { DocumentSearch } from "@/components/documents/DocumentSearch";
 
 interface Client {
   id: string;
@@ -485,6 +486,12 @@ const ClientDetail = () => {
 
           {/* Tab Documents et Photos */}
           <TabsContent value="docs" className="space-y-3 mt-4">
+            {/* Recherche dans les documents */}
+            <DocumentSearch 
+              clientId={id}
+              onSelectDocument={(doc) => window.open(doc.url, "_blank")}
+            />
+
             <Button 
               className="w-full gap-2 h-12 bg-gradient-hero"
               onClick={() => setShowDocumentFlow(true)}
