@@ -6,6 +6,7 @@ export { PageManager } from "./PageManager";
 export { ReviewDocument } from "./ReviewDocument";
 export { QuickPhotoButton, QuickPhotoGroup } from "./QuickPhotoButton";
 export type { PhotoCategory } from "./QuickPhotoButton";
+export { EdgeOverlay } from "./EdgeOverlay";
 export * from "./services/ocrService";
 export * from "./services/edgeDetection";
 export * from "./services/imageEnhancement";

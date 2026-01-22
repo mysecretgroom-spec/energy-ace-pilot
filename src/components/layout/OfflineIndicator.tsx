@@ -1,6 +1,5 @@
 import { WifiOff, CloudOff, RefreshCw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 
 export function OfflineIndicator() {
