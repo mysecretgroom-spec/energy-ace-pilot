@@ -36,6 +36,7 @@ interface DataPsh {
   department_name: string;
   psh_value: number;
   max_psh_value: number;
+  heures_ensoleillement_annuel: number;
 }
 
 interface DataOrientation {
@@ -94,6 +95,9 @@ const EtudeForm = () => {
   const [orientation, setOrientation] = useState("Sud");
   const [inclinaison, setInclinaison] = useState(30);
   const [support, setSupport] = useState("toiture");
+
+  // Mode de calcul production
+  const [modeCalculProduction, setModeCalculProduction] = useState<"psh" | "heures">("psh");
 
   // Surcoûts
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
@@ -155,6 +159,7 @@ const EtudeForm = () => {
     modeHejjaPsh,
     modeHejjaPrix,
     prixManuel,
+    modeCalculProduction,
   ]);
 
   const loadReferenceData = async () => {
@@ -197,22 +202,34 @@ const EtudeForm = () => {
   const calculateResults = () => {
     if (!puissanceKwc || !departement || !consoAnnuelle) return;
 
-    // Get PSH for department
+    // Get data for department
     const pshData = dataPsh.find((p) => p.department_code === departement);
-    const psh = pshData
-      ? modeHejjaPsh
-        ? pshData.max_psh_value
-        : pshData.psh_value
-      : 4.0;
-
+    
     // Get orientation coefficient
     const orientData = dataOrientation.find(
       (o) => o.orientation === orientation && o.inclinaison === inclinaison
     );
     const coefficient = orientData?.coefficient || 1.0;
 
-    // Production annuelle (kWh)
-    const productionAnnuelle = Number(puissanceKwc) * psh * 365 * coefficient;
+    // Production annuelle (kWh) - deux méthodes de calcul
+    let productionAnnuelle: number;
+    
+    if (modeCalculProduction === "heures") {
+      // Méthode heures d'ensoleillement : puissance * heures * rendement moyen * coefficient
+      // Le rendement moyen d'un panneau est d'environ 15-20%, on prend 0.18
+      const heuresAnnuelles = pshData?.heures_ensoleillement_annuel || 2800;
+      const rendementPanneau = 0.18;
+      productionAnnuelle = Number(puissanceKwc) * heuresAnnuelles * rendementPanneau * coefficient;
+    } else {
+      // Méthode PSH (kWh/m²/an) - formule classique
+      const psh = pshData
+        ? modeHejjaPsh
+          ? pshData.max_psh_value
+          : pshData.psh_value
+        : 1200;
+      // PSH est en kWh/m²/an, production = puissance * PSH * coefficient
+      productionAnnuelle = Number(puissanceKwc) * psh * coefficient;
+    }
 
     // Autoconsommation (estimation ~30% à 50% selon conso)
     const ratioAutoconso = Math.min(0.5, (Number(consoAnnuelle) / productionAnnuelle) * 0.6);
@@ -599,6 +616,44 @@ const EtudeForm = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Mode de calcul production */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Mode de calcul production</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={modeCalculProduction === "psh" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setModeCalculProduction("psh")}
+                >
+                  <Sun className="h-3 w-3 mr-1" />
+                  PSH (kWh/m²/an)
+                </Button>
+                <Button
+                  type="button"
+                  variant={modeCalculProduction === "heures" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1 text-xs"
+                  onClick={() => setModeCalculProduction("heures")}
+                >
+                  <Gauge className="h-3 w-3 mr-1" />
+                  Heures/an
+                </Button>
+              </div>
+              {departement && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {modeCalculProduction === "psh" ? (
+                    <>PSH: {dataPsh.find(p => p.department_code === departement)?.[modeHejjaPsh ? "max_psh_value" : "psh_value"] || "N/A"} kWh/m²/an</>
+                  ) : (
+                    <>Heures: {dataPsh.find(p => p.department_code === departement)?.heures_ensoleillement_annuel?.toLocaleString() || "N/A"} h/an</>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Orientation</Label>
