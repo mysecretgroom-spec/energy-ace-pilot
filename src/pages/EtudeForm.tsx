@@ -343,6 +343,19 @@ const EtudeForm = () => {
     setSurcoutSupport(surcoûtsSupport[supportInstallation] || 0);
   }, [supportInstallation]);
 
+  // Mise à jour automatique du rendement selon orientation et inclinaison
+  useEffect(() => {
+    if (dataOrientation.length > 0) {
+      const orientData = dataOrientation.find(
+        (o) => o.orientation.toUpperCase() === orientation.toUpperCase() && o.inclinaison === inclinaison
+      );
+      if (orientData) {
+        // Coefficient d'orientation converti en pourcentage (ex: 1.0 = 100%, 0.95 = 95%)
+        setRendementProductivite(Math.round(orientData.coefficient * 100));
+      }
+    }
+  }, [orientation, inclinaison, dataOrientation]);
+
   // Mise à jour de la surface d'installation quand la puissance change
   useEffect(() => {
     if (puissanceKwc) {
@@ -1270,16 +1283,20 @@ const EtudeForm = () => {
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Rendement (%)</Label>
+                <Label className="text-xs">Rendement (auto.)</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
                     value={rendementProductivite}
                     onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
-                    className="h-9"
+                    className="h-9 bg-muted/30"
+                    readOnly
                   />
                   <span className="flex items-center text-xs text-muted-foreground">%</span>
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Calculé selon {orientation} / {inclinaison}°
+                </p>
               </div>
             </div>
             {departement && (
