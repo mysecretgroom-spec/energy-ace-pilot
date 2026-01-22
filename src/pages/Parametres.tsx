@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,6 @@ import { toast } from "sonner";
 import {
   User,
   Mail,
-  Database,
   Euro,
   Calculator,
   Bell,
@@ -18,8 +18,9 @@ import {
   ChevronRight,
   Sun,
   Percent,
-  MapPin,
+  Compass,
   Clock,
+  Moon,
 } from "lucide-react";
 
 const settingsSections = [
@@ -47,13 +48,13 @@ const settingsSections = [
         icon: Mail,
         label: "Emails autorisés",
         description: "Sources d'import RDV",
-        path: null, // TODO: future feature
+        path: "/parametres/emails-autorises",
       },
       {
         icon: Clock,
         label: "Tolérance matching",
         description: "±2h pour détection doublons",
-        path: null, // TODO: future feature
+        path: null, // Configuration simple, pas besoin de page
       },
     ],
   },
@@ -64,31 +65,31 @@ const settingsSections = [
         icon: Sun,
         label: "PSH / Heures ensoleillement",
         description: "Par département",
-        path: null, // TODO: future feature
+        path: "/parametres/data-psh",
       },
       {
-        icon: MapPin,
+        icon: Compass,
         label: "Orientation / Inclinaison",
         description: "Coefficients de production",
-        path: null, // TODO: future feature
+        path: "/parametres/data-orientation",
       },
       {
         icon: Euro,
         label: "Tarifs revente",
         description: "Prix kWh revente/autoconso",
-        path: null, // TODO: future feature
+        path: "/parametres/data-tarifs",
       },
       {
         icon: Calculator,
         label: "Prix bouquets",
         description: "Tarifs installations",
-        path: null, // TODO: future feature
+        path: "/parametres/data-bouquets",
       },
       {
         icon: Percent,
         label: "Commissions",
         description: "Grilles de rémunération",
-        path: null, // TODO: future feature
+        path: "/parametres/data-commissions",
       },
     ],
   },
@@ -99,7 +100,7 @@ const settingsSections = [
         icon: Shield,
         label: "Code PIN / Biométrie",
         description: "Accès mode interne",
-        path: null, // TODO: future feature
+        path: null, // TODO: PIN/biometric setup
       },
     ],
   },
@@ -108,6 +109,22 @@ const settingsSections = [
 const Parametres = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark");
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [darkMode]);
 
   const handleLogout = async () => {
     await signOut();
@@ -197,13 +214,16 @@ const Parametres = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-accent">
-                  <Sun className="h-4 w-4 text-accent-foreground" />
+                  <Moon className="h-4 w-4 text-accent-foreground" />
                 </div>
                 <span className="text-sm font-medium text-foreground">
                   Mode sombre
                 </span>
               </div>
-              <Switch />
+              <Switch 
+                checked={darkMode} 
+                onCheckedChange={setDarkMode}
+              />
             </div>
           </CardContent>
         </Card>
