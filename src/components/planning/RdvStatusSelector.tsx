@@ -7,6 +7,7 @@ import { RdvStatus } from "@/components/ui/status-badge";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ interface RdvStatusSelectorProps {
   clientName: string;
   clientPrenom?: string;
   clientId?: string;
+  etudeId?: string | null;
   onStatusChange?: (newStatus: RdvStatus) => void;
   compact?: boolean;
 }
@@ -69,6 +71,7 @@ export function RdvStatusSelector({
   clientName,
   clientPrenom,
   clientId,
+  etudeId,
   onStatusChange,
   compact = false,
 }: RdvStatusSelectorProps) {
@@ -83,18 +86,29 @@ export function RdvStatusSelector({
   const [r2Date, setR2Date] = useState<Date | undefined>(undefined);
   const [r2Time, setR2Time] = useState("10:00");
 
+  // Signé dialog state
+  const [showSigneDialog, setShowSigneDialog] = useState(false);
+  const [signePuissance, setSignePuissance] = useState("");
+  const [signePrixTTC, setSignePrixTTC] = useState("");
+  const [signePrixHT, setSignePrixHT] = useState("");
+
   const handleStatusSelect = (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
     // If R2 or R2 Pré-étude, show date picker dialog
     if (newStatus === "r2" || newStatus === "r2_prestudy") {
       setPendingR2Status(newStatus);
-      // Default to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       setR2Date(tomorrow);
       setR2Time("10:00");
       setShowR2Dialog(true);
+    } else if (newStatus === "signe") {
+      // Show signé dialog for power and price
+      setSignePuissance("");
+      setSignePrixTTC("");
+      setSignePrixHT("");
+      setShowSigneDialog(true);
     } else {
       // Direct status change for other statuses
       handleStatusChange(newStatus);
@@ -104,17 +118,72 @@ export function RdvStatusSelector({
   const handleR2Confirm = async () => {
     if (!pendingR2Status || !r2Date || !user) return;
     
-    // Combine date and time
     const [hours, minutes] = r2Time.split(":").map(Number);
     const r2DateTime = new Date(r2Date);
     r2DateTime.setHours(hours, minutes, 0, 0);
     
     setShowR2Dialog(false);
-    await handleStatusChange(pendingR2Status, r2DateTime.toISOString());
+    await handleStatusChange(pendingR2Status, { r2DateTime: r2DateTime.toISOString() });
     setPendingR2Status(null);
   };
 
-  const handleStatusChange = async (newStatus: RdvStatus, r2DateTime?: string) => {
+  const handleSigneConfirm = async () => {
+    if (!user || !clientId) return;
+    
+    const puissance = parseFloat(signePuissance);
+    const prixTTC = parseFloat(signePrixTTC);
+    
+    if (isNaN(puissance) || puissance <= 0) {
+      toast.error("Veuillez saisir une puissance valide");
+      return;
+    }
+    if (isNaN(prixTTC) || prixTTC <= 0) {
+      toast.error("Veuillez saisir un prix TTC valide");
+      return;
+    }
+
+    setShowSigneDialog(false);
+    await handleStatusChange("signe", { puissanceKwc: puissance, prixTTC });
+  };
+
+  // Calculate HT from TTC based on power
+  const handlePrixTTCChange = (value: string) => {
+    setSignePrixTTC(value);
+    const ttc = parseFloat(value);
+    const puissance = parseFloat(signePuissance);
+    
+    if (!isNaN(ttc) && ttc > 0) {
+      // Use 10% TVA if power <= 3kWc, else 20%
+      const tauxTVA = !isNaN(puissance) && puissance <= 3 ? 0.10 : 0.20;
+      const ht = ttc / (1 + tauxTVA);
+      setSignePrixHT(ht.toFixed(2));
+    } else {
+      setSignePrixHT("");
+    }
+  };
+
+  // Recalculate HT when power changes
+  const handlePuissanceChange = (value: string) => {
+    setSignePuissance(value);
+    // Recalculate HT if TTC is set
+    if (signePrixTTC) {
+      const ttc = parseFloat(signePrixTTC);
+      const puissance = parseFloat(value);
+      if (!isNaN(ttc) && ttc > 0) {
+        const tauxTVA = !isNaN(puissance) && puissance <= 3 ? 0.10 : 0.20;
+        const ht = ttc / (1 + tauxTVA);
+        setSignePrixHT(ht.toFixed(2));
+      }
+    }
+  };
+
+  interface StatusChangeOptions {
+    r2DateTime?: string;
+    puissanceKwc?: number;
+    prixTTC?: number;
+  }
+
+  const handleStatusChange = async (newStatus: RdvStatus, options?: StatusChangeOptions) => {
     if (!user) return;
     
     setUpdating(true);
@@ -134,8 +203,7 @@ export function RdvStatusSelector({
       if (error) throw error;
 
       // If R2, create new R2 appointment
-      if ((newStatus === "r2" || newStatus === "r2_prestudy") && r2DateTime && clientId) {
-        // Get original RDV data for creating R2
+      if ((newStatus === "r2" || newStatus === "r2_prestudy") && options?.r2DateTime && clientId) {
         const { data: originalRdv } = await supabase
           .from("rdv")
           .select("adresse, type_projet, duree_minutes")
@@ -148,7 +216,7 @@ export function RdvStatusSelector({
             .insert({
               user_id: user.id,
               client_id: clientId,
-              date_heure: r2DateTime,
+              date_heure: options.r2DateTime,
               adresse: originalRdv.adresse,
               type_projet: originalRdv.type_projet,
               duree_minutes: originalRdv.duree_minutes || 90,
@@ -167,6 +235,34 @@ export function RdvStatusSelector({
         }
       }
 
+      // If Signé, create vente record
+      if (newStatus === "signe" && options?.puissanceKwc && options?.prixTTC && clientId) {
+        const tauxTVA = options.puissanceKwc <= 3 ? 0.10 : 0.20;
+        const prixHT = options.prixTTC / (1 + tauxTVA);
+        
+        const { error: venteError } = await supabase
+          .from("ventes")
+          .insert({
+            user_id: user.id,
+            client_id: clientId,
+            etude_id: etudeId || null,
+            puissance_kwc: options.puissanceKwc,
+            montant_ttc: options.prixTTC,
+            montant_ht: prixHT,
+            date_signature: new Date().toISOString().split("T")[0],
+            status: "cq_a_faire",
+            type_vente: "standard",
+            type_installation: "photovoltaique",
+          });
+
+        if (venteError) {
+          console.error("Error creating vente:", venteError);
+          toast.error("Erreur lors de la création de la vente");
+        } else {
+          toast.success("Vente créée avec succès");
+        }
+      }
+
       setStatus(newStatus);
       onStatusChange?.(newStatus);
       
@@ -181,7 +277,7 @@ export function RdvStatusSelector({
           clientPrenom,
           classification,
           userId: user.id,
-          r2DateTime: r2DateTime || null,
+          r2DateTime: options?.r2DateTime || null,
         });
       }
     } catch (err) {
@@ -297,6 +393,84 @@ export function RdvStatusSelector({
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Signé Dialog - Puissance et Prix */}
+      <Dialog open={showSigneDialog} onOpenChange={setShowSigneDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>✅ Vente signée</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Renseignez les informations de la vente pour calculer les commissions.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="puissance">Puissance (kWc)</Label>
+              <Input
+                id="puissance"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="Ex: 3.0"
+                value={signePuissance}
+                onChange={(e) => handlePuissanceChange(e.target.value)}
+                className="w-full"
+              />
+              {parseFloat(signePuissance) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  TVA applicable : {parseFloat(signePuissance) <= 3 ? "10%" : "20%"}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="prixTTC">Prix de vente TTC (€)</Label>
+              <Input
+                id="prixTTC"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Ex: 12000"
+                value={signePrixTTC}
+                onChange={(e) => handlePrixTTCChange(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {signePrixHT && (
+              <div className="p-3 bg-muted rounded-lg space-y-1">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Montant HT :</span>{" "}
+                  <span className="font-semibold text-foreground">
+                    {parseFloat(signePrixHT).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Les commissions seront calculées sur ce montant HT.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSigneDialog(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleSigneConfirm} 
+              disabled={!signePuissance || !signePrixTTC || updating}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {updating ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Créer la vente
             </Button>
           </DialogFooter>
         </DialogContent>
