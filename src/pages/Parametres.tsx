@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { toast } from "sonner";
 import {
   User,
@@ -25,6 +26,7 @@ import {
   Gauge,
   Gift,
   CreditCard,
+  MessageCircle,
 } from "lucide-react";
 
 const settingsSections = [
@@ -189,6 +191,14 @@ const Parametres = () => {
             Intégrations
           </h3>
           <GoogleAccountSettings />
+        </div>
+
+        {/* Notification Settings Section */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground px-1">
+            Notifications
+          </h3>
+          <NotificationSettings />
         </div>
 
         {/* Sections de paramètres */}

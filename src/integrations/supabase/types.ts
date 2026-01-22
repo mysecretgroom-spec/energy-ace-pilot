@@ -1232,6 +1232,36 @@ export type Database = {
           },
         ]
       }
+      settings_notifications: {
+        Row: {
+          confirmateur_name: string | null
+          confirmateur_phone: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          whatsapp_enabled: boolean | null
+        }
+        Insert: {
+          confirmateur_name?: string | null
+          confirmateur_phone?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          whatsapp_enabled?: boolean | null
+        }
+        Update: {
+          confirmateur_name?: string | null
+          confirmateur_phone?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_enabled?: boolean | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

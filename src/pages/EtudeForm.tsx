@@ -50,6 +50,7 @@ import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -128,6 +129,7 @@ const EtudeForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const clientId = searchParams.get("clientId") || searchParams.get("client");
   const rdvId = searchParams.get("rdvId") || searchParams.get("rdv");
   const etudeId = searchParams.get("etudeId") || searchParams.get("etude");
@@ -827,6 +829,18 @@ const EtudeForm = () => {
         toast({
           title: "RDV R2 créé",
           description: `Un rendez-vous R2 a été planifié pour le ${format(new Date(r2DateTime), "dd/MM/yyyy 'à' HH:mm")}`,
+        });
+      }
+      
+      // Envoyer notification WhatsApp au confirmateur si classification définie
+      if (classification && classificationChanged) {
+        await sendWhatsAppNotification({
+          clientName: clientName,
+          clientPrenom: clientPrenom,
+          classification: classification,
+          comment: classificationComment,
+          r2DateTime: r2DateTime,
+          userId: user.id,
         });
       }
       
