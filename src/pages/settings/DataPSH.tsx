@@ -14,7 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { Sun, Search, Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Sun, Search, Loader2, Plus, Pencil, Trash2, Clock, CloudSun } from "lucide-react";
 
 interface PSHData {
   id: string;
@@ -22,6 +22,9 @@ interface PSHData {
   department_name: string;
   psh_value: number;
   max_psh_value: number;
+  jours_ensoleillement_riche: number;
+  jours_ensoleillement_pauvre: number;
+  heures_ensoleillement_annuel: number;
 }
 
 const DataPSH = () => {
@@ -36,6 +39,9 @@ const DataPSH = () => {
     department_name: "",
     psh_value: "",
     max_psh_value: "",
+    jours_ensoleillement_riche: "",
+    jours_ensoleillement_pauvre: "",
+    heures_ensoleillement_annuel: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -66,8 +72,11 @@ const DataPSH = () => {
     setFormData({
       department_code: "",
       department_name: "",
-      psh_value: "4.0",
-      max_psh_value: "5.0",
+      psh_value: "1200",
+      max_psh_value: "1200",
+      jours_ensoleillement_riche: "150",
+      jours_ensoleillement_pauvre: "215",
+      heures_ensoleillement_annuel: "2800",
     });
     setIsDialogOpen(true);
   };
@@ -79,6 +88,9 @@ const DataPSH = () => {
       department_name: item.department_name,
       psh_value: item.psh_value.toString(),
       max_psh_value: item.max_psh_value.toString(),
+      jours_ensoleillement_riche: item.jours_ensoleillement_riche?.toString() || "0",
+      jours_ensoleillement_pauvre: item.jours_ensoleillement_pauvre?.toString() || "0",
+      heures_ensoleillement_annuel: item.heures_ensoleillement_annuel?.toString() || "0",
     });
     setIsDialogOpen(true);
   };
@@ -94,8 +106,11 @@ const DataPSH = () => {
       const payload = {
         department_code: formData.department_code,
         department_name: formData.department_name,
-        psh_value: parseFloat(formData.psh_value) || 4.0,
-        max_psh_value: parseFloat(formData.max_psh_value) || 5.0,
+        psh_value: parseFloat(formData.psh_value) || 1200,
+        max_psh_value: parseFloat(formData.max_psh_value) || 1200,
+        jours_ensoleillement_riche: parseInt(formData.jours_ensoleillement_riche) || 0,
+        jours_ensoleillement_pauvre: parseInt(formData.jours_ensoleillement_pauvre) || 0,
+        heures_ensoleillement_annuel: parseInt(formData.heures_ensoleillement_annuel) || 0,
       };
 
       if (editItem) {
@@ -151,8 +166,7 @@ const DataPSH = () => {
             <div>
               <p className="font-medium text-sm">Peak Sun Hours (PSH)</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Nombre d'heures d'ensoleillement optimal par jour, utilisé pour
-                calculer la production annuelle des panneaux.
+                Données d'ensoleillement par département : jours riches/pauvres, heures annuelles et PSH (kWh/m²/an).
               </p>
             </div>
           </CardContent>
@@ -199,9 +213,9 @@ const DataPSH = () => {
                 {filteredData.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 flex items-center justify-between"
+                    className="p-4 space-y-2"
                   >
-                    <div>
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="font-mono">
                           {item.department_code}
@@ -210,36 +224,49 @@ const DataPSH = () => {
                           {item.department_name}
                         </span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-right mr-2">
-                        <p className="font-bold text-primary">
-                          {item.psh_value} h
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          max: {item.max_psh_value} h
-                        </p>
+                      <div className="flex items-center gap-1">
+                        {isAdmin && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
+                    </div>
+                    
+                    {/* Données détaillées */}
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Sun className="h-3 w-3 text-amber-500" />
+                        <span>Jours riches: <strong className="text-foreground">{item.jours_ensoleillement_riche}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <CloudSun className="h-3 w-3 text-slate-400" />
+                        <span>Jours pauvres: <strong className="text-foreground">{item.jours_ensoleillement_pauvre}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Clock className="h-3 w-3 text-blue-500" />
+                        <span>Heures/an: <strong className="text-foreground">{item.heures_ensoleillement_annuel?.toLocaleString()}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Sun className="h-3 w-3 text-primary" />
+                        <span className="text-muted-foreground">PSH: </span>
+                        <strong className="text-primary">{item.psh_value} kWh/m²/an</strong>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -250,54 +277,94 @@ const DataPSH = () => {
 
         {/* Dialog d'édition */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editItem ? "Modifier le département" : "Ajouter un département"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Code département</label>
-                <Input
-                  value={formData.department_code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department_code: e.target.value })
-                  }
-                  placeholder="01, 02, 2A..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Nom</label>
-                <Input
-                  value={formData.department_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, department_name: e.target.value })
-                  }
-                  placeholder="Ain, Aisne..."
-                />
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">PSH (h/jour)</label>
+                  <label className="text-sm font-medium">Code département</label>
+                  <Input
+                    value={formData.department_code}
+                    onChange={(e) =>
+                      setFormData({ ...formData, department_code: e.target.value })
+                    }
+                    placeholder="01, 02, 2A..."
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Nom</label>
+                  <Input
+                    value={formData.department_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, department_name: e.target.value })
+                    }
+                    placeholder="Ain, Aisne..."
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Jours ensoleillement riche</label>
                   <Input
                     type="number"
-                    step="0.1"
+                    value={formData.jours_ensoleillement_riche}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jours_ensoleillement_riche: e.target.value })
+                    }
+                    placeholder="182"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Jours ensoleillement pauvre</label>
+                  <Input
+                    type="number"
+                    value={formData.jours_ensoleillement_pauvre}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jours_ensoleillement_pauvre: e.target.value })
+                    }
+                    placeholder="183"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Heures d'ensoleillement annuel</label>
+                <Input
+                  type="number"
+                  value={formData.heures_ensoleillement_annuel}
+                  onChange={(e) =>
+                    setFormData({ ...formData, heures_ensoleillement_annuel: e.target.value })
+                  }
+                  placeholder="2918"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">PSH (kWh/m²/an)</label>
+                  <Input
+                    type="number"
                     value={formData.psh_value}
                     onChange={(e) =>
                       setFormData({ ...formData, psh_value: e.target.value })
                     }
+                    placeholder="1337"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">PSH Max (h/jour)</label>
+                  <label className="text-sm font-medium">PSH Max (kWh/m²/an)</label>
                   <Input
                     type="number"
-                    step="0.1"
                     value={formData.max_psh_value}
                     onChange={(e) =>
                       setFormData({ ...formData, max_psh_value: e.target.value })
                     }
+                    placeholder="1337"
                   />
                 </div>
               </div>
