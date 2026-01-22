@@ -16,6 +16,7 @@ import {
   Calendar,
   FileText,
   Image,
+  Camera,
   Plus,
   Clock,
   Euro,
@@ -30,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AddDocumentFlow } from "@/components/scanner";
+import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
 
 interface Client {
   id: string;
@@ -92,6 +94,7 @@ const ClientDetail = () => {
   const [historique, setHistorique] = useState<HistoriqueAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
+  const [showDocumentFlow, setShowDocumentFlow] = useState(false);
 
   useEffect(() => {
     if (id && user) {
@@ -301,7 +304,7 @@ const ClientDetail = () => {
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="rdv">RDV ({rdvs.length})</TabsTrigger>
             <TabsTrigger value="etudes">Études ({etudes.length})</TabsTrigger>
-            <TabsTrigger value="docs">Docs ({documents.length})</TabsTrigger>
+            <TabsTrigger value="docs" className="text-xs">Photos ({documents.length})</TabsTrigger>
           </TabsList>
 
           {/* Tab Info */}
@@ -480,45 +483,51 @@ const ClientDetail = () => {
             )}
           </TabsContent>
 
-          {/* Tab Documents */}
+          {/* Tab Documents et Photos */}
           <TabsContent value="docs" className="space-y-3 mt-4">
-            <Button variant="outline" className="w-full gap-2">
-              <Plus className="h-4 w-4" />
-              Ajouter un document
+            <Button 
+              variant="outline" 
+              className="w-full gap-2"
+              onClick={() => setShowDocumentFlow(true)}
+            >
+              <Camera className="h-4 w-4" />
+              Ajouter doc / photo
             </Button>
 
             {documents.length === 0 ? (
               <Card className="shadow-card">
                 <CardContent className="p-6 text-center">
-                  <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Aucun document</p>
+                  <Image className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucun document ou photo</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ajoutez des photos du site, documents techniques, etc.
+                  </p>
                 </CardContent>
               </Card>
             ) : (
-              documents.map((doc) => (
-                <Card key={doc.id} className="shadow-card">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
-                        {doc.type_document === "cni" ? (
-                          <Image className="h-4 w-4" />
-                        ) : (
-                          <FileText className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium truncate">{doc.nom}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {doc.type_document.replace("_", " ")} • {formatDate(doc.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              <MultiDocumentSelector 
+                documents={documents.map(doc => ({
+                  ...doc,
+                  thumbnails_urls: (doc as any).thumbnails_urls || null,
+                }))}
+                clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
+              />
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Document Flow Modal */}
+        {/* Document Flow Modal */}
+        <AddDocumentFlow
+          context="client_docs"
+          relatedClientId={id}
+          isOpen={showDocumentFlow}
+          onSuccess={() => {
+            setShowDocumentFlow(false);
+            fetchClientData();
+          }}
+          onCancel={() => setShowDocumentFlow(false)}
+        />
       </div>
     </MobileLayout>
   );

@@ -18,6 +18,7 @@ import Profil from "./pages/Profil";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
+import Install from "./pages/Install";
 // Settings sub-pages
 import EmailsAutorises from "./pages/settings/EmailsAutorises";
 import GmailAutoSync from "./pages/settings/GmailAutoSync";
@@ -83,6 +84,7 @@ const App = () => {
                 <Route path="/parametres/data-financements" element={<ProtectedRoute><DataFinancements /></ProtectedRoute>} />
                 <Route path="/parametres/whatsapp" element={<ProtectedRoute><WhatsAppSettings /></ProtectedRoute>} />
                 <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
+                <Route path="/install" element={<Install />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
