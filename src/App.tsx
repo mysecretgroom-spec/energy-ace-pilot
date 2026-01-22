@@ -7,11 +7,10 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Planning from "./pages/Planning";
-import Clients from "./pages/Clients";
+import CRM from "./pages/CRM";
 import ClientDetail from "./pages/ClientDetail";
 import EtudeForm from "./pages/EtudeForm";
 import Finance from "./pages/Finance";
-import Ventes from "./pages/Ventes";
 import Notifications from "./pages/Notifications";
 import Parametres from "./pages/Parametres";
 import Profil from "./pages/Profil";
@@ -34,12 +33,12 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
-            <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+            <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
             <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
             <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
-            <Route path="/ventes" element={<ProtectedRoute><Ventes /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
             <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
             <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

@@ -1,12 +1,11 @@
-import { Home, Calendar, Users, FileText, Wallet, Settings } from "lucide-react";
+import { Home, Calendar, Briefcase, Wallet, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { icon: Home, label: "Accueil", path: "/" },
   { icon: Calendar, label: "Planning", path: "/planning" },
-  { icon: Users, label: "Clients", path: "/clients" },
-  { icon: FileText, label: "Ventes", path: "/ventes" },
+  { icon: Briefcase, label: "CRM", path: "/crm" },
   { icon: Wallet, label: "Finance", path: "/finance" },
   { icon: Settings, label: "Paramètres", path: "/parametres" },
 ];
