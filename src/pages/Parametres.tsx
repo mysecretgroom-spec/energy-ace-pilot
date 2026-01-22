@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { WhatsAppTemplates } from "@/components/settings/WhatsAppTemplates";
 import { toast } from "sonner";
 import {
   User,
@@ -196,9 +197,10 @@ const Parametres = () => {
         {/* Notification Settings Section */}
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
-            Notifications
+            Notifications WhatsApp
           </h3>
           <NotificationSettings />
+          <WhatsAppTemplates />
         </div>
 
         {/* Sections de paramètres */}

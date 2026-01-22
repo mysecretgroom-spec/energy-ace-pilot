@@ -11,14 +11,89 @@ interface SendWhatsAppParams {
   userId: string;
 }
 
-// Classification labels for display
-const classificationLabels: Record<string, string> = {
-  positif: "✅ POSITIF",
-  negatif: "❌ NÉGATIF",
-  r2: "🔄 R2 - Second RDV",
-  r2_prestudy: "📋 R2 Pré-étude",
-  attente: "⏳ En attente",
-  annule: "🚫 Annulé",
+// Default templates with placeholders
+const DEFAULT_TEMPLATES: Record<string, string> = {
+  positif: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: ✅ POSITIF
+
+🎉 Excellent ! Le client est intéressé et prêt à avancer.
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
+
+  negatif: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: ❌ NÉGATIF
+
+Le client n'est pas intéressé pour le moment.
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
+
+  r2: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: 🔄 R2 - Second RDV
+
+📆 *RDV R2 prévu:*
+{{r2_date}}
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
+
+  r2_prestudy: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: 📋 R2 Pré-étude
+
+📆 *RDV R2 prévu:*
+{{r2_date}}
+
+Une pré-étude sera effectuée avant le second rendez-vous.
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
+
+  attente: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: ⏳ En attente
+
+Le dossier est en attente de décision du client.
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
+
+  annule: `📋 *MISE À JOUR DOSSIER*
+
+👤 Client: *{{client_name}}*
+📅 Date: {{date}}
+📊 Statut: 🚫 Annulé
+
+Le rendez-vous a été annulé.
+
+{{comment}}
+
+---
+_Envoyé depuis SolarFlow_`,
 };
 
 export const useWhatsAppNotification = () => {
@@ -43,33 +118,42 @@ export const useWhatsAppNotification = () => {
         return false;
       }
 
+      // Fetch custom template for this classification
+      const { data: customTemplate } = await supabase
+        .from("whatsapp_templates")
+        .select("template_text")
+        .eq("user_id", userId)
+        .eq("classification", classification)
+        .eq("is_active", true)
+        .maybeSingle();
+
       // Clean phone number for wa.me link (remove + and spaces)
       const cleanPhone = settings.confirmateur_phone.replace(/[+\s-]/g, "");
 
-      // Build the message
+      // Build the message using template
       const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
-      const statusLabel = classificationLabels[classification] || classification;
       const now = new Date();
       const dateStr = format(now, "dd/MM/yyyy 'à' HH:mm", { locale: fr });
 
-      let message = `📋 *MISE À JOUR DOSSIER*\n\n`;
-      message += `👤 Client: *${fullName}*\n`;
-      message += `📅 Date: ${dateStr}\n`;
-      message += `📊 Statut: ${statusLabel}\n`;
-
-      // Add R2 date if applicable
+      // Get R2 date formatted
+      let r2DateStr = "";
       if (r2DateTime && (classification === "r2" || classification === "r2_prestudy")) {
         const r2Date = new Date(r2DateTime);
-        const r2DateStr = format(r2Date, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
-        message += `\n📆 *RDV R2 prévu:*\n${r2DateStr}\n`;
+        r2DateStr = format(r2Date, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
-      // Add comment if present
-      if (comment) {
-        message += `\n💬 Commentaire:\n${comment}\n`;
-      }
+      // Format comment
+      const commentText = comment ? `💬 Commentaire:\n${comment}` : "";
 
-      message += `\n---\n_Envoyé depuis SolarFlow_`;
+      // Get template (custom or default)
+      const templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
+
+      // Replace placeholders
+      const message = templateText
+        .replace(/\{\{client_name\}\}/g, fullName)
+        .replace(/\{\{date\}\}/g, dateStr)
+        .replace(/\{\{r2_date\}\}/g, r2DateStr || "Non défini")
+        .replace(/\{\{comment\}\}/g, commentText);
 
       // Encode message for URL
       const encodedMessage = encodeURIComponent(message);
