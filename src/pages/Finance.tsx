@@ -104,6 +104,7 @@ const Finance = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("ventes");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [documentFlowOpen, setDocumentFlowOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
@@ -670,20 +671,13 @@ const Finance = () => {
 
             {/* Actions */}
             <div className="flex gap-2 flex-wrap">
-              <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-                <DialogTrigger asChild>
-                  <Button className="flex-1 bg-gradient-hero gap-2">
-                    <Camera className="h-4 w-4" />
-                    Scanner
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="p-0 max-w-md">
-                  <ReceiptScanner 
-                    onSuccess={() => setScannerOpen(false)} 
-                    onCancel={() => setScannerOpen(false)} 
-                  />
-                </DialogContent>
-              </Dialog>
+              <Button 
+                className="flex-1 bg-gradient-hero gap-2"
+                onClick={() => setDocumentFlowOpen(true)}
+              >
+                <Camera className="h-4 w-4" />
+                Scanner facture
+              </Button>
               
               <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
                 <DialogTrigger asChild>
@@ -697,6 +691,28 @@ const Finance = () => {
                 </DialogContent>
               </Dialog>
             </div>
+            
+            {/* Document Flow for Finance */}
+            <AddDocumentFlow
+              context="finance"
+              isOpen={documentFlowOpen}
+              onSuccess={() => {
+                setDocumentFlowOpen(false);
+                // Refresh data
+                if (user) {
+                  supabase
+                    .from("frais")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .order("date_frais", { ascending: false })
+                    .limit(10)
+                    .then(({ data }) => {
+                      if (data) setFraisData(data as FraisItem[]);
+                    });
+                }
+              }}
+              onCancel={() => setDocumentFlowOpen(false)}
+            />
             
             {/* Export & Reports */}
             <div className="flex gap-2">
