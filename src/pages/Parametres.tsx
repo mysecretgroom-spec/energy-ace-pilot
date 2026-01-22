@@ -6,8 +6,6 @@ import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
-import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { WhatsAppTemplates } from "@/components/settings/WhatsAppTemplates";
 import { toast } from "sonner";
 import {
   User,
@@ -27,7 +25,7 @@ import {
   Gauge,
   Gift,
   CreditCard,
-  MessageCircle,
+  MessageSquare,
 } from "lucide-react";
 
 const settingsSections = [
@@ -194,13 +192,32 @@ const Parametres = () => {
           <GoogleAccountSettings />
         </div>
 
-        {/* Notification Settings Section */}
+        {/* WhatsApp Settings Link */}
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
-            Notifications WhatsApp
+            Notifications
           </h3>
-          <NotificationSettings />
-          <WhatsAppTemplates />
+          <Card 
+            className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => navigate("/parametres/whatsapp")}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <MessageSquare className="h-4 w-4 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    WhatsApp Confirmateur
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Messages et modèles
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sections de paramètres */}
