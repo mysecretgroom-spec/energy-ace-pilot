@@ -145,6 +145,42 @@ export type Database = {
         }
         Relationships: []
       }
+      confirmateurs: {
+        Row: {
+          actif: boolean | null
+          created_at: string
+          id: string
+          nom: string
+          ordre_priorite: number | null
+          role: Database["public"]["Enums"]["confirmateur_role"]
+          telephone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean | null
+          created_at?: string
+          id?: string
+          nom: string
+          ordre_priorite?: number | null
+          role?: Database["public"]["Enums"]["confirmateur_role"]
+          telephone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean | null
+          created_at?: string
+          id?: string
+          nom?: string
+          ordre_priorite?: number | null
+          role?: Database["public"]["Enums"]["confirmateur_role"]
+          telephone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       data_aides: {
         Row: {
           actif: boolean
@@ -1238,6 +1274,7 @@ export type Database = {
           confirmateur_phone: string | null
           created_at: string
           id: string
+          send_to_all: boolean | null
           updated_at: string
           user_id: string
           whatsapp_enabled: boolean | null
@@ -1247,6 +1284,7 @@ export type Database = {
           confirmateur_phone?: string | null
           created_at?: string
           id?: string
+          send_to_all?: boolean | null
           updated_at?: string
           user_id: string
           whatsapp_enabled?: boolean | null
@@ -1256,6 +1294,7 @@ export type Database = {
           confirmateur_phone?: string | null
           created_at?: string
           id?: string
+          send_to_all?: boolean | null
           updated_at?: string
           user_id?: string
           whatsapp_enabled?: boolean | null
@@ -1367,6 +1406,36 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          classification: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          template_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          classification: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          template_text: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          classification?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          template_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1382,6 +1451,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      confirmateur_role: "principal" | "backup"
       document_type:
         | "cni"
         | "justificatif_domicile"
@@ -1555,6 +1625,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      confirmateur_role: ["principal", "backup"],
       document_type: [
         "cni",
         "justificatif_domicile",
