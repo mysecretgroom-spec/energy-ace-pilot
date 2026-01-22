@@ -773,17 +773,60 @@ const EtudeForm = () => {
     } else {
       // Sauvegarder l'historique de classification si la classification a changé
       const classificationChanged = classification !== originalClassification;
+      const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
+        ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
+        : null;
+      
       if (classification && savedEtudeId && classificationChanged) {
-        const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
-          ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
-          : null;
-        
         await supabase.from("etudes_classification_history").insert({
           etude_id: savedEtudeId,
           user_id: user.id,
           classification: classification,
           comment: classificationComment || null,
           r2_date_heure: r2DateTime,
+        });
+      }
+      
+      // Créer automatiquement un RDV R2 si une date est définie
+      if ((classification === "r2" || classification === "r2_prestudy") && r2DateTime && savedEtudeId) {
+        // Vérifier s'il existe déjà un RDV R2 pour cette étude
+        const { data: existingR2Rdv } = await supabase
+          .from("rdv")
+          .select("id")
+          .eq("etude_id", savedEtudeId)
+          .eq("is_r2", true)
+          .maybeSingle();
+        
+        if (existingR2Rdv) {
+          // Mettre à jour le RDV existant
+          await supabase
+            .from("rdv")
+            .update({
+              date_heure: r2DateTime,
+              r2_type: classification,
+              status: "nouveau",
+            })
+            .eq("id", existingR2Rdv.id);
+        } else {
+          // Créer un nouveau RDV R2
+          await supabase.from("rdv").insert({
+            user_id: user.id,
+            client_id: clientId,
+            etude_id: savedEtudeId,
+            date_heure: r2DateTime,
+            duree_minutes: 90,
+            type_projet: "photovoltaique",
+            status: "nouveau",
+            source: "r2_etude",
+            is_r2: true,
+            r2_type: classification,
+            commentaire: `R2 ${classification === "r2_prestudy" ? "Pré-étude" : ""} - ${classificationComment || "Suivi étude"}`,
+          });
+        }
+        
+        toast({
+          title: "RDV R2 créé",
+          description: `Un rendez-vous R2 a été planifié pour le ${format(new Date(r2DateTime), "dd/MM/yyyy 'à' HH:mm")}`,
         });
       }
       

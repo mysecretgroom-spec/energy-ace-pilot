@@ -25,7 +25,11 @@ import {
   CalendarX,
   Mail,
   Plus,
+  RefreshCw,
+  FileText,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 type ViewMode = "jour" | "semaine" | "mois";
 
@@ -44,6 +48,9 @@ interface RdvData {
   distance?: string;
   travelTime?: string;
   alert?: boolean;
+  isR2?: boolean;
+  r2Type?: string | null;
+  etudeId?: string | null;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -56,6 +63,7 @@ const projectTypeLabels: Record<string, string> = {
 
 const Planning = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>("jour");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [rdvList, setRdvList] = useState<RdvData[]>([]);
@@ -140,6 +148,9 @@ const Planning = () => {
           status,
           type_projet,
           client_id,
+          is_r2,
+          r2_type,
+          etude_id,
           clients!inner(
             id,
             nom,
@@ -215,6 +226,9 @@ const Planning = () => {
           distance: undefined,
           travelTime: undefined,
           alert: false,
+          isR2: rdv.is_r2 || false,
+          r2Type: rdv.r2_type,
+          etudeId: rdv.etude_id,
         };
       });
 
@@ -391,7 +405,9 @@ const Planning = () => {
 
                 <Card
                   className={`shadow-card overflow-hidden ${
-                    rdv.alert
+                    rdv.isR2
+                      ? "border-2 border-status-r2 bg-status-r2/5"
+                      : rdv.alert
                       ? "border-secondary/50 bg-secondary/5"
                       : ""
                   }`}
@@ -399,9 +415,30 @@ const Planning = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 space-y-2">
+                        {/* Badge R2 si applicable */}
+                        {rdv.isR2 && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="bg-status-r2 text-white text-xs px-2 py-0.5 flex items-center gap-1">
+                              <RefreshCw className="h-3 w-3" />
+                              {rdv.r2Type === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
+                            </Badge>
+                            {rdv.etudeId && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => navigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Voir étude
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        
                         {/* Heure et statut */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className="flex items-center gap-1.5 text-primary font-semibold">
+                          <div className={`flex items-center gap-1.5 font-semibold ${rdv.isR2 ? "text-status-r2" : "text-primary"}`}>
                             <Clock className="h-4 w-4" />
                             <span>{rdv.time}</span>
                           </div>

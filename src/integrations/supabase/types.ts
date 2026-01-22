@@ -1152,11 +1152,14 @@ export type Database = {
           distance_km: number | null
           duree_minutes: number | null
           email_source_id: string | null
+          etude_id: string | null
           google_event_id: string | null
           historique: Json | null
           id: string
+          is_r2: boolean | null
           latitude: number | null
           longitude: number | null
+          r2_type: string | null
           source: string | null
           status: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes: number | null
@@ -1173,11 +1176,14 @@ export type Database = {
           distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
+          etude_id?: string | null
           google_event_id?: string | null
           historique?: Json | null
           id?: string
+          is_r2?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          r2_type?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
@@ -1194,11 +1200,14 @@ export type Database = {
           distance_km?: number | null
           duree_minutes?: number | null
           email_source_id?: string | null
+          etude_id?: string | null
           google_event_id?: string | null
           historique?: Json | null
           id?: string
+          is_r2?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          r2_type?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
@@ -1212,6 +1221,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdv_etude_id_fkey"
+            columns: ["etude_id"]
+            isOneToOne: false
+            referencedRelation: "etudes"
             referencedColumns: ["id"]
           },
         ]
