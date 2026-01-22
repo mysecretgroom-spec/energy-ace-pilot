@@ -2,6 +2,8 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   User,
   Mail,
@@ -102,22 +104,31 @@ const settingsSections = [
 ];
 
 const Parametres = () => {
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
   return (
     <MobileLayout title="Paramètres">
       <div className="p-4 space-y-6">
-        {/* Header profil */}
-        <Card className="shadow-card overflow-hidden">
+        {/* Header profil - clickable */}
+        <Card 
+          className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => navigate("/profil")}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-gradient-hero flex items-center justify-center">
-                <span className="text-xl font-bold text-primary-foreground">
-                  JD
-                </span>
+                <User className="h-6 w-6 text-primary-foreground" />
               </div>
               <div className="flex-1">
-                <h2 className="font-semibold text-foreground">Jean Durand</h2>
+                <h2 className="font-semibold text-foreground">Mon Profil</h2>
                 <p className="text-sm text-muted-foreground">
-                  Commercial ENR - Zone Rhône-Alpes
+                  Voir et modifier mes informations
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -181,6 +192,7 @@ const Parametres = () => {
         <Button
           variant="outline"
           className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+          onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
           Se déconnecter
