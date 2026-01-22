@@ -17,6 +17,8 @@ interface Vente {
   id: string;
   montant_ht: number;
   puissance_kwc: number | null;
+  decom_montant?: number | null;
+  decom_raison?: string | null;
   client: {
     id: string;
     nom: string;
@@ -34,7 +36,9 @@ interface QontoInvoiceProps {
 interface CommissionLine {
   clientName: string;
   puissanceKwc: number;
-  commissionHT: number;
+  commissionBrute: number;
+  decomMontant: number;
+  commissionNette: number;
 }
 
 const formatCurrency = (amount: number) => {
@@ -84,6 +88,7 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
           : "Client inconnu";
         
         const puissance = vente.puissance_kwc || 0;
+        const decomMontant = vente.decom_montant || 0;
         
         // Find matching bouquet for base commission
         const bouquet = bouquets?.find(b => b.puissance_kwc === puissance);
@@ -98,19 +103,24 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
         const tauxCommission = tranche?.taux_commission || 0;
         
         // Base commission from montant HT
-        let commissionHT = vente.montant_ht * (tauxCommission / 100);
+        let commissionBrute = vente.montant_ht * (tauxCommission / 100);
         
         // Add survente bonus if price is above prix recommandé
         if (prixHejja > 0 && vente.montant_ht > prixRecommande) {
           const surventeBase = vente.montant_ht - prixRecommande;
           const bonusSurvente = surventeBase * (surventePct / 100);
-          commissionHT += bonusSurvente;
+          commissionBrute += bonusSurvente;
         }
+
+        // Apply decom
+        const commissionNette = Math.max(0, commissionBrute - decomMontant);
 
         return {
           clientName,
           puissanceKwc: puissance,
-          commissionHT,
+          commissionBrute,
+          decomMontant,
+          commissionNette,
         };
       });
 
@@ -123,15 +133,20 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
     }
   };
 
-  const totalCommission = lines.reduce((sum, l) => sum + l.commissionHT, 0);
+  const totalCommission = lines.reduce((sum, l) => sum + l.commissionNette, 0);
+  const totalDecom = lines.reduce((sum, l) => sum + l.decomMontant, 0);
 
   const copyToClipboard = () => {
-    // Format for Qonto: Client | Puissance | Commission HT
-    const text = lines.map(l => 
-      `${l.clientName}\t${l.puissanceKwc} kWc\t${formatCurrency(l.commissionHT)}`
-    ).join("\n");
+    // Format for Qonto: Client | Puissance | Commission HT (net après décom)
+    const text = lines.map(l => {
+      const decomNote = l.decomMontant > 0 ? ` (décom: -${formatCurrency(l.decomMontant)})` : "";
+      return `${l.clientName}\t${l.puissanceKwc} kWc\t${formatCurrency(l.commissionNette)}${decomNote}`;
+    }).join("\n");
     
-    const fullText = `Lignes pour facture Qonto:\n\n${text}\n\nTOTAL HT: ${formatCurrency(totalCommission)}`;
+    let fullText = `Lignes pour facture Qonto:\n\n${text}\n\nTOTAL HT: ${formatCurrency(totalCommission)}`;
+    if (totalDecom > 0) {
+      fullText += `\n(Dont décommissions: -${formatCurrency(totalDecom)})`;
+    }
     
     navigator.clipboard.writeText(fullText);
     setCopied(true);
@@ -166,6 +181,7 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
                   <TableRow>
                     <TableHead>Client</TableHead>
                     <TableHead className="text-right">kWc</TableHead>
+                    <TableHead className="text-right">Décom</TableHead>
                     <TableHead className="text-right">Commission HT</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -174,8 +190,11 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
                     <TableRow key={idx}>
                       <TableCell className="font-medium">{line.clientName}</TableCell>
                       <TableCell className="text-right">{line.puissanceKwc}</TableCell>
+                      <TableCell className="text-right text-destructive">
+                        {line.decomMontant > 0 ? `-${formatCurrency(line.decomMontant)}` : "-"}
+                      </TableCell>
                       <TableCell className="text-right font-medium text-primary">
-                        {formatCurrency(line.commissionHT)}
+                        {formatCurrency(line.commissionNette)}
                       </TableCell>
                     </TableRow>
                   ))}
