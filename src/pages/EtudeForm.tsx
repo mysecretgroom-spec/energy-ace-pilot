@@ -40,7 +40,9 @@ import {
   Tag,
   History,
   Clock,
+  Camera,
 } from "lucide-react";
+import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -1315,10 +1317,19 @@ const EtudeForm = () => {
         {/* VISITE TECHNIQUE - TOITURE */}
         <Card className="shadow-card">
           <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Home className="h-4 w-4 text-primary" />
-              Visite Technique - Toiture
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Home className="h-4 w-4 text-primary" />
+                Visite Technique - Toiture
+              </CardTitle>
+              {clientId && (
+                <QuickPhotoButton
+                  clientId={clientId}
+                  category="toiture"
+                  label="Photo"
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
             <div className="grid grid-cols-2 gap-3">
@@ -1418,10 +1429,19 @@ const EtudeForm = () => {
         {/* COMPTEUR ÉLECTRIQUE */}
         <Card className="shadow-card">
           <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Plug className="h-4 w-4 text-primary" />
-              Compteur Électrique
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Plug className="h-4 w-4 text-primary" />
+                Compteur Électrique
+              </CardTitle>
+              {clientId && (
+                <QuickPhotoButton
+                  clientId={clientId}
+                  category="compteur"
+                  label="Photo"
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
             <div className="grid grid-cols-2 gap-3">
@@ -1467,10 +1487,19 @@ const EtudeForm = () => {
         {/* TABLEAU ÉLECTRIQUE */}
         <Card className="shadow-card">
           <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Settings className="h-4 w-4 text-primary" />
-              Tableau Électrique
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Settings className="h-4 w-4 text-primary" />
+                Tableau Électrique
+              </CardTitle>
+              {clientId && (
+                <QuickPhotoButton
+                  clientId={clientId}
+                  category="tableau_electrique"
+                  label="Photo"
+                />
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
             <div className="grid grid-cols-2 gap-3">
