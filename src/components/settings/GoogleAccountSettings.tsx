@@ -35,8 +35,8 @@ interface SyncHistoryItem {
 
 export function GoogleAccountSettings() {
   const { user, signInWithGoogle } = useAuth();
-  const { checkGoogleConnection, syncCalendar, syncing } = useGoogleCalendarSync();
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const { syncCalendar, syncing } = useGoogleCalendarSync();
+  const [isGoogleUser, setIsGoogleUser] = useState<boolean>(false);
   const [hasTokens, setHasTokens] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -52,25 +52,29 @@ export function GoogleAccountSettings() {
 
       setLoading(true);
       
-      // Check if user logged in via Google
+      // Check if user has Google linked (either as main provider or linked identity)
       const provider = user.app_metadata?.provider;
-      const isGoogleUser = provider === "google";
+      const providers = user.app_metadata?.providers as string[] | undefined;
+      const hasGoogleLinked = provider === "google" || providers?.includes("google");
+      setIsGoogleUser(!!hasGoogleLinked);
       
-      // Also check if we have tokens in the database
-      const hasDbTokens = await checkGoogleConnection();
-      setHasTokens(hasDbTokens);
+      // Check if we have tokens in the database
+      const { data: tokens } = await supabase
+        .from("google_tokens")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
       
-      // User is "connected" if they logged in with Google OR have tokens
-      setIsConnected(isGoogleUser || hasDbTokens);
+      setHasTokens(!!tokens);
       setLoading(false);
 
-      if (isGoogleUser || hasDbTokens) {
+      if (provider === "google" || tokens) {
         fetchSyncHistory();
       }
     };
 
     checkConnection();
-  }, [user, checkGoogleConnection]);
+  }, [user]);
 
   const fetchSyncHistory = async () => {
     if (!user) return;
@@ -116,7 +120,7 @@ export function GoogleAccountSettings() {
 
       if (error) throw error;
 
-      setIsConnected(false);
+      setHasTokens(false);
       setSyncHistory([]);
       toast.success("Compte Google déconnecté");
     } catch (err) {
@@ -163,7 +167,7 @@ export function GoogleAccountSettings() {
                 Synchronisez vos RDV avec Google Calendar
               </CardDescription>
             </div>
-            {isConnected ? (
+            {isGoogleUser || hasTokens ? (
               <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Connecté
@@ -177,7 +181,7 @@ export function GoogleAccountSettings() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isConnected ? (
+          {isGoogleUser || hasTokens ? (
             <>
               {/* Connected services */}
               <div className="grid grid-cols-3 gap-3">

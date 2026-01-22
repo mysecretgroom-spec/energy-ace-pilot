@@ -56,9 +56,12 @@ export default function AuthCallback() {
         const googleRefreshToken = session.provider_refresh_token || providerRefreshToken;
 
         if (googleAccessToken && session.user) {
+          // Check if user has Google linked
           const provider = session.user.app_metadata?.provider;
+          const providers = session.user.app_metadata?.providers as string[] | undefined;
+          const hasGoogleLinked = provider === "google" || providers?.includes("google");
           
-          if (provider === "google") {
+          if (hasGoogleLinked) {
             console.log("Saving Google tokens from OAuth callback...");
             setStatus("Sauvegarde des autorisations Google...");
             
