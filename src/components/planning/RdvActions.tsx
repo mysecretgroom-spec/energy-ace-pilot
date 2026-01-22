@@ -114,6 +114,7 @@ export function RdvActions({
         rdvId={rdvId}
         currentStatus={currentStatus}
         clientName={clientName}
+        clientId={clientId}
         onStatusChange={handleStatusChangeInternal}
         compact
       />

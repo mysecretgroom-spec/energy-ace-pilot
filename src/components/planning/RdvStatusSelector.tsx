@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RdvStatus } from "@/components/ui/status-badge";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -11,13 +14,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Loader2, CalendarIcon } from "lucide-react";
 
 interface RdvStatusSelectorProps {
   rdvId: string;
   currentStatus: RdvStatus;
   clientName: string;
   clientPrenom?: string;
+  clientId?: string;
   onStatusChange?: (newStatus: RdvStatus) => void;
   compact?: boolean;
 }
@@ -48,6 +68,7 @@ export function RdvStatusSelector({
   currentStatus,
   clientName,
   clientPrenom,
+  clientId,
   onStatusChange,
   compact = false,
 }: RdvStatusSelectorProps) {
@@ -55,18 +76,96 @@ export function RdvStatusSelector({
   const { sendWhatsAppNotification } = useWhatsAppNotification();
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState<RdvStatus>(currentStatus);
+  
+  // R2 date/time picker state
+  const [showR2Dialog, setShowR2Dialog] = useState(false);
+  const [pendingR2Status, setPendingR2Status] = useState<RdvStatus | null>(null);
+  const [r2Date, setR2Date] = useState<Date | undefined>(undefined);
+  const [r2Time, setR2Time] = useState("10:00");
 
-  const handleStatusChange = async (newStatus: RdvStatus) => {
+  const handleStatusSelect = (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
+    
+    // If R2 or R2 Pré-étude, show date picker dialog
+    if (newStatus === "r2" || newStatus === "r2_prestudy") {
+      setPendingR2Status(newStatus);
+      // Default to tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setR2Date(tomorrow);
+      setR2Time("10:00");
+      setShowR2Dialog(true);
+    } else {
+      // Direct status change for other statuses
+      handleStatusChange(newStatus);
+    }
+  };
+
+  const handleR2Confirm = async () => {
+    if (!pendingR2Status || !r2Date || !user) return;
+    
+    // Combine date and time
+    const [hours, minutes] = r2Time.split(":").map(Number);
+    const r2DateTime = new Date(r2Date);
+    r2DateTime.setHours(hours, minutes, 0, 0);
+    
+    setShowR2Dialog(false);
+    await handleStatusChange(pendingR2Status, r2DateTime.toISOString());
+    setPendingR2Status(null);
+  };
+
+  const handleStatusChange = async (newStatus: RdvStatus, r2DateTime?: string) => {
+    if (!user) return;
     
     setUpdating(true);
     try {
+      // Update RDV status
+      const updateData: Record<string, unknown> = { 
+        status: newStatus,
+        is_r2: newStatus === "r2" || newStatus === "r2_prestudy",
+        r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
+      };
+      
       const { error } = await supabase
         .from("rdv")
-        .update({ status: newStatus })
+        .update(updateData)
         .eq("id", rdvId);
 
       if (error) throw error;
+
+      // If R2, create new R2 appointment
+      if ((newStatus === "r2" || newStatus === "r2_prestudy") && r2DateTime && clientId) {
+        // Get original RDV data for creating R2
+        const { data: originalRdv } = await supabase
+          .from("rdv")
+          .select("adresse, type_projet, duree_minutes")
+          .eq("id", rdvId)
+          .maybeSingle();
+
+        if (originalRdv) {
+          const { error: r2Error } = await supabase
+            .from("rdv")
+            .insert({
+              user_id: user.id,
+              client_id: clientId,
+              date_heure: r2DateTime,
+              adresse: originalRdv.adresse,
+              type_projet: originalRdv.type_projet,
+              duree_minutes: originalRdv.duree_minutes || 90,
+              status: "nouveau",
+              type_rdv: "standard",
+              is_r2: true,
+              r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : "r2",
+            });
+
+          if (r2Error) {
+            console.error("Error creating R2 RDV:", r2Error);
+            toast.error("Erreur lors de la création du RDV R2");
+          } else {
+            toast.success("RDV R2 créé avec succès");
+          }
+        }
+      }
 
       setStatus(newStatus);
       onStatusChange?.(newStatus);
@@ -82,6 +181,7 @@ export function RdvStatusSelector({
           clientPrenom,
           classification,
           userId: user.id,
+          r2DateTime: r2DateTime || null,
         });
       }
     } catch (err) {
@@ -95,33 +195,112 @@ export function RdvStatusSelector({
   const currentOption = statusOptions.find(s => s.value === status);
 
   return (
-    <Select
-      value={status}
-      onValueChange={(value) => handleStatusChange(value as RdvStatus)}
-      disabled={updating}
-    >
-      <SelectTrigger 
-        className={`${compact ? 'h-8 text-xs w-[120px]' : 'h-9 w-[140px]'} ${updating ? 'opacity-50' : ''}`}
+    <>
+      <Select
+        value={status}
+        onValueChange={(value) => handleStatusSelect(value as RdvStatus)}
+        disabled={updating}
       >
-        {updating ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${currentOption?.color}`} />
-            <SelectValue />
-          </div>
-        )}
-      </SelectTrigger>
-      <SelectContent>
-        {statusOptions.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+        <SelectTrigger 
+          className={`${compact ? 'h-8 text-xs w-[120px]' : 'h-9 w-[140px]'} ${updating ? 'opacity-50' : ''}`}
+        >
+          {updating ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${option.color}`} />
-              <span>{option.label}</span>
+              <span className={`h-2 w-2 rounded-full ${currentOption?.color}`} />
+              <SelectValue />
             </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+          )}
+        </SelectTrigger>
+        <SelectContent>
+          {statusOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${option.color}`} />
+                <span>{option.label}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* R2 Date/Time Dialog */}
+      <Dialog open={showR2Dialog} onOpenChange={setShowR2Dialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>
+              Planifier le RDV {pendingR2Status === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Date du RDV R2</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !r2Date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {r2Date ? format(r2Date, "PPP", { locale: fr }) : "Sélectionner une date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={r2Date}
+                    onSelect={setR2Date}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="r2-time">Heure du RDV</Label>
+              <Input
+                id="r2-time"
+                type="time"
+                value={r2Time}
+                onChange={(e) => setR2Time(e.target.value)}
+                className="w-full"
+              />
+            </div>
+
+            {r2Date && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  RDV prévu le{" "}
+                  <span className="font-medium text-foreground">
+                    {format(r2Date, "EEEE d MMMM yyyy", { locale: fr })}
+                  </span>{" "}
+                  à{" "}
+                  <span className="font-medium text-foreground">{r2Time}</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowR2Dialog(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleR2Confirm} disabled={!r2Date || updating}>
+              {updating ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
