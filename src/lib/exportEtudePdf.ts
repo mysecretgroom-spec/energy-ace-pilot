@@ -80,14 +80,14 @@ const formatEuros = (value: number): string => {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
-  }).format(value);
+  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
 };
 
 const formatNumber = (value: number, decimals: number = 0): string => {
   return new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value);
+  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
 };
 
 const generatePdfDoc = (data: EtudeData): jsPDF => {
