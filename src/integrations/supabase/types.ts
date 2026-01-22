@@ -246,7 +246,10 @@ export type Database = {
           created_at: string
           department_code: string
           department_name: string
+          heures_ensoleillement_annuel: number | null
           id: string
+          jours_ensoleillement_pauvre: number | null
+          jours_ensoleillement_riche: number | null
           max_psh_value: number
           psh_value: number
           updated_at: string
@@ -255,7 +258,10 @@ export type Database = {
           created_at?: string
           department_code: string
           department_name: string
+          heures_ensoleillement_annuel?: number | null
           id?: string
+          jours_ensoleillement_pauvre?: number | null
+          jours_ensoleillement_riche?: number | null
           max_psh_value?: number
           psh_value?: number
           updated_at?: string
@@ -264,7 +270,10 @@ export type Database = {
           created_at?: string
           department_code?: string
           department_name?: string
+          heures_ensoleillement_annuel?: number | null
           id?: string
+          jours_ensoleillement_pauvre?: number | null
+          jours_ensoleillement_riche?: number | null
           max_psh_value?: number
           psh_value?: number
           updated_at?: string
