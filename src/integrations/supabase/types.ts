@@ -888,6 +888,63 @@ export type Database = {
         }
         Relationships: []
       }
+      gmail_imports: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          error_message: string | null
+          gmail_message_id: string
+          gmail_thread_id: string | null
+          id: string
+          rdv_id: string | null
+          sender_email: string | null
+          status: string
+          subject: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          gmail_message_id: string
+          gmail_thread_id?: string | null
+          id?: string
+          rdv_id?: string | null
+          sender_email?: string | null
+          status?: string
+          subject?: string | null
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          gmail_message_id?: string
+          gmail_thread_id?: string | null
+          id?: string
+          rdv_id?: string | null
+          sender_email?: string | null
+          status?: string
+          subject?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_imports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_imports_rdv_id_fkey"
+            columns: ["rdv_id"]
+            isOneToOne: false
+            referencedRelation: "rdv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_sync_history: {
         Row: {
           completed_at: string | null

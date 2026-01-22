@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmailImport } from "@/components/planning/EmailImport";
 import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
+import { GmailSync } from "@/components/planning/GmailSync";
 import {
   Dialog,
   DialogContent,
@@ -293,6 +294,7 @@ const Planning = () => {
               </div>
               <div className="flex gap-2">
                 <GoogleCalendarSync onSyncComplete={fetchRdvs} />
+                <GmailSync onSyncComplete={fetchRdvs} />
                 <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5 h-8 bg-gradient-hero">
@@ -315,7 +317,7 @@ const Planning = () => {
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-1.5 h-8">
                       <Mail className="h-3.5 w-3.5" />
-                      Email
+                      Manuel
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-md p-0 overflow-hidden">
