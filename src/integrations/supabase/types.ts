@@ -23,6 +23,7 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
+          metadata: Json | null
           nom: string
           notes: string | null
           prenom: string | null
@@ -41,6 +42,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          metadata?: Json | null
           nom: string
           notes?: string | null
           prenom?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
+          metadata?: Json | null
           nom?: string
           notes?: string | null
           prenom?: string | null
@@ -1278,6 +1281,7 @@ export type Database = {
           is_r2: boolean | null
           latitude: number | null
           longitude: number | null
+          metadata: Json | null
           r2_type: string | null
           source: string | null
           status: Database["public"]["Enums"]["rdv_status"]
@@ -1303,6 +1307,7 @@ export type Database = {
           is_r2?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          metadata?: Json | null
           r2_type?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
@@ -1328,6 +1333,7 @@ export type Database = {
           is_r2?: boolean | null
           latitude?: number | null
           longitude?: number | null
+          metadata?: Json | null
           r2_type?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
