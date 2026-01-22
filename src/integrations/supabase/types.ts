@@ -601,6 +601,7 @@ export type Database = {
           prix_total: number | null
           production_annuelle_kwh: number | null
           puissance_kwc: number | null
+          r2_date_heure: string | null
           rdv_id: string | null
           rendement_productivite: number | null
           resultat_mensuel: number | null
@@ -667,6 +668,7 @@ export type Database = {
           prix_total?: number | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
+          r2_date_heure?: string | null
           rdv_id?: string | null
           rendement_productivite?: number | null
           resultat_mensuel?: number | null
@@ -733,6 +735,7 @@ export type Database = {
           prix_total?: number | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
+          r2_date_heure?: string | null
           rdv_id?: string | null
           rendement_productivite?: number | null
           resultat_mensuel?: number | null
@@ -782,6 +785,7 @@ export type Database = {
           created_at: string
           etude_id: string
           id: string
+          r2_date_heure: string | null
           user_id: string
         }
         Insert: {
@@ -790,6 +794,7 @@ export type Database = {
           created_at?: string
           etude_id: string
           id?: string
+          r2_date_heure?: string | null
           user_id: string
         }
         Update: {
@@ -798,6 +803,7 @@ export type Database = {
           created_at?: string
           etude_id?: string
           id?: string
+          r2_date_heure?: string | null
           user_id?: string
         }
         Relationships: [

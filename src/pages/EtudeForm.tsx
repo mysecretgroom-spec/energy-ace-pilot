@@ -44,10 +44,16 @@ import {
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
 
 interface DataPsh {
   department_code: string;
@@ -204,10 +210,13 @@ const EtudeForm = () => {
   // Classification du dossier
   const [classification, setClassification] = useState<string>("");
   const [classificationComment, setClassificationComment] = useState<string>("");
+  const [r2DateHeure, setR2DateHeure] = useState<Date | undefined>(undefined);
+  const [r2Time, setR2Time] = useState<string>("10:00");
   const [classificationHistory, setClassificationHistory] = useState<{
     id: string;
     classification: string;
     comment: string | null;
+    r2_date_heure: string | null;
     created_at: string;
   }[]>([]);
   const [existingEtudeId, setExistingEtudeId] = useState<string | null>(null);
@@ -403,6 +412,12 @@ const EtudeForm = () => {
       setClassification(etude.classification || "");
       setOriginalClassification(etude.classification || "");
       setClassificationComment(etude.classification_comment || "");
+      // R2 Date/Heure
+      if (etude.r2_date_heure) {
+        const r2Date = new Date(etude.r2_date_heure);
+        setR2DateHeure(r2Date);
+        setR2Time(format(r2Date, "HH:mm"));
+      }
 
       // Charger l'historique des classifications
       const { data: history } = await supabase
@@ -716,6 +731,9 @@ const EtudeForm = () => {
       classification_comment: classificationComment || null,
       classification_updated_at: classification ? new Date().toISOString() : null,
       classification_updated_by: classification ? user.id : null,
+      r2_date_heure: (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
+        ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
+        : null,
     };
 
     let savedEtudeId: string | null = null;
@@ -756,11 +774,16 @@ const EtudeForm = () => {
       // Sauvegarder l'historique de classification si la classification a changé
       const classificationChanged = classification !== originalClassification;
       if (classification && savedEtudeId && classificationChanged) {
+        const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
+          ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
+          : null;
+        
         await supabase.from("etudes_classification_history").insert({
           etude_id: savedEtudeId,
           user_id: user.id,
           classification: classification,
           comment: classificationComment || null,
+          r2_date_heure: r2DateTime,
         });
       }
       
@@ -1857,6 +1880,54 @@ const EtudeForm = () => {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Date et heure du R2 */}
+              {(classification === "r2" || classification === "r2_prestudy") && (
+                <div className="p-3 bg-status-r2/10 rounded-lg border border-status-r2/30 space-y-3">
+                  <Label className="text-xs font-medium flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-status-r2" />
+                    Date et heure du second RDV
+                  </Label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "flex-1 justify-start text-left font-normal",
+                            !r2DateHeure && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {r2DateHeure ? format(r2DateHeure, "PPP", { locale: fr }) : "Choisir une date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={r2DateHeure}
+                          onSelect={setR2DateHeure}
+                          initialFocus
+                          locale={fr}
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      type="time"
+                      value={r2Time}
+                      onChange={(e) => setR2Time(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                  {r2DateHeure && (
+                    <p className="text-xs text-muted-foreground">
+                      RDV prévu le {format(r2DateHeure, "EEEE d MMMM yyyy", { locale: fr })} à {r2Time}
+                    </p>
+                  )}
+                </div>
+              )}
+              
               <div>
                 <Label className="text-xs">Commentaire</Label>
                 <Textarea
@@ -1892,6 +1963,18 @@ const EtudeForm = () => {
                             })}
                           </span>
                         </div>
+                        {entry.r2_date_heure && (
+                          <p className="text-status-r2 mt-1 flex items-center gap-1">
+                            <CalendarIcon className="h-3 w-3" />
+                            R2 prévu: {new Date(entry.r2_date_heure).toLocaleDateString("fr-FR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </p>
+                        )}
                         {entry.comment && (
                           <p className="text-muted-foreground mt-1 italic">"{entry.comment}"</p>
                         )}
