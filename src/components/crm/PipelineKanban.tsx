@@ -12,7 +12,10 @@ import {
   TrendingUp,
   XCircle,
   GripVertical,
+  ArrowRight,
+  TrendingDown,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'en_installation' | 'installe' | 'paye' | 'annule';
 
@@ -129,8 +132,105 @@ export function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const activeVentes = ventes.filter(v => v.status !== 'annule');
   const cancelledVentes = ventes.filter(v => v.status === 'annule');
 
+  // Calculate conversion stats
+  const conversionStats = pipelineColumns.map((col, index) => {
+    const currentCount = getVentesByStatus(col.status).length;
+    const currentValue = getColumnTotal(col.status);
+    const totalOpportunities = activeVentes.length;
+    const conversionFromStart = totalOpportunities > 0 
+      ? Math.round((currentCount / totalOpportunities) * 100) 
+      : 0;
+    
+    // Conversion to next stage
+    let conversionToNext = 0;
+    if (index < pipelineColumns.length - 1 && currentCount > 0) {
+      const nextStageCount = pipelineColumns
+        .slice(index + 1)
+        .reduce((sum, nextCol) => sum + getVentesByStatus(nextCol.status).length, 0);
+      conversionToNext = Math.round((nextStageCount / (currentCount + nextStageCount)) * 100) || 0;
+    }
+    
+    return {
+      ...col,
+      count: currentCount,
+      value: currentValue,
+      conversionFromStart,
+      conversionToNext,
+    };
+  });
+
+  // Calculate stage-to-stage conversion rates
+  const stageConversions = pipelineColumns.slice(0, -1).map((col, index) => {
+    const currentAndBeyond = pipelineColumns
+      .slice(index)
+      .reduce((sum, c) => sum + getVentesByStatus(c.status).length, 0);
+    const nextAndBeyond = pipelineColumns
+      .slice(index + 1)
+      .reduce((sum, c) => sum + getVentesByStatus(c.status).length, 0);
+    
+    const rate = currentAndBeyond > 0 
+      ? Math.round((nextAndBeyond / currentAndBeyond) * 100) 
+      : 0;
+    
+    return {
+      from: col.label,
+      to: pipelineColumns[index + 1].label,
+      rate,
+      fromColor: col.color,
+      toColor: pipelineColumns[index + 1].color,
+    };
+  });
+
+  // Overall conversion rate (from négociation to payé)
+  const negoCount = getVentesByStatus('en_negociation').length + 
+    getVentesByStatus('signe').length + 
+    getVentesByStatus('en_installation').length + 
+    getVentesByStatus('installe').length + 
+    getVentesByStatus('paye').length;
+  const payeCount = getVentesByStatus('paye').length;
+  const overallConversion = negoCount > 0 ? Math.round((payeCount / negoCount) * 100) : 0;
+
   return (
     <div className="space-y-4">
+      {/* Conversion Funnel Stats */}
+      <Card>
+        <CardHeader className="p-3 pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <TrendingDown className="h-4 w-4 text-primary" />
+            Tunnel de conversion
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 pt-0 space-y-3">
+          {/* Overall conversion */}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Taux global</span>
+            <span className="font-bold text-primary">{overallConversion}%</span>
+          </div>
+          <Progress value={overallConversion} className="h-2" />
+          
+          {/* Stage-to-stage conversions */}
+          <div className="space-y-2 pt-2">
+            {stageConversions.map((conv, index) => (
+              <div key={index} className="flex items-center gap-2 text-xs">
+                <span className={`${conv.fromColor} font-medium truncate flex-1`}>
+                  {conv.from}
+                </span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                <span className={`${conv.toColor} font-medium truncate flex-1`}>
+                  {conv.to}
+                </span>
+                <Badge 
+                  variant="secondary" 
+                  className={`text-xs ml-1 ${conv.rate >= 70 ? 'bg-green-100 text-green-700' : conv.rate >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}
+                >
+                  {conv.rate}%
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Pipeline Stats */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
