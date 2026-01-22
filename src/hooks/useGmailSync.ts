@@ -27,9 +27,10 @@ export function useGmailSync() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return false;
 
-      // Check if user logged in via Google
+      // Check if user has Google linked (either as main provider or linked identity)
       const provider = session.user.app_metadata?.provider;
-      if (provider === "google") {
+      const providers = session.user.app_metadata?.providers as string[] | undefined;
+      if (provider === "google" || providers?.includes("google")) {
         return true;
       }
 
