@@ -402,17 +402,24 @@ const EtudeForm = () => {
     }
 
     // === ECO TVA (depuis data_aides) ===
-    // Chercher l'aide eco_tva applicable
+    // Chercher l'aide eco_tva applicable selon la puissance
     const ecoTvaAide = dataAides.find(
-      (a) => a.code === "eco_tva" && 
+      (a) => a.code.startsWith("eco_tva") && 
              puissance >= a.puissance_min && 
              puissance <= a.puissance_max
     );
     let ecoTva = 0;
     if (ecoTvaAide) {
       if (ecoTvaAide.type_calcul === "pourcentage") {
-        // Pourcentage de réduction TVA sur le prix
-        ecoTva = prixTotalHorsAides * (ecoTvaAide.valeur / 60); // 10% TVA au lieu de 20% = économie de ~16.67%
+        // Pour installations ≤ 3kWc : TVA réduite 10% au lieu de 20% = économie ~16.67%
+        // Pour installations > 3kWc : Récupération TVA 20% sur le prix total
+        if (ecoTvaAide.code === "eco_tva_3kwc_plus") {
+          // Récupération de 20% de TVA sur le prix total TTC
+          ecoTva = prixTotalHorsAides * (ecoTvaAide.valeur / 100);
+        } else {
+          // Économie de TVA (10% au lieu de 20%)
+          ecoTva = prixTotalHorsAides * (ecoTvaAide.valeur / 60);
+        }
       } else if (ecoTvaAide.type_calcul === "fixe") {
         ecoTva = ecoTvaAide.valeur;
       }
