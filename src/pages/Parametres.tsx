@@ -57,9 +57,9 @@ const settingsSections = [
       },
       {
         icon: Clock,
-        label: "Tolérance matching",
-        description: "±2h pour détection doublons",
-        path: null, // Configuration simple, pas besoin de page
+        label: "Sync Gmail automatique",
+        description: "Import périodique des RDV",
+        path: "/parametres/gmail-auto-sync",
       },
     ],
   },

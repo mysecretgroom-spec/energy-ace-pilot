@@ -107,7 +107,20 @@ serve(async (req) => {
   }
 
   try {
-    const userId = await getUserIdFromAuth(req.headers.get("Authorization"));
+    // Support both regular auth and service role calls with x-user-id header (for cron)
+    let userId = await getUserIdFromAuth(req.headers.get("Authorization"));
+    
+    // If no user from auth, check for service role call with x-user-id header
+    if (!userId) {
+      const serviceUserId = req.headers.get("x-user-id");
+      const authHeader = req.headers.get("Authorization");
+      
+      // Verify it's a service role key call
+      if (serviceUserId && authHeader?.includes(SUPABASE_SERVICE_ROLE_KEY)) {
+        userId = serviceUserId;
+      }
+    }
+    
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),

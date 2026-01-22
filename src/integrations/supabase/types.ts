@@ -1382,6 +1382,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          created_at: string
+          gmail_last_auto_sync: string | null
+          gmail_sync_enabled: boolean
+          gmail_sync_interval_minutes: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gmail_last_auto_sync?: string | null
+          gmail_sync_enabled?: boolean
+          gmail_sync_interval_minutes?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gmail_last_auto_sync?: string | null
+          gmail_sync_enabled?: boolean
+          gmail_sync_interval_minutes?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ventes: {
         Row: {
           client_id: string

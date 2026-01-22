@@ -20,6 +20,7 @@ import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 // Settings sub-pages
 import EmailsAutorises from "./pages/settings/EmailsAutorises";
+import GmailAutoSync from "./pages/settings/GmailAutoSync";
 import DataPSH from "./pages/settings/DataPSH";
 import DataOrientation from "./pages/settings/DataOrientation";
 import DataTarifs from "./pages/settings/DataTarifs";
@@ -70,6 +71,7 @@ const App = () => {
                 <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                 <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
                 <Route path="/parametres/emails-autorises" element={<ProtectedRoute><EmailsAutorises /></ProtectedRoute>} />
+                <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
                 <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
                 <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
                 <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
