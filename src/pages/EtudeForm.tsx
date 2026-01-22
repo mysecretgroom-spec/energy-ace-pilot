@@ -733,7 +733,6 @@ const EtudeForm = () => {
       total_aides: calculatedResults.totalAides,
       total_aides_deduites: calculatedResults.totalAidesDeduites,
       // Financement
-      financement_id: financementId || null,
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dataFinancements.find(f => f.id === financementId)?.duree_mois || null,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
