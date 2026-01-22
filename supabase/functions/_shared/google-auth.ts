@@ -80,49 +80,76 @@ export async function refreshGoogleToken(refreshToken: string): Promise<{ access
 }
 
 // Get valid Google access token (refresh if needed)
+// First tries the google_tokens table, then falls back to Supabase Auth identities
 export async function getValidAccessToken(userId: string): Promise<string | null> {
   const supabase = createAdminClient();
   
-  const { data: tokens, error } = await supabase
+  // First, try to get tokens from our custom table
+  const { data: tokens, error: tokensError } = await supabase
     .from("google_tokens")
     .select("*")
     .eq("user_id", userId)
     .single();
   
-  if (error || !tokens) {
-    console.error("No tokens found for user:", userId);
+  if (!tokensError && tokens?.access_token) {
+    // Check if token is expired (with 5 min buffer)
+    const expiresAt = tokens.expires_at ? new Date(tokens.expires_at) : null;
+    const now = new Date();
+    const buffer = 5 * 60 * 1000; // 5 minutes
+    
+    if (!expiresAt || now.getTime() > expiresAt.getTime() - buffer) {
+      // Token expired or expiring soon, refresh it
+      if (tokens.refresh_token) {
+        const refreshed = await refreshGoogleToken(tokens.refresh_token);
+        if (refreshed) {
+          // Update tokens in database
+          const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
+          await supabase
+            .from("google_tokens")
+            .update({
+              access_token: refreshed.access_token,
+              expires_at: newExpiresAt.toISOString(),
+            })
+            .eq("user_id", userId);
+          
+          return refreshed.access_token;
+        }
+      }
+    } else {
+      return tokens.access_token;
+    }
+  }
+  
+  // Fallback: Try to get token from Supabase Auth user identities
+  console.log("Trying to get token from Supabase Auth identities...");
+  
+  const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+  
+  if (userError || !userData?.user) {
+    console.error("Error getting user:", userError);
     return null;
   }
   
-  // Check if token is expired (with 5 min buffer)
-  const expiresAt = tokens.expires_at ? new Date(tokens.expires_at) : null;
-  const now = new Date();
-  const buffer = 5 * 60 * 1000; // 5 minutes
+  // Find Google identity
+  const googleIdentity = userData.user.identities?.find(
+    (identity) => identity.provider === "google"
+  );
   
-  if (!expiresAt || now.getTime() > expiresAt.getTime() - buffer) {
-    // Token expired or expiring soon, refresh it
-    if (!tokens.refresh_token) {
-      console.error("No refresh token available");
-      return null;
-    }
-    
-    const refreshed = await refreshGoogleToken(tokens.refresh_token);
-    if (!refreshed) return null;
-    
-    // Update tokens in database
-    const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000);
-    await supabase
-      .from("google_tokens")
-      .update({
-        access_token: refreshed.access_token,
-        expires_at: newExpiresAt.toISOString(),
-      })
-      .eq("user_id", userId);
-    
-    return refreshed.access_token;
+  if (!googleIdentity?.identity_data) {
+    console.error("No Google identity found for user");
+    return null;
   }
   
-  return tokens.access_token;
+  // The identity_data may contain the provider token info
+  // But Supabase Auth manages refresh internally, we need to use the provider token from session
+  // Unfortunately, provider_token is only available during the OAuth callback
+  
+  // Check if there's identity data we can use
+  console.log("Google identity found, but provider_token needs to be captured during OAuth callback");
+  console.log("User connected via Google, identity provider:", googleIdentity.provider);
+  
+  // Since we can't access the token directly, return null and handle appropriately
+  return null;
 }
 
 // CORS headers

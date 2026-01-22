@@ -19,6 +19,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
+import AuthCallback from "./pages/AuthCallback";
 // Settings sub-pages
 import EmailsAutorises from "./pages/settings/EmailsAutorises";
 import GmailAutoSync from "./pages/settings/GmailAutoSync";
@@ -64,6 +65,7 @@ const App = () => {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
                 <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />

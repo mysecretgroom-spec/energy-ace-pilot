@@ -37,6 +37,7 @@ export function GoogleAccountSettings() {
   const { user, signInWithGoogle } = useAuth();
   const { checkGoogleConnection, syncCalendar, syncing } = useGoogleCalendarSync();
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [hasTokens, setHasTokens] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
   const [syncHistory, setSyncHistory] = useState<SyncHistoryItem[]>([]);
@@ -44,18 +45,32 @@ export function GoogleAccountSettings() {
 
   useEffect(() => {
     const checkConnection = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
-      const connected = await checkGoogleConnection();
-      setIsConnected(connected);
+      
+      // Check if user logged in via Google
+      const provider = user.app_metadata?.provider;
+      const isGoogleUser = provider === "google";
+      
+      // Also check if we have tokens in the database
+      const hasDbTokens = await checkGoogleConnection();
+      setHasTokens(hasDbTokens);
+      
+      // User is "connected" if they logged in with Google OR have tokens
+      setIsConnected(isGoogleUser || hasDbTokens);
       setLoading(false);
 
-      if (connected) {
+      if (isGoogleUser || hasDbTokens) {
         fetchSyncHistory();
       }
     };
 
     checkConnection();
-  }, [checkGoogleConnection]);
+  }, [user, checkGoogleConnection]);
 
   const fetchSyncHistory = async () => {
     if (!user) return;

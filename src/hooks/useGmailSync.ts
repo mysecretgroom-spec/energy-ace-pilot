@@ -27,6 +27,13 @@ export function useGmailSync() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return false;
 
+      // Check if user logged in via Google
+      const provider = session.user.app_metadata?.provider;
+      if (provider === "google") {
+        return true;
+      }
+
+      // Fallback: check if we have tokens in the database
       const { data, error } = await supabase
         .from("google_tokens")
         .select("id, expires_at")
