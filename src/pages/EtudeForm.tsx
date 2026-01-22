@@ -120,8 +120,8 @@ const EtudeForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const clientId = searchParams.get("clientId");
-  const rdvId = searchParams.get("rdvId");
+  const clientId = searchParams.get("clientId") || searchParams.get("client");
+  const rdvId = searchParams.get("rdvId") || searchParams.get("rdv");
 
   // Form state
   const [loading, setLoading] = useState(false);
