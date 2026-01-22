@@ -51,8 +51,11 @@ const FINANCE_CATEGORIES = [
 ];
 
 const CLIENT_DOC_CATEGORIES = [
+  { value: "cni", label: "Carte d'identité" },
+  { value: "justificatif_domicile", label: "Justificatif de domicile" },
+  { value: "facture_energie", label: "Facture énergie" },
+  { value: "bon_commande", label: "Bon de commande" },
   { value: "devis", label: "Devis" },
-  { value: "facture", label: "Facture" },
   { value: "contrat", label: "Contrat" },
   { value: "plan", label: "Plan" },
   { value: "photo_chantier", label: "Photo chantier" },
@@ -474,7 +477,7 @@ export function ReviewDocument({
                 <SelectTrigger>
                   <SelectValue placeholder="Sélectionner une catégorie" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[70] bg-popover">
                   {categories.map((cat) => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
