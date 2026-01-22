@@ -426,6 +426,7 @@ const Planning = () => {
             currentDate={currentDate}
             rdvList={rdvList}
             onRdvClick={handleCalendarRdvClick}
+            onStatusChange={() => fetchRdvs()}
           />
         )}
 
