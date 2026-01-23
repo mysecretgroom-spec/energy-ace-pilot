@@ -46,12 +46,16 @@ const DataPSH = () => {
         .order("department_code", { ascending: true });
 
       if (error) throw error;
-      const formattedData = (pshData || []).map(item => ({
-        ...item,
-        isNew: false,
-        isModified: false,
-        isGlobal: item.user_id === null,
-      }));
+      const formattedData = (pshData || []).map(item => {
+        const itemWithUserId = item as typeof item & { user_id?: string | null };
+        return {
+          ...item,
+          user_id: itemWithUserId.user_id,
+          isNew: false,
+          isModified: false,
+          isGlobal: itemWithUserId.user_id === null,
+        };
+      });
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
       setHasChanges(false);
