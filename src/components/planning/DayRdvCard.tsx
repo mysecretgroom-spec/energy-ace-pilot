@@ -1,4 +1,4 @@
-import { Clock, MapPin, FileText, Wrench, RefreshCw, Car } from "lucide-react";
+import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,9 @@ interface DayRdvCardProps {
     alert?: boolean;
     distance?: string;
     travelTime?: string;
+    regieId?: string | null;
+    regieNom?: string | null;
+    regieCouleur?: string | null;
   };
   index: number;
   onRefresh: () => void;
@@ -98,6 +101,22 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
             <div className="flex-1 space-y-3">
               {/* Badges spéciaux */}
               <div className="flex flex-wrap items-center gap-2">
+                {/* Badge Régie */}
+                {rdv.regieNom && (
+                  <Badge 
+                    className="text-xs px-2 py-0.5 flex items-center gap-1 rounded-full"
+                    style={{ 
+                      backgroundColor: rdv.regieCouleur ? `${rdv.regieCouleur}20` : undefined,
+                      color: rdv.regieCouleur || undefined,
+                      borderColor: rdv.regieCouleur ? `${rdv.regieCouleur}50` : undefined,
+                      borderWidth: '1px',
+                    }}
+                  >
+                    <Building2 className="h-3 w-3" />
+                    {rdv.regieNom}
+                  </Badge>
+                )}
+                
                 {isExternalInstallation && (
                   <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
                     <Wrench className="h-3 w-3" />

@@ -1,7 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
-import { Clock, Wrench, RefreshCw, GripVertical } from "lucide-react";
+import { Clock, Wrench, RefreshCw, GripVertical, Building2 } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,8 @@ interface DraggableRdvCardProps {
   status: RdvStatus;
   typeRdv: "standard" | "external_installation";
   isR2?: boolean;
+  regieNom?: string | null;
+  regieCouleur?: string | null;
   children?: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -24,6 +26,8 @@ export function DraggableRdvCard({
   status,
   typeRdv,
   isR2,
+  regieNom,
+  regieCouleur,
   children,
   className,
   disabled = false,
@@ -83,8 +87,21 @@ export function DraggableRdvCard({
           <p className="text-[10px] font-medium text-foreground truncate">
             {client}
           </p>
-          <div className="mt-0.5">
+          <div className="mt-0.5 flex items-center gap-1 flex-wrap">
             <StatusBadge status={status} className="text-[8px] px-1 py-0" />
+            {regieNom && (
+              <span 
+                className="text-[8px] px-1.5 py-0 rounded-full border truncate max-w-[60px]"
+                style={{ 
+                  backgroundColor: regieCouleur ? `${regieCouleur}15` : undefined,
+                  color: regieCouleur || undefined,
+                  borderColor: regieCouleur ? `${regieCouleur}40` : undefined,
+                }}
+                title={regieNom}
+              >
+                {regieNom}
+              </span>
+            )}
           </div>
         </>
       )}
