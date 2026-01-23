@@ -64,35 +64,79 @@ function extractTextFromPayload(payload: any): string {
 
 function decodeBase64Url(data: string): string {
   try {
-    // Replace URL-safe characters
+    // Replace URL-safe characters (Gmail uses base64url encoding)
     const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-    // Decode
-    return decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
+    
+    // Add padding if needed
+    const padded = base64 + "=".repeat((4 - base64.length % 4) % 4);
+    
+    // Decode base64 to binary string
+    const binaryString = atob(padded);
+    
+    // Convert binary string to UTF-8
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Decode as UTF-8
+    return new TextDecoder("utf-8").decode(bytes);
   } catch (e) {
     console.error("Failed to decode base64:", e);
-    return "";
+    // Fallback: try simple atob
+    try {
+      const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+      return atob(base64);
+    } catch {
+      return "";
+    }
   }
 }
 
 function stripHtml(html: string): string {
-  return html
+  // First, handle table rows specifically - this format is common in lead emails
+  // <tr><td>Label:</td><td>Value</td></tr> → "Label: Value\n"
+  let text = html
+    // Handle table cells: extract label-value pairs
+    .replace(/<tr[^>]*>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>\s*<\/tr>/gi, "$1 $2\n")
+    // Clean remaining table tags
+    .replace(/<\/?table[^>]*>/gi, "")
+    .replace(/<\/?tr[^>]*>/gi, "\n")
+    .replace(/<\/?td[^>]*>/gi, " ")
+    .replace(/<\/?th[^>]*>/gi, " ")
+    .replace(/<\/?tbody[^>]*>/gi, "")
+    .replace(/<\/?thead[^>]*>/gi, "")
+    // Handle other HTML tags
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/div>/gi, "\n")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<[^>]+>/g, "")
+    // Decode HTML entities
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&eacute;/gi, "é")
+    .replace(/&egrave;/gi, "è")
+    .replace(/&agrave;/gi, "à")
+    .replace(/&acirc;/gi, "â")
+    .replace(/&ocirc;/gi, "ô")
+    .replace(/&ucirc;/gi, "û")
+    .replace(/&icirc;/gi, "î")
+    .replace(/&euml;/gi, "ë")
+    .replace(/&iuml;/gi, "ï")
+    .replace(/&ccedil;/gi, "ç")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    // Clean up whitespace
+    .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  return text;
 }
 
 function extractEmailAddress(from: string): string {
