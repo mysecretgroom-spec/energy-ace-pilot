@@ -113,8 +113,8 @@ const RegieDashboard = () => {
       const rdvTotal = rdvResult.count || 0;
       const rdvMois = rdvMoisResult.count || 0;
 
-      // Store ventes for commission calculation
-      setVentesForCommission(ventes.map(v => ({
+      // Store ventes for commission calculation (exclude annulées)
+      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map(v => ({
         id: v.id,
         montant_ht: v.montant_ht,
         montant_ttc: v.montant_ttc,
