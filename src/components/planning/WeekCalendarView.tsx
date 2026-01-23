@@ -17,6 +17,7 @@ import { RdvStatus } from "@/components/ui/status-badge";
 import { RdvQuickActions } from "./RdvQuickActions";
 import { DraggableRdvCard } from "./DraggableRdvCard";
 import { DroppableDay } from "./DroppableDay";
+import { TimePickerDialog } from "./TimePickerDialog";
 import { useDragAndDropRdv } from "@/hooks/useDragAndDropRdv";
 
 interface RdvData {
@@ -44,6 +45,11 @@ interface WeekCalendarViewProps {
   onRefresh?: () => void;
 }
 
+interface PendingDrop {
+  rdv: RdvData;
+  targetDate: Date;
+}
+
 export function WeekCalendarView({ 
   currentDate, 
   rdvList, 
@@ -52,6 +58,8 @@ export function WeekCalendarView({
   onRefresh 
 }: WeekCalendarViewProps) {
   const [activeRdv, setActiveRdv] = useState<RdvData | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
 
   // Configure sensors for both pointer and touch
   const pointerSensor = useSensor(PointerSensor, {
@@ -116,14 +124,30 @@ export function WeekCalendarView({
     // Check if the date actually changed
     if (isSameDay(currentActiveRdv.date, targetDate)) return;
 
-    // Perform the drop
+    // Store the pending drop and open time picker
+    setPendingDrop({ rdv: currentActiveRdv, targetDate });
+    setTimePickerOpen(true);
+  };
+
+  const handleTimeConfirm = (newTime: string) => {
+    if (!pendingDrop) return;
+
     handleDrop(
-      currentActiveRdv.id,
-      currentActiveRdv.time,
-      targetDate,
-      undefined,
-      currentActiveRdv.client
+      pendingDrop.rdv.id,
+      pendingDrop.rdv.time,
+      pendingDrop.targetDate,
+      newTime,
+      pendingDrop.rdv.client
     );
+
+    setPendingDrop(null);
+  };
+
+  const handleTimePickerClose = (open: boolean) => {
+    setTimePickerOpen(open);
+    if (!open) {
+      setPendingDrop(null);
+    }
   };
 
   return (
@@ -230,6 +254,18 @@ export function WeekCalendarView({
           </div>
         )}
       </DragOverlay>
+
+      {/* Time picker dialog */}
+      {pendingDrop && (
+        <TimePickerDialog
+          open={timePickerOpen}
+          onOpenChange={handleTimePickerClose}
+          currentTime={pendingDrop.rdv.time}
+          targetDate={pendingDrop.targetDate}
+          clientName={pendingDrop.rdv.client}
+          onConfirm={handleTimeConfirm}
+        />
+      )}
     </DndContext>
   );
 }
