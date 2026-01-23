@@ -70,6 +70,7 @@ interface Vente {
   created_at: string;
   decom_montant?: number | null;
   decom_raison?: string | null;
+  regie_id?: string | null;
   client: {
     id: string;
     nom: string;
