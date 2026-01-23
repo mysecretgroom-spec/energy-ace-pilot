@@ -255,10 +255,10 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get authorized emails for this user
+    // Get authorized emails for this user (with regie_id for auto-attribution)
     const { data: authorizedEmails, error: emailsError } = await supabase
       .from("emails_autorises")
-      .select("email")
+      .select("email, regie_id")
       .eq("user_id", userId)
       .eq("actif", true);
 
@@ -272,6 +272,12 @@ serve(async (req) => {
       );
     }
 
+    // Build a map of email -> regie_id for auto-attribution
+    const emailToRegieMap: Record<string, string | null> = {};
+    for (const e of authorizedEmails) {
+      emailToRegieMap[e.email.toLowerCase()] = e.regie_id;
+    }
+    
     const authorizedEmailList = authorizedEmails.map(e => e.email.toLowerCase());
     console.log("Authorized emails:", authorizedEmailList);
 
@@ -413,6 +419,9 @@ serve(async (req) => {
 
         console.log(`Processing: ${subject} from ${senderEmail}`);
 
+        // Get regie_id from email source for auto-attribution
+        const regieId = emailToRegieMap[senderEmail] || null;
+        
         // Call import-rdv-email to parse and create RDV
         const importResponse = await fetch(
           `${SUPABASE_URL}/functions/v1/import-rdv-email`,
@@ -426,7 +435,8 @@ serve(async (req) => {
               sender_email: senderEmail,
               subject,
               body,
-              user_id: userId
+              user_id: userId,
+              regie_id: regieId
             })
           }
         );
