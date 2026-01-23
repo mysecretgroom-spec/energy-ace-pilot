@@ -108,12 +108,20 @@ export async function generatePdfFromFile(
     const arrayBuffer = await file.arrayBuffer();
     const blob = new Blob([arrayBuffer], { type: "application/pdf" });
 
-    // Try to generate thumbnail from first page using pdfjs
+    // Try to generate thumbnail from first page using pdfjs with timeout
     try {
       const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      
+      // Use unpkg as fallback CDN which is more reliable
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Add timeout for PDF loading (10 seconds max)
+      const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("PDF load timeout")), 10000)
+      );
+
+      const pdf = await Promise.race([loadPromise, timeoutPromise]);
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 0.5 });
 
@@ -126,9 +134,25 @@ export async function generatePdfFromFile(
         await page.render({ canvasContext: ctx, viewport }).promise;
         thumbnails.push(canvas.toDataURL("image/jpeg", 0.7));
       }
-    } catch {
-      // If thumbnail generation fails, use a placeholder
-      console.log("Could not generate PDF thumbnail");
+    } catch (err) {
+      // If thumbnail generation fails, generate a simple placeholder image
+      console.warn("Could not generate PDF thumbnail:", err);
+      // Create a simple placeholder thumbnail with text
+      const canvas = document.createElement("canvas");
+      canvas.width = 200;
+      canvas.height = 260;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#f1f5f9";
+        ctx.fillRect(0, 0, 200, 260);
+        ctx.fillStyle = "#64748b";
+        ctx.font = "bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("PDF", 100, 130);
+        ctx.font = "10px sans-serif";
+        ctx.fillText(file.name.slice(0, 20), 100, 150);
+        thumbnails.push(canvas.toDataURL("image/jpeg", 0.8));
+      }
     }
 
     return { blob, thumbnails };
