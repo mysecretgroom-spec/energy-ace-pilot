@@ -5,6 +5,7 @@ import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, 
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
 import { RegieSelector } from "./RegieSelector";
+import { ExternalVenteDialog } from "./ExternalVenteDialog";
 import { RdvStatus } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ interface RdvActionsProps {
   regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
+  rdvDate?: string; // Date du RDV pour pré-remplir les ventes externes
   onRefresh: () => void;
   onStatusChange?: (newStatus: RdvStatus) => void;
   onRegieChange?: (regieId: string | null, regieNom: string | null, regieCouleur: string | null) => void;
@@ -51,6 +53,7 @@ export function RdvActions({
   regieId,
   regieNom,
   regieCouleur,
+  rdvDate,
   onRefresh,
   onStatusChange,
   onRegieChange,
@@ -58,6 +61,7 @@ export function RdvActions({
 }: RdvActionsProps) {
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
+  const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
 
   const handleNavigate = (path: string) => {
     onBeforeNavigate?.();
@@ -111,13 +115,8 @@ export function RdvActions({
   };
 
   const handleCreateVente = () => {
-    // Navigate to CRM with pre-filled data via URL params
-    const params = new URLSearchParams({
-      clientId,
-      clientName,
-      type: 'external_installation',
-    });
-    handleNavigate(`/crm?newVente=true&${params.toString()}`);
+    // Open the external vente dialog directly
+    setExternalVenteDialogOpen(true);
   };
 
   const handleStatusChangeInternal = (newStatus: RdvStatus) => {
@@ -250,6 +249,18 @@ export function RdvActions({
           <Euro className="h-4 w-4" />
         </Button>
       )}
+      
+      {/* External Vente Dialog */}
+      <ExternalVenteDialog
+        open={externalVenteDialogOpen}
+        onOpenChange={setExternalVenteDialogOpen}
+        clientId={clientId}
+        clientName={clientName}
+        rdvId={rdvId}
+        rdvDate={rdvDate}
+        regieId={regieId}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 }

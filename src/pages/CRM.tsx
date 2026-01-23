@@ -590,7 +590,7 @@ const CRM = () => {
                     </Select>
                     {formData.type_vente === 'external_installation' && (
                       <p className="text-xs text-muted-foreground bg-amber-500/10 p-2 rounded border border-amber-200">
-                        💡 Cette vente sera directement marquée comme "Payée" et hors pipeline standard.
+                        💡 Cette vente sera créée au statut "Posé". Seuls la date de pose et le montant de la commission sont requis.
                       </p>
                     )}
                   </div>
@@ -623,7 +623,8 @@ const CRM = () => {
                     </div>
                   )}
 
-                  {formData.client_id && clientEtudes.length > 0 && (
+                  {/* Étude associée - seulement pour ventes standard */}
+                  {formData.type_vente !== 'external_installation' && formData.client_id && clientEtudes.length > 0 && (
                     <div className="space-y-2">
                       <Label>Étude associée</Label>
                       <Select value={formData.etude_id} onValueChange={handleEtudeChange}>
@@ -641,80 +642,115 @@ const CRM = () => {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Montant HT *
-                        <Badge variant="outline" className="text-xs font-normal bg-muted">HT</Badge>
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          value={formData.montant_ht}
-                          onChange={(e) => {
-                            const ht = e.target.value;
-                            const ttc = ht ? (parseFloat(ht) * 1.2).toFixed(2) : "";
-                            setFormData(prev => ({ ...prev, montant_ht: ht, montant_ttc: ttc }));
-                          }}
-                          placeholder="0"
-                          className="pr-8"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                  {/* Pour ventes externes: juste commission et date de pose */}
+                  {formData.type_vente === 'external_installation' ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Commission (€ HT) *</Label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={formData.montant_ht}
+                            onChange={(e) => {
+                              const ht = e.target.value;
+                              setFormData(prev => ({ ...prev, montant_ht: ht, montant_ttc: ht }));
+                            }}
+                            placeholder="Ex: 500"
+                            className="pr-8"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Montant que vous facturez pour cette installation</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">Hors taxes (base commissions)</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        Montant TTC *
-                        <Badge className="text-xs font-normal bg-primary/20 text-primary border-0">TTC</Badge>
-                      </Label>
-                      <div className="relative">
+
+                      <div className="space-y-2">
+                        <Label>Date de pose *</Label>
                         <Input
-                          type="number"
-                          value={formData.montant_ttc}
-                          onChange={(e) => {
-                            const ttc = e.target.value;
-                            const ht = ttc ? (parseFloat(ttc) / 1.2).toFixed(2) : "";
-                            setFormData(prev => ({ ...prev, montant_ttc: ttc, montant_ht: ht }));
-                          }}
-                          placeholder="0"
-                          className="pr-8"
+                          type="date"
+                          value={formData.date_signature}
+                          onChange={(e) => setFormData(prev => ({ ...prev, date_signature: e.target.value }))}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">Toutes taxes comprises</p>
-                    </div>
-                  </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Montants HT/TTC pour ventes standard */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            Montant HT *
+                            <Badge variant="outline" className="text-xs font-normal bg-muted">HT</Badge>
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              value={formData.montant_ht}
+                              onChange={(e) => {
+                                const ht = e.target.value;
+                                const ttc = ht ? (parseFloat(ht) * 1.2).toFixed(2) : "";
+                                setFormData(prev => ({ ...prev, montant_ht: ht, montant_ttc: ttc }));
+                              }}
+                              placeholder="0"
+                              className="pr-8"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Hors taxes (base commissions)</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            Montant TTC *
+                            <Badge className="text-xs font-normal bg-primary/20 text-primary border-0">TTC</Badge>
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              value={formData.montant_ttc}
+                              onChange={(e) => {
+                                const ttc = e.target.value;
+                                const ht = ttc ? (parseFloat(ttc) / 1.2).toFixed(2) : "";
+                                setFormData(prev => ({ ...prev, montant_ttc: ttc, montant_ht: ht }));
+                              }}
+                              placeholder="0"
+                              className="pr-8"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Toutes taxes comprises</p>
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Puissance (kWc)</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={formData.puissance_kwc}
-                        onChange={(e) => setFormData(prev => ({ ...prev, puissance_kwc: e.target.value }))}
-                        placeholder="9.0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>N° Contrat</Label>
-                      <Input
-                        value={formData.numero_contrat}
-                        onChange={(e) => setFormData(prev => ({ ...prev, numero_contrat: e.target.value }))}
-                        placeholder="CTR-001"
-                      />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Puissance (kWc)</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            value={formData.puissance_kwc}
+                            onChange={(e) => setFormData(prev => ({ ...prev, puissance_kwc: e.target.value }))}
+                            placeholder="9.0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>N° Contrat</Label>
+                          <Input
+                            value={formData.numero_contrat}
+                            onChange={(e) => setFormData(prev => ({ ...prev, numero_contrat: e.target.value }))}
+                            placeholder="CTR-001"
+                          />
+                        </div>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label>Date signature</Label>
-                    <Input
-                      type="date"
-                      value={formData.date_signature}
-                      onChange={(e) => setFormData(prev => ({ ...prev, date_signature: e.target.value }))}
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <Label>Date signature</Label>
+                        <Input
+                          type="date"
+                          value={formData.date_signature}
+                          onChange={(e) => setFormData(prev => ({ ...prev, date_signature: e.target.value }))}
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Notes</Label>

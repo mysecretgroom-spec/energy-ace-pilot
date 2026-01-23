@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 interface DayRdvCardProps {
   rdv: {
     id: string;
+    date: Date;
     time: string;
     duration: string;
     client: string;
@@ -206,6 +207,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 regieId={rdv.regieId}
                 regieNom={rdv.regieNom}
                 regieCouleur={rdv.regieCouleur}
+                rdvDate={rdv.date.toISOString().split("T")[0]}
                 onRefresh={onRefresh}
                 onBeforeNavigate={onBeforeNavigate}
               />

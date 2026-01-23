@@ -21,6 +21,7 @@ interface ExternalVenteDialogProps {
   clientId: string;
   clientName: string;
   rdvId?: string;
+  rdvDate?: string; // Date du RDV pour pré-remplir la date de pose
   regieId?: string | null;
   onSuccess: () => void;
 }
@@ -31,12 +32,19 @@ export function ExternalVenteDialog({
   clientId,
   clientName,
   rdvId,
+  rdvDate,
   regieId,
   onSuccess,
 }: ExternalVenteDialogProps) {
   const { user } = useAuth();
   const [commission, setCommission] = useState("");
+  const [datePose, setDatePose] = useState(rdvDate || new Date().toISOString().split("T")[0]);
   const [saving, setSaving] = useState(false);
+
+  // Update date when rdvDate changes
+  useState(() => {
+    if (rdvDate) setDatePose(rdvDate);
+  });
 
   const handleConfirm = async () => {
     const commissionNum = parseFloat(commission);
@@ -65,7 +73,8 @@ export function ExternalVenteDialog({
           montant_ttc: commissionNum, // Same value - no CA for external
           type_vente: 'external_installation',
           status: 'installe', // Starts as "posé", will auto-transition to "attente_paiement"
-          date_signature: new Date().toISOString().split("T")[0],
+          date_signature: datePose, // Date de pose
+          date_pose: datePose,
           regie_id: regieId || null,
         })
         .select()
@@ -96,6 +105,7 @@ export function ExternalVenteDialog({
   const handleClose = () => {
     onOpenChange(false);
     setCommission("");
+    setDatePose(rdvDate || new Date().toISOString().split("T")[0]);
   };
 
   const formatCurrency = (value: number) => {
@@ -123,6 +133,17 @@ export function ExternalVenteDialog({
           <div className="p-3 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground">Client</p>
             <p className="font-medium">{clientName}</p>
+          </div>
+
+          {/* Date de pose */}
+          <div className="space-y-2">
+            <Label htmlFor="external-date-pose">Date de pose</Label>
+            <Input
+              id="external-date-pose"
+              type="date"
+              value={datePose}
+              onChange={(e) => setDatePose(e.target.value)}
+            />
           </div>
 
           {/* Commission input */}
