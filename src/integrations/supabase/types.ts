@@ -1500,7 +1500,9 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          mode_calcul_commission: string | null
           nom: string
+          part_survente_pct: number | null
           updated_at: string
           user_id: string
         }
@@ -1510,7 +1512,9 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          mode_calcul_commission?: string | null
           nom: string
+          part_survente_pct?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1520,7 +1524,9 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          mode_calcul_commission?: string | null
           nom?: string
+          part_survente_pct?: number | null
           updated_at?: string
           user_id?: string
         }

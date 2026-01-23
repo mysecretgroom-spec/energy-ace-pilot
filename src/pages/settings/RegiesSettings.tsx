@@ -48,6 +48,8 @@ interface Regie {
   logo_url: string | null;
   actif: boolean;
   created_at: string;
+  mode_calcul_commission: string;
+  part_survente_pct: number;
 }
 
 interface RegieEmail {
@@ -299,6 +301,46 @@ const RegiesSettings = () => {
       toast.success("Couleur mise à jour");
     } catch (error) {
       console.error("Error updating color:", error);
+    }
+  };
+
+  const handleUpdateCommissionMode = async (mode: 'pourcentage' | 'bouquet') => {
+    if (!selectedRegie) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies")
+        .update({ mode_calcul_commission: mode })
+        .eq("id", selectedRegie.id);
+
+      if (error) throw error;
+      
+      setSelectedRegie({ ...selectedRegie, mode_calcul_commission: mode });
+      setRegies(regies.map(r => r.id === selectedRegie.id ? { ...r, mode_calcul_commission: mode } : r));
+      toast.success(`Mode ${mode === 'bouquet' ? 'Bouquet + Survente' : 'Pourcentage'} activé`);
+    } catch (error) {
+      console.error("Error updating commission mode:", error);
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleUpdateSurventePct = async (pct: number) => {
+    if (!selectedRegie) return;
+    const clampedPct = Math.min(100, Math.max(0, pct));
+    
+    try {
+      const { error } = await supabase
+        .from("regies")
+        .update({ part_survente_pct: clampedPct })
+        .eq("id", selectedRegie.id);
+
+      if (error) throw error;
+      
+      setSelectedRegie({ ...selectedRegie, part_survente_pct: clampedPct });
+      setRegies(regies.map(r => r.id === selectedRegie.id ? { ...r, part_survente_pct: clampedPct } : r));
+    } catch (error) {
+      console.error("Error updating survente pct:", error);
+      toast.error("Erreur lors de la mise à jour");
     }
   };
 
@@ -1006,10 +1048,69 @@ const RegiesSettings = () => {
                   </TabsContent>
 
                   {/* Onglet Bouquets/Tarifs */}
-                  <TabsContent value="bouquets" className="p-4 space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Tarifs et commissions spécifiques à cette régie
-                    </p>
+                  <TabsContent value="bouquets" className="p-4 space-y-4">
+                    {/* Configuration du mode de calcul */}
+                    <Card className="border-primary/20 bg-primary/5">
+                      <CardContent className="p-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Euro className="h-4 w-4 text-primary" />
+                          <h4 className="font-semibold text-sm">Mode de calcul des commissions</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant={selectedRegie.mode_calcul_commission === 'bouquet' ? 'default' : 'outline'}
+                            size="sm"
+                            className="w-full justify-start gap-2"
+                            onClick={() => handleUpdateCommissionMode('bouquet')}
+                          >
+                            <Check className={selectedRegie.mode_calcul_commission === 'bouquet' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
+                            Bouquet + Survente
+                          </Button>
+                          <Button
+                            variant={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'default' : 'outline'}
+                            size="sm"
+                            className="w-full justify-start gap-2"
+                            onClick={() => handleUpdateCommissionMode('pourcentage')}
+                          >
+                            <Check className={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
+                            % sur CA
+                          </Button>
+                        </div>
+
+                        {selectedRegie.mode_calcul_commission === 'bouquet' && (
+                          <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground">Part de survente reversée (%)</label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={selectedRegie.part_survente_pct}
+                                onChange={(e) => handleUpdateSurventePct(parseFloat(e.target.value) || 0)}
+                                className="w-24"
+                              />
+                              <span className="text-sm text-muted-foreground">%</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Commission = Fixe bouquet + {selectedRegie.part_survente_pct}% de (Prix vendu - Prix recommandé) HT
+                            </p>
+                          </div>
+                        )}
+
+                        {selectedRegie.mode_calcul_commission === 'pourcentage' && (
+                          <p className="text-xs text-muted-foreground">
+                            Commission = Pourcentage du CA selon les tranches configurées dans les paramètres globaux
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {selectedRegie.mode_calcul_commission === 'bouquet' && (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          Tarifs et commissions spécifiques à cette régie
+                        </p>
 
                     {/* Extraction AI */}
                     {user && (
@@ -1126,6 +1227,25 @@ const RegiesSettings = () => {
                       <p className="text-sm text-muted-foreground text-center py-4">
                         Aucun bouquet configuré
                       </p>
+                    )}
+                      </>
+                    )}
+
+                    {selectedRegie.mode_calcul_commission === 'pourcentage' && (
+                      <Card className="bg-muted/30">
+                        <CardContent className="p-4">
+                          <p className="text-sm text-muted-foreground text-center">
+                            En mode pourcentage, les commissions sont calculées selon les tranches définies dans{' '}
+                            <Button 
+                              variant="link" 
+                              className="p-0 h-auto text-primary"
+                              onClick={() => navigate('/parametres/commissions')}
+                            >
+                              Paramètres → Commissions
+                            </Button>
+                          </p>
+                        </CardContent>
+                      </Card>
                     )}
                   </TabsContent>
                 </Tabs>
