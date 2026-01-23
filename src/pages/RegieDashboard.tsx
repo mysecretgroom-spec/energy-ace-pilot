@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,19 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import {
   Calendar,
   Euro,
   TrendingUp,
-  Target,
   ArrowRight,
   Users,
   Loader2,
   BarChart3,
-  CheckCircle2,
   Settings,
   ShoppingBag,
   Percent,
+  Clock,
+  Truck,
+  CheckCircle2,
+  Wallet,
 } from "lucide-react";
 
 interface RegieData {
@@ -27,6 +30,18 @@ interface RegieData {
   nom: string;
   couleur: string;
   actif: boolean;
+}
+
+interface VenteForCommission {
+  id: string;
+  montant_ht: number;
+  montant_ttc: number;
+  puissance_kwc: number | null;
+  decom_montant: number | null;
+  type_vente: 'standard' | 'external_installation';
+  regie_id: string | null;
+  etude_id: string | null;
+  status: string;
 }
 
 interface RegieStats {
@@ -55,6 +70,10 @@ const RegieDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [regie, setRegie] = useState<RegieData | null>(null);
   const [stats, setStats] = useState<RegieStats | null>(null);
+  const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
+
+  // Calculate commissions using the hook
+  const { commissions, getCommission } = useVenteCommissions(ventesForCommission);
 
   useEffect(() => {
     if (user && id) {
@@ -85,7 +104,7 @@ const RegieDashboard = () => {
       const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult] = await Promise.all([
         supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", id),
         supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", id).gte("date_heure", startOfMonth),
-        supabase.from("ventes").select("id, montant_ttc, status").eq("regie_id", id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente").eq("regie_id", id),
         supabase.from("ventes").select("id, montant_ttc").eq("regie_id", id).gte("date_signature", startOfMonth.split("T")[0]),
       ]);
 
@@ -93,6 +112,19 @@ const RegieDashboard = () => {
       const ventesMois = ventesMoisResult.data || [];
       const rdvTotal = rdvResult.count || 0;
       const rdvMois = rdvMoisResult.count || 0;
+
+      // Store ventes for commission calculation
+      setVentesForCommission(ventes.map(v => ({
+        id: v.id,
+        montant_ht: v.montant_ht,
+        montant_ttc: v.montant_ttc,
+        puissance_kwc: v.puissance_kwc,
+        decom_montant: v.decom_montant,
+        type_vente: v.type_vente || 'standard',
+        regie_id: v.regie_id,
+        etude_id: v.etude_id,
+        status: v.status,
+      })));
 
       // Count by status
       const signes = ventes.filter(v => 
@@ -132,6 +164,35 @@ const RegieDashboard = () => {
       setLoading(false);
     }
   };
+
+  // Calculate commission totals by category
+  const commissionStats = useMemo(() => {
+    let enAttente = 0; // signé, attente_financement, cq_a_faire, cq_fait
+    let aVenir = 0;    // envoi_pose, en_installation
+    let duSur = 0;     // installe, attente_paiement
+    let payees = 0;    // paye
+
+    ventesForCommission.forEach(vente => {
+      if (vente.status === "annule") return;
+      
+      const comm = getCommission(vente.id);
+      if (!comm) return;
+
+      const net = comm.commission_nette;
+
+      if (["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(vente.status)) {
+        enAttente += net;
+      } else if (["envoi_pose", "en_installation"].includes(vente.status)) {
+        aVenir += net;
+      } else if (["installe", "attente_paiement"].includes(vente.status)) {
+        duSur += net;
+      } else if (vente.status === "paye") {
+        payees += net;
+      }
+    });
+
+    return { enAttente, aVenir, duSur, payees, potentielTotal: enAttente + aVenir + duSur };
+  }, [ventesForCommission, commissions, getCommission]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -297,6 +358,71 @@ const RegieDashboard = () => {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Suivi des Commissions */}
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              Suivi des Commissions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Commission categories */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs text-muted-foreground">En attente</span>
+                </div>
+                <p className="text-lg font-bold text-amber-700">{formatCurrency(commissionStats.enAttente)}</p>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Truck className="h-4 w-4 text-blue-600" />
+                  <span className="text-xs text-muted-foreground">À venir</span>
+                </div>
+                <p className="text-lg font-bold text-blue-700">{formatCurrency(commissionStats.aVenir)}</p>
+              </div>
+
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs text-muted-foreground">Du Sûr</span>
+                </div>
+                <p className="text-lg font-bold text-emerald-700">{formatCurrency(commissionStats.duSur)}</p>
+              </div>
+
+              <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Euro className="h-4 w-4 text-green-600" />
+                  <span className="text-xs text-muted-foreground">Payées</span>
+                </div>
+                <p className="text-lg font-bold text-green-700">{formatCurrency(commissionStats.payees)}</p>
+              </div>
+            </div>
+
+            {/* Progress bar for potential */}
+            <div className="pt-2 border-t space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Potentiel total</span>
+                <span className="font-bold text-primary">{formatCurrency(commissionStats.potentielTotal)}</span>
+              </div>
+              <Progress 
+                value={commissionStats.potentielTotal > 0 
+                  ? (commissionStats.duSur / commissionStats.potentielTotal) * 100 
+                  : 0} 
+                className="h-2" 
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                {commissionStats.potentielTotal > 0 
+                  ? Math.round((commissionStats.duSur / commissionStats.potentielTotal) * 100)
+                  : 0}% acquis
+              </p>
+            </div>
           </CardContent>
         </Card>
 
