@@ -386,7 +386,7 @@ const Planning = () => {
           <DialogTrigger asChild>
             <Button 
               size="lg" 
-              className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg bg-gradient-hero"
+              className="fixed bottom-[140px] right-4 z-30 h-14 w-14 rounded-full shadow-lg bg-gradient-hero"
             >
               <Plus className="h-6 w-6" />
             </Button>
