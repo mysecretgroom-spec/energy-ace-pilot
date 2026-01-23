@@ -71,6 +71,7 @@ interface Vente {
   decom_montant?: number | null;
   decom_raison?: string | null;
   regie_id?: string | null;
+  etude_id?: string | null;
   client: {
     id: string;
     nom: string;
@@ -249,7 +250,7 @@ const CRM = () => {
       const [ventesRes, etudesRes] = await Promise.all([
         supabase
           .from("ventes")
-          .select("*, client:clients(id, nom, prenom), regie_id")
+          .select("*, client:clients(id, nom, prenom), regie_id, etude_id")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
         supabase

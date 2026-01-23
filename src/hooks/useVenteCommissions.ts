@@ -29,6 +29,13 @@ interface RegieConfig {
   part_survente_pct: number;
 }
 
+interface EtudeSurcouts {
+  id: string;
+  surcout_support: number | null;
+  surcout_compteur: number | null;
+  autre_surcout: number | null;
+}
+
 interface Vente {
   id: string;
   montant_ht: number;
@@ -37,6 +44,7 @@ interface Vente {
   decom_montant?: number | null;
   type_vente?: 'standard' | 'external_installation';
   regie_id?: string | null;
+  etude_id?: string | null;
 }
 
 export const useVenteCommissions = (ventes: Vente[]) => {
@@ -49,11 +57,12 @@ export const useVenteCommissions = (ventes: Vente[]) => {
 
     setLoading(true);
     try {
-      // Get unique regie IDs from ventes
+      // Get unique regie IDs and etude IDs from ventes
       const regieIds = [...new Set(ventes.map(v => v.regie_id).filter(Boolean))] as string[];
+      const etudeIds = [...new Set(ventes.map(v => v.etude_id).filter(Boolean))] as string[];
 
       // Fetch all needed data in parallel
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, prix_max, prix_hejja, commission_fixe").eq("actif", true),
         regieIds.length > 0 
           ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, prix_max, prix_hejja, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
@@ -62,11 +71,16 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+        // Fetch surcharges from etudes
+        etudeIds.length > 0
+          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
+          : Promise.resolve({ data: [] }),
       ]);
 
       const globalBouquets: BouquetData[] = globalBouquetsRes.data || [];
       const regieBouquets: BouquetData[] = regieBouquetsRes.data || [];
       const regies: RegieConfig[] = regiesRes.data || [];
+      const etudes: EtudeSurcouts[] = etudesRes.data || [];
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
       setSurventePct(globalSurventePct);
 
@@ -80,6 +94,9 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           regieBouquetsMap.set(b.regie_id, existing);
         }
       });
+      
+      // Map etude surcharges by etude_id
+      const etudeSurcoutsMap = new Map(etudes.map(e => [e.id, e]));
 
       const newCommissions = new Map<string, CommissionData>();
 
@@ -130,8 +147,18 @@ export const useVenteCommissions = (ventes: Vente[]) => {
         // Base commission = forfait fixe du bouquet
         const baseCommission = commissionFixe;
 
+        // Get surcharges from etude (if linked)
+        // These should NOT be counted as survente - they are technical costs
+        const etudeSurcouts = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
+        const totalSurcouts = etudeSurcouts 
+          ? (Number(etudeSurcouts.surcout_support) || 0) + 
+            (Number(etudeSurcouts.surcout_compteur) || 0) + 
+            (Number(etudeSurcouts.autre_surcout) || 0)
+          : 0;
+
         // Calculate survente bonus:
-        // Survente = X% × (prix vendu TTC - prix recommandé TTC) converti en HT
+        // Survente = X% × (prix vendu TTC - surcoûts TTC - prix recommandé TTC) converti en HT
+        // The surcharges are technical costs and should NOT count as survente
         let bonusSurvente = 0;
         const puissance = vente.puissance_kwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
@@ -139,9 +166,12 @@ export const useVenteCommissions = (ventes: Vente[]) => {
         // Si on a le montant TTC, l'utiliser; sinon recalculer depuis HT
         const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
         
-        if (prixRecommande > 0 && montantTTC > prixRecommande) {
-          // Survente en TTC
-          const surventeTTC = montantTTC - prixRecommande;
+        // Subtract surcharges from sale price before comparing to recommended price
+        const montantTTCSansSurcouts = montantTTC - totalSurcouts;
+        
+        if (prixRecommande > 0 && montantTTCSansSurcouts > prixRecommande) {
+          // Survente en TTC (sans les surcoûts)
+          const surventeTTC = montantTTCSansSurcouts - prixRecommande;
           // Convertir en HT
           const surventeHT = ttcToHT(surventeTTC, tauxTVA);
           // Appliquer le pourcentage de la régie ou global
