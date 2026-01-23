@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
+import { Sun, Loader2, Eye, EyeOff, User, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
@@ -194,34 +194,38 @@ const Login = () => {
               </div>
 
               {/* Checkboxes */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor="rememberMe"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 hover:border-primary/30"
+                >
                   <Checkbox
                     id="rememberMe"
                     checked={rememberMe}
                     onCheckedChange={(checked) => setRememberMe(checked === true)}
                   />
-                  <Label 
-                    htmlFor="rememberMe" 
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Se souvenir de moi
-                  </Label>
-                </div>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Se souvenir de moi</p>
+                    <p className="text-xs text-muted-foreground">Mémoriser mon email</p>
+                  </div>
+                </label>
                 
-                <div className="flex items-center space-x-2">
+                <label
+                  htmlFor="stayConnected"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer transition-all hover:bg-muted/50 hover:border-primary/30"
+                >
                   <Checkbox
                     id="stayConnected"
                     checked={stayConnected}
                     onCheckedChange={(checked) => setStayConnected(checked === true)}
                   />
-                  <Label 
-                    htmlFor="stayConnected" 
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    Rester connecté
-                  </Label>
-                </div>
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Rester connecté</p>
+                    <p className="text-xs text-muted-foreground">Ne pas me déconnecter</p>
+                  </div>
+                </label>
               </div>
 
               <Button
