@@ -49,116 +49,45 @@
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Simple loading styles -->
+    <style>
+      @keyframes pwa-spin { to { transform: rotate(360deg); } }
+      #pwa-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #pwa-loading .spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: pwa-spin 1s linear infinite;
+        margin-bottom: 16px;
+      }
+      #pwa-loading p {
+        color: rgba(255,255,255,0.8);
+        font-size: 14px;
+        margin: 0;
+      }
+    </style>
   </head>
 
   <body>
     <div id="root">
-      <!-- Fallback loading screen for PWA -->
-      <style>
-        @keyframes pwa-spin { to { transform: rotate(360deg); } }
-        #pwa-loading {
-          position: fixed;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
-          z-index: 9999;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        #pwa-loading .spinner {
-          width: 48px;
-          height: 48px;
-          border: 3px solid rgba(255,255,255,0.3);
-          border-top-color: #3b82f6;
-          border-radius: 50%;
-          animation: pwa-spin 1s linear infinite;
-          margin-bottom: 16px;
-        }
-        #pwa-loading p {
-          color: rgba(255,255,255,0.8);
-          font-size: 14px;
-          margin: 0;
-        }
-        #pwa-loading .retry-btn {
-          margin-top: 24px;
-          padding: 12px 24px;
-          background: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          font-size: 14px;
-          cursor: pointer;
-          display: none;
-        }
-      </style>
       <div id="pwa-loading">
         <div class="spinner"></div>
         <p>Chargement de DébalePro...</p>
-        <button class="retry-btn" id="pwa-retry" onclick="window.pwaRetry()">Réessayer</button>
       </div>
     </div>
-    <script>
-      // Detect standalone mode
-      var isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-      
-      // PWA Cache recovery
-      window.pwaRetry = function() {
-        document.getElementById('pwa-retry').textContent = 'Nettoyage...';
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(regs) {
-            regs.forEach(function(r) { r.unregister(); });
-          });
-        }
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            Promise.all(names.map(function(n) { return caches.delete(n); })).then(function() {
-              // Clear localStorage too
-              try { localStorage.clear(); } catch(e) {}
-              window.location.href = '/?nocache=' + Date.now();
-            });
-          });
-        } else {
-          window.location.href = '/?nocache=' + Date.now();
-        }
-      };
-      
-      // In standalone mode, clear old caches on first load
-      if (isStandalone) {
-        var lastCacheClear = localStorage.getItem('pwa_cache_cleared');
-        var now = Date.now();
-        // Clear cache if older than 24 hours or never cleared
-        if (!lastCacheClear || (now - parseInt(lastCacheClear)) > 86400000) {
-          if ('caches' in window) {
-            caches.keys().then(function(names) {
-              if (names.length > 0) {
-                Promise.all(names.map(function(n) { return caches.delete(n); })).then(function() {
-                  localStorage.setItem('pwa_cache_cleared', now.toString());
-                  // Don't reload, just let it load fresh
-                });
-              }
-            });
-          }
-        }
-      }
-      
-      // Show retry button after 5 seconds if app hasn't loaded
-      setTimeout(function() {
-        var btn = document.getElementById('pwa-retry');
-        if (btn) btn.style.display = 'block';
-      }, 5000);
-      
-      // Auto-retry after 12 seconds in standalone mode
-      if (isStandalone) {
-        setTimeout(function() {
-          var loading = document.getElementById('pwa-loading');
-          if (loading) {
-            window.pwaRetry();
-          }
-        }, 12000);
-      }
-    </script>
-    <script type="module" src="/src/main.tsx" onerror="document.getElementById('pwa-retry').style.display='block'"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
