@@ -37,9 +37,24 @@ import {
   Route,
   ArrowRight,
   Map,
+  Building2,
+  Filter,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Regie {
+  id: string;
+  nom: string;
+  couleur: string | null;
+}
 
 type ViewMode = "jour" | "semaine" | "mois";
 
@@ -87,6 +102,8 @@ const Planning = () => {
   const [quickRdvOpen, setQuickRdvOpen] = useState(false);
   const [selectedRdv, setSelectedRdv] = useState<RdvData | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [regies, setRegies] = useState<Regie[]>([]);
+  const [selectedRegieId, setSelectedRegieId] = useState<string | null>(null);
 
   // Use planning routes hook for day view distances
   const { 
@@ -96,6 +113,21 @@ const Planning = () => {
     tomorrowFirstDistance,
     refetch: refetchRoutes 
   } = usePlanningRoutes(currentDate);
+
+  // Fetch regies
+  useEffect(() => {
+    const fetchRegies = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .eq("user_id", user.id)
+        .eq("actif", true)
+        .order("nom");
+      if (data) setRegies(data);
+    };
+    fetchRegies();
+  }, [user]);
 
   // Handle click on calendar RDV
   const handleCalendarRdvClick = (rdv: RdvData) => {
@@ -180,7 +212,7 @@ const Planning = () => {
         endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("rdv")
         .select(`
           id,
@@ -196,6 +228,7 @@ const Planning = () => {
           etude_id,
           latitude,
           longitude,
+          regie_id,
           clients!inner(
             id,
             nom,
@@ -212,6 +245,13 @@ const Planning = () => {
         .gte("date_heure", startDate.toISOString())
         .lte("date_heure", endDate.toISOString())
         .order("date_heure", { ascending: true });
+
+      // Apply regie filter if selected
+      if (selectedRegieId) {
+        query = query.eq("regie_id", selectedRegieId);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching RDVs:", error);
@@ -290,7 +330,7 @@ const Planning = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, currentDate, viewMode]);
+  }, [user, currentDate, viewMode, selectedRegieId]);
 
   // Merge route data with rdvList for day view
   const rdvListWithRoutes: RdvData[] = viewMode === "jour" && routeRdvs.length > 0
@@ -351,16 +391,16 @@ const Planning = () => {
           </Button>
         </div>
 
-        {/* Header stats simplifié */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
+        {/* Header stats et filtre régie */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Car className="h-5 w-5" />
               <span className="font-medium">{rdvListWithRoutes.length} RDV</span>
             </div>
             {viewMode === "jour" && totalDistance > 0 && (
-              <div className="flex items-center gap-2 text-primary font-medium">
-                <Route className="h-5 w-5" />
+              <div className="flex items-center gap-2 text-primary font-medium text-sm">
+                <Route className="h-4 w-4" />
                 <span>{totalDistance} km</span>
               </div>
             )}
@@ -368,6 +408,36 @@ const Planning = () => {
           
           {/* Actions regroupées */}
           <div className="flex items-center gap-2">
+            {/* Filtre Régie */}
+            {regies.length > 0 && (
+              <Select
+                value={selectedRegieId || "all"}
+                onValueChange={(value) => setSelectedRegieId(value === "all" ? null : value)}
+              >
+                <SelectTrigger className="w-[130px] h-9">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Régie" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes</SelectItem>
+                  {regies.map((regie) => (
+                    <SelectItem key={regie.id} value={regie.id}>
+                      <div className="flex items-center gap-2">
+                        {regie.couleur && (
+                          <div 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: regie.couleur }}
+                          />
+                        )}
+                        {regie.nom}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {viewMode === "jour" && rdvListWithRoutes.length > 0 && (
               <Button
                 variant={showMap ? "default" : "ghost"}
