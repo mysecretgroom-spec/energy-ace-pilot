@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
+import { BankImport } from "@/components/finance/BankImport";
 import { AddDocumentFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
@@ -35,6 +36,7 @@ import {
   FolderOpen,
   FileText,
   Loader2,
+  FileSpreadsheet,
   CheckCircle,
   Clock,
   Ban,
@@ -108,6 +110,7 @@ const Finance = () => {
   const [activeTab, setActiveTab] = useState("frais");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [documentFlowOpen, setDocumentFlowOpen] = useState(false);
+  const [bankImportOpen, setBankImportOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
@@ -722,6 +725,35 @@ const Finance = () => {
                 <Plus className="h-5 w-5" />
                 Ajouter une facture
               </Button>
+              
+              <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-12">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Import CSV
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="p-0 max-w-lg max-h-[85vh] overflow-hidden">
+                  <BankImport 
+                    onSuccess={() => {
+                      setBankImportOpen(false);
+                      // Refresh data
+                      if (user) {
+                        supabase
+                          .from("frais")
+                          .select("*")
+                          .eq("user_id", user.id)
+                          .order("date_frais", { ascending: false })
+                          .limit(10)
+                          .then(({ data }) => {
+                            if (data) setFraisData(data as FraisItem[]);
+                          });
+                      }
+                    }}
+                    onCancel={() => setBankImportOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
               
               <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
                 <DialogTrigger asChild>
