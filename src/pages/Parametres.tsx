@@ -27,6 +27,7 @@ import {
   CreditCard,
   MessageSquare,
   Target,
+  Building2,
 } from "lucide-react";
 
 const settingsSections = [
@@ -126,6 +127,17 @@ const settingsSections = [
         label: "Financements",
         description: "Taux, TAEG, durées",
         path: "/parametres/data-financements",
+      },
+    ],
+  },
+  {
+    title: "Régies & Sources",
+    items: [
+      {
+        icon: Building2,
+        label: "Régies",
+        description: "Sources RDV, contacts, tarifs",
+        path: "/parametres/regies",
       },
     ],
   },
