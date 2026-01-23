@@ -1805,6 +1805,7 @@ export type Database = {
           date_installation_prevue: string | null
           date_installation_reelle: string | null
           date_paiement: string | null
+          date_pose: string | null
           date_signature: string | null
           decom_montant: number | null
           decom_raison: string | null
@@ -1831,6 +1832,7 @@ export type Database = {
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
+          date_pose?: string | null
           date_signature?: string | null
           decom_montant?: number | null
           decom_raison?: string | null
@@ -1857,6 +1859,7 @@ export type Database = {
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
+          date_pose?: string | null
           date_signature?: string | null
           decom_montant?: number | null
           decom_raison?: string | null
