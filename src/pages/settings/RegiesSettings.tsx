@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
+import { findOrInterpolateBouquet } from "@/lib/bouquetInterpolation";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -169,50 +171,119 @@ const RegiesSettings = () => {
       if (error) throw error;
       setRegies(data || []);
 
-      // Fetch stats for each regie
+      // Fetch stats for each regie using DYNAMIC commission calculation
       const statsMap: Record<string, RegieStats> = {};
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       
+      // Get all regie IDs
+      const regieIds = (data || []).map(r => r.id);
+      
+      // Fetch all data needed for commission calculation
+      const [allRdv, allVentes, allBouquets, allEtudes, globalConfig] = await Promise.all([
+        supabase.from("rdv").select("id, regie_id, date_heure"),
+        supabase.from("ventes").select("id, regie_id, status, montant_ht, montant_ttc, puissance_kwc, decom_montant, type_vente, etude_id, date_signature"),
+        supabase.from("regies_bouquets").select("*").eq("actif", true),
+        supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout"),
+        supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+      ]);
+      
+      const rdvData = allRdv.data || [];
+      const ventesData = allVentes.data || [];
+      const bouquetsData = allBouquets.data || [];
+      const etudesData = allEtudes.data || [];
+      const globalSurventePct = globalConfig.data?.part_survente_pct || 50;
+      
+      // Create maps for quick lookup
+      const etudeSurcoutsMap = new Map(etudesData.map(e => [e.id, e]));
+      
+      // Group bouquets by regie_id
+      const bouquetsByRegie = new Map<string, typeof bouquetsData>();
+      for (const b of bouquetsData) {
+        const existing = bouquetsByRegie.get(b.regie_id) || [];
+        existing.push({
+          ...b,
+          puissance_kwc: Number(b.puissance_kwc),
+          prix_recommande: Number(b.prix_recommande),
+          commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+        });
+        bouquetsByRegie.set(b.regie_id, existing);
+      }
+      
+      // Calculate stats for each regie
       for (const regie of data || []) {
-        const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult, commissionsResult] = await Promise.all([
-          supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id),
-          supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id).gte("date_heure", startOfMonth),
-          supabase.from("ventes").select("id, montant_solde, status").eq("regie_id", regie.id),
-          supabase.from("ventes").select("id, montant_solde").eq("regie_id", regie.id).gte("date_signature", startOfMonth.split("T")[0]),
-          supabase.from("commissions").select("montant_commission, paye, vente:ventes!inner(status, regie_id)").eq("vente.regie_id", regie.id),
-        ]);
+        const regieRdv = rdvData.filter(r => r.regie_id === regie.id);
+        const regieRdvMois = regieRdv.filter(r => r.date_heure >= startOfMonth);
+        const regieVentes = ventesData.filter(v => v.regie_id === regie.id);
+        const regieVentesMois = regieVentes.filter(v => v.date_signature && v.date_signature >= startOfMonth.split("T")[0]);
         
-        const ventes = ventesResult.data || [];
-        const ventesMois = ventesMoisResult.data || [];
-        const commissions = (commissionsResult.data || []) as any[];
+        // Get bouquets for this regie
+        const regieBouquets = bouquetsByRegie.get(regie.id) || [];
+        const partSurventePct = regie.part_survente_pct ?? globalSurventePct;
         
-        // Calculate commissions by category
-        let commEnAttente = 0;  // Signé, financement, CQ
-        let commAVenir = 0;     // Envoi pose, en installation
-        let commDuSur = 0;      // Installé, attente paiement
-        let commPayees = 0;     // Payé
+        // Calculate commissions dynamically
+        let commEnAttente = 0;
+        let commAVenir = 0;
+        let commDuSur = 0;
+        let commPayees = 0;
         
-        for (const c of commissions) {
-          const status = c.vente?.status;
-          const montant = Number(c.montant_commission) || 0;
+        for (const vente of regieVentes) {
+          // Skip cancelled sales
+          if (vente.status === 'annule') continue;
           
-          if (c.paye) {
-            commPayees += montant;
-          } else if (["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(status)) {
-            commEnAttente += montant;
-          } else if (["envoi_pose", "en_installation"].includes(status)) {
-            commAVenir += montant;
-          } else if (["installe", "attente_paiement"].includes(status)) {
-            commDuSur += montant;
+          let commissionNette = 0;
+          
+          // External installation: commission = montant HT
+          if (vente.type_vente === 'external_installation') {
+            const decomMontant = Number(vente.decom_montant) || 0;
+            commissionNette = Math.max(0, Number(vente.montant_ht) - decomMontant);
+          } else if (vente.puissance_kwc && regieBouquets.length > 0) {
+            // Standard calculation using bouquet interpolation
+            const puissanceKwc = Number(vente.puissance_kwc);
+            const interpolated = findOrInterpolateBouquet(regieBouquets, puissanceKwc);
+            const commissionFixe = interpolated.commissionFixe;
+            const prixRecommande = interpolated.prixRecommande;
+            
+            // Calculate survente bonus
+            const etudeSurcouts = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
+            const totalSurcouts = etudeSurcouts 
+              ? (Number(etudeSurcouts.surcout_support) || 0) + 
+                (Number(etudeSurcouts.surcout_compteur) || 0) + 
+                (Number(etudeSurcouts.autre_surcout) || 0)
+              : 0;
+            
+            const tauxTVA = getTauxTVAByPuissance(puissanceKwc);
+            const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
+            const montantTTCSansSurcouts = montantTTC - totalSurcouts;
+            
+            let bonusSurvente = 0;
+            if (prixRecommande > 0 && montantTTCSansSurcouts > prixRecommande) {
+              const surventeTTC = montantTTCSansSurcouts - prixRecommande;
+              const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+              bonusSurvente = surventeHT * (partSurventePct / 100);
+            }
+            
+            const decomMontant = Number(vente.decom_montant) || 0;
+            commissionNette = Math.max(0, commissionFixe + bonusSurvente - decomMontant);
+          }
+          
+          // Categorize by status
+          if (["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(vente.status)) {
+            commEnAttente += commissionNette;
+          } else if (["envoi_pose", "en_installation"].includes(vente.status)) {
+            commAVenir += commissionNette;
+          } else if (["installe", "attente_paiement"].includes(vente.status)) {
+            commDuSur += commissionNette;
+          } else if (vente.status === "paye") {
+            commPayees += commissionNette;
           }
         }
         
         statsMap[regie.id] = {
-          rdv: rdvResult.count || 0,
-          ventes: ventes.length,
-          rdvMois: rdvMoisResult.count || 0,
-          ventesMois: ventesMois.length,
+          rdv: regieRdv.length,
+          ventes: regieVentes.filter(v => v.status !== 'annule').length,
+          rdvMois: regieRdvMois.length,
+          ventesMois: regieVentesMois.length,
           commEnAttente,
           commAVenir,
           commDuSur,
