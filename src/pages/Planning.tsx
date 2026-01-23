@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -14,9 +14,7 @@ import { GmailSync } from "@/components/planning/GmailSync";
 import { WeekCalendarView } from "@/components/planning/WeekCalendarView";
 import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
 import { DayRdvCard } from "@/components/planning/DayRdvCard";
-
-// Lazy load RouteMap to avoid react-leaflet context issues
-const RouteMap = lazy(() => import("@/components/planning/RouteMap").then(m => ({ default: m.RouteMap })));
+import { RouteMap } from "@/components/planning/RouteMap";
 import {
   Dialog,
   DialogContent,
@@ -409,30 +407,20 @@ const Planning = () => {
 
         {/* Carte interactive */}
         {viewMode === "jour" && showMap && rdvListWithRoutes.length > 0 && (
-          <Suspense fallback={
-            <Card className="shadow-lg">
-              <CardContent className="p-4">
-                <div className="h-[400px] flex items-center justify-center">
-                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          }>
-            <RouteMap
-              rdvList={rdvListWithRoutes.map(rdv => ({
-                id: rdv.id,
-                time: rdv.time,
-                client: rdv.client,
-                address: [rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(", "),
-                status: rdv.status,
-                latitude: rdv.latitude,
-                longitude: rdv.longitude,
-                isR2: rdv.isR2,
-                typeRdv: rdv.typeRdv,
-              }))}
-              onClose={() => setShowMap(false)}
-            />
-          </Suspense>
+          <RouteMap
+            rdvList={rdvListWithRoutes.map(rdv => ({
+              id: rdv.id,
+              time: rdv.time,
+              client: rdv.client,
+              address: [rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(", "),
+              status: rdv.status,
+              latitude: rdv.latitude,
+              longitude: rdv.longitude,
+              isR2: rdv.isR2,
+              typeRdv: rdv.typeRdv,
+            }))}
+            onClose={() => setShowMap(false)}
+          />
         )}
 
         {/* Loading state */}

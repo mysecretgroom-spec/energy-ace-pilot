@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,71 +61,9 @@ const createNumberedIcon = (number: number, isR2: boolean, isExternal: boolean) 
   });
 };
 
-// Component to fit bounds
-function FitBounds({ positions }: { positions: [number, number][] }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (positions.length > 0) {
-      const bounds = L.latLngBounds(positions.map(p => L.latLng(p[0], p[1])));
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [map, positions]);
-
-  return null;
-}
-
-// Separate component for map content to avoid context consumer issues
-function RouteContent({ rdvsWithCoords, positions }: { rdvsWithCoords: RdvMapData[], positions: [number, number][] }) {
-  return (
-    <>
-      {/* Route line */}
-      {positions.length > 1 && (
-        <Polyline
-          positions={positions}
-          color="#3b82f6"
-          weight={4}
-          opacity={0.7}
-          dashArray="10, 10"
-        />
-      )}
-
-      {/* Markers */}
-      {rdvsWithCoords.map((rdv, index) => (
-        <Marker
-          key={rdv.id}
-          position={[rdv.latitude!, rdv.longitude!]}
-          icon={createNumberedIcon(
-            index + 1, 
-            rdv.isR2 || false, 
-            rdv.typeRdv === "external_installation"
-          )}
-        >
-          <Popup>
-            <div className="min-w-[180px]">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-bold text-primary">{rdv.time}</span>
-                <StatusBadge status={rdv.status} className="text-[10px]" />
-              </div>
-              <p className="font-semibold text-sm mb-1">{rdv.client}</p>
-              <p className="text-xs text-muted-foreground">{rdv.address}</p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-
-      <FitBounds positions={positions} />
-    </>
-  );
-}
-
 export function RouteMap({ rdvList, onClose }: RouteMapProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Wait for client-side mount to avoid SSR/hydration issues with Leaflet
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const [mapRef, setMapRef] = useState<HTMLDivElement | null>(null);
+  const [leafletMap, setLeafletMap] = useState<L.Map | null>(null);
 
   // Filter RDVs with valid coordinates
   const rdvsWithCoords = useMemo(() => 
@@ -147,6 +84,69 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
     const avgLng = positions.reduce((sum, p) => sum + p[1], 0) / positions.length;
     return [avgLat, avgLng];
   }, [positions]);
+
+  // Initialize map imperatively to avoid react-leaflet context issues
+  useEffect(() => {
+    if (!mapRef || rdvsWithCoords.length === 0) return;
+
+    // Check if map already exists
+    if (leafletMap) {
+      leafletMap.remove();
+    }
+
+    // Create map imperatively
+    const map = L.map(mapRef).setView(center, 10);
+
+    // Add tile layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    // Add route line
+    if (positions.length > 1) {
+      L.polyline(positions, {
+        color: "#3b82f6",
+        weight: 4,
+        opacity: 0.7,
+        dashArray: "10, 10",
+      }).addTo(map);
+    }
+
+    // Add markers
+    rdvsWithCoords.forEach((rdv, index) => {
+      const marker = L.marker([rdv.latitude!, rdv.longitude!], {
+        icon: createNumberedIcon(
+          index + 1,
+          rdv.isR2 || false,
+          rdv.typeRdv === "external_installation"
+        ),
+      }).addTo(map);
+
+      marker.bindPopup(`
+        <div style="min-width: 180px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span style="font-weight: bold; color: #3b82f6;">${rdv.time}</span>
+            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #e5e7eb;">${rdv.status}</span>
+          </div>
+          <p style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${rdv.client}</p>
+          <p style="font-size: 12px; color: #6b7280;">${rdv.address}</p>
+        </div>
+      `);
+    });
+
+    // Fit bounds
+    if (positions.length > 0) {
+      const bounds = L.latLngBounds(positions.map(p => L.latLng(p[0], p[1])));
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+
+    setLeafletMap(map);
+
+    // Cleanup
+    return () => {
+      map.remove();
+    };
+  }, [mapRef, rdvsWithCoords, positions, center]);
 
   if (rdvsWithCoords.length === 0) {
     return (
@@ -173,30 +173,6 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
     );
   }
 
-  // Show loading state until mounted (client-side)
-  if (!isMounted) {
-    return (
-      <Card className="shadow-lg overflow-hidden">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Navigation className="h-4 w-4 text-primary" />
-              Carte des trajets ({rdvsWithCoords.length} RDV)
-            </CardTitle>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="h-[400px] w-full flex items-center justify-center bg-muted">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="shadow-lg overflow-hidden">
       <CardHeader className="pb-2">
@@ -211,21 +187,11 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-[400px] w-full">
-          <MapContainer
-            center={center}
-            zoom={10}
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            
-            <RouteContent rdvsWithCoords={rdvsWithCoords} positions={positions} />
-          </MapContainer>
-        </div>
+        <div 
+          ref={setMapRef}
+          className="h-[400px] w-full"
+          style={{ zIndex: 0 }}
+        />
 
         {/* Legend */}
         <div className="p-3 bg-muted/50 border-t flex flex-wrap gap-4 text-xs">
