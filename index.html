@@ -52,7 +52,51 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Fallback loading screen for PWA -->
+      <div id="pwa-loading" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); z-index: 9999;">
+        <div style="text-align: center; color: white;">
+          <div style="width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+          <p style="font-family: system-ui, sans-serif; font-size: 14px; opacity: 0.8;">Chargement...</p>
+        </div>
+      </div>
+      <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Timeout fallback: if app doesn't load in 10s, try to recover
+      setTimeout(function() {
+        var loading = document.getElementById('pwa-loading');
+        if (loading && loading.parentNode) {
+          // Check if React has mounted
+          var root = document.getElementById('root');
+          if (root && root.children.length <= 2) {
+            // App hasn't loaded, try clearing service worker cache
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                registrations.forEach(function(registration) {
+                  registration.unregister();
+                });
+                // Clear caches and reload
+                if ('caches' in window) {
+                  caches.keys().then(function(names) {
+                    names.forEach(function(name) {
+                      caches.delete(name);
+                    });
+                    window.location.reload();
+                  });
+                } else {
+                  window.location.reload();
+                }
+              });
+            } else {
+              window.location.reload();
+            }
+          }
+        }
+      }, 10000);
+    </script>
   </body>
 </html>
