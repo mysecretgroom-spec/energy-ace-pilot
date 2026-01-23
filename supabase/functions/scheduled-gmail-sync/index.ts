@@ -126,12 +126,13 @@ serve(async (req) => {
 
         const totalImportedForUser = (syncResult.imported || 0) + (syncResult.updated || 0);
 
-        // Create notification if RDVs were imported
+        // Create notification and send push if RDVs were imported
         if (totalImportedForUser > 0) {
           const message = totalImportedForUser === 1
             ? "1 nouveau RDV a été importé depuis Gmail"
             : `${totalImportedForUser} nouveaux RDV ont été importés depuis Gmail`;
 
+          // Save in-app notification
           await supabase
             .from("notifications")
             .insert({
@@ -142,6 +143,30 @@ serve(async (req) => {
               lue: false,
               date_envoi: now.toISOString()
             });
+
+          // Send push notification via OneSignal
+          try {
+            await fetch(
+              `${SUPABASE_URL}/functions/v1/send-push-notification`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  user_id,
+                  title: "📧 Import Gmail automatique",
+                  message,
+                  url: "/planning",
+                  data: { type: "gmail_import", count: totalImportedForUser }
+                })
+              }
+            );
+            console.log(`Push notification sent to user ${user_id}`);
+          } catch (pushError) {
+            console.error(`Failed to send push to user ${user_id}:`, pushError);
+          }
         }
 
         results.push({
