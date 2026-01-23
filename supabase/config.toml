@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.plaid]
 verify_jwt = false
+
+[functions.analyze-document]
+verify_jwt = true
+
+[functions.process-background-jobs]
+verify_jwt = false
