@@ -10,13 +10,29 @@ export function HejjaToggle() {
   const { isActive, activate, deactivate } = useHejjaMode();
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showFireAnimation, setShowFireAnimation] = useState(false);
+  const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
 
   const handleClick = () => {
     if (isActive) {
-      deactivate();
-      // Restore light mode when deactivating
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
+      // Trigger heaven animation
+      setShowHeavenAnimation(true);
+      
+      // Gentle vibration
+      if (navigator.vibrate) {
+        navigator.vibrate([50, 100, 50]);
+      }
+      
+      // Deactivate after animation starts
+      setTimeout(() => {
+        deactivate();
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      }, 500);
+      
+      // Hide animation after 2 seconds
+      setTimeout(() => {
+        setShowHeavenAnimation(false);
+      }, 2000);
     } else {
       setShowPinDialog(true);
     }
@@ -137,6 +153,122 @@ export function HejjaToggle() {
           {/* Devil emoji appearing */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-9xl animate-devil-appear drop-shadow-[0_0_60px_rgba(255,50,0,1)]">😈</span>
+          </div>
+        </div>
+      )}
+
+      {/* Heaven Animation Overlay */}
+      {showHeavenAnimation && (
+        <div className="fixed inset-0 z-[100] pointer-events-none animate-heaven-overlay overflow-hidden">
+          {/* Pure white/golden background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-sky-100 to-amber-50" />
+          
+          {/* Divine light rays from top */}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% -20%, rgba(255,215,0,0.8) 0%, rgba(255,255,200,0.4) 30%, transparent 70%)' }} />
+          
+          {/* Light beams */}
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={`beam-${i}`}
+              className="absolute top-0 heaven-beam"
+              style={{
+                left: `${8 + i * 8}%`,
+                width: '4px',
+                height: '100%',
+                animationDelay: `${i * 0.1}s`,
+                transform: `rotate(${-15 + i * 2.5}deg)`,
+                transformOrigin: 'top center',
+              }}
+            />
+          ))}
+          
+          {/* Clouds layer - bottom */}
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={`cloud-bottom-${i}`}
+              className="absolute heaven-cloud"
+              style={{
+                left: `${i * 14 - 5}%`,
+                bottom: `${5 + Math.random() * 15}%`,
+                width: `${150 + Math.random() * 100}px`,
+                height: `${80 + Math.random() * 40}px`,
+                animationDelay: `${Math.random() * 2}s`,
+              }}
+            />
+          ))}
+          
+          {/* Clouds layer - middle */}
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={`cloud-mid-${i}`}
+              className="absolute heaven-cloud"
+              style={{
+                left: `${i * 18}%`,
+                top: `${30 + Math.random() * 20}%`,
+                width: `${120 + Math.random() * 80}px`,
+                height: `${60 + Math.random() * 30}px`,
+                animationDelay: `${Math.random() * 1.5}s`,
+              }}
+            />
+          ))}
+          
+          {/* Clouds layer - top */}
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={`cloud-top-${i}`}
+              className="absolute heaven-cloud-bright"
+              style={{
+                left: `${i * 22}%`,
+                top: `${10 + Math.random() * 15}%`,
+                width: `${100 + Math.random() * 60}px`,
+                height: `${50 + Math.random() * 25}px`,
+                animationDelay: `${Math.random() * 1}s`,
+              }}
+            />
+          ))}
+          
+          {/* Golden sparkles */}
+          {[...Array(30)].map((_, i) => (
+            <div
+              key={`sparkle-${i}`}
+              className="absolute heaven-sparkle"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 2}s`,
+              }}
+            />
+          ))}
+          
+          {/* Floating feathers */}
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={`feather-${i}`}
+              className="absolute heaven-feather"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `-5%`,
+                animationDelay: `${Math.random() * 1.5}s`,
+                animationDuration: `${2 + Math.random() * 1}s`,
+              }}
+            >
+              🪶
+            </div>
+          ))}
+          
+          {/* Doves */}
+          <div className="absolute heaven-dove" style={{ left: '20%', top: '20%', animationDelay: '0.2s' }}>🕊️</div>
+          <div className="absolute heaven-dove" style={{ left: '70%', top: '25%', animationDelay: '0.5s' }}>🕊️</div>
+          <div className="absolute heaven-dove" style={{ left: '45%', top: '15%', animationDelay: '0.8s' }}>🕊️</div>
+          
+          {/* Central divine glow */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute w-64 h-64 rounded-full heaven-glow" />
+          </div>
+          
+          {/* Angel emoji appearing */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-9xl animate-angel-appear drop-shadow-[0_0_60px_rgba(255,215,0,1)]">😇</span>
           </div>
         </div>
       )}
@@ -335,6 +467,185 @@ export function HejjaToggle() {
         
         .animate-devil-appear {
           animation: devil-appear 1.5s ease-out forwards;
+        }
+        
+        /* Heaven animations */
+        @keyframes heaven-overlay {
+          0% { opacity: 0; }
+          10% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        
+        @keyframes beam-shimmer {
+          0%, 100% { 
+            opacity: 0.3;
+            transform: scaleX(1);
+          }
+          50% { 
+            opacity: 0.8;
+            transform: scaleX(1.5);
+          }
+        }
+        
+        @keyframes cloud-float {
+          0%, 100% { 
+            transform: translateX(0) translateY(0);
+            opacity: 0.9;
+          }
+          50% { 
+            transform: translateX(10px) translateY(-5px);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes sparkle-twinkle {
+          0%, 100% { 
+            transform: scale(0);
+            opacity: 0;
+          }
+          50% { 
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes feather-fall {
+          0% { 
+            transform: translateY(0) translateX(0) rotate(0deg);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          100% { 
+            transform: translateY(100vh) translateX(50px) rotate(360deg);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes dove-fly {
+          0% { 
+            transform: translateX(-50px) translateY(0) scale(0);
+            opacity: 0;
+          }
+          20% {
+            transform: translateX(0) translateY(-10px) scale(1);
+            opacity: 1;
+          }
+          80% {
+            transform: translateX(100px) translateY(-20px) scale(1);
+            opacity: 1;
+          }
+          100% { 
+            transform: translateX(150px) translateY(-30px) scale(0.5);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes divine-glow {
+          0%, 100% { 
+            transform: scale(1);
+            opacity: 0.5;
+            box-shadow: 0 0 60px 30px rgba(255,215,0,0.5);
+          }
+          50% { 
+            transform: scale(1.2);
+            opacity: 0.8;
+            box-shadow: 0 0 100px 50px rgba(255,215,0,0.7);
+          }
+        }
+        
+        @keyframes angel-appear {
+          0% { 
+            transform: scale(0) translateY(50px); 
+            opacity: 0;
+          }
+          40% { 
+            transform: scale(1.5) translateY(-20px); 
+            opacity: 1;
+          }
+          60% { 
+            transform: scale(1.2) translateY(-10px); 
+            opacity: 1;
+          }
+          80% { 
+            transform: scale(1.1) translateY(-5px); 
+            opacity: 1;
+          }
+          100% { 
+            transform: scale(1) translateY(0); 
+            opacity: 0;
+          }
+        }
+        
+        .animate-heaven-overlay {
+          animation: heaven-overlay 2s ease-out forwards;
+        }
+        
+        .heaven-beam {
+          background: linear-gradient(to bottom,
+            rgba(255,215,0,0.9) 0%,
+            rgba(255,255,200,0.6) 30%,
+            rgba(255,255,255,0.3) 60%,
+            transparent 100%
+          );
+          filter: blur(3px);
+          animation: beam-shimmer 1.5s ease-in-out infinite;
+        }
+        
+        .heaven-cloud {
+          background: radial-gradient(ellipse at center,
+            rgba(255,255,255,1) 0%,
+            rgba(255,255,255,0.9) 40%,
+            rgba(240,248,255,0.6) 70%,
+            transparent 100%
+          );
+          border-radius: 50%;
+          filter: blur(8px);
+          animation: cloud-float 3s ease-in-out infinite;
+        }
+        
+        .heaven-cloud-bright {
+          background: radial-gradient(ellipse at center,
+            rgba(255,255,255,1) 0%,
+            rgba(255,250,220,0.95) 30%,
+            rgba(255,255,255,0.7) 60%,
+            transparent 100%
+          );
+          border-radius: 50%;
+          filter: blur(5px);
+          animation: cloud-float 2.5s ease-in-out infinite;
+        }
+        
+        .heaven-sparkle {
+          width: 8px;
+          height: 8px;
+          background: radial-gradient(circle, #ffffff 0%, #ffd700 50%, transparent 100%);
+          border-radius: 50%;
+          animation: sparkle-twinkle 1s ease-in-out infinite;
+          box-shadow: 0 0 10px #ffd700;
+        }
+        
+        .heaven-feather {
+          font-size: 24px;
+          animation: feather-fall 2.5s ease-in-out forwards;
+          filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
+        }
+        
+        .heaven-dove {
+          font-size: 36px;
+          animation: dove-fly 2s ease-out forwards;
+          filter: drop-shadow(0 0 10px rgba(255,255,255,0.9));
+        }
+        
+        .heaven-glow {
+          background: radial-gradient(circle, rgba(255,215,0,0.4) 0%, transparent 70%);
+          animation: divine-glow 1.5s ease-in-out infinite;
+        }
+        
+        .animate-angel-appear {
+          animation: angel-appear 2s ease-out forwards;
         }
       `}</style>
     </>
