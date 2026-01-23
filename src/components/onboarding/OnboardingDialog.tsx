@@ -27,55 +27,32 @@ export function OnboardingDialog() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Delay onboarding check to not block initial render
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      checkOnboardingStatus();
-    }, 1000); // Wait 1 second after mount
+    // Delay 2s to ensure app is fully loaded first
+    const timeoutId = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (data && !data.onboarding_completed) {
+          setOpen(true);
+        }
+      } catch (err) {
+        console.warn("Onboarding check failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 2000);
 
     return () => clearTimeout(timeoutId);
   }, [user]);
-
-  const checkOnboardingStatus = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Use Promise.race for timeout
-      const fetchPromise = supabase
-        .from("profiles")
-        .select("onboarding_completed")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Timeout")), 5000)
-      );
-
-      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
-      
-      if (result.error) {
-        console.error("Error checking onboarding status:", result.error);
-        setLoading(false);
-        return;
-      }
-
-      // Show onboarding if not completed
-      if (result.data && !result.data.onboarding_completed) {
-        setOpen(true);
-      }
-    } catch (err) {
-      console.error("Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {

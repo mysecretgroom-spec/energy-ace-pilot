@@ -52,48 +52,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Safety timeout to prevent infinite loading on iOS PWA - reduced to 2s
-    const safetyTimeout = setTimeout(() => {
-      if (loading) {
-        console.warn("Auth loading timeout - forcing completion");
+    let mounted = true;
+    
+    // CRITICAL: Force loading to false after 1.5s no matter what (iOS PWA fix)
+    const forceTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("Auth: Force timeout reached");
         setLoading(false);
       }
-    }, 2000);
+    }, 1500);
 
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth state change:", event, "provider_token:", !!session?.provider_token);
+      (event, session) => {
+        if (!mounted) return;
+        console.log("Auth state:", event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Save Google tokens when user signs in with Google
+        // Save Google tokens in background (non-blocking)
         if (event === "SIGNED_IN" && session?.provider_token) {
-          // Use setTimeout to avoid blocking the auth flow
-          setTimeout(() => saveGoogleTokens(session), 0);
+          setTimeout(() => saveGoogleTokens(session), 100);
         }
       }
     );
 
-    // THEN check for existing session - this catches OAuth callback
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log("Initial session check, provider_token:", !!session?.provider_token);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-
-      // Also try to save tokens from initial session (OAuth callback)
-      if (session?.provider_token) {
-        setTimeout(() => saveGoogleTokens(session), 0);
+    // Check existing session with short timeout
+    const checkSession = async () => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1000);
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        clearTimeout(timeout);
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+          
+          if (session?.provider_token) {
+            setTimeout(() => saveGoogleTokens(session), 100);
+          }
+        }
+      } catch (error) {
+        console.warn("Session check failed:", error);
+        if (mounted) setLoading(false);
       }
-    }).catch((error) => {
-      console.error("Error getting session:", error);
-      setLoading(false);
-    });
+    };
+    
+    checkSession();
 
     return () => {
-      clearTimeout(safetyTimeout);
+      mounted = false;
+      clearTimeout(forceTimeout);
       subscription.unsubscribe();
     };
   }, []);
