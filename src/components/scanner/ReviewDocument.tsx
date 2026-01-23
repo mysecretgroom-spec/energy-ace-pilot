@@ -293,12 +293,69 @@ export function ReviewDocument({
     setIsSaving(true);
 
     try {
-      // Upload PDF to storage
-      const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
-
-      // Create document record
       const montant = montantTTC ? parseFloat(montantTTC.replace(",", ".")) : null;
       const tvaAmount = tva ? parseFloat(tva.replace(",", ".")) : null;
+
+      // Check for duplicates before saving
+      if (context === "finance" && montant) {
+        // Check for duplicate frais: same montant, date, and fournisseur/description
+        const { data: existingFrais } = await supabase
+          .from("frais")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("montant", montant)
+          .eq("date_frais", date)
+          .limit(1);
+
+        const descToCheck = fournisseur || title;
+        const hasDuplicate = existingFrais?.some(() => true);
+
+        if (hasDuplicate) {
+          // Double-check with description
+          const { data: exactMatch } = await supabase
+            .from("frais")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("montant", montant)
+            .eq("date_frais", date)
+            .eq("description", descToCheck)
+            .limit(1);
+
+          if (exactMatch && exactMatch.length > 0) {
+            toast({
+              title: "Doublon détecté",
+              description: "Une facture identique existe déjà (même montant, date et fournisseur)",
+              variant: "destructive",
+            });
+            setIsSaving(false);
+            return;
+          }
+        }
+      } else if (context === "client_docs" && relatedClientId) {
+        // Check for duplicate documents: same nom and type_document for this client
+        const { data: existingDocs } = await supabase
+          .from("documents")
+          .select("id, nom, type_document")
+          .eq("user_id", user.id)
+          .eq("client_id", relatedClientId);
+
+        const hasDuplicate = existingDocs?.some(
+          (doc) => doc.nom === title && doc.type_document === category
+        );
+
+        if (hasDuplicate) {
+          toast({
+            title: "Doublon détecté",
+            description: "Un document avec le même nom et type existe déjà pour ce client",
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Upload PDF to storage
+      const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
       
       const { data: docData, error: docError } = await supabase
         .from("documents")
