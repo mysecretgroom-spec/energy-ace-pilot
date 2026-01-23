@@ -26,27 +26,27 @@ export const MobileLayout = ({
       {/* Header */}
       {title && (
         <header className="sticky top-0 z-40 glass border-b border-border safe-top">
-          <div className="flex items-center h-14 px-4">
+          <div className="flex items-center h-16 px-4">
             {showBackButton && (
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="mr-2"
+                className="mr-2 h-11 w-11"
                 onClick={() => navigate(-1)}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-6 w-6" />
               </Button>
             )}
             <h1 className={`text-lg font-display font-semibold text-foreground ${!showBackButton ? 'flex-1 text-center' : ''}`}>
               {title}
             </h1>
-            {showBackButton && <div className="w-10" />}
+            {showBackButton && <div className="w-11" />}
           </div>
         </header>
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 ${showNav ? "pb-20" : ""}`}>{children}</main>
+      <main className={`flex-1 ${showNav ? "pb-24" : ""}`}>{children}</main>
 
       {/* Footer */}
       <Footer />

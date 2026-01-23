@@ -140,12 +140,22 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
   }
 
   /* Mobile optimizations */
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   /* Safe area for mobile */
@@ -159,6 +169,17 @@
 
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Better touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Smooth scrolling containers */
+  .scroll-smooth {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
