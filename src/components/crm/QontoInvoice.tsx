@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
 import { 
   FileText, 
   Copy,
@@ -16,6 +17,7 @@ import {
 interface Vente {
   id: string;
   montant_ht: number;
+  montant_ttc?: number;
   puissance_kwc: number | null;
   decom_montant?: number | null;
   decom_raison?: string | null;
@@ -105,10 +107,17 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
         // Base commission from montant HT
         let commissionBrute = vente.montant_ht * (tauxCommission / 100);
         
-        // Add survente bonus if price is above prix recommandé
-        if (prixHejja > 0 && vente.montant_ht > prixRecommande) {
-          const surventeBase = vente.montant_ht - prixRecommande;
-          const bonusSurvente = surventeBase * (surventePct / 100);
+        // Calculate survente bonus:
+        // 1. Prix recommandé est en TTC
+        // 2. Calculer survente TTC = montant_ttc - prix_recommande
+        // 3. Convertir en HT puis appliquer 50%
+        const tauxTVA = getTauxTVAByPuissance(puissance);
+        const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
+        
+        if (prixRecommande > 0 && montantTTC > prixRecommande) {
+          const surventeTTC = montantTTC - prixRecommande;
+          const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+          const bonusSurvente = surventeHT * (surventePct / 100);
           commissionBrute += bonusSurvente;
         }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
 
 interface CommissionData {
   vente_id: string;
@@ -13,8 +14,8 @@ interface CommissionData {
 
 interface BouquetData {
   puissance_kwc: number;
-  prix_hejja: number | null;
-  prix_recommande: number;
+  prix_hejja: number | null;  // TTC
+  prix_recommande: number;     // TTC
 }
 
 interface CommissionTier {
@@ -26,6 +27,7 @@ interface CommissionTier {
 interface Vente {
   id: string;
   montant_ht: number;
+  montant_ttc?: number;
   puissance_kwc: number | null;
   decom_montant?: number | null;
   type_vente?: 'standard' | 'external_installation';
@@ -97,11 +99,24 @@ export const useVenteCommissions = (ventes: Vente[]) => {
         const tauxCommission = tier?.taux_commission || 0;
         const baseCommission = vente.montant_ht * (tauxCommission / 100);
 
-        // Calculate survente bonus (50% of HT difference between sale price and prix recommandé)
+        // Calculate survente bonus:
+        // 1. Survente TTC = prix vente TTC - prix recommandé TTC
+        // 2. Convertir en HT
+        // 3. Appliquer 50%
         let bonusSurvente = 0;
-        if (prixRecommande > 0 && vente.montant_ht > prixRecommande) {
-          const surventeBase = vente.montant_ht - prixRecommande;
-          bonusSurvente = surventeBase * (partSurventePct / 100);
+        const puissance = vente.puissance_kwc || 3;
+        const tauxTVA = getTauxTVAByPuissance(puissance);
+        
+        // Si on a le montant TTC, l'utiliser; sinon recalculer depuis HT
+        const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
+        
+        if (prixRecommande > 0 && montantTTC > prixRecommande) {
+          // Survente en TTC
+          const surventeTTC = montantTTC - prixRecommande;
+          // Convertir en HT
+          const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+          // Appliquer le pourcentage
+          bonusSurvente = surventeHT * (partSurventePct / 100);
         }
 
         // Get decom from vente

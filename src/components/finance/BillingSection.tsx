@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
 import { 
   FileText, 
   Euro, 
@@ -111,10 +112,16 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         const tauxCommission = tier?.taux_commission || 0;
         const baseCommission = v.montant_ht * (tauxCommission / 100);
         
+        // Calcul survente: différence TTC, convertie en HT, puis 50%
         let bonusSurvente = 0;
-        if (prixRecommande > 0 && v.montant_ht > prixRecommande) {
-          const surventeBase = v.montant_ht - prixRecommande;
-          bonusSurvente = surventeBase * (partSurventePct / 100);
+        const puissance = v.puissance_kwc || 3;
+        const tauxTVA = getTauxTVAByPuissance(puissance);
+        const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
+        
+        if (prixRecommande > 0 && montantTTC > prixRecommande) {
+          const surventeTTC = montantTTC - prixRecommande;
+          const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+          bonusSurvente = surventeHT * (partSurventePct / 100);
         }
         
         const decomMontant = v.decom_montant || 0;
