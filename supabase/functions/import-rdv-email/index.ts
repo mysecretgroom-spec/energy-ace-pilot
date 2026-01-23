@@ -193,12 +193,15 @@ Réponds UNIQUEMENT avec le JSON, sans markdown ni explication.`,
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "";
     
+    console.log("AI raw response:", content.substring(0, 500));
+    
     let parsed: ParsedRdv;
     try {
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleanContent);
-    } catch {
-      console.error("Failed to parse AI response:", content);
+      console.log("Parsed result - nom:", parsed.nom, "prenom:", parsed.prenom);
+    } catch (e) {
+      console.error("Failed to parse AI response:", content, "Error:", e);
       return new Response(
         JSON.stringify({ error: "RDV incomplet - édition manuelle requise", raw: content }),
         {
