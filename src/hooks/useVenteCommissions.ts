@@ -16,6 +16,13 @@ interface BouquetData {
   puissance_kwc: number;
   prix_recommande: number;     // TTC
   commission_fixe: number | null;
+  regie_id?: string;
+}
+
+interface RegieConfig {
+  id: string;
+  mode_calcul_commission: string;
+  part_survente_pct: number;
 }
 
 interface Vente {
@@ -25,7 +32,57 @@ interface Vente {
   puissance_kwc: number | null;
   decom_montant?: number | null;
   type_vente?: 'standard' | 'external_installation';
+  regie_id?: string | null;
 }
+
+// Helper function to find or interpolate bouquet
+const findOrInterpolateBouquet = (
+  bouquets: BouquetData[],
+  targetPuissance: number
+): { prixRecommande: number; commissionFixe: number } => {
+  // First try exact match
+  const exactMatch = bouquets.find(b => b.puissance_kwc === targetPuissance);
+  if (exactMatch) {
+    return {
+      prixRecommande: exactMatch.prix_recommande,
+      commissionFixe: exactMatch.commission_fixe || 0,
+    };
+  }
+
+  const sortedBouquets = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+
+  // Special case for 3.5 kWc: use 4kWc and subtract 500€
+  if (targetPuissance === 3.5) {
+    const bouquet4kwc = sortedBouquets.find(b => b.puissance_kwc === 4);
+    if (bouquet4kwc) {
+      return {
+        prixRecommande: bouquet4kwc.prix_recommande - 500,
+        commissionFixe: bouquet4kwc.commission_fixe || 0,
+      };
+    }
+  }
+
+  // Find the nearest lower bouquet and add 1000€ per kWc difference
+  const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
+  const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
+
+  if (lowerBouquet) {
+    const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
+    return {
+      prixRecommande: lowerBouquet.prix_recommande + (diffKwc * 1000),
+      commissionFixe: lowerBouquet.commission_fixe || 0,
+    };
+  } else if (upperBouquet) {
+    // If no lower bouquet exists, use upper and subtract
+    const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
+    return {
+      prixRecommande: upperBouquet.prix_recommande - (diffKwc * 1000),
+      commissionFixe: upperBouquet.commission_fixe || 0,
+    };
+  }
+
+  return { prixRecommande: 0, commissionFixe: 0 };
+};
 
 export const useVenteCommissions = (ventes: Vente[]) => {
   const [commissions, setCommissions] = useState<Map<string, CommissionData>>(new Map());
@@ -37,15 +94,37 @@ export const useVenteCommissions = (ventes: Vente[]) => {
 
     setLoading(true);
     try {
+      // Get unique regie IDs from ventes
+      const regieIds = [...new Set(ventes.map(v => v.regie_id).filter(Boolean))] as string[];
+
       // Fetch all needed data in parallel
-      const [bouquetsRes, configRes] = await Promise.all([
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
         supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
+        regieIds.length > 0 
+          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
+          : Promise.resolve({ data: [] }),
+        regieIds.length > 0
+          ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
+          : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
       ]);
 
-      const bouquets: BouquetData[] = bouquetsRes.data || [];
-      const partSurventePct = configRes.data?.part_survente_pct || 50;
-      setSurventePct(partSurventePct);
+      const globalBouquets: BouquetData[] = globalBouquetsRes.data || [];
+      const regieBouquets: BouquetData[] = regieBouquetsRes.data || [];
+      const regies: RegieConfig[] = regiesRes.data || [];
+      const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      setSurventePct(globalSurventePct);
+
+      // Create maps for quick lookup
+      const regieConfigMap = new Map(regies.map(r => [r.id, r]));
+      const regieBouquetsMap = new Map<string, BouquetData[]>();
+      regieBouquets.forEach(b => {
+        if (b.regie_id) {
+          const existing = regieBouquetsMap.get(b.regie_id) || [];
+          existing.push(b);
+          regieBouquetsMap.set(b.regie_id, existing);
+        }
+      });
 
       const newCommissions = new Map<string, CommissionData>();
 
@@ -78,46 +157,21 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           return;
         }
 
-        // Find matching bouquet for this puissance, or interpolate if not found
-        let bouquet = bouquets.find(b => b.puissance_kwc === vente.puissance_kwc);
-        let prixRecommande = bouquet?.prix_recommande || 0;
-        let commissionFixe = bouquet?.commission_fixe || 0;
-        
-        // If no exact match, interpolate based on the nearest bouquet
-        if (!bouquet && vente.puissance_kwc) {
-          const targetPuissance = vente.puissance_kwc;
-          const sortedBouquets = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
-          
-          // Special case for 3.5 kWc: use 4kWc and subtract 500€
-          if (targetPuissance === 3.5) {
-            const bouquet4kwc = sortedBouquets.find(b => b.puissance_kwc === 4);
-            if (bouquet4kwc) {
-              prixRecommande = bouquet4kwc.prix_recommande - 500;
-              commissionFixe = bouquet4kwc.commission_fixe || 0;
-            }
-          } else {
-            // Find the nearest lower bouquet and add 1000€ per kWc difference
-            const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
-            const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
-            
-            if (lowerBouquet) {
-              const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
-              prixRecommande = lowerBouquet.prix_recommande + (diffKwc * 1000);
-              commissionFixe = lowerBouquet.commission_fixe || 0;
-            } else if (upperBouquet) {
-              // If no lower bouquet exists, use upper and subtract
-              const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
-              prixRecommande = upperBouquet.prix_recommande - (diffKwc * 1000);
-              commissionFixe = upperBouquet.commission_fixe || 0;
-            }
-          }
-        }
+        // Determine which bouquets and config to use
+        const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
+        const bouquetsToUse = vente.regie_id && regieBouquetsMap.has(vente.regie_id)
+          ? regieBouquetsMap.get(vente.regie_id)!
+          : globalBouquets;
+        const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
+
+        // Find or interpolate bouquet
+        const { prixRecommande, commissionFixe } = findOrInterpolateBouquet(bouquetsToUse, vente.puissance_kwc);
 
         // Base commission = forfait fixe du bouquet
         const baseCommission = commissionFixe;
 
         // Calculate survente bonus:
-        // Survente = 50% × (prix vendu TTC - prix recommandé TTC) converti en HT
+        // Survente = X% × (prix vendu TTC - prix recommandé TTC) converti en HT
         let bonusSurvente = 0;
         const puissance = vente.puissance_kwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
@@ -130,7 +184,7 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           const surventeTTC = montantTTC - prixRecommande;
           // Convertir en HT
           const surventeHT = ttcToHT(surventeTTC, tauxTVA);
-          // Appliquer le pourcentage (50%)
+          // Appliquer le pourcentage de la régie ou global
           bonusSurvente = surventeHT * (partSurventePct / 100);
         }
 
