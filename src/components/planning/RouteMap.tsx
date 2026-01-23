@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, MapPin, Navigation } from "lucide-react";
+import { X, MapPin, Navigation, RefreshCw } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 
 // Fix Leaflet default marker icons
@@ -121,6 +121,13 @@ function RouteContent({ rdvsWithCoords, positions }: { rdvsWithCoords: RdvMapDat
 }
 
 export function RouteMap({ rdvList, onClose }: RouteMapProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Wait for client-side mount to avoid SSR/hydration issues with Leaflet
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   // Filter RDVs with valid coordinates
   const rdvsWithCoords = useMemo(() => 
     rdvList.filter(rdv => rdv.latitude && rdv.longitude),
@@ -161,6 +168,30 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
             <br />
             Les adresses doivent être géocodées pour afficher la carte.
           </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Show loading state until mounted (client-side)
+  if (!isMounted) {
+    return (
+      <Card className="shadow-lg overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Navigation className="h-4 w-4 text-primary" />
+              Carte des trajets ({rdvsWithCoords.length} RDV)
+            </CardTitle>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="h-[400px] w-full flex items-center justify-center bg-muted">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         </CardContent>
       </Card>
     );
