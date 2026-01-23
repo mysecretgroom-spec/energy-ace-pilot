@@ -14,14 +14,8 @@ interface CommissionData {
 
 interface BouquetData {
   puissance_kwc: number;
-  prix_hejja: number | null;  // TTC
   prix_recommande: number;     // TTC
-}
-
-interface CommissionTier {
-  tranche_min: number;
-  tranche_max: number;
-  taux_commission: number;
+  commission_fixe: number | null;
 }
 
 interface Vente {
@@ -44,13 +38,11 @@ export const useVenteCommissions = (ventes: Vente[]) => {
     setLoading(true);
     try {
       // Fetch all needed data in parallel
-      const [tiersRes, bouquetsRes, configRes] = await Promise.all([
-        supabase.from("data_commissions").select("*").order("tranche_min"),
-        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_hejja, prix_recommande").eq("actif", true),
+      const [bouquetsRes, configRes] = await Promise.all([
+        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
       ]);
 
-      const tiers: CommissionTier[] = tiersRes.data || [];
       const bouquets: BouquetData[] = bouquetsRes.data || [];
       const partSurventePct = configRes.data?.part_survente_pct || 50;
       setSurventePct(partSurventePct);
@@ -88,21 +80,14 @@ export const useVenteCommissions = (ventes: Vente[]) => {
 
         // Find matching bouquet for this puissance
         const bouquet = bouquets.find(b => b.puissance_kwc === vente.puissance_kwc);
-        const prixHejja = bouquet?.prix_hejja || 0;
         const prixRecommande = bouquet?.prix_recommande || 0;
+        const commissionFixe = bouquet?.commission_fixe || 0;
 
-        // Find applicable commission tier based on montant_ht
-        const tier = tiers.find(
-          t => vente.montant_ht >= t.tranche_min && vente.montant_ht <= t.tranche_max
-        ) || tiers[tiers.length - 1];
-
-        const tauxCommission = tier?.taux_commission || 0;
-        const baseCommission = vente.montant_ht * (tauxCommission / 100);
+        // Base commission = forfait fixe du bouquet
+        const baseCommission = commissionFixe;
 
         // Calculate survente bonus:
-        // 1. Survente TTC = prix vente TTC - prix recommandé TTC
-        // 2. Convertir en HT
-        // 3. Appliquer 50%
+        // Survente = 50% × (prix vendu TTC - prix recommandé TTC) converti en HT
         let bonusSurvente = 0;
         const puissance = vente.puissance_kwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
@@ -115,7 +100,7 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           const surventeTTC = montantTTC - prixRecommande;
           // Convertir en HT
           const surventeHT = ttcToHT(surventeTTC, tauxTVA);
-          // Appliquer le pourcentage
+          // Appliquer le pourcentage (50%)
           bonusSurvente = surventeHT * (partSurventePct / 100);
         }
 
@@ -130,7 +115,7 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           bonus_survente: bonusSurvente,
           decom_montant: decomMontant,
           commission_nette: commissionNette,
-          taux_commission: tauxCommission,
+          taux_commission: 0, // Non utilisé avec commission fixe
           montant_base: vente.montant_ht,
         });
       });
