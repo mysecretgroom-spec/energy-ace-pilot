@@ -52,13 +52,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Safety timeout to prevent infinite loading on iOS PWA
+    // Safety timeout to prevent infinite loading on iOS PWA - reduced to 2s
     const safetyTimeout = setTimeout(() => {
       if (loading) {
         console.warn("Auth loading timeout - forcing completion");
         setLoading(false);
       }
-    }, 5000);
+    }, 2000);
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
