@@ -127,22 +127,86 @@ export function MultiImportFlow({
 
   const analyzeFile = async (importedFile: ImportedFile): Promise<ImportedFile> => {
     try {
-      // Convert file directly to base64 - Gemini can handle PDFs natively
-      // No need to generate thumbnails first, which was causing blocking
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(importedFile.file);
-      });
+      let base64: string;
       
-      console.log("Sending to analyze-document:", importedFile.file.name, "size:", base64.length);
+      // For PDFs, try to extract first page as image for better AI analysis
+      if (importedFile.file.type === "application/pdf") {
+        try {
+          const pdfjsLib = await import("pdfjs-dist");
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+          
+          const arrayBuffer = await importedFile.file.arrayBuffer();
+          const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("PDF load timeout")), 15000)
+          );
+          
+          const pdf = await Promise.race([loadPromise, timeoutPromise]);
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 2 }); // Higher scale for better OCR
+          
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.min(viewport.width, 2000); // Limit size
+          canvas.height = Math.min(viewport.height, 2800);
+          
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const scale = Math.min(canvas.width / viewport.width, canvas.height / viewport.height);
+            const scaledViewport = page.getViewport({ scale: scale * 2 });
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            
+            await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+            base64 = canvas.toDataURL("image/jpeg", 0.85);
+          } else {
+            throw new Error("Canvas context not available");
+          }
+        } catch (pdfError) {
+          console.warn("PDF extraction failed, sending raw file:", pdfError);
+          // Fallback: send raw PDF base64
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(importedFile.file);
+          });
+        }
+      } else {
+        // For images, compress if too large
+        const maxSize = 4 * 1024 * 1024; // 4MB limit
+        if (importedFile.file.size > maxSize) {
+          const imageCompression = (await import("browser-image-compression")).default;
+          const compressedFile = await imageCompression(importedFile.file, {
+            maxSizeMB: 2,
+            maxWidthOrHeight: 2000,
+            useWebWorker: true,
+          });
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(compressedFile);
+          });
+        } else {
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(importedFile.file);
+          });
+        }
+      }
+      
+      console.log("Sending to analyze-document:", importedFile.file.name, "size:", Math.round(base64.length / 1024), "KB");
 
       const { data, error } = await supabase.functions.invoke("analyze-document", {
         body: { image_base64: base64, context },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(error.message || "Erreur de connexion au serveur");
+      }
 
       if (data.success) {
         if (context === "finance") {
@@ -175,11 +239,16 @@ export function MultiImportFlow({
         };
       }
     } catch (error: any) {
-      console.error("Analysis error:", error);
+      console.error("Analysis error for", importedFile.file.name, ":", error);
+      const errorMsg = error.message?.includes("timeout") 
+        ? "Délai d'attente dépassé, réessayez" 
+        : error.message?.includes("network") || error.message?.includes("Failed to fetch")
+          ? "Erreur réseau, vérifiez votre connexion"
+          : error.message || "Erreur lors de l'analyse";
       return {
         ...importedFile,
         status: "manual",
-        error_message: error.message || "Erreur lors de l'analyse",
+        error_message: errorMsg,
       };
     }
   };
