@@ -78,8 +78,24 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const globalBouquets: BouquetData[] = globalBouquetsRes.data || [];
-      const regieBouquets: BouquetData[] = regieBouquetsRes.data || [];
+      // Convert to proper types - Supabase returns decimals as strings sometimes
+      const globalBouquets: BouquetData[] = (globalBouquetsRes.data || []).map(b => ({
+        puissance_kwc: Number(b.puissance_kwc),
+        prix_recommande: Number(b.prix_recommande),
+        prix_max: b.prix_max ? Number(b.prix_max) : undefined,
+        prix_hejja: b.prix_hejja ? Number(b.prix_hejja) : undefined,
+        commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+      }));
+      
+      const regieBouquets: (BouquetData & { regie_id?: string })[] = (regieBouquetsRes.data || []).map(b => ({
+        puissance_kwc: Number(b.puissance_kwc),
+        prix_recommande: Number(b.prix_recommande),
+        prix_max: b.prix_max ? Number(b.prix_max) : undefined,
+        prix_hejja: b.prix_hejja ? Number(b.prix_hejja) : undefined,
+        commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+        regie_id: b.regie_id,
+      }));
+      
       const regies: RegieConfig[] = regiesRes.data || [];
       const etudes: EtudeSurcouts[] = etudesRes.data || [];
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
@@ -154,8 +170,11 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           : globalBouquets;
         const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
 
+        // Convert vente puissance to number for safe comparison
+        const puissanceKwc = Number(vente.puissance_kwc);
+
         // Find or interpolate bouquet using the shared utility
-        const interpolated = interpolateBouquet(bouquetsToUse, vente.puissance_kwc);
+        const interpolated = interpolateBouquet(bouquetsToUse, puissanceKwc);
         const prixRecommande = interpolated.prixRecommande;
         const commissionFixe = interpolated.commissionFixe;
         const isInterpolated = interpolated.isInterpolated;
@@ -176,7 +195,7 @@ export const useVenteCommissions = (ventes: Vente[]) => {
         // Survente = X% × (prix vendu TTC - surcoûts TTC - prix recommandé TTC) converti en HT
         // The surcharges are technical costs and should NOT count as survente
         let bonusSurvente = 0;
-        const puissance = vente.puissance_kwc || 3;
+        const puissance = puissanceKwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
         
         // Si on a le montant TTC, l'utiliser; sinon recalculer depuis HT
