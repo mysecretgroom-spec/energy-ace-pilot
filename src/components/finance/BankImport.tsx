@@ -42,6 +42,8 @@ const categoryKeywords: Record<string, string[]> = {
   repas: ["restaurant", "brasserie", "bistro", "pizza", "burger", "mcdonald", "kfc", "subway", "paul", "boulangerie", "patisserie", "cafe", "bar", "tabac", "relay", "sodexo", "elior", "flunch", "buffalo", "courtepaille", "hippopotamus", "leon"],
   hotel: ["hotel", "ibis", "novotel", "mercure", "accor", "b&b", "formule 1", "premiere classe", "campanile", "kyriad", "best western", "airbnb", "booking"],
   parking: ["parking", "effia", "indigo", "vinci park", "q-park", "interparking", "saemes", "zenpark"],
+  train: ["sncf", "ouigo", "tgv", "ter", "eurostar", "thalys", "inoui", "intercites", "trainline", "gare"],
+  location_vehicule: ["hertz", "avis", "europcar", "sixt", "enterprise", "budget", "national", "alamo", "getaround", "drivy", "ada", "rent a car", "rentacar", "location voiture"],
 };
 
 function detectCategory(description: string): string {

@@ -46,6 +46,8 @@ const categoryLabels: Record<string, string> = {
   hotel: "Hôtel",
   peage: "Péage",
   parking: "Parking",
+  train: "Trains",
+  location_vehicule: "Location Véhicule",
   autre: "Autre",
 };
 

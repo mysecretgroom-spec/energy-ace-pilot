@@ -52,6 +52,8 @@ import {
   Files,
   ChevronDown,
   ChevronRight,
+  Train,
+  CarFront,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,6 +79,8 @@ const categoryIcons: Record<string, React.ElementType> = {
   hotel: Building2,
   peage: Car,
   parking: ParkingSquare,
+  train: Train,
+  location_vehicule: CarFront,
   autre: HelpCircle,
 };
 
@@ -86,6 +90,8 @@ const categoryLabels: Record<string, string> = {
   hotel: "Hôtel",
   peage: "Péage",
   parking: "Parking",
+  train: "Trains",
+  location_vehicule: "Location Véhicule",
   autre: "Autre",
 };
 

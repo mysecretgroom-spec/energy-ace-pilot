@@ -48,6 +48,14 @@ const merchantCategoryMap: Record<string, string[]> = {
   parking: [
     "parking", "parc auto", "effia", "indigo", "q-park", "vinci park", "interparking",
     "saemes", "zenpark", "onepark", "parcmetre"
+  ],
+  train: [
+    "sncf", "ouigo", "tgv", "ter", "eurostar", "thalys", "inoui", "intercites",
+    "trainline", "oui.sncf", "gare"
+  ],
+  location_vehicule: [
+    "hertz", "avis", "europcar", "sixt", "enterprise", "budget", "national", "alamo",
+    "getaround", "drivy", "ada", "rent a car", "rentacar", "loc auto", "location"
   ]
 };
 

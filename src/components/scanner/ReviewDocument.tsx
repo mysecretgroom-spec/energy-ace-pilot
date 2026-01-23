@@ -62,6 +62,8 @@ const FINANCE_CATEGORIES = [
   { value: "repas", label: "Repas" },
   { value: "hotel", label: "Hôtel" },
   { value: "parking", label: "Parking" },
+  { value: "train", label: "Trains" },
+  { value: "location_vehicule", label: "Location Véhicule" },
   { value: "autre", label: "Autre" },
 ];
 
