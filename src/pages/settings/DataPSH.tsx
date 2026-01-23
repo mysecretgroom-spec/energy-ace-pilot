@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Sun, Search, Loader2, Plus, Trash2, Save, RotateCcw, Clock, CloudSun, Globe, User } from "lucide-react";
+import { Sun, Search, Loader2, Plus, Trash2, Save, RotateCcw, Clock, CloudSun } from "lucide-react";
 
 interface PSHData {
   id: string;
