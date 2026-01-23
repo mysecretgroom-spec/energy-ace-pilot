@@ -19,9 +19,10 @@ import { GmailSyncDialog } from "./GmailSyncDialog";
 
 interface GmailSyncProps {
   onSyncComplete?: () => void;
+  variant?: "ghost" | "outline" | "default";
 }
 
-export function GmailSync({ onSyncComplete }: GmailSyncProps) {
+export function GmailSync({ onSyncComplete, variant = "ghost" }: GmailSyncProps) {
   const navigate = useNavigate();
   const { syncing, lastResult, syncGmail, checkGoogleConnection, checkAuthorizedEmails } = useGmailSync();
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
@@ -54,7 +55,7 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
   // Loading state
   if (isConnected === null) {
     return (
-      <Button variant="ghost" size="icon" disabled>
+      <Button variant={variant} size="icon" disabled>
         <Loader2 className="h-5 w-5 animate-spin" />
       </Button>
     );
@@ -67,9 +68,9 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
+              variant={variant}
               size="icon"
-              className="text-muted-foreground"
+              className="text-muted-foreground relative"
               onClick={() => navigate("/parametres")}
             >
               <Mail className="h-5 w-5" />
@@ -91,9 +92,9 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
+              variant={variant}
               size="icon"
-              className="text-amber-500"
+              className="text-amber-500 relative"
               onClick={() => navigate("/parametres/emails-autorises")}
             >
               <Mail className="h-5 w-5" />
@@ -113,7 +114,7 @@ export function GmailSync({ onSyncComplete }: GmailSyncProps) {
       <Popover open={showPopover} onOpenChange={setShowPopover}>
         <PopoverTrigger asChild>
           <Button
-            variant="ghost"
+            variant={variant}
             size="icon"
             onClick={() => setShowSyncDialog(true)}
             disabled={syncing}

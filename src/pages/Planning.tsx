@@ -455,14 +455,20 @@ const Planning = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Vous n'avez pas de rendez-vous pour cette journée.
               </p>
-              <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={() => setQuickRdvOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Créer un RDV
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setQuickRdvOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Créer un RDV
+                </Button>
+                <GmailSync 
+                  onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} 
+                  variant="outline"
+                />
+              </div>
             </CardContent>
           </Card>
         )}
