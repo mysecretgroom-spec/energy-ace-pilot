@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Euro, Loader2, Zap, Plus, Trash2, Save, RotateCcw } from "lucide-react";
+import { Euro, Loader2, Zap, Plus, Trash2, Save, RotateCcw, Globe, User } from "lucide-react";
 
 interface TarifData {
   id: string;
@@ -24,8 +25,10 @@ interface TarifData {
   prix_kwh: number;
   date_effet: string;
   actif: boolean;
+  user_id: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const typeLabels: Record<string, string> = {
@@ -35,6 +38,7 @@ const typeLabels: Record<string, string> = {
 };
 
 const DataTarifs = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<TarifData[]>([]);
   const [originalData, setOriginalData] = useState<TarifData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +63,7 @@ const DataTarifs = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -72,6 +77,7 @@ const DataTarifs = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: TarifData = {
       id: `new-${Date.now()}`,
       type_revente: "revente_surplus",
@@ -80,8 +86,10 @@ const DataTarifs = () => {
       prix_kwh: 0.13,
       date_effet: new Date().toISOString().split("T")[0],
       actif: true,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -98,6 +106,11 @@ const DataTarifs = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer ce tarif ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -110,10 +123,12 @@ const DataTarifs = () => {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+    
     setSaving(true);
     try {
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
       for (const item of toDelete) {
         const { error } = await supabase.from("data_tarifs_revente").delete().eq("id", item.id);
@@ -121,6 +136,8 @@ const DataTarifs = () => {
       }
 
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue;
+        
         const payload = {
           type_revente: item.type_revente,
           puissance_min: item.puissance_min,
@@ -128,6 +145,7 @@ const DataTarifs = () => {
           prix_kwh: item.prix_kwh,
           date_effet: item.date_effet,
           actif: item.actif,
+          user_id: user.id,
         };
 
         if (item.isNew) {

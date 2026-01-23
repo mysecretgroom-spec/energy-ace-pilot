@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Zap, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
+import { Zap, Loader2, Plus, Trash2, Save, RotateCcw, Globe, User } from "lucide-react";
 
 interface CompteurData {
   id: string;
@@ -15,11 +16,14 @@ interface CompteurData {
   montant: number;
   description: string | null;
   actif: boolean;
+  user_id: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const DataCompteurs = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<CompteurData[]>([]);
   const [originalData, setOriginalData] = useState<CompteurData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +47,7 @@ const DataCompteurs = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -56,14 +61,17 @@ const DataCompteurs = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: CompteurData = {
       id: `new-${Date.now()}`,
       type_compteur: "NOUVEAU",
       montant: 0,
       description: null,
       actif: true,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -80,6 +88,11 @@ const DataCompteurs = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer ce type de compteur ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -92,7 +105,9 @@ const DataCompteurs = () => {
   };
 
   const handleSave = async () => {
-    const invalidItems = data.filter(item => !item.type_compteur);
+    if (!user) return;
+    
+    const invalidItems = data.filter(item => !item.isGlobal && !item.type_compteur);
     if (invalidItems.length > 0) {
       toast.error("Le type est obligatoire pour tous les compteurs");
       return;
@@ -100,8 +115,8 @@ const DataCompteurs = () => {
 
     setSaving(true);
     try {
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
       for (const item of toDelete) {
         const { error } = await supabase.from("data_compteurs").delete().eq("id", item.id);
@@ -109,11 +124,14 @@ const DataCompteurs = () => {
       }
 
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue;
+        
         const payload = {
           type_compteur: item.type_compteur.toUpperCase(),
           montant: item.montant,
           description: item.description,
           actif: item.actif,
+          user_id: user.id,
         };
 
         if (item.isNew) {

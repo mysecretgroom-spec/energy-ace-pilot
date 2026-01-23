@@ -12,16 +12,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Compass, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
+import { Compass, Loader2, Plus, Trash2, Save, RotateCcw, Globe, User } from "lucide-react";
 
 interface OrientationData {
   id: string;
   orientation: string;
   inclinaison: number;
   coefficient: number;
+  user_id: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const orientationOptions = [
@@ -43,6 +46,7 @@ const orientationLabels: Record<string, string> = {
 };
 
 const DataOrientation = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<OrientationData[]>([]);
   const [originalData, setOriginalData] = useState<OrientationData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +71,7 @@ const DataOrientation = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -80,13 +85,16 @@ const DataOrientation = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: OrientationData = {
       id: `new-${Date.now()}`,
       orientation: "sud",
       inclinaison: 30,
       coefficient: 1,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -103,6 +111,11 @@ const DataOrientation = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer ce coefficient ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -115,10 +128,12 @@ const DataOrientation = () => {
   };
 
   const handleSave = async () => {
+    if (!user) return;
+    
     setSaving(true);
     try {
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
       for (const item of toDelete) {
         const { error } = await supabase.from("data_orientation").delete().eq("id", item.id);
@@ -126,10 +141,13 @@ const DataOrientation = () => {
       }
 
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue;
+        
         const payload = {
           orientation: item.orientation,
           inclinaison: item.inclinaison,
           coefficient: item.coefficient,
+          user_id: user.id,
         };
 
         if (item.isNew) {

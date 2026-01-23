@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Gauge, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
+import { Gauge, Loader2, Plus, Trash2, Save, RotateCcw, Globe, User } from "lucide-react";
 
 interface CalibreData {
   id: string;
@@ -16,11 +17,14 @@ interface CalibreData {
   intensite_max_a: number;
   usage_typique: string | null;
   actif: boolean;
+  user_id: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const DataCalibres = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<CalibreData[]>([]);
   const [originalData, setOriginalData] = useState<CalibreData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +48,7 @@ const DataCalibres = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -57,6 +62,7 @@ const DataCalibres = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: CalibreData = {
       id: `new-${Date.now()}`,
       calibre_amperes: 15,
@@ -64,8 +70,10 @@ const DataCalibres = () => {
       intensite_max_a: 15,
       usage_typique: null,
       actif: true,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -82,6 +90,11 @@ const DataCalibres = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer ce calibre ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -94,7 +107,9 @@ const DataCalibres = () => {
   };
 
   const handleSave = async () => {
-    const invalidItems = data.filter(item => !item.calibre_amperes || !item.puissance_kva);
+    if (!user) return;
+    
+    const invalidItems = data.filter(item => !item.isGlobal && (!item.calibre_amperes || !item.puissance_kva));
     if (invalidItems.length > 0) {
       toast.error("Calibre et puissance sont obligatoires");
       return;
@@ -102,8 +117,8 @@ const DataCalibres = () => {
 
     setSaving(true);
     try {
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
       for (const item of toDelete) {
         const { error } = await supabase.from("data_calibres").delete().eq("id", item.id);
@@ -111,12 +126,15 @@ const DataCalibres = () => {
       }
 
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue;
+        
         const payload = {
           calibre_amperes: item.calibre_amperes,
           puissance_kva: item.puissance_kva,
           intensite_max_a: item.intensite_max_a || item.calibre_amperes,
           usage_typique: item.usage_typique,
           actif: item.actif,
+          user_id: user.id,
         };
 
         if (item.isNew) {
