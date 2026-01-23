@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,6 @@ import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
-import { MFAVerify } from "@/components/auth/MFAVerify";
-import { requiresMFAVerification } from "@/hooks/useMFA";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -39,23 +37,9 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [showMFAVerify, setShowMFAVerify] = useState(false);
-  const { signIn, signInWithGoogle, signOut } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const checkMFAAndNavigate = async () => {
-    const needsMFA = await requiresMFAVerification();
-    if (needsMFA) {
-      setShowMFAVerify(true);
-    } else {
-      toast({
-        title: "Connexion réussie",
-        description: "Bienvenue sur DébalePro !",
-      });
-      navigate("/");
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,11 +55,14 @@ const Login = () => {
           ? "Email ou mot de passe incorrect" 
           : error.message,
       });
-      setLoading(false);
     } else {
-      await checkMFAAndNavigate();
-      setLoading(false);
+      toast({
+        title: "Connexion réussie",
+        description: "Bienvenue sur DébalePro !",
+      });
+      navigate("/");
     }
+    setLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
@@ -92,33 +79,6 @@ const Login = () => {
     }
     // Note: no need to setGoogleLoading(false) on success as page will redirect
   };
-
-  const handleMFASuccess = () => {
-    setShowMFAVerify(false);
-    toast({
-      title: "Connexion réussie",
-      description: "Bienvenue sur DébalePro !",
-    });
-    navigate("/");
-  };
-
-  const handleMFACancel = async () => {
-    await signOut();
-    setShowMFAVerify(false);
-    setEmail("");
-    setPassword("");
-  };
-
-  if (showMFAVerify) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <div className="flex-1 flex items-center justify-center p-4">
-          <MFAVerify onSuccess={handleMFASuccess} onCancel={handleMFACancel} />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

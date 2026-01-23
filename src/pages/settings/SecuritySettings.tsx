@@ -15,9 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound, Smartphone, Shield } from "lucide-react";
-import { MFAEnroll } from "@/components/auth/MFAEnroll";
-import { useMFA } from "@/hooks/useMFA";
+import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound } from "lucide-react";
 
 const SecuritySettings = () => {
   const { user } = useAuth();
@@ -33,10 +31,6 @@ const SecuritySettings = () => {
   const [showSetPinDialog, setShowSetPinDialog] = useState(false);
   const [showChangePinDialog, setShowChangePinDialog] = useState(false);
   const [showDeletePinDialog, setShowDeletePinDialog] = useState(false);
-  const [showMFAEnrollDialog, setShowMFAEnrollDialog] = useState(false);
-  
-  // MFA
-  const { isEnabled: mfaEnabled, isLoading: mfaLoading, checkMFAStatus, unenrollMFA } = useMFA();
   
   // PIN input states
   const [currentPin, setCurrentPin] = useState(["", "", "", ""]);
@@ -448,70 +442,11 @@ const SecuritySettings = () => {
           </Card>
         )}
 
-        {/* MFA Configuration */}
-        <Card className="shadow-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4 text-primary" />
-              Authentification à deux facteurs (MFA)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Ajoutez une couche de sécurité supplémentaire à votre compte avec Google Authenticator ou Authy.
-            </p>
-            
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <div className={`w-3 h-3 rounded-full ${mfaEnabled ? "bg-green-500" : "bg-muted-foreground"}`} />
-              <span className="text-sm font-medium">
-                {mfaLoading ? "Chargement..." : mfaEnabled ? "MFA activée" : "MFA non activée"}
-              </span>
-            </div>
-            
-            <div className="flex gap-2">
-              {!mfaEnabled ? (
-                <Button 
-                  className="flex-1" 
-                  onClick={() => setShowMFAEnrollDialog(true)}
-                  disabled={mfaLoading}
-                >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Activer la MFA
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline"
-                  className="flex-1 text-destructive hover:text-destructive"
-                  onClick={async () => {
-                    const result = await unenrollMFA();
-                    if (result.success) {
-                      toast.success("MFA désactivée");
-                    } else {
-                      toast.error(result.error || "Erreur lors de la désactivation");
-                    }
-                  }}
-                  disabled={mfaLoading}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Désactiver la MFA
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Info */}
         <p className="text-xs text-muted-foreground text-center px-4">
-          Le code PIN protège l'accès au mode interne HEJJA. La MFA protège la connexion à votre compte.
+          Le code PIN protège l'accès au mode interne HEJJA.
         </p>
       </div>
-
-      {/* MFA Enroll Dialog */}
-      <MFAEnroll 
-        open={showMFAEnrollDialog} 
-        onOpenChange={setShowMFAEnrollDialog}
-        onSuccess={checkMFAStatus}
-      />
 
       {/* Set PIN Dialog */}
       <Dialog open={showSetPinDialog} onOpenChange={(open) => {
