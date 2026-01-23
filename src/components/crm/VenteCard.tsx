@@ -40,11 +40,18 @@ interface Vente {
   type_vente?: VenteType;
   decom_montant?: number | null;
   decom_raison?: string | null;
+  regie_id?: string | null;
   client: {
     id: string;
     nom: string;
     prenom: string | null;
   } | null;
+}
+
+interface Regie {
+  id: string;
+  nom: string;
+  couleur: string;
 }
 
 interface CommissionData {
@@ -58,6 +65,7 @@ interface CommissionData {
 interface VenteCardProps {
   vente: Vente;
   commission?: CommissionData | null;
+  regies?: Regie[];
   selectionMode: boolean;
   isSelected: boolean;
   onClick: () => void;
@@ -86,13 +94,16 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClick, onRefresh }: VenteCardProps) => {
+export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected, onClick, onRefresh }: VenteCardProps) => {
   const [decomDialogOpen, setDecomDialogOpen] = useState(false);
   const config = statusConfig[vente.status];
   const decomMontant = vente.decom_montant || 0;
   const rawCommission = commission ? commission.montant_commission + commission.bonus_survente : 0;
   const totalCommission = Math.max(0, rawCommission - decomMontant);
   const isExternalInstallation = vente.type_vente === 'external_installation';
+
+  // Find the regie for this vente
+  const regie = vente.regie_id && regies ? regies.find(r => r.id === vente.regie_id) : null;
 
   const clientName = vente.client 
     ? `${vente.client.prenom || ""} ${vente.client.nom}`.trim() 
@@ -123,6 +134,14 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
               <span className="font-medium">
                 {vente.client?.nom} {vente.client?.prenom || ""}
               </span>
+              {regie && (
+                <span 
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+                  style={{ backgroundColor: regie.couleur }}
+                >
+                  {regie.nom}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               {isExternalInstallation && (
