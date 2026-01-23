@@ -29,6 +29,7 @@ interface RdvActionsProps {
   etudeId?: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: RdvStatus) => void;
+  onBeforeNavigate?: () => void;
 }
 
 export function RdvActions({ 
@@ -44,9 +45,15 @@ export function RdvActions({
   etudeId,
   onRefresh,
   onStatusChange,
+  onBeforeNavigate,
 }: RdvActionsProps) {
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
+
+  const handleNavigate = (path: string) => {
+    onBeforeNavigate?.();
+    navigate(path);
+  };
 
   const handleCall = () => {
     if (clientPhone) {
@@ -63,11 +70,11 @@ export function RdvActions({
   };
 
   const handleOpenClient = () => {
-    navigate(`/clients/${clientId}`);
+    handleNavigate(`/clients/${clientId}`);
   };
 
   const handleNewEtude = () => {
-    navigate(`/etude/new?clientId=${clientId}&rdvId=${rdvId}`);
+    handleNavigate(`/etude/new?clientId=${clientId}&rdvId=${rdvId}`);
   };
 
   const handleSwitchType = async (newType: RdvType) => {
@@ -101,7 +108,7 @@ export function RdvActions({
       clientName,
       type: 'external_installation',
     });
-    navigate(`/crm?newVente=true&${params.toString()}`);
+    handleNavigate(`/crm?newVente=true&${params.toString()}`);
   };
 
   const handleStatusChangeInternal = (newStatus: RdvStatus) => {

@@ -30,13 +30,19 @@ interface DayRdvCardProps {
   };
   index: number;
   onRefresh: () => void;
+  onBeforeNavigate?: () => void;
 }
 
-export function DayRdvCard({ rdv, index, onRefresh }: DayRdvCardProps) {
+export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCardProps) {
   const navigate = useNavigate();
 
   const isExternalInstallation = rdv.typeRdv === 'external_installation';
   const isR2 = rdv.isR2;
+
+  const handleNavigate = (path: string) => {
+    onBeforeNavigate?.();
+    navigate(path);
+  };
 
   return (
     <div 
@@ -110,7 +116,7 @@ export function DayRdvCard({ rdv, index, onRefresh }: DayRdvCardProps) {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2.5 text-xs hover:bg-status-r2/10 text-status-r2"
-                        onClick={() => navigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
+                        onClick={() => handleNavigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
                       >
                         <FileText className="h-3 w-3 mr-1.5" />
                         Voir étude
@@ -166,7 +172,6 @@ export function DayRdvCard({ rdv, index, onRefresh }: DayRdvCardProps) {
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex-shrink-0">
               <RdvActions
                 rdvId={rdv.id}
@@ -180,6 +185,7 @@ export function DayRdvCard({ rdv, index, onRefresh }: DayRdvCardProps) {
                 currentStatus={rdv.status}
                 etudeId={rdv.etudeId}
                 onRefresh={onRefresh}
+                onBeforeNavigate={onBeforeNavigate}
               />
             </div>
           </div>
