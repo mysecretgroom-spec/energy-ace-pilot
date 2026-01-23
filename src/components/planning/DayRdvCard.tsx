@@ -203,6 +203,9 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 typeRdv={rdv.typeRdv}
                 currentStatus={rdv.status}
                 etudeId={rdv.etudeId}
+                regieId={rdv.regieId}
+                regieNom={rdv.regieNom}
+                regieCouleur={rdv.regieCouleur}
                 onRefresh={onRefresh}
                 onBeforeNavigate={onBeforeNavigate}
               />

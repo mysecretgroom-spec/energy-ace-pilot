@@ -27,6 +27,7 @@ import {
   Sun,
   Zap,
   Pencil,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,6 +37,7 @@ import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelec
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
+import { RegieSelector } from "@/components/planning/RegieSelector";
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -93,6 +95,12 @@ interface Rdv {
   status: RdvStatus;
   commentaire: string | null;
   metadata: RdvMetadata | null;
+  regie_id: string | null;
+  regies?: {
+    id: string;
+    nom: string;
+    couleur: string | null;
+  } | null;
 }
 
 interface Etude {
@@ -167,16 +175,24 @@ const ClientDetail = () => {
       metadata: clientData.metadata as ClientMetadata | null,
     });
 
-    // Fetch RDVs
+    // Fetch RDVs with régie info
     const { data: rdvData } = await supabase
       .from("rdv")
-      .select("*")
+      .select(`
+        *,
+        regies:regie_id (
+          id,
+          nom,
+          couleur
+        )
+      `)
       .eq("client_id", id)
       .order("date_heure", { ascending: false });
 
     setRdvs((rdvData || []).map(r => ({
       ...r,
       metadata: r.metadata as RdvMetadata | null,
+      regies: r.regies as Rdv["regies"],
     })) as Rdv[]);
 
     // Fetch Études
@@ -473,11 +489,24 @@ const ClientDetail = () => {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-primary">
                             {formatDateTime(rdv.date_heure)}
                           </span>
                           <StatusBadge status={rdv.status} />
+                          {rdv.regies && (
+                            <span 
+                              className="text-xs px-2 py-0.5 rounded-full border flex items-center gap-1"
+                              style={{ 
+                                backgroundColor: rdv.regies.couleur ? `${rdv.regies.couleur}15` : undefined,
+                                color: rdv.regies.couleur || undefined,
+                                borderColor: rdv.regies.couleur ? `${rdv.regies.couleur}40` : undefined,
+                              }}
+                            >
+                              <Building2 className="h-3 w-3" />
+                              {rdv.regies.nom}
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground capitalize">
                           {rdv.type_projet.replace("_", " ")}
@@ -486,9 +515,18 @@ const ClientDetail = () => {
                           <p className="text-xs text-muted-foreground">{rdv.adresse}</p>
                         )}
                       </div>
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <RegieSelector
+                          rdvId={rdv.id}
+                          currentRegieId={rdv.regie_id}
+                          currentRegieNom={rdv.regies?.nom}
+                          currentRegieCouleur={rdv.regies?.couleur}
+                          onRegieChange={() => fetchClientData()}
+                        />
+                        <Button variant="ghost" size="icon">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     {/* AI Extracted Info for RDV */}
                     {rdv.metadata && Object.keys(rdv.metadata).length > 0 && (
