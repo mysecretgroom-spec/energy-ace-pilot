@@ -33,7 +33,9 @@ import {
   BarChart3,
   ArrowRight,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
+import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -976,6 +978,25 @@ const RegiesSettings = () => {
                     <p className="text-sm text-muted-foreground">
                       Tarifs et commissions spécifiques à cette régie
                     </p>
+
+                    {/* Extraction AI */}
+                    {user && (
+                      <BouquetExtractor
+                        regieId={selectedRegie.id}
+                        userId={user.id}
+                        onBouquetsCreated={() => fetchRegieDetails(selectedRegie.id)}
+                      />
+                    )}
+
+                    {/* Séparateur */}
+                    <div className="relative py-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">ou ajouter manuellement</span>
+                      </div>
+                    </div>
 
                     {/* Formulaire ajout bouquet */}
                     <Card>
