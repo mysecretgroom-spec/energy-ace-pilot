@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { 
+import { useVenteCommissions } from "@/hooks/useVenteCommissions";
+import {
   TrendingUp, 
   Calendar, 
   Users, 
@@ -73,6 +74,19 @@ interface RdvDemain {
   ville: string | null;
 }
 
+interface VenteForCommission {
+  id: string;
+  montant_ht: number;
+  montant_ttc: number;
+  puissance_kwc: number | null;
+  decom_montant: number | null;
+  type_vente: 'standard' | 'external_installation';
+  regie_id: string | null;
+  etude_id: string | null;
+  status: string;
+  date_signature: string | null;
+}
+
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -96,6 +110,41 @@ const Dashboard = () => {
   const [prochainsRdv, setProchainsRdv] = useState<ProchainRdv[]>([]);
   const [premierRdvDemain, setPremierRdvDemain] = useState<RdvDemain | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
+
+  // Use commission hook for accurate calculations
+  const { getCommission } = useVenteCommissions(ventesForCommission);
+
+  // Calculate commission stats from hook results
+  const commissionData = useMemo(() => {
+    const now = new Date();
+    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    let commissionsMois = 0;
+    let commissionsEnAttente = 0;
+
+    ventesForCommission.forEach(vente => {
+      // Skip cancelled sales
+      if (vente.status === "annule") return;
+      
+      const comm = getCommission(vente.id);
+      if (!comm) return;
+
+      const net = comm.commission_nette;
+
+      // Commissions du mois (ventes signées ce mois)
+      if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {
+        commissionsMois += net;
+      }
+
+      // Commissions en attente (non payées)
+      if (vente.status !== "paye") {
+        commissionsEnAttente += net;
+      }
+    });
+
+    return { commissionsMois, commissionsEnAttente };
+  }, [ventesForCommission, getCommission]);
 
   useEffect(() => {
     if (user) {
@@ -134,13 +183,13 @@ const Dashboard = () => {
         rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année
-        supabase.from("ventes").select("*").eq("user_id", user.id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature").eq("user_id", user.id),
         // RDV
         supabase.from("rdv").select("*").eq("user_id", user.id),
         // Clients
         supabase.from("clients").select("id, created_at").eq("user_id", user.id),
-        // Commissions
-        supabase.from("commissions").select("*").eq("user_id", user.id),
+        // Placeholder for removed commissions query
+        Promise.resolve({ data: [] }),
         // Objectifs du mois
         supabase.from("objectifs")
           .select("*")
@@ -174,6 +223,21 @@ const Dashboard = () => {
 
       // Process ventes
       const ventes = ventesRes.data || [];
+      
+      // Store ventes for commission calculation (exclude annulées)
+      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map(v => ({
+        id: v.id,
+        montant_ht: v.montant_ht,
+        montant_ttc: v.montant_ttc,
+        puissance_kwc: v.puissance_kwc,
+        decom_montant: v.decom_montant,
+        type_vente: v.type_vente || 'standard',
+        regie_id: v.regie_id,
+        etude_id: v.etude_id,
+        status: v.status,
+        date_signature: v.date_signature,
+      })));
+      
       const ventesMois = ventes.filter(v => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutMois) &&
@@ -204,15 +268,6 @@ const Dashboard = () => {
         new Date(c.created_at) >= new Date(debutMois)
       ).length;
 
-      // Process commissions
-      const commissions = commissionsRes.data || [];
-      const commissionsMois = commissions
-        .filter(c => new Date(c.date_calcul) >= new Date(debutMois))
-        .reduce((sum, c) => sum + Number(c.montant_commission || 0), 0);
-      const commissionsEnAttente = commissions
-        .filter(c => !c.paye)
-        .reduce((sum, c) => sum + Number(c.montant_commission || 0), 0);
-
       // Objectifs
       const objectifs = objectifsRes.data;
 
@@ -226,8 +281,8 @@ const Dashboard = () => {
         rdvTotal: rdvs.length,
         nouveauxClientsMois,
         totalClients: clients.length,
-        commissionsMois,
-        commissionsEnAttente,
+        commissionsMois: 0, // Will be calculated by hook
+        commissionsEnAttente: 0, // Will be calculated by hook
         objectifCA: objectifs?.objectif_ca || 50000,
         objectifVentes: objectifs?.objectif_ventes || 10,
         objectifRdv: objectifs?.objectif_rdv || 30
@@ -408,9 +463,9 @@ const Dashboard = () => {
                 <TrendingUp className="h-4 w-4" />
                 <span className="text-xs font-medium">Commissions</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(stats.commissionsMois)}</p>
+              <p className="text-xl font-bold">{formatCurrency(commissionData.commissionsMois)}</p>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(stats.commissionsEnAttente)} en attente
+                {formatCurrency(commissionData.commissionsEnAttente)} en attente
               </p>
             </CardContent>
           </Card>
