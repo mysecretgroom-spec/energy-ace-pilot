@@ -32,7 +32,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { AddDocumentFlow } from "@/components/scanner";
+import { AddDocumentFlow, MultiImportFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
@@ -140,6 +140,7 @@ const ClientDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
   const [showDocumentFlow, setShowDocumentFlow] = useState(false);
+  const [showMultiImport, setShowMultiImport] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
@@ -601,13 +602,23 @@ const ClientDetail = () => {
               onSelectDocument={(doc) => window.open(doc.url, "_blank")}
             />
 
-            <Button 
-              className="w-full gap-2 h-12 bg-gradient-hero"
-              onClick={() => setShowDocumentFlow(true)}
-            >
-              <Plus className="h-5 w-5" />
-              Ajouter un document
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 gap-2 h-12 bg-gradient-hero"
+                onClick={() => setShowDocumentFlow(true)}
+              >
+                <Plus className="h-5 w-5" />
+                Ajouter
+              </Button>
+              <Button 
+                variant="outline"
+                className="gap-2 h-12"
+                onClick={() => setShowMultiImport(true)}
+              >
+                <FileText className="h-4 w-4" />
+                Import multiple
+              </Button>
+            </div>
 
             {documents.length === 0 ? (
               <Card className="shadow-card">
@@ -641,6 +652,18 @@ const ClientDetail = () => {
             fetchClientData();
           }}
           onCancel={() => setShowDocumentFlow(false)}
+        />
+
+        {/* Multi Import Flow */}
+        <MultiImportFlow
+          isOpen={showMultiImport}
+          context="client_docs"
+          clientId={id}
+          onSuccess={() => {
+            setShowMultiImport(false);
+            fetchClientData();
+          }}
+          onClose={() => setShowMultiImport(false)}
         />
 
         {/* Edit Client Dialog */}

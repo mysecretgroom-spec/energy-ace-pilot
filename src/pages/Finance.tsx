@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { BankImport } from "@/components/finance/BankImport";
 import { PlaidLink } from "@/components/finance/PlaidLink";
-import { AddDocumentFlow } from "@/components/scanner";
+import { AddDocumentFlow, MultiImportFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
@@ -44,6 +44,7 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
+  Files,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -111,6 +112,7 @@ const Finance = () => {
   const [activeTab, setActiveTab] = useState("frais");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [documentFlowOpen, setDocumentFlowOpen] = useState(false);
+  const [multiImportOpen, setMultiImportOpen] = useState(false);
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
@@ -727,6 +729,15 @@ const Finance = () => {
                 Ajouter une facture
               </Button>
               
+              <Button 
+                variant="outline"
+                className="gap-2 h-12"
+                onClick={() => setMultiImportOpen(true)}
+              >
+                <Files className="h-4 w-4" />
+                Import multiple
+              </Button>
+              
               <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="gap-2 h-12">
@@ -1065,6 +1076,28 @@ const Finance = () => {
             </AlertDialog>
           </TabsContent>
         </Tabs>
+
+        {/* Multi Import Flow */}
+        <MultiImportFlow
+          isOpen={multiImportOpen}
+          context="finance"
+          onSuccess={() => {
+            setMultiImportOpen(false);
+            // Refresh data
+            if (user) {
+              supabase
+                .from("frais")
+                .select("*")
+                .eq("user_id", user.id)
+                .order("date_frais", { ascending: false })
+                .limit(10)
+                .then(({ data }) => {
+                  if (data) setFraisData(data as FraisItem[]);
+                });
+            }
+          }}
+          onClose={() => setMultiImportOpen(false)}
+        />
       </div>
     </MobileLayout>
   );
