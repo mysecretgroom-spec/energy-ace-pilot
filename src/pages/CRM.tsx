@@ -344,6 +344,21 @@ const CRM = () => {
 
     setSaving(true);
     try {
+      // Récupérer automatiquement la régie depuis le dernier RDV du client
+      let regieId: string | null = null;
+      const { data: lastRdv } = await supabase
+        .from("rdv")
+        .select("regie_id")
+        .eq("client_id", formData.client_id)
+        .not("regie_id", "is", null)
+        .order("date_heure", { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (lastRdv?.regie_id) {
+        regieId = lastRdv.regie_id;
+      }
+
       const { error } = await supabase.from("ventes").insert({
         user_id: user.id,
         client_id: formData.client_id,
@@ -355,6 +370,7 @@ const CRM = () => {
         date_signature: formData.date_signature || null,
         notes: formData.notes || null,
         type_vente: formData.type_vente,
+        regie_id: regieId,
         status: formData.type_vente === 'external_installation' 
           ? 'paye'  // Les installations externes sont directement marquées comme payées
           : (formData.date_signature ? 'signe' : 'en_negociation')
@@ -362,7 +378,12 @@ const CRM = () => {
 
       if (error) throw error;
 
-      toast.success("Vente créée avec succès");
+      const regieInfo = regieId ? regies.find(r => r.id === regieId) : null;
+      toast.success(
+        regieInfo 
+          ? `Vente créée (Régie: ${regieInfo.nom})` 
+          : "Vente créée avec succès"
+      );
       setDialogOpen(false);
       setPrefilledClientName(null);
       setFormData({
