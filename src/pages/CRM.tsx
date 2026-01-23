@@ -884,6 +884,7 @@ const CRM = () => {
                       key={vente.id}
                       vente={vente}
                       commission={commission}
+                      regies={regies}
                       selectionMode={selectionMode}
                       isSelected={isSelected}
                       onClick={handleCardClick}
