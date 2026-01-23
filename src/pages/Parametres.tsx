@@ -53,6 +53,17 @@ const settingsSections = [
     ],
   },
   {
+    title: "Régies & Sources",
+    items: [
+      {
+        icon: Building2,
+        label: "Régies",
+        description: "Sources RDV, emails, contacts, tarifs",
+        path: "/parametres/regies",
+      },
+    ],
+  },
+  {
     title: "Import RDV",
     items: [
       {
@@ -119,17 +130,6 @@ const settingsSections = [
         label: "Financements",
         description: "Taux, TAEG, durées",
         path: "/parametres/data-financements",
-      },
-    ],
-  },
-  {
-    title: "Régies & Sources",
-    items: [
-      {
-        icon: Building2,
-        label: "Régies",
-        description: "Sources RDV, emails, contacts, tarifs",
-        path: "/parametres/regies",
       },
     ],
   },
