@@ -425,8 +425,8 @@ export function MultiImportFlow({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             {context === "finance" ? (
               <Receipt className="h-5 w-5 text-primary" />
@@ -437,47 +437,46 @@ export function MultiImportFlow({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
-          {/* Upload zone */}
-          <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm font-medium">
-              Cliquez pour sélectionner des fichiers
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              PDF, JPG, PNG • Plusieurs fichiers autorisés
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/pdf,image/jpeg,image/jpg,image/png"
-              multiple
-              onChange={handleFilesSelect}
-              className="hidden"
-            />
+        {/* Upload zone - fixed at top */}
+        <div
+          className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors flex-shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-sm font-medium">
+            Cliquez pour sélectionner des fichiers
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            PDF, JPG, PNG • Plusieurs fichiers autorisés
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png"
+            multiple
+            onChange={handleFilesSelect}
+            className="hidden"
+          />
+        </div>
+
+        {/* Files status */}
+        {files.length > 0 && (
+          <div className="flex items-center gap-2 text-sm flex-shrink-0">
+            <Badge variant="outline">{files.length} fichiers</Badge>
+            {pendingCount > 0 && (
+              <Badge variant="secondary">{pendingCount} en attente</Badge>
+            )}
+            {successCount > 0 && (
+              <Badge className="bg-green-100 text-green-700">{successCount} analysés</Badge>
+            )}
+            {manualCount > 0 && (
+              <Badge className="bg-amber-100 text-amber-700">{manualCount} à compléter</Badge>
+            )}
           </div>
+        )}
 
-          {/* Files status */}
-          {files.length > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <Badge variant="outline">{files.length} fichiers</Badge>
-              {pendingCount > 0 && (
-                <Badge variant="secondary">{pendingCount} en attente</Badge>
-              )}
-              {successCount > 0 && (
-                <Badge className="bg-green-100 text-green-700">{successCount} analysés</Badge>
-              )}
-              {manualCount > 0 && (
-                <Badge className="bg-amber-100 text-amber-700">{manualCount} à compléter</Badge>
-              )}
-            </div>
-          )}
-
-          {/* Files list */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
+        {/* Files list - scrollable */}
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <div className="space-y-3">
               {files.map((f) => (
                 <Card key={f.id} className={f.status === "manual" ? "border-amber-300" : ""}>
@@ -627,7 +626,6 @@ export function MultiImportFlow({
                 </Card>
               ))}
             </div>
-          </ScrollArea>
         </div>
 
         {/* Actions */}
