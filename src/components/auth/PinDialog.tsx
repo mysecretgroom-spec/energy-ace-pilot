@@ -18,6 +18,7 @@ interface PinDialogProps {
   onSuccess: () => void;
   title?: string;
   description?: string;
+  useHejjaActivation?: boolean;
 }
 
 export const PinDialog = ({
@@ -26,6 +27,7 @@ export const PinDialog = ({
   onSuccess,
   title = "Authentification requise",
   description = "Entrez le code PIN pour activer le mode interne",
+  useHejjaActivation = false,
 }: PinDialogProps) => {
   const { user } = useAuth();
   const [pin, setPin] = useState(["", "", "", ""]);
