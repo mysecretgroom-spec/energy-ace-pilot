@@ -23,20 +23,30 @@ export interface PendingDocument {
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    // Safety check for IndexedDB availability
+    if (!window.indexedDB) {
+      reject(new Error("IndexedDB not available"));
+      return;
+    }
+    
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
 
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-        store.createIndex("userId", "userId", { unique: false });
-        store.createIndex("clientId", "clientId", { unique: false });
-        store.createIndex("createdAt", "createdAt", { unique: false });
-      }
-    };
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+          store.createIndex("userId", "userId", { unique: false });
+          store.createIndex("clientId", "clientId", { unique: false });
+          store.createIndex("createdAt", "createdAt", { unique: false });
+        }
+      };
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 

@@ -17,8 +17,12 @@ export function useOneSignal() {
   const [appId, setAppId] = useState<string | null>(null);
   const initAttempted = useRef(false);
 
-  // Fetch OneSignal App ID from backend
+  // Fetch OneSignal App ID from backend - with delay to not block initial render
   useEffect(() => {
+    // Skip in standalone mode initially to prevent blocking
+    const isStandalone = (navigator as any).standalone || 
+      window.matchMedia('(display-mode: standalone)').matches;
+    
     const fetchConfig = async () => {
       try {
         const { data, error } = await supabase.functions.invoke("get-onesignal-config");
@@ -34,7 +38,11 @@ export function useOneSignal() {
       }
     };
 
-    fetchConfig();
+    // Delay initialization in standalone mode
+    const delay = isStandalone ? 3000 : 0;
+    const timeoutId = setTimeout(fetchConfig, delay);
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // Load OneSignal SDK
