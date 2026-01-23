@@ -47,7 +47,7 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 
   negatif: `📋 *MISE À JOUR DOSSIER*
 
@@ -60,7 +60,7 @@ Le client n'est pas intéressé pour le moment.
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 
   r2: `📋 *MISE À JOUR DOSSIER*
 
@@ -74,7 +74,7 @@ _Envoyé depuis SolarFlow_`,
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 
   r2_prestudy: `📋 *MISE À JOUR DOSSIER*
 
@@ -91,7 +91,7 @@ L'étude technique a été partagée séparément.
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 
   attente: `📋 *MISE À JOUR DOSSIER*
 
@@ -104,7 +104,7 @@ Le dossier est en attente de décision du client.
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 
   annule: `📋 *MISE À JOUR DOSSIER*
 
@@ -117,7 +117,7 @@ Le rendez-vous a été annulé.
 {{comment}}
 
 ---
-_Envoyé depuis SolarFlow_`,
+_Envoyé depuis DébalePro_`,
 };
 
 export const useWhatsAppNotification = () => {

@@ -88,7 +88,7 @@ const Index = () => {
           <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-hero">
             <Sun className="h-4 w-4 text-primary-foreground" />
             <span className="text-sm font-medium text-primary-foreground">
-              SolarFlow
+              DébalePro
             </span>
           </div>
         </div>

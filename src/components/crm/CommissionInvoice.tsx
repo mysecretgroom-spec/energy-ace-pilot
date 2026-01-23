@@ -269,7 +269,7 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       // Footer
       doc.setFontSize(10);
       doc.setFont("helvetica", "italic");
-      doc.text("Document généré automatiquement par SolarFlow", pageWidth / 2, finalY + 20, { align: "center" });
+      doc.text("Document généré automatiquement par DébalePro", pageWidth / 2, finalY + 20, { align: "center" });
 
       // Save
       doc.save(`facture_commissions_${format(new Date(), "yyyy-MM-dd")}.pdf`);

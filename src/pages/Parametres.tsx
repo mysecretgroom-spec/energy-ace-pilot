@@ -300,7 +300,7 @@ const Parametres = () => {
 
         {/* Version */}
         <p className="text-center text-xs text-muted-foreground">
-          SolarFlow v1.0.0 • © 2026
+          DébalePro v1.0.0 • © 2026
         </p>
       </div>
     </MobileLayout>
