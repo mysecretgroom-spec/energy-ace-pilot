@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2 } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
+import { RegieSelector } from "./RegieSelector";
 import { RdvStatus } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,8 +28,12 @@ interface RdvActionsProps {
   typeRdv: RdvType;
   currentStatus: RdvStatus;
   etudeId?: string | null;
+  regieId?: string | null;
+  regieNom?: string | null;
+  regieCouleur?: string | null;
   onRefresh: () => void;
   onStatusChange?: (newStatus: RdvStatus) => void;
+  onRegieChange?: (regieId: string | null, regieNom: string | null, regieCouleur: string | null) => void;
   onBeforeNavigate?: () => void;
 }
 
@@ -43,8 +48,12 @@ export function RdvActions({
   typeRdv,
   currentStatus,
   etudeId,
+  regieId,
+  regieNom,
+  regieCouleur,
   onRefresh,
   onStatusChange,
+  onRegieChange,
   onBeforeNavigate,
 }: RdvActionsProps) {
   const navigate = useNavigate();
@@ -127,6 +136,15 @@ export function RdvActions({
         etudeId={etudeId}
         onStatusChange={handleStatusChangeInternal}
         compact
+      />
+      
+      {/* Sélecteur de régie */}
+      <RegieSelector
+        rdvId={rdvId}
+        currentRegieId={regieId}
+        currentRegieNom={regieNom}
+        currentRegieCouleur={regieCouleur}
+        onRegieChange={onRegieChange}
       />
       {/* Appeler */}
       <Button
