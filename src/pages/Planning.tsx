@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RdvActions } from "@/components/planning/RdvActions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmailImport } from "@/components/planning/EmailImport";
 import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import { GmailSync } from "@/components/planning/GmailSync";
@@ -30,7 +29,6 @@ import {
   ChevronRight,
   Car,
   CalendarX,
-  Mail,
   Plus,
   RefreshCw,
   FileText,
@@ -85,7 +83,6 @@ const Planning = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [rdvList, setRdvList] = useState<RdvData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [emailImportOpen, setEmailImportOpen] = useState(false);
   const [quickRdvOpen, setQuickRdvOpen] = useState(false);
   const [selectedRdv, setSelectedRdv] = useState<RdvData | null>(null);
   const [showMap, setShowMap] = useState(false);
@@ -401,24 +398,6 @@ const Planning = () => {
                     />
                   </DialogContent>
                 </Dialog>
-                <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1.5 h-8">
-                      <Mail className="h-3.5 w-3.5" />
-                      Manuel
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md p-0 overflow-hidden">
-                    <EmailImport
-                      onSuccess={() => {
-                        setEmailImportOpen(false);
-                        fetchRdvs();
-                        refetchRoutes();
-                      }}
-                      onCancel={() => setEmailImportOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
               </div>
             </div>
           </CardContent>
@@ -476,24 +455,14 @@ const Planning = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Vous n'avez pas de rendez-vous pour cette journée.
               </p>
-              <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Mail className="h-4 w-4" />
-                    Importer depuis un email
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md p-0 overflow-hidden">
-                    <EmailImport
-                      onSuccess={() => {
-                        setEmailImportOpen(false);
-                        fetchRdvs();
-                        refetchRoutes();
-                      }}
-                      onCancel={() => setEmailImportOpen(false)}
-                    />
-                  </DialogContent>
-              </Dialog>
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => setQuickRdvOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Créer un RDV
+              </Button>
             </CardContent>
           </Card>
         )}
