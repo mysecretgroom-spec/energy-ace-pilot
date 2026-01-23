@@ -52,6 +52,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    // Safety timeout to prevent infinite loading on iOS PWA
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth loading timeout - forcing completion");
+        setLoading(false);
+      }
+    }, 5000);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -62,7 +70,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // Save Google tokens when user signs in with Google
         if (event === "SIGNED_IN" && session?.provider_token) {
-          await saveGoogleTokens(session);
+          // Use setTimeout to avoid blocking the auth flow
+          setTimeout(() => saveGoogleTokens(session), 0);
         }
       }
     );
@@ -76,11 +85,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Also try to save tokens from initial session (OAuth callback)
       if (session?.provider_token) {
-        await saveGoogleTokens(session);
+        setTimeout(() => saveGoogleTokens(session), 0);
       }
+    }).catch((error) => {
+      console.error("Error getting session:", error);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
