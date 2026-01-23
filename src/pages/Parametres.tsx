@@ -203,11 +203,36 @@ const Parametres = () => {
           <GoogleAccountSettings />
         </div>
 
-        {/* WhatsApp Settings Link */}
+        {/* Notifications Section */}
         <div className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
             Notifications
           </h3>
+          
+          {/* Push Notifications Card */}
+          <Card 
+            className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => navigate("/parametres/notifications-push")}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Bell className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Notifications Push
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Alertes sur téléphone
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* WhatsApp Card */}
           <Card 
             className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => navigate("/parametres/whatsapp")}

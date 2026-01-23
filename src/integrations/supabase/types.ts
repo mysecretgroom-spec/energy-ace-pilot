@@ -1454,6 +1454,11 @@ export type Database = {
           gmail_sync_enabled: boolean
           gmail_sync_interval_minutes: number
           id: string
+          push_enabled: boolean | null
+          push_gmail_import: boolean | null
+          push_new_rdv: boolean | null
+          push_rappel_rdv: boolean | null
+          push_vente_status: boolean | null
           updated_at: string
           user_id: string
           vente_auto_transition_weeks: number
@@ -1464,6 +1469,11 @@ export type Database = {
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
           id?: string
+          push_enabled?: boolean | null
+          push_gmail_import?: boolean | null
+          push_new_rdv?: boolean | null
+          push_rappel_rdv?: boolean | null
+          push_vente_status?: boolean | null
           updated_at?: string
           user_id: string
           vente_auto_transition_weeks?: number
@@ -1474,6 +1484,11 @@ export type Database = {
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
           id?: string
+          push_enabled?: boolean | null
+          push_gmail_import?: boolean | null
+          push_new_rdv?: boolean | null
+          push_rappel_rdv?: boolean | null
+          push_vente_status?: boolean | null
           updated_at?: string
           user_id?: string
           vente_auto_transition_weeks?: number

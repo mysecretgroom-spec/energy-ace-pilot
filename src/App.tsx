@@ -37,6 +37,7 @@ import DataFinancements from "./pages/settings/DataFinancements";
 import WhatsAppSettings from "./pages/settings/WhatsAppSettings";
 import SecuritySettings from "./pages/settings/SecuritySettings";
 import VentesSettings from "./pages/settings/VentesSettings";
+import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
 import React, { useEffect } from "react";
@@ -99,6 +100,7 @@ const App = () => {
                   <Route path="/parametres/whatsapp" element={<ProtectedRoute><WhatsAppSettings /></ProtectedRoute>} />
                   <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                   <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
                   <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
                   <Route path="/install" element={<Install />} />
                   <Route path="/confidentialite" element={<Confidentialite />} />
