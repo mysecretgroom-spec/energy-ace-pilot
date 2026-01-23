@@ -10,8 +10,9 @@ import {
   Bell,
   Wifi,
   WifiOff,
+  Loader2,
 } from "lucide-react";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOneSignal } from "@/hooks/useOneSignal";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -23,7 +24,15 @@ const Install = () => {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const { isSupported, permission, requestPermission } = usePushNotifications();
+  const [isRequesting, setIsRequesting] = useState(false);
+  
+  const { 
+    isSupported, 
+    isInitialized,
+    isSubscribed,
+    permission, 
+    requestPermission 
+  } = useOneSignal();
 
   useEffect(() => {
     // Check if app is already installed
@@ -75,7 +84,12 @@ const Install = () => {
   };
 
   const handleEnableNotifications = async () => {
-    await requestPermission();
+    setIsRequesting(true);
+    try {
+      await requestPermission();
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   return (
@@ -177,7 +191,7 @@ const Install = () => {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Bell className="h-5 w-5" />
-              Notifications
+              Notifications Push
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -185,11 +199,16 @@ const Install = () => {
               <p className="text-sm text-muted-foreground">
                 Les notifications ne sont pas supportées sur ce navigateur.
               </p>
-            ) : permission === "granted" ? (
+            ) : !isInitialized ? (
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Initialisation...</span>
+              </div>
+            ) : isSubscribed ? (
               <div className="flex items-center gap-3 text-green-600">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="text-sm font-medium">
-                  Notifications activées
+                  Notifications push activées
                 </span>
               </div>
             ) : permission === "denied" ? (
@@ -200,14 +219,22 @@ const Install = () => {
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Recevez des alertes pour les nouveaux RDV importés.
+                  Recevez des alertes même quand l'application est fermée.
                 </p>
                 <Button
                   variant="outline"
                   className="w-full"
                   onClick={handleEnableNotifications}
+                  disabled={isRequesting}
                 >
-                  Activer les notifications
+                  {isRequesting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Activation...
+                    </>
+                  ) : (
+                    "Activer les notifications push"
+                  )}
                 </Button>
               </div>
             )}
@@ -235,7 +262,7 @@ const Install = () => {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
-                Notifications pour les nouveaux RDV
+                <strong>Notifications push en arrière-plan</strong>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
