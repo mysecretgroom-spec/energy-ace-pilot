@@ -105,7 +105,7 @@ interface VenteStats {
 
 const Finance = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("ventes");
+  const [activeTab, setActiveTab] = useState("frais");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [documentFlowOpen, setDocumentFlowOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
