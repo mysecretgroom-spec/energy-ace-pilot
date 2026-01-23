@@ -9,7 +9,6 @@ import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettin
 import { toast } from "sonner";
 import {
   User,
-  Mail,
   Euro,
   Calculator,
   Bell,
@@ -25,7 +24,6 @@ import {
   Gauge,
   Gift,
   CreditCard,
-  MessageSquare,
   Target,
   Building2,
 } from "lucide-react";
@@ -57,12 +55,6 @@ const settingsSections = [
   {
     title: "Import RDV",
     items: [
-      {
-        icon: Mail,
-        label: "Emails autorisés",
-        description: "Sources d'import RDV",
-        path: "/parametres/emails-autorises",
-      },
       {
         icon: Clock,
         label: "Sync Gmail automatique",
@@ -136,7 +128,7 @@ const settingsSections = [
       {
         icon: Building2,
         label: "Régies",
-        description: "Sources RDV, contacts, tarifs",
+        description: "Sources RDV, emails, contacts, tarifs",
         path: "/parametres/regies",
       },
     ],
@@ -244,29 +236,6 @@ const Parametres = () => {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Alertes sur téléphone
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* WhatsApp Card */}
-          <Card 
-            className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => navigate("/parametres/whatsapp")}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <MessageSquare className="h-4 w-4 text-green-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    WhatsApp Confirmateur
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Messages et modèles
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
