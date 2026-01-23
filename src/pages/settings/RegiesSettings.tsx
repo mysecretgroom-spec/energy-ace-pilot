@@ -26,7 +26,13 @@ import {
   Edit,
   Check,
   Loader2,
+  TrendingUp,
+  Calendar,
+  Target,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -75,6 +81,12 @@ interface RegieStats {
   rdv: number;
   ventes: number;
   ca: number;
+  rdvMois: number;
+  ventesMois: number;
+  caMois: number;
+  signes: number;
+  poses: number;
+  payes: number;
 }
 
 const colorOptions = [
@@ -135,17 +147,35 @@ const RegiesSettings = () => {
 
       // Fetch stats for each regie
       const statsMap: Record<string, RegieStats> = {};
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      
       for (const regie of data || []) {
-        const [rdvResult, ventesResult] = await Promise.all([
+        const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult] = await Promise.all([
           supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id),
-          supabase.from("ventes").select("id, montant_solde").eq("regie_id", regie.id),
+          supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id).gte("date_heure", startOfMonth),
+          supabase.from("ventes").select("id, montant_solde, status").eq("regie_id", regie.id),
+          supabase.from("ventes").select("id, montant_solde").eq("regie_id", regie.id).gte("date_signature", startOfMonth.split("T")[0]),
         ]);
         
         const ventes = ventesResult.data || [];
+        const ventesMois = ventesMoisResult.data || [];
+        
+        // Count by status
+        const signes = ventes.filter(v => v.status === "signe" || v.status === "attente_financement" || v.status === "cq_a_faire" || v.status === "cq_fait").length;
+        const poses = ventes.filter(v => v.status === "en_installation" || v.status === "envoi_pose" || v.status === "installe" || v.status === "attente_paiement").length;
+        const payes = ventes.filter(v => v.status === "paye").length;
+        
         statsMap[regie.id] = {
           rdv: rdvResult.count || 0,
           ventes: ventes.length,
           ca: ventes.reduce((sum, v) => sum + (v.montant_solde || 0), 0),
+          rdvMois: rdvMoisResult.count || 0,
+          ventesMois: ventesMois.length,
+          caMois: ventesMois.reduce((sum, v) => sum + (v.montant_solde || 0), 0),
+          signes,
+          poses,
+          payes,
         };
       }
       setRegieStats(statsMap);
@@ -613,21 +643,167 @@ const RegiesSettings = () => {
                 </div>
 
                 {/* Tabs pour les différentes sections */}
-                <Tabs defaultValue="emails" className="w-full">
-                  <TabsList className="w-full rounded-none border-b">
-                    <TabsTrigger value="emails" className="flex-1 gap-1">
+                <Tabs defaultValue="dashboard" className="w-full">
+                  <TabsList className="w-full rounded-none border-b grid grid-cols-4">
+                    <TabsTrigger value="dashboard" className="gap-1 text-xs px-1">
+                      <BarChart3 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Stats</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="emails" className="gap-1 text-xs px-1">
                       <Mail className="h-4 w-4" />
-                      Emails
+                      <span className="hidden sm:inline">Emails</span>
                     </TabsTrigger>
-                    <TabsTrigger value="contacts" className="flex-1 gap-1">
+                    <TabsTrigger value="contacts" className="gap-1 text-xs px-1">
                       <MessageSquare className="h-4 w-4" />
-                      WhatsApp
+                      <span className="hidden sm:inline">WhatsApp</span>
                     </TabsTrigger>
-                    <TabsTrigger value="bouquets" className="flex-1 gap-1">
+                    <TabsTrigger value="bouquets" className="gap-1 text-xs px-1">
                       <Euro className="h-4 w-4" />
-                      Tarifs
+                      <span className="hidden sm:inline">Tarifs</span>
                     </TabsTrigger>
                   </TabsList>
+
+                  {/* Onglet Dashboard */}
+                  <TabsContent value="dashboard" className="p-4 space-y-4">
+                    {(() => {
+                      const stats = regieStats[selectedRegie.id] || {
+                        rdv: 0, ventes: 0, ca: 0, rdvMois: 0, ventesMois: 0, caMois: 0, signes: 0, poses: 0, payes: 0
+                      };
+                      const conversionRate = stats.rdv > 0 ? Math.round((stats.ventes / stats.rdv) * 100) : 0;
+                      
+                      return (
+                        <>
+                          {/* KPIs principaux */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Calendar className="h-4 w-4 text-blue-600" />
+                                  <span className="text-xs text-muted-foreground">RDV Total</span>
+                                </div>
+                                <p className="text-2xl font-bold text-blue-600">{stats.rdv}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  dont {stats.rdvMois} ce mois
+                                </p>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Target className="h-4 w-4 text-green-600" />
+                                  <span className="text-xs text-muted-foreground">Ventes</span>
+                                </div>
+                                <p className="text-2xl font-bold text-green-600">{stats.ventes}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  dont {stats.ventesMois} ce mois
+                                </p>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Euro className="h-4 w-4 text-amber-600" />
+                                  <span className="text-xs text-muted-foreground">CA Total</span>
+                                </div>
+                                <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.ca)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {formatCurrency(stats.caMois)} ce mois
+                                </p>
+                              </CardContent>
+                            </Card>
+
+                            <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <TrendingUp className="h-4 w-4 text-purple-600" />
+                                  <span className="text-xs text-muted-foreground">Conversion</span>
+                                </div>
+                                <p className="text-2xl font-bold text-purple-600">{conversionRate}%</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  RDV → Vente
+                                </p>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Tunnel de conversion */}
+                          <Card>
+                            <CardContent className="p-4">
+                              <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4 text-primary" />
+                                Pipeline des ventes
+                              </h4>
+                              
+                              <div className="space-y-3">
+                                {/* Signés */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Signés / En financement</span>
+                                    <span className="font-medium">{stats.signes}</span>
+                                  </div>
+                                  <Progress 
+                                    value={stats.ventes > 0 ? (stats.signes / stats.ventes) * 100 : 0} 
+                                    className="h-2 bg-orange-100"
+                                  />
+                                </div>
+
+                                {/* Posés */}
+                                <div className="flex items-center justify-center">
+                                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Installés / Attente paiement</span>
+                                    <span className="font-medium">{stats.poses}</span>
+                                  </div>
+                                  <Progress 
+                                    value={stats.ventes > 0 ? (stats.poses / stats.ventes) * 100 : 0} 
+                                    className="h-2 bg-blue-100"
+                                  />
+                                </div>
+
+                                {/* Payés */}
+                                <div className="flex items-center justify-center">
+                                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Payées</span>
+                                    <span className="font-medium text-green-600">{stats.payes}</span>
+                                  </div>
+                                  <Progress 
+                                    value={stats.ventes > 0 ? (stats.payes / stats.ventes) * 100 : 0} 
+                                    className="h-2 bg-green-100"
+                                  />
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* CA moyen */}
+                          {stats.ventes > 0 && (
+                            <Card className="bg-muted/30">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Panier moyen</p>
+                                    <p className="text-lg font-bold">{formatCurrency(stats.ca / stats.ventes)}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">Taux signature</p>
+                                    <p className="text-lg font-bold text-primary">{conversionRate}%</p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </>
+                      );
+                    })()}</TabsContent>
 
                   {/* Onglet Emails */}
                   <TabsContent value="emails" className="p-4 space-y-3">
