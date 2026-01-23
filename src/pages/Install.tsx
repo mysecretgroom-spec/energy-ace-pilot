@@ -100,7 +100,7 @@ const Install = () => {
           <div className="w-20 h-20 mx-auto bg-primary rounded-2xl flex items-center justify-center shadow-lg">
             <Smartphone className="h-10 w-10 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold">Installer SolarCRM</h1>
+          <h1 className="text-2xl font-bold">Installer DébalePro</h1>
           <p className="text-muted-foreground">
             Accédez rapidement à votre espace commercial
           </p>

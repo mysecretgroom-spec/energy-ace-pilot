@@ -95,7 +95,7 @@ export function ExportFraisPDF({ frais, periode }: ExportFraisPDFProps) {
   </div>
   
   <div class="footer">
-    Document généré automatiquement par SolarFlow
+    Document généré automatiquement par DébalePro
   </div>
 </body>
 </html>

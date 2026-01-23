@@ -395,7 +395,7 @@ const generatePdfDoc = (data: EtudeData): jsPDF => {
     month: "long",
     year: "numeric",
   });
-  doc.text(`Étude générée le ${today} • SolarFlow`, pageWidth / 2, 285, { align: "center" });
+  doc.text(`Étude générée le ${today} • DébalePro`, pageWidth / 2, 285, { align: "center" });
   
   return doc;
 };

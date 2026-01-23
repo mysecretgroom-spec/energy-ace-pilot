@@ -90,7 +90,7 @@ const Signup = () => {
     } else {
       toast({
         title: "Compte créé !",
-        description: "Bienvenue sur SolarFlow !",
+        description: "Bienvenue sur DébalePro !",
       });
       navigate("/");
     }
@@ -121,7 +121,7 @@ const Signup = () => {
           </div>
           <div>
             <CardTitle className="text-2xl font-display">Créer un compte</CardTitle>
-            <CardDescription>Rejoignez SolarFlow et boostez vos ventes ENR</CardDescription>
+            <CardDescription>Rejoignez DébalePro et boostez vos ventes ENR</CardDescription>
           </div>
         </CardHeader>
 

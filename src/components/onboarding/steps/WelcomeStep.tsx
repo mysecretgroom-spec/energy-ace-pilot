@@ -11,7 +11,7 @@ export function WelcomeStep() {
       {/* Title */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight">
-          Bienvenue sur SolarFlow
+          Bienvenue sur DébalePro
         </h2>
         <p className="text-muted-foreground mt-2">
           Votre application métier pour gérer vos rendez-vous, clients et ventes en toute simplicité.

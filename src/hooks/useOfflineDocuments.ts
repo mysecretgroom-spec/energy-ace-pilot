@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-const DB_NAME = "solarflow_offline";
+const DB_NAME = "debalepro_offline";
 const DB_VERSION = 1;
 const STORE_NAME = "pending_documents";
 
