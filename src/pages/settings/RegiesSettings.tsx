@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Building2,
@@ -746,9 +747,11 @@ const RegiesSettings = () => {
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                     <Dialog>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20">
-                        <Palette className="h-4 w-4" />
-                      </Button>
+                      <DialogTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20">
+                          <Palette className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
                       <DialogContent className="max-w-xs">
                         <DialogHeader>
                           <DialogTitle>Changer la couleur</DialogTitle>
