@@ -504,6 +504,7 @@ const Planning = () => {
                 rdv={rdv}
                 index={index}
                 onRefresh={() => { fetchRdvs(); refetchRoutes(); }}
+                onBeforeNavigate={() => setShowMap(false)}
               />
             ))}
 
