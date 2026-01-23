@@ -41,6 +41,7 @@ import {
   History,
   Clock,
   Camera,
+  ShieldOff,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -51,6 +52,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { format } from "date-fns";
@@ -198,11 +200,18 @@ const EtudeForm = () => {
   const [surcoutCompteur, setSurcoutCompteur] = useState(0);
   const [autreSurcout, setAutreSurcout] = useState(0);
 
-  // Mode HEJJA
-  const [modeHejjaActive, setModeHejjaActive] = useState(false);
-  const [modeHejjaPsh, setModeHejjaPsh] = useState(true);
-  const [modeHejjaPrix, setModeHejjaPrix] = useState(false);
-  const [prixManuel, setPrixManuel] = useState<number | "">("");
+  // Mode HEJJA - use global context
+  const { 
+    isActive: modeHejjaActive, 
+    pshEnabled: modeHejjaPsh, 
+    prixEnabled: modeHejjaPrix, 
+    prixManuel, 
+    activate: activateHejja,
+    deactivate: deactivateHejja,
+    setPshEnabled: setModeHejjaPsh,
+    setPrixEnabled: setModeHejjaPrix,
+    setPrixManuel
+  } = useHejjaMode();
   const [showPinDialog, setShowPinDialog] = useState(false);
 
   // Animation de succès
@@ -258,17 +267,6 @@ const EtudeForm = () => {
     resultatTransfertCharge: number;
     verdict: "valide" | "a_etudier" | "invalide" | null;
   } | null>(null);
-
-  // Auto-disable HEJJA mode when leaving the page
-  useEffect(() => {
-    return () => {
-      // Cleanup: reset HEJJA mode on unmount
-      setModeHejjaActive(false);
-      setModeHejjaPsh(false);
-      setModeHejjaPrix(false);
-      setPrixManuel("");
-    };
-  }, []);
 
   // Load data on mount
   useEffect(() => {
@@ -1294,14 +1292,10 @@ const EtudeForm = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full text-muted-foreground"
-                  onClick={() => {
-                    setModeHejjaActive(false);
-                    setModeHejjaPsh(false);
-                    setModeHejjaPrix(false);
-                    setPrixManuel("");
-                  }}
+                  className="w-full text-muted-foreground gap-2"
+                  onClick={deactivateHejja}
                 >
+                  <ShieldOff className="h-4 w-4" />
                   Désactiver le mode HEJJA
                 </Button>
               </>
@@ -1313,7 +1307,7 @@ const EtudeForm = () => {
         <PinDialog
           open={showPinDialog}
           onOpenChange={setShowPinDialog}
-          onSuccess={() => setModeHejjaActive(true)}
+          onSuccess={activateHejja}
           title="Mode HEJJA"
           description="Entrez le code PIN interne pour activer le mode HEJJA"
         />

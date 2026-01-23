@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { HejjaModeProvider } from "@/hooks/useHejjaMode";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { HejjaToggle } from "@/components/layout/HejjaToggle";
 import Dashboard from "./pages/Dashboard";
 import Planning from "./pages/Planning";
 import CRM from "./pages/CRM";
@@ -49,6 +51,11 @@ const initTheme = () => {
   }
 };
 
+// Component to show HejjaToggle only for authenticated users
+const AuthenticatedHejjaToggle = () => {
+  return <HejjaToggle />;
+};
+
 // App component with authentication
 const App = () => {
   useEffect(() => {
@@ -63,40 +70,44 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <AuthProvider>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
-                <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
-                <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
-                <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
-                <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-                <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-                <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
-                <Route path="/parametres/emails-autorises" element={<ProtectedRoute><EmailsAutorises /></ProtectedRoute>} />
-                <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
-                <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
-                <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
-                <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
-                <Route path="/parametres/data-bouquets" element={<ProtectedRoute><DataBouquets /></ProtectedRoute>} />
-                <Route path="/parametres/data-commissions" element={<ProtectedRoute><DataCommissions /></ProtectedRoute>} />
-                <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
-                <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
-                <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
-                <Route path="/parametres/data-financements" element={<ProtectedRoute><DataFinancements /></ProtectedRoute>} />
-                <Route path="/parametres/whatsapp" element={<ProtectedRoute><WhatsAppSettings /></ProtectedRoute>} />
-                <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
-                <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
-                <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
-                <Route path="/install" element={<Install />} />
-                <Route path="/confidentialite" element={<Confidentialite />} />
-                <Route path="/conditions" element={<Conditions />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <HejjaModeProvider>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
+                  <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
+                  <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+                  <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
+                  <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                  <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                  <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                  <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
+                  <Route path="/parametres/emails-autorises" element={<ProtectedRoute><EmailsAutorises /></ProtectedRoute>} />
+                  <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
+                  <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
+                  <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
+                  <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
+                  <Route path="/parametres/data-bouquets" element={<ProtectedRoute><DataBouquets /></ProtectedRoute>} />
+                  <Route path="/parametres/data-commissions" element={<ProtectedRoute><DataCommissions /></ProtectedRoute>} />
+                  <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
+                  <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
+                  <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
+                  <Route path="/parametres/data-financements" element={<ProtectedRoute><DataFinancements /></ProtectedRoute>} />
+                  <Route path="/parametres/whatsapp" element={<ProtectedRoute><WhatsAppSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
+                  <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
+                  <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
+                  <Route path="/install" element={<Install />} />
+                  <Route path="/confidentialite" element={<Confidentialite />} />
+                  <Route path="/conditions" element={<Conditions />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                {/* Floating HEJJA toggle - only visible when authenticated */}
+                <AuthenticatedHejjaToggle />
+              </HejjaModeProvider>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>
