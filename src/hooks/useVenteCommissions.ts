@@ -78,10 +78,40 @@ export const useVenteCommissions = (ventes: Vente[]) => {
           return;
         }
 
-        // Find matching bouquet for this puissance
-        const bouquet = bouquets.find(b => b.puissance_kwc === vente.puissance_kwc);
-        const prixRecommande = bouquet?.prix_recommande || 0;
-        const commissionFixe = bouquet?.commission_fixe || 0;
+        // Find matching bouquet for this puissance, or interpolate if not found
+        let bouquet = bouquets.find(b => b.puissance_kwc === vente.puissance_kwc);
+        let prixRecommande = bouquet?.prix_recommande || 0;
+        let commissionFixe = bouquet?.commission_fixe || 0;
+        
+        // If no exact match, interpolate based on the nearest bouquet
+        if (!bouquet && vente.puissance_kwc) {
+          const targetPuissance = vente.puissance_kwc;
+          const sortedBouquets = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+          
+          // Special case for 3.5 kWc: use 4kWc and subtract 500€
+          if (targetPuissance === 3.5) {
+            const bouquet4kwc = sortedBouquets.find(b => b.puissance_kwc === 4);
+            if (bouquet4kwc) {
+              prixRecommande = bouquet4kwc.prix_recommande - 500;
+              commissionFixe = bouquet4kwc.commission_fixe || 0;
+            }
+          } else {
+            // Find the nearest lower bouquet and add 1000€ per kWc difference
+            const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
+            const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
+            
+            if (lowerBouquet) {
+              const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
+              prixRecommande = lowerBouquet.prix_recommande + (diffKwc * 1000);
+              commissionFixe = lowerBouquet.commission_fixe || 0;
+            } else if (upperBouquet) {
+              // If no lower bouquet exists, use upper and subtract
+              const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
+              prixRecommande = upperBouquet.prix_recommande - (diffKwc * 1000);
+              commissionFixe = upperBouquet.commission_fixe || 0;
+            }
+          }
+        }
 
         // Base commission = forfait fixe du bouquet
         const baseCommission = commissionFixe;
