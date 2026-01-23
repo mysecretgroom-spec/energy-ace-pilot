@@ -41,6 +41,7 @@ import SecuritySettings from "./pages/settings/SecuritySettings";
 import VentesSettings from "./pages/settings/VentesSettings";
 import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
 import ObjectifsSettings from "./pages/settings/ObjectifsSettings";
+import RegiesSettings from "./pages/settings/RegiesSettings";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
 import React, { useEffect } from "react";
@@ -104,6 +105,7 @@ const AnimatedRoutes = () => {
           <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
           <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
           <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
+          <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
           <Route path="/install" element={<Install />} />
           <Route path="/confidentialite" element={<Confidentialite />} />
