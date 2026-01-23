@@ -313,7 +313,7 @@ const Planning = () => {
 
   return (
     <MobileLayout title="Planning">
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 pb-28">
         {/* Sélecteur de vue */}
         <Tabs
           value={viewMode}
@@ -328,13 +328,14 @@ const Planning = () => {
         </Tabs>
 
         {/* Navigation date */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between py-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigateDate("prev")}
+            className="h-12 w-12"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-6 w-6" />
           </Button>
           <h2 className="text-base font-semibold text-foreground capitalize">
             {formatDateHeader(currentDate)}
@@ -343,65 +344,65 @@ const Planning = () => {
             variant="ghost"
             size="icon"
             onClick={() => navigateDate("next")}
+            className="h-12 w-12"
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-6 w-6" />
           </Button>
         </div>
 
-        {/* Header avec actions */}
-        <Card className="bg-muted/50">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <Car className="h-4 w-4" />
-                  <span>{rdvListWithRoutes.length} RDV</span>
-                </div>
-                {viewMode === "jour" && totalDistance > 0 && (
-                  <div className="flex items-center gap-1.5 text-primary font-medium">
-                    <Route className="h-4 w-4" />
-                    <span>{totalDistance} km</span>
-                  </div>
-                )}
-                {/* Bouton carte */}
-                {viewMode === "jour" && rdvListWithRoutes.length > 0 && (
-                  <Button
-                    variant={showMap ? "default" : "outline"}
-                    size="sm"
-                    className="gap-1.5 h-7"
-                    onClick={() => setShowMap(!showMap)}
-                  >
-                    <Map className="h-3.5 w-3.5" />
-                    Carte
-                  </Button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
-                <GmailSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
-                <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1.5 h-8 bg-gradient-hero">
-                      <Plus className="h-3.5 w-3.5" />
-                      Nouveau RDV
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
-                    <QuickRdvForm
-                      defaultDate={currentDate}
-                      onSuccess={() => {
-                        setQuickRdvOpen(false);
-                        fetchRdvs();
-                        refetchRoutes();
-                      }}
-                      onCancel={() => setQuickRdvOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </div>
+        {/* Header stats simplifié */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              <span className="font-medium">{rdvListWithRoutes.length} RDV</span>
             </div>
-          </CardContent>
-        </Card>
+            {viewMode === "jour" && totalDistance > 0 && (
+              <div className="flex items-center gap-2 text-primary font-medium">
+                <Route className="h-5 w-5" />
+                <span>{totalDistance} km</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Actions regroupées */}
+          <div className="flex items-center gap-2">
+            {viewMode === "jour" && rdvListWithRoutes.length > 0 && (
+              <Button
+                variant={showMap ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setShowMap(!showMap)}
+              >
+                <Map className="h-5 w-5" />
+              </Button>
+            )}
+            <GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
+            <GmailSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
+          </div>
+        </div>
+
+        {/* FAB Nouveau RDV */}
+        <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              size="lg" 
+              className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg bg-gradient-hero"
+            >
+              <Plus className="h-6 w-6" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <QuickRdvForm
+              defaultDate={currentDate}
+              onSuccess={() => {
+                setQuickRdvOpen(false);
+                fetchRdvs();
+                refetchRoutes();
+              }}
+              onCancel={() => setQuickRdvOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
 
         {/* Carte interactive */}
         {viewMode === "jour" && showMap && rdvListWithRoutes.length > 0 && (
