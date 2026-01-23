@@ -1,8 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
-
-// OneSignal App ID from environment
-const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || "";
+import { supabase } from "@/integrations/supabase/client";
 
 declare global {
   interface Window {
@@ -16,13 +14,33 @@ export function useOneSignal() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState<"default" | "granted" | "denied">("default");
+  const [appId, setAppId] = useState<string | null>(null);
+  const initAttempted = useRef(false);
+
+  // Fetch OneSignal App ID from backend
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("get-onesignal-config");
+        if (error) {
+          console.error("Error fetching OneSignal config:", error);
+          return;
+        }
+        if (data?.appId) {
+          setAppId(data.appId);
+        }
+      } catch (error) {
+        console.error("Error fetching OneSignal config:", error);
+      }
+    };
+
+    fetchConfig();
+  }, []);
 
   // Load OneSignal SDK
   useEffect(() => {
-    if (!ONESIGNAL_APP_ID) {
-      console.warn("OneSignal App ID not configured");
-      return;
-    }
+    if (!appId || initAttempted.current) return;
+    initAttempted.current = true;
 
     // Check if already loaded
     if (window.OneSignal) {
@@ -42,7 +60,7 @@ export function useOneSignal() {
     window.OneSignalDeferred.push(async (OneSignal: any) => {
       try {
         await OneSignal.init({
-          appId: ONESIGNAL_APP_ID,
+          appId: appId,
           allowLocalhostAsSecureOrigin: true,
           serviceWorkerParam: { scope: "/" },
           serviceWorkerPath: "/OneSignalSDKWorker.js",
@@ -54,8 +72,8 @@ export function useOneSignal() {
         setIsInitialized(true);
         
         // Check current permission state
-        const permission = await OneSignal.Notifications.permission;
-        setPermission(permission ? "granted" : "default");
+        const currentPermission = await OneSignal.Notifications.permission;
+        setPermission(currentPermission ? "granted" : "default");
         
         // Check subscription status
         const subscribed = await OneSignal.User.PushSubscription.optedIn;
@@ -71,11 +89,7 @@ export function useOneSignal() {
         console.error("OneSignal initialization error:", error);
       }
     });
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, []);
+  }, [appId]);
 
   // Set external user ID when user logs in
   useEffect(() => {
