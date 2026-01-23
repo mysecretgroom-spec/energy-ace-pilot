@@ -14,6 +14,23 @@ interface SendWhatsAppParams {
   pdfData?: EtudeData; // Pour r2_prestudy - envoi du PDF
 }
 
+// Decode HTML entities to proper Unicode characters
+const decodeHtmlEntities = (text: string): string => {
+  // Common HTML entity patterns for emojis and special chars
+  return text
+    // Numeric HTML entities (decimal): &#128203; -> actual emoji
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+    // Numeric HTML entities (hex): &#x1F4CB; -> actual emoji
+    .replace(/&#x([0-9A-Fa-f]+);/g, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    // Named HTML entities
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+};
+
 // Default templates with placeholders
 const DEFAULT_TEMPLATES: Record<string, string> = {
   positif: `📋 *MISE À JOUR DOSSIER*
@@ -168,13 +185,15 @@ export const useWhatsAppNotification = () => {
       // Get template (custom or default)
       const templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
 
-      // Replace placeholders
-      const message = templateText
-        .replace(/\{\{client_name\}\}/g, fullName)
-        .replace(/\{\{date\}\}/g, dateStr)
-        .replace(/\{\{r2_date\}\}/g, r2DateStr || "Non défini")
-        .replace(/\{\{cq_date\}\}/g, cqDateStr || "Non défini")
-        .replace(/\{\{comment\}\}/g, commentText);
+      // Replace placeholders and decode HTML entities for proper emoji display
+      const message = decodeHtmlEntities(
+        templateText
+          .replace(/\{\{client_name\}\}/g, fullName)
+          .replace(/\{\{date\}\}/g, dateStr)
+          .replace(/\{\{r2_date\}\}/g, r2DateStr || "Non défini")
+          .replace(/\{\{cq_date\}\}/g, cqDateStr || "Non défini")
+          .replace(/\{\{comment\}\}/g, commentText)
+      );
 
       // Encode message for URL
       const encodedMessage = encodeURIComponent(message);
