@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro, FileText } from "lucide-react";
+import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro, FileText, CarFront } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -57,6 +57,9 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [categorie, setCategorie] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [commercant, setCommercant] = useState<string>("");
+  // Rental period fields (for location_vehicule)
+  const [dateDebut, setDateDebut] = useState<string>("");
+  const [dateFin, setDateFin] = useState<string>("");
 
   // Convert PDF to image using PDF.js
   const convertPdfToImage = async (pdfDataUrl: string): Promise<string> => {
@@ -162,11 +165,11 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
 
     setSaving(true);
     try {
-      const { error } = await supabase.from("frais").insert({
+      const insertData: any = {
         user_id: user.id,
         montant: parseFloat(montantTTC),
         date_frais: dateFrais,
-        categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "autre",
+        categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "train" | "location_vehicule" | "autre",
         description: commercant ? `${commercant} - ${description}` : description || null,
         ocr_data: {
           ...ocrResult,
@@ -174,9 +177,17 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           montant_ht: montantHT ? parseFloat(montantHT) : null,
           tva: tva ? parseFloat(tva) : null,
           taux_tva: tauxTva ? parseFloat(tauxTva) : null,
-        } as any,
+        },
         justificatif_url: imagePreview,
-      });
+      };
+      
+      // Add rental period for location_vehicule
+      if (categorie === "location_vehicule") {
+        if (dateDebut) insertData.date_debut = dateDebut;
+        if (dateFin) insertData.date_fin = dateFin;
+      }
+      
+      const { error } = await supabase.from("frais").insert(insertData);
 
       if (error) throw error;
 
@@ -417,6 +428,41 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                 </Select>
               </div>
             </div>
+
+            {/* Rental period for location_vehicule */}
+            {categorie === "location_vehicule" && (
+              <div className="bg-primary/5 rounded-lg p-3 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CarFront className="h-4 w-4 text-primary" />
+                  Période de location
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="dateDebut" className="text-xs">Début</Label>
+                    <Input
+                      id="dateDebut"
+                      type="date"
+                      value={dateDebut}
+                      onChange={(e) => setDateDebut(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dateFin" className="text-xs">Fin</Label>
+                    <Input
+                      id="dateFin"
+                      type="date"
+                      value={dateFin}
+                      onChange={(e) => setDateFin(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {dateDebut && dateFin && (
+                  <div className="text-xs text-muted-foreground text-center">
+                    Durée : {Math.ceil((new Date(dateFin).getTime() - new Date(dateDebut).getTime()) / (1000 * 60 * 60 * 24)) + 1} jours
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

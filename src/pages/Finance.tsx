@@ -102,6 +102,8 @@ interface FraisItem {
   categorie: string;
   description: string | null;
   ocr_data: Json | null;
+  date_debut: string | null;
+  date_fin: string | null;
 }
 
 interface VenteStats {
@@ -405,7 +407,7 @@ const Finance = () => {
 
       const { data: allFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data")
+        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin")
         .eq("user_id", user.id)
         .gte("date_frais", startOfYear.toISOString().split("T")[0])
         .order("date_frais", { ascending: false });
@@ -988,6 +990,11 @@ const Finance = () => {
                                     <p className="text-xs text-muted-foreground">
                                       {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
                                     </p>
+                                    {frais.categorie === "location_vehicule" && frais.date_debut && frais.date_fin && (
+                                      <p className="text-xs text-primary mt-0.5">
+                                        📅 Du {new Date(frais.date_debut).toLocaleDateString("fr-FR")} au {new Date(frais.date_fin).toLocaleDateString("fr-FR")} ({Math.ceil((new Date(frais.date_fin).getTime() - new Date(frais.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1}j)
+                                      </p>
+                                    )}
                                   </div>
                                   <p className="font-semibold text-destructive whitespace-nowrap">
                                     -{Number(frais.montant).toFixed(2)} €
