@@ -1,0 +1,120 @@
+/**
+ * Utility functions for bouquet price interpolation
+ * 
+ * When no exact power match exists, interpolate based on nearest bouquet:
+ * - 3.5 kWc: Use 4 kWc bouquet and subtract 500€
+ * - Other powers: Use lower bouquet and add 1000€ per kWc difference
+ */
+
+interface BouquetData {
+  puissance_kwc: number;
+  prix_recommande: number;
+  prix_max?: number;
+  prix_hejja?: number;
+  commission_fixe?: number | null;
+}
+
+export interface InterpolatedBouquet {
+  prixRecommande: number;
+  prixMax: number;
+  prixHejja: number;
+  commissionFixe: number;
+  isInterpolated: boolean;
+  basedOnBouquet?: BouquetData;
+}
+
+/**
+ * Find an exact bouquet match or interpolate if not found
+ */
+export function findOrInterpolateBouquet(
+  bouquets: BouquetData[],
+  targetPuissance: number
+): InterpolatedBouquet {
+  // First try exact match
+  const exactMatch = bouquets.find(b => b.puissance_kwc === targetPuissance);
+  if (exactMatch) {
+    return {
+      prixRecommande: exactMatch.prix_recommande,
+      prixMax: exactMatch.prix_max || exactMatch.prix_recommande * 1.15,
+      prixHejja: exactMatch.prix_hejja || exactMatch.prix_recommande,
+      commissionFixe: exactMatch.commission_fixe || 0,
+      isInterpolated: false,
+      basedOnBouquet: exactMatch,
+    };
+  }
+
+  const sortedBouquets = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+
+  // Special case for 3.5 kWc: use 4kWc and subtract 500€
+  if (targetPuissance === 3.5) {
+    const bouquet4kwc = sortedBouquets.find(b => b.puissance_kwc === 4);
+    if (bouquet4kwc) {
+      return {
+        prixRecommande: bouquet4kwc.prix_recommande - 500,
+        prixMax: (bouquet4kwc.prix_max || bouquet4kwc.prix_recommande * 1.15) - 500,
+        prixHejja: (bouquet4kwc.prix_hejja || bouquet4kwc.prix_recommande) - 500,
+        commissionFixe: bouquet4kwc.commission_fixe || 0,
+        isInterpolated: true,
+        basedOnBouquet: bouquet4kwc,
+      };
+    }
+  }
+
+  // Find the nearest lower bouquet and add 1000€ per kWc difference
+  const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
+  const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
+
+  if (lowerBouquet) {
+    const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
+    const adjustment = diffKwc * 1000;
+    return {
+      prixRecommande: lowerBouquet.prix_recommande + adjustment,
+      prixMax: (lowerBouquet.prix_max || lowerBouquet.prix_recommande * 1.15) + adjustment,
+      prixHejja: (lowerBouquet.prix_hejja || lowerBouquet.prix_recommande) + adjustment,
+      commissionFixe: lowerBouquet.commission_fixe || 0,
+      isInterpolated: true,
+      basedOnBouquet: lowerBouquet,
+    };
+  } else if (upperBouquet) {
+    // If no lower bouquet exists, use upper and subtract
+    const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
+    const adjustment = diffKwc * 1000;
+    return {
+      prixRecommande: upperBouquet.prix_recommande - adjustment,
+      prixMax: (upperBouquet.prix_max || upperBouquet.prix_recommande * 1.15) - adjustment,
+      prixHejja: (upperBouquet.prix_hejja || upperBouquet.prix_recommande) - adjustment,
+      commissionFixe: upperBouquet.commission_fixe || 0,
+      isInterpolated: true,
+      basedOnBouquet: upperBouquet,
+    };
+  }
+
+  // No bouquets at all - return defaults
+  return {
+    prixRecommande: targetPuissance * 4500,
+    prixMax: targetPuissance * 5000,
+    prixHejja: targetPuissance * 4500,
+    commissionFixe: 0,
+    isInterpolated: true,
+  };
+}
+
+/**
+ * Format interpolation explanation for display
+ */
+export function getInterpolationExplanation(
+  targetPuissance: number,
+  basedOnBouquet?: BouquetData
+): string {
+  if (!basedOnBouquet) {
+    return `Prix estimé pour ${targetPuissance} kWc (aucun bouquet de référence)`;
+  }
+
+  if (targetPuissance === 3.5) {
+    return `Basé sur ${basedOnBouquet.puissance_kwc} kWc - 500€`;
+  }
+
+  const diff = targetPuissance - basedOnBouquet.puissance_kwc;
+  const sign = diff > 0 ? "+" : "";
+  return `Basé sur ${basedOnBouquet.puissance_kwc} kWc ${sign}${diff * 1000}€`;
+}

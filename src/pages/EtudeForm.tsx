@@ -60,6 +60,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
+import { findOrInterpolateBouquet, getInterpolationExplanation } from "@/lib/bouquetInterpolation";
 
 interface DataPsh {
   department_code: string;
@@ -198,6 +199,8 @@ const EtudeForm = () => {
 
   // === PRIX MANUEL ===
   const [prixInstallationManuel, setPrixInstallationManuel] = useState<number | "">("");
+  const [isInterpolated, setIsInterpolated] = useState(false);
+  const [interpolationExplanation, setInterpolationExplanation] = useState("");
 
   // Surcoûts
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
@@ -649,8 +652,11 @@ const EtudeForm = () => {
     // === PRIX INSTALLATION ===
     const bouquet = dataBouquets.find((b) => b.id === bouquetId);
     
-    // Priorité : prixInstallationManuel > prixManuel (mode HEJJA) > prix bouquet
+    // Priorité : prixInstallationManuel > prixManuel (mode HEJJA) > prix bouquet > interpolation
     let prixInstallation = 0;
+    let interpolated = false;
+    let interpExplanation = "";
+    
     if (prixInstallationManuel) {
       prixInstallation = Number(prixInstallationManuel);
     } else if (bouquet) {
@@ -659,9 +665,22 @@ const EtudeForm = () => {
         : modeHejjaPrix
         ? bouquet.prix_max
         : bouquet.prix_recommande;
+    } else if (dataBouquets.length > 0) {
+      // Pas de bouquet sélectionné mais puissance définie -> interpoler
+      const interpolatedBouquet = findOrInterpolateBouquet(dataBouquets, puissance);
+      prixInstallation = modeHejjaPrix 
+        ? interpolatedBouquet.prixMax 
+        : interpolatedBouquet.prixRecommande;
+      interpolated = interpolatedBouquet.isInterpolated;
+      if (interpolated) {
+        interpExplanation = getInterpolationExplanation(puissance, interpolatedBouquet.basedOnBouquet);
+      }
     } else {
       prixInstallation = puissance * 4500; // Prix par défaut si pas de bouquet
     }
+    
+    setIsInterpolated(interpolated);
+    setInterpolationExplanation(interpExplanation);
 
     // === SURCOÛTS ===
     const prixSurcoûtsOptions = selectedSurcouts.reduce((total, code) => {
@@ -1761,11 +1780,21 @@ const EtudeForm = () => {
                 <Label className="text-xs">Puissance Préconisée (kWc)</Label>
                 <Input
                   type="number"
-                  step="1"
+                  step="0.5"
                   value={puissanceKwc}
-                  onChange={(e) => setPuissanceKwc(e.target.value ? Number(e.target.value) : "")}
+                  onChange={(e) => {
+                    setPuissanceKwc(e.target.value ? Number(e.target.value) : "");
+                    // Clear bouquetId when manually changing power
+                    setBouquetId("");
+                  }}
                   className="h-9"
                 />
+                {isInterpolated && interpolationExplanation && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {interpolationExplanation}
+                  </p>
+                )}
               </div>
               <div>
                 <Label className="text-xs">Type de Revente</Label>

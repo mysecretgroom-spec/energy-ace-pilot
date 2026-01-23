@@ -14,6 +14,7 @@ import {
   Euro,
   MinusCircle,
   Wrench,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -43,6 +44,7 @@ interface Vente {
 interface CommissionData {
   montant_commission: number;
   bonus_survente: number;
+  isInterpolated?: boolean;
 }
 
 interface VenteCardProps {
@@ -140,7 +142,12 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
                   </span>
                 )}
                 {rawCommission > 0 && (
-                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-200">
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${commission?.isInterpolated ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-green-500/10 text-green-600 border-green-200"}`}
+                    title={commission?.isInterpolated ? "Prix interpolé (pas de bouquet exact)" : undefined}
+                  >
+                    {commission?.isInterpolated && <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />}
                     Com: {formatCurrency(totalCommission)}
                   </Badge>
                 )}
