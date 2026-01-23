@@ -368,6 +368,65 @@ serve(async (req) => {
   }
 });
 
+// Type for commission matching
+interface CommissionItem {
+  id: string;
+  montant_commission: number;
+  vente_id: string | null;
+}
+
+// Find a combination of commissions that sum to the target amount (subset sum problem)
+function findCommissionCombination(
+  commissions: CommissionItem[],
+  targetAmount: number,
+  tolerance: number
+): CommissionItem[] {
+  // Limit to reasonable number of commissions to avoid performance issues
+  const maxCommissions = Math.min(commissions.length, 20);
+  const subset = commissions.slice(0, maxCommissions);
+
+  // Try combinations from largest to smallest (most likely for Qonto invoices)
+  // Use a greedy approach first, then brute force for small sets
+  
+  // Greedy approach: try to build sum from largest commissions
+  const sorted = [...subset].sort((a, b) => b.montant_commission - a.montant_commission);
+  let greedySum = 0;
+  const greedyResult: CommissionItem[] = [];
+  
+  for (const comm of sorted) {
+    if (greedySum + comm.montant_commission <= targetAmount + tolerance) {
+      greedyResult.push(comm);
+      greedySum += comm.montant_commission;
+      
+      if (Math.abs(greedySum - targetAmount) <= tolerance) {
+        return greedyResult;
+      }
+    }
+  }
+
+  // If greedy didn't work and we have few commissions, try brute force
+  if (subset.length <= 10) {
+    // Generate all subsets and find best match
+    for (let mask = 1; mask < (1 << subset.length); mask++) {
+      let sum = 0;
+      const combination: CommissionItem[] = [];
+      
+      for (let i = 0; i < subset.length; i++) {
+        if (mask & (1 << i)) {
+          sum += subset[i].montant_commission;
+          combination.push(subset[i]);
+        }
+      }
+      
+      if (Math.abs(sum - targetAmount) <= tolerance) {
+        return combination;
+      }
+    }
+  }
+
+  return [];
+}
+
 // Handle Plaid webhooks for automatic updates
 async function handleWebhook(
   req: Request,
@@ -461,21 +520,18 @@ async function handleWebhook(
               const incomingAmount = Math.abs(tx.amount);
               const senderName = tx.name || tx.merchant_name || "";
 
-              // Try to match with unpaid commissions (with 1€ tolerance for rounding)
-              const { data: unpaidCommissions } = await supabaseAdmin
+              // STEP 1: Try exact match with single commission (±1€ tolerance)
+              const { data: exactMatch } = await supabaseAdmin
                 .from("commissions")
                 .select("id, montant_commission, vente_id")
                 .eq("user_id", plaidItem.user_id)
                 .eq("paye", false)
                 .gte("montant_commission", incomingAmount - 1)
-                .lte("montant_commission", incomingAmount + 1);
+                .lte("montant_commission", incomingAmount + 1)
+                .limit(1)
+                .maybeSingle();
 
-              if (unpaidCommissions && unpaidCommissions.length > 0) {
-                // Find exact or closest match
-                const matchedCommission = unpaidCommissions.find(
-                  c => Math.abs(c.montant_commission - incomingAmount) < 1
-                ) || unpaidCommissions[0];
-
+              if (exactMatch) {
                 // Mark commission as paid
                 await supabaseAdmin
                   .from("commissions")
@@ -483,24 +539,72 @@ async function handleWebhook(
                     paye: true,
                     date_paiement: tx.date,
                   })
-                  .eq("id", matchedCommission.id);
+                  .eq("id", exactMatch.id);
 
-                // Also update the vente status if it exists
-                if (matchedCommission.vente_id) {
+                // Also update the vente status
+                if (exactMatch.vente_id) {
                   await supabaseAdmin
                     .from("ventes")
                     .update({
                       status: "paye",
                       date_paiement: tx.date,
                     })
-                    .eq("id", matchedCommission.vente_id);
+                    .eq("id", exactMatch.vente_id);
                 }
 
                 matchedPayments++;
-                console.log(`Matched payment: ${incomingAmount}€ from "${senderName}" to commission ${matchedCommission.id}`);
+                console.log(`Matched single commission: ${incomingAmount}€ from "${senderName}" -> commission ${exactMatch.id}`);
+                continue;
               }
 
-              // Also check for matching ventes by montant_ttc (for direct client payments)
+              // STEP 2: Try to match grouped commissions (Qonto invoice = sum of multiple commissions)
+              const { data: allUnpaidCommissions } = await supabaseAdmin
+                .from("commissions")
+                .select("id, montant_commission, vente_id")
+                .eq("user_id", plaidItem.user_id)
+                .eq("paye", false)
+                .order("montant_commission", { ascending: false });
+
+              if (allUnpaidCommissions && allUnpaidCommissions.length > 0) {
+                // Try to find a combination that sums to the incoming amount (±2€ tolerance)
+                const matchedCombination = findCommissionCombination(
+                  allUnpaidCommissions,
+                  incomingAmount,
+                  2 // tolerance in euros
+                );
+
+                if (matchedCombination.length > 0) {
+                  // Mark all matched commissions as paid
+                  for (const commission of matchedCombination) {
+                    await supabaseAdmin
+                      .from("commissions")
+                      .update({
+                        paye: true,
+                        date_paiement: tx.date,
+                      })
+                      .eq("id", commission.id);
+
+                    // Also update the vente status
+                    if (commission.vente_id) {
+                      await supabaseAdmin
+                        .from("ventes")
+                        .update({
+                          status: "paye",
+                          date_paiement: tx.date,
+                        })
+                        .eq("id", commission.vente_id);
+                    }
+                  }
+
+                  matchedPayments += matchedCombination.length;
+                  const matchedIds = matchedCombination.map(c => c.id).join(", ");
+                  const totalMatched = matchedCombination.reduce((sum, c) => sum + c.montant_commission, 0);
+                  console.log(`Matched grouped invoice: ${incomingAmount}€ from "${senderName}" -> ${matchedCombination.length} commissions (total: ${totalMatched.toFixed(2)}€) [${matchedIds}]`);
+                  continue;
+                }
+              }
+
+              // STEP 3: Check for matching ventes by montant_ttc (for direct client payments)
               const { data: unpaidVentes } = await supabaseAdmin
                 .from("ventes")
                 .select("id, montant_ttc, client_id")
