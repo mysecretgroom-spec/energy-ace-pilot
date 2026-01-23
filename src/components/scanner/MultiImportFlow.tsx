@@ -266,19 +266,29 @@ export function MultiImportFlow({
       let savedCount = 0;
       let duplicateCount = 0;
 
-      // For finance context, fetch existing frais to check for duplicates
+      // Fetch existing records to check for duplicates
       let existingFrais: { montant: number; date_frais: string; description: string | null }[] = [];
+      let existingDocs: { nom: string; type_document: string }[] = [];
+
       if (context === "finance") {
         const { data } = await supabase
           .from("frais")
           .select("montant, date_frais, description")
           .eq("user_id", user.id);
         existingFrais = data || [];
+      } else if (clientId) {
+        // For client docs, fetch existing documents for this client
+        const { data } = await supabase
+          .from("documents")
+          .select("nom, type_document")
+          .eq("user_id", user.id)
+          .eq("client_id", clientId);
+        existingDocs = data || [];
       }
 
       for (const importedFile of validFiles) {
+        // Check for duplicates based on context
         if (context === "finance") {
-          // Check for duplicates: same montant, date, and fournisseur/description
           const isDuplicate = existingFrais.some(
             (existing) =>
               existing.montant === importedFile.montant_ttc &&
@@ -288,7 +298,23 @@ export function MultiImportFlow({
           );
 
           if (isDuplicate) {
-            console.log("Skipping duplicate:", importedFile.file.name);
+            console.log("Skipping duplicate frais:", importedFile.file.name);
+            duplicateCount++;
+            continue;
+          }
+        } else {
+          // For client docs: check if same name and type already exists
+          const docName = importedFile.description || importedFile.file.name;
+          const docType = importedFile.document_type || "autre";
+          
+          const isDuplicate = existingDocs.some(
+            (existing) =>
+              existing.nom === docName &&
+              existing.type_document === docType
+          );
+
+          if (isDuplicate) {
+            console.log("Skipping duplicate document:", importedFile.file.name);
             duplicateCount++;
             continue;
           }
@@ -339,12 +365,15 @@ export function MultiImportFlow({
             continue;
           }
 
+          const docName = importedFile.description || importedFile.file.name;
+          const docType = importedFile.document_type || "autre";
+
           const { error } = await supabase.from("documents").insert({
             user_id: user.id,
             client_id: clientId,
-            nom: importedFile.description || importedFile.file.name,
+            nom: docName,
             url: signedUrl,
-            type_document: importedFile.document_type || "autre",
+            type_document: docType,
             mime_type: "application/pdf",
             taille_bytes: pdfResult.blob.size,
             thumbnails_urls: pdfResult.thumbnails,
@@ -352,19 +381,22 @@ export function MultiImportFlow({
           });
 
           if (error) throw error;
+
+          // Add to existing docs to prevent duplicates within same batch
+          existingDocs.push({
+            nom: docName,
+            type_document: docType,
+          });
+
           savedCount++;
         }
       }
 
       // Show appropriate message based on results
-      if (context === "finance") {
-        if (duplicateCount > 0 && savedCount > 0) {
-          toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
-        } else if (duplicateCount > 0 && savedCount === 0) {
-          toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
-        } else {
-          toast.success(`${savedCount} documents enregistrés`);
-        }
+      if (duplicateCount > 0 && savedCount > 0) {
+        toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
+      } else if (duplicateCount > 0 && savedCount === 0) {
+        toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
       } else {
         toast.success(`${savedCount} documents enregistrés`);
       }
