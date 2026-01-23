@@ -119,11 +119,15 @@ const CRM = () => {
     notes: "",
     type_vente: "standard" as VenteType
   });
+  
+  // Track if client is pre-filled from URL (external installation from planning)
+  const [prefilledClientName, setPrefilledClientName] = useState<string | null>(null);
 
   // Handle URL params for pre-filled vente creation
   useEffect(() => {
     const newVente = searchParams.get("newVente");
     const clientId = searchParams.get("clientId");
+    const clientName = searchParams.get("clientName");
     const type = searchParams.get("type") as VenteType | null;
 
     if (newVente === "true" && clientId) {
@@ -133,6 +137,10 @@ const CRM = () => {
         client_id: clientId,
         type_vente: type || "standard",
       }));
+      // Store the client name for display (avoid showing dropdown for external installations)
+      if (type === "external_installation" && clientName) {
+        setPrefilledClientName(decodeURIComponent(clientName));
+      }
       setDialogOpen(true);
       // Clear the URL params
       setSearchParams({});
@@ -324,6 +332,7 @@ const CRM = () => {
 
       toast.success("Vente créée avec succès");
       setDialogOpen(false);
+      setPrefilledClientName(null);
       setFormData({
         client_id: "",
         etude_id: "",
@@ -484,7 +493,10 @@ const CRM = () => {
             </div>
 
             {/* Add button */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) setPrefilledClientName(null);
+            }}>
               <DialogTrigger asChild>
                 <Button className="w-full">
                   <Plus className="h-4 w-4 mr-2" />
@@ -518,21 +530,33 @@ const CRM = () => {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Client *</Label>
-                    <Select value={formData.client_id} onValueChange={handleClientChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionner un client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map(client => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.nom} {client.prenom || ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Client selection - show read-only display for external installations with prefilled client */}
+                  {prefilledClientName && formData.type_vente === 'external_installation' ? (
+                    <div className="space-y-2">
+                      <Label>Client</Label>
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{prefilledClientName}</span>
+                        <Badge variant="secondary" className="ml-auto text-xs">Depuis RDV</Badge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Client *</Label>
+                      <Select value={formData.client_id} onValueChange={handleClientChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un client" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map(client => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.nom} {client.prenom || ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {formData.client_id && clientEtudes.length > 0 && (
                     <div className="space-y-2">
