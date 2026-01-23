@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, MapPin, Navigation, RefreshCw } from "lucide-react";
-import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
+import { X, MapPin, Navigation } from "lucide-react";
+import { RdvStatus } from "@/components/ui/status-badge";
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -62,8 +62,8 @@ const createNumberedIcon = (number: number, isR2: boolean, isExternal: boolean) 
 };
 
 export function RouteMap({ rdvList, onClose }: RouteMapProps) {
-  const [mapRef, setMapRef] = useState<HTMLDivElement | null>(null);
-  const [leafletMap, setLeafletMap] = useState<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   // Filter RDVs with valid coordinates
   const rdvsWithCoords = useMemo(() => 
@@ -85,17 +85,19 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
     return [avgLat, avgLng];
   }, [positions]);
 
-  // Initialize map imperatively to avoid react-leaflet context issues
+  // Initialize map imperatively
   useEffect(() => {
-    if (!mapRef || rdvsWithCoords.length === 0) return;
+    if (!mapContainerRef.current || rdvsWithCoords.length === 0) return;
 
-    // Check if map already exists
-    if (leafletMap) {
-      leafletMap.remove();
+    // Clean up existing map instance first
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
     }
 
-    // Create map imperatively
-    const map = L.map(mapRef).setView(center, 10);
+    // Create new map instance
+    const map = L.map(mapContainerRef.current).setView(center, 10);
+    mapInstanceRef.current = map;
 
     // Add tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -140,13 +142,14 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
       map.fitBounds(bounds, { padding: [50, 50] });
     }
 
-    setLeafletMap(map);
-
-    // Cleanup
+    // Cleanup function
     return () => {
-      map.remove();
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
-  }, [mapRef, rdvsWithCoords, positions, center]);
+  }, [rdvsWithCoords, positions, center]);
 
   if (rdvsWithCoords.length === 0) {
     return (
@@ -188,7 +191,7 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
       </CardHeader>
       <CardContent className="p-0">
         <div 
-          ref={setMapRef}
+          ref={mapContainerRef}
           className="h-[400px] w-full"
           style={{ zIndex: 0 }}
         />
