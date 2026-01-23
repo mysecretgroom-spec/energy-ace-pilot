@@ -55,6 +55,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
+import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -234,6 +235,18 @@ const EtudeForm = () => {
     created_at: string;
   }[]>([]);
   const [existingEtudeId, setExistingEtudeId] = useState<string | null>(null);
+
+  // WhatsApp confirmation dialog state
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [pendingWhatsAppData, setPendingWhatsAppData] = useState<{
+    clientName: string;
+    clientPrenom: string;
+    classification: string;
+    comment: string;
+    r2DateTime: string | null;
+    cqTime: string;
+    pdfData?: EtudeData;
+  } | null>(null);
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -875,21 +888,22 @@ const EtudeForm = () => {
         });
       }
       
-      // Envoyer notification WhatsApp au confirmateur si classification définie
+      // Proposer notification WhatsApp au confirmateur si classification définie
       if (classification && classificationChanged) {
         // Construire les données PDF pour r2_prestudy
         const pdfDataForWhatsApp = classification === "r2_prestudy" ? buildPdfData() : undefined;
         
-        await sendWhatsAppNotification({
+        // Stocker les données et afficher le dialog de confirmation
+        setPendingWhatsAppData({
           clientName: clientName,
-          clientPrenom: clientPrenom,
+          clientPrenom: clientPrenom || "",
           classification: classification,
           comment: classificationComment,
           r2DateTime: r2DateTime,
-          userId: user.id,
           cqTime: cqTime,
           pdfData: pdfDataForWhatsApp || undefined,
         });
+        setShowWhatsAppDialog(true);
       }
 
       // Créer une vente automatiquement si statut Positif et changement de classification
@@ -943,6 +957,29 @@ const EtudeForm = () => {
         navigate(`/clients/${clientId}`);
       }, 1500);
     }
+  };
+
+  // Callback pour confirmer l'envoi WhatsApp
+  const handleWhatsAppConfirm = async () => {
+    if (!pendingWhatsAppData || !user) return;
+    
+    await sendWhatsAppNotification({
+      clientName: pendingWhatsAppData.clientName,
+      clientPrenom: pendingWhatsAppData.clientPrenom,
+      classification: pendingWhatsAppData.classification,
+      comment: pendingWhatsAppData.comment,
+      r2DateTime: pendingWhatsAppData.r2DateTime,
+      userId: user.id,
+      cqTime: pendingWhatsAppData.cqTime,
+      pdfData: pendingWhatsAppData.pdfData,
+    });
+    
+    setPendingWhatsAppData(null);
+  };
+
+  // Callback pour annuler l'envoi WhatsApp
+  const handleWhatsAppCancel = () => {
+    setPendingWhatsAppData(null);
   };
 
   const handleExportPdf = () => {
@@ -2259,6 +2296,16 @@ const EtudeForm = () => {
           </Button>
         </div>
       </div>
+      
+      {/* Dialog de confirmation WhatsApp */}
+      <WhatsAppConfirmDialog
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
+        onConfirm={handleWhatsAppConfirm}
+        onCancel={handleWhatsAppCancel}
+        clientName={[pendingWhatsAppData?.clientPrenom, pendingWhatsAppData?.clientName].filter(Boolean).join(" ") || ""}
+        classification={pendingWhatsAppData?.classification || ""}
+      />
     </MobileLayout>
   );
 };
