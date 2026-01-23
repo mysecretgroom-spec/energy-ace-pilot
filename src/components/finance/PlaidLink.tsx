@@ -12,8 +12,10 @@ import {
   Unplug,
   CheckCircle,
   Clock,
-  AlertCircle,
+  Plus,
   Loader2,
+  CreditCard,
+  MoreVertical,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,6 +27,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface PlaidAccount {
+  id: string;
+  item_id: string;
+  institution_name: string | null;
+  created_at: string;
+}
 
 interface PlaidLinkProps {
   onTransactionsImported?: () => void;
@@ -33,109 +48,64 @@ interface PlaidLinkProps {
 export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
   const { user, session } = useAuth();
   const [linkToken, setLinkToken] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [accounts, setAccounts] = useState<PlaidAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
-  const [nextSyncTime, setNextSyncTime] = useState<string | null>(null);
-  const [canSyncNow, setCanSyncNow] = useState(false);
+  const [isSyncing, setIsSyncing] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [disconnectItemId, setDisconnectItemId] = useState<string | null>(null);
+  const [lastSyncTimes, setLastSyncTimes] = useState<Record<string, string>>({});
 
-  // Check connection status and last sync
+  // Fetch accounts and sync history
   useEffect(() => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
 
-    const checkStatus = async () => {
+    const fetchAccounts = async () => {
       setIsLoading(true);
       try {
-        // Check if user has a Plaid connection
-        const { data: plaidItem } = await supabase
-          .from("plaid_items")
-          .select("id, created_at, updated_at")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ action: "get_accounts" }),
+          }
+        );
 
-        setIsConnected(!!plaidItem);
+        const data = await response.json();
+        if (data.accounts) {
+          setAccounts(data.accounts);
+        }
 
-        // Check last sync time from plaid_syncs table
-        const { data: lastSyncData } = await supabase
+        // Get last sync times
+        const { data: syncs } = await supabase
           .from("plaid_syncs")
-          .select("synced_at")
+          .select("plaid_item_id, synced_at")
           .eq("user_id", user.id)
-          .order("synced_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order("synced_at", { ascending: false });
 
-        if (lastSyncData) {
-          setLastSync(lastSyncData.synced_at);
-          
-          // Calculate if user can sync now (limit: 2 syncs per day at 12h and midnight)
-          const lastSyncDate = new Date(lastSyncData.synced_at);
-          const now = new Date();
-          
-          // Get today's sync windows: midnight (00:00) and noon (12:00)
-          const todayMidnight = new Date(now);
-          todayMidnight.setHours(0, 0, 0, 0);
-          
-          const todayNoon = new Date(now);
-          todayNoon.setHours(12, 0, 0, 0);
-          
-          // Count syncs today
-          const { count } = await supabase
-            .from("plaid_syncs")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .gte("synced_at", todayMidnight.toISOString());
-
-          const syncsTodayCount = count || 0;
-
-          // Can sync if: less than 2 syncs today AND current time is after a sync window
-          // Sync windows: 00:00-00:30 and 12:00-12:30
-          const isInMidnightWindow = now.getHours() === 0 && now.getMinutes() < 30;
-          const isInNoonWindow = now.getHours() === 12 && now.getMinutes() < 30;
-          const isInSyncWindow = isInMidnightWindow || isInNoonWindow;
-
-          // Check if last sync was before current window
-          let canSync = false;
-          if (syncsTodayCount < 2) {
-            if (isInSyncWindow) {
-              // In a sync window, check if we haven't synced in this window yet
-              if (now.getHours() === 0 || now.getHours() === 12) {
-                const windowStart = new Date(now);
-                windowStart.setMinutes(0, 0, 0);
-                canSync = lastSyncDate < windowStart;
-              }
-            } else {
-              // Outside sync window, can't sync now
-              canSync = false;
+        if (syncs) {
+          const syncMap: Record<string, string> = {};
+          for (const sync of syncs) {
+            if (sync.plaid_item_id && !syncMap[sync.plaid_item_id]) {
+              syncMap[sync.plaid_item_id] = sync.synced_at;
             }
           }
-
-          setCanSyncNow(canSync || syncsTodayCount === 0);
-
-          // Calculate next sync time
-          if (now.getHours() < 12) {
-            setNextSyncTime("12:00");
-          } else {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            setNextSyncTime("00:00 demain");
-          }
-        } else {
-          // No sync yet, can sync anytime
-          setCanSyncNow(true);
+          setLastSyncTimes(syncMap);
         }
       } catch (error) {
-        console.error("Error checking Plaid status:", error);
+        console.error("Error fetching accounts:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkStatus();
-  }, [user]);
+    fetchAccounts();
+  }, [user, session]);
 
-  // Get link token for connecting
+  // Get link token for connecting new account
   const getLinkToken = async () => {
     if (!session?.access_token) return;
 
@@ -155,21 +125,24 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
       const data = await response.json();
       if (data.link_token) {
         setLinkToken(data.link_token);
+        return data.link_token;
       } else {
         toast.error(data.error || "Erreur lors de la création du lien");
+        return null;
       }
     } catch (error) {
       console.error("Error getting link token:", error);
       toast.error("Erreur de connexion à Plaid");
+      return null;
     }
   };
 
   // Handle successful Plaid Link
   const onSuccess = useCallback(
-    async (publicToken: string) => {
+    async (publicToken: string, metadata: any) => {
       if (!session?.access_token) return;
 
-      setIsSyncing(true);
+      setSyncingAll(true);
       try {
         // Exchange public token
         const exchangeResponse = await fetch(
@@ -183,6 +156,7 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
             body: JSON.stringify({
               action: "exchange_token",
               public_token: publicToken,
+              institution_name: metadata?.institution?.name || null,
             }),
           }
         );
@@ -192,16 +166,31 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
           throw new Error(exchangeData.error || "Échec de l'échange de token");
         }
 
-        setIsConnected(true);
-        toast.success("Compte bancaire connecté !");
+        // Refresh accounts list
+        const accountsResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ action: "get_accounts" }),
+          }
+        );
 
-        // Immediately sync transactions
-        await syncTransactions();
+        const accountsData = await accountsResponse.json();
+        if (accountsData.accounts) {
+          setAccounts(accountsData.accounts);
+        }
+
+        toast.success("Compte bancaire connecté !");
+        setLinkToken(null);
       } catch (error) {
         console.error("Error exchanging token:", error);
         toast.error("Erreur lors de la connexion du compte");
       } finally {
-        setIsSyncing(false);
+        setSyncingAll(false);
       }
     },
     [session]
@@ -211,17 +200,111 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
     token: linkToken,
     onSuccess,
     onExit: () => {
-      // User exited without completing
+      setLinkToken(null);
     },
   });
 
-  // Sync transactions
-  const syncTransactions = async () => {
+  // Add new account
+  const handleAddAccount = async () => {
+    const token = await getLinkToken();
+    if (token) {
+      // Token is set, usePlaidLink will update and we can open
+      setTimeout(() => {
+        if (ready) open();
+      }, 100);
+    }
+  };
+
+  // Effect to open Plaid when token is ready
+  useEffect(() => {
+    if (linkToken && ready) {
+      open();
+    }
+  }, [linkToken, ready, open]);
+
+  // Sync single account
+  const syncAccount = async (itemId: string) => {
     if (!session?.access_token || !user) return;
 
-    setIsSyncing(true);
+    setIsSyncing(itemId);
     try {
-      // Get transactions from Plaid
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: "sync_item", item_id: itemId }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Import transactions as frais
+      let importedCount = 0;
+      for (const tx of data.transactions || []) {
+        if (tx.amount > 0 && !tx.pending) {
+          // Check if already exists
+          const { data: existing } = await supabase
+            .from("frais")
+            .select("id")
+            .eq("user_id", user.id)
+            .ilike("description", `%${tx.id}%`)
+            .maybeSingle();
+
+          if (!existing) {
+            const { error } = await supabase.from("frais").insert({
+              user_id: user.id,
+              montant: tx.amount,
+              date_frais: tx.date,
+              categorie: tx.category as any,
+              description: tx.description || tx.merchant || "Import Plaid",
+              ocr_data: {
+                plaid_transaction_id: tx.id,
+                merchant: tx.merchant,
+                institution: tx.institution,
+              },
+            });
+
+            if (!error) importedCount++;
+          }
+        }
+      }
+
+      // Update last sync time locally
+      const account = accounts.find((a) => a.item_id === itemId);
+      if (account) {
+        setLastSyncTimes((prev) => ({
+          ...prev,
+          [account.id]: new Date().toISOString(),
+        }));
+      }
+
+      if (importedCount > 0) {
+        toast.success(`${importedCount} transactions importées`);
+        onTransactionsImported?.();
+      } else {
+        toast.info("Aucune nouvelle transaction");
+      }
+    } catch (error) {
+      console.error("Error syncing:", error);
+      toast.error(error instanceof Error ? error.message : "Erreur de sync");
+    } finally {
+      setIsSyncing(null);
+    }
+  };
+
+  // Sync all accounts
+  const syncAllAccounts = async () => {
+    if (!session?.access_token || !user) return;
+
+    setSyncingAll(true);
+    try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/plaid`,
         {
@@ -241,19 +324,30 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
 
       // Import transactions as frais
       let importedCount = 0;
-      for (const tx of data.transactions) {
-        // Only import expenses (negative amounts in bank)
+      for (const tx of data.transactions || []) {
         if (tx.amount > 0 && !tx.pending) {
-          const { error } = await supabase.from("frais").insert({
-            user_id: user.id,
-            montant: tx.amount,
-            date_frais: tx.date,
-            categorie: tx.category as any,
-            description: tx.description || tx.merchant || "Import Plaid",
-          });
+          const { data: existing } = await supabase
+            .from("frais")
+            .select("id")
+            .eq("user_id", user.id)
+            .ilike("description", `%${tx.id}%`)
+            .maybeSingle();
 
-          if (!error) {
-            importedCount++;
+          if (!existing) {
+            const { error } = await supabase.from("frais").insert({
+              user_id: user.id,
+              montant: tx.amount,
+              date_frais: tx.date,
+              categorie: tx.category as any,
+              description: tx.description || tx.merchant || "Import Plaid",
+              ocr_data: {
+                plaid_transaction_id: tx.id,
+                merchant: tx.merchant,
+                institution: tx.institution,
+              },
+            });
+
+            if (!error) importedCount++;
           }
         }
       }
@@ -262,30 +356,26 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
       await supabase.from("plaid_syncs").insert({
         user_id: user.id,
         transactions_count: importedCount,
+        sync_type: "manual",
       });
-
-      setLastSync(new Date().toISOString());
-      setCanSyncNow(false);
 
       if (importedCount > 0) {
         toast.success(`${importedCount} transactions importées`);
         onTransactionsImported?.();
       } else {
-        toast.info("Aucune nouvelle transaction à importer");
+        toast.info("Aucune nouvelle transaction");
       }
     } catch (error) {
-      console.error("Error syncing transactions:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Erreur de synchronisation"
-      );
+      console.error("Error syncing all:", error);
+      toast.error(error instanceof Error ? error.message : "Erreur de sync");
     } finally {
-      setIsSyncing(false);
+      setSyncingAll(false);
     }
   };
 
-  // Disconnect
+  // Disconnect account
   const handleDisconnect = async () => {
-    if (!session?.access_token) return;
+    if (!session?.access_token || !disconnectItemId) return;
 
     try {
       const response = await fetch(
@@ -296,15 +386,14 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ action: "disconnect" }),
+          body: JSON.stringify({ action: "disconnect", item_id: disconnectItemId }),
         }
       );
 
       const data = await response.json();
       if (data.success) {
-        setIsConnected(false);
-        setLinkToken(null);
-        toast.success("Compte bancaire déconnecté");
+        setAccounts((prev) => prev.filter((a) => a.item_id !== disconnectItemId));
+        toast.success("Compte déconnecté");
       } else {
         throw new Error(data.error);
       }
@@ -312,7 +401,7 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
       console.error("Error disconnecting:", error);
       toast.error("Erreur lors de la déconnexion");
     } finally {
-      setDisconnectDialogOpen(false);
+      setDisconnectItemId(null);
     }
   };
 
@@ -330,107 +419,137 @@ export function PlaidLink({ onTransactionsImported }: PlaidLinkProps) {
     <>
       <Card className="shadow-card border-primary/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-primary" />
-            Connexion bancaire
-            {isConnected && (
-              <Badge variant="outline" className="ml-auto text-green-600 border-green-200 bg-green-50">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Connecté
-              </Badge>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              Comptes bancaires
+              {accounts.length > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {accounts.length}
+                </Badge>
+              )}
+            </CardTitle>
+            {accounts.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={syncAllAccounts}
+                disabled={syncingAll}
+                className="h-8 gap-1"
+              >
+                {syncingAll ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                Tout sync
+              </Button>
             )}
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {isConnected ? (
+          {accounts.length === 0 ? (
             <>
-              {/* Sync status */}
-              <div className="text-xs text-muted-foreground space-y-1">
-                {lastSync && (
-                  <p className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Dernière sync: {new Date(lastSync).toLocaleString("fr-FR")}
-                  </p>
+              <p className="text-xs text-muted-foreground">
+                Connectez vos comptes bancaires pour importer automatiquement vos
+                transactions professionnelles.
+              </p>
+              <Button className="w-full gap-2" onClick={handleAddAccount} disabled={syncingAll}>
+                {syncingAll ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Building2 className="h-4 w-4" />
                 )}
-                {nextSyncTime && !canSyncNow && (
-                  <p className="flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Prochaine sync disponible: {nextSyncTime}
-                  </p>
-                )}
-                <p className="text-xs opacity-75">
-                  Limite: 2 syncs/jour (12h et minuit)
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1"
-                  onClick={syncTransactions}
-                  disabled={isSyncing || !canSyncNow}
-                >
-                  {isSyncing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                  {isSyncing ? "Sync..." : "Synchroniser"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setDisconnectDialogOpen(true)}
-                >
-                  <Unplug className="h-4 w-4" />
-                </Button>
-              </div>
+                Connecter ma banque
+              </Button>
             </>
           ) : (
             <>
-              <p className="text-xs text-muted-foreground">
-                Connectez votre compte bancaire pour importer automatiquement vos
-                transactions professionnelles.
-              </p>
+              {/* Account list */}
+              <div className="space-y-2">
+                {accounts.map((account) => (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {account.institution_name || "Compte bancaire"}
+                        </p>
+                        {lastSyncTimes[account.id] && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(lastSyncTimes[account.id]).toLocaleDateString("fr-FR")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => syncAccount(account.item_id)}
+                        disabled={isSyncing === account.item_id || syncingAll}
+                      >
+                        {isSyncing === account.item_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setDisconnectItemId(account.item_id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Unplug className="h-4 w-4 mr-2" />
+                            Déconnecter
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add another account */}
               <Button
-                className="w-full gap-2"
-                onClick={() => {
-                  if (linkToken) {
-                    open();
-                  } else {
-                    getLinkToken().then(() => {
-                      // Will open when ready
-                    });
-                  }
-                }}
-                disabled={!ready && !!linkToken}
+                variant="outline"
+                size="sm"
+                className="w-full gap-1"
+                onClick={handleAddAccount}
+                disabled={syncingAll}
               >
-                <Building2 className="h-4 w-4" />
-                Connecter ma banque
+                <Plus className="h-4 w-4" />
+                Ajouter un compte
               </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                <CheckCircle className="h-3 w-3 inline mr-1 text-green-500" />
+                Webhooks actifs • Mises à jour automatiques
+              </p>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Open Plaid Link when token is ready */}
-      {linkToken && ready && !isConnected && (
-        <div className="hidden">
-          {/* Auto-open handled by button click */}
-        </div>
-      )}
-
       {/* Disconnect confirmation */}
-      <AlertDialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
+      <AlertDialog open={!!disconnectItemId} onOpenChange={() => setDisconnectItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Déconnecter le compte bancaire ?</AlertDialogTitle>
+            <AlertDialogTitle>Déconnecter ce compte ?</AlertDialogTitle>
             <AlertDialogDescription>
               Les transactions déjà importées seront conservées. Vous pourrez
-              reconnecter un compte à tout moment.
+              reconnecter ce compte à tout moment.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

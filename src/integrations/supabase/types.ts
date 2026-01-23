@@ -1256,6 +1256,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          plaid_item_id: string | null
+          sync_type: string | null
           synced_at: string
           transactions_count: number | null
           user_id: string
@@ -1263,6 +1265,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          plaid_item_id?: string | null
+          sync_type?: string | null
           synced_at?: string
           transactions_count?: number | null
           user_id: string
@@ -1270,11 +1274,21 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          plaid_item_id?: string | null
+          sync_type?: string | null
           synced_at?: string
           transactions_count?: number | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plaid_syncs_plaid_item_id_fkey"
+            columns: ["plaid_item_id"]
+            isOneToOne: false
+            referencedRelation: "plaid_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
