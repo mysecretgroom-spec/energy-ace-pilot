@@ -345,12 +345,6 @@ export function SigneDialog({
               </div>
 
               <div className="space-y-2 text-sm">
-                {/* Prix Hejja reference */}
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Prix HEJJA (référence)</span>
-                  <span>{formatCurrency(calculations.prixHejja)} €</span>
-                </div>
-
                 {/* Commission base */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Commission bouquet</span>
