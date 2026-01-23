@@ -54,49 +54,87 @@
   <body>
     <div id="root">
       <!-- Fallback loading screen for PWA -->
-      <div id="pwa-loading" style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); z-index: 9999;">
-        <div style="text-align: center; color: white;">
-          <div style="width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.3); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
-          <p style="font-family: system-ui, sans-serif; font-size: 14px; opacity: 0.8;">Chargement...</p>
-        </div>
-      </div>
       <style>
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pwa-spin { to { transform: rotate(360deg); } }
+        #pwa-loading {
+          position: fixed;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+          z-index: 9999;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #pwa-loading .spinner {
+          width: 48px;
+          height: 48px;
+          border: 3px solid rgba(255,255,255,0.3);
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: pwa-spin 1s linear infinite;
+          margin-bottom: 16px;
+        }
+        #pwa-loading p {
+          color: rgba(255,255,255,0.8);
+          font-size: 14px;
+          margin: 0;
+        }
+        #pwa-loading .retry-btn {
+          margin-top: 24px;
+          padding: 12px 24px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          cursor: pointer;
+          display: none;
+        }
       </style>
+      <div id="pwa-loading">
+        <div class="spinner"></div>
+        <p>Chargement de DébalePro...</p>
+        <button class="retry-btn" id="pwa-retry" onclick="window.pwaRetry()">Réessayer</button>
+      </div>
     </div>
-    <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Timeout fallback: if app doesn't load in 10s, try to recover
+      // PWA Cache recovery
+      window.pwaRetry = function() {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            Promise.all(names.map(function(n) { return caches.delete(n); })).then(function() {
+              window.location.reload(true);
+            });
+          });
+        } else {
+          window.location.reload(true);
+        }
+      };
+      
+      // Show retry button after 5 seconds if app hasn't loaded
+      setTimeout(function() {
+        var btn = document.getElementById('pwa-retry');
+        if (btn) btn.style.display = 'block';
+      }, 5000);
+      
+      // Auto-retry after 15 seconds
       setTimeout(function() {
         var loading = document.getElementById('pwa-loading');
         if (loading && loading.parentNode) {
-          // Check if React has mounted
           var root = document.getElementById('root');
-          if (root && root.children.length <= 2) {
-            // App hasn't loaded, try clearing service worker cache
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                registrations.forEach(function(registration) {
-                  registration.unregister();
-                });
-                // Clear caches and reload
-                if ('caches' in window) {
-                  caches.keys().then(function(names) {
-                    names.forEach(function(name) {
-                      caches.delete(name);
-                    });
-                    window.location.reload();
-                  });
-                } else {
-                  window.location.reload();
-                }
-              });
-            } else {
-              window.location.reload();
-            }
+          if (root && root.querySelectorAll(':scope > *:not(style):not(#pwa-loading)').length === 0) {
+            window.pwaRetry();
           }
         }
-      }, 10000);
+      }, 15000);
     </script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
