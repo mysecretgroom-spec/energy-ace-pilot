@@ -9,6 +9,7 @@ import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/auth/PasswordStrengthIndicator";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -66,11 +67,12 @@ const Signup = () => {
       return;
     }
 
-    if (password.length < 6) {
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
       toast({
         variant: "destructive",
-        title: "Erreur",
-        description: "Le mot de passe doit contenir au moins 6 caractères",
+        title: "Mot de passe trop faible",
+        description: passwordValidation.message,
       });
       return;
     }
@@ -194,7 +196,7 @@ const Signup = () => {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 6 caractères"
+                  placeholder="Créez un mot de passe sécurisé"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -214,6 +216,7 @@ const Signup = () => {
                   )}
                 </Button>
               </div>
+              <PasswordStrengthIndicator password={password} />
             </div>
 
             <div className="space-y-2">
