@@ -40,6 +40,8 @@ export function ExportFraisPDF({ frais, periode }: ExportFraisPDFProps) {
         repas: "Repas",
         hotel: "Hôtel",
         parking: "Parking",
+        train: "Trains",
+        location_vehicule: "Location Véhicule",
         autre: "Autre",
       };
 

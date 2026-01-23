@@ -17,6 +17,8 @@ const categoryLabels: Record<string, string> = {
   hotel: "Hôtel",
   peage: "Péage",
   parking: "Parking",
+  train: "Trains",
+  location_vehicule: "Location Véhicule",
   autre: "Autre",
 };
 
@@ -26,6 +28,8 @@ const categoryColors: Record<string, string> = {
   hotel: "hsl(var(--chart-3))",
   peage: "hsl(var(--chart-4))",
   parking: "hsl(var(--chart-5))",
+  train: "hsl(210, 70%, 50%)",
+  location_vehicule: "hsl(280, 60%, 55%)",
   autre: "hsl(var(--muted-foreground))",
 };
 

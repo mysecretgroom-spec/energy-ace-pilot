@@ -2101,6 +2101,8 @@ export type Database = {
         | "hotel"
         | "parking"
         | "autre"
+        | "train"
+        | "location_vehicule"
       notification_type:
         | "rappel_rdv"
         | "relance_client"
@@ -2304,6 +2306,8 @@ export const Constants = {
         "hotel",
         "parking",
         "autre",
+        "train",
+        "location_vehicule",
       ],
       notification_type: [
         "rappel_rdv",
