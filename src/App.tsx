@@ -2,8 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { HejjaModeProvider } from "@/hooks/useHejjaMode";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -57,58 +56,6 @@ const AuthenticatedHejjaToggle = () => {
   return <HejjaToggle />;
 };
 
-// Page wrapper with animation
-const AnimatedRoutes = () => {
-  const location = useLocation();
-  
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, x: 10 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -10 }}
-        transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="h-full w-full"
-      >
-        <Routes location={location}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
-          <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
-          <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
-          <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
-          <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-          <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-          <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
-          <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
-          <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
-          <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
-          <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
-          <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
-          <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
-          <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
-          <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
-          <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
-          <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
-          <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
-          <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
-          <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
-          <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
-          <Route path="/install" element={<Install />} />
-          <Route path="/confidentialite" element={<Confidentialite />} />
-          <Route path="/conditions" element={<Conditions />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
 const App = () => {
   useEffect(() => {
     initTheme();
@@ -123,7 +70,39 @@ const App = () => {
           <BrowserRouter>
             <AuthProvider>
               <HejjaModeProvider>
-                <AnimatedRoutes />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
+                  <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
+                  <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+                  <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
+                  <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                  <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                  <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                  <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
+                  <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
+                  <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
+                  <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
+                  <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
+                  <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
+                  <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
+                  <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
+                  <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
+                  <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
+                  <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
+                  <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
+                  <Route path="/install" element={<Install />} />
+                  <Route path="/confidentialite" element={<Confidentialite />} />
+                  <Route path="/conditions" element={<Conditions />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
                 {/* Onboarding modal for new users */}
                 <OnboardingDialog />
                 {/* Floating HEJJA toggle - only visible when authenticated */}
