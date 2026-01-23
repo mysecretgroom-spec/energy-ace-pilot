@@ -54,6 +54,10 @@ const DataCommissions = () => {
   const [config, setConfig] = useState<ConfigCommission | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // État local pour le mode de calcul (permet de modifier sans sauvegarder immédiatement)
+  const [pendingModeCalcul, setPendingModeCalcul] = useState<"pourcentage" | "bouquet" | null>(null);
+  const [savingMode, setSavingMode] = useState(false);
+  
   // Dialogs state
   const [isTrancheDialogOpen, setIsTrancheDialogOpen] = useState(false);
   const [isBouquetDialogOpen, setIsBouquetDialogOpen] = useState(false);
@@ -82,6 +86,10 @@ const DataCommissions = () => {
   });
   
   const [saving, setSaving] = useState(false);
+  
+  // Le mode affiché est soit le pending (non sauvegardé) soit le mode actuel
+  const displayedMode = pendingModeCalcul ?? config?.mode_calcul ?? "bouquet";
+  const hasPendingModeChange = pendingModeCalcul !== null && pendingModeCalcul !== config?.mode_calcul;
 
   useEffect(() => {
     fetchData();
@@ -130,6 +138,34 @@ const DataCommissions = () => {
       console.error("Erreur mise à jour config:", error);
       toast.error(error.message || "Erreur lors de la mise à jour");
     }
+  };
+
+  // Handler pour sauvegarder le changement de mode
+  const handleSaveModeChange = async () => {
+    if (!pendingModeCalcul || !config) return;
+    
+    setSavingMode(true);
+    try {
+      const { error } = await supabase
+        .from("config_commissions")
+        .update({ mode_calcul: pendingModeCalcul })
+        .eq("id", config.id);
+      
+      if (error) throw error;
+      
+      setConfig({ ...config, mode_calcul: pendingModeCalcul });
+      setPendingModeCalcul(null);
+      toast.success("Mode de commission mis à jour");
+    } catch (error: any) {
+      console.error("Erreur mise à jour mode:", error);
+      toast.error(error.message || "Erreur lors de la mise à jour");
+    } finally {
+      setSavingMode(false);
+    }
+  };
+
+  const handleCancelModeChange = () => {
+    setPendingModeCalcul(null);
   };
 
   // Tranche handlers
@@ -326,34 +362,68 @@ const DataCommissions = () => {
       <div className="p-4 space-y-4 pb-24">
         {/* Config Mode - Bouton Switch Principal */}
         {config && (
-          <Card className="border-primary/20">
+          <Card className={`border-primary/20 ${hasPendingModeChange ? 'ring-2 ring-amber-500' : ''}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
                 Mode de commission
+                {hasPendingModeChange && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-400 text-xs">
+                    Non enregistré
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Percent className={`h-5 w-5 ${config.mode_calcul === "pourcentage" ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className={`text-sm font-medium ${config.mode_calcul === "pourcentage" ? "text-foreground" : "text-muted-foreground"}`}>
+                  <Percent className={`h-5 w-5 ${displayedMode === "pourcentage" ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className={`text-sm font-medium ${displayedMode === "pourcentage" ? "text-foreground" : "text-muted-foreground"}`}>
                     Pourcentage
                   </span>
                 </div>
                 <Switch
-                  checked={config.mode_calcul === "bouquet"}
-                  onCheckedChange={(checked) => 
-                    updateConfig({ mode_calcul: checked ? "bouquet" : "pourcentage" })
-                  }
+                  checked={displayedMode === "bouquet"}
+                  onCheckedChange={(checked) => {
+                    const newMode = checked ? "bouquet" : "pourcentage";
+                    if (newMode === config.mode_calcul) {
+                      setPendingModeCalcul(null);
+                    } else {
+                      setPendingModeCalcul(newMode);
+                    }
+                  }}
                 />
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm font-medium ${config.mode_calcul === "bouquet" ? "text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`text-sm font-medium ${displayedMode === "bouquet" ? "text-foreground" : "text-muted-foreground"}`}>
                     Bouquet
                   </span>
-                  <Package className={`h-5 w-5 ${config.mode_calcul === "bouquet" ? "text-primary" : "text-muted-foreground"}`} />
+                  <Package className={`h-5 w-5 ${displayedMode === "bouquet" ? "text-primary" : "text-muted-foreground"}`} />
                 </div>
               </div>
+
+              {/* Boutons de sauvegarde/annulation */}
+              {hasPendingModeChange && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleCancelModeChange}
+                    disabled={savingMode}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={handleSaveModeChange}
+                    disabled={savingMode}
+                  >
+                    {savingMode ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Enregistrer
+                  </Button>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label className="font-medium">Part survente commercial</Label>
