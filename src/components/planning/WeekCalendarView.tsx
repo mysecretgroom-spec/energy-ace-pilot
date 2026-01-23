@@ -35,6 +35,8 @@ interface RdvData {
   typeRdv: 'standard' | 'external_installation';
   isR2?: boolean;
   etudeId?: string | null;
+  regieNom?: string | null;
+  regieCouleur?: string | null;
 }
 
 interface WeekCalendarViewProps {
@@ -217,6 +219,8 @@ export function WeekCalendarView({
                           status={rdv.status}
                           typeRdv={rdv.typeRdv}
                           isR2={rdv.isR2}
+                          regieNom={rdv.regieNom}
+                          regieCouleur={rdv.regieCouleur}
                         />
                       </RdvQuickActions>
                     ))
@@ -248,6 +252,8 @@ export function WeekCalendarView({
               status={activeRdv.status}
               typeRdv={activeRdv.typeRdv}
               isR2={activeRdv.isR2}
+              regieNom={activeRdv.regieNom}
+              regieCouleur={activeRdv.regieCouleur}
               disabled
               className="bg-card border-2 border-primary"
             />

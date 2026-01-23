@@ -14,7 +14,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushToGoogleCalendar } from "@/hooks/usePushToGoogleCalendar";
-import { CalendarPlus, Loader2, Check, X, Search } from "lucide-react";
+import { CalendarPlus, Loader2, Check, X, Search, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { geocodeAndUpdateClient, geocodeAndUpdateRdv } from "@/hooks/useGeocode";
 
@@ -34,6 +34,12 @@ interface ClientOption {
   code_postal: string | null;
 }
 
+interface RegieOption {
+  id: string;
+  nom: string;
+  couleur: string | null;
+}
+
 const projectTypes = [
   { value: "photovoltaique", label: "Photovoltaïque" },
   { value: "pompe_chaleur", label: "Pompe à chaleur" },
@@ -48,11 +54,13 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [regies, setRegies] = useState<RegieOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [showClientSearch, setShowClientSearch] = useState(true);
 
   // Form state
   const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedRegieId, setSelectedRegieId] = useState<string>("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -65,6 +73,21 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   const [duration, setDuration] = useState("90");
   const [projectType, setProjectType] = useState("photovoltaique");
   const [commentaire, setCommentaire] = useState("");
+
+  // Fetch regies on mount
+  useEffect(() => {
+    const fetchRegies = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .eq("user_id", user.id)
+        .eq("actif", true)
+        .order("nom");
+      if (data) setRegies(data);
+    };
+    fetchRegies();
+  }, [user]);
 
   // Search clients
   useEffect(() => {
@@ -176,6 +199,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
         adresse: fullAddress || null,
         commentaire: commentaire || null,
         status: "nouveau",
+        regie_id: selectedRegieId || null,
       }).select("id").single();
 
       if (error) throw error;
@@ -206,6 +230,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
 
   const resetClientSelection = () => {
     setSelectedClientId("");
+    setSelectedRegieId("");
     setClientName("");
     setClientPhone("");
     setAddress("");
@@ -392,6 +417,35 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
             </Select>
           </div>
         </div>
+
+        {/* Régie selection */}
+        {regies.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="regie" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Source / Régie
+            </Label>
+            <Select value={selectedRegieId} onValueChange={setSelectedRegieId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner une régie (optionnel)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Aucune</SelectItem>
+                {regies.map((regie) => (
+                  <SelectItem key={regie.id} value={regie.id}>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: regie.couleur || "#888" }}
+                      />
+                      {regie.nom}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Comment */}
         <div className="space-y-2">

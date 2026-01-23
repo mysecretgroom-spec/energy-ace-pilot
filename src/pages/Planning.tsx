@@ -82,6 +82,9 @@ interface RdvData {
   etudeId?: string | null;
   latitude?: number;
   longitude?: number;
+  regieId?: string | null;
+  regieNom?: string | null;
+  regieCouleur?: string | null;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -229,6 +232,11 @@ const Planning = () => {
           latitude,
           longitude,
           regie_id,
+          regies(
+            id,
+            nom,
+            couleur
+          ),
           clients!inner(
             id,
             nom,
@@ -279,6 +287,12 @@ const Planning = () => {
           latitude: number | null;
           longitude: number | null;
         };
+        
+        const regieData = rdv.regies as {
+          id: string;
+          nom: string;
+          couleur: string | null;
+        } | null;
 
         // Use RDV address or client address
         const rdvAddress = rdv.adresse || clientData.adresse || "";
@@ -321,6 +335,9 @@ const Planning = () => {
           etudeId: rdv.etude_id,
           latitude: rdv.latitude || clientData.latitude || undefined,
           longitude: rdv.longitude || clientData.longitude || undefined,
+          regieId: regieData?.id || null,
+          regieNom: regieData?.nom || null,
+          regieCouleur: regieData?.couleur || null,
         };
       });
 
