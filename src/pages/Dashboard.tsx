@@ -18,7 +18,8 @@ import {
   Bell,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Hotel
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -66,6 +67,12 @@ interface ProchainRdv {
   status: string;
 }
 
+interface RdvDemain {
+  id: string;
+  date_heure: string;
+  ville: string | null;
+}
+
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -87,6 +94,7 @@ const Dashboard = () => {
   });
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [prochainsRdv, setProchainsRdv] = useState<ProchainRdv[]>([]);
+  const [premierRdvDemain, setPremierRdvDemain] = useState<RdvDemain | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,6 +114,12 @@ const Dashboard = () => {
     const finAnnee = endOfYear(now).toISOString();
     const aujourd = format(now, "yyyy-MM-dd");
     const finSemaine = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Calculer demain pour la recherche d'hôtel
+    const demain = new Date(now);
+    demain.setDate(demain.getDate() + 1);
+    const debutDemain = new Date(demain.setHours(0, 0, 0, 0)).toISOString();
+    const finDemain = new Date(demain.setHours(23, 59, 59, 999)).toISOString();
 
     try {
       // Fetch all data in parallel
@@ -116,7 +130,8 @@ const Dashboard = () => {
         commissionsRes,
         objectifsRes,
         notificationsRes,
-        prochainsRdvRes
+        prochainsRdvRes,
+        rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année
         supabase.from("ventes").select("*").eq("user_id", user.id),
@@ -146,7 +161,15 @@ const Dashboard = () => {
           .eq("user_id", user.id)
           .gte("date_heure", now.toISOString())
           .order("date_heure", { ascending: true })
-          .limit(3)
+          .limit(3),
+        // Premier RDV de demain pour recherche hôtel
+        supabase.from("rdv")
+          .select("id, date_heure, clients(ville)")
+          .eq("user_id", user.id)
+          .gte("date_heure", debutDemain)
+          .lte("date_heure", finDemain)
+          .order("date_heure", { ascending: true })
+          .limit(1)
       ]);
 
       // Process ventes
@@ -221,6 +244,18 @@ const Dashboard = () => {
         status: r.status
       })));
 
+      // Premier RDV de demain pour Booking
+      if (rdvDemainRes.data && rdvDemainRes.data.length > 0) {
+        const rdv = rdvDemainRes.data[0] as any;
+        setPremierRdvDemain({
+          id: rdv.id,
+          date_heure: rdv.date_heure,
+          ville: rdv.clients?.ville || null
+        });
+      } else {
+        setPremierRdvDemain(null);
+      }
+
     } catch (error) {
       console.error("Erreur chargement dashboard:", error);
     } finally {
@@ -248,6 +283,22 @@ const Dashboard = () => {
       case 'annule': return <AlertCircle className="h-3 w-3 text-red-500" />;
       default: return <Clock className="h-3 w-3 text-muted-foreground" />;
     }
+  };
+
+  const openBookingSearch = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const checkIn = format(today, "yyyy-MM-dd");
+    const checkOut = format(tomorrow, "yyyy-MM-dd");
+    
+    // Utiliser la ville du premier RDV de demain, sinon ville par défaut
+    const destination = premierRdvDemain?.ville || "France";
+    
+    const bookingUrl = `https://www.booking.com/searchresults.fr.html?ss=${encodeURIComponent(destination)}&checkin=${checkIn}&checkout=${checkOut}&no_rooms=1&group_adults=1`;
+    
+    window.open(bookingUrl, "_blank");
   };
 
   return (
@@ -375,6 +426,25 @@ const Dashboard = () => {
                   </Badge>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bouton recherche hôtel Booking */}
+        <Card className="bg-gradient-to-r from-blue-600 to-blue-700 border-blue-500/30 shadow-lg">
+          <CardContent className="p-4">
+            <Button
+              variant="secondary"
+              className="w-full font-semibold gap-2"
+              onClick={openBookingSearch}
+            >
+              <Hotel className="h-5 w-5" />
+              🏨 Trouver un hôtel pour ce soir
+            </Button>
+            {premierRdvDemain?.ville && (
+              <p className="text-xs text-blue-100 text-center mt-2">
+                Proche de votre RDV demain à {premierRdvDemain.ville}
+              </p>
             )}
           </CardContent>
         </Card>
