@@ -263,7 +263,37 @@ export function MultiImportFlow({
     setSaving(true);
 
     try {
+      let savedCount = 0;
+      let duplicateCount = 0;
+
+      // For finance context, fetch existing frais to check for duplicates
+      let existingFrais: { montant: number; date_frais: string; description: string | null }[] = [];
+      if (context === "finance") {
+        const { data } = await supabase
+          .from("frais")
+          .select("montant, date_frais, description")
+          .eq("user_id", user.id);
+        existingFrais = data || [];
+      }
+
       for (const importedFile of validFiles) {
+        if (context === "finance") {
+          // Check for duplicates: same montant, date, and fournisseur/description
+          const isDuplicate = existingFrais.some(
+            (existing) =>
+              existing.montant === importedFile.montant_ttc &&
+              existing.date_frais === (importedFile.date || new Date().toISOString().split("T")[0]) &&
+              (existing.description === importedFile.fournisseur || 
+               existing.description === importedFile.description)
+          );
+
+          if (isDuplicate) {
+            console.log("Skipping duplicate:", importedFile.file.name);
+            duplicateCount++;
+            continue;
+          }
+        }
+
         // Generate PDF from file
         const pdfResult = await generatePdfFromFile(importedFile.file);
 
@@ -293,6 +323,15 @@ export function MultiImportFlow({
           });
 
           if (error) throw error;
+          
+          // Add to existing frais to prevent duplicates within same batch
+          existingFrais.push({
+            montant: importedFile.montant_ttc!,
+            date_frais: importedFile.date || new Date().toISOString().split("T")[0],
+            description: importedFile.fournisseur || importedFile.description || null,
+          });
+          
+          savedCount++;
         } else {
           // Save to documents table
           if (!clientId) {
@@ -313,10 +352,22 @@ export function MultiImportFlow({
           });
 
           if (error) throw error;
+          savedCount++;
         }
       }
 
-      toast.success(`${validFiles.length} documents enregistrés`);
+      // Show appropriate message based on results
+      if (context === "finance") {
+        if (duplicateCount > 0 && savedCount > 0) {
+          toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
+        } else if (duplicateCount > 0 && savedCount === 0) {
+          toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
+        } else {
+          toast.success(`${savedCount} documents enregistrés`);
+        }
+      } else {
+        toast.success(`${savedCount} documents enregistrés`);
+      }
       setFiles([]);
       onSuccess?.();
       onClose();
