@@ -3,6 +3,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { 
   User, 
   Calendar, 
@@ -15,6 +20,7 @@ import {
   MinusCircle,
   Wrench,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -44,6 +50,8 @@ interface Vente {
 interface CommissionData {
   montant_commission: number;
   bonus_survente: number;
+  decom_montant?: number;
+  commission_nette?: number;
   isInterpolated?: boolean;
 }
 
@@ -142,14 +150,65 @@ export const VenteCard = ({ vente, commission, selectionMode, isSelected, onClic
                   </span>
                 )}
                 {rawCommission > 0 && (
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${commission?.isInterpolated ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-green-500/10 text-green-600 border-green-200"}`}
-                    title={commission?.isInterpolated ? "Prix interpolé (pas de bouquet exact)" : undefined}
-                  >
-                    {commission?.isInterpolated && <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />}
-                    Com: {formatCurrency(totalCommission)}
-                  </Badge>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs cursor-pointer hover:opacity-80 ${commission?.isInterpolated ? "bg-amber-500/10 text-amber-600 border-amber-200" : "bg-green-500/10 text-green-600 border-green-200"}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {commission?.isInterpolated && <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />}
+                        <Info className="h-2.5 w-2.5 mr-0.5" />
+                        Com: {formatCurrency(totalCommission)}
+                      </Badge>
+                    </PopoverTrigger>
+                    <PopoverContent 
+                      className="w-64 p-3" 
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-sm flex items-center gap-1">
+                          <Euro className="h-4 w-4 text-primary" />
+                          Détail de la commission
+                        </h4>
+                        
+                        <div className="space-y-1.5 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Commission fixe</span>
+                            <span className="font-medium">{formatCurrency(commission?.montant_commission || 0)}</span>
+                          </div>
+                          
+                          {(commission?.bonus_survente || 0) > 0 && (
+                            <div className="flex justify-between text-green-600">
+                              <span>+ Survente (50%)</span>
+                              <span className="font-medium">+{formatCurrency(commission?.bonus_survente || 0)}</span>
+                            </div>
+                          )}
+                          
+                          {decomMontant > 0 && (
+                            <div className="flex justify-between text-red-600">
+                              <span>- Décom</span>
+                              <span className="font-medium">-{formatCurrency(decomMontant)}</span>
+                            </div>
+                          )}
+                          
+                          <div className="border-t pt-1.5 mt-1.5">
+                            <div className="flex justify-between font-semibold">
+                              <span>Commission nette</span>
+                              <span className="text-primary">{formatCurrency(totalCommission)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {commission?.isInterpolated && (
+                          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded mt-2 flex items-start gap-1">
+                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                            Prix interpolé (pas de bouquet exact pour {vente.puissance_kwc} kWc)
+                          </p>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
                 {decomMontant > 0 && (
                   <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-200">
