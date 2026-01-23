@@ -422,11 +422,14 @@ async function handleWebhook(
 
         const data = await response.json();
         if (response.ok) {
-          let importedCount = 0;
+          let importedExpenses = 0;
+          let matchedPayments = 0;
 
           for (const tx of data.transactions) {
-            // Only import expenses (positive amounts from bank perspective = debits)
-            if (tx.amount > 0 && !tx.pending) {
+            if (tx.pending) continue;
+
+            // Handle EXPENSES (positive amounts = debits from bank perspective)
+            if (tx.amount > 0) {
               // Check if transaction already exists
               const { data: existing } = await supabaseAdmin
                 .from("frais")
@@ -449,7 +452,78 @@ async function handleWebhook(
                   },
                 });
 
-                if (!error) importedCount++;
+                if (!error) importedExpenses++;
+              }
+            }
+
+            // Handle INCOMING PAYMENTS (negative amounts = credits from bank perspective)
+            if (tx.amount < 0) {
+              const incomingAmount = Math.abs(tx.amount);
+              const senderName = tx.name || tx.merchant_name || "";
+
+              // Try to match with unpaid commissions (with 1€ tolerance for rounding)
+              const { data: unpaidCommissions } = await supabaseAdmin
+                .from("commissions")
+                .select("id, montant_commission, vente_id")
+                .eq("user_id", plaidItem.user_id)
+                .eq("paye", false)
+                .gte("montant_commission", incomingAmount - 1)
+                .lte("montant_commission", incomingAmount + 1);
+
+              if (unpaidCommissions && unpaidCommissions.length > 0) {
+                // Find exact or closest match
+                const matchedCommission = unpaidCommissions.find(
+                  c => Math.abs(c.montant_commission - incomingAmount) < 1
+                ) || unpaidCommissions[0];
+
+                // Mark commission as paid
+                await supabaseAdmin
+                  .from("commissions")
+                  .update({
+                    paye: true,
+                    date_paiement: tx.date,
+                  })
+                  .eq("id", matchedCommission.id);
+
+                // Also update the vente status if it exists
+                if (matchedCommission.vente_id) {
+                  await supabaseAdmin
+                    .from("ventes")
+                    .update({
+                      status: "paye",
+                      date_paiement: tx.date,
+                    })
+                    .eq("id", matchedCommission.vente_id);
+                }
+
+                matchedPayments++;
+                console.log(`Matched payment: ${incomingAmount}€ from "${senderName}" to commission ${matchedCommission.id}`);
+              }
+
+              // Also check for matching ventes by montant_ttc (for direct client payments)
+              const { data: unpaidVentes } = await supabaseAdmin
+                .from("ventes")
+                .select("id, montant_ttc, client_id")
+                .eq("user_id", plaidItem.user_id)
+                .eq("status", "attente_paiement")
+                .gte("montant_ttc", incomingAmount - 10)
+                .lte("montant_ttc", incomingAmount + 10);
+
+              if (unpaidVentes && unpaidVentes.length > 0) {
+                const matchedVente = unpaidVentes.find(
+                  v => Math.abs(v.montant_ttc - incomingAmount) < 10
+                ) || unpaidVentes[0];
+
+                await supabaseAdmin
+                  .from("ventes")
+                  .update({
+                    status: "paye",
+                    date_paiement: tx.date,
+                  })
+                  .eq("id", matchedVente.id);
+
+                matchedPayments++;
+                console.log(`Matched vente payment: ${incomingAmount}€ to vente ${matchedVente.id}`);
               }
             }
           }
@@ -458,11 +532,11 @@ async function handleWebhook(
           await supabaseAdmin.from("plaid_syncs").insert({
             user_id: plaidItem.user_id,
             plaid_item_id: plaidItem.id,
-            transactions_count: importedCount,
+            transactions_count: importedExpenses + matchedPayments,
             sync_type: "webhook",
           });
 
-          console.log(`Webhook sync: imported ${importedCount} transactions for user ${plaidItem.user_id}`);
+          console.log(`Webhook sync: ${importedExpenses} expenses imported, ${matchedPayments} payments matched for user ${plaidItem.user_id}`);
         }
       }
     }
