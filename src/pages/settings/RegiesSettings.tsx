@@ -596,64 +596,65 @@ const RegiesSettings = () => {
               <>
                 {/* Header avec couleur */}
                 <div
-                  className="p-4 text-white"
+                  className="p-4 pt-10 text-white relative"
                   style={{ backgroundColor: selectedRegie.couleur }}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-8 w-8" />
-                      <div>
-                        <h2 className="text-xl font-bold">{selectedRegie.nom}</h2>
-                        <p className="text-sm opacity-80">
-                          {regieStats[selectedRegie.id]?.ventes || 0} ventes • {formatCurrency(regieStats[selectedRegie.id]?.ca || 0)} CA
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="text-white hover:bg-white/20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/regies/${selectedRegie.id}`);
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4" />
+                  {/* Actions en haut à droite, sous le bouton X du dialog */}
+                  <div className="absolute top-12 right-3 flex gap-1">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 text-white hover:bg-white/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/regies/${selectedRegie.id}`);
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Dialog>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20">
+                        <Palette className="h-4 w-4" />
                       </Button>
-                      <Dialog>
-                        <Button size="icon" variant="ghost" className="text-white hover:bg-white/20">
-                          <Palette className="h-4 w-4" />
-                        </Button>
-                        <DialogContent className="max-w-xs">
-                          <DialogHeader>
-                            <DialogTitle>Changer la couleur</DialogTitle>
-                          </DialogHeader>
-                          <div className="flex gap-2 flex-wrap justify-center py-4">
-                            {colorOptions.map((color) => (
-                              <button
-                                key={color}
-                                className={`w-10 h-10 rounded-full border-2 transition-colors ${
-                                  selectedRegie.couleur === color ? "border-foreground" : "border-transparent"
-                                }`}
-                                style={{ backgroundColor: color }}
-                                onClick={() => handleUpdateRegieColor(color)}
-                              />
-                            ))}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="text-white hover:bg-white/20"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRegie(selectedRegie.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <DialogContent className="max-w-xs">
+                        <DialogHeader>
+                          <DialogTitle>Changer la couleur</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex gap-2 flex-wrap justify-center py-4">
+                          {colorOptions.map((color) => (
+                            <button
+                              key={color}
+                              className={`w-10 h-10 rounded-full border-2 transition-colors ${
+                                selectedRegie.couleur === color ? "border-foreground" : "border-transparent"
+                              }`}
+                              style={{ backgroundColor: color }}
+                              onClick={() => handleUpdateRegieColor(color)}
+                            />
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 text-white hover:bg-red-500/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRegie(selectedRegie.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Titre et infos */}
+                  <div className="flex items-center gap-3 pr-28">
+                    <Building2 className="h-8 w-8 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold truncate">{selectedRegie.nom}</h2>
+                      <p className="text-sm opacity-80">
+                        {regieStats[selectedRegie.id]?.ventes || 0} ventes • {formatCurrency(regieStats[selectedRegie.id]?.ca || 0)} CA
+                      </p>
                     </div>
                   </div>
                 </div>
