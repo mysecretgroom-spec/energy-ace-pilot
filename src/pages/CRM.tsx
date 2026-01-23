@@ -301,9 +301,19 @@ const CRM = () => {
     }).format(amount);
   };
 
+  // "En cours" = toutes les ventes signées mais pas encore payées ni annulées
+  const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation', 'installe', 'attente_paiement'];
+  
   const filteredVentes = ventes.filter(v => {
-    // Filter by status
-    if (venteFilter !== "all" && v.status !== venteFilter) return false;
+    // Filter by status category
+    if (venteFilter === "en_cours") {
+      if (!enCoursStatuses.includes(v.status)) return false;
+    } else if (venteFilter === "paye") {
+      if (v.status !== 'paye') return false;
+    }
+    // "all" shows everything except cancelled
+    if (venteFilter === "all" && v.status === 'annule') return false;
+    
     // Filter by type
     if (typeFilter !== "all" && v.type_vente !== typeFilter) return false;
     // Filter by regie
@@ -838,12 +848,11 @@ const CRM = () => {
                 )}
               </div>
 
-              {/* Status filter tabs */}
+              {/* Status filter tabs - Tout / En cours (signées mais pas payées) / Payées */}
               <Tabs value={venteFilter} onValueChange={setVenteFilter}>
-                <TabsList className="w-full grid grid-cols-4">
-                  <TabsTrigger value="all">Tout</TabsTrigger>
-                  <TabsTrigger value="en_negociation">Négo</TabsTrigger>
-                  <TabsTrigger value="signe">Signées</TabsTrigger>
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="all">Toutes</TabsTrigger>
+                  <TabsTrigger value="en_cours">En cours</TabsTrigger>
                   <TabsTrigger value="paye">Payées</TabsTrigger>
                 </TabsList>
               </Tabs>
