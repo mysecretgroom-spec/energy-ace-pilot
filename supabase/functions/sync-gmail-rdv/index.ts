@@ -94,46 +94,111 @@ function decodeBase64Url(data: string): string {
 }
 
 function stripHtml(html: string): string {
-  // First, handle table rows specifically - this format is common in lead emails
-  // <tr><td>Label:</td><td>Value</td></tr> → "Label: Value\n"
-  let text = html
-    // Handle table cells: extract label-value pairs
-    .replace(/<tr[^>]*>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([^<]*)<\/td>\s*<\/tr>/gi, "$1 $2\n")
-    // Clean remaining table tags
-    .replace(/<\/?table[^>]*>/gi, "")
-    .replace(/<\/?tr[^>]*>/gi, "\n")
-    .replace(/<\/?td[^>]*>/gi, " ")
-    .replace(/<\/?th[^>]*>/gi, " ")
+  // Enhanced HTML to text conversion for lead emails
+  let text = html;
+  
+  // Step 1: Handle table structures - multiple patterns for different email formats
+  // Pattern 1: <tr><td>Label:</td><td>Value</td></tr>
+  text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
+    const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
+    const cleanValue = value.replace(/<[^>]+>/g, "").trim();
+    return `${cleanLabel} ${cleanValue}\n`;
+  });
+  
+  // Pattern 2: <tr><td colspan="2">...</td></tr> (section headers or multi-column content)
+  text = text.replace(/<tr[^>]*>\s*<td[^>]*colspan[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, content) => {
+    return content.replace(/<[^>]+>/g, "").trim() + "\n";
+  });
+  
+  // Pattern 3: Multiple TDs in a row
+  text = text.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (_, rowContent) => {
+    const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || [];
+    const values = cells.map((cell: string) => cell.replace(/<[^>]+>/g, "").trim()).filter(Boolean);
+    return values.join(" ") + "\n";
+  });
+  
+  // Step 2: Clean remaining table tags
+  text = text
+    .replace(/<\/?table[^>]*>/gi, "\n")
     .replace(/<\/?tbody[^>]*>/gi, "")
     .replace(/<\/?thead[^>]*>/gi, "")
-    // Handle other HTML tags
+    .replace(/<\/?tfoot[^>]*>/gi, "");
+  
+  // Step 3: Handle other HTML structures
+  text = text
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/div>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<hr[^>]*>/gi, "\n---\n")
+    // Remove styles and scripts
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    // Decode HTML entities
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&eacute;/gi, "é")
-    .replace(/&egrave;/gi, "è")
-    .replace(/&agrave;/gi, "à")
-    .replace(/&acirc;/gi, "â")
-    .replace(/&ocirc;/gi, "ô")
-    .replace(/&ucirc;/gi, "û")
-    .replace(/&icirc;/gi, "î")
-    .replace(/&euml;/gi, "ë")
-    .replace(/&iuml;/gi, "ï")
-    .replace(/&ccedil;/gi, "ç")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
-    // Clean up whitespace
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
+    // Handle strong/bold
+    .replace(/<\/?(?:strong|b)>/gi, "")
+    // Remove all remaining HTML tags
+    .replace(/<[^>]+>/g, " ");
+  
+  // Step 4: Decode HTML entities (including numeric)
+  const entityMap: Record<string, string> = {
+    "&nbsp;": " ",
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&apos;": "'",
+    "&eacute;": "é",
+    "&Eacute;": "É",
+    "&egrave;": "è",
+    "&Egrave;": "È",
+    "&agrave;": "à",
+    "&Agrave;": "À",
+    "&acirc;": "â",
+    "&Acirc;": "Â",
+    "&ecirc;": "ê",
+    "&Ecirc;": "Ê",
+    "&icirc;": "î",
+    "&Icirc;": "Î",
+    "&ocirc;": "ô",
+    "&Ocirc;": "Ô",
+    "&ucirc;": "û",
+    "&Ucirc;": "Û",
+    "&euml;": "ë",
+    "&Euml;": "Ë",
+    "&iuml;": "ï",
+    "&Iuml;": "Ï",
+    "&uuml;": "ü",
+    "&Uuml;": "Ü",
+    "&ccedil;": "ç",
+    "&Ccedil;": "Ç",
+    "&oelig;": "œ",
+    "&OElig;": "Œ",
+    "&euro;": "€",
+    "&copy;": "©",
+    "&reg;": "®",
+    "&deg;": "°",
+    "&sup2;": "²",
+    "&sup3;": "³",
+  };
+  
+  for (const [entity, char] of Object.entries(entityMap)) {
+    text = text.replace(new RegExp(entity, "g"), char);
+  }
+  
+  // Handle numeric entities (&#233; → é)
+  text = text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)));
+  // Handle hex entities (&#xE9; → é)
+  text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  
+  // Step 5: Clean up whitespace
+  text = text
+    .replace(/[ \t]+/g, " ")           // Multiple spaces → single space
+    .replace(/\n[ \t]+/g, "\n")        // Remove leading spaces on lines
+    .replace(/[ \t]+\n/g, "\n")        // Remove trailing spaces on lines
+    .replace(/\n{3,}/g, "\n\n")        // Max 2 consecutive newlines
     .trim();
 
   return text;
@@ -320,6 +385,8 @@ serve(async (req) => {
 
         // Extract body text
         const body = extractTextFromPayload(msgData.payload);
+        // Log extracted body for debugging (first 500 chars)
+        console.log(`Body preview (${body.length} chars): ${body.substring(0, 500)}...`);
         if (!body) {
           console.log(`Empty body for message ${msg.id}`);
           result.skipped++;
