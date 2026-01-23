@@ -26,6 +26,7 @@ import {
   Gift,
   CreditCard,
   MessageSquare,
+  Target,
 } from "lucide-react";
 
 const settingsSections = [
@@ -37,6 +38,12 @@ const settingsSections = [
         label: "Mon profil",
         description: "Nom, téléphone, email",
         path: "/profil",
+      },
+      {
+        icon: Target,
+        label: "Mes objectifs",
+        description: "CA, ventes, RDV mensuels",
+        path: "/parametres/objectifs",
       },
       {
         icon: Bell,
