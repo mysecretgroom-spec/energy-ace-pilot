@@ -90,13 +90,36 @@ export function usePushNotifications() {
           table: "rdv",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const newRdv = payload.new as {
-            nom_client: string;
+            id: string;
+            client_id: string;
             date_heure: string;
             adresse?: string;
+            source?: string;
           };
-          notifyNewRdv(newRdv);
+
+          // Only notify for Gmail-imported RDVs
+          if (newRdv.source === "gmail" || newRdv.source === "email") {
+            // Fetch client name
+            const { data: client } = await supabase
+              .from("clients")
+              .select("nom, prenom")
+              .eq("id", newRdv.client_id)
+              .single();
+
+            if (client) {
+              const nomClient = client.prenom 
+                ? `${client.prenom} ${client.nom}` 
+                : client.nom;
+
+              notifyNewRdv({
+                nom_client: nomClient,
+                date_heure: newRdv.date_heure,
+                adresse: newRdv.adresse,
+              });
+            }
+          }
         }
       )
       .subscribe();
