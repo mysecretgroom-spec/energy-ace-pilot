@@ -31,10 +31,17 @@ import {
   Kanban,
   CheckCircle2,
   Filter,
+  Building2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+
+interface Regie {
+  id: string;
+  nom: string;
+  couleur: string;
+}
 
 interface Client {
   id: string;
@@ -96,6 +103,8 @@ const CRM = () => {
   const [ventesLoading, setVentesLoading] = useState(true);
   const [venteFilter, setVenteFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VenteType>("all");
+  const [regieFilter, setRegieFilter] = useState<string>("all");
+  const [regies, setRegies] = useState<Regie[]>([]);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -147,12 +156,33 @@ const CRM = () => {
     }
   }, [searchParams, setSearchParams]);
 
+  // Handle regie filter from URL
+  useEffect(() => {
+    const regieParam = searchParams.get("regie");
+    if (regieParam) {
+      setRegieFilter(regieParam);
+      setActiveTab("ventes");
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (user) {
       fetchClients();
       fetchVentes();
+      fetchRegies();
     }
   }, [user, showActiveOnly]);
+
+  const fetchRegies = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("regies")
+      .select("id, nom, couleur")
+      .eq("user_id", user.id)
+      .eq("actif", true)
+      .order("nom");
+    setRegies(data || []);
+  };
 
   const fetchClients = async () => {
     if (!user) return;
@@ -218,7 +248,7 @@ const CRM = () => {
       const [ventesRes, etudesRes] = await Promise.all([
         supabase
           .from("ventes")
-          .select("*, client:clients(id, nom, prenom)")
+          .select("*, client:clients(id, nom, prenom), regie_id")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
         supabase
@@ -274,6 +304,8 @@ const CRM = () => {
     if (venteFilter !== "all" && v.status !== venteFilter) return false;
     // Filter by type
     if (typeFilter !== "all" && v.type_vente !== typeFilter) return false;
+    // Filter by regie
+    if (regieFilter !== "all" && (v as any).regie_id !== regieFilter) return false;
     // Filter by date range
     const signatureDate = v.date_signature || v.created_at;
     if (dateFrom && new Date(signatureDate) < new Date(dateFrom)) return false;
@@ -711,7 +743,7 @@ const CRM = () => {
 
             {/* Filters section */}
             <div className="space-y-3">
-              {/* Type filter */}
+              {/* Type and Regie filters */}
               <div className="flex gap-2">
                 <Select value={typeFilter} onValueChange={(v: "all" | VenteType) => setTypeFilter(v)}>
                   <SelectTrigger className="flex-1">
@@ -723,6 +755,31 @@ const CRM = () => {
                     <SelectItem value="external_installation">Installations externes</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {regies.length > 0 && (
+                  <Select value={regieFilter} onValueChange={setRegieFilter}>
+                    <SelectTrigger className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <SelectValue placeholder="Régie" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes les régies</SelectItem>
+                      {regies.map((regie) => (
+                        <SelectItem key={regie.id} value={regie.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: regie.couleur }}
+                            />
+                            {regie.nom}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               {/* Date range filter */}
@@ -816,13 +873,39 @@ const CRM = () => {
           </TabsContent>
 
           {/* Pipeline Tab */}
-          <TabsContent value="pipeline" className="mt-4">
+          <TabsContent value="pipeline" className="mt-4 space-y-4">
+            {/* Regie filter for pipeline */}
+            {regies.length > 0 && (
+              <Select value={regieFilter} onValueChange={setRegieFilter}>
+                <SelectTrigger className="w-full">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrer par régie" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les régies</SelectItem>
+                  {regies.map((regie) => (
+                    <SelectItem key={regie.id} value={regie.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: regie.couleur }}
+                        />
+                        {regie.nom}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
             {ventesLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <PipelineKanban ventes={ventes} onRefresh={fetchVentes} />
+              <PipelineKanban ventes={filteredVentes} onRefresh={fetchVentes} />
             )}
           </TabsContent>
         </Tabs>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import {
   Target,
   BarChart3,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +97,7 @@ const colorOptions = [
 
 const RegiesSettings = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regies, setRegies] = useState<Regie[]>([]);
@@ -605,6 +608,17 @@ const RegiesSettings = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="text-white hover:bg-white/20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/regies/${selectedRegie.id}`);
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
                       <Dialog>
                         <Button size="icon" variant="ghost" className="text-white hover:bg-white/20">
                           <Palette className="h-4 w-4" />
