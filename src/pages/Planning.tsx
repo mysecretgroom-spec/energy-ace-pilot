@@ -13,6 +13,7 @@ import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import { GmailSync } from "@/components/planning/GmailSync";
 import { WeekCalendarView } from "@/components/planning/WeekCalendarView";
 import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
+import { DayRdvCard } from "@/components/planning/DayRdvCard";
 
 // Lazy load RouteMap to avoid react-leaflet context issues
 const RouteMap = lazy(() => import("@/components/planning/RouteMap").then(m => ({ default: m.RouteMap })));
@@ -510,127 +511,12 @@ const Planning = () => {
         {!loading && viewMode === "jour" && rdvListWithRoutes.length > 0 && (
           <div className="space-y-4">
             {rdvListWithRoutes.map((rdv, index) => (
-              <div key={rdv.id} className="relative">
-                {/* Ligne de trajet entre les RDV */}
-                {index > 0 && rdv.travelTime && rdv.distance && (
-                  <div className={`flex items-center justify-center gap-3 py-2 mb-2 rounded-lg border border-dashed ${
-                    rdv.alert ? "border-secondary bg-secondary/10" : "border-muted-foreground/30 bg-muted/30"
-                  }`}>
-                    <Car className={`h-4 w-4 ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`} />
-                    <span className={`text-sm font-medium ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`}>
-                      {rdv.travelTime}
-                    </span>
-                    <span className="text-muted-foreground">•</span>
-                    <span className={`text-sm font-medium ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`}>
-                      {rdv.distance}
-                    </span>
-                    {rdv.alert && <span className="text-secondary text-xs">⚠️</span>}
-                  </div>
-                )}
-
-                <Card
-                  className={`shadow-card overflow-hidden ${
-                    rdv.typeRdv === 'external_installation'
-                      ? "border-l-4 border-l-amber-500 bg-amber-500/5"
-                      : rdv.isR2
-                      ? "border-2 border-status-r2 bg-status-r2/5"
-                      : rdv.alert
-                      ? "border-secondary/50 bg-secondary/5"
-                      : ""
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 space-y-2">
-                        {/* Badge Installation Externe */}
-                        {rdv.typeRdv === 'external_installation' && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className="bg-amber-500 text-white text-xs px-2 py-0.5 flex items-center gap-1">
-                              <Wrench className="h-3 w-3" />
-                              Installation Externe
-                            </Badge>
-                          </div>
-                        )}
-                        
-                        {/* Badge R2 si applicable */}
-                        {rdv.isR2 && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className="bg-status-r2 text-white text-xs px-2 py-0.5 flex items-center gap-1">
-                              <RefreshCw className="h-3 w-3" />
-                              {rdv.r2Type === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
-                            </Badge>
-                            {rdv.etudeId && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => navigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
-                              >
-                                <FileText className="h-3 w-3 mr-1" />
-                                Voir étude
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Heure et statut */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className={`flex items-center gap-1.5 font-semibold ${rdv.isR2 ? "text-status-r2" : "text-primary"}`}>
-                            <Clock className="h-4 w-4" />
-                            <span>{rdv.time}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            ({rdv.duration})
-                          </span>
-                          <StatusBadge status={rdv.status} />
-                        </div>
-
-                        {/* Client et type */}
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {rdv.client}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {rdv.type}
-                          </p>
-                        </div>
-
-                        {/* Adresse complète */}
-                        <div className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                          <span>
-                            {[rdv.address, rdv.postalCode, rdv.city]
-                              .filter(Boolean)
-                              .join(", ") || "Adresse non renseignée"}
-                          </span>
-                        </div>
-
-                        {/* Alerte trajet */}
-                        {rdv.alert && (
-                          <p className="text-xs text-secondary font-medium">
-                            ⚠️ Trajet long - Prévoir du temps
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <RdvActions
-                        rdvId={rdv.id}
-                        clientId={rdv.clientId}
-                        clientPhone={rdv.phone || undefined}
-                        clientName={rdv.client}
-                        address={rdv.address}
-                        city={rdv.city}
-                        postalCode={rdv.postalCode}
-                        typeRdv={rdv.typeRdv}
-                        currentStatus={rdv.status}
-                        etudeId={rdv.etudeId}
-                        onRefresh={() => { fetchRdvs(); refetchRoutes(); }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <DayRdvCard
+                key={rdv.id}
+                rdv={rdv}
+                index={index}
+                onRefresh={() => { fetchRdvs(); refetchRoutes(); }}
+              />
             ))}
 
             {/* Distance vers le premier RDV du lendemain */}

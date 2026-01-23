@@ -1,0 +1,190 @@
+import { Clock, MapPin, FileText, Wrench, RefreshCw, Car } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
+import { RdvActions } from "./RdvActions";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+
+interface DayRdvCardProps {
+  rdv: {
+    id: string;
+    time: string;
+    duration: string;
+    client: string;
+    clientId: string;
+    phone?: string | null;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    status: RdvStatus;
+    type: string;
+    typeRdv: 'standard' | 'external_installation';
+    isR2?: boolean;
+    r2Type?: string | null;
+    etudeId?: string | null;
+    alert?: boolean;
+    distance?: string;
+    travelTime?: string;
+  };
+  index: number;
+  onRefresh: () => void;
+}
+
+export function DayRdvCard({ rdv, index, onRefresh }: DayRdvCardProps) {
+  const navigate = useNavigate();
+
+  const isExternalInstallation = rdv.typeRdv === 'external_installation';
+  const isR2 = rdv.isR2;
+
+  return (
+    <div 
+      className="relative animate-fade-in"
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      {/* Ligne de trajet entre les RDV */}
+      {index > 0 && rdv.travelTime && rdv.distance && (
+        <div 
+          className={cn(
+            "flex items-center justify-center gap-4 py-2.5 mb-3 rounded-xl border border-dashed transition-all duration-300",
+            rdv.alert 
+              ? "border-secondary bg-secondary/10 shadow-sm" 
+              : "border-muted-foreground/20 bg-muted/20"
+          )}
+        >
+          <Car className={cn(
+            "h-4 w-4 transition-colors",
+            rdv.alert ? "text-secondary" : "text-muted-foreground"
+          )} />
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-sm font-semibold",
+              rdv.alert ? "text-secondary" : "text-foreground"
+            )}>
+              {rdv.travelTime}
+            </span>
+            <span className="text-muted-foreground/50">•</span>
+            <span className={cn(
+              "text-sm font-medium",
+              rdv.alert ? "text-secondary" : "text-muted-foreground"
+            )}>
+              {rdv.distance}
+            </span>
+          </div>
+          {rdv.alert && (
+            <span className="text-secondary text-sm animate-pulse">⚠️</span>
+          )}
+        </div>
+      )}
+
+      <Card
+        className={cn(
+          "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
+          isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent",
+          isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent",
+          rdv.alert && !isExternalInstallation && !isR2 && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
+        )}
+      >
+        <CardContent className="p-5">
+          <div className="flex items-start justify-between gap-4">
+            {/* Contenu principal */}
+            <div className="flex-1 space-y-3">
+              {/* Badges spéciaux */}
+              <div className="flex flex-wrap items-center gap-2">
+                {isExternalInstallation && (
+                  <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
+                    <Wrench className="h-3 w-3" />
+                    Installation Externe
+                  </Badge>
+                )}
+                
+                {isR2 && (
+                  <>
+                    <Badge className="bg-status-r2 hover:bg-status-r2/90 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
+                      <RefreshCw className="h-3 w-3" />
+                      {rdv.r2Type === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
+                    </Badge>
+                    {rdv.etudeId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs hover:bg-status-r2/10 text-status-r2"
+                        onClick={() => navigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
+                      >
+                        <FileText className="h-3 w-3 mr-1.5" />
+                        Voir étude
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* Heure, durée et statut */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg",
+                  isR2 
+                    ? "bg-status-r2/10 text-status-r2" 
+                    : "bg-primary/10 text-primary"
+                )}>
+                  <Clock className="h-4 w-4" />
+                  <span className="font-bold text-base">{rdv.time}</span>
+                </div>
+                <span className="text-sm text-muted-foreground font-medium">
+                  {rdv.duration}
+                </span>
+                <StatusBadge status={rdv.status} />
+              </div>
+
+              {/* Client et type */}
+              <div className="space-y-1">
+                <h3 className="font-bold text-lg text-foreground leading-tight">
+                  {rdv.client}
+                </h3>
+                <p className="text-sm text-muted-foreground font-medium">
+                  {rdv.type}
+                </p>
+              </div>
+
+              {/* Adresse complète */}
+              <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg p-2.5">
+                <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary/70" />
+                <span className="leading-relaxed">
+                  {[rdv.address, rdv.postalCode, rdv.city]
+                    .filter(Boolean)
+                    .join(", ") || "Adresse non renseignée"}
+                </span>
+              </div>
+
+              {/* Alerte trajet */}
+              {rdv.alert && (
+                <div className="flex items-center gap-2 text-sm text-secondary font-medium bg-secondary/10 rounded-lg px-3 py-2">
+                  <span className="animate-pulse">⚠️</span>
+                  <span>Trajet long - Prévoir du temps</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex-shrink-0">
+              <RdvActions
+                rdvId={rdv.id}
+                clientId={rdv.clientId}
+                clientPhone={rdv.phone || undefined}
+                clientName={rdv.client}
+                address={rdv.address}
+                city={rdv.city}
+                postalCode={rdv.postalCode}
+                typeRdv={rdv.typeRdv}
+                currentStatus={rdv.status}
+                etudeId={rdv.etudeId}
+                onRefresh={onRefresh}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
