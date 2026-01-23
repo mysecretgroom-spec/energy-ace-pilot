@@ -301,6 +301,32 @@ const Dashboard = () => {
     window.open(bookingUrl, "_blank");
   };
 
+  // Afficher le bouton hôtel si:
+  // 1. Il y a un RDV demain
+  // 2. OU si on est jeudi après 19h jusqu'à vendredi 10h (pour le week-end)
+  const shouldShowHotelButton = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = dimanche, 4 = jeudi, 5 = vendredi
+    const hour = now.getHours();
+    
+    // Condition 1: RDV demain
+    if (premierRdvDemain) {
+      return true;
+    }
+    
+    // Condition 2: Jeudi après 19h
+    if (dayOfWeek === 4 && hour >= 19) {
+      return true;
+    }
+    
+    // Condition 3: Vendredi avant 10h
+    if (dayOfWeek === 5 && hour < 10) {
+      return true;
+    }
+    
+    return false;
+  };
+
   return (
     <MobileLayout title="Dashboard" showBackButton={false}>
       <div className="p-4 space-y-4 pb-24">
@@ -430,50 +456,52 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Bouton recherche hôtel Booking */}
-        <div 
-          onClick={openBookingSearch}
-          className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#003580] via-[#00224F] to-[#001833] p-4 cursor-pointer shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {/* Effet de brillance au survol */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-          
-          {/* Étoiles décoratives */}
-          <div className="absolute top-2 right-3 flex gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <span key={i} className="text-yellow-400 text-xs">★</span>
-            ))}
-          </div>
-          
-          <div className="relative flex items-center gap-4">
-            {/* Icône avec effet glow */}
-            <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-colors">
-              <Hotel className="h-7 w-7 text-white" />
+        {/* Bouton recherche hôtel Booking - affiché conditionnellement */}
+        {shouldShowHotelButton() && (
+          <div 
+            onClick={openBookingSearch}
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#003580] via-[#00224F] to-[#001833] p-4 cursor-pointer shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {/* Effet de brillance au survol */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+            
+            {/* Étoiles décoratives */}
+            <div className="absolute top-2 right-3 flex gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className="text-yellow-400 text-xs">★</span>
+              ))}
             </div>
             
-            <div className="flex-1 min-w-0">
-              <h3 className="text-white font-bold text-base">
-                Trouver un hôtel
-              </h3>
-              <p className="text-blue-200 text-sm">
-                {premierRdvDemain?.ville 
-                  ? `Près de ${premierRdvDemain.ville} pour ce soir`
-                  : "Recherche sur Booking.com"
-                }
-              </p>
+            <div className="relative flex items-center gap-4">
+              {/* Icône avec effet glow */}
+              <div className="flex-shrink-0 w-14 h-14 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                <Hotel className="h-7 w-7 text-white" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <h3 className="text-white font-bold text-base">
+                  Trouver un hôtel
+                </h3>
+                <p className="text-blue-200 text-sm">
+                  {premierRdvDemain?.ville 
+                    ? `Près de ${premierRdvDemain.ville} pour ce soir`
+                    : "Recherche sur Booking.com"
+                  }
+                </p>
+              </div>
+              
+              {/* Flèche animée */}
+              <ArrowRight className="h-5 w-5 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
             </div>
             
-            {/* Flèche animée */}
-            <ArrowRight className="h-5 w-5 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all" />
+            {/* Badge Booking */}
+            <div className="absolute bottom-2 right-3">
+              <span className="text-[10px] text-blue-300/60 font-medium tracking-wide">
+                via Booking.com
+              </span>
+            </div>
           </div>
-          
-          {/* Badge Booking */}
-          <div className="absolute bottom-2 right-3">
-            <span className="text-[10px] text-blue-300/60 font-medium tracking-wide">
-              via Booking.com
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Pipeline ventes */}
         <Card>
