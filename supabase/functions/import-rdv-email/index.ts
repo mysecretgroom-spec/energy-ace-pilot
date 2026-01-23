@@ -47,10 +47,17 @@ Extrait les informations du mail en JSON structuré.
 
 IMPORTANT: Retourne UNIQUEMENT le JSON, sans commentaires ni texte additionnel.
 
+ATTENTION - INVERSION NOM/PRÉNOM:
+Certains emails (notamment Groupe Vent Vert) ont les champs inversés dans leur template :
+- "Nom:" contient en fait le PRÉNOM (ex: "Nom: Sandrine")
+- "Prénom:" contient en fait le NOM DE FAMILLE (ex: "Prénom: Vincent")
+Détecte cette inversion et corrige-la ! Le nom de famille est généralement plus court et typiquement français (Dupont, Martin, Vincent...).
+En cas de doute, mets la valeur la plus susceptible d'être un nom de famille dans "nom".
+
 Structure attendue:
 {
   "CONTACT": {
-    "nom": "NOM DE FAMILLE (obligatoire)",
+    "nom": "NOM DE FAMILLE (obligatoire) - PAS le prénom !",
     "prenom": "Prénom si disponible",
     "telephone": "Téléphone principal (format français)",
     "telephone_secondaire": "Second téléphone si disponible",
@@ -65,7 +72,7 @@ Structure attendue:
     "date": "Date au format YYYY-MM-DD",
     "heure": "Heure au format HH:MM",
     "duree_minutes": 90,
-    "type_projet": "solaire|pompe_chaleur|renovation|autre",
+    "type_projet": "photovoltaique|pompe_chaleur|renovation|autre",
     "commentaire": "Notes importantes"
   },
   "PROJET": {
@@ -80,7 +87,8 @@ Structure attendue:
 }
 
 Règles:
-- Le nom est OBLIGATOIRE, met "INCONNU" si vraiment absent
+- Le nom DE FAMILLE est OBLIGATOIRE, met "INCONNU" si vraiment absent
+- VÉRIFIE toujours l'inversion Nom/Prénom dans les emails de régies
 - Formate les téléphones en 10 chiffres français (ex: 0612345678)
 - Normalise les dates en YYYY-MM-DD
 - Si une info n'est pas trouvée, omet le champ (ne met pas null)`;
