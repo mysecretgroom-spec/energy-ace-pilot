@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   TrendingUp,
   TrendingDown,
@@ -45,6 +50,8 @@ import {
   Trash2,
   MoreVertical,
   Files,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -149,8 +156,51 @@ const Finance = () => {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
-  // Fetch ventes stats
+  // Group frais by month
+  const fraisGroupedByMonth = useMemo(() => {
+    const groups: Map<string, { label: string; total: number; frais: FraisItem[] }> = new Map();
+    
+    allFraisData.forEach((frais) => {
+      const date = new Date(frais.date_frais);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthLabel = date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+      
+      if (!groups.has(monthKey)) {
+        groups.set(monthKey, { label: monthLabel, total: 0, frais: [] });
+      }
+      
+      const group = groups.get(monthKey)!;
+      group.frais.push(frais);
+      group.total += Number(frais.montant);
+    });
+    
+    // Sort by month key descending (most recent first)
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, data]) => ({ key, ...data }));
+  }, [allFraisData]);
+
+  // Initialize with current month expanded
+  useEffect(() => {
+    if (fraisGroupedByMonth.length > 0 && expandedMonths.size === 0) {
+      setExpandedMonths(new Set([fraisGroupedByMonth[0].key]));
+    }
+  }, [fraisGroupedByMonth]);
+
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(monthKey)) {
+        next.delete(monthKey);
+      } else {
+        next.add(monthKey);
+      }
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -873,61 +923,96 @@ const Finance = () => {
               />
             </div>
 
-            {/* Liste des frais */}
-            <div className="space-y-2">
+            {/* Liste des frais groupés par mois */}
+            <div className="space-y-3">
               <h3 className="text-sm font-semibold text-foreground">
-                Derniers frais
+                Historique des frais
               </h3>
-              {fraisData.length === 0 ? (
+              {fraisGroupedByMonth.length === 0 ? (
                 <Card className="shadow-card">
                   <CardContent className="p-6 text-center text-muted-foreground">
                     Aucun frais enregistré
                   </CardContent>
                 </Card>
               ) : (
-                fraisData.map((frais) => {
-                  const Icon = categoryIcons[frais.categorie] || HelpCircle;
+                fraisGroupedByMonth.map((monthGroup) => {
+                  const isExpanded = expandedMonths.has(monthGroup.key);
                   return (
-                    <Card key={frais.id} className="shadow-card">
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-muted">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {frais.description || categoryLabels[frais.categorie]}
+                    <Collapsible
+                      key={monthGroup.key}
+                      open={isExpanded}
+                      onOpenChange={() => toggleMonth(monthGroup.key)}
+                    >
+                      <Card className="shadow-card overflow-hidden">
+                        <CollapsibleTrigger asChild>
+                          <button className="w-full p-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <div className="text-left">
+                                <p className="text-sm font-semibold capitalize">
+                                  {monthGroup.label}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {monthGroup.frais.length} frais
+                                </p>
+                              </div>
+                            </div>
+                            <p className="font-semibold text-destructive">
+                              -{monthGroup.total.toFixed(2)} €
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
-                            </p>
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="border-t divide-y">
+                            {monthGroup.frais.map((frais) => {
+                              const Icon = categoryIcons[frais.categorie] || HelpCircle;
+                              return (
+                                <div key={frais.id} className="p-3 flex items-center gap-3">
+                                  <div className="p-2 rounded-lg bg-muted">
+                                    <Icon className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-foreground truncate">
+                                      {frais.description || categoryLabels[frais.categorie]}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
+                                    </p>
+                                  </div>
+                                  <p className="font-semibold text-destructive whitespace-nowrap">
+                                    -{Number(frais.montant).toFixed(2)} €
+                                  </p>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openEditDialog(frais)}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Modifier
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => openDeleteDialog(frais.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Supprimer
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <p className="font-semibold text-destructive whitespace-nowrap">
-                            -{Number(frais.montant).toFixed(2)} €
-                          </p>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditDialog(frais)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Modifier
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(frais.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Supprimer
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
                   );
                 })
               )}
