@@ -34,6 +34,7 @@ import {
   ArrowRight,
   ExternalLink,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { Progress } from "@/components/ui/progress";
@@ -83,6 +84,16 @@ interface RegieBouquet {
   actif: boolean;
 }
 
+interface RegieFinancement {
+  id: string;
+  regie_id: string;
+  nom: string;
+  taux_effectif: number;
+  taeg: number;
+  duree_mois: number;
+  actif: boolean;
+}
+
 interface RegieStats {
   rdv: number;
   ventes: number;
@@ -110,6 +121,7 @@ const RegiesSettings = () => {
   const [regieEmails, setRegieEmails] = useState<RegieEmail[]>([]);
   const [regieContacts, setRegieContacts] = useState<RegieContact[]>([]);
   const [regieBouquets, setRegieBouquets] = useState<RegieBouquet[]>([]);
+  const [regieFinancements, setRegieFinancements] = useState<RegieFinancement[]>([]);
   
   // Create dialog
   const [isCreating, setIsCreating] = useState(false);
@@ -125,6 +137,12 @@ const RegiesSettings = () => {
     prix_max: 0,
     prix_hejja: 0,
     commission_fixe: 0,
+  });
+  const [newFinancement, setNewFinancement] = useState({
+    nom: "",
+    taux_effectif: 0,
+    taeg: 0,
+    duree_mois: 120,
   });
 
   useEffect(() => {
@@ -213,15 +231,17 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, bouquetsRes] = await Promise.all([
+      const [emailsRes, contactsRes, bouquetsRes, financementsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("regies_bouquets").select("*").eq("regie_id", regieId).order("puissance_kwc"),
+        supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
       ]);
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
       setRegieBouquets(bouquetsRes.data || []);
+      setRegieFinancements(financementsRes.data || []);
     } catch (error) {
       console.error("Error fetching regie details:", error);
     }
@@ -510,6 +530,63 @@ const RegiesSettings = () => {
     }
   };
 
+  // Financement handlers
+  const handleAddFinancement = async () => {
+    if (!selectedRegie || !user || !newFinancement.nom.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies_financements")
+        .insert({
+          user_id: user.id,
+          regie_id: selectedRegie.id,
+          ...newFinancement,
+          nom: newFinancement.nom.trim(),
+          actif: true,
+        });
+
+      if (error) throw error;
+
+      toast.success("Financement ajouté");
+      setNewFinancement({
+        nom: "",
+        taux_effectif: 0,
+        taeg: 0,
+        duree_mois: 120,
+      });
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error adding financement:", error);
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleDeleteFinancement = async (financementId: string) => {
+    try {
+      const { error } = await supabase.from("regies_financements").delete().eq("id", financementId);
+      if (error) throw error;
+      setRegieFinancements(regieFinancements.filter(f => f.id !== financementId));
+      toast.success("Financement supprimé");
+    } catch (error) {
+      console.error("Error deleting financement:", error);
+    }
+  };
+
+  const handleToggleFinancementActif = async (financement: RegieFinancement) => {
+    try {
+      const { error } = await supabase
+        .from("regies_financements")
+        .update({ actif: !financement.actif })
+        .eq("id", financement.id);
+      if (error) throw error;
+      setRegieFinancements(regieFinancements.map(f => 
+        f.id === financement.id ? { ...f, actif: !f.actif } : f
+      ));
+    } catch (error) {
+      console.error("Error toggling financement:", error);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
@@ -720,7 +797,7 @@ const RegiesSettings = () => {
 
                 {/* Tabs pour les différentes sections */}
                 <Tabs defaultValue="dashboard" className="w-full">
-                  <TabsList className="w-full rounded-none border-b grid grid-cols-4">
+                  <TabsList className="w-full rounded-none border-b grid grid-cols-5">
                     <TabsTrigger value="dashboard" className="gap-1 text-xs px-1">
                       <BarChart3 className="h-4 w-4" />
                       <span className="hidden sm:inline">Stats</span>
@@ -736,6 +813,10 @@ const RegiesSettings = () => {
                     <TabsTrigger value="bouquets" className="gap-1 text-xs px-1">
                       <Euro className="h-4 w-4" />
                       <span className="hidden sm:inline">Tarifs</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="financements" className="gap-1 text-xs px-1">
+                      <CreditCard className="h-4 w-4" />
+                      <span className="hidden sm:inline">Financement</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -1246,6 +1327,96 @@ const RegiesSettings = () => {
                           </p>
                         </CardContent>
                       </Card>
+                    )}
+                  </TabsContent>
+
+                  {/* Onglet Financements */}
+                  <TabsContent value="financements" className="p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Options de financement proposées par cette régie
+                    </p>
+
+                    {/* Formulaire ajout financement */}
+                    <Card>
+                      <CardContent className="p-3 space-y-2">
+                        <Input
+                          placeholder="Nom du financement (ex: Cetelem 120 mois)"
+                          value={newFinancement.nom}
+                          onChange={(e) => setNewFinancement({ ...newFinancement, nom: e.target.value })}
+                        />
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Durée (mois)</label>
+                            <Input
+                              type="number"
+                              value={newFinancement.duree_mois}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, duree_mois: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Taux effectif %</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newFinancement.taux_effectif}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, taux_effectif: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">TAEG %</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newFinancement.taeg}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, taeg: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="w-full"
+                          onClick={handleAddFinancement} 
+                          disabled={!newFinancement.nom.trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Ajouter le financement
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {regieFinancements.map((financement) => (
+                      <Card key={financement.id} className={!financement.actif ? "opacity-50" : ""}>
+                        <CardContent className="p-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{financement.nom}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {financement.duree_mois} mois • Taux {financement.taux_effectif}% • TAEG {financement.taeg}%
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                checked={financement.actif} 
+                                onCheckedChange={() => handleToggleFinancementActif(financement)}
+                              />
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="text-destructive h-8 w-8"
+                                onClick={() => handleDeleteFinancement(financement.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {regieFinancements.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun financement configuré
+                      </p>
                     )}
                   </TabsContent>
                 </Tabs>

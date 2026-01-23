@@ -1635,6 +1635,53 @@ export type Database = {
           },
         ]
       }
+      regies_financements: {
+        Row: {
+          actif: boolean
+          created_at: string
+          duree_mois: number
+          id: string
+          nom: string
+          regie_id: string
+          taeg: number
+          taux_effectif: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          duree_mois?: number
+          id?: string
+          nom: string
+          regie_id: string
+          taeg?: number
+          taux_effectif?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          duree_mois?: number
+          id?: string
+          nom?: string
+          regie_id?: string
+          taeg?: number
+          taux_effectif?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regies_financements_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings_notifications: {
         Row: {
           confirmateur_name: string | null
