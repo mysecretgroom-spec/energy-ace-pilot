@@ -198,7 +198,52 @@ Réponds UNIQUEMENT avec le JSON, sans markdown ni explication.`,
     let parsed: ParsedRdv;
     try {
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(cleanContent);
+      const rawParsed = JSON.parse(cleanContent);
+      
+      // Handle nested structure from AI (CONTACT, RDV, PROFIL_CLIENT, HABITAT, etc.)
+      // or flat structure
+      if (rawParsed.CONTACT || rawParsed.Contact || rawParsed.contact) {
+        const contact = rawParsed.CONTACT || rawParsed.Contact || rawParsed.contact || {};
+        const rdv = rawParsed.RDV || rawParsed.Rdv || rawParsed.rdv || {};
+        const profil = rawParsed.PROFIL_CLIENT || rawParsed["PROFIL CLIENT"] || rawParsed.profil_client || {};
+        const habitat = rawParsed.HABITAT || rawParsed.Habitat || rawParsed.habitat || {};
+        const energie = rawParsed["ÉNERGIE & FINANCES"] || rawParsed.ENERGIE_FINANCES || rawParsed.energie || {};
+        const toiture = rawParsed.TOITURE || rawParsed.Toiture || rawParsed.toiture || {};
+        const contexte = rawParsed.CONTEXTE || rawParsed.Contexte || rawParsed.contexte || {};
+        
+        // Flatten into expected structure
+        parsed = {
+          nom: contact.nom || null,
+          prenom: contact.prenom || null,
+          adresse: contact.adresse || null,
+          code_postal: contact.code_postal || null,
+          ville: contact.ville || null,
+          telephone: contact.telephone || null,
+          email: contact.email || null,
+          date_heure: rdv.date_heure || null,
+          type_projet: rdv.type_projet || null,
+          situation_familiale: profil.situation_familiale || null,
+          proprietaire: profil.proprietaire,
+          nb_personnes_foyer: profil.nb_personnes_foyer || null,
+          type_habitation: habitat.type_habitation || null,
+          surface_habitable: habitat.surface_habitable || null,
+          annee_construction: habitat.annee_construction || null,
+          type_chauffage: habitat.type_chauffage || null,
+          facture_energie: energie.facture_energie || null,
+          revenus_fiscaux: energie.revenus_fiscaux || null,
+          budget_estime: energie.budget_estime || null,
+          type_toiture: toiture.type_toiture || null,
+          orientation_toiture: toiture.orientation_toiture || null,
+          projet_motivation: contexte.projet_motivation || null,
+          urgence: contexte.urgence || null,
+          notes_supplementaires: contexte.notes_supplementaires || null,
+          commentaire: contexte.commentaire || null,
+        };
+      } else {
+        // Flat structure - use as is
+        parsed = rawParsed;
+      }
+      
       console.log("Parsed result - nom:", parsed.nom, "prenom:", parsed.prenom);
     } catch (e) {
       console.error("Failed to parse AI response:", content, "Error:", e);
