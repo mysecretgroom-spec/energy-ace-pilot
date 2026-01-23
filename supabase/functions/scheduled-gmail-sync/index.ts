@@ -124,10 +124,30 @@ serve(async (req) => {
           .update({ gmail_last_auto_sync: now.toISOString() })
           .eq("user_id", user_id);
 
+        const totalImportedForUser = (syncResult.imported || 0) + (syncResult.updated || 0);
+
+        // Create notification if RDVs were imported
+        if (totalImportedForUser > 0) {
+          const message = totalImportedForUser === 1
+            ? "1 nouveau RDV a été importé depuis Gmail"
+            : `${totalImportedForUser} nouveaux RDV ont été importés depuis Gmail`;
+
+          await supabase
+            .from("notifications")
+            .insert({
+              user_id,
+              type: "nouveau_rdv",
+              titre: "📧 Import Gmail automatique",
+              message,
+              lue: false,
+              date_envoi: now.toISOString()
+            });
+        }
+
         results.push({
           userId: user_id,
           status: "synced",
-          imported: (syncResult.imported || 0) + (syncResult.updated || 0)
+          imported: totalImportedForUser
         });
 
         console.log(`Synced user ${user_id}: ${syncResult.imported || 0} imported, ${syncResult.updated || 0} updated`);
