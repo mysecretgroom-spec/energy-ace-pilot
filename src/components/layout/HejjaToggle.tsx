@@ -52,8 +52,9 @@ export function HejjaToggle() {
       {/* Fire Animation Overlay */}
       {showFireAnimation && (
         <div className="fixed inset-0 z-[100] pointer-events-none animate-fire-overlay overflow-hidden">
-          {/* Dark smoke background */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-red-950/60 to-transparent" />
+          {/* Solid dark background - completely opaque */}
+          <div className="absolute inset-0 bg-black" />
+          <div className="absolute inset-0 bg-gradient-to-t from-red-900 via-orange-950 to-black" />
           
           {/* Realistic flame layers */}
           <div className="absolute bottom-0 left-0 right-0 h-full">
