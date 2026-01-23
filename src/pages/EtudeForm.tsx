@@ -153,6 +153,10 @@ const EtudeForm = () => {
   const [clientVille, setClientVille] = useState("");
   const [clientCodePostal, setClientCodePostal] = useState("");
   const [departement, setDepartement] = useState("");
+  
+  // Régie associée au RDV
+  const [regieId, setRegieId] = useState<string | null>(null);
+  const [regieNom, setRegieNom] = useState<string>("");
 
   // === VISITE TECHNIQUE - TOITURE ===
   const [ombreToiture, setOmbreToiture] = useState("0 à 5%");
@@ -284,7 +288,22 @@ const EtudeForm = () => {
   // Load data on mount
   useEffect(() => {
     const init = async () => {
-      const financements = await loadReferenceData();
+      // First load RDV to get regie_id
+      let currentRegieId: string | null = null;
+      if (rdvId) {
+        const { data: rdvData } = await supabase
+          .from("rdv")
+          .select("regie_id, regies(nom)")
+          .eq("id", rdvId)
+          .maybeSingle();
+        if (rdvData?.regie_id) {
+          currentRegieId = rdvData.regie_id;
+          setRegieId(rdvData.regie_id);
+          setRegieNom((rdvData.regies as any)?.nom || "");
+        }
+      }
+      
+      const financements = await loadReferenceData(currentRegieId);
       await loadDefaultCqTime();
       if (clientId) {
         await loadClientInfo();
@@ -294,7 +313,7 @@ const EtudeForm = () => {
       }
     };
     init();
-  }, [clientId, etudeId]);
+  }, [clientId, etudeId, rdvId]);
 
   // Load default CQ time from settings
   const loadDefaultCqTime = async () => {
@@ -348,33 +367,73 @@ const EtudeForm = () => {
     dataPsh,
   ]);
 
-  const loadReferenceData = async (): Promise<DataFinancement[]> => {
+  const loadReferenceData = async (currentRegieId: string | null = null): Promise<DataFinancement[]> => {
     setLoading(true);
 
-    const [pshRes, orientRes, tarifsRes, bouquetsRes, surcoutsRes, calibresRes, compteursRes, aidesRes, financementsRes] = await Promise.all([
+    // Load common reference data
+    const [pshRes, orientRes, tarifsRes, surcoutsRes, calibresRes, compteursRes, aidesRes] = await Promise.all([
       supabase.from("data_psh").select("*").order("department_code"),
       supabase.from("data_orientation").select("*"),
       supabase.from("data_tarifs_revente").select("*").eq("actif", true),
-      supabase.from("data_prix_bouquets").select("*").eq("actif", true).order("puissance_kwc"),
       supabase.from("data_surcouts").select("*").eq("actif", true),
       supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
       supabase.from("data_compteurs").select("*").eq("actif", true),
       supabase.from("data_aides").select("*").eq("actif", true),
-      supabase.from("data_financements").select("*").eq("actif", true).order("duree_mois"),
     ]);
 
     if (pshRes.data) setDataPsh(pshRes.data);
     if (orientRes.data) setDataOrientation(orientRes.data);
     if (tarifsRes.data) setDataTarifs(tarifsRes.data);
-    if (bouquetsRes.data) setDataBouquets(bouquetsRes.data);
     if (surcoutsRes.data) setDataSurcouts(surcoutsRes.data);
     if (calibresRes.data) setDataCalibres(calibresRes.data);
     if (compteursRes.data) setDataCompteurs(compteursRes.data);
     if (aidesRes.data) setDataAides(aidesRes.data);
-    if (financementsRes.data) setDataFinancements(financementsRes.data);
+
+    // Load regie-specific bouquets and financements if regie is set
+    let bouquetsData: DataBouquet[] = [];
+    let financementsData: DataFinancement[] = [];
+
+    if (currentRegieId) {
+      const [bouquetsRes, financementsRes] = await Promise.all([
+        supabase.from("regies_bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max").eq("regie_id", currentRegieId).eq("actif", true).order("puissance_kwc"),
+        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, duree_mois, actif").eq("regie_id", currentRegieId).eq("actif", true).order("duree_mois"),
+      ]);
+      
+      if (bouquetsRes.data) {
+        bouquetsData = bouquetsRes.data.map(b => ({
+          id: b.id,
+          nom_bouquet: b.nom_bouquet,
+          puissance_kwc: b.puissance_kwc,
+          prix_recommande: b.prix_recommande,
+          prix_max: b.prix_max,
+        }));
+      }
+      if (financementsRes.data) {
+        financementsData = financementsRes.data.map(f => ({
+          id: f.id,
+          nom: f.nom,
+          taux_effectif: Number(f.taux_effectif),
+          taeg: Number(f.taeg),
+          duree_mois: f.duree_mois,
+          actif: f.actif,
+        }));
+      }
+    } else {
+      // Fallback to global tables if no regie
+      const [bouquetsRes, financementsRes] = await Promise.all([
+        supabase.from("data_prix_bouquets").select("*").eq("actif", true).order("puissance_kwc"),
+        supabase.from("data_financements").select("*").eq("actif", true).order("duree_mois"),
+      ]);
+      
+      if (bouquetsRes.data) bouquetsData = bouquetsRes.data;
+      if (financementsRes.data) financementsData = financementsRes.data;
+    }
+
+    setDataBouquets(bouquetsData);
+    setDataFinancements(financementsData);
 
     setLoading(false);
-    return financementsRes.data || [];
+    return financementsData;
   };
 
   const loadClientInfo = async () => {

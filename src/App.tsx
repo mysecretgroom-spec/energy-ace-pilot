@@ -29,12 +29,9 @@ import GmailAutoSync from "./pages/settings/GmailAutoSync";
 import DataPSH from "./pages/settings/DataPSH";
 import DataOrientation from "./pages/settings/DataOrientation";
 import DataTarifs from "./pages/settings/DataTarifs";
-import DataBouquets from "./pages/settings/DataBouquets";
-import DataCommissions from "./pages/settings/DataCommissions";
 import DataCompteurs from "./pages/settings/DataCompteurs";
 import DataCalibres from "./pages/settings/DataCalibres";
 import DataAides from "./pages/settings/DataAides";
-import DataFinancements from "./pages/settings/DataFinancements";
 import SecuritySettings from "./pages/settings/SecuritySettings";
 import VentesSettings from "./pages/settings/VentesSettings";
 import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
@@ -92,12 +89,9 @@ const AnimatedRoutes = () => {
           <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
           <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
           <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
-          <Route path="/parametres/data-bouquets" element={<ProtectedRoute><DataBouquets /></ProtectedRoute>} />
-          <Route path="/parametres/data-commissions" element={<ProtectedRoute><DataCommissions /></ProtectedRoute>} />
           <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
           <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
           <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
-          <Route path="/parametres/data-financements" element={<ProtectedRoute><DataFinancements /></ProtectedRoute>} />
           <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
           <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
           <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
