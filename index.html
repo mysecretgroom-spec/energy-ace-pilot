@@ -79,6 +79,53 @@
         margin: 0;
       }
     </style>
+    
+    <!-- PWA Recovery Script - runs before React -->
+    <script>
+      (function() {
+        // Only run recovery in standalone mode (installed PWA)
+        var isStandalone = window.navigator.standalone === true || 
+                          window.matchMedia('(display-mode: standalone)').matches;
+        
+        if (isStandalone) {
+          // Set a recovery timeout - if app doesn't load in 8s, clear everything and reload
+          window.__pwaRecoveryTimeout = setTimeout(function() {
+            console.warn('PWA Recovery: App failed to load, clearing caches...');
+            
+            // Unregister all service workers
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                registrations.forEach(function(registration) {
+                  registration.unregister();
+                });
+              });
+            }
+            
+            // Clear all caches
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                names.forEach(function(name) {
+                  caches.delete(name);
+                });
+              });
+            }
+            
+            // Force reload after clearing
+            setTimeout(function() {
+              window.location.href = window.location.origin + '/?t=' + Date.now();
+            }, 500);
+          }, 8000);
+        }
+        
+        // Cancel recovery when app loads successfully
+        window.__cancelPwaRecovery = function() {
+          if (window.__pwaRecoveryTimeout) {
+            clearTimeout(window.__pwaRecoveryTimeout);
+            window.__pwaRecoveryTimeout = null;
+          }
+        };
+      })();
+    </script>
   </head>
 
   <body>

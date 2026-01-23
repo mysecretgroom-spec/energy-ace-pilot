@@ -15,8 +15,11 @@ const hideLoadingScreen = () => {
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
 
-// Hide loading screen immediately
+// Hide loading screen and cancel PWA recovery
 hideLoadingScreen();
+if (typeof window !== 'undefined' && (window as any).__cancelPwaRecovery) {
+  (window as any).__cancelPwaRecovery();
+}
 
 // Register service worker only in production, with significant delay
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
