@@ -139,15 +139,24 @@ export function SigneDialog({
   }, [puissance]);
 
   // Calculate survente and commission
+  // Prix recommandé et prix HEJJA sont en TTC
+  // Survente = (prixTTC - prixRecommandéTTC), convertie en HT, puis 50%
   const calculations = useMemo(() => {
     const prixHTNum = parseFloat(prixHT);
-    if (!selectedBouquet || isNaN(prixHTNum) || prixHTNum <= 0) {
+    const prixTTCNum = parseFloat(prixTTC);
+    if (!selectedBouquet || isNaN(prixHTNum) || prixHTNum <= 0 || isNaN(prixTTCNum)) {
       return null;
     }
 
-    const prixHejja = selectedBouquet.prix_hejja || 0;
-    const surventeHT = Math.max(0, prixHTNum - prixHejja);
-    const bonusSurvente = surventeHT * 0.50; // 50% de la différence
+    const prixRecommandeTTC = selectedBouquet.prix_recommande || 0;
+    const prixHejjaTTC = selectedBouquet.prix_hejja || 0;
+    
+    // Survente TTC = prix vente TTC - prix recommandé TTC
+    const surventeTTC = Math.max(0, prixTTCNum - prixRecommandeTTC);
+    // Convertir en HT
+    const surventeHT = surventeTTC / (1 + tauxTVA);
+    // 50% du HT
+    const bonusSurvente = surventeHT * 0.50;
 
     // Commission de base
     let commissionBase = 0;
@@ -160,14 +169,15 @@ export function SigneDialog({
     const commissionTotale = commissionBase + bonusSurvente;
 
     return {
-      prixHejja,
-      prixRecommande: selectedBouquet.prix_recommande,
+      prixHejja: prixHejjaTTC,
+      prixRecommande: prixRecommandeTTC,
+      surventeTTC,
       surventeHT,
       bonusSurvente,
       commissionBase,
       commissionTotale,
     };
-  }, [selectedBouquet, prixHT]);
+  }, [selectedBouquet, prixHT, prixTTC, tauxTVA]);
 
   // Handle bouquet selection
   const handleBouquetChange = (bouquetId: string) => {
@@ -348,13 +358,17 @@ export function SigneDialog({
                 </div>
 
                 {/* Survente */}
-                {calculations.surventeHT > 0 && (
+                {calculations.surventeTTC > 0 && (
                   <>
                     <div className="flex justify-between text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
-                        Survente HT
+                        Survente TTC
                       </span>
+                      <span>+{formatCurrency(calculations.surventeTTC)} €</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>→ Survente HT</span>
                       <span>+{formatCurrency(calculations.surventeHT)} €</span>
                     </div>
                     <div className="flex justify-between text-green-600">
