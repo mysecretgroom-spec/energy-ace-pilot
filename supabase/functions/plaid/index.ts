@@ -6,8 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Production mode
-const PLAID_ENV = "production";
+// Sandbox mode for development/testing
+const PLAID_ENV = "sandbox";
 const PLAID_BASE_URL = `https://${PLAID_ENV}.plaid.com`;
 
 serve(async (req) => {
