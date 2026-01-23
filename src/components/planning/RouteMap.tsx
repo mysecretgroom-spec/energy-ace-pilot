@@ -76,6 +76,50 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
+// Separate component for map content to avoid context consumer issues
+function RouteContent({ rdvsWithCoords, positions }: { rdvsWithCoords: RdvMapData[], positions: [number, number][] }) {
+  return (
+    <>
+      {/* Route line */}
+      {positions.length > 1 && (
+        <Polyline
+          positions={positions}
+          color="#3b82f6"
+          weight={4}
+          opacity={0.7}
+          dashArray="10, 10"
+        />
+      )}
+
+      {/* Markers */}
+      {rdvsWithCoords.map((rdv, index) => (
+        <Marker
+          key={rdv.id}
+          position={[rdv.latitude!, rdv.longitude!]}
+          icon={createNumberedIcon(
+            index + 1, 
+            rdv.isR2 || false, 
+            rdv.typeRdv === "external_installation"
+          )}
+        >
+          <Popup>
+            <div className="min-w-[180px]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-bold text-primary">{rdv.time}</span>
+                <StatusBadge status={rdv.status} className="text-[10px]" />
+              </div>
+              <p className="font-semibold text-sm mb-1">{rdv.client}</p>
+              <p className="text-xs text-muted-foreground">{rdv.address}</p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
+      <FitBounds positions={positions} />
+    </>
+  );
+}
+
 export function RouteMap({ rdvList, onClose }: RouteMapProps) {
   // Filter RDVs with valid coordinates
   const rdvsWithCoords = useMemo(() => 
@@ -148,42 +192,7 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             
-            {/* Route line */}
-            {positions.length > 1 && (
-              <Polyline
-                positions={positions}
-                color="#3b82f6"
-                weight={4}
-                opacity={0.7}
-                dashArray="10, 10"
-              />
-            )}
-
-            {/* Markers */}
-            {rdvsWithCoords.map((rdv, index) => (
-              <Marker
-                key={rdv.id}
-                position={[rdv.latitude!, rdv.longitude!]}
-                icon={createNumberedIcon(
-                  index + 1, 
-                  rdv.isR2 || false, 
-                  rdv.typeRdv === "external_installation"
-                )}
-              >
-                <Popup>
-                  <div className="min-w-[180px]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-bold text-primary">{rdv.time}</span>
-                      <StatusBadge status={rdv.status} className="text-[10px]" />
-                    </div>
-                    <p className="font-semibold text-sm mb-1">{rdv.client}</p>
-                    <p className="text-xs text-muted-foreground">{rdv.address}</p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-
-            <FitBounds positions={positions} />
+            <RouteContent rdvsWithCoords={rdvsWithCoords} positions={positions} />
           </MapContainer>
         </div>
 
