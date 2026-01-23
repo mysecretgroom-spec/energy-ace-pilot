@@ -79,7 +79,7 @@ const projectTypeLabels: Record<string, string> = {
 const Planning = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<ViewMode>("jour");
+  const [viewMode, setViewMode] = useState<ViewMode>("semaine");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [rdvList, setRdvList] = useState<RdvData[]>([]);
   const [loading, setLoading] = useState(true);

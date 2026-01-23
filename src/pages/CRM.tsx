@@ -82,7 +82,7 @@ const CRM = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState("clients");
+  const [activeTab, setActiveTab] = useState("ventes");
   const [searchQuery, setSearchQuery] = useState("");
   
   // Clients state
