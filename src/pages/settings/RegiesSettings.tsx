@@ -84,13 +84,13 @@ interface RegieBouquet {
 interface RegieStats {
   rdv: number;
   ventes: number;
-  ca: number;
   rdvMois: number;
   ventesMois: number;
-  caMois: number;
-  signes: number;
-  poses: number;
-  payes: number;
+  // Commissions par catégorie
+  commEnAttente: number; // Signé, en financement, CQ
+  commAVenir: number;    // Envoi pose, en installation
+  commDuSur: number;     // Installé, attente paiement
+  commPayees: number;    // Payé
 }
 
 const colorOptions = [
@@ -156,31 +156,48 @@ const RegiesSettings = () => {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       
       for (const regie of data || []) {
-        const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult] = await Promise.all([
+        const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult, commissionsResult] = await Promise.all([
           supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id),
           supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id).gte("date_heure", startOfMonth),
           supabase.from("ventes").select("id, montant_solde, status").eq("regie_id", regie.id),
           supabase.from("ventes").select("id, montant_solde").eq("regie_id", regie.id).gte("date_signature", startOfMonth.split("T")[0]),
+          supabase.from("commissions").select("montant_commission, paye, vente:ventes!inner(status, regie_id)").eq("vente.regie_id", regie.id),
         ]);
         
         const ventes = ventesResult.data || [];
         const ventesMois = ventesMoisResult.data || [];
+        const commissions = (commissionsResult.data || []) as any[];
         
-        // Count by status
-        const signes = ventes.filter(v => v.status === "signe" || v.status === "attente_financement" || v.status === "cq_a_faire" || v.status === "cq_fait").length;
-        const poses = ventes.filter(v => v.status === "en_installation" || v.status === "envoi_pose" || v.status === "installe" || v.status === "attente_paiement").length;
-        const payes = ventes.filter(v => v.status === "paye").length;
+        // Calculate commissions by category
+        let commEnAttente = 0;  // Signé, financement, CQ
+        let commAVenir = 0;     // Envoi pose, en installation
+        let commDuSur = 0;      // Installé, attente paiement
+        let commPayees = 0;     // Payé
+        
+        for (const c of commissions) {
+          const status = c.vente?.status;
+          const montant = Number(c.montant_commission) || 0;
+          
+          if (c.paye) {
+            commPayees += montant;
+          } else if (["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(status)) {
+            commEnAttente += montant;
+          } else if (["envoi_pose", "en_installation"].includes(status)) {
+            commAVenir += montant;
+          } else if (["installe", "attente_paiement"].includes(status)) {
+            commDuSur += montant;
+          }
+        }
         
         statsMap[regie.id] = {
           rdv: rdvResult.count || 0,
           ventes: ventes.length,
-          ca: ventes.reduce((sum, v) => sum + (v.montant_solde || 0), 0),
           rdvMois: rdvMoisResult.count || 0,
           ventesMois: ventesMois.length,
-          caMois: ventesMois.reduce((sum, v) => sum + (v.montant_solde || 0), 0),
-          signes,
-          poses,
-          payes,
+          commEnAttente,
+          commAVenir,
+          commDuSur,
+          commPayees,
         };
       }
       setRegieStats(statsMap);
@@ -539,7 +556,7 @@ const RegiesSettings = () => {
         ) : (
           <div className="space-y-3">
             {regies.map((regie) => {
-              const stats = regieStats[regie.id] || { rdv: 0, ventes: 0, ca: 0 };
+              const stats = regieStats[regie.id] || { rdv: 0, ventes: 0, rdvMois: 0, ventesMois: 0, commEnAttente: 0, commAVenir: 0, commDuSur: 0, commPayees: 0 };
               return (
                 <Card
                   key={regie.id}
@@ -567,15 +584,15 @@ const RegiesSettings = () => {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <Badge variant="secondary" className="text-xs">
                             {stats.rdv} RDV
                           </Badge>
                           <Badge variant="secondary" className="text-xs">
                             {stats.ventes} ventes
                           </Badge>
-                          <Badge variant="secondary" className="text-xs font-medium">
-                            {formatCurrency(stats.ca)}
+                          <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
+                            {formatCurrency(stats.commDuSur + stats.commPayees)} acquis
                           </Badge>
                         </div>
                       </div>
@@ -653,7 +670,7 @@ const RegiesSettings = () => {
                     <div className="min-w-0">
                       <h2 className="text-xl font-bold truncate">{selectedRegie.nom}</h2>
                       <p className="text-sm opacity-80">
-                        {regieStats[selectedRegie.id]?.ventes || 0} ventes • {formatCurrency(regieStats[selectedRegie.id]?.ca || 0)} CA
+                        {regieStats[selectedRegie.id]?.ventes || 0} ventes • {formatCurrency((regieStats[selectedRegie.id]?.commDuSur || 0) + (regieStats[selectedRegie.id]?.commPayees || 0))} acquis
                       </p>
                     </div>
                   </div>
@@ -684,7 +701,7 @@ const RegiesSettings = () => {
                   <TabsContent value="dashboard" className="p-4 space-y-4">
                     {(() => {
                       const stats = regieStats[selectedRegie.id] || {
-                        rdv: 0, ventes: 0, ca: 0, rdvMois: 0, ventesMois: 0, caMois: 0, signes: 0, poses: 0, payes: 0
+                        rdv: 0, ventes: 0, rdvMois: 0, ventesMois: 0, commEnAttente: 0, commAVenir: 0, commDuSur: 0, commPayees: 0
                       };
                       const conversionRate = stats.rdv > 0 ? Math.round((stats.ventes / stats.rdv) * 100) : 0;
                       
@@ -718,19 +735,19 @@ const RegiesSettings = () => {
                               </CardContent>
                             </Card>
 
-                            <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
+                            {/* Commissions En Attente */}
+                            <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Euro className="h-4 w-4 text-amber-600" />
-                                  <span className="text-xs text-muted-foreground">CA Total</span>
+                                  <Euro className="h-4 w-4 text-orange-600" />
+                                  <span className="text-xs text-muted-foreground">En Attente</span>
                                 </div>
-                                <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.ca)}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {formatCurrency(stats.caMois)} ce mois
-                                </p>
+                                <p className="text-2xl font-bold text-orange-600">{formatCurrency(stats.commEnAttente)}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Signé / Financement</p>
                               </CardContent>
                             </Card>
 
+                            {/* Conversion */}
                             <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-2 mb-2">
@@ -745,55 +762,71 @@ const RegiesSettings = () => {
                             </Card>
                           </div>
 
-                          {/* Tunnel de conversion */}
+                          {/* Pipeline des commissions */}
                           <Card>
                             <CardContent className="p-4">
                               <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-primary" />
-                                Pipeline des ventes
+                                <Euro className="h-4 w-4 text-primary" />
+                                Pipeline Commissions
                               </h4>
                               
                               <div className="space-y-3">
-                                {/* Signés */}
+                                {/* En Attente */}
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Signés / En financement</span>
-                                    <span className="font-medium">{stats.signes}</span>
+                                    <span className="text-muted-foreground">En Attente</span>
+                                    <span className="font-medium text-orange-600">{formatCurrency(stats.commEnAttente)}</span>
                                   </div>
                                   <Progress 
-                                    value={stats.ventes > 0 ? (stats.signes / stats.ventes) * 100 : 0} 
+                                    value={((stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees) > 0) ? (stats.commEnAttente / (stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees)) * 100 : 0} 
                                     className="h-2 bg-orange-100"
                                   />
                                 </div>
 
-                                {/* Posés */}
                                 <div className="flex items-center justify-center">
                                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                 </div>
 
+                                {/* À Venir */}
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Installés / Attente paiement</span>
-                                    <span className="font-medium">{stats.poses}</span>
+                                    <span className="text-muted-foreground">À Venir (pose)</span>
+                                    <span className="font-medium text-blue-600">{formatCurrency(stats.commAVenir)}</span>
                                   </div>
                                   <Progress 
-                                    value={stats.ventes > 0 ? (stats.poses / stats.ventes) * 100 : 0} 
+                                    value={((stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees) > 0) ? (stats.commAVenir / (stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees)) * 100 : 0} 
                                     className="h-2 bg-blue-100"
                                   />
                                 </div>
 
-                                {/* Payés */}
                                 <div className="flex items-center justify-center">
                                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                 </div>
 
+                                {/* Du Sûr */}
+                                <div className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Du Sûr (installé)</span>
+                                    <span className="font-medium text-emerald-600">{formatCurrency(stats.commDuSur)}</span>
+                                  </div>
+                                  <Progress 
+                                    value={((stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees) > 0) ? (stats.commDuSur / (stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees)) * 100 : 0} 
+                                    className="h-2 bg-emerald-100"
+                                  />
+                                </div>
+
+                                <div className="flex items-center justify-center">
+                                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                </div>
+
+                                {/* Payées */}
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Payées</span>
-                                    <span className="font-medium text-green-600">{stats.payes}</span>
+                                    <span className="font-medium text-green-600">{formatCurrency(stats.commPayees)}</span>
                                   </div>
                                   <Progress 
-                                    value={stats.ventes > 0 ? (stats.payes / stats.ventes) * 100 : 0} 
+                                    value={((stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees) > 0) ? (stats.commPayees / (stats.commEnAttente + stats.commAVenir + stats.commDuSur + stats.commPayees)) * 100 : 0} 
                                     className="h-2 bg-green-100"
                                   />
                                 </div>
@@ -801,23 +834,21 @@ const RegiesSettings = () => {
                             </CardContent>
                           </Card>
 
-                          {/* CA moyen */}
-                          {stats.ventes > 0 && (
-                            <Card className="bg-muted/30">
-                              <CardContent className="p-4">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Panier moyen</p>
-                                    <p className="text-lg font-bold">{formatCurrency(stats.ca / stats.ventes)}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">Taux signature</p>
-                                    <p className="text-lg font-bold text-primary">{conversionRate}%</p>
-                                  </div>
+                          {/* Total potentiel */}
+                          <Card className="bg-muted/30">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Potentiel Total</p>
+                                  <p className="text-lg font-bold">{formatCurrency(stats.commEnAttente + stats.commAVenir + stats.commDuSur)}</p>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          )}
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">Taux conversion</p>
+                                  <p className="text-lg font-bold text-primary">{conversionRate}%</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         </>
                       );
                     })()}</TabsContent>
