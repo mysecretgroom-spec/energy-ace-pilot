@@ -219,6 +219,7 @@ export type Database = {
           puissance_min: number | null
           type_calcul: string
           updated_at: string
+          user_id: string | null
           valeur: number
         }
         Insert: {
@@ -233,6 +234,7 @@ export type Database = {
           puissance_min?: number | null
           type_calcul?: string
           updated_at?: string
+          user_id?: string | null
           valeur?: number
         }
         Update: {
@@ -247,6 +249,7 @@ export type Database = {
           puissance_min?: number | null
           type_calcul?: string
           updated_at?: string
+          user_id?: string | null
           valeur?: number
         }
         Relationships: []
@@ -260,6 +263,7 @@ export type Database = {
           intensite_max_a: number
           puissance_kva: number
           usage_typique: string | null
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -269,6 +273,7 @@ export type Database = {
           intensite_max_a: number
           puissance_kva: number
           usage_typique?: string | null
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -278,6 +283,7 @@ export type Database = {
           intensite_max_a?: number
           puissance_kva?: number
           usage_typique?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -289,6 +295,7 @@ export type Database = {
           taux_commission: number
           tranche_max: number
           tranche_min: number
+          user_id: string | null
         }
         Insert: {
           bonus_survente?: number | null
@@ -297,6 +304,7 @@ export type Database = {
           taux_commission: number
           tranche_max?: number
           tranche_min?: number
+          user_id?: string | null
         }
         Update: {
           bonus_survente?: number | null
@@ -305,6 +313,7 @@ export type Database = {
           taux_commission?: number
           tranche_max?: number
           tranche_min?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -316,6 +325,7 @@ export type Database = {
           id: string
           montant: number
           type_compteur: string
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -324,6 +334,7 @@ export type Database = {
           id?: string
           montant?: number
           type_compteur: string
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -332,6 +343,7 @@ export type Database = {
           id?: string
           montant?: number
           type_compteur?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -345,6 +357,7 @@ export type Database = {
           taeg: number
           taux_effectif: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -355,6 +368,7 @@ export type Database = {
           taeg?: number
           taux_effectif?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -365,6 +379,7 @@ export type Database = {
           taeg?: number
           taux_effectif?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -375,6 +390,7 @@ export type Database = {
           id: string
           inclinaison: number
           orientation: string
+          user_id: string | null
         }
         Insert: {
           coefficient?: number
@@ -382,6 +398,7 @@ export type Database = {
           id?: string
           inclinaison: number
           orientation: string
+          user_id?: string | null
         }
         Update: {
           coefficient?: number
@@ -389,6 +406,7 @@ export type Database = {
           id?: string
           inclinaison?: number
           orientation?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -406,6 +424,7 @@ export type Database = {
           prix_recommande: number
           puissance_kwc: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -420,6 +439,7 @@ export type Database = {
           prix_recommande: number
           puissance_kwc: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -434,6 +454,7 @@ export type Database = {
           prix_recommande?: number
           puissance_kwc?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -485,6 +506,7 @@ export type Database = {
           id: string
           nom: string
           prix: number
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -494,6 +516,7 @@ export type Database = {
           id?: string
           nom: string
           prix: number
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -503,6 +526,7 @@ export type Database = {
           id?: string
           nom?: string
           prix?: number
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -516,6 +540,7 @@ export type Database = {
           puissance_max: number
           puissance_min: number
           type_revente: string
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -526,6 +551,7 @@ export type Database = {
           puissance_max?: number
           puissance_min?: number
           type_revente: string
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -536,6 +562,7 @@ export type Database = {
           puissance_max?: number
           puissance_min?: number
           type_revente?: string
+          user_id?: string | null
         }
         Relationships: []
       }

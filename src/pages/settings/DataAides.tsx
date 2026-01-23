@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Gift, Loader2, Plus, Trash2, Save, RotateCcw } from "lucide-react";
+import { Gift, Loader2, Plus, Trash2, Save, RotateCcw, Globe, User } from "lucide-react";
 
 interface AideData {
   id: string;
@@ -27,8 +28,10 @@ interface AideData {
   puissance_max: number;
   conditions: string | null;
   actif: boolean;
+  user_id: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const typeCalculLabels: Record<string, string> = {
@@ -38,6 +41,7 @@ const typeCalculLabels: Record<string, string> = {
 };
 
 const DataAides = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<AideData[]>([]);
   const [originalData, setOriginalData] = useState<AideData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +65,7 @@ const DataAides = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -74,6 +79,7 @@ const DataAides = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: AideData = {
       id: `new-${Date.now()}`,
       code: "",
@@ -85,8 +91,10 @@ const DataAides = () => {
       puissance_max: 999,
       conditions: null,
       actif: true,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -103,6 +111,11 @@ const DataAides = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer cette aide ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -115,8 +128,10 @@ const DataAides = () => {
   };
 
   const handleSave = async () => {
-    // Validate
-    const invalidItems = data.filter(item => !item.code || !item.nom);
+    if (!user) return;
+    
+    // Validate only user items
+    const invalidItems = data.filter(item => !item.isGlobal && (!item.code || !item.nom));
     if (invalidItems.length > 0) {
       toast.error("Code et nom requis pour toutes les aides");
       return;
@@ -124,18 +139,20 @@ const DataAides = () => {
 
     setSaving(true);
     try {
-      // Find items to delete (in original but not in current)
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      // Find user items to delete (not global)
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
-      // Delete removed items
+      // Delete removed user items
       for (const item of toDelete) {
         const { error } = await supabase.from("data_aides").delete().eq("id", item.id);
         if (error) throw error;
       }
 
-      // Upsert all current items
+      // Insert/Update user items only
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue; // Skip global items
+        
         const payload = {
           code: item.code,
           nom: item.nom,
@@ -146,6 +163,7 @@ const DataAides = () => {
           puissance_max: item.puissance_max,
           conditions: item.conditions,
           actif: item.actif,
+          user_id: user.id,
         };
 
         if (item.isNew) {
@@ -158,7 +176,7 @@ const DataAides = () => {
       }
 
       toast.success("Modifications enregistrées");
-      fetchData(); // Reload to get fresh data
+      fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);
       toast.error(error.message || "Erreur lors de la sauvegarde");
@@ -204,7 +222,7 @@ const DataAides = () => {
         ) : (
           <div className="space-y-3">
             {data.map((item) => (
-              <Card key={item.id} className={`transition-all ${item.isModified ? "border-amber-500/50 bg-amber-500/5" : ""}`}>
+              <Card key={item.id} className={`transition-all ${item.isModified ? "border-amber-500/50 bg-amber-500/5" : ""} ${item.isGlobal ? "border-blue-500/30" : ""}`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -213,7 +231,10 @@ const DataAides = () => {
                         onChange={(e) => handleFieldChange(item.id, "nom", e.target.value)}
                         className="h-8 font-medium text-sm w-40"
                         placeholder="Nom de l'aide"
+                        disabled={item.isGlobal && !item.isNew}
                       />
+                      {item.isGlobal && !item.isNew && <Badge variant="outline" className="border-blue-500 text-blue-600 gap-1"><Globe className="h-3 w-3" />Global</Badge>}
+                      {!item.isGlobal && !item.isNew && <Badge variant="outline" className="border-green-500 text-green-600 gap-1"><User className="h-3 w-3" />Perso</Badge>}
                       {item.isNew && <Badge className="bg-green-500">Nouveau</Badge>}
                       {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600">Modifié</Badge>}
                     </div>

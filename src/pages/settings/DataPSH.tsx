@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Sun, Search, Loader2, Plus, Trash2, Save, RotateCcw, Clock, CloudSun } from "lucide-react";
+import { Sun, Search, Loader2, Plus, Trash2, Save, RotateCcw, Clock, CloudSun, Globe, User } from "lucide-react";
 
 interface PSHData {
   id: string;
@@ -17,11 +18,14 @@ interface PSHData {
   jours_ensoleillement_riche: number;
   jours_ensoleillement_pauvre: number;
   heures_ensoleillement_annuel: number;
+  user_id?: string | null;
   isNew?: boolean;
   isModified?: boolean;
+  isGlobal?: boolean;
 }
 
 const DataPSH = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<PSHData[]>([]);
   const [originalData, setOriginalData] = useState<PSHData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +50,7 @@ const DataPSH = () => {
         ...item,
         isNew: false,
         isModified: false,
+        isGlobal: item.user_id === null,
       }));
       setData(formattedData);
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
@@ -59,6 +64,7 @@ const DataPSH = () => {
   };
 
   const handleAddNew = () => {
+    if (!user) return;
     const newItem: PSHData = {
       id: `new-${Date.now()}`,
       department_code: "",
@@ -68,8 +74,10 @@ const DataPSH = () => {
       jours_ensoleillement_riche: 150,
       jours_ensoleillement_pauvre: 215,
       heures_ensoleillement_annuel: 2800,
+      user_id: user.id,
       isNew: true,
       isModified: true,
+      isGlobal: false,
     };
     setData([newItem, ...data]);
     setHasChanges(true);
@@ -86,6 +94,11 @@ const DataPSH = () => {
   };
 
   const handleDelete = (id: string) => {
+    const item = data.find(d => d.id === id);
+    if (item?.isGlobal && !item.isNew) {
+      toast.error("Impossible de supprimer les données globales");
+      return;
+    }
     if (!confirm("Supprimer ce département ?")) return;
     setData(prev => prev.filter(item => item.id !== id));
     setHasChanges(true);
@@ -98,7 +111,9 @@ const DataPSH = () => {
   };
 
   const handleSave = async () => {
-    const invalidItems = data.filter(item => !item.department_code || !item.department_name);
+    if (!user) return;
+    
+    const invalidItems = data.filter(item => !item.isGlobal && (!item.department_code || !item.department_name));
     if (invalidItems.length > 0) {
       toast.error("Code et nom obligatoires pour tous les départements");
       return;
@@ -106,8 +121,8 @@ const DataPSH = () => {
 
     setSaving(true);
     try {
-      const currentIds = new Set(data.filter(d => !d.isNew).map(d => d.id));
-      const toDelete = originalData.filter(o => !currentIds.has(o.id));
+      const currentIds = new Set(data.filter(d => !d.isNew && !d.isGlobal).map(d => d.id));
+      const toDelete = originalData.filter(o => !o.isGlobal && !currentIds.has(o.id));
 
       for (const item of toDelete) {
         const { error } = await supabase.from("data_psh").delete().eq("id", item.id);
@@ -115,6 +130,8 @@ const DataPSH = () => {
       }
 
       for (const item of data) {
+        if (item.isGlobal && !item.isNew) continue;
+        
         const payload = {
           department_code: item.department_code,
           department_name: item.department_name,
@@ -123,6 +140,7 @@ const DataPSH = () => {
           jours_ensoleillement_riche: item.jours_ensoleillement_riche,
           jours_ensoleillement_pauvre: item.jours_ensoleillement_pauvre,
           heures_ensoleillement_annuel: item.heures_ensoleillement_annuel,
+          user_id: user.id,
         };
 
         if (item.isNew) {
