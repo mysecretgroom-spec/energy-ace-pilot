@@ -125,44 +125,16 @@ export function MultiImportFlow({
 
   const analyzeFile = async (importedFile: ImportedFile): Promise<ImportedFile> => {
     try {
-      // Convert file to base64
-      let base64: string;
+      // Convert file directly to base64 - Gemini can handle PDFs natively
+      // No need to generate thumbnails first, which was causing blocking
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(importedFile.file);
+      });
       
-      if (importedFile.file.type === "application/pdf") {
-        // For PDF, try to use pdfGenerator to get first page as image
-        try {
-          const pdfResult = await generatePdfFromFile(importedFile.file);
-          if (pdfResult.thumbnails && pdfResult.thumbnails.length > 0 && !pdfResult.thumbnails[0].includes("PDF")) {
-            // Got a real thumbnail (not placeholder)
-            base64 = pdfResult.thumbnails[0];
-          } else {
-            // Fallback: read PDF as data URL for direct AI processing
-            base64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(importedFile.file);
-            });
-          }
-        } catch (pdfError) {
-          console.warn("PDF thumbnail failed, using direct file:", pdfError);
-          // Fallback: read PDF as data URL
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(importedFile.file);
-          });
-        }
-      } else {
-        // For images, convert directly to base64
-        base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(importedFile.file);
-        });
-      }
+      console.log("Sending to analyze-document:", importedFile.file.name, "size:", base64.length);
 
       const { data, error } = await supabase.functions.invoke("analyze-document", {
         body: { image_base64: base64, context },
