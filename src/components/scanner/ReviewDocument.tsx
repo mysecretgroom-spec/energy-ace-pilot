@@ -144,17 +144,50 @@ export function ReviewDocument({
 
   // Run AI OCR via edge function
   const runOcr = useCallback(async () => {
-    if (!enableOcr || pages.length === 0) return;
+    if (!enableOcr) return;
+
+    // Need either pages or imported file
+    if (pages.length === 0 && !importedFile) return;
 
     setIsOcrProcessing(true);
 
     try {
-      // Use the first page for OCR
-      const firstPage = pages[0];
+      let imageBase64: string;
+
+      if (pages.length > 0) {
+        // Use the first scanned page
+        imageBase64 = pages[0].imageData;
+      } else if (importedFile) {
+        // For imported files, convert to base64
+        if (importedFile.type === "application/pdf") {
+          // For PDFs, try to get thumbnail from pdfGenerator
+          if (thumbnails.length > 0 && !thumbnails[0].includes("PDF")) {
+            imageBase64 = thumbnails[0];
+          } else {
+            // Use raw PDF data
+            imageBase64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(importedFile);
+            });
+          }
+        } else {
+          // For images, convert directly
+          imageBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(importedFile);
+          });
+        }
+      } else {
+        throw new Error("No content for OCR");
+      }
       
       // Call the AI-powered edge function
       const { data, error } = await supabase.functions.invoke("ocr-receipt", {
-        body: { image_base64: firstPage.imageData },
+        body: { image_base64: imageBase64 },
       });
 
       if (error) throw error;
@@ -204,7 +237,7 @@ export function ReviewDocument({
     } finally {
       setIsOcrProcessing(false);
     }
-  }, [enableOcr, pages, category, title]);
+  }, [enableOcr, pages, importedFile, thumbnails, category, title]);
 
   const handleDownload = useCallback(() => {
     if (!pdfBlob) return;

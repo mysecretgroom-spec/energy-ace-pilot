@@ -129,12 +129,30 @@ export function MultiImportFlow({
       let base64: string;
       
       if (importedFile.file.type === "application/pdf") {
-        // For PDF, use pdfGenerator to get first page as image
-        const pdfResult = await generatePdfFromFile(importedFile.file);
-        if (pdfResult.thumbnails && pdfResult.thumbnails.length > 0) {
-          base64 = pdfResult.thumbnails[0];
-        } else {
-          throw new Error("Could not extract image from PDF");
+        // For PDF, try to use pdfGenerator to get first page as image
+        try {
+          const pdfResult = await generatePdfFromFile(importedFile.file);
+          if (pdfResult.thumbnails && pdfResult.thumbnails.length > 0 && !pdfResult.thumbnails[0].includes("PDF")) {
+            // Got a real thumbnail (not placeholder)
+            base64 = pdfResult.thumbnails[0];
+          } else {
+            // Fallback: read PDF as data URL for direct AI processing
+            base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(importedFile.file);
+            });
+          }
+        } catch (pdfError) {
+          console.warn("PDF thumbnail failed, using direct file:", pdfError);
+          // Fallback: read PDF as data URL
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(importedFile.file);
+          });
         }
       } else {
         // For images, convert directly to base64
