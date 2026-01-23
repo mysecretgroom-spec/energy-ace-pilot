@@ -90,7 +90,6 @@ interface RegieFinancement {
   nom: string;
   taux_effectif: number;
   taeg: number;
-  duree_mois: number;
   actif: boolean;
 }
 
@@ -142,7 +141,6 @@ const RegiesSettings = () => {
     nom: "",
     taux_effectif: 0,
     taeg: 0,
-    duree_mois: 120,
   });
 
   useEffect(() => {
@@ -552,7 +550,6 @@ const RegiesSettings = () => {
         nom: "",
         taux_effectif: 0,
         taeg: 0,
-        duree_mois: 120,
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -1344,15 +1341,7 @@ const RegiesSettings = () => {
                           value={newFinancement.nom}
                           onChange={(e) => setNewFinancement({ ...newFinancement, nom: e.target.value })}
                         />
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Durée (mois)</label>
-                            <Input
-                              type="number"
-                              value={newFinancement.duree_mois}
-                              onChange={(e) => setNewFinancement({ ...newFinancement, duree_mois: parseInt(e.target.value) || 0 })}
-                            />
-                          </div>
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-xs text-muted-foreground">Taux effectif %</label>
                             <Input
@@ -1391,7 +1380,7 @@ const RegiesSettings = () => {
                             <div className="flex-1">
                               <p className="font-medium text-sm">{financement.nom}</p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                {financement.duree_mois} mois • Taux {financement.taux_effectif}% • TAEG {financement.taeg}%
+                                Taux {financement.taux_effectif}% • TAEG {financement.taeg}%
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
