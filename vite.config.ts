@@ -52,6 +52,11 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
+        // Critical for iOS PWA - force new SW to take control immediately
+        clientsClaim: true,
+        skipWaiting: true,
+        // Clean old caches on activation
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
