@@ -21,6 +21,7 @@ interface Vente {
   puissance_kwc: number | null;
   decom_montant?: number | null;
   decom_raison?: string | null;
+  regie_id?: string | null;
   client: {
     id: string;
     nom: string;
@@ -38,7 +39,8 @@ interface QontoInvoiceProps {
 interface CommissionLine {
   clientName: string;
   puissanceKwc: number;
-  commissionBrute: number;
+  commissionFixe: number;
+  bonusSurvente: number;
   decomMontant: number;
   commissionNette: number;
 }
@@ -67,22 +69,53 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
     setLoading(true);
     
     try {
-      // Fetch commission data
-      const { data: dataCommissions } = await supabase
-        .from("data_commissions")
-        .select("*")
-        .order("tranche_min");
+      // Get unique regie IDs from selected ventes
+      const regieIds = [...new Set(selectedVentes.map(v => v.regie_id).filter(Boolean))] as string[];
+      
+      // Fetch bouquets (global and per-regie) and regie configs
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
+        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
+        regieIds.length > 0 
+          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
+          : Promise.resolve({ data: [] }),
+        regieIds.length > 0
+          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+      ]);
 
-      const { data: bouquets } = await supabase
-        .from("data_prix_bouquets")
-        .select("puissance_kwc, prix_hejja, prix_recommande");
+      const globalBouquets = globalBouquetsRes.data || [];
+      const regieBouquets = regieBouquetsRes.data || [];
+      const regies = regiesRes.data || [];
+      const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      
+      // Create maps for quick lookup
+      const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
+      const regieBouquetsMap = new Map<string, any[]>();
+      regieBouquets.forEach((b: any) => {
+        if (b.regie_id) {
+          const existing = regieBouquetsMap.get(b.regie_id) || [];
+          existing.push(b);
+          regieBouquetsMap.set(b.regie_id, existing);
+        }
+      });
 
-      const { data: configData } = await supabase
-        .from("config_commissions")
-        .select("part_survente_pct")
-        .maybeSingle();
-
-      const surventePct = configData?.part_survente_pct || 50;
+      // Helper to find or interpolate bouquet
+      const findBouquet = (bouquets: any[], puissance: number) => {
+        const exact = bouquets.find(b => b.puissance_kwc === puissance);
+        if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
+        
+        const sorted = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+        const lower = sorted.filter(b => b.puissance_kwc < puissance).pop();
+        if (lower) {
+          return { prixRecommande: lower.prix_recommande + (puissance - lower.puissance_kwc) * 1000, commissionFixe: lower.commission_fixe || 0 };
+        }
+        const upper = sorted.find(b => b.puissance_kwc > puissance);
+        if (upper) {
+          return { prixRecommande: upper.prix_recommande - (upper.puissance_kwc - puissance) * 1000, commissionFixe: upper.commission_fixe || 0 };
+        }
+        return { prixRecommande: puissance * 4500, commissionFixe: 0 };
+      };
 
       const calculatedLines: CommissionLine[] = selectedVentes.map(vente => {
         const clientName = vente.client 
@@ -92,42 +125,33 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
         const puissance = vente.puissance_kwc || 0;
         const decomMontant = vente.decom_montant || 0;
         
-        // Find matching bouquet for base commission
-        const bouquet = bouquets?.find(b => b.puissance_kwc === puissance);
-        const prixHejja = bouquet?.prix_hejja || 0;
-        const prixRecommande = bouquet?.prix_recommande || 0;
+        const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
+        const bouquetsToUse = vente.regie_id && regieBouquetsMap.has(vente.regie_id)
+          ? regieBouquetsMap.get(vente.regie_id)!
+          : globalBouquets;
+        const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
         
-        // Find commission rate for this tranche
-        const tranche = dataCommissions?.find(
-          t => vente.montant_ht >= t.tranche_min && vente.montant_ht <= t.tranche_max
-        );
+        const bouquet = findBouquet(bouquetsToUse, puissance);
+        const commissionFixe = bouquet.commissionFixe;
         
-        const tauxCommission = tranche?.taux_commission || 0;
-        
-        // Base commission from montant HT
-        let commissionBrute = vente.montant_ht * (tauxCommission / 100);
-        
-        // Calculate survente bonus:
-        // 1. Prix recommandé est en TTC
-        // 2. Calculer survente TTC = montant_ttc - prix_recommande
-        // 3. Convertir en HT puis appliquer 50%
+        // Calculate survente
+        let bonusSurvente = 0;
         const tauxTVA = getTauxTVAByPuissance(puissance);
         const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
         
-        if (prixRecommande > 0 && montantTTC > prixRecommande) {
-          const surventeTTC = montantTTC - prixRecommande;
+        if (bouquet.prixRecommande > 0 && montantTTC > bouquet.prixRecommande) {
+          const surventeTTC = montantTTC - bouquet.prixRecommande;
           const surventeHT = ttcToHT(surventeTTC, tauxTVA);
-          const bonusSurvente = surventeHT * (surventePct / 100);
-          commissionBrute += bonusSurvente;
+          bonusSurvente = surventeHT * (partSurventePct / 100);
         }
 
-        // Apply decom
-        const commissionNette = Math.max(0, commissionBrute - decomMontant);
+        const commissionNette = Math.max(0, commissionFixe + bonusSurvente - decomMontant);
 
         return {
           clientName,
           puissanceKwc: puissance,
-          commissionBrute,
+          commissionFixe,
+          bonusSurvente,
           decomMontant,
           commissionNette,
         };

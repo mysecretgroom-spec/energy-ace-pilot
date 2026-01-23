@@ -165,40 +165,81 @@ const Finance = () => {
         // Fetch all ventes for the user (toutes, pas juste ce mois)
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at, regie_id")
           .eq("user_id", user.id);
 
         if (error) throw error;
 
-        // Fetch commission config and tiers
-        const [tiersRes, bouquetsRes, configRes] = await Promise.all([
-          supabase.from("data_commissions").select("*").order("tranche_min"),
-          supabase.from("data_prix_bouquets").select("puissance_kwc, prix_hejja, prix_recommande").eq("actif", true),
+        // Fetch bouquets (global and per-regie) and regie configs
+        const regieIds = [...new Set((ventes || []).map((v: any) => v.regie_id).filter(Boolean))] as string[];
+        
+        const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
+          supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
+          regieIds.length > 0 
+            ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
+            : Promise.resolve({ data: [] }),
+          regieIds.length > 0
+            ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+            : Promise.resolve({ data: [] }),
           supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
         ]);
 
-        const tiers = tiersRes.data || [];
-        const bouquets = bouquetsRes.data || [];
-        const partSurventePct = configRes.data?.part_survente_pct || 50;
+        const globalBouquets = globalBouquetsRes.data || [];
+        const regieBouquets = regieBouquetsRes.data || [];
+        const regies = regiesRes.data || [];
+        const globalSurventePct = configRes.data?.part_survente_pct || 50;
+        
+        // Create maps for quick lookup
+        const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
+        const regieBouquetsMap = new Map<string, any[]>();
+        regieBouquets.forEach((b: any) => {
+          if (b.regie_id) {
+            const existing = regieBouquetsMap.get(b.regie_id) || [];
+            existing.push(b);
+            regieBouquetsMap.set(b.regie_id, existing);
+          }
+        });
 
-        // Helper to calculate commission for a vente
+        // Helper to find or interpolate bouquet
+        const findBouquet = (bouquets: any[], puissance: number) => {
+          const exact = bouquets.find(b => b.puissance_kwc === puissance);
+          if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
+          
+          const sorted = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+          const lower = sorted.filter(b => b.puissance_kwc < puissance).pop();
+          if (lower) {
+            return { prixRecommande: lower.prix_recommande + (puissance - lower.puissance_kwc) * 1000, commissionFixe: lower.commission_fixe || 0 };
+          }
+          const upper = sorted.find(b => b.puissance_kwc > puissance);
+          if (upper) {
+            return { prixRecommande: upper.prix_recommande - (upper.puissance_kwc - puissance) * 1000, commissionFixe: upper.commission_fixe || 0 };
+          }
+          return { prixRecommande: puissance * 4500, commissionFixe: 0 };
+        };
+
+        // Helper to calculate commission for a vente using new bouquet logic
         const calcCommission = (v: typeof ventes[0]) => {
           if (!v.puissance_kwc) return 0;
           
-          const bouquet = bouquets.find(b => b.puissance_kwc === v.puissance_kwc);
-          const prixRecommande = bouquet?.prix_recommande || 0;
+          const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
+          const bouquetsToUse = v.regie_id && regieBouquetsMap.has(v.regie_id)
+            ? regieBouquetsMap.get(v.regie_id)!
+            : globalBouquets;
+          const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
           
-          const tier = tiers.find(
-            t => v.montant_ht >= t.tranche_min && v.montant_ht <= t.tranche_max
-          ) || tiers[tiers.length - 1];
+          const bouquet = findBouquet(bouquetsToUse, v.puissance_kwc);
+          const baseCommission = bouquet.commissionFixe;
           
-          const tauxCommission = tier?.taux_commission || 0;
-          const baseCommission = v.montant_ht * (tauxCommission / 100);
-          
+          // Calculate survente
           let bonusSurvente = 0;
-          if (prixRecommande > 0 && v.montant_ht > prixRecommande) {
-            const surventeBase = v.montant_ht - prixRecommande;
-            bonusSurvente = surventeBase * (partSurventePct / 100);
+          const puissance = v.puissance_kwc || 3;
+          const tauxTVA = puissance <= 3 ? 10 : 20;
+          const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
+          
+          if (bouquet.prixRecommande > 0 && montantTTC > bouquet.prixRecommande) {
+            const surventeTTC = montantTTC - bouquet.prixRecommande;
+            const surventeHT = surventeTTC / (1 + tauxTVA / 100);
+            bonusSurvente = surventeHT * (partSurventePct / 100);
           }
           
           const decomMontant = v.decom_montant || 0;
