@@ -27,7 +27,17 @@ export function OnboardingDialog() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkOnboardingStatus();
+    // Delay onboarding check to not block initial render
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkOnboardingStatus();
+    }, 1000); // Wait 1 second after mount
+
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   const checkOnboardingStatus = async () => {
@@ -37,20 +47,27 @@ export function OnboardingDialog() {
     }
 
     try {
-      const { data, error } = await supabase
+      // Use Promise.race for timeout
+      const fetchPromise = supabase
         .from("profiles")
         .select("onboarding_completed")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error checking onboarding status:", error);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Timeout")), 5000)
+      );
+
+      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      
+      if (result.error) {
+        console.error("Error checking onboarding status:", result.error);
         setLoading(false);
         return;
       }
 
       // Show onboarding if not completed
-      if (data && !data.onboarding_completed) {
+      if (result.data && !result.data.onboarding_completed) {
         setOpen(true);
       }
     } catch (err) {
