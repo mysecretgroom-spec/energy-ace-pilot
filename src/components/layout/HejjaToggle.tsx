@@ -65,94 +65,118 @@ export function HejjaToggle() {
 
   return (
     <>
-      {/* Fire Animation Overlay */}
+      {/* Hellfire Animation Overlay */}
       {showFireAnimation && (
         <div className="fixed inset-0 z-[100] pointer-events-none animate-fire-overlay overflow-hidden">
-          {/* Solid dark background */}
+          {/* Deep hellish background */}
           <div className="absolute inset-0 bg-black" />
+          <div className="absolute inset-0 bg-gradient-to-t from-red-950 via-black to-black" />
           
-          {/* Intense inferno glow layers */}
-          <div className="absolute inset-0 bg-gradient-to-t from-orange-600 via-red-700 to-black animate-pulse" />
-          <div className="absolute inset-0 bg-gradient-radial from-yellow-500/40 via-orange-600/30 to-transparent" style={{ background: 'radial-gradient(ellipse at 50% 100%, rgba(255,200,0,0.6) 0%, rgba(255,100,0,0.4) 30%, rgba(200,0,0,0.3) 60%, transparent 100%)' }} />
+          {/* Demonic glow from below */}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 120%, rgba(180,0,0,0.9) 0%, rgba(100,0,0,0.6) 30%, rgba(50,0,0,0.4) 50%, transparent 80%)' }} />
           
-          {/* Full screen inferno */}
+          {/* Cracks of hellfire in the ground */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 hell-cracks" />
+          
+          {/* Full screen hellfire */}
           <div className="absolute inset-0">
-            {/* Giant flames covering entire screen */}
-            {[...Array(20)].map((_, i) => (
+            {/* Back layer - dark demonic flames */}
+            {[...Array(15)].map((_, i) => (
               <div
-                key={`giant-${i}`}
-                className="absolute bottom-0 inferno-flame"
+                key={`hell-back-${i}`}
+                className="absolute bottom-0 hell-flame-dark"
                 style={{
-                  left: `${i * 5}%`,
-                  width: `${60 + Math.random() * 40}px`,
-                  height: `${window.innerHeight * 0.7 + Math.random() * window.innerHeight * 0.3}px`,
+                  left: `${i * 7}%`,
+                  width: `${80 + Math.random() * 50}px`,
+                  height: `${window.innerHeight * 0.8 + Math.random() * window.innerHeight * 0.2}px`,
                   animationDelay: `${Math.random() * 0.3}s`,
                 }}
               />
             ))}
             
-            {/* Medium flames layer */}
-            {[...Array(30)].map((_, i) => (
+            {/* Middle layer - blood red flames */}
+            {[...Array(25)].map((_, i) => (
               <div
-                key={`medium-${i}`}
-                className="absolute bottom-0 inferno-flame-bright"
+                key={`hell-mid-${i}`}
+                className="absolute bottom-0 hell-flame-red"
                 style={{
-                  left: `${i * 3.3}%`,
-                  width: `${40 + Math.random() * 30}px`,
-                  height: `${window.innerHeight * 0.5 + Math.random() * window.innerHeight * 0.4}px`,
+                  left: `${i * 4}%`,
+                  width: `${50 + Math.random() * 40}px`,
+                  height: `${window.innerHeight * 0.6 + Math.random() * window.innerHeight * 0.3}px`,
                   animationDelay: `${Math.random() * 0.2}s`,
                 }}
               />
             ))}
             
-            {/* Front intense flames */}
-            {[...Array(25)].map((_, i) => (
+            {/* Front layer - orange/yellow core flames */}
+            {[...Array(20)].map((_, i) => (
               <div
-                key={`front-${i}`}
-                className="absolute bottom-0 inferno-flame-white"
+                key={`hell-front-${i}`}
+                className="absolute bottom-0 hell-flame-core"
                 style={{
-                  left: `${i * 4}%`,
-                  width: `${30 + Math.random() * 25}px`,
-                  height: `${window.innerHeight * 0.3 + Math.random() * window.innerHeight * 0.3}px`,
+                  left: `${i * 5}%`,
+                  width: `${35 + Math.random() * 30}px`,
+                  height: `${window.innerHeight * 0.4 + Math.random() * window.innerHeight * 0.25}px`,
                   animationDelay: `${Math.random() * 0.15}s`,
                 }}
               />
             ))}
             
-            {/* Flying embers everywhere */}
-            {[...Array(40)].map((_, i) => (
+            {/* Burning embers rising */}
+            {[...Array(50)].map((_, i) => (
               <div
                 key={`ember-${i}`}
-                className="absolute inferno-ember"
+                className="absolute hell-ember"
                 style={{
                   left: `${Math.random() * 100}%`,
-                  bottom: `${Math.random() * 30}%`,
-                  animationDelay: `${Math.random() * 1}s`,
-                  animationDuration: `${0.8 + Math.random() * 0.7}s`,
+                  bottom: `${Math.random() * 20}%`,
+                  animationDelay: `${Math.random() * 1.5}s`,
+                  animationDuration: `${1 + Math.random() * 1}s`,
                 }}
               />
             ))}
             
-            {/* Smoke rising */}
-            {[...Array(15)].map((_, i) => (
+            {/* Demonic black smoke */}
+            {[...Array(12)].map((_, i) => (
               <div
                 key={`smoke-${i}`}
-                className="absolute inferno-smoke"
+                className="absolute hell-smoke"
                 style={{
-                  left: `${i * 7}%`,
-                  bottom: '40%',
+                  left: `${i * 9}%`,
+                  bottom: '30%',
                   animationDelay: `${Math.random() * 2}s`,
+                }}
+              />
+            ))}
+            
+            {/* Floating ash particles */}
+            {[...Array(30)].map((_, i) => (
+              <div
+                key={`ash-${i}`}
+                className="absolute hell-ash"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  bottom: `${Math.random() * 50}%`,
+                  animationDelay: `${Math.random() * 3}s`,
                 }}
               />
             ))}
           </div>
           
-          {/* Heat distortion overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-orange-500/20 to-yellow-500/30 animate-pulse" />
+          {/* Demonic vignette overlay */}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%)' }} />
           
-          {/* Devil emoji appearing */}
+          {/* Pulsing hellish glow */}
+          <div className="absolute inset-0 hell-pulse" />
+          
+          {/* Devil emoji appearing from flames */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-9xl animate-devil-appear drop-shadow-[0_0_60px_rgba(255,50,0,1)]">😈</span>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-40 h-40 rounded-full devil-aura" />
+              </div>
+              <span className="text-9xl animate-devil-appear drop-shadow-[0_0_80px_rgba(200,0,0,1)] relative z-10">😈</span>
+            </div>
           </div>
         </div>
       )}
@@ -396,73 +420,158 @@ export function HejjaToggle() {
           animation: fire-overlay 1.5s ease-out forwards;
         }
         
-        .inferno-flame {
-          background: linear-gradient(to top, 
-            #ff2200 0%, 
-            #ff4400 15%,
-            #ff6600 30%, 
-            #ff8800 45%,
-            #ffaa00 60%, 
-            #ffcc00 75%,
-            #ffee00 90%,
-            transparent 100%
-          );
-          border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-          filter: blur(8px);
-          animation: inferno-dance 0.15s ease-in-out infinite;
-          transform-origin: bottom center;
-          opacity: 0.9;
+        .hell-cracks {
+          background: 
+            linear-gradient(90deg, transparent 0%, transparent 10%, #ff2200 10.5%, transparent 11%, transparent 100%),
+            linear-gradient(90deg, transparent 0%, transparent 30%, #ff4400 30.5%, transparent 31%, transparent 100%),
+            linear-gradient(90deg, transparent 0%, transparent 55%, #ff3300 55.5%, transparent 56%, transparent 100%),
+            linear-gradient(90deg, transparent 0%, transparent 75%, #ff2200 75.5%, transparent 76%, transparent 100%),
+            linear-gradient(90deg, transparent 0%, transparent 90%, #ff4400 90.5%, transparent 91%, transparent 100%);
+          filter: blur(2px);
+          box-shadow: 0 0 30px rgba(255,50,0,0.8);
         }
         
-        .inferno-flame-bright {
+        .hell-flame-dark {
           background: linear-gradient(to top, 
-            #ff6600 0%,
-            #ff8800 20%,
-            #ffaa00 40%, 
-            #ffcc00 60%,
-            #ffee00 80%, 
+            #1a0000 0%,
+            #330000 10%,
+            #660000 25%, 
+            #990000 40%,
+            #cc0000 55%,
+            #aa0000 70%,
+            #660000 85%,
             transparent 100%
           );
           border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-          filter: blur(5px);
-          animation: inferno-dance 0.12s ease-in-out infinite reverse;
+          filter: blur(12px);
+          animation: hell-dance 0.2s ease-in-out infinite;
           transform-origin: bottom center;
           opacity: 0.95;
         }
         
-        .inferno-flame-white {
+        .hell-flame-red {
           background: linear-gradient(to top, 
-            #ffffff 0%,
-            #ffffcc 15%,
-            #ffff66 30%, 
-            #ffee00 50%,
-            #ffaa00 70%, 
-            #ff6600 85%,
+            #4a0000 0%,
+            #8b0000 15%,
+            #cc0000 30%, 
+            #ff2200 45%,
+            #ff4400 60%,
+            #ff3300 75%,
+            #cc0000 90%,
             transparent 100%
           );
           border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-          filter: blur(3px);
-          animation: inferno-dance 0.1s ease-in-out infinite;
+          filter: blur(6px);
+          animation: hell-dance 0.15s ease-in-out infinite reverse;
+          transform-origin: bottom center;
+          opacity: 0.9;
+        }
+        
+        .hell-flame-core {
+          background: linear-gradient(to top, 
+            #ff4400 0%,
+            #ff6600 20%,
+            #ff8800 40%, 
+            #ffaa00 60%,
+            #ff8800 75%,
+            #ff4400 90%,
+            transparent 100%
+          );
+          border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+          filter: blur(4px);
+          animation: hell-dance 0.12s ease-in-out infinite;
           transform-origin: bottom center;
         }
         
-        .inferno-ember {
-          width: 8px;
-          height: 8px;
-          background: radial-gradient(circle, #ffffff 0%, #ffff00 30%, #ff6600 60%, #ff0000 100%);
+        .hell-ember {
+          width: 6px;
+          height: 6px;
+          background: radial-gradient(circle, #ffaa00 0%, #ff4400 40%, #cc0000 70%, #660000 100%);
           border-radius: 50%;
-          animation: ember-fly 1.2s ease-out infinite;
+          animation: ember-fly 1.5s ease-out infinite;
           filter: blur(1px);
-          box-shadow: 0 0 10px #ff6600, 0 0 20px #ff3300;
+          box-shadow: 0 0 8px #ff4400, 0 0 15px #cc0000;
         }
         
-        .inferno-smoke {
-          width: 80px;
-          height: 80px;
-          background: radial-gradient(circle, rgba(50,50,50,0.6) 0%, transparent 70%);
+        .hell-smoke {
+          width: 100px;
+          height: 100px;
+          background: radial-gradient(circle, rgba(20,0,0,0.8) 0%, rgba(40,0,0,0.4) 50%, transparent 70%);
           border-radius: 50%;
-          animation: smoke-rise 3s ease-out infinite;
-          filter: blur(10px);
+          animation: smoke-rise 4s ease-out infinite;
+          filter: blur(15px);
+        }
+        
+        .hell-ash {
+          width: 4px;
+          height: 4px;
+          background: #333;
+          border-radius: 50%;
+          animation: ash-float 5s ease-in-out infinite;
+          opacity: 0.6;
+        }
+        
+        .hell-pulse {
+          background: radial-gradient(ellipse at 50% 100%, rgba(200,0,0,0.3) 0%, transparent 60%);
+          animation: hell-glow-pulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        .devil-aura {
+          background: radial-gradient(circle, rgba(200,0,0,0.6) 0%, rgba(100,0,0,0.3) 50%, transparent 70%);
+          animation: devil-aura-pulse 0.3s ease-in-out infinite alternate;
+          filter: blur(20px);
+        }
+        
+        @keyframes hell-dance {
+          0%, 100% { 
+            transform: scaleY(1) scaleX(1) translateX(0) rotate(-4deg);
+            filter: brightness(1);
+          }
+          20% { 
+            transform: scaleY(1.2) scaleX(0.8) translateX(-8px) rotate(3deg);
+            filter: brightness(1.3);
+          }
+          40% { 
+            transform: scaleY(0.85) scaleX(1.15) translateX(5px) rotate(-2deg);
+            filter: brightness(0.85);
+          }
+          60% { 
+            transform: scaleY(1.25) scaleX(0.85) translateX(-3px) rotate(4deg);
+            filter: brightness(1.4);
+          }
+          80% { 
+            transform: scaleY(0.9) scaleX(1.1) translateX(6px) rotate(-3deg);
+            filter: brightness(1.1);
+          }
+        }
+        
+        @keyframes ash-float {
+          0%, 100% { 
+            transform: translateY(0) translateX(0) rotate(0deg);
+            opacity: 0.6;
+          }
+          25% { 
+            transform: translateY(-20px) translateX(10px) rotate(90deg);
+            opacity: 0.4;
+          }
+          50% { 
+            transform: translateY(-10px) translateX(-5px) rotate(180deg);
+            opacity: 0.5;
+          }
+          75% { 
+            transform: translateY(-30px) translateX(15px) rotate(270deg);
+            opacity: 0.3;
+          }
+        }
+        
+        @keyframes hell-glow-pulse {
+          0% { opacity: 0.3; }
+          100% { opacity: 0.7; }
+        }
+        
+        @keyframes devil-aura-pulse {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(1.3); opacity: 0.9; }
         }
         
         .animate-devil-appear {
