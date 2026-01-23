@@ -185,6 +185,14 @@ export function MultiImportFlow({
   const handleAnalyzeAll = async () => {
     if (files.length === 0) return;
 
+    // Get pending files BEFORE updating state (state update is async)
+    const pendingFiles = files.filter((f) => f.status === "pending");
+    
+    if (pendingFiles.length === 0) {
+      toast.info("Aucun fichier en attente d'analyse");
+      return;
+    }
+
     setIsAnalyzing(true);
 
     // Mark all as analyzing
@@ -192,9 +200,12 @@ export function MultiImportFlow({
       prev.map((f) => (f.status === "pending" ? { ...f, status: "analyzing" as const } : f))
     );
 
-    // Analyze in parallel with limited concurrency
-    const pendingFiles = files.filter((f) => f.status === "analyzing");
+    console.log("Starting analysis for", pendingFiles.length, "files");
+
+    // Analyze in parallel
     const results = await Promise.all(pendingFiles.map(analyzeFile));
+
+    console.log("Analysis complete, results:", results.map(r => ({ name: r.file.name, status: r.status })));
 
     setFiles((prev) =>
       prev.map((f) => {
