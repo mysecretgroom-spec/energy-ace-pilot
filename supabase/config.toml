@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.scheduled-gmail-sync]
 verify_jwt = false
+
+[functions.plaid]
+verify_jwt = false
