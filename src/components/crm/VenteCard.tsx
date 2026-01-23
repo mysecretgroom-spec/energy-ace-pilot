@@ -159,16 +159,26 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-lg font-bold text-primary">
-                {formatCurrency(vente.montant_ttc)}
-              </p>
+              {/* Pour les ventes externes: afficher uniquement la commission (= montant_ht) */}
+              {isExternalInstallation ? (
+                <p className="text-lg font-bold text-amber-600">
+                  Commission: {formatCurrency(vente.montant_ht)}
+                </p>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-primary">
+                    {formatCurrency(vente.montant_ttc)}
+                  </p>
+                </>
+              )}
               <div className="flex items-center gap-2 flex-wrap">
-                {vente.puissance_kwc && (
+                {vente.puissance_kwc && !isExternalInstallation && (
                   <span className="text-xs text-muted-foreground">
                     {vente.puissance_kwc} kWc
                   </span>
                 )}
-                {rawCommission > 0 && (
+                {/* Pour les ventes standard: afficher le détail des commissions calculées */}
+                {rawCommission > 0 && !isExternalInstallation && (
                   <Popover>
                     <PopoverTrigger asChild>
                       <Badge 
@@ -229,12 +239,12 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
                     </PopoverContent>
                   </Popover>
                 )}
-                {decomMontant > 0 && (
+                {decomMontant > 0 && !isExternalInstallation && (
                   <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-200">
                     Décom: -{formatCurrency(decomMontant)}
                   </Badge>
                 )}
-                {!selectionMode && (
+                {!selectionMode && !isExternalInstallation && (
                   <Button
                     variant="ghost"
                     size="sm"
