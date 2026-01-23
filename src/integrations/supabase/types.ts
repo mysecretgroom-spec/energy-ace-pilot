@@ -27,6 +27,7 @@ export type Database = {
           nom: string
           notes: string | null
           prenom: string | null
+          regie_id: string | null
           source: string | null
           telephone: string | null
           telephone_secondaire: string | null
@@ -46,6 +47,7 @@ export type Database = {
           nom: string
           notes?: string | null
           prenom?: string | null
+          regie_id?: string | null
           source?: string | null
           telephone?: string | null
           telephone_secondaire?: string | null
@@ -65,6 +67,7 @@ export type Database = {
           nom?: string
           notes?: string | null
           prenom?: string | null
+          regie_id?: string | null
           source?: string | null
           telephone?: string | null
           telephone_secondaire?: string | null
@@ -72,7 +75,15 @@ export type Database = {
           user_id?: string
           ville?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       commissions: {
         Row: {
