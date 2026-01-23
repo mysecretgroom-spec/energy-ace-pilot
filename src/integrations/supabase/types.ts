@@ -988,6 +988,8 @@ export type Database = {
         Row: {
           categorie: Database["public"]["Enums"]["frais_categorie"]
           created_at: string
+          date_debut: string | null
+          date_fin: string | null
           date_frais: string
           description: string | null
           document_id: string | null
@@ -1000,6 +1002,8 @@ export type Database = {
         Insert: {
           categorie: Database["public"]["Enums"]["frais_categorie"]
           created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
           date_frais?: string
           description?: string | null
           document_id?: string | null
@@ -1012,6 +1016,8 @@ export type Database = {
         Update: {
           categorie?: Database["public"]["Enums"]["frais_categorie"]
           created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
           date_frais?: string
           description?: string | null
           document_id?: string | null
