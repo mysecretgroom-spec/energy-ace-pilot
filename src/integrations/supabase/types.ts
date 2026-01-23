@@ -155,6 +155,7 @@ export type Database = {
           id: string
           nom: string
           ordre_priorite: number | null
+          regie_id: string | null
           role: Database["public"]["Enums"]["confirmateur_role"]
           telephone: string
           updated_at: string
@@ -166,6 +167,7 @@ export type Database = {
           id?: string
           nom: string
           ordre_priorite?: number | null
+          regie_id?: string | null
           role?: Database["public"]["Enums"]["confirmateur_role"]
           telephone: string
           updated_at?: string
@@ -177,12 +179,21 @@ export type Database = {
           id?: string
           nom?: string
           ordre_priorite?: number | null
+          regie_id?: string | null
           role?: Database["public"]["Enums"]["confirmateur_role"]
           telephone?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "confirmateurs_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       data_aides: {
         Row: {
@@ -593,6 +604,7 @@ export type Database = {
           email: string
           id: string
           nom_source: string | null
+          regie_id: string | null
           user_id: string
         }
         Insert: {
@@ -601,6 +613,7 @@ export type Database = {
           email: string
           id?: string
           nom_source?: string | null
+          regie_id?: string | null
           user_id: string
         }
         Update: {
@@ -609,9 +622,18 @@ export type Database = {
           email?: string
           id?: string
           nom_source?: string | null
+          regie_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "emails_autorises_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       etudes: {
         Row: {
@@ -1384,6 +1406,7 @@ export type Database = {
           longitude: number | null
           metadata: Json | null
           r2_type: string | null
+          regie_id: string | null
           source: string | null
           status: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes: number | null
@@ -1410,6 +1433,7 @@ export type Database = {
           longitude?: number | null
           metadata?: Json | null
           r2_type?: string | null
+          regie_id?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
@@ -1436,6 +1460,7 @@ export type Database = {
           longitude?: number | null
           metadata?: Json | null
           r2_type?: string | null
+          regie_id?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["rdv_status"]
           travel_time_minutes?: number | null
@@ -1457,6 +1482,149 @@ export type Database = {
             columns: ["etude_id"]
             isOneToOne: false
             referencedRelation: "etudes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdv_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regies: {
+        Row: {
+          actif: boolean
+          couleur: string | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          nom: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          couleur?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nom: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          couleur?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nom?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      regies_bouquets: {
+        Row: {
+          actif: boolean
+          commission_fixe: number | null
+          commission_pct: number | null
+          created_at: string
+          description: string | null
+          id: string
+          nom_bouquet: string
+          prix_hejja: number | null
+          prix_max: number
+          prix_recommande: number
+          puissance_kwc: number
+          regie_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom_bouquet: string
+          prix_hejja?: number | null
+          prix_max?: number
+          prix_recommande?: number
+          puissance_kwc: number
+          regie_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom_bouquet?: string
+          prix_hejja?: number | null
+          prix_max?: number
+          prix_recommande?: number
+          puissance_kwc?: number
+          regie_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regies_bouquets_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regies_contacts: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          is_principal: boolean
+          nom: string
+          regie_id: string
+          telephone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          is_principal?: boolean
+          nom: string
+          regie_id: string
+          telephone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          is_principal?: boolean
+          nom?: string
+          regie_id?: string
+          telephone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regies_contacts_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
             referencedColumns: ["id"]
           },
         ]
@@ -1586,6 +1754,7 @@ export type Database = {
           notes: string | null
           numero_contrat: string | null
           puissance_kwc: number | null
+          regie_id: string | null
           status: Database["public"]["Enums"]["vente_status"]
           type_installation: string | null
           type_vente: Database["public"]["Enums"]["vente_type"]
@@ -1611,6 +1780,7 @@ export type Database = {
           notes?: string | null
           numero_contrat?: string | null
           puissance_kwc?: number | null
+          regie_id?: string | null
           status?: Database["public"]["Enums"]["vente_status"]
           type_installation?: string | null
           type_vente?: Database["public"]["Enums"]["vente_type"]
@@ -1636,6 +1806,7 @@ export type Database = {
           notes?: string | null
           numero_contrat?: string | null
           puissance_kwc?: number | null
+          regie_id?: string | null
           status?: Database["public"]["Enums"]["vente_status"]
           type_installation?: string | null
           type_vente?: Database["public"]["Enums"]["vente_type"]
@@ -1655,6 +1826,13 @@ export type Database = {
             columns: ["etude_id"]
             isOneToOne: false
             referencedRelation: "etudes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Building2,
@@ -26,57 +25,396 @@ import {
   Palette,
   Edit,
   Check,
+  Loader2,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
-// Données mockup pour démonstration
-const mockRegies = [
-  {
-    id: "1",
-    nom: "EDF ENR",
-    couleur: "#0066CC",
-    actif: true,
-    emails: [
-      { id: "e1", email: "contact@edf-enr.fr", nom_source: "EDF Principal", actif: true },
-      { id: "e2", email: "rdv@edf-enr.fr", nom_source: "RDV EDF", actif: true },
-    ],
-    contacts: [
-      { id: "c1", nom: "Sophie Martin", telephone: "06 12 34 56 78", is_principal: true },
-      { id: "c2", nom: "Pierre Durand", telephone: "06 98 76 54 32", is_principal: false },
-    ],
-    bouquets: [
-      { id: "b1", nom_bouquet: "Kit 3kWc EDF", puissance_kwc: 3, prix_recommande: 8500, commission_fixe: 450 },
-      { id: "b2", nom_bouquet: "Kit 6kWc EDF", puissance_kwc: 6, prix_recommande: 14500, commission_fixe: 750 },
-    ],
-    stats: { rdv: 24, ventes: 8, ca: 98500 },
-  },
-  {
-    id: "2",
-    nom: "Engie Solar",
-    couleur: "#00A86B",
-    actif: true,
-    emails: [
-      { id: "e3", email: "leads@engie-solar.com", nom_source: "Engie Leads", actif: true },
-    ],
-    contacts: [
-      { id: "c3", nom: "Marc Lefebvre", telephone: "07 11 22 33 44", is_principal: true },
-    ],
-    bouquets: [
-      { id: "b3", nom_bouquet: "Pack Engie 3kWc", puissance_kwc: 3, prix_recommande: 9200, commission_fixe: 500 },
-      { id: "b4", nom_bouquet: "Pack Engie 6kWc", puissance_kwc: 6, prix_recommande: 15800, commission_fixe: 850 },
-      { id: "b5", nom_bouquet: "Pack Engie 9kWc", puissance_kwc: 9, prix_recommande: 21500, commission_fixe: 1100 },
-    ],
-    stats: { rdv: 18, ventes: 5, ca: 72000 },
-  },
-];
+interface Regie {
+  id: string;
+  nom: string;
+  couleur: string;
+  logo_url: string | null;
+  actif: boolean;
+  created_at: string;
+}
+
+interface RegieEmail {
+  id: string;
+  regie_id: string;
+  email: string;
+  nom_source: string | null;
+  actif: boolean;
+}
+
+interface RegieContact {
+  id: string;
+  regie_id: string;
+  nom: string;
+  telephone: string;
+  is_principal: boolean;
+  actif: boolean;
+}
+
+interface RegieBouquet {
+  id: string;
+  regie_id: string;
+  nom_bouquet: string;
+  puissance_kwc: number;
+  prix_recommande: number;
+  prix_max: number;
+  prix_hejja: number;
+  commission_fixe: number;
+  commission_pct: number;
+  description: string | null;
+  actif: boolean;
+}
+
+interface RegieStats {
+  rdv: number;
+  ventes: number;
+  ca: number;
+}
 
 const colorOptions = [
   "#0066CC", "#00A86B", "#FF6B35", "#9B59B6", "#E74C3C", "#3498DB", "#F39C12", "#1ABC9C"
 ];
 
 const RegiesSettings = () => {
-  const [regies] = useState(mockRegies);
-  const [selectedRegie, setSelectedRegie] = useState<typeof mockRegies[0] | null>(null);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [regies, setRegies] = useState<Regie[]>([]);
+  const [regieStats, setRegieStats] = useState<Record<string, RegieStats>>({});
+  const [selectedRegie, setSelectedRegie] = useState<Regie | null>(null);
+  const [regieEmails, setRegieEmails] = useState<RegieEmail[]>([]);
+  const [regieContacts, setRegieContacts] = useState<RegieContact[]>([]);
+  const [regieBouquets, setRegieBouquets] = useState<RegieBouquet[]>([]);
+  
+  // Create dialog
   const [isCreating, setIsCreating] = useState(false);
+  const [newRegie, setNewRegie] = useState({ nom: "", couleur: "#0066CC" });
+  
+  // Edit forms
+  const [newEmail, setNewEmail] = useState({ email: "", nom_source: "" });
+  const [newContact, setNewContact] = useState({ nom: "", telephone: "" });
+  const [newBouquet, setNewBouquet] = useState({
+    nom_bouquet: "",
+    puissance_kwc: 3,
+    prix_recommande: 0,
+    prix_max: 0,
+    prix_hejja: 0,
+    commission_fixe: 0,
+  });
+
+  useEffect(() => {
+    if (user) {
+      fetchRegies();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedRegie) {
+      fetchRegieDetails(selectedRegie.id);
+    }
+  }, [selectedRegie?.id]);
+
+  const fetchRegies = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("regies")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("nom");
+
+      if (error) throw error;
+      setRegies(data || []);
+
+      // Fetch stats for each regie
+      const statsMap: Record<string, RegieStats> = {};
+      for (const regie of data || []) {
+        const [rdvResult, ventesResult] = await Promise.all([
+          supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", regie.id),
+          supabase.from("ventes").select("id, montant_solde").eq("regie_id", regie.id),
+        ]);
+        
+        const ventes = ventesResult.data || [];
+        statsMap[regie.id] = {
+          rdv: rdvResult.count || 0,
+          ventes: ventes.length,
+          ca: ventes.reduce((sum, v) => sum + (v.montant_solde || 0), 0),
+        };
+      }
+      setRegieStats(statsMap);
+    } catch (error) {
+      console.error("Error fetching regies:", error);
+      toast.error("Erreur lors du chargement des régies");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRegieDetails = async (regieId: string) => {
+    try {
+      const [emailsRes, contactsRes, bouquetsRes] = await Promise.all([
+        supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
+        supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
+        supabase.from("regies_bouquets").select("*").eq("regie_id", regieId).order("puissance_kwc"),
+      ]);
+
+      setRegieEmails((emailsRes.data || []) as RegieEmail[]);
+      setRegieContacts(contactsRes.data || []);
+      setRegieBouquets(bouquetsRes.data || []);
+    } catch (error) {
+      console.error("Error fetching regie details:", error);
+    }
+  };
+
+  const handleCreateRegie = async () => {
+    if (!user || !newRegie.nom.trim()) {
+      toast.error("Le nom de la régie est requis");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("regies")
+        .insert({
+          user_id: user.id,
+          nom: newRegie.nom.trim(),
+          couleur: newRegie.couleur,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Une régie avec ce nom existe déjà");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("Régie créée avec succès");
+      setIsCreating(false);
+      setNewRegie({ nom: "", couleur: "#0066CC" });
+      fetchRegies();
+      setSelectedRegie(data);
+    } catch (error) {
+      console.error("Error creating regie:", error);
+      toast.error("Erreur lors de la création");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRegie = async (regieId: string) => {
+    if (!confirm("Supprimer cette régie ? Les emails, contacts et bouquets associés seront également supprimés.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("regies").delete().eq("id", regieId);
+      if (error) throw error;
+      
+      toast.success("Régie supprimée");
+      setSelectedRegie(null);
+      fetchRegies();
+    } catch (error) {
+      console.error("Error deleting regie:", error);
+      toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const handleUpdateRegieColor = async (color: string) => {
+    if (!selectedRegie) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies")
+        .update({ couleur: color })
+        .eq("id", selectedRegie.id);
+
+      if (error) throw error;
+      
+      setSelectedRegie({ ...selectedRegie, couleur: color });
+      setRegies(regies.map(r => r.id === selectedRegie.id ? { ...r, couleur: color } : r));
+      toast.success("Couleur mise à jour");
+    } catch (error) {
+      console.error("Error updating color:", error);
+    }
+  };
+
+  // Email handlers
+  const handleAddEmail = async () => {
+    if (!selectedRegie || !user || !newEmail.email.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from("emails_autorises")
+        .insert({
+          user_id: user.id,
+          regie_id: selectedRegie.id,
+          email: newEmail.email.trim().toLowerCase(),
+          nom_source: newEmail.nom_source.trim() || null,
+          actif: true,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Cet email existe déjà");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("Email ajouté");
+      setNewEmail({ email: "", nom_source: "" });
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error adding email:", error);
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleDeleteEmail = async (emailId: string) => {
+    try {
+      const { error } = await supabase.from("emails_autorises").delete().eq("id", emailId);
+      if (error) throw error;
+      setRegieEmails(regieEmails.filter(e => e.id !== emailId));
+      toast.success("Email supprimé");
+    } catch (error) {
+      console.error("Error deleting email:", error);
+    }
+  };
+
+  const handleToggleEmailActif = async (email: RegieEmail) => {
+    try {
+      const { error } = await supabase
+        .from("emails_autorises")
+        .update({ actif: !email.actif })
+        .eq("id", email.id);
+
+      if (error) throw error;
+      setRegieEmails(regieEmails.map(e => e.id === email.id ? { ...e, actif: !e.actif } : e));
+    } catch (error) {
+      console.error("Error toggling email:", error);
+    }
+  };
+
+  // Contact handlers
+  const handleAddContact = async () => {
+    if (!selectedRegie || !user || !newContact.nom.trim() || !newContact.telephone.trim()) return;
+    
+    try {
+      // If this is the first contact, make it principal
+      const isPrincipal = regieContacts.length === 0;
+
+      const { error } = await supabase
+        .from("regies_contacts")
+        .insert({
+          user_id: user.id,
+          regie_id: selectedRegie.id,
+          nom: newContact.nom.trim(),
+          telephone: newContact.telephone.trim(),
+          is_principal: isPrincipal,
+          actif: true,
+        });
+
+      if (error) throw error;
+
+      toast.success("Contact ajouté");
+      setNewContact({ nom: "", telephone: "" });
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error adding contact:", error);
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleSetPrincipal = async (contactId: string) => {
+    if (!selectedRegie) return;
+    
+    try {
+      // First, unset all principals for this regie
+      await supabase
+        .from("regies_contacts")
+        .update({ is_principal: false })
+        .eq("regie_id", selectedRegie.id);
+
+      // Then set the new principal
+      await supabase
+        .from("regies_contacts")
+        .update({ is_principal: true })
+        .eq("id", contactId);
+
+      toast.success("Contact principal mis à jour");
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error setting principal:", error);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+      const { error } = await supabase.from("regies_contacts").delete().eq("id", contactId);
+      if (error) throw error;
+      setRegieContacts(regieContacts.filter(c => c.id !== contactId));
+      toast.success("Contact supprimé");
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+    }
+  };
+
+  // Bouquet handlers
+  const handleAddBouquet = async () => {
+    if (!selectedRegie || !user || !newBouquet.nom_bouquet.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies_bouquets")
+        .insert({
+          user_id: user.id,
+          regie_id: selectedRegie.id,
+          ...newBouquet,
+          nom_bouquet: newBouquet.nom_bouquet.trim(),
+          actif: true,
+        });
+
+      if (error) throw error;
+
+      toast.success("Bouquet ajouté");
+      setNewBouquet({
+        nom_bouquet: "",
+        puissance_kwc: 3,
+        prix_recommande: 0,
+        prix_max: 0,
+        prix_hejja: 0,
+        commission_fixe: 0,
+      });
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error adding bouquet:", error);
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleDeleteBouquet = async (bouquetId: string) => {
+    try {
+      const { error } = await supabase.from("regies_bouquets").delete().eq("id", bouquetId);
+      if (error) throw error;
+      setRegieBouquets(regieBouquets.filter(b => b.id !== bouquetId));
+      toast.success("Bouquet supprimé");
+    } catch (error) {
+      console.error("Error deleting bouquet:", error);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -85,6 +423,16 @@ const RegiesSettings = () => {
       maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  if (loading) {
+    return (
+      <MobileLayout title="Régies" showBackButton>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout title="Régies" showBackButton>
@@ -97,20 +445,22 @@ const RegiesSettings = () => {
             </p>
           </div>
           <Dialog open={isCreating} onOpenChange={setIsCreating}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
-                Nouvelle
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
+            <Button size="sm" className="gap-2" onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4" />
+              Nouvelle
+            </Button>
+            <DialogContent className="max-w-[95vw]">
               <DialogHeader>
                 <DialogTitle>Nouvelle Régie</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Nom de la régie</label>
-                  <Input placeholder="Ex: EDF ENR, Engie Solar..." />
+                  <Input 
+                    placeholder="Ex: EDF ENR, Engie Solar..." 
+                    value={newRegie.nom}
+                    onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Couleur</label>
@@ -118,85 +468,91 @@ const RegiesSettings = () => {
                     {colorOptions.map((color) => (
                       <button
                         key={color}
-                        className="w-8 h-8 rounded-full border-2 border-transparent hover:border-foreground/50 transition-colors"
+                        className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                          newRegie.couleur === color ? "border-foreground" : "border-transparent"
+                        }`}
                         style={{ backgroundColor: color }}
+                        onClick={() => setNewRegie({ ...newRegie, couleur: color })}
                       />
                     ))}
                   </div>
                 </div>
-                <Button className="w-full">Créer la régie</Button>
+                <Button 
+                  className="w-full" 
+                  onClick={handleCreateRegie}
+                  disabled={saving || !newRegie.nom.trim()}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Créer la régie
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
         {/* Liste des régies */}
-        <div className="space-y-3">
-          {regies.map((regie) => (
-            <Card
-              key={regie.id}
-              className="shadow-card cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden"
-              onClick={() => setSelectedRegie(regie)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  {/* Indicateur couleur */}
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center"
-                    style={{ backgroundColor: regie.couleur + "20" }}
-                  >
-                    <Building2 className="h-6 w-6" style={{ color: regie.couleur }} />
-                  </div>
+        {regies.length === 0 ? (
+          <Card className="bg-muted/50">
+            <CardContent className="p-6 text-center">
+              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">Aucune régie configurée</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Créez votre première régie pour regrouper vos sources de RDV
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {regies.map((regie) => {
+              const stats = regieStats[regie.id] || { rdv: 0, ventes: 0, ca: 0 };
+              return (
+                <Card
+                  key={regie.id}
+                  className="shadow-card cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden"
+                  onClick={() => setSelectedRegie(regie)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
+                        style={{ backgroundColor: regie.couleur + "20" }}
+                      >
+                        <Building2 className="h-6 w-6" style={{ color: regie.couleur }} />
+                      </div>
 
-                  {/* Infos principales */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-foreground truncate">{regie.nom}</h3>
-                      {regie.actif ? (
-                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
-                          Actif
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">Inactif</Badge>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-foreground truncate">{regie.nom}</h3>
+                          {regie.actif ? (
+                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                              Actif
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">Inactif</Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {stats.rdv} RDV
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {stats.ventes} ventes
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs font-medium">
+                            {formatCurrency(stats.ca)}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     </div>
-
-                    {/* Stats rapides */}
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {regie.emails.length}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {regie.contacts.length}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Euro className="h-3 w-3" />
-                        {regie.bouquets.length} bouquets
-                      </span>
-                    </div>
-
-                    {/* Stats performance */}
-                    <div className="flex items-center gap-3 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {regie.stats.rdv} RDV
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {regie.stats.ventes} ventes
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs font-medium">
-                        {formatCurrency(regie.stats.ca)}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Dialog détail régie */}
         <Dialog open={!!selectedRegie} onOpenChange={() => setSelectedRegie(null)}>
@@ -214,16 +570,43 @@ const RegiesSettings = () => {
                       <div>
                         <h2 className="text-xl font-bold">{selectedRegie.nom}</h2>
                         <p className="text-sm opacity-80">
-                          {selectedRegie.stats.ventes} ventes • {formatCurrency(selectedRegie.stats.ca)} CA
+                          {regieStats[selectedRegie.id]?.ventes || 0} ventes • {formatCurrency(regieStats[selectedRegie.id]?.ca || 0)} CA
                         </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="icon" variant="ghost" className="text-white hover:bg-white/20">
-                        <Palette className="h-4 w-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="text-white hover:bg-white/20">
-                        <Edit className="h-4 w-4" />
+                      <Dialog>
+                        <Button size="icon" variant="ghost" className="text-white hover:bg-white/20">
+                          <Palette className="h-4 w-4" />
+                        </Button>
+                        <DialogContent className="max-w-xs">
+                          <DialogHeader>
+                            <DialogTitle>Changer la couleur</DialogTitle>
+                          </DialogHeader>
+                          <div className="flex gap-2 flex-wrap justify-center py-4">
+                            {colorOptions.map((color) => (
+                              <button
+                                key={color}
+                                className={`w-10 h-10 rounded-full border-2 transition-colors ${
+                                  selectedRegie.couleur === color ? "border-foreground" : "border-transparent"
+                                }`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => handleUpdateRegieColor(color)}
+                              />
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="text-white hover:bg-white/20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRegie(selectedRegie.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -248,17 +631,34 @@ const RegiesSettings = () => {
 
                   {/* Onglet Emails */}
                   <TabsContent value="emails" className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">
-                        Emails d'import RDV automatique
-                      </p>
-                      <Button size="sm" variant="outline" className="gap-1">
-                        <Plus className="h-3 w-3" />
-                        Ajouter
-                      </Button>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Emails d'import RDV automatique
+                    </p>
 
-                    {selectedRegie.emails.map((email) => (
+                    {/* Formulaire ajout email */}
+                    <Card>
+                      <CardContent className="p-3 space-y-2">
+                        <Input
+                          placeholder="Email expéditeur"
+                          type="email"
+                          value={newEmail.email}
+                          onChange={(e) => setNewEmail({ ...newEmail, email: e.target.value })}
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Nom source (optionnel)"
+                            value={newEmail.nom_source}
+                            onChange={(e) => setNewEmail({ ...newEmail, nom_source: e.target.value })}
+                            className="flex-1"
+                          />
+                          <Button size="sm" onClick={handleAddEmail} disabled={!newEmail.email.trim()}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {regieEmails.map((email) => (
                       <Card key={email.id}>
                         <CardContent className="p-3 flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-primary/10">
@@ -266,30 +666,66 @@ const RegiesSettings = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{email.email}</p>
-                            <p className="text-xs text-muted-foreground">{email.nom_source}</p>
+                            {email.nom_source && (
+                              <p className="text-xs text-muted-foreground">{email.nom_source}</p>
+                            )}
                           </div>
-                          <Switch checked={email.actif} />
-                          <Button size="icon" variant="ghost" className="text-destructive">
+                          <Switch 
+                            checked={email.actif} 
+                            onCheckedChange={() => handleToggleEmailActif(email)}
+                          />
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="text-destructive"
+                            onClick={() => handleDeleteEmail(email.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </CardContent>
                       </Card>
                     ))}
+
+                    {regieEmails.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun email configuré
+                      </p>
+                    )}
                   </TabsContent>
 
                   {/* Onglet Contacts WhatsApp */}
                   <TabsContent value="contacts" className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">
-                        Contacts pour envoi WhatsApp
-                      </p>
-                      <Button size="sm" variant="outline" className="gap-1">
-                        <Plus className="h-3 w-3" />
-                        Ajouter
-                      </Button>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Contacts pour envoi WhatsApp
+                    </p>
 
-                    {selectedRegie.contacts.map((contact) => (
+                    {/* Formulaire ajout contact */}
+                    <Card>
+                      <CardContent className="p-3 space-y-2">
+                        <Input
+                          placeholder="Nom du contact"
+                          value={newContact.nom}
+                          onChange={(e) => setNewContact({ ...newContact, nom: e.target.value })}
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Téléphone"
+                            value={newContact.telephone}
+                            onChange={(e) => setNewContact({ ...newContact, telephone: e.target.value })}
+                            className="flex-1"
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={handleAddContact} 
+                            disabled={!newContact.nom.trim() || !newContact.telephone.trim()}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {regieContacts.map((contact) => (
                       <Card key={contact.id} className={contact.is_principal ? "ring-2 ring-primary" : ""}>
                         <CardContent className="p-3 flex items-center gap-3">
                           <div className={`p-2 rounded-lg ${contact.is_principal ? "bg-primary text-primary-foreground" : "bg-green-500/10"}`}>
@@ -308,17 +744,33 @@ const RegiesSettings = () => {
                             <p className="text-xs text-muted-foreground">{contact.telephone}</p>
                           </div>
                           {!contact.is_principal && (
-                            <Button size="sm" variant="outline" className="text-xs gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="text-xs gap-1"
+                              onClick={() => handleSetPrincipal(contact.id)}
+                            >
                               <Check className="h-3 w-3" />
                               Principal
                             </Button>
                           )}
-                          <Button size="icon" variant="ghost" className="text-destructive">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="text-destructive"
+                            onClick={() => handleDeleteContact(contact.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </CardContent>
                       </Card>
                     ))}
+
+                    {regieContacts.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun contact configuré
+                      </p>
+                    )}
 
                     <Card className="bg-muted/50 border-dashed">
                       <CardContent className="p-3">
@@ -331,17 +783,66 @@ const RegiesSettings = () => {
 
                   {/* Onglet Bouquets/Tarifs */}
                   <TabsContent value="bouquets" className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground">
-                        Tarifs et commissions spécifiques
-                      </p>
-                      <Button size="sm" variant="outline" className="gap-1">
-                        <Plus className="h-3 w-3" />
-                        Ajouter
-                      </Button>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Tarifs et commissions spécifiques à cette régie
+                    </p>
 
-                    {selectedRegie.bouquets.map((bouquet) => (
+                    {/* Formulaire ajout bouquet */}
+                    <Card>
+                      <CardContent className="p-3 space-y-2">
+                        <Input
+                          placeholder="Nom du bouquet"
+                          value={newBouquet.nom_bouquet}
+                          onChange={(e) => setNewBouquet({ ...newBouquet, nom_bouquet: e.target.value })}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Puissance (kWc)</label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={newBouquet.puissance_kwc}
+                              onChange={(e) => setNewBouquet({ ...newBouquet, puissance_kwc: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Prix recommandé</label>
+                            <Input
+                              type="number"
+                              value={newBouquet.prix_recommande}
+                              onChange={(e) => setNewBouquet({ ...newBouquet, prix_recommande: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Prix max</label>
+                            <Input
+                              type="number"
+                              value={newBouquet.prix_max}
+                              onChange={(e) => setNewBouquet({ ...newBouquet, prix_max: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Commission €</label>
+                            <Input
+                              type="number"
+                              value={newBouquet.commission_fixe}
+                              onChange={(e) => setNewBouquet({ ...newBouquet, commission_fixe: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="w-full"
+                          onClick={handleAddBouquet} 
+                          disabled={!newBouquet.nom_bouquet.trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Ajouter le bouquet
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {regieBouquets.map((bouquet) => (
                       <Card key={bouquet.id}>
                         <CardContent className="p-3">
                           <div className="flex items-start justify-between">
@@ -351,7 +852,12 @@ const RegiesSettings = () => {
                                 {bouquet.puissance_kwc} kWc
                               </p>
                             </div>
-                            <Button size="icon" variant="ghost" className="text-destructive h-8 w-8">
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="text-destructive h-8 w-8"
+                              onClick={() => handleDeleteBouquet(bouquet.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -372,32 +878,25 @@ const RegiesSettings = () => {
                         </CardContent>
                       </Card>
                     ))}
+
+                    {regieBouquets.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun bouquet configuré
+                      </p>
+                    )}
                   </TabsContent>
                 </Tabs>
 
                 {/* Footer actions */}
-                <div className="p-4 border-t flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setSelectedRegie(null)}>
+                <div className="p-4 border-t">
+                  <Button variant="outline" className="w-full" onClick={() => setSelectedRegie(null)}>
                     Fermer
-                  </Button>
-                  <Button className="flex-1 gap-2">
-                    <Check className="h-4 w-4" />
-                    Enregistrer
                   </Button>
                 </div>
               </>
             )}
           </DialogContent>
         </Dialog>
-
-        {/* Info mockup */}
-        <Card className="bg-amber-500/10 border-amber-500/30">
-          <CardContent className="p-3">
-            <p className="text-xs text-amber-700 dark:text-amber-400 text-center">
-              ⚠️ <strong>Mockup</strong> - Données de démonstration pour validation de l'interface
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </MobileLayout>
   );
