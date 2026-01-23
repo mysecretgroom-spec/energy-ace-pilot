@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { BankImport } from "@/components/finance/BankImport";
+import { PlaidLink } from "@/components/finance/PlaidLink";
 import { AddDocumentFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
@@ -788,6 +789,24 @@ const Finance = () => {
                 }
               }}
               onCancel={() => setDocumentFlowOpen(false)}
+            />
+            
+            {/* Plaid Bank Connection */}
+            <PlaidLink 
+              onTransactionsImported={() => {
+                // Refresh frais data
+                if (user) {
+                  supabase
+                    .from("frais")
+                    .select("*")
+                    .eq("user_id", user.id)
+                    .order("date_frais", { ascending: false })
+                    .limit(10)
+                    .then(({ data }) => {
+                      if (data) setFraisData(data as FraisItem[]);
+                    });
+                }
+              }}
             />
             
             {/* Export & Reports */}

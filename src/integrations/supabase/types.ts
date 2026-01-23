@@ -1252,6 +1252,30 @@ export type Database = {
         }
         Relationships: []
       }
+      plaid_syncs: {
+        Row: {
+          created_at: string
+          id: string
+          synced_at: string
+          transactions_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          synced_at?: string
+          transactions_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          synced_at?: string
+          transactions_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
