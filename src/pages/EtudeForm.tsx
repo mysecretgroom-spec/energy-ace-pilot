@@ -125,7 +125,6 @@ interface DataFinancement {
   nom: string;
   taux_effectif: number;
   taeg: number;
-  duree_mois: number;
   actif: boolean;
 }
 
@@ -194,6 +193,7 @@ const EtudeForm = () => {
 
   // === FINANCEMENT ===
   const [financementId, setFinancementId] = useState("");
+  const [dureeMoisManuelle, setDureeMoisManuelle] = useState<number>(120);
   const [mensualiteManuelle, setMensualiteManuelle] = useState<number | "">("");
 
   // === PRIX MANUEL ===
@@ -350,6 +350,7 @@ const EtudeForm = () => {
     prixInstallationManuel,
     rendementProductivite,
     financementId,
+    dureeMoisManuelle,
     mensualiteManuelle,
     surcoutSupport,
     surcoutCompteur,
@@ -396,7 +397,7 @@ const EtudeForm = () => {
     if (currentRegieId) {
       const [bouquetsRes, financementsRes] = await Promise.all([
         supabase.from("regies_bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max").eq("regie_id", currentRegieId).eq("actif", true).order("puissance_kwc"),
-        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, duree_mois, actif").eq("regie_id", currentRegieId).eq("actif", true).order("duree_mois"),
+        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
       ]);
       
       if (bouquetsRes.data) {
@@ -414,7 +415,6 @@ const EtudeForm = () => {
           nom: f.nom,
           taux_effectif: Number(f.taux_effectif),
           taeg: Number(f.taeg),
-          duree_mois: f.duree_mois,
           actif: f.actif,
         }));
       }
@@ -422,7 +422,7 @@ const EtudeForm = () => {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
         supabase.from("data_prix_bouquets").select("*").eq("actif", true).order("puissance_kwc"),
-        supabase.from("data_financements").select("*").eq("actif", true).order("duree_mois"),
+        supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
       ]);
       
       if (bouquetsRes.data) bouquetsData = bouquetsRes.data;
@@ -525,6 +525,10 @@ const EtudeForm = () => {
         if (financement) {
           setFinancementId(financement.id);
         }
+      }
+      // Durée du financement
+      if (etude.duree_financement_mois) {
+        setDureeMoisManuelle(etude.duree_financement_mois);
       }
       // Classification
       setClassification(etude.classification || "");
@@ -719,7 +723,7 @@ const EtudeForm = () => {
     // Si mensualité manuelle, l'utiliser, sinon calculer
     let mensualite = 0;
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = selectedFinancement?.duree_mois || 180;
+    const dureeMois = dureeMoisManuelle || 120;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
     const tauxMensuel = tauxEffectif / 100 / 12;
     
@@ -833,7 +837,7 @@ const EtudeForm = () => {
       total_aides_deduites: calculatedResults.totalAidesDeduites,
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
-      duree_financement_mois: dataFinancements.find(f => f.id === financementId)?.duree_mois || null,
+      duree_financement_mois: dureeMoisManuelle || 120,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
       mensualite_estimee: calculatedResults.mensualite,
       // Rentabilité
@@ -1111,7 +1115,7 @@ const EtudeForm = () => {
       // Financement
       financementNom: selectedFinancement?.nom || "Non défini",
       tauxFinancement: selectedFinancement?.taux_effectif || 0,
-      dureeMois: selectedFinancement?.duree_mois || 180,
+      dureeMois: dureeMoisManuelle || 120,
       mensualite: calculatedResults.mensualite,
       
       // Rentabilité
@@ -1192,7 +1196,7 @@ const EtudeForm = () => {
       totalAidesDeduites: calculatedResults.totalAidesDeduites,
       financementNom: selectedFinancement?.nom || "Non défini",
       tauxFinancement: selectedFinancement?.taux_effectif || 0,
-      dureeMois: selectedFinancement?.duree_mois || 180,
+      dureeMois: dureeMoisManuelle || 120,
       mensualite: calculatedResults.mensualite,
       autoconsommationEuros: calculatedResults.autoconsommationEuros,
       reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
@@ -2029,7 +2033,7 @@ const EtudeForm = () => {
                     <SelectContent>
                       {dataFinancements.map((f) => (
                         <SelectItem key={f.id} value={f.id}>
-                          {f.nom} ({f.taux_effectif}% - {f.duree_mois} mois)
+                          {f.nom} ({f.taux_effectif}%)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -2047,6 +2051,21 @@ const EtudeForm = () => {
                     </div>
                   </div>
                 )}
+                <div className="mt-2">
+                  <label className="text-xs text-muted-foreground">Durée du financement (mois)</label>
+                  <Select value={String(dureeMoisManuelle)} onValueChange={(v) => setDureeMoisManuelle(Number(v))}>
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Durée" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[60, 84, 96, 108, 120, 144, 168, 180, 240].map((mois) => (
+                        <SelectItem key={mois} value={String(mois)}>
+                          {mois} mois ({(mois / 12).toFixed(0)} ans)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="mt-2">
                   <label className="text-xs text-muted-foreground">Mensualité manuelle</label>
                   <Input
