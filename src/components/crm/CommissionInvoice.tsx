@@ -31,6 +31,8 @@ interface Vente {
   montant_ttc: number;
   puissance_kwc: number | null;
   status: string;
+  regie_id?: string | null;
+  decom_montant?: number | null;
   client: {
     id: string;
     nom: string;
@@ -41,9 +43,9 @@ interface Vente {
 interface Commission {
   vente_id: string;
   montant_base: number;
-  taux_commission: number;
-  montant_commission: number;
+  commission_fixe: number;
   bonus_survente: number;
+  montant_commission: number;
 }
 
 interface CommissionInvoiceProps {
@@ -63,8 +65,6 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
   const { user } = useAuth();
   const [selectedVentes, setSelectedVentes] = useState<string[]>([]);
   const [commissions, setCommissions] = useState<Map<string, Commission>>(new Map());
-  const [commissionConfig, setCommissionConfig] = useState<{ part_survente_pct: number }>({ part_survente_pct: 50 });
-  const [dataCommissions, setDataCommissions] = useState<{ tranche_min: number; tranche_max: number; taux_commission: number; bonus_survente: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -72,66 +72,115 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
   const eligibleVentes = ventes.filter(v => v.status === "paye");
 
   useEffect(() => {
-    if (open) {
-      loadCommissionData();
+    if (open && eligibleVentes.length > 0) {
+      loadAndCalculateCommissions();
     }
-  }, [open]);
+  }, [open, ventes]);
 
   useEffect(() => {
-    // Calculer les commissions pour les ventes sélectionnées
-    calculateCommissions();
-  }, [selectedVentes, dataCommissions, commissionConfig]);
+    if (selectedVentes.length > 0) {
+      loadAndCalculateCommissions();
+    }
+  }, [selectedVentes]);
 
-  const loadCommissionData = async () => {
+  const loadAndCalculateCommissions = async () => {
     setLoading(true);
     
-    const [configRes, dataRes] = await Promise.all([
-      supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
-      supabase.from("data_commissions").select("*").order("tranche_min"),
-    ]);
-
-    if (configRes.data) {
-      setCommissionConfig({ part_survente_pct: configRes.data.part_survente_pct });
-    }
-    if (dataRes.data) {
-      setDataCommissions(dataRes.data);
-    }
-
-    setLoading(false);
-  };
-
-  const calculateCommissions = () => {
-    const newCommissions = new Map<string, Commission>();
-
-    selectedVentes.forEach(venteId => {
-      const vente = eligibleVentes.find(v => v.id === venteId);
-      if (!vente || !vente.puissance_kwc) return;
-
-      // Trouver la tranche applicable
-      const tranche = dataCommissions.find(
-        t => vente.montant_ht >= t.tranche_min && vente.montant_ht <= t.tranche_max
-      );
-
-      if (!tranche) return;
-
-      const montantBase = vente.montant_ht;
-      const tauxCommission = tranche.taux_commission;
-      const montantCommission = montantBase * (tauxCommission / 100);
+    try {
+      // Get unique regie IDs from ventes
+      const regieIds = [...new Set(eligibleVentes.map(v => v.regie_id).filter(Boolean))] as string[];
       
-      // Calcul bonus survente (si prix > prix recommandé du bouquet)
-      // Simplifié ici: on utilise le bonus_survente de la tranche
-      const bonusSurvente = tranche.bonus_survente || 0;
+      // Fetch bouquets (global and per-regie) and regie configs
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
+        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
+        regieIds.length > 0 
+          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
+          : Promise.resolve({ data: [] }),
+        regieIds.length > 0
+          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+      ]);
 
-      newCommissions.set(venteId, {
-        vente_id: venteId,
-        montant_base: montantBase,
-        taux_commission: tauxCommission,
-        montant_commission: montantCommission,
-        bonus_survente: bonusSurvente,
+      const globalBouquets = globalBouquetsRes.data || [];
+      const regieBouquets = regieBouquetsRes.data || [];
+      const regies = regiesRes.data || [];
+      const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      
+      // Create maps for quick lookup
+      const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
+      const regieBouquetsMap = new Map<string, any[]>();
+      regieBouquets.forEach((b: any) => {
+        if (b.regie_id) {
+          const existing = regieBouquetsMap.get(b.regie_id) || [];
+          existing.push(b);
+          regieBouquetsMap.set(b.regie_id, existing);
+        }
       });
-    });
 
-    setCommissions(newCommissions);
+      // Helper to find or interpolate bouquet
+      const findBouquet = (bouquets: any[], puissance: number) => {
+        const exact = bouquets.find(b => b.puissance_kwc === puissance);
+        if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
+        
+        const sorted = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+        const lower = sorted.filter(b => b.puissance_kwc < puissance).pop();
+        if (lower) {
+          return { prixRecommande: lower.prix_recommande + (puissance - lower.puissance_kwc) * 1000, commissionFixe: lower.commission_fixe || 0 };
+        }
+        const upper = sorted.find(b => b.puissance_kwc > puissance);
+        if (upper) {
+          return { prixRecommande: upper.prix_recommande - (upper.puissance_kwc - puissance) * 1000, commissionFixe: upper.commission_fixe || 0 };
+        }
+        return { prixRecommande: puissance * 4500, commissionFixe: 0 };
+      };
+
+      // Calculate commissions
+      const newCommissions = new Map<string, Commission>();
+      
+      eligibleVentes.forEach(vente => {
+        if (!vente.puissance_kwc) return;
+        
+        const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
+        const bouquetsToUse = vente.regie_id && regieBouquetsMap.has(vente.regie_id)
+          ? regieBouquetsMap.get(vente.regie_id)!
+          : globalBouquets;
+        const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
+        
+        const bouquet = findBouquet(bouquetsToUse, vente.puissance_kwc);
+        const commissionFixe = bouquet.commissionFixe;
+        
+        // Calculate survente
+        let bonusSurvente = 0;
+        const puissance = vente.puissance_kwc || 3;
+        const tauxTVA = puissance <= 3 ? 10 : 20;
+        const montantTTC = vente.montant_ttc || (vente.montant_ht * (1 + tauxTVA / 100));
+        
+        if (bouquet.prixRecommande > 0 && montantTTC > bouquet.prixRecommande) {
+          const surventeTTC = montantTTC - bouquet.prixRecommande;
+          const surventeHT = surventeTTC / (1 + tauxTVA / 100);
+          bonusSurvente = surventeHT * (partSurventePct / 100);
+        }
+        
+        const decomMontant = vente.decom_montant || 0;
+        const montantCommission = Math.max(0, commissionFixe + bonusSurvente - decomMontant);
+
+        newCommissions.set(vente.id, {
+          vente_id: vente.id,
+          montant_base: vente.montant_ht,
+          commission_fixe: commissionFixe,
+          bonus_survente: bonusSurvente,
+          montant_commission: montantCommission,
+        });
+      });
+
+      setCommissions(newCommissions);
+    } catch (error) {
+      console.error("Error loading commission data:", error);
+      toast.error("Erreur lors du chargement des données");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleVente = (venteId: string) => {
@@ -188,17 +237,16 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
           vente.client ? `${vente.client.prenom || ""} ${vente.client.nom}`.trim() : "-",
           vente.numero_contrat || "-",
           vente.date_signature ? format(new Date(vente.date_signature), "dd/MM/yy") : "-",
-          formatCurrency(commission.montant_base),
-          `${commission.taux_commission}%`,
-          formatCurrency(commission.montant_commission),
+          formatCurrency(vente.montant_ht),
+          formatCurrency(commission.commission_fixe),
           formatCurrency(commission.bonus_survente),
-          formatCurrency(commission.montant_commission + commission.bonus_survente),
+          formatCurrency(commission.montant_commission),
         ];
       }).filter(row => row.length > 0);
 
       autoTable(doc, {
         startY: 50,
-        head: [["Client", "N° Contrat", "Date", "Base HT", "Taux", "Commission", "Bonus", "Total"]],
+        head: [["Client", "N° Contrat", "Date", "CA HT", "Com. Fixe", "Survente", "Net"]],
         body: tableData,
         theme: "striped",
         headStyles: { fillColor: [59, 130, 246] },
@@ -206,9 +254,9 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
         columnStyles: {
           0: { cellWidth: 30 },
           3: { halign: "right" },
+          4: { halign: "right" },
           5: { halign: "right" },
-          6: { halign: "right" },
-          7: { halign: "right", fontStyle: "bold" },
+          6: { halign: "right", fontStyle: "bold" },
         },
       });
 
