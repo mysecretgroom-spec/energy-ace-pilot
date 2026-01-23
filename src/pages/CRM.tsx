@@ -384,7 +384,7 @@ const CRM = () => {
         type_vente: formData.type_vente,
         regie_id: regieId,
         status: formData.type_vente === 'external_installation' 
-          ? 'paye'  // Les installations externes sont directement marquées comme payées
+          ? 'installe'  // Les installations externes sont directement au statut "posé"
           : (formData.date_signature ? 'signe' : 'en_negociation')
       });
 
