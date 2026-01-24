@@ -1815,6 +1815,7 @@ export type Database = {
           nom: string
           prix: number
           regie_id: string | null
+          type_calcul: string
           updated_at: string
           user_id: string
         }
@@ -1827,6 +1828,7 @@ export type Database = {
           nom: string
           prix?: number
           regie_id?: string | null
+          type_calcul?: string
           updated_at?: string
           user_id: string
         }
@@ -1839,6 +1841,7 @@ export type Database = {
           nom?: string
           prix?: number
           regie_id?: string | null
+          type_calcul?: string
           updated_at?: string
           user_id?: string
         }

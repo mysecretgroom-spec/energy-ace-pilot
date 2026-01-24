@@ -106,6 +106,7 @@ interface RegieSurcout {
   code: string;
   nom: string;
   prix: number;
+  type_calcul: 'fixe' | 'par_panneau';
   actif: boolean;
   isGlobal?: boolean; // For display purposes
 }
@@ -167,6 +168,7 @@ const RegiesSettings = () => {
     code: "",
     nom: "",
     prix: 0,
+    type_calcul: 'fixe' as 'fixe' | 'par_panneau',
   });
 
   useEffect(() => {
@@ -710,6 +712,7 @@ const RegiesSettings = () => {
           code: newSurcout.code.trim(),
           nom: newSurcout.nom.trim(),
           prix: newSurcout.prix,
+          type_calcul: newSurcout.type_calcul,
           actif: true,
         });
 
@@ -728,6 +731,7 @@ const RegiesSettings = () => {
         code: "",
         nom: "",
         prix: 0,
+        type_calcul: 'fixe',
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -769,6 +773,7 @@ const RegiesSettings = () => {
             code: surcout.code,
             nom: surcout.nom,
             prix: surcout.prix,
+            type_calcul: surcout.type_calcul || 'fixe',
             actif: !surcout.actif, // Toggle the state
           });
         if (error) throw error;
@@ -1660,7 +1665,7 @@ const RegiesSettings = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-xs text-muted-foreground">Nom affiché</label>
                             <Input
@@ -1676,6 +1681,17 @@ const RegiesSettings = () => {
                               value={newSurcout.prix}
                               onChange={(e) => setNewSurcout({ ...newSurcout, prix: parseFloat(e.target.value) || 0 })}
                             />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Type calcul</label>
+                            <select
+                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                              value={newSurcout.type_calcul}
+                              onChange={(e) => setNewSurcout({ ...newSurcout, type_calcul: e.target.value as 'fixe' | 'par_panneau' })}
+                            >
+                              <option value="fixe">Forfait fixe</option>
+                              <option value="par_panneau">Par panneau</option>
+                            </select>
                           </div>
                         </div>
                         <Button 
@@ -1717,7 +1733,9 @@ const RegiesSettings = () => {
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-semibold text-green-600">
-                                      {formatCurrency(surcout.prix)}
+                                      {surcout.type_calcul === 'par_panneau' 
+                                        ? `${formatCurrency(surcout.prix)}/pann.`
+                                        : formatCurrency(surcout.prix)}
                                     </span>
                                     <Switch 
                                       checked={surcout.actif} 

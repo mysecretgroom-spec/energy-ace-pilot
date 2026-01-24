@@ -108,6 +108,7 @@ interface RegieSurcout {
   nom: string;
   prix: number;
   categorie: string;
+  type_calcul: 'fixe' | 'par_panneau';
 }
 
 interface DataCalibre {
@@ -432,7 +433,7 @@ const EtudeForm = () => {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
         supabase.from("regies_bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max").eq("regie_id", currentRegieId).eq("actif", true).order("puissance_kwc"),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
-        supabase.from("regies_surcouts").select("id, code, nom, prix, categorie").eq("regie_id", currentRegieId).eq("actif", true),
+        supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
       if (bouquetsRes.data) {
@@ -460,6 +461,7 @@ const EtudeForm = () => {
           nom: s.nom,
           prix: Number(s.prix),
           categorie: s.categorie,
+          type_calcul: (s.type_calcul as 'fixe' | 'par_panneau') || 'fixe',
         })));
       }
     } else {
@@ -642,10 +644,17 @@ const EtudeForm = () => {
       const regieSupport = regieSurcouts.find(s => 
         s.categorie === "support" && 
         (supportInstallation.toUpperCase().includes(s.nom.toUpperCase()) || 
-         s.nom.toUpperCase().includes(supportInstallation.replace(/ /g, "_").toUpperCase().split("(")[0].trim()))
+         s.nom.toUpperCase().includes(supportInstallation.replace(/ /g, "_").toUpperCase().split("(")[0].trim()) ||
+         s.code.toLowerCase().includes(supportInstallation.toLowerCase().replace(/ /g, "_").replace("(", "").replace(")", "")))
       );
       if (regieSupport) {
-        setSurcoutSupport(regieSupport.prix);
+        // Si type_calcul = "par_panneau", multiplier par le nombre de panneaux (2 panneaux par kWc)
+        if (regieSupport.type_calcul === "par_panneau") {
+          const nbPanneaux = Math.round((puissanceKwc || 0) * 2);
+          setSurcoutSupport(regieSupport.prix * nbPanneaux);
+        } else {
+          setSurcoutSupport(regieSupport.prix);
+        }
         return;
       }
     }
@@ -657,7 +666,7 @@ const EtudeForm = () => {
       "TOITURE INTEGRATION": 0,
     };
     setSurcoutSupport(surcoûtsSupport[supportInstallation] || 0);
-  }, [supportInstallation, regieSurcouts]);
+  }, [supportInstallation, regieSurcouts, puissanceKwc]);
 
   // Mise à jour automatique du rendement selon orientation et inclinaison
   useEffect(() => {
@@ -1974,16 +1983,26 @@ _Envoyé depuis DébalePro_`;
                   <SelectItem value="TOITURE INTEGRATION">Toiture Intégration</SelectItem>
                   <SelectItem value="BAC GSE (SOL)">
                     Bac GSE - Sol {(() => {
-                      const regiePrice = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("bac_gse"))?.prix;
-                      const price = regiePrice ?? 1800;
-                      return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                      const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("bac_gse"));
+                      if (regieSurcout) {
+                        if (regieSurcout.type_calcul === "par_panneau") {
+                          return `(+${regieSurcout.prix.toLocaleString("fr-FR")}€/panneau)`;
+                        }
+                        return regieSurcout.prix > 0 ? `(+${regieSurcout.prix.toLocaleString("fr-FR")}€)` : "";
+                      }
+                      return "(+1 800€)";
                     })()}
                   </SelectItem>
                   <SelectItem value="PERGOLA / CARPORT">
                     Pergola / Carport {(() => {
-                      const regiePrice = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("pergola"))?.prix;
-                      const price = regiePrice ?? 3900;
-                      return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                      const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("pergola"));
+                      if (regieSurcout) {
+                        if (regieSurcout.type_calcul === "par_panneau") {
+                          return `(+${regieSurcout.prix.toLocaleString("fr-FR")}€/panneau)`;
+                        }
+                        return regieSurcout.prix > 0 ? `(+${regieSurcout.prix.toLocaleString("fr-FR")}€)` : "";
+                      }
+                      return "(+3 900€)";
                     })()}
                   </SelectItem>
                 </SelectContent>
