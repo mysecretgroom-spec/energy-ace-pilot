@@ -37,6 +37,7 @@ import {
   Share2,
   Eye,
   MessageSquare,
+  MessageCircle,
   Tag,
   History,
   Clock,
@@ -1292,6 +1293,94 @@ const EtudeForm = () => {
     }
   };
 
+  // Partage WhatsApp avec PDF pour r2_prestudy
+  const handleWhatsAppShare = async () => {
+    const pdfData = buildPdfData();
+    if (!pdfData || !user) return;
+    
+    try {
+      const blob = getEtudePdfBlob(pdfData);
+      const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const file = new File([blob], fileName, { type: "application/pdf" });
+      
+      // Construire le message avec date R2 et commentaire
+      const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
+      let r2DateStr = "";
+      if (r2DateHeure && r2Time) {
+        const r2DateTime = new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`);
+        r2DateStr = format(r2DateTime, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
+      }
+      
+      const message = `📋 *ÉTUDE PRÉ-INSTALLATION*
+
+👤 Client: *${fullName}*
+📅 Date: ${new Date().toLocaleDateString("fr-FR")}
+
+📆 *RDV R2 prévu:*
+${r2DateStr || "À définir"}
+
+${classificationComment ? `💬 *Commentaire:*\n${classificationComment}` : ""}
+
+📄 *Document PDF joint*
+
+---
+_Envoyé depuis DébalePro_`;
+      
+      // Essayer de partager avec le PDF via Web Share API
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Étude ${clientPrenom} ${clientName}`,
+          text: message,
+        });
+        setShowPreview(false);
+        toast({
+          title: "Partage réussi",
+          description: "L'étude a été partagée via WhatsApp",
+        });
+      } else {
+        // Fallback: Télécharger le PDF puis ouvrir WhatsApp avec le message
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        // Récupérer le numéro du confirmateur pour WhatsApp
+        const { data: settings } = await supabase
+          .from("settings_notifications")
+          .select("confirmateur_phone")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        
+        if (settings?.confirmateur_phone) {
+          const cleanPhone = settings.confirmateur_phone.replace(/[+\s-]/g, "");
+          const encodedMessage = encodeURIComponent(message);
+          window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, "_blank");
+        } else {
+          // Ouvrir WhatsApp sans numéro pré-rempli
+          const encodedMessage = encodeURIComponent(message);
+          window.open(`https://wa.me/?text=${encodedMessage}`, "_blank");
+        }
+        
+        toast({
+          title: "PDF téléchargé",
+          description: "Joignez le PDF dans WhatsApp",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur partage WhatsApp:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible de partager via WhatsApp",
+      });
+    }
+  };
+
   const getVerdictDisplay = () => {
     if (!calculatedResults?.verdict) return null;
 
@@ -2369,20 +2458,56 @@ const EtudeForm = () => {
 
         {/* Preview PDF Dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-4xl h-[85vh] p-0">
+          <DialogContent className="max-w-4xl h-[85vh] p-0 flex flex-col">
             <DialogHeader className="p-4 pb-2">
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 Aperçu de l'étude
               </DialogTitle>
             </DialogHeader>
-            <div className="flex-1 overflow-hidden px-4 pb-4">
+            <div className="flex-1 overflow-hidden px-4">
               {pdfDataUrl && (
                 <iframe
                   src={pdfDataUrl}
                   className="w-full h-full rounded-lg border"
                   title="Aperçu PDF"
                 />
+              )}
+            </div>
+            {/* Actions dans la preview */}
+            <div className="p-4 pt-2 border-t flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={handleExportPdf}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Télécharger
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onClick={handleShare}
+              >
+                <Share2 className="h-4 w-4" />
+                Partager
+              </Button>
+              {classification === "r2_prestudy" && (
+                <Button
+                  size="sm"
+                  className="gap-1 bg-[#25D366] hover:bg-[#20BD5A] text-white"
+                  onClick={handleWhatsAppShare}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </Button>
               )}
             </div>
           </DialogContent>
