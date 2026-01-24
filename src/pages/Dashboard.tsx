@@ -130,7 +130,7 @@ const Dashboard = () => {
       const comm = getCommission(vente.id);
       if (!comm) return;
 
-      const net = comm.commission_nette;
+      const net = comm.commissionNette;
 
       // Commissions du mois (ventes signées ce mois)
       if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {

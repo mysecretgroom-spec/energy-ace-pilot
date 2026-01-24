@@ -178,7 +178,7 @@ const RegieDashboard = () => {
       const comm = getCommission(vente.id);
       if (!comm) return;
 
-      const net = comm.commission_nette;
+      const net = comm.commissionNette;
 
       if (["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(vente.status)) {
         enAttente += net;
