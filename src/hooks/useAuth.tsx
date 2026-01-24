@@ -60,13 +60,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true;
     
-    // CRITICAL: Force loading to false after 1.5s no matter what (iOS PWA fix)
+    // CRITICAL: Force loading to false after 3s no matter what (iOS PWA fix)
+    // Increased from 1.5s to 3s for slower connections
     const forceTimeout = setTimeout(() => {
       if (mounted && loading) {
-        console.warn("Auth: Force timeout reached");
+        console.warn("Auth: Force timeout reached after 3s");
         setLoading(false);
       }
-    }, 1500);
+    }, 3000);
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
