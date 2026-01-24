@@ -54,6 +54,7 @@ interface Regie {
   created_at: string;
   mode_calcul_commission: string;
   part_survente_pct: number;
+  is_hejja: boolean;
 }
 
 interface RegieEmail {
@@ -127,7 +128,8 @@ const RegiesSettings = () => {
   
   // Create dialog
   const [isCreating, setIsCreating] = useState(false);
-  const [newRegie, setNewRegie] = useState({ nom: "", couleur: "#0066CC" });
+  const [isCreatingHejja, setIsCreatingHejja] = useState(false);
+  const [newRegie, setNewRegie] = useState({ nom: "", couleur: "#0066CC", is_hejja: false });
   
   // Edit forms
   const [newEmail, setNewEmail] = useState({ email: "", nom_source: "" });
@@ -331,6 +333,7 @@ const RegiesSettings = () => {
           user_id: user.id,
           nom: newRegie.nom.trim(),
           couleur: newRegie.couleur,
+          is_hejja: newRegie.is_hejja,
         })
         .select()
         .single();
@@ -344,9 +347,10 @@ const RegiesSettings = () => {
         return;
       }
 
-      toast.success("Régie créée avec succès");
+      toast.success(newRegie.is_hejja ? "Régie HEJJA créée avec succès" : "Régie créée avec succès");
       setIsCreating(false);
-      setNewRegie({ nom: "", couleur: "#0066CC" });
+      setIsCreatingHejja(false);
+      setNewRegie({ nom: "", couleur: "#0066CC", is_hejja: false });
       fetchRegies();
       setSelectedRegie(data);
     } catch (error) {
@@ -678,56 +682,125 @@ const RegiesSettings = () => {
     <MobileLayout title="Régies" showBackButton>
       <div className="p-4 pb-8 space-y-4">
         {/* Header avec bouton d'ajout */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm text-muted-foreground">
               Gérez vos sources de RDV et leurs tarifs
             </p>
           </div>
-          <Dialog open={isCreating} onOpenChange={setIsCreating}>
-            <Button size="sm" className="gap-2" onClick={() => setIsCreating(true)}>
-              <Plus className="h-4 w-4" />
-              Nouvelle
-            </Button>
-            <DialogContent className="max-w-[95vw]">
-              <DialogHeader>
-                <DialogTitle>Nouvelle Régie</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Nom de la régie</label>
-                  <Input 
-                    placeholder="Ex: EDF ENR, Engie Solar..." 
-                    value={newRegie.nom}
-                    onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Couleur</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {colorOptions.map((color) => (
-                      <button
-                        key={color}
-                        className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                          newRegie.couleur === color ? "border-foreground" : "border-transparent"
-                        }`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setNewRegie({ ...newRegie, couleur: color })}
-                      />
-                    ))}
+          <div className="flex gap-2">
+            {/* Bouton Régie HEJJA */}
+            <Dialog open={isCreatingHejja} onOpenChange={setIsCreatingHejja}>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10"
+                onClick={() => {
+                  setNewRegie({ nom: "", couleur: "#E74C3C", is_hejja: true });
+                  setIsCreatingHejja(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                HEJJA
+              </Button>
+              <DialogContent className="max-w-[95vw]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Badge className="bg-red-500">HEJJA</Badge>
+                    Nouvelle Régie HEJJA
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-sm">
+                    <p className="text-red-600 dark:text-red-400">
+                      Les régies HEJJA ne sont visibles que lorsque le mode HEJJA est actif.
+                      Les ventes associées seront masquées des statistiques standard.
+                    </p>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Nom de la régie</label>
+                    <Input 
+                      placeholder="Ex: Régie Spéciale..." 
+                      value={newRegie.nom}
+                      onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Couleur</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {colorOptions.map((color) => (
+                        <button
+                          key={color}
+                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                            newRegie.couleur === color ? "border-foreground" : "border-transparent"
+                          }`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => setNewRegie({ ...newRegie, couleur: color })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full bg-red-500 hover:bg-red-600" 
+                    onClick={handleCreateRegie}
+                    disabled={saving || !newRegie.nom.trim()}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Créer la régie HEJJA
+                  </Button>
                 </div>
-                <Button 
-                  className="w-full" 
-                  onClick={handleCreateRegie}
-                  disabled={saving || !newRegie.nom.trim()}
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Créer la régie
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+
+            {/* Bouton Régie normale */}
+            <Dialog open={isCreating} onOpenChange={setIsCreating}>
+              <Button size="sm" className="gap-2" onClick={() => {
+                setNewRegie({ nom: "", couleur: "#0066CC", is_hejja: false });
+                setIsCreating(true);
+              }}>
+                <Plus className="h-4 w-4" />
+                Nouvelle
+              </Button>
+              <DialogContent className="max-w-[95vw]">
+                <DialogHeader>
+                  <DialogTitle>Nouvelle Régie</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Nom de la régie</label>
+                    <Input 
+                      placeholder="Ex: EDF ENR, Engie Solar..." 
+                      value={newRegie.nom}
+                      onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Couleur</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {colorOptions.map((color) => (
+                        <button
+                          key={color}
+                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
+                            newRegie.couleur === color ? "border-foreground" : "border-transparent"
+                          }`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => setNewRegie({ ...newRegie, couleur: color })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleCreateRegie}
+                    disabled={saving || !newRegie.nom.trim()}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Créer la régie
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Liste des régies */}
@@ -763,6 +836,11 @@ const RegiesSettings = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-foreground truncate">{regie.nom}</h3>
+                          {regie.is_hejja && (
+                            <Badge className="text-[10px] h-4 bg-red-500 text-white">
+                              HEJJA
+                            </Badge>
+                          )}
                           {regie.actif ? (
                             <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
                               Actif

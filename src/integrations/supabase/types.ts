@@ -729,6 +729,7 @@ export type Database = {
       }
       etudes: {
         Row: {
+          aides_manuelles: Json | null
           amperage_disjoncteur: number | null
           autoconsommation_kwh: number | null
           autoconsommation_pct: number | null
@@ -796,6 +797,7 @@ export type Database = {
           verdict: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Insert: {
+          aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
@@ -863,6 +865,7 @@ export type Database = {
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Update: {
+          aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
           autoconsommation_pct?: number | null
@@ -1603,6 +1606,7 @@ export type Database = {
           couleur: string | null
           created_at: string
           id: string
+          is_hejja: boolean | null
           logo_url: string | null
           mode_calcul_commission: string | null
           nom: string
@@ -1615,6 +1619,7 @@ export type Database = {
           couleur?: string | null
           created_at?: string
           id?: string
+          is_hejja?: boolean | null
           logo_url?: string | null
           mode_calcul_commission?: string | null
           nom: string
@@ -1627,6 +1632,7 @@ export type Database = {
           couleur?: string | null
           created_at?: string
           id?: string
+          is_hejja?: boolean | null
           logo_url?: string | null
           mode_calcul_commission?: string | null
           nom?: string
@@ -1907,6 +1913,7 @@ export type Database = {
           decom_raison: string | null
           etude_id: string | null
           id: string
+          is_retape: boolean | null
           montant_acompte: number | null
           montant_ht: number
           montant_solde: number | null
@@ -1934,6 +1941,7 @@ export type Database = {
           decom_raison?: string | null
           etude_id?: string | null
           id?: string
+          is_retape?: boolean | null
           montant_acompte?: number | null
           montant_ht: number
           montant_solde?: number | null
@@ -1961,6 +1969,7 @@ export type Database = {
           decom_raison?: string | null
           etude_id?: string | null
           id?: string
+          is_retape?: boolean | null
           montant_acompte?: number | null
           montant_ht?: number
           montant_solde?: number | null

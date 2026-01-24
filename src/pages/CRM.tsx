@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PipelineKanban } from "@/components/crm/PipelineKanban";
@@ -41,6 +42,7 @@ interface Regie {
   id: string;
   nom: string;
   couleur: string;
+  is_hejja: boolean;
 }
 
 interface Client {
@@ -72,6 +74,7 @@ interface Vente {
   decom_raison?: string | null;
   regie_id?: string | null;
   etude_id?: string | null;
+  is_retape?: boolean;
   client: {
     id: string;
     nom: string;
@@ -89,6 +92,7 @@ interface Etude {
 
 const CRM = () => {
   const { user } = useAuth();
+  const { isActive: modeHejjaActive } = useHejjaMode();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("ventes");
@@ -179,11 +183,11 @@ const CRM = () => {
     if (!user) return;
     const { data } = await supabase
       .from("regies")
-      .select("id, nom, couleur")
+      .select("id, nom, couleur, is_hejja")
       .eq("user_id", user.id)
       .eq("actif", true)
       .order("nom");
-    setRegies(data || []);
+    setRegies((data || []) as Regie[]);
   };
 
   const fetchClients = async () => {
@@ -305,6 +309,15 @@ const CRM = () => {
   const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation', 'installe', 'attente_paiement'];
   
   const filteredVentes = ventes.filter(v => {
+    // Hide retape ventes when HEJJA mode is not active
+    if (!modeHejjaActive && v.is_retape) return false;
+    
+    // Hide ventes from HEJJA regies when not in HEJJA mode
+    if (!modeHejjaActive && v.regie_id) {
+      const regie = regies.find(r => r.id === v.regie_id);
+      if (regie?.is_hejja) return false;
+    }
+    
     // Filter by status category
     if (venteFilter === "en_cours") {
       if (!enCoursStatuses.includes(v.status)) return false;
@@ -326,8 +339,18 @@ const CRM = () => {
   });
 
   const clientEtudes = etudes.filter(e => e.client_id === formData.client_id);
-  const totalCA = ventes.filter(v => v.status !== 'annule').reduce((sum, v) => sum + v.montant_ttc, 0);
-  const ventesSigned = ventes.filter(v => ['signe', 'en_installation', 'installe', 'paye'].includes(v.status)).length;
+  
+  // Filter stats based on HEJJA mode
+  const statsVentes = modeHejjaActive ? ventes : ventes.filter(v => {
+    if (v.is_retape) return false;
+    const regie = regies.find(r => r.id === v.regie_id);
+    return !regie?.is_hejja;
+  });
+  const totalCA = statsVentes.filter(v => v.status !== 'annule').reduce((sum, v) => sum + v.montant_ttc, 0);
+  const ventesSigned = statsVentes.filter(v => ['signe', 'en_installation', 'installe', 'paye'].includes(v.status)).length;
+  
+  // Commission HEJJA: sum of retape commissions
+  const hejjaVentes = ventes.filter(v => v.is_retape || regies.find(r => r.id === v.regie_id)?.is_hejja);
 
   const handleClientChange = (clientId: string) => {
     setFormData(prev => ({ ...prev, client_id: clientId, etude_id: "" }));
