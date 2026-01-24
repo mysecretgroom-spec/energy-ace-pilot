@@ -196,8 +196,10 @@ export function WeekCalendarView({
               {/* Day header - clickable */}
               <button
                 onClick={() => onDayClick?.(day)}
-                className={`w-full px-2 py-1.5 text-center border-b transition-colors ${
-                  isToday ? "bg-primary/10" : "bg-muted/50 hover:bg-muted"
+                className={`w-full px-2 py-1.5 text-center border-b transition-all duration-150 active:scale-[0.97] active:bg-primary/20 ${
+                  isToday 
+                    ? "bg-primary/10 hover:bg-primary/15" 
+                    : "bg-muted/50 hover:bg-muted"
                 }`}
               >
                 <p className="text-[10px] font-medium text-muted-foreground uppercase">
