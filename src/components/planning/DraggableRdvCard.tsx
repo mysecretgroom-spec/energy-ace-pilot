@@ -50,13 +50,14 @@ export function DraggableRdvCard({
     },
   });
 
-  const { handlers: longPressHandlers } = useLongPress({
-    delay: 1500,
+  const { handlers: longPressHandlers, isLongPressing } = useLongPress({
+    delay: 800, // Reduced to trigger before drag (dnd-kit TouchSensor has 300ms delay)
     onLongPress: () => {
       if (!disabled && onLongPress) {
         onLongPress();
       }
     },
+    moveThreshold: 5, // Smaller threshold to cancel on slight movement
   });
 
   const style = {
@@ -64,19 +65,36 @@ export function DraggableRdvCard({
     zIndex: isDragging ? 50 : isHighlighted ? 40 : undefined,
   };
 
-  // Merge dnd-kit listeners with long-press handlers
+  // Handle touch events - prioritize long press detection
+  const handleTouchStart = (e: React.TouchEvent) => {
+    longPressHandlers.onTouchStart(e);
+    // Don't trigger dnd-kit pointer down immediately - let long press timer start
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    // If long press was triggered, prevent default behavior
+    if (isLongPressing) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    longPressHandlers.onTouchEnd(e);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    longPressHandlers.onTouchMove(e);
+  };
+
+  // For mouse, we can use dnd-kit listeners directly but still track long press
+  const handleMouseDown = (e: React.MouseEvent) => {
+    longPressHandlers.onMouseDown(e);
+    listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
+  };
+
   const mergedHandlers = disabled ? {} : {
-    ...listeners,
-    onTouchStart: (e: React.TouchEvent) => {
-      longPressHandlers.onTouchStart(e);
-      listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
-    },
-    onTouchEnd: longPressHandlers.onTouchEnd,
-    onTouchMove: longPressHandlers.onTouchMove,
-    onMouseDown: (e: React.MouseEvent) => {
-      longPressHandlers.onMouseDown(e);
-      listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
-    },
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd,
+    onTouchMove: handleTouchMove,
+    onMouseDown: handleMouseDown,
     onMouseUp: longPressHandlers.onMouseUp,
     onMouseLeave: longPressHandlers.onMouseLeave,
   };
