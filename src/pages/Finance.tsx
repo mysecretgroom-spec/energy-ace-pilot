@@ -16,6 +16,7 @@ import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
 import { VATReport } from "@/components/finance/VATReport";
 import { BillingSection } from "@/components/finance/BillingSection";
+import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
@@ -135,7 +136,12 @@ interface VenteForCommission {
   status: string;
   date_signature: string | null;
   date_pose: string | null;
+  client_nom?: string;
+  client_prenom?: string;
+  client_id?: string;
 }
+
+type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'payees' | 'commissionsMois' | null;
 
 const Finance = () => {
   const { user } = useAuth();
@@ -180,6 +186,10 @@ const Finance = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  
+  // Stat dialog state
+  const [financeStatDialogOpen, setFinanceStatDialogOpen] = useState(false);
+  const [financeStatDialogType, setFinanceStatDialogType] = useState<FinanceStatDialogType>(null);
 
   // Group frais by month
   const fraisGroupedByMonth = useMemo(() => {
@@ -242,10 +252,10 @@ const Finance = () => {
         const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-        // Fetch all ventes for the user
+        // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_pose, created_at, regie_id, etude_id, type_vente")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_pose, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom)")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -253,7 +263,7 @@ const Finance = () => {
         setRawVentes(ventes || []);
         
         // Prepare data for commission hook (exclude cancelled)
-        setVentesForCommission((ventes || []).filter(v => v.status !== 'annule').map(v => ({
+        setVentesForCommission((ventes || []).filter((v: any) => v.status !== 'annule').map((v: any) => ({
           id: v.id,
           montant_ht: v.montant_ht,
           montant_ttc: v.montant_ttc,
@@ -265,6 +275,9 @@ const Finance = () => {
           status: v.status,
           date_signature: v.date_signature,
           date_pose: v.date_pose,
+          client_nom: v.clients?.nom || "Client",
+          client_prenom: v.clients?.prenom || "",
+          client_id: v.client_id,
         })));
 
       } catch (err) {
@@ -390,6 +403,56 @@ const Finance = () => {
 
   // Use computed stats
   const venteStats = venteStatsComputed;
+
+  // Open stat dialog
+  const openFinanceStatDialog = (type: FinanceStatDialogType) => {
+    setFinanceStatDialogType(type);
+    setFinanceStatDialogOpen(true);
+  };
+
+  // Get dialog data for finance
+  const getFinanceDialogData = useMemo(() => {
+    const now = new Date();
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    
+    const filterByType = (statuses: string[], dateFilter?: 'recent' | 'old') => {
+      return ventesForCommission.filter(v => {
+        if (!statuses.includes(v.status)) return false;
+        if (dateFilter === 'recent') return !v.date_pose || new Date(v.date_pose) > twoWeeksAgo;
+        if (dateFilter === 'old') return v.date_pose && new Date(v.date_pose) <= twoWeeksAgo;
+        return true;
+      });
+    };
+    
+    const mapToItems = (ventes: typeof ventesForCommission) => ventes.map(v => {
+      const comm = getCommission(v.id);
+      return {
+        id: v.id,
+        label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+        sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+        value: comm?.commissionNette || 0,
+        date: v.date_pose || v.date_signature || undefined,
+        navigateTo: `/ventes/${v.id}`,
+      };
+    });
+    
+    switch (financeStatDialogType) {
+      case 'enCours':
+        const enCours = filterByType(["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"]);
+        return { title: "En cours", subtitle: "Non posé", items: mapToItems(enCours), total: venteStats?.comEnCours };
+      case 'attenteFacturation':
+        const attente = filterByType(["installe", "attente_paiement"], 'recent');
+        return { title: "En attente de facturation", subtitle: "Posé < 2 semaines", items: mapToItems(attente), total: venteStats?.comAttenteFacturation };
+      case 'aFacturer':
+        const aFact = filterByType(["installe", "attente_paiement"], 'old');
+        return { title: "À facturer", subtitle: "Posé ≥ 2 semaines", items: mapToItems(aFact), total: venteStats?.comAFacturer };
+      case 'payees':
+        const payees = filterByType(["paye"]);
+        return { title: "Payées", subtitle: "Commissions encaissées", items: mapToItems(payees), total: venteStats?.comPayees };
+      default:
+        return { title: "", items: [], total: undefined };
+    }
+  }, [financeStatDialogType, ventesForCommission, getCommission, venteStats]);
 
   // Fetch frais
   useEffect(() => {
@@ -665,7 +728,10 @@ const Finance = () => {
                     <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
                     
                     {/* Com En Cours (non posé) */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-200">
+                    <div 
+                      className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-200 cursor-pointer hover:bg-orange-500/20 transition-colors"
+                      onClick={() => openFinanceStatDialog('enCours')}
+                    >
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-orange-600" />
                         <div>
@@ -679,7 +745,10 @@ const Finance = () => {
                     </div>
                     
                     {/* En attente de facturation (posé < 2 semaines) */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-200">
+                    <div 
+                      className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-200 cursor-pointer hover:bg-blue-500/20 transition-colors"
+                      onClick={() => openFinanceStatDialog('attenteFacturation')}
+                    >
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-blue-600" />
                         <div>
@@ -693,7 +762,10 @@ const Finance = () => {
                     </div>
                     
                     {/* À facturer (posé >= 2 semaines) */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200">
+                    <div 
+                      className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200 cursor-pointer hover:bg-green-500/20 transition-colors"
+                      onClick={() => openFinanceStatDialog('aFacturer')}
+                    >
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5 text-green-600" />
                         <div>
@@ -720,7 +792,10 @@ const Finance = () => {
                     </div>
 
                     {/* Com Payées */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-300">
+                    <div 
+                      className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-300 cursor-pointer hover:bg-emerald-500/20 transition-colors"
+                      onClick={() => openFinanceStatDialog('payees')}
+                    >
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5 text-emerald-700" />
                         <div>
@@ -1240,6 +1315,17 @@ const Finance = () => {
           onClose={() => setMultiImportOpen(false)}
         />
       </div>
+
+      {/* Finance Stat Detail Dialog */}
+      <StatDetailDialog
+        open={financeStatDialogOpen}
+        onOpenChange={setFinanceStatDialogOpen}
+        title={getFinanceDialogData.title}
+        subtitle={getFinanceDialogData.subtitle}
+        items={getFinanceDialogData.items}
+        total={getFinanceDialogData.total}
+        emptyMessage="Aucune vente"
+      />
     </MobileLayout>
   );
 };
