@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MFASetup } from "@/components/auth/MFASetup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Shield, ShieldAlert, Key } from "lucide-react";
+import { Loader2, Shield, ShieldAlert, Key, Clock } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
@@ -15,6 +15,9 @@ interface AdminMFAGateProps {
   children: React.ReactNode;
 }
 
+const ADMIN_SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const ADMIN_SESSION_KEY = "admin_mfa_verified_at";
+
 export function AdminMFAGate({ children }: AdminMFAGateProps) {
   const [isVerified, setIsVerified] = useState(false);
   const [isMFAEnabled, setIsMFAEnabled] = useState<boolean | null>(null);
@@ -22,6 +25,76 @@ export function AdminMFAGate({ children }: AdminMFAGateProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [code, setCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [timeoutExpired, setTimeoutExpired] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+  const timeoutCheckRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if session is still valid based on last activity
+  const isSessionValid = useCallback(() => {
+    const verifiedAt = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    if (!verifiedAt) return false;
+    
+    const verifiedTime = parseInt(verifiedAt, 10);
+    const now = Date.now();
+    const timeSinceVerification = now - verifiedTime;
+    const timeSinceActivity = now - lastActivityRef.current;
+    
+    // Session expires if:
+    // 1. More than 30 min since verification AND
+    // 2. More than 30 min of inactivity
+    return timeSinceActivity < ADMIN_SESSION_TIMEOUT_MS;
+  }, []);
+
+  // Update last activity timestamp
+  const updateActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  // Handle activity events
+  useEffect(() => {
+    if (!isVerified) return;
+
+    const events = ["mousedown", "keydown", "scroll", "touchstart", "mousemove"];
+    
+    const handleActivity = () => {
+      updateActivity();
+    };
+
+    events.forEach((event) => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [isVerified, updateActivity]);
+
+  // Check for session timeout periodically
+  useEffect(() => {
+    if (!isVerified) return;
+
+    const checkTimeout = () => {
+      if (!isSessionValid()) {
+        setIsVerified(false);
+        setTimeoutExpired(true);
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        toast.warning("Session admin expirée", {
+          description: "Veuillez vous re-authentifier pour continuer."
+        });
+      }
+    };
+
+    // Check every minute
+    timeoutCheckRef.current = setInterval(checkTimeout, 60 * 1000);
+
+    return () => {
+      if (timeoutCheckRef.current) {
+        clearInterval(timeoutCheckRef.current);
+      }
+    };
+  }, [isVerified, isSessionValid]);
 
   useEffect(() => {
     checkMFAStatus();
@@ -29,15 +102,21 @@ export function AdminMFAGate({ children }: AdminMFAGateProps) {
 
   const checkMFAStatus = async () => {
     try {
-      // Check if user already has AAL2 (already verified MFA in this session)
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      
-      if (aalData?.currentLevel === "aal2") {
-        setIsVerified(true);
-        setIsMFAEnabled(true);
-        setIsLoading(false);
-        return;
+      // First check if we have a valid session in sessionStorage
+      if (isSessionValid()) {
+        // Also verify AAL2 is still active
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalData?.currentLevel === "aal2") {
+          setIsVerified(true);
+          setIsMFAEnabled(true);
+          updateActivity();
+          setIsLoading(false);
+          return;
+        }
       }
+
+      // Clear expired session
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
 
       // Check if MFA is enrolled
       const { data, error } = await supabase.auth.mfa.listFactors();
@@ -73,7 +152,12 @@ export function AdminMFAGate({ children }: AdminMFAGateProps) {
 
       if (verifyError) throw verifyError;
 
+      // Store verification timestamp in sessionStorage
+      sessionStorage.setItem(ADMIN_SESSION_KEY, Date.now().toString());
+      lastActivityRef.current = Date.now();
+      
       setIsVerified(true);
+      setTimeoutExpired(false);
       toast.success("Accès admin vérifié");
     } catch (error: any) {
       console.error("MFA verify error:", error);
@@ -140,7 +224,14 @@ export function AdminMFAGate({ children }: AdminMFAGateProps) {
                 Vérification Admin
               </CardTitle>
               <CardDescription>
-                Entrez le code de votre application d'authentification pour accéder au panneau admin
+                {timeoutExpired ? (
+                  <span className="flex items-center justify-center gap-1 text-orange-600">
+                    <Clock className="h-4 w-4" />
+                    Session expirée après 30 min d'inactivité
+                  </span>
+                ) : (
+                  "Entrez le code de votre application d'authentification"
+                )}
               </CardDescription>
             </div>
           </CardHeader>
@@ -182,9 +273,13 @@ export function AdminMFAGate({ children }: AdminMFAGateProps) {
               )}
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
-              Utilisez Google Authenticator ou une application compatible TOTP
-            </p>
+            <div className="text-xs text-center text-muted-foreground space-y-1">
+              <p>Utilisez Google Authenticator ou une application TOTP</p>
+              <p className="flex items-center justify-center gap-1">
+                <Clock className="h-3 w-3" />
+                Session limitée à 30 min d'inactivité
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
