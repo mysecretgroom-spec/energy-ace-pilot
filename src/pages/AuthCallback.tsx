@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Calendar, CheckCircle } from "lucide-react";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("Connexion en cours...");
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "done" | "error">("idle");
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -87,14 +88,53 @@ export default function AuthCallback() {
               console.error("Error saving Google tokens:", upsertError);
             } else {
               console.log("Google tokens saved successfully!");
+              
+              // Auto-sync Google Calendar after successful connection
+              setStatus("Synchronisation du calendrier...");
+              setSyncStatus("syncing");
+              
+              try {
+                const syncParams = new URLSearchParams({
+                  action: "sync",
+                  daysAhead: "30",
+                  daysBefore: "7",
+                });
+
+                const syncResponse = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-google-calendar?${syncParams}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+
+                const syncResult = await syncResponse.json();
+                
+                if (syncResponse.ok) {
+                  console.log("Calendar sync result:", syncResult);
+                  setSyncStatus("done");
+                  setStatus(`${syncResult.imported || 0} RDV importés`);
+                } else {
+                  console.warn("Calendar sync failed:", syncResult);
+                  setSyncStatus("error");
+                }
+              } catch (syncError) {
+                console.error("Calendar sync error:", syncError);
+                setSyncStatus("error");
+              }
             }
           }
         } else {
           console.log("No provider token available to save");
         }
 
-        setStatus("Redirection...");
-        navigate("/", { replace: true });
+        // Small delay to show sync result before redirect
+        setTimeout(() => {
+          setStatus("Redirection...");
+          navigate("/", { replace: true });
+        }, syncStatus === "done" ? 1500 : 500);
       } catch (err) {
         console.error("Callback error:", err);
         setStatus("Erreur de connexion");
@@ -107,8 +147,20 @@ export default function AuthCallback() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {syncStatus === "syncing" ? (
+        <div className="relative">
+          <Calendar className="h-8 w-8 text-primary animate-pulse" />
+          <Loader2 className="h-4 w-4 animate-spin text-primary absolute -bottom-1 -right-1" />
+        </div>
+      ) : syncStatus === "done" ? (
+        <CheckCircle className="h-8 w-8 text-green-500" />
+      ) : (
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      )}
       <p className="text-muted-foreground">{status}</p>
+      {syncStatus === "syncing" && (
+        <p className="text-xs text-muted-foreground">Import des RDV Google Calendar...</p>
+      )}
     </div>
   );
 }
