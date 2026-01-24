@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, TrendingUp, Coins } from "lucide-react";
+import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 
 interface Bouquet {
   id: string;
@@ -132,10 +133,10 @@ export function SigneDialog({
     return bouquets.find(b => b.id === selectedBouquetId);
   }, [bouquets, selectedBouquetId]);
 
-  // Calculate TVA rate
+  // Calculate TVA rate based on power
   const tauxTVA = useMemo(() => {
     const p = parseFloat(puissance);
-    return !isNaN(p) && p <= 3 ? 0.10 : 0.20;
+    return !isNaN(p) && p > 0 ? getTauxTVAByPuissance(p) / 100 : 0.10;
   }, [puissance]);
 
   // Calculate survente and commission
@@ -179,34 +180,34 @@ export function SigneDialog({
     };
   }, [selectedBouquet, prixHT, prixTTC, tauxTVA]);
 
-  // Handle bouquet selection
+  // Handle bouquet selection - prix_recommande is already TTC
   const handleBouquetChange = (bouquetId: string) => {
     setSelectedBouquetId(bouquetId);
     const bouquet = bouquets.find(b => b.id === bouquetId);
     if (bouquet) {
       setPuissance(bouquet.puissance_kwc.toString());
-      // Pre-fill with recommended price
-      const tauxTVA = bouquet.puissance_kwc <= 3 ? 0.10 : 0.20;
-      const ttc = bouquet.prix_recommande * (1 + tauxTVA);
-      setPrixTTC(ttc.toFixed(2));
-      setPrixHT(bouquet.prix_recommande.toFixed(2));
+      // prix_recommande is stored as TTC
+      const prixTTCValue = bouquet.prix_recommande;
+      setPrixTTC(prixTTCValue.toFixed(2));
+      // Calculate HT from TTC using the utility function
+      const tauxTVAValue = getTauxTVAByPuissance(bouquet.puissance_kwc);
+      setPrixHT(ttcToHT(prixTTCValue, tauxTVAValue).toFixed(2));
     }
   };
 
   // Handle power change
   const handlePuissanceChange = (value: string) => {
     setPuissance(value);
+    const puissanceNum = parseFloat(value);
     // Recalculate HT if TTC is set
     if (prixTTC) {
       const ttc = parseFloat(prixTTC);
-      const puissanceNum = parseFloat(value);
-      if (!isNaN(ttc) && ttc > 0) {
-        const tauxTVA = !isNaN(puissanceNum) && puissanceNum <= 3 ? 0.10 : 0.20;
-        setPrixHT((ttc / (1 + tauxTVA)).toFixed(2));
+      if (!isNaN(ttc) && ttc > 0 && !isNaN(puissanceNum) && puissanceNum > 0) {
+        const tauxTVAValue = getTauxTVAByPuissance(puissanceNum);
+        setPrixHT(ttcToHT(ttc, tauxTVAValue).toFixed(2));
       }
     }
     // Try to find matching bouquet
-    const puissanceNum = parseFloat(value);
     if (!isNaN(puissanceNum)) {
       const matchingBouquet = bouquets.find(b => b.puissance_kwc === puissanceNum);
       if (matchingBouquet) {
@@ -217,15 +218,17 @@ export function SigneDialog({
     }
   };
 
-  // Handle TTC change
+  // Handle TTC change - calculate HT from TTC
   const handlePrixTTCChange = (value: string) => {
     setPrixTTC(value);
     const ttc = parseFloat(value);
     const puissanceNum = parseFloat(puissance);
 
     if (!isNaN(ttc) && ttc > 0) {
-      const tauxTVA = !isNaN(puissanceNum) && puissanceNum <= 3 ? 0.10 : 0.20;
-      setPrixHT((ttc / (1 + tauxTVA)).toFixed(2));
+      const tauxTVAValue = !isNaN(puissanceNum) && puissanceNum > 0 
+        ? getTauxTVAByPuissance(puissanceNum) 
+        : 10; // Default 10% if no power
+      setPrixHT(ttcToHT(ttc, tauxTVAValue).toFixed(2));
     } else {
       setPrixHT("");
     }
