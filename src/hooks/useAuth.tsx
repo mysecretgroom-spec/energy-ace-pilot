@@ -1,15 +1,18 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import { User, Session, AuthenticatorAssuranceLevels } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  mfaRequired: boolean;
+  currentLevel: AuthenticatorAssuranceLevels | null;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; mfaRequired?: boolean }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  checkMFAStatus: () => Promise<{ mfaRequired: boolean; currentLevel: AuthenticatorAssuranceLevels | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +21,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [currentLevel, setCurrentLevel] = useState<AuthenticatorAssuranceLevels | null>(null);
 
   // Helper function to save Google tokens
   const saveGoogleTokens = async (session: Session) => {
@@ -144,6 +149,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const checkMFAStatus = async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error) throw error;
+      
+      const needsMFA = data.nextLevel === "aal2" && data.currentLevel === "aal1";
+      setMfaRequired(needsMFA);
+      setCurrentLevel(data.currentLevel);
+      
+      return { mfaRequired: needsMFA, currentLevel: data.currentLevel };
+    } catch (error) {
+      console.error("Error checking MFA status:", error);
+      return { mfaRequired: false, currentLevel: null };
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -151,9 +172,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         password,
       });
       if (error) throw error;
-      return { error: null };
+      
+      // Check if MFA is required after sign in
+      const mfaStatus = await checkMFAStatus();
+      return { error: null, mfaRequired: mfaStatus.mfaRequired };
     } catch (error) {
-      return { error: error as Error };
+      return { error: error as Error, mfaRequired: false };
     }
   };
 
@@ -178,11 +202,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    setMfaRequired(false);
+    setCurrentLevel(null);
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      loading, 
+      mfaRequired, 
+      currentLevel, 
+      signUp, 
+      signIn, 
+      signInWithGoogle, 
+      signOut,
+      checkMFAStatus 
+    }}>
       {children}
     </AuthContext.Provider>
   );

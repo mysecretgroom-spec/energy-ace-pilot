@@ -10,6 +10,7 @@ import { Sun, Loader2, Eye, EyeOff, User, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
+import { MFAVerify } from "@/components/auth/MFAVerify";
 
 const REMEMBER_EMAIL_KEY = "debalepro_remember_email";
 const STAY_CONNECTED_KEY = "debalepro_stay_connected";
@@ -43,6 +44,7 @@ const Login = () => {
   const [stayConnected, setStayConnected] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showMFAVerify, setShowMFAVerify] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -75,7 +77,7 @@ const Login = () => {
     // Save stay connected preference
     localStorage.setItem(STAY_CONNECTED_KEY, stayConnected.toString());
 
-    const { error } = await signIn(email, password);
+    const { error, mfaRequired } = await signIn(email, password);
 
     if (error) {
       toast({
@@ -85,14 +87,28 @@ const Login = () => {
           ? "Email ou mot de passe incorrect" 
           : error.message,
       });
+      setLoading(false);
+    } else if (mfaRequired) {
+      // Show MFA verification screen
+      setShowMFAVerify(true);
+      setLoading(false);
     } else {
       toast({
         title: "Connexion réussie",
         description: "Bienvenue sur DébalePro !",
       });
       navigate("/");
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleMFASuccess = () => {
+    setShowMFAVerify(false);
+    toast({
+      title: "Connexion réussie",
+      description: "Bienvenue sur DébalePro !",
+    });
+    navigate("/");
   };
 
   const handleGoogleSignIn = async () => {
@@ -109,6 +125,16 @@ const Login = () => {
     }
     // Note: no need to setGoogleLoading(false) on success as page will redirect
   };
+
+  // Show MFA verification if required
+  if (showMFAVerify) {
+    return (
+      <MFAVerify 
+        onSuccess={handleMFASuccess}
+        onCancel={() => setShowMFAVerify(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
