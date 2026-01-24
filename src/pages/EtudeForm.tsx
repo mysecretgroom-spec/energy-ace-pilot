@@ -161,22 +161,22 @@ const EtudeForm = () => {
   const [regieNom, setRegieNom] = useState<string>("");
 
   // === VISITE TECHNIQUE - TOITURE ===
-  const [ombreToiture, setOmbreToiture] = useState("0 à 5%");
-  const [surfaceToiture, setSurfaceToiture] = useState("OK");
-  const [typeToiture, setTypeToiture] = useState("TUILE");
-  const [etatToiture, setEtatToiture] = useState("OK");
+  const [ombreToiture, setOmbreToiture] = useState("");
+  const [surfaceToiture, setSurfaceToiture] = useState("");
+  const [typeToiture, setTypeToiture] = useState("");
+  const [etatToiture, setEtatToiture] = useState("");
 
   // === COMPTEUR ÉLECTRIQUE ===
-  const [typeCompteurElectrique, setTypeCompteurElectrique] = useState("Linky");
+  const [typeCompteurElectrique, setTypeCompteurElectrique] = useState("");
   const [numeroPdl, setNumeroPdl] = useState("");
-  const [typeRaccordement, setTypeRaccordement] = useState("MONOPHASÉ");
+  const [typeRaccordement, setTypeRaccordement] = useState("");
 
   // === TABLEAU ÉLECTRIQUE ===
-  const [amperageDisjoncteur, setAmperageDisjoncteur] = useState<number>(45);
-  const [emplacementBoitier, setEmplacementBoitier] = useState("À côté");
+  const [amperageDisjoncteur, setAmperageDisjoncteur] = useState<number | "">("");
+  const [emplacementBoitier, setEmplacementBoitier] = useState("");
 
   // === RÉSULTAT VISITE TECHNIQUE ===
-  const [potentielFaisabilite, setPotentielFaisabilite] = useState("Faisable");
+  const [potentielFaisabilite, setPotentielFaisabilite] = useState("");
 
   // === CONSOMMATIONS ===
   const [consoAnnuelle, setConsoAnnuelle] = useState<number | "">("");
@@ -185,18 +185,18 @@ const EtudeForm = () => {
   // === PRÉCONISATION ===
   const [bouquetId, setBouquetId] = useState("");
   const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
-  const [typeRevente, setTypeRevente] = useState("autoconsommation");
-  const [supportInstallation, setSupportInstallation] = useState("TOITURE SURIMPOSITION");
+  const [typeRevente, setTypeRevente] = useState("");
+  const [supportInstallation, setSupportInstallation] = useState("");
 
   // === DONNÉES TECHNIQUES ===
-  const [orientation, setOrientation] = useState("SUD");
-  const [inclinaison, setInclinaison] = useState(30);
+  const [orientation, setOrientation] = useState("");
+  const [inclinaison, setInclinaison] = useState<number | "">("");
   const [surfaceInstallation, setSurfaceInstallation] = useState<number | "">("");
-  const [rendementProductivite, setRendementProductivite] = useState(100);
+  const [rendementProductivite, setRendementProductivite] = useState<number | "">(100);
 
   // === FINANCEMENT ===
   const [financementId, setFinancementId] = useState("");
-  const [dureeMoisManuelle, setDureeMoisManuelle] = useState<number>(120);
+  const [dureeMoisManuelle, setDureeMoisManuelle] = useState<number | "">("");
   const [mensualiteManuelle, setMensualiteManuelle] = useState<number | "">("");
 
   // === PRIX MANUEL ===
@@ -648,7 +648,7 @@ const EtudeForm = () => {
     const facture = Number(factureMensuelle || 0);
 
     // Get orientation coefficient (maintenant stocké dans rendementProductivite en %)
-    const rendementCoeff = rendementProductivite / 100;
+    const rendementCoeff = (Number(rendementProductivite) || 100) / 100;
 
     // === PRODUCTION ANNUELLE ===
     // Deux modes de calcul :
@@ -862,19 +862,19 @@ const EtudeForm = () => {
       numero_pdl: numeroPdl || null,
       type_raccordement: typeRaccordement,
       // Tableau électrique
-      amperage_disjoncteur: amperageDisjoncteur,
-      emplacement_boitier: emplacementBoitier,
+      amperage_disjoncteur: amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      emplacement_boitier: emplacementBoitier || null,
       // Résultat visite
-      potentiel_faisabilite: potentielFaisabilite,
+      potentiel_faisabilite: potentielFaisabilite || null,
       // Préconisation
-      puissance_kwc: puissanceKwc || null,
-      type_revente: typeRevente,
-      support: supportInstallation,
-      orientation,
-      inclinaison,
+      puissance_kwc: puissanceKwc ? Number(puissanceKwc) : null,
+      type_revente: typeRevente || null,
+      support: supportInstallation || null,
+      orientation: orientation || null,
+      inclinaison: inclinaison ? Number(inclinaison) : null,
       // Données techniques
-      surface_installation_m2: surfaceInstallation || null,
-      rendement_productivite: rendementProductivite,
+      surface_installation_m2: surfaceInstallation ? Number(surfaceInstallation) : null,
+      rendement_productivite: rendementProductivite ? Number(rendementProductivite) : null,
       // Résultats calculs
       production_annuelle_kwh: calculatedResults.productionAnnuelle,
       autoconsommation_pct: calculatedResults.autoconsoPct,
@@ -897,7 +897,7 @@ const EtudeForm = () => {
         : null,
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
-      duree_financement_mois: dureeMoisManuelle || 120,
+      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
       mensualite_estimee: calculatedResults.mensualite,
       // Rentabilité
@@ -1128,16 +1128,16 @@ const EtudeForm = () => {
       surfaceToiture: surfaceToiture,
       typeToiture: typeToiture,
       etatToiture: etatToiture,
-      orientation: orientation,
-      inclinaison: inclinaison,
+      orientation: orientation || "Non défini",
+      inclinaison: Number(inclinaison) || 0,
       
       // Compteur
-      typeCompteurElectrique: typeCompteurElectrique,
+      typeCompteurElectrique: typeCompteurElectrique || "Non défini",
       numeroPdl: numeroPdl,
-      typeRaccordement: typeRaccordement,
-      amperageDisjoncteur: amperageDisjoncteur,
-      emplacementBoitier: emplacementBoitier,
-      potentielFaisabilite: potentielFaisabilite,
+      typeRaccordement: typeRaccordement || "Non défini",
+      amperageDisjoncteur: Number(amperageDisjoncteur) || 0,
+      emplacementBoitier: emplacementBoitier || "Non défini",
+      potentielFaisabilite: potentielFaisabilite || "Non défini",
       
       // Consommation
       consoAnnuelle: Number(consoAnnuelle) || 0,
@@ -1146,13 +1146,13 @@ const EtudeForm = () => {
       // Préconisation
       bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
       puissanceKwc: Number(puissanceKwc) || 0,
-      typeRevente: typeRevente,
-      supportInstallation: supportInstallation,
+      typeRevente: typeRevente || "Non défini",
+      supportInstallation: supportInstallation || "Non défini",
       
       // Données techniques
       surfaceInstallation: Number(surfaceInstallation) || 0,
       heuresEnsoleillement: heuresEnsoleillement,
-      rendementProductivite: rendementProductivite,
+      rendementProductivite: Number(rendementProductivite) || 100,
       
       // Résultats calculs
       productionAnnuelle: calculatedResults.productionAnnuelle,
@@ -1225,23 +1225,23 @@ const EtudeForm = () => {
       surfaceToiture: surfaceToiture,
       typeToiture: typeToiture,
       etatToiture: etatToiture,
-      orientation: orientation,
-      inclinaison: inclinaison,
-      typeCompteurElectrique: typeCompteurElectrique,
+      orientation: orientation || "Non défini",
+      inclinaison: Number(inclinaison) || 0,
+      typeCompteurElectrique: typeCompteurElectrique || "Non défini",
       numeroPdl: numeroPdl,
-      typeRaccordement: typeRaccordement,
-      amperageDisjoncteur: amperageDisjoncteur,
-      emplacementBoitier: emplacementBoitier,
-      potentielFaisabilite: potentielFaisabilite,
+      typeRaccordement: typeRaccordement || "Non défini",
+      amperageDisjoncteur: Number(amperageDisjoncteur) || 0,
+      emplacementBoitier: emplacementBoitier || "Non défini",
+      potentielFaisabilite: potentielFaisabilite || "Non défini",
       consoAnnuelle: Number(consoAnnuelle) || 0,
       factureMensuelle: Number(factureMensuelle) || 0,
       bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
       puissanceKwc: Number(puissanceKwc) || 0,
-      typeRevente: typeRevente,
-      supportInstallation: supportInstallation,
+      typeRevente: typeRevente || "Non défini",
+      supportInstallation: supportInstallation || "Non défini",
       surfaceInstallation: Number(surfaceInstallation) || 0,
       heuresEnsoleillement: heuresEnsoleillement,
-      rendementProductivite: rendementProductivite,
+      rendementProductivite: Number(rendementProductivite) || 100,
       productionAnnuelle: calculatedResults.productionAnnuelle,
       surplusProduction: calculatedResults.surplusProduction,
       autoconsoPct: calculatedResults.autoconsoPct,
