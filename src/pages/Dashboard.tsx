@@ -85,6 +85,7 @@ interface VenteForCommission {
   etude_id: string | null;
   status: string;
   date_signature: string | null;
+  is_retape: boolean;
 }
 
 const Dashboard = () => {
@@ -183,7 +184,7 @@ const Dashboard = () => {
         rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature").eq("user_id", user.id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape").eq("user_id", user.id),
         // RDV
         supabase.from("rdv").select("*").eq("user_id", user.id),
         // Clients
@@ -236,6 +237,7 @@ const Dashboard = () => {
         etude_id: v.etude_id,
         status: v.status,
         date_signature: v.date_signature,
+        is_retape: v.is_retape || false,
       })));
       
       const ventesMois = ventes.filter(v => 
