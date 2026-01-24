@@ -1414,6 +1414,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           biometric_enabled: boolean | null
+          biometric_login_enabled: boolean | null
           created_at: string
           first_name: string | null
           id: string
@@ -1429,6 +1430,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           biometric_enabled?: boolean | null
+          biometric_login_enabled?: boolean | null
           created_at?: string
           first_name?: string | null
           id?: string
@@ -1444,6 +1446,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           biometric_enabled?: boolean | null
+          biometric_login_enabled?: boolean | null
           created_at?: string
           first_name?: string | null
           id?: string

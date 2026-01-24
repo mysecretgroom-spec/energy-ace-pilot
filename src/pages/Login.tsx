@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useBiometricLogin, BiometricAccount } from "@/hooks/useBiometricLogin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Loader2, Eye, EyeOff, User, Shield } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Sun, Loader2, Eye, EyeOff, User, Shield, Fingerprint, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
 import { MFAVerify } from "@/components/auth/MFAVerify";
+import { supabase } from "@/integrations/supabase/client";
 
 const REMEMBER_EMAIL_KEY = "debalepro_remember_email";
 const STAY_CONNECTED_KEY = "debalepro_stay_connected";
@@ -44,8 +47,10 @@ const Login = () => {
   const [stayConnected, setStayConnected] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
   const [showMFAVerify, setShowMFAVerify] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
+  const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount } = useBiometricLogin();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -126,6 +131,65 @@ const Login = () => {
     // Note: no need to setGoogleLoading(false) on success as page will redirect
   };
 
+  // Handle biometric login for a saved account
+  const handleBiometricLogin = async (account: BiometricAccount) => {
+    setBiometricLoading(true);
+    
+    try {
+      const { success, error } = await authenticateAccount(account);
+      
+      if (!success) {
+        toast({
+          variant: "destructive",
+          title: "Échec biométrique",
+          description: error || "L'authentification a échoué",
+        });
+        setBiometricLoading(false);
+        return;
+      }
+
+      // Biometric verified - restore session using the stored credential
+      // We need to sign in using a special method or refresh token
+      // For now, we'll use the email with a magic link or show success
+      
+      // Try to refresh the session if we have stored tokens
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Already have a valid session
+        toast({
+          title: "Connexion réussie",
+          description: `Bienvenue ${account.firstName || account.email} !`,
+        });
+        navigate("/");
+      } else {
+        // Need to restore session - show email field pre-filled
+        setEmail(account.email);
+        toast({
+          title: "Identité vérifiée",
+          description: "Entrez votre mot de passe pour continuer",
+        });
+      }
+    } catch (error) {
+      console.error("Biometric login error:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Une erreur est survenue",
+      });
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  // Get initials for avatar
+  const getInitials = (account: BiometricAccount) => {
+    if (account.firstName) {
+      return `${account.firstName[0]}${account.lastName?.[0] || ""}`.toUpperCase();
+    }
+    return account.email[0].toUpperCase();
+  };
+
   // Show MFA verification if required
   if (showMFAVerify) {
     return (
@@ -151,6 +215,70 @@ const Login = () => {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {/* Biometric Login Section - Show saved accounts */}
+            {biometricSupported && savedAccounts.length > 0 && (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground text-center mb-3">
+                    Connexion rapide avec Face ID / Touch ID
+                  </p>
+                  {savedAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors group"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                          {getInitials(account)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {account.firstName 
+                            ? `${account.firstName} ${account.lastName || ""}`.trim()
+                            : account.email}
+                        </p>
+                        {account.firstName && (
+                          <p className="text-xs text-muted-foreground truncate">{account.email}</p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleBiometricLogin(account)}
+                        disabled={biometricLoading}
+                      >
+                        {biometricLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Fingerprint className="h-4 w-4" />
+                        )}
+                        <span className="sr-only md:not-sr-only">Biométrie</span>
+                      </Button>
+                      <button
+                        type="button"
+                        className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeAccount(account.id)}
+                        aria-label="Supprimer ce compte"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">ou</span>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Google Sign-in Button */}
             <Button
               type="button"
