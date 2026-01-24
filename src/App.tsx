@@ -41,6 +41,14 @@ import RegiesSettings from "./pages/settings/RegiesSettings";
 import RegieDashboard from "./pages/RegieDashboard";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
+import Abonnement from "./pages/Abonnement";
+import Support from "./pages/Support";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminClients from "./pages/admin/AdminClients";
+import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminSupport from "./pages/admin/AdminSupport";
+import AdminFeatures from "./pages/admin/AdminFeatures";
 import React, { useEffect } from "react";
 
 const queryClient = new QueryClient();
@@ -102,6 +110,15 @@ const App = () => {
                   <Route path="/install" element={<Install />} />
                   <Route path="/confidentialite" element={<Confidentialite />} />
                   <Route path="/conditions" element={<Conditions />} />
+                  <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
+                  <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+                  {/* Admin routes */}
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/clients" element={<AdminClients />} />
+                  <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
+                  <Route path="/admin/notifications" element={<AdminNotifications />} />
+                  <Route path="/admin/support" element={<AdminSupport />} />
+                  <Route path="/admin/features" element={<AdminFeatures />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 {/* Onboarding modal for new users */}

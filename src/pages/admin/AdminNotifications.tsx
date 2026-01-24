@@ -31,6 +31,21 @@ import { toast } from "sonner";
 type AudienceType = "all" | "status" | "user";
 type StatusFilter = "trial" | "active" | "paywall" | "blocked";
 
+interface NotificationLog {
+  id: string;
+  created_at: string;
+  title: string;
+  audience: string;
+  status: string;
+}
+
+interface SaasUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
 export default function AdminNotifications() {
   const queryClient = useQueryClient();
   const [audienceType, setAudienceType] = useState<AudienceType>("all");
@@ -42,28 +57,20 @@ export default function AdminNotifications() {
   const { data: logs, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["admin-notification-logs"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notification_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50)
-        .schema("saas" as any);
+      const { data, error } = await supabase.rpc("get_saas_notification_logs" as any);
 
       if (error) throw error;
-      return data;
+      return data as NotificationLog[];
     },
   });
 
   const { data: users } = useQuery({
     queryKey: ["admin-users-for-notif"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("user_id, email, first_name, last_name")
-        .schema("saas" as any);
+      const { data, error } = await supabase.rpc("get_saas_users" as any);
 
       if (error) throw error;
-      return data;
+      return data as SaasUser[];
     },
   });
 
@@ -165,7 +172,7 @@ export default function AdminNotifications() {
                       <SelectValue placeholder="Sélectionner un utilisateur" />
                     </SelectTrigger>
                     <SelectContent>
-                      {users?.map((user: any) => (
+                      {users?.map((user) => (
                         <SelectItem key={user.user_id} value={user.user_id}>
                           {user.email} ({user.first_name} {user.last_name})
                         </SelectItem>
@@ -276,7 +283,7 @@ export default function AdminNotifications() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs?.map((log: any) => (
+                  {logs?.map((log) => (
                     <TableRow key={log.id}>
                       <TableCell>
                         {format(new Date(log.created_at), "dd MMM HH:mm", { locale: fr })}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "./AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -26,6 +26,25 @@ import { fr } from "date-fns/locale";
 
 type SubStatus = "trial" | "active" | "past_due" | "canceled" | "unpaid" | "blocked" | "incomplete" | "all";
 
+interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: string;
+  current_period_end: string | null;
+  past_due_since: string | null;
+  updated_at: string;
+  user?: SaasUser;
+}
+
+interface SaasUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
 export default function AdminSubscriptions() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<SubStatus>("all");
@@ -33,30 +52,21 @@ export default function AdminSubscriptions() {
   const { data: subscriptions, isLoading } = useQuery({
     queryKey: ["admin-subscriptions"],
     queryFn: async () => {
-      const { data: subs, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .schema("saas" as any);
+      const { data: subs, error } = await supabase.rpc("get_all_saas_subscriptions" as any);
 
       if (error) throw error;
 
       // Get user info
-      const userIds = subs?.map((s: any) => s.user_id) || [];
-      const { data: users } = await supabase
-        .from("users")
-        .select("user_id, email, first_name, last_name")
-        .in("user_id", userIds)
-        .schema("saas" as any);
+      const { data: users } = await supabase.rpc("get_saas_users" as any);
 
-      return subs?.map((sub: any) => ({
+      return (subs as Subscription[])?.map((sub) => ({
         ...sub,
-        user: users?.find((u: any) => u.user_id === sub.user_id),
+        user: (users as SaasUser[])?.find((u) => u.user_id === sub.user_id),
       }));
     },
   });
 
-  const filteredSubscriptions = subscriptions?.filter((sub: any) => {
+  const filteredSubscriptions = subscriptions?.filter((sub) => {
     const matchesSearch = 
       sub.user?.email?.toLowerCase().includes(search.toLowerCase()) ||
       sub.stripe_customer_id?.toLowerCase().includes(search.toLowerCase());
@@ -140,7 +150,7 @@ export default function AdminSubscriptions() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSubscriptions?.map((sub: any) => (
+                  {filteredSubscriptions?.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell>
                         <div>

@@ -2057,14 +2057,180 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_ticket_reply: {
+        Args: { p_is_admin?: boolean; p_message: string; p_ticket_id: string }
+        Returns: string
+      }
+      block_saas_user: { Args: { p_user_id: string }; Returns: undefined }
+      create_support_ticket: {
+        Args: { p_message: string; p_subject: string }
+        Returns: string
+      }
       decrypt_token: { Args: { encrypted_token: string }; Returns: string }
       encrypt_token: { Args: { token: string }; Returns: string }
+      get_all_feature_requests: {
+        Args: never
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          votes: number
+        }[]
+      }
+      get_all_saas_access_states: {
+        Args: never
+        Returns: {
+          app_access: string
+          trial_ends_at: string
+          trial_started_at: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_all_saas_subscriptions: {
+        Args: never
+        Returns: {
+          current_period_end: string
+          id: string
+          past_due_since: string
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_all_support_tickets: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_delinquent_subscriptions: {
+        Args: { p_past_due_before: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      get_expired_trials: {
+        Args: { p_now: string }
+        Returns: {
+          trial_ends_at: string
+          user_id: string
+        }[]
+      }
+      get_my_support_tickets: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          subject: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_saas_access_state: {
+        Args: { p_user_id: string }
+        Returns: {
+          app_access: string
+          trial_ends_at: string
+          trial_started_at: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_saas_notification_logs: {
+        Args: never
+        Returns: {
+          audience: string
+          created_at: string
+          id: string
+          message: string
+          onesignal_response: Json
+          sent_by: string
+          status: string
+          title: string
+        }[]
+      }
+      get_saas_subscription: {
+        Args: { p_user_id: string }
+        Returns: {
+          current_period_end: string
+          past_due_since: string
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_saas_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          first_name: string
+          last_name: string
+          onesignal_external_id: string
+          sector: string
+          user_id: string
+        }[]
+      }
+      get_ticket_replies: {
+        Args: { p_ticket_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          message: string
+          ticket_id: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      is_saas_admin: { Args: { p_user_id: string }; Returns: boolean }
+      log_saas_notification: {
+        Args: {
+          p_audience: string
+          p_message: string
+          p_sent_by: string
+          p_title: string
+        }
+        Returns: string
+      }
+      update_feature_status: {
+        Args: { p_feature_id: string; p_status: string }
+        Returns: undefined
+      }
+      update_saas_access_state: {
+        Args: { p_app_access: string; p_user_id: string }
+        Returns: undefined
+      }
+      update_saas_notification_log: {
+        Args: { p_log_id: string; p_onesignal_response: Json; p_status: string }
+        Returns: undefined
+      }
+      update_ticket_status: {
+        Args: { p_status: string; p_ticket_id: string }
+        Returns: undefined
       }
     }
     Enums: {

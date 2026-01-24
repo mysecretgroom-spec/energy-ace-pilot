@@ -18,13 +18,8 @@ serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // Find users whose trial has expired but are still in 'trial' status
-    const { data: expiredTrials, error: fetchError } = await supabase
-      .from("access_state")
-      .select("user_id, trial_ends_at")
-      .eq("app_access", "trial")
-      .lt("trial_ends_at", now)
-      .schema("saas");
+    // Find users whose trial has expired using RPC
+    const { data: expiredTrials, error: fetchError } = await supabase.rpc("get_expired_trials", { p_now: now });
 
     if (fetchError) {
       throw fetchError;
@@ -36,33 +31,20 @@ serve(async (req) => {
 
     for (const user of expiredTrials || []) {
       // Check if user has active subscription
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("status")
-        .eq("user_id", user.user_id)
-        .schema("saas")
-        .single();
+      const { data: subscription } = await supabase.rpc("get_saas_subscription", { p_user_id: user.user_id });
 
-      if (subscription?.status === "active") {
-        // User has active subscription, update to active
-        await supabase
-          .from("access_state")
-          .update({ app_access: "active" })
-          .eq("user_id", user.user_id)
-          .schema("saas");
-      } else {
-        // No active subscription, show paywall
-        await supabase
-          .from("access_state")
-          .update({ app_access: "paywall" })
-          .eq("user_id", user.user_id)
-          .schema("saas");
-      }
+      const hasActiveSubscription = subscription?.[0]?.status === "active";
+      const newAccess = hasActiveSubscription ? "active" : "paywall";
+
+      // Update access state
+      await supabase.rpc("update_saas_access_state", {
+        p_user_id: user.user_id,
+        p_app_access: newAccess
+      });
 
       updatedUsers.push(user.user_id);
 
       // Sync OneSignal tags
-      const newAccess = subscription?.status === "active" ? "active" : "paywall";
       await fetch(`${supabaseUrl}/functions/v1/saas-sync-onesignal-tags`, {
         method: "POST",
         headers: {

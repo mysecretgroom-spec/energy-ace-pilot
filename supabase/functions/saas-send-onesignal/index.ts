@@ -49,15 +49,10 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin
-    const { data: adminUser, error: adminError } = await supabase
-      .from("admin_users")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .schema("saas")
-      .single();
+    // Check if user is admin using RPC
+    const { data: isAdmin } = await supabase.rpc("is_saas_admin", { p_user_id: user.id });
 
-    if (adminError || !adminUser) {
+    if (!isAdmin) {
       return new Response(
         JSON.stringify({ error: "Unauthorized: Admin access required" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -102,7 +97,6 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        // Target users with specific app_access tag
         oneSignalBody.filters = [
           { field: "tag", key: "app_access", relation: "=", value: statusFilter }
         ];
@@ -141,19 +135,13 @@ serve(async (req) => {
 
     console.log(`Admin ${user.id} sending notification to ${audienceDescription}: ${title}`);
 
-    // Log the notification attempt
-    const { data: logEntry, error: logError } = await supabase
-      .from("notification_log")
-      .insert({
-        sent_by: user.id,
-        audience: audienceDescription,
-        title,
-        message,
-        status: "queued",
-      })
-      .schema("saas")
-      .select()
-      .single();
+    // Log the notification attempt using raw SQL
+    const { data: logEntry } = await supabase.rpc("log_saas_notification", {
+      p_sent_by: user.id,
+      p_audience: audienceDescription,
+      p_title: title,
+      p_message: message
+    });
 
     // Send notification via OneSignal
     const response = await fetch("https://onesignal.com/api/v1/notifications", {
@@ -169,14 +157,11 @@ serve(async (req) => {
 
     // Update log with result
     if (logEntry) {
-      await supabase
-        .from("notification_log")
-        .update({
-          onesignal_response: result,
-          status: response.ok ? "sent" : "failed",
-        })
-        .eq("id", logEntry.id)
-        .schema("saas");
+      await supabase.rpc("update_saas_notification_log", {
+        p_log_id: logEntry,
+        p_onesignal_response: result,
+        p_status: response.ok ? "sent" : "failed"
+      });
     }
 
     if (!response.ok) {

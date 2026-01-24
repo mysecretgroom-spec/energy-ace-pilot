@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,30 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
 
+interface SupportTicket {
+  id: string;
+  user_id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TicketReply {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  is_admin: boolean;
+  message: string;
+  created_at: string;
+}
+
 export default function Support() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [newSubject, setNewSubject] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -36,15 +55,10 @@ export default function Support() {
     queryFn: async () => {
       if (!user?.id) return [];
       
-      const { data, error } = await supabase
-        .from("support_tickets")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .schema("saas" as any);
+      const { data, error } = await supabase.rpc("get_my_support_tickets" as any);
 
       if (error) throw error;
-      return data;
+      return data as SupportTicket[];
     },
     enabled: !!user?.id,
   });
@@ -54,29 +68,22 @@ export default function Support() {
     queryFn: async () => {
       if (!selectedTicket?.id) return [];
       
-      const { data, error } = await supabase
-        .from("support_replies")
-        .select("*")
-        .eq("ticket_id", selectedTicket.id)
-        .order("created_at", { ascending: true })
-        .schema("saas" as any);
+      const { data, error } = await supabase.rpc("get_ticket_replies" as any, {
+        p_ticket_id: selectedTicket.id
+      });
 
       if (error) throw error;
-      return data;
+      return data as TicketReply[];
     },
     enabled: !!selectedTicket?.id,
   });
 
   const createTicketMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("support_tickets")
-        .insert({
-          user_id: user?.id,
-          subject: newSubject,
-          message: newMessage,
-        })
-        .schema("saas" as any);
+      const { error } = await supabase.rpc("create_support_ticket" as any, {
+        p_subject: newSubject,
+        p_message: newMessage
+      });
 
       if (error) throw error;
     },
@@ -94,15 +101,11 @@ export default function Support() {
 
   const replyMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("support_replies")
-        .insert({
-          ticket_id: selectedTicket.id,
-          user_id: user?.id,
-          is_admin: false,
-          message: replyText,
-        })
-        .schema("saas" as any);
+      const { error } = await supabase.rpc("add_ticket_reply" as any, {
+        p_ticket_id: selectedTicket?.id,
+        p_message: replyText,
+        p_is_admin: false
+      });
 
       if (error) throw error;
     },
@@ -194,7 +197,7 @@ export default function Support() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {tickets?.map((ticket: any) => (
+            {tickets?.map((ticket) => (
               <Card 
                 key={ticket.id} 
                 className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -226,7 +229,7 @@ export default function Support() {
           
           <div className="flex-1 overflow-hidden flex flex-col space-y-4">
             <div className="flex items-center gap-2">
-              {getStatusBadge(selectedTicket?.status)}
+              {selectedTicket && getStatusBadge(selectedTicket.status)}
               <span className="text-sm text-muted-foreground">
                 {selectedTicket?.created_at && format(new Date(selectedTicket.created_at), "dd MMM yyyy", { locale: fr })}
               </span>
@@ -238,7 +241,7 @@ export default function Support() {
 
             <ScrollArea className="flex-1 border rounded-lg p-3 min-h-[150px]">
               <div className="space-y-3">
-                {replies?.map((reply: any) => (
+                {replies?.map((reply) => (
                   <div 
                     key={reply.id}
                     className={`p-3 rounded-lg ${
