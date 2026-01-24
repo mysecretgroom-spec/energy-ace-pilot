@@ -22,6 +22,7 @@ import {
   Target,
   Building2,
   Settings2,
+  MessageCircle,
 } from "lucide-react";
 
 const settingsSections = [
@@ -45,6 +46,23 @@ const settingsSections = [
         label: "Notifications",
         description: "Alertes RDV, rappels",
         path: "/notifications",
+      },
+    ],
+  },
+  {
+    title: "WhatsApp",
+    items: [
+      {
+        icon: MessageCircle,
+        label: "Confirmateur WhatsApp",
+        description: "Numéro, activation, heure CQ",
+        path: "/parametres/whatsapp",
+      },
+      {
+        icon: MessageCircle,
+        label: "Messages personnalisés",
+        description: "Templates par statut",
+        path: "/parametres/whatsapp-templates",
       },
     ],
   },
