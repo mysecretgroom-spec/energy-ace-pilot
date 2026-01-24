@@ -44,11 +44,11 @@ export function RdvContextMenu({
   const [canClose, setCanClose] = useState(false);
 
   // Prevent immediate close from touch release that opened the menu
-  // 2 second delay before the menu can be closed
+  // 500ms delay provides good balance between accidental close prevention and responsiveness
   useEffect(() => {
     if (isOpen) {
       setCanClose(false);
-      const timer = setTimeout(() => setCanClose(true), 2000);
+      const timer = setTimeout(() => setCanClose(true), 500);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -136,9 +136,9 @@ export function RdvContextMenu({
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
-                className="h-8 w-8"
+                className="h-10 w-10 min-h-[44px] min-w-[44px]"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
 
