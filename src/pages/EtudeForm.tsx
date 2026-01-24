@@ -1311,17 +1311,17 @@ const EtudeForm = () => {
         r2DateStr = format(r2DateTime, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
       
-      const message = `📋 *ÉTUDE PRÉ-INSTALLATION*
+      const message = `*ÉTUDE PRÉ-INSTALLATION*
 
-👤 Client: *${fullName}*
-📅 Date: ${new Date().toLocaleDateString("fr-FR")}
+Client: *${fullName}*
+Date: ${new Date().toLocaleDateString("fr-FR")}
 
-📆 *RDV R2 prévu:*
+*RDV R2 prévu:*
 ${r2DateStr || "À définir"}
 
-${classificationComment ? `💬 *Commentaire:*\n${classificationComment}` : ""}
+${classificationComment ? `*Commentaire:*\n${classificationComment}` : ""}
 
-📄 *Document PDF joint*
+*Document PDF joint*
 
 ---
 _Envoyé depuis DébalePro_`;

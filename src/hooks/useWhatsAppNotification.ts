@@ -33,15 +33,15 @@ const decodeHtmlEntities = (text: string): string => {
 
 // Default templates with placeholders
 const DEFAULT_TEMPLATES: Record<string, string> = {
-  positif: `📋 *MISE À JOUR DOSSIER*
+  positif: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: ✅ POSITIF
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: POSITIF
 
-🎉 Excellent ! Le client est intéressé et prêt à avancer.
+Le client est intéressé et prêt à avancer.
 
-📞 *CQ prévu:*
+*CQ prévu:*
 {{cq_date}}
 
 {{comment}}
@@ -49,11 +49,11 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 ---
 _Envoyé depuis DébalePro_`,
 
-  negatif: `📋 *MISE À JOUR DOSSIER*
+  negatif: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: ❌ NÉGATIF
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: NÉGATIF
 
 Le client n'est pas intéressé pour le moment.
 
@@ -62,13 +62,13 @@ Le client n'est pas intéressé pour le moment.
 ---
 _Envoyé depuis DébalePro_`,
 
-  r2: `📋 *MISE À JOUR DOSSIER*
+  r2: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: 🔄 R2 - Second RDV
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: R2 - Second RDV
 
-📆 *RDV R2 prévu:*
+*RDV R2 prévu:*
 {{r2_date}}
 
 {{comment}}
@@ -76,16 +76,16 @@ _Envoyé depuis DébalePro_`,
 ---
 _Envoyé depuis DébalePro_`,
 
-  r2_prestudy: `📋 *MISE À JOUR DOSSIER*
+  r2_prestudy: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: 📋 R2 Pré-étude
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: R2 Pré-étude
 
-📆 *RDV R2 prévu:*
+*RDV R2 prévu:*
 {{r2_date}}
 
-📄 *Document PDF joint:*
+*Document PDF joint:*
 L'étude technique a été partagée séparément.
 
 {{comment}}
@@ -93,11 +93,11 @@ L'étude technique a été partagée séparément.
 ---
 _Envoyé depuis DébalePro_`,
 
-  attente: `📋 *MISE À JOUR DOSSIER*
+  attente: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: ⏳ En attente
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: En attente
 
 Le dossier est en attente de décision du client.
 
@@ -106,11 +106,11 @@ Le dossier est en attente de décision du client.
 ---
 _Envoyé depuis DébalePro_`,
 
-  annule: `📋 *MISE À JOUR DOSSIER*
+  annule: `*MISE À JOUR DOSSIER*
 
-👤 Client: *{{client_name}}*
-📅 Date: {{date}}
-📊 Statut: 🚫 Annulé
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: Annulé
 
 Le rendez-vous a été annulé.
 
