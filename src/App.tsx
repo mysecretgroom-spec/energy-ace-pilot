@@ -50,6 +50,7 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminFeatures from "./pages/admin/AdminFeatures";
 import React, { useEffect } from "react";
+import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,9 @@ const AuthenticatedHejjaToggle = () => {
 };
 
 const App = () => {
+  // PWA auto-update with network check
+  usePWAUpdate();
+  
   useEffect(() => {
     initTheme();
   }, []);
