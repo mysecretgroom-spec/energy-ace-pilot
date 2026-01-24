@@ -7,6 +7,7 @@ import { RdvStatus } from "@/components/ui/status-badge";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 
 import {
   Select,
@@ -89,6 +90,13 @@ export function RdvStatusSelector({
 
   // Signé dialog state
   const [showSigneDialog, setShowSigneDialog] = useState(false);
+
+  // WhatsApp confirm dialog state
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState<{
+    classification: string;
+    r2DateTime?: string | null;
+  } | null>(null);
 
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
@@ -221,16 +229,14 @@ export function RdvStatusSelector({
       const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
       toast.success(`Statut changé en "${statusLabel}"`);
 
-      // Send WhatsApp notification to confirmateur
+      // Show WhatsApp confirmation dialog
       const classification = statusToClassification[newStatus];
       if (classification) {
-        await sendWhatsAppNotification({
-          clientName,
-          clientPrenom,
+        setPendingWhatsApp({
           classification,
-          userId: user.id,
           r2DateTime: options?.r2DateTime || null,
         });
+        setShowWhatsAppDialog(true);
       }
     } catch (err) {
       console.error("Error updating status:", err);
@@ -238,6 +244,24 @@ export function RdvStatusSelector({
     } finally {
       setUpdating(false);
     }
+  };
+
+  const handleWhatsAppConfirm = async () => {
+    if (!pendingWhatsApp || !user) return;
+    
+    await sendWhatsAppNotification({
+      clientName,
+      clientPrenom,
+      classification: pendingWhatsApp.classification,
+      userId: user.id,
+      r2DateTime: pendingWhatsApp.r2DateTime,
+    });
+    
+    setPendingWhatsApp(null);
+  };
+
+  const handleWhatsAppCancel = () => {
+    setPendingWhatsApp(null);
   };
 
   const currentOption = statusOptions.find(s => s.value === status);
@@ -357,6 +381,16 @@ export function RdvStatusSelector({
         etudeId={etudeId}
         onConfirm={handleSigneConfirm}
         updating={updating}
+      />
+
+      {/* WhatsApp Confirm Dialog */}
+      <WhatsAppConfirmDialog
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
+        onConfirm={handleWhatsAppConfirm}
+        onCancel={handleWhatsAppCancel}
+        clientName={[clientPrenom, clientName].filter(Boolean).join(" ")}
+        classification={pendingWhatsApp?.classification || "attente"}
       />
     </>
   );
