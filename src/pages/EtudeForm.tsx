@@ -44,6 +44,7 @@ import {
   ShieldOff,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
+import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -242,6 +243,9 @@ const EtudeForm = () => {
     created_at: string;
   }[]>([]);
   const [existingEtudeId, setExistingEtudeId] = useState<string | null>(null);
+
+  // Aides manuelles HEJJA
+  const [aidesManuelles, setAidesManuelles] = useState<AideManuelle[]>([]);
 
   // WhatsApp confirmation dialog state
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
@@ -543,6 +547,11 @@ const EtudeForm = () => {
         setR2DateHeure(r2Date);
         setR2Time(format(r2Date, "HH:mm"));
       }
+      
+      // Aides manuelles HEJJA
+      if (etude.aides_manuelles && Array.isArray(etude.aides_manuelles)) {
+        setAidesManuelles(etude.aides_manuelles as unknown as AideManuelle[]);
+      }
 
       // Charger l'historique des classifications
       const { data: history } = await supabase
@@ -735,7 +744,19 @@ const EtudeForm = () => {
       }
     }
 
-    const totalAides = primeAutoconsommation + ecoTva;
+    // Calculate aides manuelles HEJJA total
+    const aidesManuellesTotal = modeHejjaActive 
+      ? aidesManuelles.reduce((sum, aide) => {
+          switch (aide.type_calcul) {
+            case "fixe": return sum + aide.valeur;
+            case "par_kwc": return sum + aide.valeur * puissance;
+            case "pourcentage": return sum + (aide.valeur / 100) * prixTotalHorsAides;
+            default: return sum + aide.valeur;
+          }
+        }, 0)
+      : 0;
+
+    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
 
     // === MENSUALITÉ ===
@@ -854,6 +875,9 @@ const EtudeForm = () => {
       eco_tva: calculatedResults.ecoTva,
       total_aides: calculatedResults.totalAides,
       total_aides_deduites: calculatedResults.totalAidesDeduites,
+      aides_manuelles: modeHejjaActive && aidesManuelles.length > 0 
+        ? JSON.parse(JSON.stringify(aidesManuelles)) 
+        : null,
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle || 120,
@@ -2041,17 +2065,35 @@ const EtudeForm = () => {
                 <CardTitle className="text-xs flex items-center gap-1">
                   <PiggyBank className="h-3 w-3 text-status-signed" />
                   AIDES
+                  {modeHejjaActive && (
+                    <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                      HEJJA
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 pt-2 text-xs">
-                <div className="flex justify-between">
-                  <span>Prime Autoconso</span>
-                  <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ECO TVA</span>
-                  <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                </div>
+                {modeHejjaActive ? (
+                  <HejjaAidesEditor
+                    aides={aidesManuelles}
+                    onAidesChange={setAidesManuelles}
+                    puissanceKwc={Number(puissanceKwc) || 0}
+                    prixTotal={calculatedResults.prixTotalHorsAides}
+                    primeAutoconso={calculatedResults.primeAutoconsommation}
+                    ecoTva={calculatedResults.ecoTva}
+                  />
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Prime Autoconso</span>
+                      <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>ECO TVA</span>
+                      <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    </div>
+                  </>
+                )}
                 <Separator className="my-2" />
                 <div className="pt-2">
                   <p className="text-xs font-bold mb-1">FINANCEMENT</p>
