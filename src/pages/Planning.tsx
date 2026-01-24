@@ -568,6 +568,7 @@ const Planning = () => {
             currentDate={currentDate}
             rdvList={rdvList}
             onRdvClick={handleCalendarRdvClick}
+            onDayClick={handleDayClick}
             onStatusChange={() => fetchRdvs()}
             onRefresh={() => fetchRdvs()}
           />

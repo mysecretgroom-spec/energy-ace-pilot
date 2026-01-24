@@ -44,6 +44,7 @@ interface WeekCalendarViewProps {
   currentDate: Date;
   rdvList: RdvData[];
   onRdvClick?: (rdv: RdvData) => void;
+  onDayClick?: (date: Date) => void;
   onStatusChange?: (rdvId: string, newStatus: RdvStatus) => void;
   onRefresh?: () => void;
 }
@@ -57,6 +58,7 @@ export function WeekCalendarView({
   currentDate, 
   rdvList, 
   onRdvClick, 
+  onDayClick,
   onStatusChange,
   onRefresh 
 }: WeekCalendarViewProps) {
@@ -191,10 +193,11 @@ export function WeekCalendarView({
               date={day}
               isToday={isToday}
             >
-              {/* Day header */}
-              <div
-                className={`px-2 py-1.5 text-center border-b ${
-                  isToday ? "bg-primary/10" : "bg-muted/50"
+              {/* Day header - clickable */}
+              <button
+                onClick={() => onDayClick?.(day)}
+                className={`w-full px-2 py-1.5 text-center border-b transition-colors ${
+                  isToday ? "bg-primary/10" : "bg-muted/50 hover:bg-muted"
                 }`}
               >
                 <p className="text-[10px] font-medium text-muted-foreground uppercase">
@@ -207,7 +210,7 @@ export function WeekCalendarView({
                 >
                   {format(day, "d")}
                 </p>
-              </div>
+              </button>
 
               {/* RDVs for this day */}
               <ScrollArea className="flex-1 p-1">
