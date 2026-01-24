@@ -38,6 +38,7 @@ import {
   ExternalLink,
   Sparkles,
   CreditCard,
+  Wrench,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { Progress } from "@/components/ui/progress";
@@ -98,6 +99,16 @@ interface RegieFinancement {
   actif: boolean;
 }
 
+interface RegieSurcout {
+  id: string;
+  regie_id: string;
+  categorie: 'support' | 'emplacement_boitier' | 'compteur';
+  code: string;
+  nom: string;
+  prix: number;
+  actif: boolean;
+}
+
 interface RegieStats {
   rdv: number;
   ventes: number;
@@ -127,6 +138,7 @@ const RegiesSettings = () => {
   const [regieContacts, setRegieContacts] = useState<RegieContact[]>([]);
   const [regieBouquets, setRegieBouquets] = useState<RegieBouquet[]>([]);
   const [regieFinancements, setRegieFinancements] = useState<RegieFinancement[]>([]);
+  const [regieSurcouts, setRegieSurcouts] = useState<RegieSurcout[]>([]);
   
   // Create dialog
   const [isCreating, setIsCreating] = useState(false);
@@ -148,6 +160,12 @@ const RegiesSettings = () => {
     nom: "",
     taux_effectif: 0,
     taeg: 0,
+  });
+  const [newSurcout, setNewSurcout] = useState({
+    categorie: 'support' as 'support' | 'emplacement_boitier' | 'compteur',
+    code: "",
+    nom: "",
+    prix: 0,
   });
 
   useEffect(() => {
@@ -305,17 +323,19 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, bouquetsRes, financementsRes] = await Promise.all([
+      const [emailsRes, contactsRes, bouquetsRes, financementsRes, surcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("regies_bouquets").select("*").eq("regie_id", regieId).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
+        supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
       ]);
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
       setRegieBouquets(bouquetsRes.data || []);
       setRegieFinancements(financementsRes.data || []);
+      setRegieSurcouts((surcoutsRes.data || []) as RegieSurcout[]);
     } catch (error) {
       console.error("Error fetching regie details:", error);
     }
@@ -662,6 +682,81 @@ const RegiesSettings = () => {
     }
   };
 
+  // Surcout handlers
+  const handleAddSurcout = async () => {
+    if (!selectedRegie || !user || !newSurcout.code.trim() || !newSurcout.nom.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies_surcouts")
+        .insert({
+          user_id: user.id,
+          regie_id: selectedRegie.id,
+          categorie: newSurcout.categorie,
+          code: newSurcout.code.trim(),
+          nom: newSurcout.nom.trim(),
+          prix: newSurcout.prix,
+          actif: true,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Ce surcoût existe déjà pour cette catégorie");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("Surcoût ajouté");
+      setNewSurcout({
+        categorie: 'support',
+        code: "",
+        nom: "",
+        prix: 0,
+      });
+      fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error adding surcout:", error);
+      toast.error("Erreur lors de l'ajout");
+    }
+  };
+
+  const handleDeleteSurcout = async (surcoutId: string) => {
+    try {
+      const { error } = await supabase.from("regies_surcouts").delete().eq("id", surcoutId);
+      if (error) throw error;
+      setRegieSurcouts(regieSurcouts.filter(s => s.id !== surcoutId));
+      toast.success("Surcoût supprimé");
+    } catch (error) {
+      console.error("Error deleting surcout:", error);
+    }
+  };
+
+  const handleToggleSurcoutActif = async (surcout: RegieSurcout) => {
+    try {
+      const { error } = await supabase
+        .from("regies_surcouts")
+        .update({ actif: !surcout.actif })
+        .eq("id", surcout.id);
+      if (error) throw error;
+      setRegieSurcouts(regieSurcouts.map(s => 
+        s.id === surcout.id ? { ...s, actif: !s.actif } : s
+      ));
+    } catch (error) {
+      console.error("Error toggling surcout:", error);
+    }
+  };
+
+  const getCategorieLabel = (categorie: string) => {
+    switch (categorie) {
+      case 'support': return 'Support d\'installation';
+      case 'emplacement_boitier': return 'Emplacement boîtier';
+      case 'compteur': return 'Type de compteur';
+      default: return categorie;
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
@@ -956,7 +1051,7 @@ const RegiesSettings = () => {
 
                 {/* Tabs pour les différentes sections */}
                 <Tabs defaultValue="dashboard" className="w-full">
-                  <TabsList className="w-full rounded-none border-b grid grid-cols-5">
+                  <TabsList className="w-full rounded-none border-b grid grid-cols-6">
                     <TabsTrigger value="dashboard" className="gap-1 text-xs px-1">
                       <BarChart3 className="h-4 w-4" />
                       <span className="hidden sm:inline">Stats</span>
@@ -972,6 +1067,10 @@ const RegiesSettings = () => {
                     <TabsTrigger value="bouquets" className="gap-1 text-xs px-1">
                       <Euro className="h-4 w-4" />
                       <span className="hidden sm:inline">Tarifs</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="surcouts" className="gap-1 text-xs px-1">
+                      <Wrench className="h-4 w-4" />
+                      <span className="hidden sm:inline">Surcoûts</span>
                     </TabsTrigger>
                     <TabsTrigger value="financements" className="gap-1 text-xs px-1">
                       <CreditCard className="h-4 w-4" />
@@ -1487,6 +1586,125 @@ const RegiesSettings = () => {
                         </CardContent>
                       </Card>
                     )}
+                  </TabsContent>
+
+                  {/* Onglet Surcoûts */}
+                  <TabsContent value="surcouts" className="p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Surcoûts techniques spécifiques à cette régie
+                    </p>
+
+                    {/* Formulaire ajout surcoût */}
+                    <Card>
+                      <CardContent className="p-3 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Catégorie</label>
+                            <select
+                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                              value={newSurcout.categorie}
+                              onChange={(e) => setNewSurcout({ ...newSurcout, categorie: e.target.value as 'support' | 'emplacement_boitier' | 'compteur' })}
+                            >
+                              <option value="support">Support d'installation</option>
+                              <option value="emplacement_boitier">Emplacement boîtier</option>
+                              <option value="compteur">Type de compteur</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Code</label>
+                            <Input
+                              placeholder="ex: sol_beton"
+                              value={newSurcout.code}
+                              onChange={(e) => setNewSurcout({ ...newSurcout, code: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Nom affiché</label>
+                            <Input
+                              placeholder="ex: Sol béton"
+                              value={newSurcout.nom}
+                              onChange={(e) => setNewSurcout({ ...newSurcout, nom: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Prix €</label>
+                            <Input
+                              type="number"
+                              value={newSurcout.prix}
+                              onChange={(e) => setNewSurcout({ ...newSurcout, prix: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="w-full"
+                          onClick={handleAddSurcout} 
+                          disabled={!newSurcout.code.trim() || !newSurcout.nom.trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Ajouter le surcoût
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Liste des surcoûts groupés par catégorie */}
+                    {(['support', 'emplacement_boitier', 'compteur'] as const).map((categorie) => {
+                      const surcoutsCategorie = regieSurcouts.filter(s => s.categorie === categorie);
+                      if (surcoutsCategorie.length === 0) return null;
+                      
+                      return (
+                        <div key={categorie} className="space-y-2">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            {getCategorieLabel(categorie)}
+                          </h4>
+                          {surcoutsCategorie.map((surcout) => (
+                            <Card key={surcout.id} className={!surcout.actif ? "opacity-50" : ""}>
+                              <CardContent className="p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{surcout.nom}</p>
+                                    <p className="text-xs text-muted-foreground">{surcout.code}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-green-600">
+                                      {formatCurrency(surcout.prix)}
+                                    </span>
+                                    <Switch 
+                                      checked={surcout.actif} 
+                                      onCheckedChange={() => handleToggleSurcoutActif(surcout)}
+                                    />
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost" 
+                                      className="text-destructive h-8 w-8"
+                                      onClick={() => handleDeleteSurcout(surcout.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      );
+                    })}
+
+                    {regieSurcouts.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucun surcoût configuré
+                      </p>
+                    )}
+
+                    <Card className="bg-muted/50 border-dashed">
+                      <CardContent className="p-3">
+                        <p className="text-xs text-muted-foreground text-center">
+                          💡 Les surcoûts configurés ici seront automatiquement proposés lors de la création des études pour cette régie.
+                        </p>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
                   {/* Onglet Financements */}

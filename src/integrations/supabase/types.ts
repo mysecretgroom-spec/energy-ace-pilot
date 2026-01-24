@@ -1805,6 +1805,53 @@ export type Database = {
           },
         ]
       }
+      regies_surcouts: {
+        Row: {
+          actif: boolean
+          categorie: string
+          code: string
+          created_at: string
+          id: string
+          nom: string
+          prix: number
+          regie_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          categorie: string
+          code: string
+          created_at?: string
+          id?: string
+          nom: string
+          prix?: number
+          regie_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          categorie?: string
+          code?: string
+          created_at?: string
+          id?: string
+          nom?: string
+          prix?: number
+          regie_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regies_surcouts_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings_notifications: {
         Row: {
           confirmateur_name: string | null
