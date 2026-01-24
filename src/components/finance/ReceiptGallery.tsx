@@ -325,18 +325,18 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-10 w-10 min-h-[44px] min-w-[44px]"
                       onClick={() => receipt.justificatif_url && handlePreview(receipt.justificatif_url)}
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-5 w-5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-10 w-10 min-h-[44px] min-w-[44px]"
                       onClick={() => handleDownload(receipt)}
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>

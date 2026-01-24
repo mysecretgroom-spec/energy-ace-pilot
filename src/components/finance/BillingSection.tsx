@@ -354,10 +354,10 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-white hover:bg-amber-700"
+                    className="h-10 w-10 min-h-[44px] min-w-[44px] text-white hover:bg-amber-700"
                     onClick={clearSelection}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5" />
                   </Button>
                   <div>
                     <p className="text-sm font-medium">{selectedIds.size} dossier{selectedIds.size > 1 ? "s" : ""}</p>

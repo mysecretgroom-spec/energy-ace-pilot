@@ -31,7 +31,7 @@ export const MobileLayout = ({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="mr-2 h-11 w-11"
+                className="mr-2 h-12 w-12 min-h-[48px] min-w-[48px]"
                 onClick={() => navigate(-1)}
               >
                 <ArrowLeft className="h-6 w-6" />
