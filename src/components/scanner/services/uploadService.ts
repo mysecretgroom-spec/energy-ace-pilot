@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { DocumentContext } from "../AddDocumentFlow";
+import type { DocumentContext } from "../types";
 
 export async function uploadDocumentToStorage(
   pdfBlob: Blob,

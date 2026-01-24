@@ -7,10 +7,9 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ReceiptScanner } from "@/components/finance/ReceiptScanner";
 import { BankImport } from "@/components/finance/BankImport";
 import { PlaidLink } from "@/components/finance/PlaidLink";
-import { AddDocumentFlow, MultiImportFlow } from "@/components/scanner";
+import { MultiImportFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
@@ -147,8 +146,6 @@ type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'p
 const Finance = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("frais");
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [documentFlowOpen, setDocumentFlowOpen] = useState(false);
   const [multiImportOpen, setMultiImportOpen] = useState(false);
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -508,7 +505,7 @@ const Finance = () => {
     };
 
     fetchFrais();
-  }, [user, scannerOpen, addFraisOpen]);
+  }, [user, addFraisOpen]);
 
   const handleAddFrais = async () => {
     if (!user || !newFrais.montant) {
@@ -905,19 +902,10 @@ const Finance = () => {
             <div className="flex gap-2 flex-wrap">
               <Button 
                 className="flex-1 bg-gradient-hero gap-2 h-12"
-                onClick={() => setDocumentFlowOpen(true)}
-              >
-                <Plus className="h-5 w-5" />
-                Ajouter une facture
-              </Button>
-              
-              <Button 
-                variant="outline"
-                className="gap-2 h-12"
                 onClick={() => setMultiImportOpen(true)}
               >
-                <Files className="h-4 w-4" />
-                Import multiple
+                <Plus className="h-5 w-5" />
+                Importer des factures
               </Button>
               
               <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
@@ -961,28 +949,6 @@ const Finance = () => {
                 </DialogContent>
               </Dialog>
             </div>
-            
-            {/* Document Flow for Finance */}
-            <AddDocumentFlow
-              context="finance"
-              isOpen={documentFlowOpen}
-              onSuccess={() => {
-                setDocumentFlowOpen(false);
-                // Refresh data
-                if (user) {
-                  supabase
-                    .from("frais")
-                    .select("*")
-                    .eq("user_id", user.id)
-                    .order("date_frais", { ascending: false })
-                    .limit(10)
-                    .then(({ data }) => {
-                      if (data) setFraisData(data as FraisItem[]);
-                    });
-                }
-              }}
-              onCancel={() => setDocumentFlowOpen(false)}
-            />
             
             {/* Plaid Bank Connection */}
             <PlaidLink 

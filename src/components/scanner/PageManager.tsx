@@ -10,7 +10,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
-import type { ScanPage } from "./AddDocumentFlow";
+import type { ScanPage } from "./types";
 
 interface PageManagerProps {
   pages: ScanPage[];

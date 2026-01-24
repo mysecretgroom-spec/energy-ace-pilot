@@ -16,7 +16,7 @@ import {
   ChevronRight,
   ArrowLeft
 } from "lucide-react";
-import type { DocumentContext } from "./AddDocumentFlow";
+import type { DocumentContext } from "./types";
 
 interface DocumentMethodModalProps {
   isOpen: boolean;

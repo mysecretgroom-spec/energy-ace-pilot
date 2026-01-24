@@ -34,7 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
-import { AddDocumentFlow, MultiImportFlow } from "@/components/scanner";
+import { MultiImportFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
 import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
@@ -145,7 +145,6 @@ const ClientDetail = () => {
   const [historique, setHistorique] = useState<HistoriqueAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
-  const [showDocumentFlow, setShowDocumentFlow] = useState(false);
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
@@ -631,18 +630,10 @@ const ClientDetail = () => {
             <div className="flex gap-2">
               <Button 
                 className="flex-1 gap-2 h-12 bg-gradient-hero"
-                onClick={() => setShowDocumentFlow(true)}
-              >
-                <Plus className="h-5 w-5" />
-                Ajouter
-              </Button>
-              <Button 
-                variant="outline"
-                className="gap-2 h-12"
                 onClick={() => setShowMultiImport(true)}
               >
-                <FileText className="h-4 w-4" />
-                Import multiple
+                <Plus className="h-5 w-5" />
+                Importer des documents
               </Button>
             </div>
 
@@ -667,18 +658,6 @@ const ClientDetail = () => {
             )}
           </TabsContent>
         </Tabs>
-
-        {/* Document Flow Modal */}
-        <AddDocumentFlow
-          context="client_docs"
-          relatedClientId={id}
-          isOpen={showDocumentFlow}
-          onSuccess={() => {
-            setShowDocumentFlow(false);
-            fetchClientData();
-          }}
-          onCancel={() => setShowDocumentFlow(false)}
-        />
 
         {/* Multi Import Flow */}
         <MultiImportFlow
