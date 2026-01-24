@@ -1,6 +1,6 @@
-export { AddDocumentFlow } from "./AddDocumentFlow";
 export { MultiImportFlow } from "./MultiImportFlow";
-export type { DocumentContext, ScanPage } from "./AddDocumentFlow";
+export type { MultiImportContext } from "./MultiImportFlow";
+export type { DocumentContext, ScanPage } from "./types";
 export { CameraScanner } from "./CameraScanner";
 export { CropEditor } from "./CropEditor";
 export { PageManager } from "./PageManager";

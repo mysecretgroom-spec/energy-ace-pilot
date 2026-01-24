@@ -4,16 +4,7 @@ import { CameraScanner } from "./CameraScanner";
 import { CropEditor } from "./CropEditor";
 import { PageManager } from "./PageManager";
 import { ReviewDocument } from "./ReviewDocument";
-
-export type DocumentContext = "finance" | "client_docs";
-
-export interface ScanPage {
-  id: string;
-  imageData: string;
-  thumbnailData: string;
-  rotation: 0 | 90 | 180 | 270;
-  cropped: boolean;
-}
+import type { DocumentContext, ScanPage } from "./types";
 
 interface AddDocumentFlowProps {
   context: DocumentContext;

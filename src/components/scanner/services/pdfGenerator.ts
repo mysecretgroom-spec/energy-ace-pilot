@@ -1,6 +1,6 @@
 import { PDFDocument } from "pdf-lib";
 import imageCompression from "browser-image-compression";
-import type { ScanPage } from "../AddDocumentFlow";
+import type { ScanPage } from "../types";
 
 const COMPRESSION_OPTIONS = {
   maxSizeMB: 1,

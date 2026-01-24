@@ -28,7 +28,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import type { DocumentContext, ScanPage } from "./AddDocumentFlow";
+import type { DocumentContext, ScanPage } from "./types";
 import { generatePdfFromPages, generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
 
