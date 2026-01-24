@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { HejjaToggle } from "@/components/layout/HejjaToggle";
 import { OnboardingDialog } from "@/components/onboarding";
 import { PushPermissionPrompt } from "@/components/notifications/PushPermissionPrompt";
+import { SecurityPrompt } from "@/components/notifications/SecurityPrompt";
 import Dashboard from "./pages/Dashboard";
 import Planning from "./pages/Planning";
 import CRM from "./pages/CRM";
@@ -108,8 +109,9 @@ const App = () => {
                 <OnboardingDialog />
                 {/* Push notification permission prompt */}
                 <PushPermissionPrompt />
+                {/* Security prompt for biometric */}
+                <SecurityPrompt />
                 {/* Floating HEJJA toggle - only visible when authenticated */}
-                <AuthenticatedHejjaToggle />
                 <AuthenticatedHejjaToggle />
               </HejjaModeProvider>
             </AuthProvider>
