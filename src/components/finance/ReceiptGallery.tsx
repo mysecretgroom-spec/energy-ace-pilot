@@ -108,12 +108,19 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
   };
 
   const handlePreview = (url: string) => {
-    // Check if it's a base64 image or a URL
-    if (url.startsWith("data:image")) {
+    // Check if it's a base64 data URL
+    if (url.startsWith("data:")) {
       setPreviewUrl(url);
     } else {
-      // Use Google Docs Viewer for URLs
-      setPreviewUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
+      // For storage URLs, check if it's a PDF or image
+      const isPdf = url.includes(".pdf") || url.includes("application/pdf");
+      if (isPdf) {
+        // Use Google Docs Viewer for PDFs
+        setPreviewUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
+      } else {
+        // Direct URL for images
+        setPreviewUrl(url);
+      }
     }
     setPreviewOpen(true);
   };
@@ -123,9 +130,17 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
 
     try {
       const url = receipt.justificatif_url;
-      const fileName = `facture_${receipt.date_frais}_${categoryLabels[receipt.categorie]}.${url.startsWith("data:image/png") ? "png" : "jpg"}`;
+      // Detect file type from URL or base64 header
+      let extension = "jpg";
+      if (url.includes(".pdf") || url.startsWith("data:application/pdf")) {
+        extension = "pdf";
+      } else if (url.includes(".png") || url.startsWith("data:image/png")) {
+        extension = "png";
+      }
+      
+      const fileName = `facture_${receipt.date_frais}_${categoryLabels[receipt.categorie]}.${extension}`;
 
-      // For base64 images
+      // For base64 data
       if (url.startsWith("data:")) {
         const link = document.createElement("a");
         link.href = url;
@@ -134,7 +149,7 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
         link.click();
         document.body.removeChild(link);
       } else {
-        // For URLs, fetch and download
+        // For storage URLs, fetch and download
         const response = await fetch(url);
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
@@ -269,6 +284,17 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
                         src={receipt.justificatif_url}
                         alt="Facture"
                         className="h-full w-full object-cover"
+                      />
+                    ) : receipt.justificatif_url && !receipt.justificatif_url.includes(".pdf") && !receipt.justificatif_url.startsWith("data:application/pdf") ? (
+                      <img
+                        src={receipt.justificatif_url}
+                        alt="Facture"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          // Fallback to icon if image fails to load
+                          (e.target as HTMLImageElement).style.display = "none";
+                          (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="h-full w-full flex items-center justify-center"><svg class="h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
+                        }}
                       />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">

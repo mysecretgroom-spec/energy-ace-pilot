@@ -13,6 +13,45 @@ import * as pdfjsLib from "pdfjs-dist";
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
+// Helper to upload file to storage
+async function uploadReceiptToStorage(
+  base64Data: string,
+  userId: string,
+  isPdf: boolean
+): Promise<string> {
+  const timestamp = Date.now();
+  const extension = isPdf ? "pdf" : "jpg";
+  const contentType = isPdf ? "application/pdf" : "image/jpeg";
+  const fileName = `frais/${userId}/${timestamp}.${extension}`;
+
+  // Convert base64 to blob
+  const base64Response = await fetch(base64Data);
+  const blob = await base64Response.blob();
+
+  const { data, error } = await supabase.storage
+    .from("receipts")
+    .upload(fileName, blob, {
+      contentType,
+      upsert: false,
+    });
+
+  if (error) {
+    console.error("Upload error:", error);
+    throw new Error(`Failed to upload receipt: ${error.message}`);
+  }
+
+  // Get signed URL (1 year validity)
+  const { data: urlData } = await supabase.storage
+    .from("receipts")
+    .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+
+  if (!urlData?.signedUrl) {
+    throw new Error("Failed to generate receipt URL");
+  }
+
+  return urlData.signedUrl;
+}
+
 interface OCRResult {
   montant_ttc: number | null;
   montant_ht: number | null;
@@ -163,8 +202,19 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
       return;
     }
 
+    // Must have either image or PDF
+    if (!imagePreview && !pdfPreview) {
+      toast.error("Aucun justificatif à enregistrer");
+      return;
+    }
+
     setSaving(true);
     try {
+      // Upload receipt to storage (not base64 in DB)
+      const fileToUpload = pdfPreview || imagePreview!;
+      const isPdf = !!pdfPreview;
+      const receiptUrl = await uploadReceiptToStorage(fileToUpload, user.id, isPdf);
+
       const insertData: any = {
         user_id: user.id,
         montant: parseFloat(montantTTC),
@@ -178,7 +228,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           tva: tva ? parseFloat(tva) : null,
           taux_tva: tauxTva ? parseFloat(tauxTva) : null,
         },
-        justificatif_url: imagePreview,
+        justificatif_url: receiptUrl,
       };
       
       // Add rental period for location_vehicule
@@ -191,7 +241,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
 
       if (error) throw error;
 
-      toast.success("Frais enregistré");
+      toast.success("Frais enregistré avec justificatif");
       onSuccess?.();
     } catch (err) {
       console.error("Save error:", err);

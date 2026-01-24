@@ -466,7 +466,10 @@ const Finance = () => {
       startOfDay.setHours(0, 0, 0, 0);
       
       const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      // Get Monday as start of week (French format)
+      const dayOfWeek = now.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 6 days back, else day - 1
+      startOfWeek.setDate(now.getDate() - diffToMonday);
       startOfWeek.setHours(0, 0, 0, 0);
       
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
