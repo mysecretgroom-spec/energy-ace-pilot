@@ -11,18 +11,15 @@ interface SendWhatsAppParams {
   r2DateTime?: string | null;
   userId: string;
   cqTime?: string;
-  pdfData?: EtudeData; // Pour r2_prestudy - envoi du PDF
+  pdfData?: EtudeData;
+  regieId?: string | null; // NEW: régie associée au RDV
 }
 
 // Decode HTML entities to proper Unicode characters
 const decodeHtmlEntities = (text: string): string => {
-  // Common HTML entity patterns for emojis and special chars
   return text
-    // Numeric HTML entities (decimal): &#128203; -> actual emoji
     .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
-    // Numeric HTML entities (hex): &#x1F4CB; -> actual emoji
     .replace(/&#x([0-9A-Fa-f]+);/g, (_, code) => String.fromCodePoint(parseInt(code, 16)))
-    // Named HTML entities
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -130,18 +127,43 @@ export const useWhatsAppNotification = () => {
     userId,
     cqTime,
     pdfData,
+    regieId,
   }: SendWhatsAppParams): Promise<boolean> => {
     try {
-      // Fetch notification settings
-      const { data: settings } = await supabase
-        .from("settings_notifications")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Get WhatsApp contact from the régie (principal contact)
+      let confirmPhone: string | null = null;
+      let defaultCqTime = "10:00";
+      
+      if (regieId) {
+        // Fetch principal contact from régie
+        const { data: regieContact } = await supabase
+          .from("regies_contacts")
+          .select("telephone")
+          .eq("regie_id", regieId)
+          .eq("is_principal", true)
+          .eq("actif", true)
+          .maybeSingle();
+        
+        if (regieContact?.telephone) {
+          confirmPhone = regieContact.telephone;
+        }
+      }
+      
+      // Fallback to global settings if no régie contact found
+      if (!confirmPhone) {
+        const { data: settings } = await supabase
+          .from("settings_notifications")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-      if (!settings || !settings.whatsapp_enabled || !settings.confirmateur_phone) {
-        console.log("[WhatsApp] Notifications désactivées ou numéro non configuré");
-        return false;
+        if (!settings || !settings.whatsapp_enabled || !settings.confirmateur_phone) {
+          console.log("[WhatsApp] Aucun contact WhatsApp configuré (ni régie, ni global)");
+          return false;
+        }
+        
+        confirmPhone = settings.confirmateur_phone;
+        defaultCqTime = settings.default_cq_time || "10:00";
       }
 
       // Fetch custom template for this classification
@@ -154,7 +176,7 @@ export const useWhatsAppNotification = () => {
         .maybeSingle();
 
       // Clean phone number for wa.me link (remove + and spaces)
-      const cleanPhone = settings.confirmateur_phone.replace(/[+\s-]/g, "");
+      const cleanPhone = confirmPhone.replace(/[+\s-]/g, "");
 
       // Build the message using template
       const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
@@ -173,8 +195,8 @@ export const useWhatsAppNotification = () => {
       if (classification === "positif") {
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        // Use provided cqTime or default to 10:00
-        const [hours, minutes] = (cqTime || "10:00").split(":").map(Number);
+        // Use provided cqTime or defaultCqTime
+        const [hours, minutes] = (cqTime || defaultCqTime).split(":").map(Number);
         tomorrow.setHours(hours, minutes, 0, 0);
         cqDateStr = format(tomorrow, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }

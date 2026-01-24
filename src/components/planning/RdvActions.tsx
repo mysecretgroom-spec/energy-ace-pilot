@@ -133,6 +133,7 @@ export function RdvActions({
         clientName={clientName}
         clientId={clientId}
         etudeId={etudeId}
+        regieId={regieId}
         onStatusChange={handleStatusChangeInternal}
         compact
       />

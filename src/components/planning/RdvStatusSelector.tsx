@@ -42,6 +42,7 @@ interface RdvStatusSelectorProps {
   clientPrenom?: string;
   clientId?: string;
   etudeId?: string | null;
+  regieId?: string | null; // NEW: régie associée au RDV
   onStatusChange?: (newStatus: RdvStatus) => void;
   compact?: boolean;
 }
@@ -74,6 +75,7 @@ export function RdvStatusSelector({
   clientPrenom,
   clientId,
   etudeId,
+  regieId,
   onStatusChange,
   compact = false,
 }: RdvStatusSelectorProps) {
@@ -96,6 +98,7 @@ export function RdvStatusSelector({
   const [pendingWhatsApp, setPendingWhatsApp] = useState<{
     classification: string;
     r2DateTime?: string | null;
+    regieId?: string | null;
   } | null>(null);
   const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
 
@@ -255,6 +258,7 @@ export function RdvStatusSelector({
         setPendingWhatsApp({
           classification,
           r2DateTime: options?.r2DateTime || null,
+          regieId: regieId || null,
         });
         setShowWhatsAppDialog(true);
       }
@@ -275,6 +279,7 @@ export function RdvStatusSelector({
       classification: pendingWhatsApp.classification,
       userId: user.id,
       r2DateTime: pendingWhatsApp.r2DateTime,
+      regieId: pendingWhatsApp.regieId,
     });
     
     setPendingWhatsApp(null);

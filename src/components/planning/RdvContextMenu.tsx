@@ -24,6 +24,7 @@ interface RdvContextMenuProps {
     status: RdvStatus;
     typeRdv: "standard" | "external_installation";
     etudeId?: string | null;
+    regieId?: string | null;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -155,6 +156,7 @@ export function RdvContextMenu({
                   clientName={rdv.client}
                   clientId={rdv.clientId}
                   etudeId={rdv.etudeId}
+                  regieId={rdv.regieId}
                   onStatusChange={handleStatusChange}
                 />
               </div>

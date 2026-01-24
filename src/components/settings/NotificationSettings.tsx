@@ -1,20 +1,16 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Save, Loader2 } from "lucide-react";
+import { MessageCircle, Save, Loader2, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface NotificationSettings {
   id?: string;
-  confirmateur_phone: string;
-  confirmateur_name: string;
   whatsapp_enabled: boolean;
-  default_cq_time: string;
   skip_whatsapp_prompt: boolean;
 }
 
@@ -23,17 +19,11 @@ export const NotificationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>({
-    confirmateur_phone: "",
-    confirmateur_name: "",
     whatsapp_enabled: true,
-    default_cq_time: "10:00",
     skip_whatsapp_prompt: false,
   });
   const [originalSettings, setOriginalSettings] = useState<NotificationSettings>({
-    confirmateur_phone: "",
-    confirmateur_name: "",
     whatsapp_enabled: true,
-    default_cq_time: "10:00",
     skip_whatsapp_prompt: false,
   });
 
@@ -41,26 +31,22 @@ export const NotificationSettings = () => {
     loadSettings();
   }, [user]);
 
-  // Détecter les modifications
   const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
 
   const loadSettings = async () => {
     if (!user) return;
     
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("settings_notifications")
-      .select("*")
+      .select("id, whatsapp_enabled, skip_whatsapp_prompt")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (data) {
       const loadedSettings = {
         id: data.id,
-        confirmateur_phone: data.confirmateur_phone || "",
-        confirmateur_name: data.confirmateur_name || "",
         whatsapp_enabled: data.whatsapp_enabled ?? true,
-        default_cq_time: data.default_cq_time || "10:00",
         skip_whatsapp_prompt: data.skip_whatsapp_prompt ?? false,
       };
       setSettings(loadedSettings);
@@ -74,15 +60,9 @@ export const NotificationSettings = () => {
     
     setSaving(true);
     
-    // Clean phone number (remove spaces, keep + if present)
-    const cleanPhone = settings.confirmateur_phone.replace(/\s/g, "");
-    
     const settingsData = {
       user_id: user.id,
-      confirmateur_phone: cleanPhone,
-      confirmateur_name: settings.confirmateur_name,
       whatsapp_enabled: settings.whatsapp_enabled,
-      default_cq_time: settings.default_cq_time,
       skip_whatsapp_prompt: settings.skip_whatsapp_prompt,
     };
 
@@ -104,8 +84,7 @@ export const NotificationSettings = () => {
       console.error("Error saving settings:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Paramètres enregistrés");
-      // Mettre à jour l'original pour réinitialiser hasChanges
+      toast.success("Préférences enregistrées");
       setOriginalSettings({ ...settings });
     }
     
@@ -126,16 +105,16 @@ export const NotificationSettings = () => {
     <Card className="shadow-card">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <MessageCircle className="h-5 w-5 text-primary" />
-          Envoi WhatsApp Confirmateur
+          <Settings className="h-5 w-5 text-primary" />
+          Préférences WhatsApp
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <Label>Activer l'envoi WhatsApp</Label>
+            <Label>Activer les notifications WhatsApp</Label>
             <p className="text-xs text-muted-foreground">
-              Envoyer un message au confirmateur à chaque mise à jour de classification
+              Proposer l'envoi WhatsApp lors des changements de statut
             </p>
           </div>
           <Switch
@@ -150,7 +129,7 @@ export const NotificationSettings = () => {
           <div>
             <Label>Ne plus demander de confirmation</Label>
             <p className="text-xs text-muted-foreground">
-              Désactiver le dialogue de confirmation WhatsApp au changement de statut
+              Désactiver le dialogue de confirmation WhatsApp
             </p>
           </div>
           <Switch
@@ -161,46 +140,12 @@ export const NotificationSettings = () => {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmateur_name">Nom du confirmateur</Label>
-          <Input
-            id="confirmateur_name"
-            placeholder="Ex: Jean Dupont"
-            value={settings.confirmateur_name}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, confirmateur_name: e.target.value }))
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="confirmateur_phone">Numéro WhatsApp</Label>
-          <Input
-            id="confirmateur_phone"
-            type="tel"
-            placeholder="Ex: +33612345678"
-            value={settings.confirmateur_phone}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, confirmateur_phone: e.target.value }))
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            Format international avec indicatif pays (ex: +33 pour la France)
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="default_cq_time">Heure par défaut du CQ (Positif)</Label>
-          <Input
-            id="default_cq_time"
-            type="time"
-            value={settings.default_cq_time}
-            onChange={(e) =>
-              setSettings((s) => ({ ...s, default_cq_time: e.target.value }))
-            }
-          />
-          <p className="text-xs text-muted-foreground">
-            Heure du Contrôle Qualité prévu le lendemain (statut Positif)
+        <div className="p-3 bg-muted/50 rounded-lg">
+          <p className="text-xs text-muted-foreground flex items-start gap-2">
+            <MessageCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+            <span>
+              Le numéro WhatsApp du confirmateur est configuré dans les paramètres de chaque régie (contact principal).
+            </span>
           </p>
         </div>
 
