@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
+import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
 import {
   TrendingUp, 
   Calendar, 
@@ -88,7 +89,21 @@ interface VenteForCommission {
   status: string;
   date_signature: string | null;
   is_retape: boolean;
+  client_nom?: string;
+  client_prenom?: string;
+  client_id?: string;
 }
+
+interface RawRdv {
+  id: string;
+  date_heure: string;
+  status: string;
+  type_projet: string | null;
+  client_nom?: string;
+  client_id?: string;
+}
+
+type StatDialogType = 'ca' | 'ventes' | 'rdv' | 'commissions' | 'commissionsAttente' | 'hejja' | null;
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -115,6 +130,11 @@ const Dashboard = () => {
   const [premierRdvDemain, setPremierRdvDemain] = useState<RdvDemain | null>(null);
   const [loading, setLoading] = useState(true);
   const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
+  const [rawRdvs, setRawRdvs] = useState<RawRdv[]>([]);
+  
+  // Dialog state
+  const [statDialogOpen, setStatDialogOpen] = useState(false);
+  const [statDialogType, setStatDialogType] = useState<StatDialogType>(null);
 
   // Use commission hook for accurate calculations
   const { getCommission } = useVenteCommissions(ventesForCommission);
@@ -193,10 +213,10 @@ const Dashboard = () => {
         prochainsRdvRes,
         rdvDemainRes
       ] = await Promise.all([
-        // Ventes du mois et année
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape").eq("user_id", user.id),
-        // RDV
-        supabase.from("rdv").select("*").eq("user_id", user.id),
+        // Ventes du mois et année - include client info
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape, client_id, clients(nom, prenom)").eq("user_id", user.id),
+        // RDV with client info
+        supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
         supabase.from("clients").select("id, created_at").eq("user_id", user.id),
         // Placeholder for removed commissions query
@@ -236,7 +256,7 @@ const Dashboard = () => {
       const ventes = ventesRes.data || [];
       
       // Store ventes for commission calculation (exclude annulées)
-      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map(v => ({
+      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map((v: any) => ({
         id: v.id,
         montant_ht: v.montant_ht,
         montant_ttc: v.montant_ttc,
@@ -248,28 +268,42 @@ const Dashboard = () => {
         status: v.status,
         date_signature: v.date_signature,
         is_retape: v.is_retape || false,
+        client_nom: v.clients?.nom || "Client",
+        client_prenom: v.clients?.prenom || "",
+        client_id: v.client_id,
       })));
       
-      const ventesMois = ventes.filter(v => 
+      const ventesMois = ventes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutMois) &&
         new Date(v.date_signature) <= new Date(finMois) &&
         v.status !== 'annule'
       );
-      const ventesAnnee = ventes.filter(v => 
+      const ventesAnnee = ventes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutAnnee) &&
         new Date(v.date_signature) <= new Date(finAnnee) &&
         v.status !== 'annule'
       );
-      const ventesEnCours = ventes.filter(v => 
+      const ventesEnCours = ventes.filter((v: any) => 
         v.status === 'en_negociation' || v.status === 'signe' || v.status === 'en_installation'
       );
 
       // Process RDV
       const rdvs = rdvRes.data || [];
-      const rdvAujourd = rdvs.filter(r => r.date_heure?.startsWith(aujourd)).length;
-      const rdvSemaine = rdvs.filter(r => 
+      
+      // Store raw RDVs for dialog
+      setRawRdvs(rdvs.map((r: any) => ({
+        id: r.id,
+        date_heure: r.date_heure,
+        status: r.status,
+        type_projet: r.type_projet,
+        client_nom: r.clients?.nom || "Client",
+        client_id: r.client_id,
+      })));
+      
+      const rdvAujourd = rdvs.filter((r: any) => r.date_heure?.startsWith(aujourd)).length;
+      const rdvSemaine = rdvs.filter((r: any) => 
         new Date(r.date_heure) >= now && 
         new Date(r.date_heure) <= new Date(finSemaine)
       ).length;
@@ -352,6 +386,132 @@ const Dashboard = () => {
     }
   };
 
+  // Open stat detail dialog
+  const openStatDialog = (type: StatDialogType) => {
+    setStatDialogType(type);
+    setStatDialogOpen(true);
+  };
+
+  // Get dialog items based on type
+  const getStatDialogData = useMemo(() => {
+    const now = new Date();
+    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    const aujourd = format(now, "yyyy-MM-dd");
+    
+    switch (statDialogType) {
+      case 'ca':
+      case 'ventes': {
+        // Ventes signées ce mois
+        const ventesMois = ventesForCommission.filter(v => 
+          v.date_signature && 
+          new Date(v.date_signature) >= debutMois &&
+          !v.is_retape
+        );
+        return {
+          title: statDialogType === 'ca' ? "CA du mois" : "Ventes du mois",
+          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          items: ventesMois.map(v => ({
+            id: v.id,
+            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: ventesMois.reduce((sum, v) => sum + v.montant_ttc, 0),
+        };
+      }
+      case 'rdv': {
+        // RDV aujourd'hui
+        const rdvsAujourd = rawRdvs.filter(r => r.date_heure?.startsWith(aujourd));
+        return {
+          title: "RDV aujourd'hui",
+          subtitle: format(now, "EEEE d MMMM", { locale: fr }),
+          items: rdvsAujourd.map(r => ({
+            id: r.id,
+            label: r.client_nom || "Client",
+            sublabel: r.type_projet || "RDV",
+            valueLabel: format(new Date(r.date_heure), "HH:mm"),
+            date: r.date_heure,
+            status: r.status === 'confirme' ? 'Confirmé' : r.status === 'annule' ? 'Annulé' : 'Nouveau',
+            statusColor: r.status === 'confirme' ? '#22c55e' : r.status === 'annule' ? '#ef4444' : '#3b82f6',
+            navigateTo: `/planning`,
+          })),
+          total: undefined,
+          formatValue: (v: number) => `${v}`,
+        };
+      }
+      case 'commissions': {
+        // Commissions du mois (ventes signées ce mois)
+        const ventesMois = ventesForCommission.filter(v => 
+          v.date_signature && 
+          new Date(v.date_signature) >= debutMois &&
+          !v.is_retape
+        );
+        return {
+          title: "Commissions du mois",
+          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          items: ventesMois.map(v => {
+            const comm = getCommission(v.id);
+            return {
+              id: v.id,
+              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+              value: comm?.commissionNette || 0,
+              date: v.date_signature || undefined,
+              navigateTo: `/ventes/${v.id}`,
+            };
+          }),
+          total: commissionData.commissionsMois,
+        };
+      }
+      case 'commissionsAttente': {
+        // Toutes les ventes non payées (sauf retapes)
+        const ventesNonPayees = ventesForCommission.filter(v => 
+          v.status !== 'paye' && !v.is_retape
+        );
+        return {
+          title: "Commissions en attente",
+          subtitle: "Ventes non payées",
+          items: ventesNonPayees.map(v => {
+            const comm = getCommission(v.id);
+            return {
+              id: v.id,
+              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+              value: comm?.commissionNette || 0,
+              date: v.date_signature || undefined,
+              navigateTo: `/ventes/${v.id}`,
+            };
+          }),
+          total: commissionData.commissionsEnAttente,
+        };
+      }
+      case 'hejja': {
+        // Ventes retape
+        const ventesRetape = ventesForCommission.filter(v => v.is_retape);
+        return {
+          title: "Commissions HEJJA",
+          subtitle: "Ventes Retape",
+          items: ventesRetape.map(v => {
+            const comm = getCommission(v.id);
+            return {
+              id: v.id,
+              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+              value: comm?.commissionNette || 0,
+              date: v.date_signature || undefined,
+              navigateTo: `/ventes/${v.id}`,
+            };
+          }),
+          total: commissionData.commissionsHejja,
+        };
+      }
+      default:
+        return { title: "", items: [], total: undefined };
+    }
+  }, [statDialogType, ventesForCommission, rawRdvs, getCommission, commissionData]);
+
   const openBookingSearch = () => {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -422,7 +582,10 @@ const Dashboard = () => {
 
         {/* KPIs principaux */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+          <Card 
+            className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => openStatDialog('ca')}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-primary mb-1">
                 <Euro className="h-4 w-4" />
@@ -439,7 +602,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
+          <Card 
+            className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => openStatDialog('ventes')}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-green-600 mb-1">
                 <FileText className="h-4 w-4" />
@@ -456,7 +622,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => openStatDialog('rdv')}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-blue-500 mb-1">
                 <Calendar className="h-4 w-4" />
@@ -469,14 +638,20 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => openStatDialog('commissions')}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 text-amber-500 mb-1">
                 <TrendingUp className="h-4 w-4" />
                 <span className="text-xs font-medium">Commissions</span>
               </div>
               <p className="text-xl font-bold">{formatCurrency(commissionData.commissionsMois)}</p>
-              <p className="text-xs text-muted-foreground">
+              <p 
+                className="text-xs text-muted-foreground underline cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
+              >
                 {formatCurrency(commissionData.commissionsEnAttente)} en attente
               </p>
             </CardContent>
@@ -484,7 +659,10 @@ const Dashboard = () => {
 
           {/* Commission HEJJA - Only visible in HEJJA mode */}
           {modeHejjaActive && (
-            <Card className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2">
+            <Card 
+              className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => openStatDialog('hejja')}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-red-500 mb-1">
                   <Flame className="h-4 w-4" />
@@ -644,6 +822,17 @@ const Dashboard = () => {
           </Card>
         </div>
       </div>
+
+      {/* Stat Detail Dialog */}
+      <StatDetailDialog
+        open={statDialogOpen}
+        onOpenChange={setStatDialogOpen}
+        title={getStatDialogData.title}
+        subtitle={getStatDialogData.subtitle}
+        items={getStatDialogData.items}
+        total={getStatDialogData.total}
+        emptyMessage="Aucune donnée"
+      />
     </MobileLayout>
   );
 };
