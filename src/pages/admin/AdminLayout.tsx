@@ -12,7 +12,9 @@ import {
   LayoutDashboard,
   LogOut,
   Loader2,
-  Shield
+  Shield,
+  BarChart3,
+  ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,11 +25,13 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/admin/clients", label: "Clients", icon: Users },
   { path: "/admin/subscriptions", label: "Abonnements", icon: CreditCard },
   { path: "/admin/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/support", label: "Support", icon: MessageSquare },
   { path: "/admin/features", label: "Améliorations", icon: Lightbulb },
+  { path: "/admin/audit-logs", label: "Logs d'Audit", icon: ScrollText },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
