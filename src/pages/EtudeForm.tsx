@@ -2109,12 +2109,22 @@ _Envoyé depuis DébalePro_`;
                   <span className="font-medium">{calculatedResults.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Surcoût Support</span>
-                  <span>{surcoutSupport.toFixed(2)}€</span>
+                  <span className="flex items-center gap-1">
+                    Surcoût Support
+                    {supportInstallation && (
+                      <span className="text-[10px] text-muted-foreground/70">({supportInstallation})</span>
+                    )}
+                  </span>
+                  <span className={surcoutSupport > 0 ? "text-amber-600 font-medium" : ""}>{surcoutSupport.toFixed(2)}€</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Surcoût Compteur</span>
-                  <span>{surcoutCompteur.toFixed(2)}€</span>
+                  <span className="flex items-center gap-1">
+                    Surcoût Compteur
+                    {typeRaccordement && (
+                      <span className="text-[10px] text-muted-foreground/70">({typeRaccordement})</span>
+                    )}
+                  </span>
+                  <span className={surcoutCompteur > 0 ? "text-amber-600 font-medium" : ""}>{surcoutCompteur.toFixed(2)}€</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Autre Surcoût</span>
