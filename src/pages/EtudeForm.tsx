@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -229,6 +229,22 @@ const EtudeForm = () => {
   const [exporting, setExporting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string>("");
+
+  // Force light mode on Etude page - restore previous theme on unmount
+  useLayoutEffect(() => {
+    const previousTheme = localStorage.getItem("theme") || "light";
+    const wasDark = document.documentElement.classList.contains("dark");
+    
+    // Force light mode
+    document.documentElement.classList.remove("dark");
+    
+    return () => {
+      // Restore previous theme when leaving
+      if (wasDark || previousTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      }
+    };
+  }, []);
 
   // Classification du dossier
   const [classification, setClassification] = useState<string>("");
