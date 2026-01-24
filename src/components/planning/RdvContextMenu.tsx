@@ -44,10 +44,11 @@ export function RdvContextMenu({
   const [canClose, setCanClose] = useState(false);
 
   // Prevent immediate close from touch release that opened the menu
+  // 2 second delay before the menu can be closed
   useEffect(() => {
     if (isOpen) {
       setCanClose(false);
-      const timer = setTimeout(() => setCanClose(true), 300);
+      const timer = setTimeout(() => setCanClose(true), 2000);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
