@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import {
@@ -20,7 +21,8 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Hotel
+  Hotel,
+  Flame
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -90,6 +92,7 @@ interface VenteForCommission {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { isActive: modeHejjaActive } = useHejjaMode();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     ventesSignesMois: 0,
@@ -123,15 +126,22 @@ const Dashboard = () => {
     
     let commissionsMois = 0;
     let commissionsEnAttente = 0;
+    let commissionsHejja = 0;
 
     ventesForCommission.forEach(vente => {
       // Skip cancelled sales
-      if (vente.status === "annule") return;
+      if (vente.status === "annulo") return;
       
       const comm = getCommission(vente.id);
       if (!comm) return;
 
       const net = comm.commissionNette;
+
+      // Commissions HEJJA (retape sales)
+      if (vente.is_retape) {
+        commissionsHejja += net;
+        return; // Don't count in regular stats
+      }
 
       // Commissions du mois (ventes signées ce mois)
       if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {
@@ -144,7 +154,7 @@ const Dashboard = () => {
       }
     });
 
-    return { commissionsMois, commissionsEnAttente };
+    return { commissionsMois, commissionsEnAttente, commissionsHejja };
   }, [ventesForCommission, getCommission]);
 
   useEffect(() => {
@@ -471,6 +481,25 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
+
+          {/* Commission HEJJA - Only visible in HEJJA mode */}
+          {modeHejjaActive && (
+            <Card className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-red-500 mb-1">
+                  <Flame className="h-4 w-4" />
+                  <span className="text-xs font-medium">Commission HEJJA</span>
+                  <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                    RETAPES
+                  </Badge>
+                </div>
+                <p className="text-xl font-bold text-red-600">{formatCurrency(commissionData.commissionsHejja)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Total sur ventes retape (masqué hors mode HEJJA)
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Prochains RDV */}

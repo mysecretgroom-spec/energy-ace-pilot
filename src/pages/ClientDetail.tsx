@@ -28,9 +28,11 @@ import {
   Zap,
   Pencil,
   Building2,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 import { AddDocumentFlow, MultiImportFlow } from "@/components/scanner";
 import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
@@ -38,6 +40,7 @@ import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { RegieSelector } from "@/components/planning/RegieSelector";
+import { RetapeDialog } from "@/components/crm/RetapeDialog";
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -130,6 +133,7 @@ const ClientDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isActive: modeHejjaActive } = useHejjaMode();
   const { toast } = useToast();
 
   const [client, setClient] = useState<Client | null>(null);
@@ -142,6 +146,7 @@ const ClientDetail = () => {
   const [showDocumentFlow, setShowDocumentFlow] = useState(false);
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showRetapeDialog, setShowRetapeDialog] = useState(false);
 
   useEffect(() => {
     if (id && user) {
@@ -317,13 +322,25 @@ const ClientDetail = () => {
               Client depuis {formatDate(client.created_at)}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowEditDialog(true)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {modeHejjaActive && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowRetapeDialog(true)}
+                className="border-orange-500/50 text-orange-500 hover:bg-orange-500/10"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowEditDialog(true)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Actions rapides */}
@@ -673,6 +690,17 @@ const ClientDetail = () => {
           onOpenChange={setShowEditDialog}
           onSuccess={fetchClientData}
         />
+
+        {/* Retape Dialog - HEJJA mode only */}
+        {client && (
+          <RetapeDialog
+            open={showRetapeDialog}
+            onOpenChange={setShowRetapeDialog}
+            clientId={client.id}
+            clientName={client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
+            onSuccess={fetchClientData}
+          />
+        )}
       </div>
     </MobileLayout>
   );
