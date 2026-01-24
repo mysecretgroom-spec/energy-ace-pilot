@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session, AuthenticatorAssuranceLevels } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { clearMFASession } from "@/hooks/useMFAChallenge";
 
 interface AuthContextType {
   user: User | null;
@@ -207,6 +208,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     setMfaRequired(false);
     setCurrentLevel(null);
+    // Clear MFA session cache on logout
+    clearMFASession();
     await supabase.auth.signOut();
   };
 

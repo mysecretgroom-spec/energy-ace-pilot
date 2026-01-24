@@ -44,6 +44,7 @@ export function MFAProtectedContent({
     checkMFARequired,
     verifyMFA,
     factorId,
+    isAlreadyVerified,
   } = useMFAChallenge();
 
   const [isVerified, setIsVerified] = useState(false);
@@ -52,8 +53,15 @@ export function MFAProtectedContent({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user has MFA enabled
+    // Check if user has MFA enabled and if already verified within 6h window
     const checkMFA = async () => {
+      // If already verified within valid timeframe, grant access immediately
+      if (isAlreadyVerified) {
+        setHasMFA(true);
+        setIsVerified(true);
+        return;
+      }
+
       const required = await checkMFARequired();
       setHasMFA(required);
       
@@ -65,7 +73,7 @@ export function MFAProtectedContent({
       }
     };
     checkMFA();
-  }, [checkMFARequired, requireExplicitAction]);
+  }, [checkMFARequired, requireExplicitAction, isAlreadyVerified]);
 
   const handleVerify = async () => {
     setError(null);
