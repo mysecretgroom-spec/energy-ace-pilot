@@ -50,6 +50,16 @@ export const PushNotificationSettings = () => {
     push_rappel_rdv: true,
     push_gmail_import: true,
   });
+  const [originalPreferences, setOriginalPreferences] = useState<PushPreferences>({
+    push_enabled: true,
+    push_new_rdv: true,
+    push_vente_status: true,
+    push_rappel_rdv: true,
+    push_gmail_import: true,
+  });
+
+  // Détecter les modifications
+  const hasChanges = JSON.stringify(preferences) !== JSON.stringify(originalPreferences);
 
   useEffect(() => {
     loadPreferences();
@@ -66,13 +76,15 @@ export const PushNotificationSettings = () => {
       .maybeSingle();
 
     if (data) {
-      setPreferences({
+      const loadedPrefs = {
         push_enabled: data.push_enabled ?? true,
         push_new_rdv: data.push_new_rdv ?? true,
         push_vente_status: data.push_vente_status ?? true,
         push_rappel_rdv: data.push_rappel_rdv ?? true,
         push_gmail_import: data.push_gmail_import ?? true,
-      });
+      };
+      setPreferences(loadedPrefs);
+      setOriginalPreferences(loadedPrefs);
     }
     setLoading(false);
   };
@@ -283,19 +295,21 @@ export const PushNotificationSettings = () => {
               })}
             </div>
 
-            <Button onClick={handleSave} disabled={saving} className="w-full">
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Enregistrer les préférences
-                </>
-              )}
-            </Button>
+            {hasChanges && (
+              <Button onClick={handleSave} disabled={saving} className="w-full">
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Enregistrer les préférences
+                  </>
+                )}
+              </Button>
+            )}
           </>
         )}
       </CardContent>

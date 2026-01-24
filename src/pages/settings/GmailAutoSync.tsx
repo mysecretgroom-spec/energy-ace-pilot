@@ -31,8 +31,17 @@ export default function GmailAutoSync() {
     gmail_sync_interval_minutes: 15,
     gmail_last_auto_sync: null
   });
+  const [originalSettings, setOriginalSettings] = useState<UserSettings>({
+    gmail_sync_enabled: false,
+    gmail_sync_interval_minutes: 15,
+    gmail_last_auto_sync: null
+  });
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [hasAuthorizedEmails, setHasAuthorizedEmails] = useState(false);
+
+  // Détecter les modifications
+  const hasChanges = settings.gmail_sync_enabled !== originalSettings.gmail_sync_enabled ||
+    settings.gmail_sync_interval_minutes !== originalSettings.gmail_sync_interval_minutes;
 
   useEffect(() => {
     if (user) {
@@ -55,6 +64,7 @@ export default function GmailAutoSync() {
 
       if (data) {
         setSettings(data);
+        setOriginalSettings(data);
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -276,13 +286,15 @@ export default function GmailAutoSync() {
         </Card>
 
         {/* Save Button */}
-        <Button 
-          className="w-full" 
-          onClick={saveSettings}
-          disabled={saving || !canEnable}
-        >
-          {saving ? "Enregistrement..." : "Enregistrer les paramètres"}
-        </Button>
+        {hasChanges && (
+          <Button 
+            className="w-full" 
+            onClick={saveSettings}
+            disabled={saving || !canEnable}
+          >
+            {saving ? "Enregistrement..." : "Enregistrer les paramètres"}
+          </Button>
+        )}
       </div>
     </MobileLayout>
   );
