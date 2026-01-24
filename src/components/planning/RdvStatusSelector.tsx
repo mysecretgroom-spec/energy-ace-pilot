@@ -99,6 +99,7 @@ export function RdvStatusSelector({
     classification: string;
     r2DateTime?: string | null;
     regieId?: string | null;
+    cqTime?: string;
   } | null>(null);
   const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
 
@@ -153,17 +154,30 @@ export function RdvStatusSelector({
     setPendingR2Status(null);
   };
 
-  const handleSigneConfirm = async (data: { puissanceKwc: number; prixTTC: number; bouquetId?: string }) => {
+  const handleSigneConfirm = async (data: { 
+    puissanceKwc: number; 
+    prixTTC: number; 
+    bouquetId?: string;
+    cqTime?: string;
+    surcoutsIds?: string[];
+  }) => {
     if (!user || !clientId) return;
     
     setShowSigneDialog(false);
-    await handleStatusChange("signe", { puissanceKwc: data.puissanceKwc, prixTTC: data.prixTTC });
+    await handleStatusChange("signe", { 
+      puissanceKwc: data.puissanceKwc, 
+      prixTTC: data.prixTTC,
+      cqTime: data.cqTime,
+      surcoutsIds: data.surcoutsIds,
+    });
   };
 
   interface StatusChangeOptions {
     r2DateTime?: string;
     puissanceKwc?: number;
     prixTTC?: number;
+    cqTime?: string;
+    surcoutsIds?: string[];
   }
 
   const handleStatusChange = async (newStatus: RdvStatus, options?: StatusChangeOptions) => {
@@ -259,6 +273,7 @@ export function RdvStatusSelector({
           classification,
           r2DateTime: options?.r2DateTime || null,
           regieId: regieId || null,
+          cqTime: options?.cqTime,
         });
         setShowWhatsAppDialog(true);
       }
@@ -280,6 +295,7 @@ export function RdvStatusSelector({
       userId: user.id,
       r2DateTime: pendingWhatsApp.r2DateTime,
       regieId: pendingWhatsApp.regieId,
+      cqTime: pendingWhatsApp.cqTime,
     });
     
     setPendingWhatsApp(null);
@@ -404,6 +420,7 @@ export function RdvStatusSelector({
         open={showSigneDialog}
         onOpenChange={setShowSigneDialog}
         etudeId={etudeId}
+        regieId={regieId}
         onConfirm={handleSigneConfirm}
         updating={updating}
       />
