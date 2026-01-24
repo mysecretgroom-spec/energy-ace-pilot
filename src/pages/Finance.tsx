@@ -112,10 +112,11 @@ interface VenteStats {
   caPrevMonth: number;
   commissionsMonth: number;
   // Catégories simplifiées
-  comEnCours: number;    // Non posé: signe, cq_*, financement, envoi_pose, en_installation
-  comAFacturer: number;  // Posé non payé: installe, attente_paiement
-  comPayees: number;     // Payé: paye
-  comPotentielleTotale: number; // enCours + aFacturer
+  comEnCours: number;              // Non posé: signe, cq_*, financement, envoi_pose, en_installation
+  comAttenteFacturation: number;   // Posé < 2 semaines: installe, attente_paiement
+  comAFacturer: number;            // Posé >= 2 semaines: installe, attente_paiement
+  comPayees: number;               // Payé: paye
+  comPotentielleTotale: number;    // enCours + attenteFacturation + aFacturer
   signedCount: number;
   avgDeal: number;
   ventesEnCours: number;
@@ -133,6 +134,7 @@ interface VenteForCommission {
   etude_id: string | null;
   status: string;
   date_signature: string | null;
+  date_pose: string | null;
 }
 
 const Finance = () => {
@@ -243,7 +245,7 @@ const Finance = () => {
         // Fetch all ventes for the user
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at, regie_id, etude_id, type_vente")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_pose, created_at, regie_id, etude_id, type_vente")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -262,6 +264,7 @@ const Finance = () => {
           etude_id: v.etude_id,
           status: v.status,
           date_signature: v.date_signature,
+          date_pose: v.date_pose,
         })));
 
       } catch (err) {
@@ -314,6 +317,7 @@ const Finance = () => {
     }, 0);
 
     // === Catégories simplifiées ===
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     
     // En cours (non posé): signe, cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation
     const ventesEnCours = ventes.filter(v => 
@@ -324,10 +328,26 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
 
-    // À facturer (posé non payé): installe, attente_paiement
-    const ventesAFacturer = ventes.filter(v => 
+    // Posé non payé: installe, attente_paiement - split by date_pose
+    const ventesPosees = ventes.filter(v => 
       ["installe", "attente_paiement"].includes(v.status)
     );
+    
+    // En attente de facturation: posé < 2 semaines
+    const ventesAttenteFacturation = ventesPosees.filter(v => {
+      if (!v.date_pose) return true; // Si pas de date, on considère récent par défaut
+      return new Date(v.date_pose) > twoWeeksAgo;
+    });
+    const comAttenteFacturation = ventesAttenteFacturation.reduce((sum, v) => {
+      const comm = getCommission(v.id);
+      return sum + (comm?.commissionNette || 0);
+    }, 0);
+    
+    // À facturer: posé >= 2 semaines
+    const ventesAFacturer = ventesPosees.filter(v => {
+      if (!v.date_pose) return false; // Si pas de date, pas facturable
+      return new Date(v.date_pose) <= twoWeeksAgo;
+    });
     const comAFacturer = ventesAFacturer.reduce((sum, v) => {
       const comm = getCommission(v.id);
       return sum + (comm?.commissionNette || 0);
@@ -340,8 +360,8 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
 
-    // Total potentiel = en cours + à facturer
-    const comPotentielleTotale = comEnCours + comAFacturer;
+    // Total potentiel = en cours + attente facturation + à facturer
+    const comPotentielleTotale = comEnCours + comAttenteFacturation + comAFacturer;
 
     const signedCount = signedThisMonth.length;
     const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
@@ -357,6 +377,7 @@ const Finance = () => {
       caPrevMonth,
       commissionsMonth,
       comEnCours,
+      comAttenteFacturation,
       comAFacturer,
       comPayees,
       comPotentielleTotale,
@@ -638,7 +659,7 @@ const Finance = () => {
                   </Card>
                 </div>
 
-                {/* Répartition des commissions (2 catégories: en cours vs posé) */}
+                {/* Répartition des commissions */}
                 <Card className="shadow-card border-primary/20">
                   <CardContent className="p-4 space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
@@ -649,7 +670,7 @@ const Finance = () => {
                         <Clock className="h-5 w-5 text-orange-600" />
                         <div>
                           <p className="text-sm font-medium text-orange-700">En cours</p>
-                          <p className="text-xs text-orange-600/80">Non posé (signé → en installation)</p>
+                          <p className="text-xs text-orange-600/80">Non posé (signé → installation)</p>
                         </div>
                       </div>
                       <p className="text-lg font-bold text-orange-700">
@@ -657,13 +678,27 @@ const Finance = () => {
                       </p>
                     </div>
                     
-                    {/* Com À Facturer (posé non payé) */}
+                    {/* En attente de facturation (posé < 2 semaines) */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-200">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-700">En attente de facturation</p>
+                          <p className="text-xs text-blue-600/80">Posé &lt; 2 semaines</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-blue-700">
+                        {venteStats.comAttenteFacturation.toLocaleString("fr-FR")} €
+                      </p>
+                    </div>
+                    
+                    {/* À facturer (posé >= 2 semaines) */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5 text-green-600" />
                         <div>
                           <p className="text-sm font-medium text-green-700">À facturer</p>
-                          <p className="text-xs text-green-600/80">Posé / Attente paiement</p>
+                          <p className="text-xs text-green-600/80">Posé ≥ 2 semaines</p>
                         </div>
                       </div>
                       <p className="text-lg font-bold text-green-700">
