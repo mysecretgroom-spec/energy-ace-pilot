@@ -16,6 +16,7 @@ import { ExpenseChart } from "@/components/finance/ExpenseChart";
 import { VATReport } from "@/components/finance/VATReport";
 import { BillingSection } from "@/components/finance/BillingSection";
 import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
+import { MFAProtectedContent } from "@/components/auth/MFAProtectedContent";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
@@ -55,6 +56,7 @@ import {
   ChevronRight,
   Train,
   CarFront,
+  Lock,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -643,8 +645,27 @@ const Finance = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab Ventes */}
+          {/* Tab Ventes - Protected by MFA */}
           <TabsContent value="ventes" className="space-y-4 mt-4">
+            <MFAProtectedContent
+              requireExplicitAction
+              actionButtonText="Voir les commissions"
+              title="Accès aux statistiques financières"
+              description="Entrez votre code MFA pour accéder aux données de commissions."
+              placeholder={
+                <Card className="shadow-card">
+                  <CardContent className="p-8 flex flex-col items-center justify-center gap-4">
+                    <Lock className="h-12 w-12 text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="font-medium">Contenu protégé</p>
+                      <p className="text-sm text-muted-foreground">
+                        Les statistiques de commissions nécessitent une vérification MFA
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            >
             {loadingVentes ? (
               <div className="space-y-4">
                 <Skeleton className="h-32 w-full" />
@@ -855,6 +876,7 @@ const Finance = () => {
                 </CardContent>
               </Card>
             )}
+            </MFAProtectedContent>
           </TabsContent>
 
           {/* Tab Frais */}

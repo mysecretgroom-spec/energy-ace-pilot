@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FloatingSaveButton } from "@/components/ui/floating-save-button";
+import { MFAProtectedContent } from "@/components/auth/MFAProtectedContent";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Mail, Phone, MapPin } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, Shield } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -27,6 +28,7 @@ const Profil = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [mfaVerified, setMfaVerified] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -163,7 +165,60 @@ const Profil = () => {
           </div>
         </div>
 
-        {/* Form */}
+        {/* Form - Protected by MFA for modifications */}
+        <MFAProtectedContent
+          requireExplicitAction={!mfaVerified}
+          actionButtonText="Modifier le profil"
+          title="Modification du profil"
+          description="Pour modifier vos informations personnelles, veuillez vérifier votre identité."
+          onVerified={() => setMfaVerified(true)}
+          placeholder={
+            <Card className="shadow-card">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Informations personnelles
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Prénom</Label>
+                    <Input value={formData.first_name || "—"} disabled className="bg-muted" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nom</Label>
+                    <Input value={formData.last_name || "—"} disabled className="bg-muted" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Mail className="h-3 w-3" />
+                    Email
+                  </Label>
+                  <Input value={user?.email || ""} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Phone className="h-3 w-3" />
+                    Téléphone
+                  </Label>
+                  <Input value={formData.phone || "—"} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3" />
+                    Zone géographique
+                  </Label>
+                  <Input value={formData.zone_geographique || "—"} disabled className="bg-muted" />
+                </div>
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  Cliquez sur "Modifier le profil" pour éditer vos informations
+                </p>
+              </CardContent>
+            </Card>
+          }
+        >
         <Card className="shadow-card">
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
@@ -251,6 +306,7 @@ const Profil = () => {
             </div>
           </CardContent>
         </Card>
+        </MFAProtectedContent>
 
         {/* Account Info */}
         <Card className="shadow-card">
