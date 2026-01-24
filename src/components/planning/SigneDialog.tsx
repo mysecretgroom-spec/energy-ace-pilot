@@ -18,7 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, TrendingUp, Coins } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, TrendingUp, Coins, Clock, Wrench } from "lucide-react";
 import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 
 interface Bouquet {
@@ -32,11 +33,27 @@ interface Bouquet {
   commission_pct: number | null;
 }
 
+interface Surcout {
+  id: string;
+  nom: string;
+  code: string;
+  prix: number;
+  categorie: string;
+  type_calcul: string;
+}
+
 interface SigneDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   etudeId?: string | null;
-  onConfirm: (data: { puissanceKwc: number; prixTTC: number; bouquetId?: string }) => Promise<void>;
+  regieId?: string | null;
+  onConfirm: (data: { 
+    puissanceKwc: number; 
+    prixTTC: number; 
+    bouquetId?: string;
+    cqTime?: string;
+    surcoutsIds?: string[];
+  }) => Promise<void>;
   updating: boolean;
 }
 
@@ -44,37 +61,78 @@ export function SigneDialog({
   open,
   onOpenChange,
   etudeId,
+  regieId,
   onConfirm,
   updating,
 }: SigneDialogProps) {
   const [bouquets, setBouquets] = useState<Bouquet[]>([]);
+  const [surcouts, setSurcouts] = useState<Surcout[]>([]);
+  const [selectedSurcoutsIds, setSelectedSurcoutsIds] = useState<string[]>([]);
   const [selectedBouquetId, setSelectedBouquetId] = useState<string>("");
   const [puissance, setPuissance] = useState("");
   const [prixTTC, setPrixTTC] = useState("");
   const [prixHT, setPrixHT] = useState("");
+  const [cqTime, setCqTime] = useState("10:00");
   const [loadingBouquets, setLoadingBouquets] = useState(false);
   const [loadingEtude, setLoadingEtude] = useState(false);
 
-  // Fetch bouquets on mount
+  // Fetch bouquets and surcouts on mount
   useEffect(() => {
-    const fetchBouquets = async () => {
+    const fetchData = async () => {
       setLoadingBouquets(true);
-      const { data, error } = await supabase
+      
+      // Fetch bouquets
+      const { data: bouquetsData } = await supabase
         .from("data_prix_bouquets")
         .select("*")
         .eq("actif", true)
         .order("puissance_kwc", { ascending: true });
 
-      if (!error && data) {
-        setBouquets(data);
+      if (bouquetsData) {
+        setBouquets(bouquetsData);
       }
+
+      // Fetch surcouts - first try régie-specific, then global
+      let surcoutsData: Surcout[] = [];
+      
+      if (regieId) {
+        const { data: regiesSurcouts } = await supabase
+          .from("regies_surcouts")
+          .select("id, nom, code, prix, categorie, type_calcul")
+          .eq("regie_id", regieId)
+          .eq("actif", true)
+          .order("categorie", { ascending: true });
+        
+        if (regiesSurcouts && regiesSurcouts.length > 0) {
+          surcoutsData = regiesSurcouts;
+        }
+      }
+      
+      // If no régie-specific surcouts, fetch global ones
+      if (surcoutsData.length === 0) {
+        const { data: globalSurcouts } = await supabase
+          .from("data_surcouts")
+          .select("id, nom, code, prix, description")
+          .eq("actif", true)
+          .order("nom", { ascending: true });
+        
+        if (globalSurcouts) {
+          surcoutsData = globalSurcouts.map(s => ({
+            ...s,
+            categorie: "general",
+            type_calcul: "fixe"
+          }));
+        }
+      }
+      
+      setSurcouts(surcoutsData);
       setLoadingBouquets(false);
     };
 
     if (open) {
-      fetchBouquets();
+      fetchData();
     }
-  }, [open]);
+  }, [open, regieId]);
 
   // Fetch étude data when dialog opens
   useEffect(() => {
@@ -125,6 +183,8 @@ export function SigneDialog({
       setPuissance("");
       setPrixTTC("");
       setPrixHT("");
+      setCqTime("10:00");
+      setSelectedSurcoutsIds([]);
     }
   }, [open]);
 
@@ -252,12 +312,36 @@ export function SigneDialog({
       puissanceKwc: puissanceNum,
       prixTTC: prixTTCNum,
       bouquetId: selectedBouquetId || undefined,
+      cqTime,
+      surcoutsIds: selectedSurcoutsIds.length > 0 ? selectedSurcoutsIds : undefined,
     });
   };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
+
+  const toggleSurcout = (id: string) => {
+    setSelectedSurcoutsIds(prev => 
+      prev.includes(id) 
+        ? prev.filter(s => s !== id) 
+        : [...prev, id]
+    );
+  };
+
+  // Calculate total surcouts
+  const totalSurcouts = useMemo(() => {
+    const puissanceNum = parseFloat(puissance) || 0;
+    return selectedSurcoutsIds.reduce((total, id) => {
+      const surcout = surcouts.find(s => s.id === id);
+      if (!surcout) return total;
+      
+      if (surcout.type_calcul === "par_panneau") {
+        return total + (surcout.prix * puissanceNum * 2);
+      }
+      return total + surcout.prix;
+    }, 0);
+  }, [selectedSurcoutsIds, surcouts, puissance]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -336,6 +420,68 @@ export function SigneDialog({
                   {formatCurrency(parseFloat(prixHT))} €
                 </span>
               </p>
+            </div>
+          )}
+
+          {/* Heure CQ */}
+          <div className="space-y-2">
+            <Label htmlFor="signe-cq-time" className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Heure du CQ (lendemain)
+            </Label>
+            <Input
+              id="signe-cq-time"
+              type="time"
+              value={cqTime}
+              onChange={(e) => setCqTime(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Heure du Contrôle Qualité prévu le lendemain
+            </p>
+          </div>
+
+          {/* Surcoûts selection */}
+          {surcouts.length > 0 && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-primary" />
+                Surcoûts du projet
+              </Label>
+              <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+                {surcouts.map((surcout) => {
+                  const puissanceNum = parseFloat(puissance) || 0;
+                  const calculatedPrice = surcout.type_calcul === "par_panneau" 
+                    ? surcout.prix * puissanceNum * 2 
+                    : surcout.prix;
+                  
+                  return (
+                    <div key={surcout.id} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`surcout-${surcout.id}`}
+                        checked={selectedSurcoutsIds.includes(surcout.id)}
+                        onCheckedChange={() => toggleSurcout(surcout.id)}
+                      />
+                      <label
+                        htmlFor={`surcout-${surcout.id}`}
+                        className="flex-1 text-sm cursor-pointer flex justify-between items-center"
+                      >
+                        <span>{surcout.nom}</span>
+                        <span className="text-muted-foreground font-medium">
+                          +{formatCurrency(calculatedPrice)} €
+                        </span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+              {selectedSurcoutsIds.length > 0 && (
+                <div className="flex justify-between text-sm font-medium p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <span>Total surcoûts</span>
+                  <span className="text-orange-600 dark:text-orange-400">
+                    +{formatCurrency(totalSurcouts)} €
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
