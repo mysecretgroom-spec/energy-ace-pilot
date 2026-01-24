@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound } from "lucide-react";
@@ -20,6 +21,7 @@ import { MFASetup } from "@/components/auth/MFASetup";
 
 const SecuritySettings = () => {
   const { user } = useAuth();
+  const { isSupported: webAuthnSupported, register: registerBiometric, unregister: unregisterBiometric, isLoading: webAuthnLoading } = useWebAuthn();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -281,15 +283,25 @@ const SecuritySettings = () => {
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ biometric_enabled: enabled })
-        .eq("user_id", user!.id);
-      
-      if (error) throw error;
-      
-      setBiometricEnabled(enabled);
-      toast.success(enabled ? "Biométrie activée" : "Biométrie désactivée");
+      if (enabled) {
+        // Register WebAuthn credential (triggers Face ID / Touch ID enrollment)
+        const success = await registerBiometric();
+        if (!success) {
+          toast.error("L'enregistrement biométrique a échoué. Réessayez.");
+          return;
+        }
+        setBiometricEnabled(true);
+        toast.success("Biométrie activée - Face ID / Touch ID enregistré");
+      } else {
+        // Unregister WebAuthn credential
+        const success = await unregisterBiometric();
+        if (!success) {
+          toast.error("Erreur lors de la désactivation");
+          return;
+        }
+        setBiometricEnabled(false);
+        toast.success("Biométrie désactivée");
+      }
     } catch (error) {
       console.error("Error toggling biometric:", error);
       toast.error("Erreur lors de la modification");

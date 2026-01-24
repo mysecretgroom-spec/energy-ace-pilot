@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Lock, Fingerprint, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useWebAuthn } from "@/hooks/useWebAuthn";
 
 interface PinDialogProps {
   open: boolean;
@@ -30,22 +31,14 @@ export const PinDialog = ({
   useHejjaActivation = false,
 }: PinDialogProps) => {
   const { user } = useAuth();
+  const { isSupported: biometricSupported, authenticate, checkRegistration } = useWebAuthn();
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [biometricTriggered, setBiometricTriggered] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  useEffect(() => {
-    // Check for Web Authentication API (biometric)
-    if (window.PublicKeyCredential) {
-      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-        .then((available) => setBiometricSupported(available))
-        .catch(() => setBiometricSupported(false));
-    }
-  }, []);
 
   // Fetch user's PIN and biometric settings when dialog opens
   useEffect(() => {
@@ -53,16 +46,18 @@ export const PinDialog = ({
       if (!open || !user) return;
       
       setIsLoading(true);
+      setBiometricTriggered(false);
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("pin_code, biometric_enabled")
+          .select("pin_code, biometric_enabled, webauthn_credential_id")
           .eq("user_id", user.id)
           .single();
         
         if (!error && data) {
           setStoredPin(data.pin_code);
-          setBiometricEnabled(data.biometric_enabled || false);
+          // Only enable biometric if credential is registered
+          setBiometricEnabled(data.biometric_enabled && !!data.webauthn_credential_id);
         }
       } catch (err) {
         console.error("Error fetching PIN settings:", err);
@@ -85,42 +80,38 @@ export const PinDialog = ({
 
   // Auto-trigger biometric when dialog opens and biometric is enabled
   const triggerBiometric = async () => {
-    if (!biometricSupported || !biometricEnabled) return;
+    if (!biometricSupported || !biometricEnabled || biometricTriggered) return;
+    
+    setBiometricTriggered(true);
     
     try {
-      // Try WebAuthn first
-      const credential = await navigator.credentials.get({
-        publicKey: {
-          challenge: new Uint8Array(32),
-          timeout: 60000,
-          userVerification: "required",
-          rpId: window.location.hostname,
-        },
-      });
+      const success = await authenticate();
       
-      if (credential) {
+      if (success) {
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
         onSuccess();
         onOpenChange(false);
+      } else {
+        // Fallback to PIN
+        inputRefs.current[0]?.focus();
       }
     } catch (err) {
-      // WebAuthn failed, show PIN input as fallback
-      console.log("WebAuthn not available, fallback to PIN");
+      console.log("Biometric failed, fallback to PIN");
       inputRefs.current[0]?.focus();
     }
   };
 
   useEffect(() => {
-    if (open && biometricEnabled && biometricSupported && storedPin && !isLoading) {
+    if (open && biometricEnabled && biometricSupported && storedPin && !isLoading && !biometricTriggered) {
       // Small delay to let the dialog render
       const timer = setTimeout(() => {
         triggerBiometric();
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [open, biometricEnabled, biometricSupported, storedPin, isLoading]);
+  }, [open, biometricEnabled, biometricSupported, storedPin, isLoading, biometricTriggered]);
 
   const handlePinChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -171,42 +162,20 @@ export const PinDialog = ({
     if (!biometricSupported || !biometricEnabled) return;
     
     try {
-      // Trigger native biometric prompt
-      // Note: Full WebAuthn implementation requires server-side setup
-      // For now, we use a simplified approach
-      const credential = await navigator.credentials.get({
-        publicKey: {
-          challenge: new Uint8Array(32),
-          timeout: 60000,
-          userVerification: "required",
-          rpId: window.location.hostname,
-        },
-      });
+      const success = await authenticate();
       
-      if (credential) {
+      if (success) {
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
         onSuccess();
         onOpenChange(false);
-      }
-    } catch (err) {
-      // If WebAuthn fails but biometric is enabled, 
-      // attempt simplified verification
-      // In production, implement proper WebAuthn registration/auth flow
-      console.log("WebAuthn not available, using simplified biometric");
-      
-      // Trigger system biometric dialog (if available)
-      try {
-        // This is a fallback - in production use proper WebAuthn
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-        onSuccess();
-        onOpenChange(false);
-      } catch {
+      } else {
         setError(true);
       }
+    } catch (err) {
+      console.error("Biometric authentication failed:", err);
+      setError(true);
     }
   };
 
