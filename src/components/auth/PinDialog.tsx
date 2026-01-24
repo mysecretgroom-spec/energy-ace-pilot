@@ -83,6 +83,45 @@ export const PinDialog = ({
     }
   }, [open]);
 
+  // Auto-trigger biometric when dialog opens and biometric is enabled
+  const triggerBiometric = async () => {
+    if (!biometricSupported || !biometricEnabled) return;
+    
+    try {
+      // Try WebAuthn first
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge: new Uint8Array(32),
+          timeout: 60000,
+          userVerification: "required",
+          rpId: window.location.hostname,
+        },
+      });
+      
+      if (credential) {
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+        onSuccess();
+        onOpenChange(false);
+      }
+    } catch (err) {
+      // WebAuthn failed, show PIN input as fallback
+      console.log("WebAuthn not available, fallback to PIN");
+      inputRefs.current[0]?.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (open && biometricEnabled && biometricSupported && storedPin && !isLoading) {
+      // Small delay to let the dialog render
+      const timer = setTimeout(() => {
+        triggerBiometric();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open, biometricEnabled, biometricSupported, storedPin, isLoading]);
+
   const handlePinChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     
