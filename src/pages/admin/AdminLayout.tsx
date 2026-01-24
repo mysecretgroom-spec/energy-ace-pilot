@@ -90,10 +90,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             })}
           </nav>
           
-          <div className="p-4 border-t">
+          <div className="p-4 border-t space-y-2">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start gap-3"
+              onClick={() => navigate("/")}
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              Quitter l'admin
+            </Button>
             <Button 
               variant="ghost" 
-              className="w-full justify-start gap-3"
+              className="w-full justify-start gap-3 text-muted-foreground"
               onClick={() => signOut()}
             >
               <LogOut className="h-5 w-5" />
