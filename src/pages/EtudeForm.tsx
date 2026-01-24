@@ -1251,11 +1251,11 @@ const EtudeForm = () => {
     };
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     const pdfData = buildPdfData();
     if (!pdfData) return;
     
-    const dataUrl = getEtudePdfDataUrl(pdfData);
+    const dataUrl = await getEtudePdfDataUrl(pdfData);
     setPdfDataUrl(dataUrl);
     setShowPreview(true);
   };
@@ -1265,7 +1265,7 @@ const EtudeForm = () => {
     if (!pdfData) return;
     
     try {
-      const blob = getEtudePdfBlob(pdfData);
+      const blob = await getEtudePdfBlob(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       
@@ -1277,7 +1277,7 @@ const EtudeForm = () => {
         });
       } else {
         // Fallback: télécharger le PDF
-        exportEtudePdf(pdfData);
+        await exportEtudePdf(pdfData);
         toast({
           title: "PDF téléchargé",
           description: "Partagez-le depuis vos fichiers",
@@ -1299,7 +1299,7 @@ const EtudeForm = () => {
     if (!pdfData || !user) return;
     
     try {
-      const blob = getEtudePdfBlob(pdfData);
+      const blob = await getEtudePdfBlob(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       

@@ -202,7 +202,7 @@ export const useWhatsAppNotification = () => {
       // Pour r2_prestudy, partager le PDF en utilisant l'API Web Share si disponible
       if (classification === "r2_prestudy" && pdfData) {
         try {
-          const pdfBlob = getEtudePdfBlob(pdfData);
+          const pdfBlob = await getEtudePdfBlob(pdfData);
           const fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
           const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
