@@ -166,7 +166,7 @@ export function MonthCalendarView({
                       dayRdvs.map((rdv) => (
                         <div
                           key={rdv.id}
-                          className={`text-[9px] px-1 py-0.5 rounded truncate ${
+                          className={`text-[9px] px-1 py-0.5 rounded truncate select-none ${
                             rdv.typeRdv === "external_installation"
                               ? "bg-amber-500/20 text-amber-700"
                               : rdv.isR2
