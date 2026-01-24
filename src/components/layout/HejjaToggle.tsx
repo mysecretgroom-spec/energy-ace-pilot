@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
@@ -8,6 +9,10 @@ import { PinDialog } from "@/components/auth/PinDialog";
 export function HejjaToggle() {
   const { user } = useAuth();
   const { isActive, activate, deactivate } = useHejjaMode();
+  const location = useLocation();
+  
+  // Check if we're on the Etude page - make button more discreet there
+  const isOnEtudePage = location.pathname.startsWith("/etude");
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showFireAnimation, setShowFireAnimation] = useState(false);
   const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
@@ -297,31 +302,47 @@ export function HejjaToggle() {
         </div>
       )}
 
-      <Button
-        variant={isActive ? "default" : "outline"}
-        size="sm"
-        onClick={handleClick}
-        className={`fixed bottom-24 right-4 z-50 shadow-lg rounded-full h-12 px-4 gap-2 transition-all ${
-          isActive 
-            ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
-            : "bg-background/95 backdrop-blur border-border hover:bg-muted"
-        }`}
-      >
-        {isActive ? (
-          <>
-            <span className="text-xl">😈</span>
-            <span className="font-bold">HEJJA</span>
-            <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse">
-              🔥
-            </Badge>
-          </>
-        ) : (
-          <>
-            <span className="text-xl">😇</span>
-            <span className="text-muted-foreground">HEJJA</span>
-          </>
-        )}
-      </Button>
+      {isOnEtudePage ? (
+        /* Discreet button on Etude page - small, neutral, quasi-transparent */
+        <button
+          onClick={handleClick}
+          className={`fixed bottom-24 right-4 z-50 h-8 w-8 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 ${
+            isActive 
+              ? "bg-red-500/20 backdrop-blur-sm border border-red-500/30 shadow-sm" 
+              : "bg-muted/30 backdrop-blur-sm border border-border/30 shadow-sm hover:bg-muted/50"
+          }`}
+          aria-label="Mode HEJJA"
+        >
+          <span className="text-sm opacity-60">{isActive ? "😈" : "😇"}</span>
+        </button>
+      ) : (
+        /* Full button on other pages */
+        <Button
+          variant={isActive ? "default" : "outline"}
+          size="sm"
+          onClick={handleClick}
+          className={`fixed bottom-24 right-4 z-50 shadow-lg rounded-full h-12 px-4 gap-2 transition-all ${
+            isActive 
+              ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
+              : "bg-background/95 backdrop-blur border-border hover:bg-muted"
+          }`}
+        >
+          {isActive ? (
+            <>
+              <span className="text-xl">😈</span>
+              <span className="font-bold">HEJJA</span>
+              <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse">
+                🔥
+              </Badge>
+            </>
+          ) : (
+            <>
+              <span className="text-xl">😇</span>
+              <span className="text-muted-foreground">HEJJA</span>
+            </>
+          )}
+        </Button>
+      )}
 
       <PinDialog
         open={showPinDialog}
