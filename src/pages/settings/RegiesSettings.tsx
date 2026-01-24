@@ -43,6 +43,7 @@ import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { toast } from "sonner";
 
 interface Regie {
@@ -115,6 +116,7 @@ const colorOptions = [
 
 const RegiesSettings = () => {
   const { user } = useAuth();
+  const { isActive: modeHejjaActive } = useHejjaMode();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -689,20 +691,21 @@ const RegiesSettings = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            {/* Bouton Régie HEJJA */}
-            <Dialog open={isCreatingHejja} onOpenChange={setIsCreatingHejja}>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10"
-                onClick={() => {
-                  setNewRegie({ nom: "", couleur: "#E74C3C", is_hejja: true });
-                  setIsCreatingHejja(true);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                HEJJA
-              </Button>
+            {/* Bouton Régie HEJJA - uniquement si mode HEJJA actif */}
+            {modeHejjaActive && (
+              <Dialog open={isCreatingHejja} onOpenChange={setIsCreatingHejja}>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10"
+                  onClick={() => {
+                    setNewRegie({ nom: "", couleur: "#E74C3C", is_hejja: true });
+                    setIsCreatingHejja(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  HEJJA
+                </Button>
               <DialogContent className="max-w-[95vw]">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
@@ -751,6 +754,7 @@ const RegiesSettings = () => {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
 
             {/* Bouton Régie normale */}
             <Dialog open={isCreating} onOpenChange={setIsCreating}>
@@ -803,22 +807,27 @@ const RegiesSettings = () => {
           </div>
         </div>
 
-        {/* Liste des régies */}
-        {regies.length === 0 ? (
-          <Card className="bg-muted/50">
-            <CardContent className="p-6 text-center">
-              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">Aucune régie configurée</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Créez votre première régie pour regrouper vos sources de RDV
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {regies.map((regie) => {
-              const stats = regieStats[regie.id] || { rdv: 0, ventes: 0, rdvMois: 0, ventesMois: 0, commEnAttente: 0, commAVenir: 0, commDuSur: 0, commPayees: 0 };
-              return (
+        {/* Liste des régies - filtrer les régies HEJJA si mode inactif */}
+        {(() => {
+          const filteredRegies = modeHejjaActive 
+            ? regies 
+            : regies.filter(r => !r.is_hejja);
+          
+          return filteredRegies.length === 0 ? (
+            <Card className="bg-muted/50">
+              <CardContent className="p-6 text-center">
+                <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">Aucune régie configurée</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Créez votre première régie pour regrouper vos sources de RDV
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filteredRegies.map((regie) => {
+                const stats = regieStats[regie.id] || { rdv: 0, ventes: 0, rdvMois: 0, ventesMois: 0, commEnAttente: 0, commAVenir: 0, commDuSur: 0, commPayees: 0 };
+                return (
                 <Card
                   key={regie.id}
                   className="shadow-card cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden"
@@ -868,9 +877,10 @@ const RegiesSettings = () => {
                   </CardContent>
                 </Card>
               );
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          );
+        })()}
 
         {/* Dialog détail régie */}
         <Dialog open={!!selectedRegie} onOpenChange={() => setSelectedRegie(null)}>
