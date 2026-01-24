@@ -16,6 +16,13 @@ import { FileDown, Loader2, FileText, Image } from "lucide-react";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as pdfjs from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 interface FraisItem {
   id: string;
@@ -60,6 +67,46 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
     });
   } catch (err) {
     console.error("Error fetching image:", err);
+    return null;
+  }
+}
+
+async function convertPdfPageToImage(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Load PDF with timeout
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error("PDF loading timeout")), 15000)
+    );
+    
+    const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
+    const page = await pdf.getPage(1);
+    
+    // Render at high resolution for quality
+    const scale = 2;
+    const viewport = page.getViewport({ scale });
+    
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    
+    await page.render({
+      canvasContext: context,
+      viewport,
+    }).promise;
+    
+    // Convert to JPEG for smaller file size
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch (err) {
+    console.error("Error converting PDF to image:", err);
     return null;
   }
 }
@@ -229,41 +276,47 @@ export function ExportFraisPDF({ frais, periode }: ExportFraisPDFProps) {
           const receiptInfo = `${new Date(fraisItem.date_frais).toLocaleDateString("fr-FR")} - ${categoryLabels[fraisItem.categorie] || fraisItem.categorie} - ${fraisItem.montant.toFixed(2)} €`;
           doc.text(receiptInfo, pageWidth - 14, 16, { align: "right" });
           
-          // Try to embed the image
-          const isPdf = fraisItem.justificatif_url.includes('.pdf');
+          // Try to embed the receipt (image or PDF)
+          const isPdf = fraisItem.justificatif_url.toLowerCase().includes('.pdf');
           
-          if (isPdf) {
-            // For PDFs, just add a link/reference
-            doc.setTextColor(100, 100, 100);
-            doc.setFontSize(11);
-            doc.text("Ce justificatif est un fichier PDF.", pageWidth / 2, 80, { align: "center" });
-            doc.text("Il est disponible dans le stockage cloud.", pageWidth / 2, 90, { align: "center" });
+          try {
+            const freshUrl = await getPublicUrl(fraisItem.justificatif_url);
+            let base64: string | null = null;
             
-            if (fraisItem.description) {
-              doc.setFontSize(10);
-              doc.text(`Description : ${fraisItem.description}`, pageWidth / 2, 110, { align: "center" });
+            if (isPdf) {
+              // Convert PDF first page to image
+              base64 = await convertPdfPageToImage(freshUrl);
+            } else {
+              // Fetch image directly
+              base64 = await fetchImageAsBase64(freshUrl);
             }
-          } else {
-            // For images, try to embed
-            try {
-              const freshUrl = await getPublicUrl(fraisItem.justificatif_url);
-              const base64 = await fetchImageAsBase64(freshUrl);
+            
+            if (base64) {
+              const imgFormat = base64.includes("image/png") ? "PNG" : "JPEG";
+              const maxWidth = pageWidth - 28;
+              const maxHeight = 230;
               
-              if (base64) {
-                const imgFormat = base64.includes("image/png") ? "PNG" : "JPEG";
-                const maxWidth = pageWidth - 28;
-                const maxHeight = 230;
-                
-                doc.addImage(base64, imgFormat, 14, 35, maxWidth, maxHeight, undefined, "MEDIUM");
-              } else {
+              doc.addImage(base64, imgFormat, 14, 35, maxWidth, maxHeight, undefined, "MEDIUM");
+              
+              if (isPdf) {
+                doc.setFontSize(8);
                 doc.setTextColor(150, 150, 150);
-                doc.text("Image non disponible", pageWidth / 2, 100, { align: "center" });
+                doc.text("(Aperçu de la première page du PDF)", pageWidth / 2, 270, { align: "center" });
               }
-            } catch (imgErr) {
-              console.error("Error adding image:", imgErr);
+            } else {
               doc.setTextColor(150, 150, 150);
-              doc.text("Erreur lors du chargement de l'image", pageWidth / 2, 100, { align: "center" });
+              doc.setFontSize(11);
+              doc.text(isPdf ? "Aperçu PDF non disponible" : "Image non disponible", pageWidth / 2, 100, { align: "center" });
+              
+              if (fraisItem.description) {
+                doc.setFontSize(10);
+                doc.text(`Description : ${fraisItem.description}`, pageWidth / 2, 115, { align: "center" });
+              }
             }
+          } catch (imgErr) {
+            console.error("Error adding receipt:", imgErr);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Erreur lors du chargement du justificatif", pageWidth / 2, 100, { align: "center" });
           }
         }
       }
