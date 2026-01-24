@@ -1,12 +1,12 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * TYPES DE COMMISSION - LOGIQUE SIMPLIFIÉE
+ * TYPES DE COMMISSION - 2 MODES DE CALCUL
  * ═══════════════════════════════════════════════════════════════════════════
  * 
- * Il n'existe que 2 types de ventes avec calcul de commission distinct :
+ * Le mode de calcul est défini par régie (mode_calcul_commission) :
  * 
  * ┌─────────────────────────────────────────────────────────────────────────┐
- * │ TYPE 1: VENTE STANDARD (installation photovoltaïque complète)          │
+ * │ MODE 1: BOUQUET + SURVENTE (mode_calcul_commission = 'bouquet')        │
  * ├─────────────────────────────────────────────────────────────────────────┤
  * │ Commission = Commission Fixe (par kWc) + Bonus Survente - Décom        │
  * │                                                                         │
@@ -18,72 +18,65 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  * 
  * ┌─────────────────────────────────────────────────────────────────────────┐
- * │ TYPE 2: POSE EXTERNE (installation uniquement, sans matériel)          │
+ * │ MODE 2: POURCENTAGE SUR CA (mode_calcul_commission = 'pourcentage')    │
  * ├─────────────────────────────────────────────────────────────────────────┤
- * │ Commission = Montant HT de la prestation - Décom                       │
+ * │ Commission = Montant HT × Taux (%) selon tranche - Décom               │
  * │                                                                         │
- * │ • Pas de bouquet (pas de matériel vendu)                               │
- * │ • Pas de survente (prestation à prix fixe)                             │
- * │ • Le montant_ht EST la commission brute                                │
+ * │ • Tranches définies dans data_commissions (tranche_min/max)            │
+ * │ • Chaque tranche a un taux_commission (%)                              │
+ * │ • Bonus survente possible sur les tranches hautes                      │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │ POSE EXTERNE (type_vente = 'external_installation')                    │
+ * ├─────────────────────────────────────────────────────────────────────────┤
+ * │ Commission = Montant HT - Décom (le montant_ht EST la commission)      │
  * └─────────────────────────────────────────────────────────────────────────┘
  * 
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │ VENTE ANNULÉE                                                          │
  * ├─────────────────────────────────────────────────────────────────────────┤
- * │ Commission = 0 (aucun calcul)                                          │
+ * │ Commission = 0                                                          │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-/**
- * Type de vente pour déterminer le mode de calcul de commission
- */
+/** Mode de calcul de commission */
+export type CommissionMode = "bouquet" | "pourcentage";
+
+/** Type de vente */
 export type VenteType = "standard" | "external_installation";
 
 /**
  * Résultat du calcul de commission pour une vente
  */
 export interface CommissionResult {
-  /** ID de la vente */
   venteId: string;
-  
-  /** Type de vente */
   type: VenteType;
-  
-  /** Commission de base (fixe pour standard, montant HT pour externe) */
+  mode: CommissionMode;
+  /** Commission de base (fixe bouquet OU % CA) */
   commissionBase: number;
-  
-  /** Bonus survente (uniquement pour ventes standard) */
+  /** Bonus survente (si applicable) */
   bonusSurvente: number;
-  
   /** Montant décom déduit */
   decomMontant: number;
-  
   /** Commission nette finale = base + survente - décom */
   commissionNette: number;
-  
   /** Montant HT de la vente (référence) */
   montantHT: number;
-  
-  /** Indique si le bouquet a été interpolé (pour ventes standard) */
+  /** Taux appliqué (pour mode pourcentage) */
+  tauxApplique?: number;
+  /** Indique si le bouquet a été interpolé */
   isInterpolated: boolean;
 }
 
 /**
- * Configuration des commissions (globale ou par régie)
+ * Tranche de commission (mode pourcentage)
  */
-export interface CommissionConfig {
-  /** Pourcentage de la survente reversé au commercial */
-  partSurventePct: number;
-}
-
-/**
- * Données d'un bouquet de prix
- */
-export interface BouquetPrix {
-  puissanceKwc: number;
-  prixRecommandeTTC: number;
-  prixMaxTTC: number;
-  commissionFixe: number;
+export interface CommissionTier {
+  trancheMin: number;
+  trancheMax: number;
+  tauxCommission: number;
+  bonusSurvente: number;
 }
 
 /**
@@ -106,12 +99,13 @@ export function getTotalSurcouts(surcouts: SurcoutsTechniques | null): number {
 }
 
 /**
- * Crée un résultat de commission à zéro (vente annulée ou données manquantes)
+ * Crée un résultat de commission à zéro
  */
 export function createZeroCommission(venteId: string, montantHT: number = 0): CommissionResult {
   return {
     venteId,
     type: "standard",
+    mode: "bouquet",
     commissionBase: 0,
     bonusSurvente: 0,
     decomMontant: 0,
@@ -132,6 +126,7 @@ export function createExternalCommission(
   return {
     venteId,
     type: "external_installation",
+    mode: "bouquet",
     commissionBase: montantHT,
     bonusSurvente: 0,
     decomMontant,

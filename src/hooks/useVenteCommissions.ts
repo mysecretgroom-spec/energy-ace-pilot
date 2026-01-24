@@ -4,6 +4,8 @@ import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
 import { findOrInterpolateBouquet } from "@/lib/bouquetInterpolation";
 import { 
   CommissionResult, 
+  CommissionTier,
+  CommissionMode,
   getTotalSurcouts, 
   createZeroCommission, 
   createExternalCommission 
@@ -11,14 +13,15 @@ import {
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * HOOK DE CALCUL DES COMMISSIONS
+ * HOOK DE CALCUL DES COMMISSIONS - 2 MODES
  * ═══════════════════════════════════════════════════════════════════════════
  * 
- * Calcule les commissions pour une liste de ventes selon 2 modes simples :
+ * Mode déterminé par régie.mode_calcul_commission :
  * 
- * 1. VENTE STANDARD : Commission Fixe (bouquet) + Bonus Survente - Décom
- * 2. POSE EXTERNE   : Montant HT - Décom
- * 3. ANNULÉE        : 0
+ * 1. BOUQUET    : Commission Fixe + Survente - Décom
+ * 2. POURCENTAGE: % du CA (selon tranches) - Décom
+ * 3. EXTERNE    : Montant HT - Décom
+ * 4. ANNULÉE    : 0
  * 
  * @see src/lib/commissionTypes.ts pour la documentation détaillée
  */
@@ -46,6 +49,12 @@ interface VenteInput {
   status?: string;
 }
 
+interface RegieConfig {
+  id: string;
+  mode_calcul_commission: CommissionMode | null;
+  part_survente_pct: number | null;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HOOK PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════════════
@@ -66,18 +75,20 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       const regieIds = [...new Set(ventes.map((v) => v.regie_id).filter(Boolean))] as string[];
       const etudeIds = [...new Set(ventes.map((v) => v.etude_id).filter(Boolean))] as string[];
 
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
         supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
           : Promise.resolve({ data: [] }),
         regieIds.length > 0
-          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
-        supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+        supabase.from("config_commissions").select("mode_calcul, part_survente_pct").maybeSingle(),
         etudeIds.length > 0
           ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
+        // Tranches pour le mode pourcentage
+        supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente").order("tranche_min", { ascending: true }),
       ]);
 
       // ─────────────────────────────────────────────────────────────────────
@@ -101,11 +112,24 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
         regieBouquetsMap.set(b.regie_id, existing);
       });
 
-      const regieConfigMap = new Map((regiesRes.data || []).map((r) => [r.id, r]));
+      const regieConfigMap = new Map<string, RegieConfig>(
+        (regiesRes.data || []).map((r) => [r.id, r as RegieConfig])
+      );
       const etudeSurcoutsMap = new Map((etudesRes.data || []).map((e) => [e.id, e]));
 
-      const globalSurventePct = configRes.data?.part_survente_pct || 50;
-      setSurventePct(globalSurventePct);
+      // Tranches de commission (mode pourcentage)
+      const commissionTiers: CommissionTier[] = (tiersRes.data || []).map((t) => ({
+        trancheMin: Number(t.tranche_min),
+        trancheMax: Number(t.tranche_max),
+        tauxCommission: Number(t.taux_commission),
+        bonusSurvente: Number(t.bonus_survente || 0),
+      }));
+
+      const globalConfig = {
+        mode: (configRes.data?.mode_calcul || "bouquet") as CommissionMode,
+        surventePct: configRes.data?.part_survente_pct || 50,
+      };
+      setSurventePct(globalConfig.surventePct);
 
       // ─────────────────────────────────────────────────────────────────────
       // ÉTAPE 3: Calculer chaque commission
@@ -125,58 +149,69 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           continue;
         }
 
-        // CAS 3: Vente standard → Commission fixe + survente - décom
-        if (!vente.puissance_kwc) {
-          results.set(vente.id, createZeroCommission(vente.id, vente.montant_ht));
-          continue;
-        }
-
-        const puissanceKwc = Number(vente.puissance_kwc);
+        // CAS 3: Vente standard → Selon le mode de la régie
         const decom = vente.decom_montant || 0;
-
-        // Trouver le bouquet (régie ou global)
-        const bouquets = (vente.regie_id && regieBouquetsMap.has(vente.regie_id))
-          ? regieBouquetsMap.get(vente.regie_id)!
-          : globalBouquets;
-
-        const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc);
-        const commissionBase = interpolated.commissionFixe;
-        const prixRecommandeTTC = interpolated.prixRecommande;
-
-        // Calculer le bonus survente
         const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
-        const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
+        const mode: CommissionMode = regieConfig?.mode_calcul_commission || globalConfig.mode;
 
-        const etudeSurcouts = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
-        const totalSurcoutsTTC = getTotalSurcouts(etudeSurcouts ? {
-          surcoutSupport: Number(etudeSurcouts.surcout_support) || 0,
-          surcoutCompteur: Number(etudeSurcouts.surcout_compteur) || 0,
-          autreSurcout: Number(etudeSurcouts.autre_surcout) || 0,
-        } : null);
+        if (mode === "pourcentage") {
+          // ═══════════════════════════════════════════════════════════════
+          // MODE POURCENTAGE: % du CA selon tranches
+          // ═══════════════════════════════════════════════════════════════
+          const result = calculatePourcentageCommission(vente, commissionTiers, decom);
+          results.set(vente.id, result);
+        } else {
+          // ═══════════════════════════════════════════════════════════════
+          // MODE BOUQUET: Commission fixe + survente
+          // ═══════════════════════════════════════════════════════════════
+          if (!vente.puissance_kwc) {
+            results.set(vente.id, createZeroCommission(vente.id, vente.montant_ht));
+            continue;
+          }
 
-        const tauxTVA = getTauxTVAByPuissance(puissanceKwc);
-        const montantTTC = vente.montant_ttc || vente.montant_ht * (1 + tauxTVA / 100);
-        const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
+          const puissanceKwc = Number(vente.puissance_kwc);
+          const bouquets = (vente.regie_id && regieBouquetsMap.has(vente.regie_id))
+            ? regieBouquetsMap.get(vente.regie_id)!
+            : globalBouquets;
 
-        let bonusSurvente = 0;
-        if (prixRecommandeTTC > 0 && montantTTCSansSurcouts > prixRecommandeTTC) {
-          const surventeTTC = montantTTCSansSurcouts - prixRecommandeTTC;
-          const surventeHT = ttcToHT(surventeTTC, tauxTVA);
-          bonusSurvente = surventeHT * (partSurventePct / 100);
+          const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc);
+          const commissionBase = interpolated.commissionFixe;
+          const prixRecommandeTTC = interpolated.prixRecommande;
+
+          // Calculer le bonus survente
+          const partSurventePct = regieConfig?.part_survente_pct ?? globalConfig.surventePct;
+          const etudeSurcouts = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
+          const totalSurcoutsTTC = getTotalSurcouts(etudeSurcouts ? {
+            surcoutSupport: Number(etudeSurcouts.surcout_support) || 0,
+            surcoutCompteur: Number(etudeSurcouts.surcout_compteur) || 0,
+            autreSurcout: Number(etudeSurcouts.autre_surcout) || 0,
+          } : null);
+
+          const tauxTVA = getTauxTVAByPuissance(puissanceKwc);
+          const montantTTC = vente.montant_ttc || vente.montant_ht * (1 + tauxTVA / 100);
+          const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
+
+          let bonusSurvente = 0;
+          if (prixRecommandeTTC > 0 && montantTTCSansSurcouts > prixRecommandeTTC) {
+            const surventeTTC = montantTTCSansSurcouts - prixRecommandeTTC;
+            const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+            bonusSurvente = surventeHT * (partSurventePct / 100);
+          }
+
+          const commissionNette = Math.max(0, commissionBase + bonusSurvente - decom);
+
+          results.set(vente.id, {
+            venteId: vente.id,
+            type: "standard",
+            mode: "bouquet",
+            commissionBase,
+            bonusSurvente,
+            decomMontant: decom,
+            commissionNette,
+            montantHT: vente.montant_ht,
+            isInterpolated: interpolated.isInterpolated,
+          });
         }
-
-        const commissionNette = Math.max(0, commissionBase + bonusSurvente - decom);
-
-        results.set(vente.id, {
-          venteId: vente.id,
-          type: "standard",
-          commissionBase,
-          bonusSurvente,
-          decomMontant: decom,
-          commissionNette,
-          montantHT: vente.montant_ht,
-          isInterpolated: interpolated.isInterpolated,
-        });
       }
 
       setCommissions(results);
@@ -215,3 +250,54 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
     refresh: calculateAllCommissions,
   };
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CALCUL MODE POURCENTAGE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function calculatePourcentageCommission(
+  vente: VenteInput,
+  tiers: CommissionTier[],
+  decom: number
+): CommissionResult {
+  const montantHT = vente.montant_ht;
+
+  if (tiers.length === 0) {
+    // Fallback: 5% si pas de tranches
+    const commission = montantHT * 0.05;
+    return {
+      venteId: vente.id,
+      type: "standard",
+      mode: "pourcentage",
+      commissionBase: commission,
+      bonusSurvente: 0,
+      decomMontant: decom,
+      commissionNette: Math.max(0, commission - decom),
+      montantHT,
+      tauxApplique: 5,
+      isInterpolated: false,
+    };
+  }
+
+  // Trouver la tranche applicable
+  const tier = tiers.find(t => montantHT >= t.trancheMin && montantHT <= t.trancheMax);
+  const applicableTier = tier || tiers[tiers.length - 1]; // Dernière tranche si au-delà
+
+  const taux = applicableTier.tauxCommission / 100;
+  const commissionBase = montantHT * taux;
+  const bonusSurvente = montantHT * (applicableTier.bonusSurvente / 100);
+  const commissionNette = Math.max(0, commissionBase + bonusSurvente - decom);
+
+  return {
+    venteId: vente.id,
+    type: "standard",
+    mode: "pourcentage",
+    commissionBase,
+    bonusSurvente,
+    decomMontant: decom,
+    commissionNette,
+    montantHT,
+    tauxApplique: applicableTier.tauxCommission,
+    isInterpolated: false,
+  };
+}
