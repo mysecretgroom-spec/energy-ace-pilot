@@ -425,12 +425,15 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
               <Building2 className="h-4 w-4" />
               Source / Régie
             </Label>
-            <Select value={selectedRegieId} onValueChange={setSelectedRegieId}>
+            <Select 
+              value={selectedRegieId || "none"} 
+              onValueChange={(v) => setSelectedRegieId(v === "none" ? "" : v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Sélectionner une régie (optionnel)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Aucune</SelectItem>
+                <SelectItem value="none">Aucune</SelectItem>
                 {regies.map((regie) => (
                   <SelectItem key={regie.id} value={regie.id}>
                     <div className="flex items-center gap-2">
