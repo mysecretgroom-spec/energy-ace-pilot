@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sun, Loader2, Eye, EyeOff, User, Shield, Fingerprint, X } from "lucide-react";
+import { SuccessAnimation } from "@/components/ui/success-animation";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
@@ -46,6 +47,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: "", subtitle: "" });
   const { signIn, signInWithGoogle } = useAuth();
   const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount, updateStoredToken } = useBiometricLogin();
   const navigate = useNavigate();
@@ -93,12 +96,14 @@ const Login = () => {
     } else {
       // Update stored token for biometric login if user has it enabled
       await updateStoredToken();
-      toast({
-        title: "Connexion réussie",
-        description: "Bienvenue sur DébalePro !",
-      });
-      navigate("/");
+      setSuccessMessage({ title: "Connexion réussie", subtitle: "Bienvenue sur DébalePro !" });
+      setShowSuccess(true);
       setLoading(false);
+      
+      // Navigate after animation
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
     }
   };
 
@@ -135,12 +140,16 @@ const Login = () => {
       }
 
       if (sessionRestored) {
-        // Session was fully restored - navigate directly
-        toast({
-          title: "Connexion réussie",
-          description: `Bienvenue ${account.firstName || account.email} !`,
+        // Session was fully restored - show success animation then navigate
+        setSuccessMessage({ 
+          title: "Connexion réussie", 
+          subtitle: `Bienvenue ${account.firstName || account.email} !` 
         });
-        navigate("/");
+        setShowSuccess(true);
+        
+        setTimeout(() => {
+          navigate("/");
+        }, 1500);
       } else {
         // Biometric verified but session couldn't be restored
         // Pre-fill email and ask for password
@@ -169,6 +178,11 @@ const Login = () => {
     }
     return account.email[0].toUpperCase();
   };
+
+  // Show success animation overlay
+  if (showSuccess) {
+    return <SuccessAnimation message={successMessage.title} subMessage={successMessage.subtitle} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
