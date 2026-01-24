@@ -1,5 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import franceRenovLogo from "@/assets/logos/france-renov.png";
+import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.svg";
 
 interface EtudeData {
   // Client
@@ -92,186 +94,201 @@ const formatNumber = (value: number, decimals: number = 0): string => {
   }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
 };
 
-const generatePdfDoc = (data: EtudeData): jsPDF => {
+// Fonction pour charger une image et la convertir en base64
+const loadImageAsBase64 = async (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        reject(new Error("Could not get canvas context"));
+      }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
+const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   
-  // Couleurs
-  const primaryColor: [number, number, number] = [245, 158, 11]; // Amber-500
-  const darkColor: [number, number, number] = [30, 41, 59]; // Slate-800
-  const successColor: [number, number, number] = [34, 197, 94]; // Green-500
-  const warningColor: [number, number, number] = [234, 179, 8]; // Yellow-500
-  const dangerColor: [number, number, number] = [239, 68, 68]; // Red-500
+  // Couleurs officielles
+  const bleuMarianne: [number, number, number] = [0, 0, 145]; // #000091
+  const rougeMarianne: [number, number, number] = [225, 0, 15]; // #E1000F
+  const grisTexte: [number, number, number] = [58, 58, 58]; // #3A3A3A
+  const grisClair: [number, number, number] = [240, 240, 240];
+  const successColor: [number, number, number] = [34, 197, 94];
+  const warningColor: [number, number, number] = [234, 179, 8];
+  const dangerColor: [number, number, number] = [239, 68, 68];
   
-  let yPos = 15;
+  // Charger les logos
+  let franceRenovBase64 = "";
+  try {
+    franceRenovBase64 = await loadImageAsBase64(franceRenovLogo);
+  } catch (e) {
+    console.warn("Could not load France Rénov logo");
+  }
   
-  // === EN-TÊTE ===
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 40, "F");
+  let yPos = 10;
   
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
+  // === EN-TÊTE OFFICIEL ===
+  // Bande tricolore en haut
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(0, 0, 3, 35, "F");
+  doc.setFillColor(255, 255, 255);
+  doc.rect(3, 0, 3, 35, "F");
+  doc.setFillColor(...rougeMarianne);
+  doc.rect(6, 0, 3, 35, "F");
+  
+  // Logo France Rénov' à gauche
+  if (franceRenovBase64) {
+    try {
+      doc.addImage(franceRenovBase64, "PNG", 14, 4, 45, 28);
+    } catch (e) {
+      console.warn("Could not add France Rénov logo to PDF");
+    }
+  }
+  
+  // Titre central officiel
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("ÉTUDE PHOTOVOLTAÏQUE", pageWidth / 2, 12, { align: "center" });
+  doc.text("ÉTUDE DE FAISABILITÉ", pageWidth / 2, 14, { align: "center" });
+  doc.setFontSize(14);
+  doc.text("INSTALLATION PHOTOVOLTAÏQUE", pageWidth / 2, 22, { align: "center" });
   
-  // Infos client dans l'en-tête
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text(`${data.clientPrenom} ${data.clientNom}`, pageWidth / 2, 22, { align: "center" });
-  
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text(data.clientAdresse, pageWidth / 2, 28, { align: "center" });
-  doc.text(`${data.clientCodePostal} ${data.clientVille} (${data.departement})`, pageWidth / 2, 33, { align: "center" });
-  
-  // Date de l'étude en haut à droite
+  // Numéro de référence
   doc.setFontSize(8);
-  doc.text(`Étude du ${data.dateEtude}`, pageWidth - 14, 38, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...grisTexte);
+  const refNumber = `REF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
+  doc.text(`Réf. ${refNumber}`, pageWidth - 14, 10, { align: "right" });
+  doc.text(`Date: ${data.dateEtude}`, pageWidth - 14, 15, { align: "right" });
   
-  yPos = 50;
+  // Ligne de séparation
+  doc.setDrawColor(...bleuMarianne);
+  doc.setLineWidth(0.5);
+  doc.line(14, 36, pageWidth - 14, 36);
   
-  // === INFORMATIONS COMPLÉMENTAIRES ===
-  doc.setTextColor(...darkColor);
-  doc.setFontSize(12);
+  yPos = 42;
+  
+  // === INFORMATIONS BÉNÉFICIAIRE ===
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("INFORMATIONS CLIENT", 14, yPos);
-  yPos += 2;
+  doc.text("INFORMATIONS DU BÉNÉFICIAIRE", 16, yPos + 5);
+  yPos += 9;
   
   autoTable(doc, {
     startY: yPos,
     head: [],
     body: [
-      ["Client", `${data.clientPrenom} ${data.clientNom}`],
-      ["Adresse complète", `${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`],
+      ["Nom et prénom", `${data.clientPrenom} ${data.clientNom}`],
+      ["Adresse du projet", `${data.clientAdresse}`],
+      ["Ville", `${data.clientCodePostal} ${data.clientVille}`],
       ["Département", data.departement],
-      ["Date de l'étude", data.dateEtude],
-      ["N° PDL", data.numeroPdl || "Non renseigné"],
+      ["N° Point de Livraison (PDL)", data.numeroPdl || "Non renseigné"],
     ],
     theme: "plain",
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 9, cellPadding: 2, textColor: grisTexte },
     columnStyles: {
-      0: { fontStyle: "bold", cellWidth: 45 },
+      0: { fontStyle: "bold", cellWidth: 50 },
       1: { cellWidth: "auto" },
     },
     margin: { left: 14, right: 14 },
   });
   
-  yPos = (doc as any).lastAutoTable.finalY + 8;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
   
-  // === ÉTUDE TECHNIQUE ===
-  doc.setFillColor(240, 240, 240);
-  doc.rect(14, yPos - 2, pageWidth - 28, 8, "F");
-  doc.setFontSize(11);
+  // === DIAGNOSTIC TECHNIQUE ===
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...primaryColor);
-  doc.text("ÉTUDE TECHNIQUE", 16, yPos + 4);
-  yPos += 12;
+  doc.text("DIAGNOSTIC TECHNIQUE DU SITE", 16, yPos + 5);
+  yPos += 9;
   
-  // Visite technique
+  // Deux colonnes: Toiture et Installation électrique
+  const colWidth = (pageWidth - 28 - 4) / 2;
+  
   autoTable(doc, {
     startY: yPos,
-    head: [["Visite Technique - Toiture", ""]],
+    head: [["Caractéristiques Toiture", ""]],
     body: [
-      ["Type de toiture", data.typeToiture],
-      ["État toiture", data.etatToiture],
-      ["Surface toiture", data.surfaceToiture],
-      ["Ombre sur toiture", data.ombreToiture],
+      ["Type de couverture", data.typeToiture],
+      ["État général", data.etatToiture],
+      ["Surface disponible", data.surfaceToiture],
+      ["Ombrage", data.ombreToiture],
       ["Orientation", data.orientation],
       ["Inclinaison", `${data.inclinaison}°`],
     ],
     theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 40, halign: "right" },
+      0: { cellWidth: colWidth / 2 },
+      1: { cellWidth: colWidth / 2 - 5, halign: "right" },
     },
-    margin: { left: 14, right: pageWidth / 2 + 5 },
+    margin: { left: 14, right: pageWidth / 2 + 2 },
   });
   
-  const leftTableY = yPos;
+  const leftTableEndY = (doc as any).lastAutoTable.finalY;
   
-  // Compteur électrique
   autoTable(doc, {
-    startY: leftTableY,
-    head: [["Compteur & Tableau", ""]],
+    startY: yPos,
+    head: [["Installation Électrique", ""]],
     body: [
-      ["Type compteur", data.typeCompteurElectrique],
+      ["Type de compteur", data.typeCompteurElectrique],
       ["Raccordement", data.typeRaccordement],
-      ["Ampérage disjoncteur", `${data.amperageDisjoncteur}A`],
-      ["Emplacement boîtier", data.emplacementBoitier],
-      ["Potentiel faisabilité", data.potentielFaisabilite],
+      ["Calibre disjoncteur", `${data.amperageDisjoncteur}A`],
+      ["Position boîtier", data.emplacementBoitier],
+      ["Faisabilité technique", data.potentielFaisabilite],
     ],
     theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 40, halign: "right" },
+      0: { cellWidth: colWidth / 2 },
+      1: { cellWidth: colWidth / 2 - 5, halign: "right" },
     },
-    margin: { left: pageWidth / 2 + 5, right: 14 },
+    margin: { left: pageWidth / 2 + 2, right: 14 },
   });
   
-  yPos = Math.max((doc as any).lastAutoTable.finalY, (doc as any).lastAutoTable.finalY) + 8;
+  yPos = Math.max(leftTableEndY, (doc as any).lastAutoTable.finalY) + 6;
   
-  // Consommations & Préconisation
-  autoTable(doc, {
-    startY: yPos,
-    head: [["Consommations", "", "Préconisation", ""]],
-    body: [
-      ["Conso. annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Bouquet", data.bouquetNom],
-      ["Facture mensuelle", formatEuros(data.factureMensuelle), "Puissance", `${data.puissanceKwc} kWc`],
-      ["", "", "Type revente", data.typeRevente],
-      ["", "", "Support", data.supportInstallation],
-    ],
-    theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
-    margin: { left: 14, right: 14 },
-  });
-  
-  yPos = (doc as any).lastAutoTable.finalY + 8;
-  
-  // Données techniques & Résultats
-  autoTable(doc, {
-    startY: yPos,
-    head: [["Données Techniques", "", "Résultats Production", ""]],
-    body: [
-      ["Surface installation", `${data.surfaceInstallation} m²`, "Production annuelle", `${formatNumber(data.productionAnnuelle)} kWh`],
-      ["Ensoleillement", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus production", `${formatNumber(data.surplusProduction)} kWh`],
-      ["Rendement productivité", `${data.rendementProductivite}%`, "Autoconsommation", `${formatNumber(data.autoconsoPct, 2)}%`],
-    ],
-    theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
-    margin: { left: 14, right: 14 },
-  });
-  
-  yPos = (doc as any).lastAutoTable.finalY + 10;
-  
-  // === PRÉ-ÉTUDE FINANCIÈRE ===
-  doc.setFillColor(240, 240, 240);
-  doc.rect(14, yPos - 2, pageWidth - 28, 8, "F");
-  doc.setFontSize(11);
+  // === PRÉCONISATION D'INSTALLATION ===
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(...primaryColor);
-  doc.text("PRÉ-ÉTUDE FINANCIÈRE", 16, yPos + 4);
-  yPos += 12;
+  doc.text("PRÉCONISATION D'INSTALLATION", 16, yPos + 5);
+  yPos += 9;
   
-  // Prix & Aides
   autoTable(doc, {
     startY: yPos,
-    head: [["PRIX", "", "AIDES", ""]],
+    head: [["Consommation Actuelle", "", "Installation Recommandée", ""]],
     body: [
-      ["Installation TTC", formatEuros(data.prixInstallation), "Prime Autoconso", formatEuros(data.primeAutoconsommation)],
-      ["Surcoût Support", formatEuros(data.surcoutSupport), "ECO TVA", formatEuros(data.ecoTva)],
-      ["Surcoût Compteur", formatEuros(data.surcoutCompteur), "TOTAL Aides", formatEuros(data.totalAides)],
-      ["Autre Surcoût", formatEuros(data.autreSurcout), "", ""],
-      ["TOTAL Hors Aides", formatEuros(data.prixTotalHorsAides), "Aides Déduites", formatEuros(data.totalAidesDeduites)],
+      ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
+      ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
+      ["", "", "Type d'injection", data.typeRevente],
+      ["", "", "Support d'installation", data.supportInstallation],
     ],
     theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: {
       1: { halign: "right" },
       3: { halign: "right" },
@@ -279,140 +296,218 @@ const generatePdfDoc = (data: EtudeData): jsPDF => {
     margin: { left: 14, right: 14 },
   });
   
-  yPos = (doc as any).lastAutoTable.finalY + 8;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Financement
+  // Production estimée
   autoTable(doc, {
     startY: yPos,
-    head: [["FINANCEMENT", ""]],
+    head: [["Estimation de Production", "", "", ""]],
     body: [
-      ["Mode financement", data.financementNom || "Non défini"],
-      ["Taux effectif", `${data.tauxFinancement}%`],
-      ["Durée", `${data.dureeMois} mois`],
-      ["Mensualité", formatEuros(data.mensualite)],
+      ["Surface panneaux", `${data.surfaceInstallation} m²`, "Production annuelle", `${formatNumber(data.productionAnnuelle)} kWh`],
+      ["Ensoleillement zone", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus revendable", `${formatNumber(data.surplusProduction)} kWh`],
+      ["Rendement système", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
     ],
     theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 40, halign: "right" },
+      1: { halign: "right" },
+      3: { halign: "right" },
     },
-    margin: { left: 14, right: pageWidth / 2 + 5 },
+    margin: { left: 14, right: 14 },
   });
   
-  const financementTableY = yPos;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
   
-  // Rentabilité
+  // === ANALYSE FINANCIÈRE ===
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("ANALYSE FINANCIÈRE", 16, yPos + 5);
+  yPos += 9;
+  
+  // Investissement et Aides
   autoTable(doc, {
-    startY: financementTableY,
-    head: [["RENTABILITÉ MENSUELLE", ""]],
+    startY: yPos,
+    head: [["Investissement", "", "Aides Financières", ""]],
     body: [
-      ["Autoconsommation €", formatEuros(data.autoconsommationEuros)],
-      ["Revente estimée", formatEuros(data.reventeMensuelleEstimee)],
-      ["Mensualité", `-${formatEuros(data.mensualite)}`],
-      ["Résultat transfert", formatEuros(data.resultatTransfertCharge)],
+      ["Installation TTC", formatEuros(data.prixInstallation), "Prime à l'autoconsommation", formatEuros(data.primeAutoconsommation)],
+      ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
+      ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
+      ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
+      ["COÛT TOTAL BRUT", formatEuros(data.prixTotalHorsAides), "COÛT NET (après aides)", formatEuros(data.totalAidesDeduites)],
     ],
     theme: "striped",
-    headStyles: { fillColor: darkColor, fontSize: 9 },
-    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 40, halign: "right" },
+      1: { halign: "right" },
+      3: { halign: "right" },
     },
-    margin: { left: pageWidth / 2 + 5, right: 14 },
+    didParseCell: (data) => {
+      if (data.row.index === 4) {
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+    margin: { left: 14, right: 14 },
   });
   
-  yPos = Math.max((doc as any).lastAutoTable.finalY, (doc as any).lastAutoTable.finalY) + 12;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // === VERDICT ===
+  // Financement et Rentabilité
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Financement", "", "Rentabilité Mensuelle", ""]],
+    body: [
+      ["Solution de financement", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
+      ["Taux effectif", `${data.tauxFinancement}%`, "Revente surplus estimée", formatEuros(data.reventeMensuelleEstimee)],
+      ["Durée", `${data.dureeMois} mois`, "Mensualité de financement", `-${formatEuros(data.mensualite)}`],
+      ["Mensualité", formatEuros(data.mensualite), "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+    columnStyles: {
+      1: { halign: "right" },
+      3: { halign: "right" },
+    },
+    didParseCell: (data) => {
+      if (data.row.index === 3 && data.column.index >= 2) {
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+    margin: { left: 14, right: 14 },
+  });
+  
+  yPos = (doc as any).lastAutoTable.finalY + 8;
+  
+  // === VERDICT ENCADRÉ ===
   let verdictColor = successColor;
-  let verdictText = "VALIDE";
+  let verdictText = "PROJET VIABLE";
+  let verdictDesc = "Les conditions techniques et financières sont favorables";
   if (data.verdict === "a_etudier") {
     verdictColor = warningColor;
-    verdictText = "À ÉTUDIER";
+    verdictText = "À APPROFONDIR";
+    verdictDesc = "Une analyse complémentaire est recommandée";
   } else if (data.verdict === "invalide") {
     verdictColor = dangerColor;
-    verdictText = "INVALIDE";
+    verdictText = "NON RECOMMANDÉ";
+    verdictDesc = "Les conditions actuelles ne permettent pas une rentabilité satisfaisante";
   }
   
+  // Cadre du verdict
+  doc.setDrawColor(...verdictColor);
+  doc.setLineWidth(1);
   doc.setFillColor(...verdictColor);
-  doc.roundedRect(pageWidth / 2 - 40, yPos, 80, 20, 3, 3, "F");
+  doc.roundedRect(pageWidth / 2 - 55, yPos, 110, 22, 2, 2, "FD");
   
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text(verdictText, pageWidth / 2, yPos + 8, { align: "center" });
   
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(verdictDesc, pageWidth / 2, yPos + 14, { align: "center" });
+  
   doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
   doc.text(
     `${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois`,
     pageWidth / 2,
-    yPos + 16,
+    yPos + 20,
     { align: "center" }
   );
   
-  yPos += 30;
+  yPos += 28;
   
   // === CLASSIFICATION (si présente) ===
   if (data.classification) {
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, yPos - 2, pageWidth - 28, 8, "F");
-    doc.setFontSize(11);
+    doc.setFillColor(...grisClair);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(...bleuMarianne);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...primaryColor);
-    doc.text("CLASSIFICATION DOSSIER", 16, yPos + 4);
-    yPos += 12;
+    doc.text("STATUT DU DOSSIER", 16, yPos + 5);
+    yPos += 10;
     
     const classificationLabels: Record<string, string> = {
-      positif: "POSITIF - Vente signée",
-      negatif: "NÉGATIF - Projet abandonné",
-      r2: "R2 - Second rendez-vous planifié",
-      r2_prestudy: "R2 PRÉ-ÉTUDE - En attente d'analyse",
+      positif: "POSITIF - Projet validé et signé",
+      negatif: "NÉGATIF - Projet non retenu",
+      r2: "R2 - Second rendez-vous programmé",
+      r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
     };
     
-    doc.setTextColor(...darkColor);
-    doc.setFontSize(10);
+    doc.setTextColor(...grisTexte);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
-    yPos += 6;
+    yPos += 5;
     
     if (data.classificationComment) {
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       const lines = doc.splitTextToSize(data.classificationComment, pageWidth - 28);
       doc.text(lines, 14, yPos);
-      yPos += lines.length * 4 + 4;
+      yPos += lines.length * 4 + 2;
     }
   }
   
-  // === PIED DE PAGE ===
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(8);
+  // === PIED DE PAGE OFFICIEL ===
+  const footerY = pageHeight - 20;
+  
+  // Ligne de séparation
+  doc.setDrawColor(...bleuMarianne);
+  doc.setLineWidth(0.3);
+  doc.line(14, footerY, pageWidth - 14, footerY);
+  
+  // Texte de pied de page
+  doc.setTextColor(...grisTexte);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
+  doc.text("Ce document est une étude préliminaire de faisabilité et ne constitue pas un engagement contractuel.", pageWidth / 2, footerY + 5, { align: "center" });
+  doc.text("Les estimations sont basées sur les données disponibles et peuvent varier selon les conditions réelles d'installation.", pageWidth / 2, footerY + 9, { align: "center" });
+  
+  // Logo Ministère et mentions légales
+  doc.setFontSize(6);
+  doc.text("France Rénov' - Le service public pour mieux rénover mon habitat", 14, footerY + 14);
+  doc.text("Ministère de la Transition Énergétique", 14, footerY + 17);
+  
+  // Date et numéro de page
   const today = new Date().toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
-  doc.text(`Étude générée le ${today} • DébalePro`, pageWidth / 2, 285, { align: "center" });
+  doc.text(`Document généré le ${today}`, pageWidth - 14, footerY + 14, { align: "right" });
+  doc.text("Page 1/1", pageWidth - 14, footerY + 17, { align: "right" });
+  
+  // Bande tricolore en bas
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(0, pageHeight - 3, pageWidth / 3, 3, "F");
+  doc.setFillColor(255, 255, 255);
+  doc.rect(pageWidth / 3, pageHeight - 3, pageWidth / 3, 3, "F");
+  doc.setFillColor(...rougeMarianne);
+  doc.rect((pageWidth / 3) * 2, pageHeight - 3, pageWidth / 3, 3, "F");
   
   return doc;
 };
 
-export const exportEtudePdf = (data: EtudeData): void => {
-  const doc = generatePdfDoc(data);
-  const fileName = `Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+export const exportEtudePdf = async (data: EtudeData): Promise<void> => {
+  const doc = await generatePdfDoc(data);
+  const fileName = `Etude_PV_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
 };
 
-export const getEtudePdfBlob = (data: EtudeData): Blob => {
-  const doc = generatePdfDoc(data);
+export const getEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
+  const doc = await generatePdfDoc(data);
   return doc.output("blob");
 };
 
-export const getEtudePdfDataUrl = (data: EtudeData): string => {
-  const doc = generatePdfDoc(data);
+export const getEtudePdfDataUrl = async (data: EtudeData): Promise<string> => {
+  const doc = await generatePdfDoc(data);
   return doc.output("datauristring");
 };
 
