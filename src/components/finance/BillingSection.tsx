@@ -60,7 +60,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setLoading(true);
 
     try {
-      // Fetch ventes with status "attente_paiement"
+      // Fetch ventes with status "attente_paiement" including etude_id for surcharges
       const { data: ventesData, error: ventesError } = await supabase
         .from("ventes")
         .select(`
@@ -71,6 +71,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           date_pose,
           decom_montant,
           regie_id,
+          etude_id,
           clients (
             nom,
             prenom
@@ -90,10 +91,11 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         return;
       }
 
-      // Fetch bouquets (global and per-regie) and regie configs
+      // Fetch bouquets (global and per-regie), regie configs, and etude surcharges
       const regieIds = [...new Set(ventesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
+      const etudeIds = [...new Set(ventesData.map((v: any) => v.etude_id).filter(Boolean))] as string[];
       
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
+      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
         regieIds.length > 0 
           ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
@@ -102,6 +104,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+        etudeIds.length > 0
+          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
+          : Promise.resolve({ data: [] }),
       ]);
 
       const globalBouquets = globalBouquetsRes.data || [];
@@ -119,6 +124,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           regieBouquetsMap.set(b.regie_id, existing);
         }
       });
+      
+      // Create etude surcharges map
+      const etudeSurcoutsMap = new Map((etudesRes.data || []).map((e: any) => [e.id, e]));
 
       // Helper to find or interpolate bouquet
       const findBouquet = (bouquets: any[], puissance: number) => {
@@ -148,14 +156,25 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         const bouquet = findBouquet(bouquetsToUse, v.puissance_kwc || 3);
         const baseCommission = bouquet.commissionFixe;
         
-        // Calcul survente
+        // Calcul survente (doit soustraire les surcoûts techniques)
         let bonusSurvente = 0;
         const puissance = v.puissance_kwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
         const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
         
-        if (bouquet.prixRecommande > 0 && montantTTC > bouquet.prixRecommande) {
-          const surventeTTC = montantTTC - bouquet.prixRecommande;
+        // Récupérer les surcoûts techniques de l'étude
+        const etudeSurcouts = v.etude_id ? etudeSurcoutsMap.get(v.etude_id) : null;
+        const totalSurcoutsTTC = etudeSurcouts 
+          ? (Number(etudeSurcouts.surcout_support) || 0) + 
+            (Number(etudeSurcouts.surcout_compteur) || 0) + 
+            (Number(etudeSurcouts.autre_surcout) || 0)
+          : 0;
+        
+        // Montant TTC sans surcoûts pour calcul survente
+        const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
+        
+        if (bouquet.prixRecommande > 0 && montantTTCSansSurcouts > bouquet.prixRecommande) {
+          const surventeTTC = montantTTCSansSurcouts - bouquet.prixRecommande;
           const surventeHT = ttcToHT(surventeTTC, tauxTVA);
           bonusSurvente = surventeHT * (partSurventePct / 100);
         }
