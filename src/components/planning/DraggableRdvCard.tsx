@@ -53,12 +53,12 @@ export function DraggableRdvCard({
   const { handlers: longPressHandlers, isLongPressing, isPressing } = useLongPress({
     delay: 600, // Faster trigger - before drag (dnd-kit TouchSensor has 1000ms delay)
     onLongPress: () => {
-      if (!disabled && onLongPress) {
+      if (!disabled && onLongPress && !isHighlighted) {
         onLongPress();
       }
     },
     moveThreshold: 8,
-    disabled,
+    disabled: disabled || isHighlighted, // Disable long press when menu is already open
     vibrationDuration: 50,
     cancelOnScroll: true,
   });
