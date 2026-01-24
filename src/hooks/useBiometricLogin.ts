@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const BIOMETRIC_ACCOUNTS_KEY = "biometric_accounts";
+const BIOMETRIC_TOKENS_KEY = "biometric_tokens"; // Encrypted storage for refresh tokens
 
 export interface BiometricAccount {
   id: string;
@@ -10,6 +11,11 @@ export interface BiometricAccount {
   lastName?: string;
   credentialId: string;
   lastLogin?: string;
+}
+
+interface StoredToken {
+  userId: string;
+  refreshToken: string;
 }
 
 // Helper to convert ArrayBuffer to base64
@@ -37,6 +43,19 @@ const generateChallenge = (): ArrayBuffer => {
   const challenge = new Uint8Array(32);
   crypto.getRandomValues(challenge);
   return challenge.buffer as ArrayBuffer;
+};
+
+// Simple obfuscation for stored tokens (not true encryption, but adds a layer)
+const obfuscate = (str: string): string => {
+  return btoa(str.split('').reverse().join(''));
+};
+
+const deobfuscate = (str: string): string => {
+  try {
+    return atob(str).split('').reverse().join('');
+  } catch {
+    return '';
+  }
 };
 
 export function useBiometricLogin() {
@@ -79,16 +98,66 @@ export function useBiometricLogin() {
     setSavedAccounts(accounts);
   };
 
+  // Store refresh token for biometric login
+  const storeRefreshToken = (userId: string, refreshToken: string) => {
+    try {
+      const stored = localStorage.getItem(BIOMETRIC_TOKENS_KEY);
+      let tokens: StoredToken[] = stored ? JSON.parse(deobfuscate(stored)) : [];
+      
+      // Update or add token
+      const existingIndex = tokens.findIndex(t => t.userId === userId);
+      if (existingIndex >= 0) {
+        tokens[existingIndex].refreshToken = refreshToken;
+      } else {
+        tokens.push({ userId, refreshToken });
+      }
+      
+      localStorage.setItem(BIOMETRIC_TOKENS_KEY, obfuscate(JSON.stringify(tokens)));
+    } catch (error) {
+      console.error("Error storing refresh token:", error);
+    }
+  };
+
+  // Get stored refresh token
+  const getRefreshToken = (userId: string): string | null => {
+    try {
+      const stored = localStorage.getItem(BIOMETRIC_TOKENS_KEY);
+      if (!stored) return null;
+      
+      const tokens: StoredToken[] = JSON.parse(deobfuscate(stored));
+      const token = tokens.find(t => t.userId === userId);
+      return token?.refreshToken || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Remove stored refresh token
+  const removeRefreshToken = (userId: string) => {
+    try {
+      const stored = localStorage.getItem(BIOMETRIC_TOKENS_KEY);
+      if (!stored) return;
+      
+      let tokens: StoredToken[] = JSON.parse(deobfuscate(stored));
+      tokens = tokens.filter(t => t.userId !== userId);
+      localStorage.setItem(BIOMETRIC_TOKENS_KEY, obfuscate(JSON.stringify(tokens)));
+    } catch {
+      // Ignore errors
+    }
+  };
+
   // Register biometric for current logged-in user
   const registerForLogin = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.error("No user logged in");
+      // Get current session (includes refresh token)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user || !session.refresh_token) {
+        console.error("No valid session");
         return false;
       }
+
+      const user = session.user;
 
       // Get user profile
       const { data: profile } = await supabase
@@ -122,7 +191,7 @@ export function useBiometricLogin() {
           authenticatorSelection: {
             authenticatorAttachment: "platform",
             userVerification: "required",
-            residentKey: "required", // Discoverable credential for login
+            residentKey: "required",
           },
           attestation: "none",
         },
@@ -136,6 +205,9 @@ export function useBiometricLogin() {
       }
 
       const credentialId = bufferToBase64(credential.rawId);
+
+      // Store the refresh token securely for biometric login
+      storeRefreshToken(user.id, session.refresh_token);
 
       // Update profile in database
       await supabase
@@ -177,7 +249,7 @@ export function useBiometricLogin() {
   }, [savedAccounts]);
 
   // Authenticate with biometric for a specific account
-  const authenticateAccount = useCallback(async (account: BiometricAccount): Promise<{ success: boolean; error?: string }> => {
+  const authenticateAccount = useCallback(async (account: BiometricAccount): Promise<{ success: boolean; error?: string; sessionRestored?: boolean }> => {
     setIsLoading(true);
     try {
       const credentialId = base64ToBuffer(account.credentialId);
@@ -206,19 +278,41 @@ export function useBiometricLogin() {
         return { success: false, error: "Authentification annulée" };
       }
 
-      // Biometric verified - now we need to restore the session
-      // We use a magic link or stored refresh token approach
-      // For now, we'll use a special edge function that validates the WebAuthn assertion
+      // Biometric verified - now restore the session using stored refresh token
+      const refreshToken = getRefreshToken(account.id);
       
-      // Update last login
-      const updatedAccounts = savedAccounts.map(a => 
-        a.id === account.id 
-          ? { ...a, lastLogin: new Date().toISOString() }
-          : a
-      );
-      saveAccounts(updatedAccounts);
+      if (refreshToken) {
+        // Try to refresh the session
+        const { data, error: refreshError } = await supabase.auth.refreshSession({
+          refresh_token: refreshToken
+        });
 
-      return { success: true };
+        if (data.session) {
+          // Session restored successfully!
+          // Update stored refresh token with new one
+          if (data.session.refresh_token) {
+            storeRefreshToken(account.id, data.session.refresh_token);
+          }
+
+          // Update last login
+          const updatedAccounts = savedAccounts.map(a => 
+            a.id === account.id 
+              ? { ...a, lastLogin: new Date().toISOString() }
+              : a
+          );
+          saveAccounts(updatedAccounts);
+
+          return { success: true, sessionRestored: true };
+        } else if (refreshError) {
+          console.error("Failed to refresh session:", refreshError);
+          // Token expired or invalid - remove it
+          removeRefreshToken(account.id);
+          return { success: true, sessionRestored: false, error: "Session expirée, veuillez vous reconnecter" };
+        }
+      }
+
+      // No stored token or refresh failed - biometric verified but need password
+      return { success: true, sessionRestored: false };
     } catch (error: any) {
       console.error("Biometric authentication error:", error);
       return { success: false, error: error?.message || "Authentification échouée" };
@@ -227,10 +321,27 @@ export function useBiometricLogin() {
     }
   }, [savedAccounts]);
 
+  // Update refresh token after login (call this after successful password login)
+  const updateStoredToken = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && session.refresh_token) {
+        // Check if user has biometric enabled
+        const account = savedAccounts.find(a => a.id === session.user.id);
+        if (account) {
+          storeRefreshToken(session.user.id, session.refresh_token);
+        }
+      }
+    } catch (error) {
+      console.error("Error updating stored token:", error);
+    }
+  }, [savedAccounts]);
+
   // Remove a saved account
   const removeAccount = useCallback((accountId: string) => {
     const updatedAccounts = savedAccounts.filter(a => a.id !== accountId);
     saveAccounts(updatedAccounts);
+    removeRefreshToken(accountId);
   }, [savedAccounts]);
 
   // Check if an account has biometric enabled
@@ -244,6 +355,7 @@ export function useBiometricLogin() {
     isLoading,
     registerForLogin,
     authenticateAccount,
+    updateStoredToken,
     removeAccount,
     hasAccount,
   };

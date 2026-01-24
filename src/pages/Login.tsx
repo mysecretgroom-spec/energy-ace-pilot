@@ -50,7 +50,7 @@ const Login = () => {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [showMFAVerify, setShowMFAVerify] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
-  const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount } = useBiometricLogin();
+  const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount, updateStoredToken } = useBiometricLogin();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -98,6 +98,8 @@ const Login = () => {
       setShowMFAVerify(true);
       setLoading(false);
     } else {
+      // Update stored token for biometric login if user has it enabled
+      await updateStoredToken();
       toast({
         title: "Connexion réussie",
         description: "Bienvenue sur DébalePro !",
@@ -107,8 +109,10 @@ const Login = () => {
     }
   };
 
-  const handleMFASuccess = () => {
+  const handleMFASuccess = async () => {
     setShowMFAVerify(false);
+    // Update stored token for biometric login
+    await updateStoredToken();
     toast({
       title: "Connexion réussie",
       description: "Bienvenue sur DébalePro !",
@@ -136,7 +140,7 @@ const Login = () => {
     setBiometricLoading(true);
     
     try {
-      const { success, error } = await authenticateAccount(account);
+      const { success, error, sessionRestored } = await authenticateAccount(account);
       
       if (!success) {
         toast({
@@ -148,26 +152,20 @@ const Login = () => {
         return;
       }
 
-      // Biometric verified - restore session using the stored credential
-      // We need to sign in using a special method or refresh token
-      // For now, we'll use the email with a magic link or show success
-      
-      // Try to refresh the session if we have stored tokens
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (session) {
-        // Already have a valid session
+      if (sessionRestored) {
+        // Session was fully restored - navigate directly
         toast({
           title: "Connexion réussie",
           description: `Bienvenue ${account.firstName || account.email} !`,
         });
         navigate("/");
       } else {
-        // Need to restore session - show email field pre-filled
+        // Biometric verified but session couldn't be restored
+        // Pre-fill email and ask for password
         setEmail(account.email);
         toast({
-          title: "Identité vérifiée",
-          description: "Entrez votre mot de passe pour continuer",
+          title: "Session expirée",
+          description: error || "Veuillez entrer votre mot de passe",
         });
       }
     } catch (error) {
