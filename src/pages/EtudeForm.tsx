@@ -2634,18 +2634,19 @@ _Envoyé depuis DébalePro_`;
       </div>
       
       {/* Floating Save Button - bleu primaire */}
-      <button
+      <Button
         onClick={handleSave}
         disabled={!calculatedResults || saving}
-        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full bg-primary shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-primary/90 hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
+        size="icon"
         aria-label="Sauvegarder l'étude"
       >
         {saving ? (
-          <Loader2 className="h-6 w-6 animate-spin text-primary-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin" />
         ) : (
-          <Save className="h-6 w-6 text-primary-foreground" />
+          <Save className="h-6 w-6" />
         )}
-      </button>
+      </Button>
       
       {/* Dialog de confirmation WhatsApp */}
       <WhatsAppConfirmDialog
