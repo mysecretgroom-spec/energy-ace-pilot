@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Clock, Save, Loader2 } from "lucide-react";
+import { Clock } from "lucide-react";
 
 const VentesSettings = () => {
   const { user } = useAuth();
@@ -85,7 +85,7 @@ const VentesSettings = () => {
 
   return (
     <MobileLayout title="Paramètres Ventes" showBackButton>
-      <div className="p-4 space-y-6 pb-8">
+      <div className="p-4 space-y-6 pb-24">
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -119,23 +119,11 @@ const VentesSettings = () => {
         </Card>
       </div>
 
-      {/* Fixed bottom bar with save button */}
-      <div 
-        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 transition-all duration-300 ease-out ${
-          hasChanges 
-            ? "translate-y-0 opacity-100" 
-            : "translate-y-full opacity-0 pointer-events-none"
-        }`}
-      >
-        <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          {saving ? "Enregistrement..." : "Enregistrer"}
-        </Button>
-      </div>
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSave}
+      />
     </MobileLayout>
   );
 };

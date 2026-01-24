@@ -102,6 +102,16 @@ const VenteDetail = () => {
   const [montantAcompte, setMontantAcompte] = useState<number | "">("");
   const [montantSolde, setMontantSolde] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
+  const [typeInstallation, setTypeInstallation] = useState("");
+  
+  // Auto-calculate panels: 2 per kWc, 1 for 0.5 kWc
+  const nombrePanneaux = useMemo(() => {
+    if (puissanceKwc === "" || puissanceKwc === 0) return 0;
+    const kwc = Number(puissanceKwc);
+    // 2 panels per kWc, 1 panel for 0.5 kWc
+    return Math.round(kwc * 2);
+  }, [puissanceKwc]);
   
   // Original values for dirty state detection
   const [originalValues, setOriginalValues] = useState({
@@ -114,6 +124,8 @@ const VenteDetail = () => {
     montantAcompte: "" as number | "",
     montantSolde: "" as number | "",
     notes: "",
+    puissanceKwc: "" as number | "",
+    typeInstallation: "",
   });
 
   // Check if form has changes
@@ -127,11 +139,14 @@ const VenteDetail = () => {
       montantTtc !== originalValues.montantTtc ||
       montantAcompte !== originalValues.montantAcompte ||
       montantSolde !== originalValues.montantSolde ||
-      notes !== originalValues.notes
+      notes !== originalValues.notes ||
+      puissanceKwc !== originalValues.puissanceKwc ||
+      typeInstallation !== originalValues.typeInstallation
     );
   }, [
     numeroContrat, status, dateSignature, dateInstallationReelle,
     montantHt, montantTtc, montantAcompte, montantSolde, notes,
+    puissanceKwc, typeInstallation,
     originalValues
   ]);
 
@@ -178,6 +193,8 @@ const VenteDetail = () => {
     const newMontantAcompte = venteData.montant_acompte || "";
     const newMontantSolde = venteData.montant_solde || "";
     const newNotes = venteData.notes || "";
+    const newPuissanceKwc = venteData.puissance_kwc || "";
+    const newTypeInstallation = venteData.type_installation || "";
     
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
@@ -188,6 +205,8 @@ const VenteDetail = () => {
     setMontantAcompte(newMontantAcompte);
     setMontantSolde(newMontantSolde);
     setNotes(newNotes);
+    setPuissanceKwc(newPuissanceKwc);
+    setTypeInstallation(newTypeInstallation);
 
     // Load client info
     if (venteData.client_id) {
@@ -220,6 +239,8 @@ const VenteDetail = () => {
       montantAcompte: newMontantAcompte,
       montantSolde: newMontantSolde,
       notes: newNotes,
+      puissanceKwc: newPuissanceKwc,
+      typeInstallation: newTypeInstallation,
     });
 
     setLoading(false);
@@ -289,6 +310,9 @@ const VenteDetail = () => {
         montant_acompte: montantAcompte || null,
         montant_solde: montantSolde || null,
         notes: notes || null,
+        puissance_kwc: puissanceKwc || null,
+        nombre_panneaux: nombrePanneaux || null,
+        type_installation: typeInstallation || null,
       })
       .eq("id", id);
 
@@ -314,6 +338,8 @@ const VenteDetail = () => {
       montantAcompte,
       montantSolde,
       notes,
+      puissanceKwc,
+      typeInstallation,
     });
   };
 
@@ -376,7 +402,7 @@ const VenteDetail = () => {
           </Card>
         )}
 
-        {/* Technical info (read-only) */}
+        {/* Technical info (editable) */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -384,21 +410,42 @@ const VenteDetail = () => {
               Installation
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Puissance</span>
-              <span className="font-medium">{vente.puissance_kwc || "-"} kWc</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Panneaux</span>
-              <span className="font-medium">{vente.nombre_panneaux || "-"}</span>
-            </div>
-            {vente.type_installation && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Type</span>
-                <span className="font-medium">{vente.type_installation}</span>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="puissanceKwc">Puissance (kWc)</Label>
+                <Input
+                  id="puissanceKwc"
+                  type="number"
+                  step="0.5"
+                  value={puissanceKwc}
+                  onChange={(e) => setPuissanceKwc(e.target.value ? Number(e.target.value) : "")}
+                  placeholder="0"
+                />
               </div>
-            )}
+              <div className="space-y-2">
+                <Label>Panneaux</Label>
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50">
+                  <span className="font-medium">{nombrePanneaux || "-"}</span>
+                  <span className="text-xs text-muted-foreground ml-2">(2/kWc)</span>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="typeInstallation">Type d'installation</Label>
+              <Select value={typeInstallation} onValueChange={setTypeInstallation}>
+                <SelectTrigger id="typeInstallation">
+                  <SelectValue placeholder="Sélectionner un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="surimposition">Surimposition</SelectItem>
+                  <SelectItem value="integration">Intégration</SelectItem>
+                  <SelectItem value="sol">Au sol</SelectItem>
+                  <SelectItem value="carport">Carport</SelectItem>
+                  <SelectItem value="facade">Façade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 

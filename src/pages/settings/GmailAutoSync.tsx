@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -118,6 +119,7 @@ export default function GmailAutoSync() {
       if (error) throw error;
 
       toast.success("Paramètres enregistrés");
+      setOriginalSettings({ ...settings });
     } catch (error) {
       console.error("Error saving settings:", error);
       toast.error("Erreur lors de l'enregistrement");
@@ -141,7 +143,7 @@ export default function GmailAutoSync() {
 
   return (
     <MobileLayout title="Sync Gmail Auto" showBackButton>
-      <div className="p-4 pb-8 space-y-4">
+      <div className="p-4 pb-24 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/parametres")}>
@@ -284,18 +286,13 @@ export default function GmailAutoSync() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Save Button */}
-        {hasChanges && (
-          <Button 
-            className="w-full" 
-            onClick={saveSettings}
-            disabled={saving || !canEnable}
-          >
-            {saving ? "Enregistrement..." : "Enregistrer les paramètres"}
-          </Button>
-        )}
       </div>
+
+      <FloatingSaveButton
+        show={hasChanges && canEnable}
+        saving={saving}
+        onSave={saveSettings}
+      />
     </MobileLayout>
   );
 }

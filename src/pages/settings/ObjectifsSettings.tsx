@@ -5,14 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { 
   Target, 
   Euro, 
   FileText, 
   Calendar, 
-  Save, 
   Loader2, 
-  Check,
   ChevronLeft,
   ChevronRight,
   TrendingUp
@@ -20,8 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth } from "date-fns";
-import { fr } from "date-fns/locale";
+import { startOfMonth, endOfMonth } from "date-fns";
 
 interface Objectifs {
   id?: string;
@@ -223,7 +221,7 @@ const ObjectifsSettings = () => {
 
   return (
     <MobileLayout title="Objectifs" showBackButton>
-      <div className="p-4 space-y-6 pb-8">
+      <div className="p-4 space-y-6 pb-24">
         {/* Month selector */}
         <Card className="shadow-card">
           <CardContent className="p-4">
@@ -395,27 +393,11 @@ const ObjectifsSettings = () => {
         </Card>
       </div>
 
-      {/* Fixed bottom bar with save button */}
-      <div 
-        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 transition-all duration-300 ease-out ${
-          hasChanges 
-            ? "translate-y-0 opacity-100" 
-            : "translate-y-full opacity-0 pointer-events-none"
-        }`}
-      >
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full gap-2"
-        >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Enregistrer
-        </Button>
-      </div>
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSave}
+      />
     </MobileLayout>
   );
 };
