@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Lock, Fingerprint, X, Loader2 } from "lucide-react";
+import { Lock, Fingerprint, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
@@ -261,14 +261,7 @@ export const PinDialog = ({
           </div>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute right-2 top-2"
-          onClick={() => onOpenChange(false)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        {/* No manual close button - DialogContent already has one */}
       </DialogContent>
     </Dialog>
   );
