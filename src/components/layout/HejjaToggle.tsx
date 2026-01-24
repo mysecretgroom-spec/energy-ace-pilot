@@ -19,50 +19,58 @@ export function HejjaToggle() {
 
   const handleClick = () => {
     if (isActive) {
-      // Trigger heaven animation
-      setShowHeavenAnimation(true);
-      
-      // Gentle vibration
-      if (navigator.vibrate) {
-        navigator.vibrate([50, 100, 50]);
+      // Skip animation on Etude page
+      if (!isOnEtudePage) {
+        setShowHeavenAnimation(true);
+        
+        // Gentle vibration
+        if (navigator.vibrate) {
+          navigator.vibrate([50, 100, 50]);
+        }
+        
+        // Hide animation after 2 seconds
+        setTimeout(() => {
+          setShowHeavenAnimation(false);
+        }, 2000);
       }
       
-      // Deactivate after animation starts
+      // Deactivate immediately on Etude page, otherwise after animation starts
       setTimeout(() => {
         deactivate();
-        document.documentElement.classList.remove("dark");
-        localStorage.setItem("theme", "light");
-      }, 500);
-      
-      // Hide animation after 2 seconds
-      setTimeout(() => {
-        setShowHeavenAnimation(false);
-      }, 2000);
+        // Don't change theme on Etude page (it's always light there)
+        if (!isOnEtudePage) {
+          document.documentElement.classList.remove("dark");
+          localStorage.setItem("theme", "light");
+        }
+      }, isOnEtudePage ? 0 : 500);
     } else {
       setShowPinDialog(true);
     }
   };
 
   const handlePinSuccess = () => {
-    // Trigger haptic vibration on mobile
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100, 50, 200]);
+    // Skip animation on Etude page
+    if (!isOnEtudePage) {
+      // Trigger haptic vibration on mobile
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100, 50, 200]);
+      }
+      
+      // Trigger fire animation
+      setShowFireAnimation(true);
+      
+      // Enable dark mode (not on Etude page - it stays light)
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+      
+      // Hide fire animation after 1.5 seconds
+      setTimeout(() => {
+        setShowFireAnimation(false);
+      }, 1500);
     }
-    
-    // Trigger fire animation
-    setShowFireAnimation(true);
-    
-    // Enable dark mode
-    document.documentElement.classList.add("dark");
-    localStorage.setItem("theme", "dark");
     
     // Activate HEJJA mode
     activate();
-    
-    // Hide fire animation after 1.5 seconds
-    setTimeout(() => {
-      setShowFireAnimation(false);
-    }, 1500);
   };
 
   // Don't render if not authenticated
