@@ -1456,54 +1456,93 @@ _Envoyé depuis DébalePro_`;
         </div>
       )}
 
-      <div className="p-4 space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-display font-bold text-foreground">
-                Étude Photovoltaïque
+      <div className="space-y-4">
+        {/* Official Header with logos */}
+        <div className="bg-white border-b-4 border-[#000091] px-4 py-3">
+          {/* Tricolor band */}
+          <div className="flex h-1 mb-3 rounded-full overflow-hidden">
+            <div className="flex-1 bg-[#000091]" />
+            <div className="flex-1 bg-white border-y border-gray-200" />
+            <div className="flex-1 bg-[#E1000F]" />
+          </div>
+          
+          {/* Logos row */}
+          <div className="flex items-center justify-between gap-3">
+            <img 
+              src="/src/assets/logos/france-renov.png" 
+              alt="France Rénov'" 
+              className="h-10 object-contain"
+            />
+            <div className="flex-1 text-center">
+              <h1 className="text-lg font-bold text-[#000091] tracking-tight">
+                ÉTUDE ÉNERGÉTIQUE
               </h1>
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "text-xs font-medium",
-                  isEditMode 
-                    ? "bg-amber-500/10 text-amber-600 border-amber-300" 
-                    : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
-                )}
-              >
-                {isEditMode ? "Modification" : "Nouvelle"}
-              </Badge>
-            </div>
-            {clientName && (
-              <p className="text-sm text-muted-foreground">
-                {clientPrenom} {clientName} • {clientVille}
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                Installation Photovoltaïque
               </p>
-            )}
+            </div>
+            <img 
+              src="/src/assets/logos/ministere-transition-energetique.svg" 
+              alt="Ministère de la Transition Énergétique" 
+              className="h-10 object-contain"
+            />
+          </div>
+          
+          {/* Back button and client info */}
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                {clientName && (
+                  <span className="text-sm font-semibold text-gray-800">
+                    {clientPrenom} {clientName}
+                  </span>
+                )}
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px] font-medium",
+                    isEditMode 
+                      ? "bg-amber-500/10 text-amber-600 border-amber-300" 
+                      : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
+                  )}
+                >
+                  {isEditMode ? "Modification" : "Nouvelle étude"}
+                </Badge>
+              </div>
+              {clientVille && (
+                <p className="text-xs text-gray-500">
+                  {clientAdresse && `${clientAdresse}, `}{clientCodePostal} {clientVille}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* PIN Dialog for HEJJA Mode - Hidden activation via long press elsewhere */}
+        <div className="px-4 space-y-4 pb-24">
+          {/* PIN Dialog for HEJJA Mode - Hidden activation via long press elsewhere */}
 
-        {/* PIN Dialog */}
-        <PinDialog
-          open={showPinDialog}
-          onOpenChange={setShowPinDialog}
-          onSuccess={activateHejja}
-          title="Mode HEJJA"
-          description="Entrez le code PIN interne pour activer le mode HEJJA"
-        />
+          {/* PIN Dialog */}
+          <PinDialog
+            open={showPinDialog}
+            onOpenChange={setShowPinDialog}
+            onSuccess={activateHejja}
+            title="Mode HEJJA"
+            description="Entrez le code PIN interne pour activer le mode HEJJA"
+          />
 
-        {/* =============== ÉTUDE TECHNIQUE =============== */}
-        <div className="pt-2">
-          <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
-            ÉTUDE TECHNIQUE
-          </h2>
-        </div>
+          {/* =============== ÉTUDE TECHNIQUE =============== */}
+          <div className="pt-2">
+            <div className="flex items-center gap-2 justify-center mb-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+              <h2 className="text-sm font-bold text-[#000091] uppercase tracking-wider px-3">
+                Diagnostic Technique
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+            </div>
+          </div>
 
         {/* VISITE TECHNIQUE - TOITURE */}
         <Card className="shadow-card">
@@ -2508,8 +2547,8 @@ _Envoyé depuis DébalePro_`;
             disabled={!calculatedResults}
           >
             <Share2 className="h-4 w-4" />
-            Partager
           </Button>
+          </div>
         </div>
       </div>
       
