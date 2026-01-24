@@ -1,6 +1,9 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSaasAccess } from "@/hooks/useSaasAccess";
+import { PaywallScreen } from "@/components/saas/PaywallScreen";
+import { TrialBanner } from "@/components/saas/TrialBanner";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
@@ -10,8 +13,9 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
 
-  if (loading) {
+  if (loading || isSaasLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -26,5 +30,15 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  // Show paywall for users with expired trial or blocked accounts
+  if (isPaywall || isBlocked) {
+    return <PaywallScreen isBlocked={isBlocked} daysLeft={0} />;
+  }
+
+  return (
+    <>
+      {isInTrial && <TrialBanner daysLeft={daysLeftInTrial} />}
+      {children}
+    </>
+  );
 };
