@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, User, Mail, Phone, MapPin } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -33,6 +33,21 @@ const Profil = () => {
     phone: "",
     zone_geographique: "",
   });
+  const [originalFormData, setOriginalFormData] = useState({
+    first_name: "",
+    last_name: "",
+    phone: "",
+    zone_geographique: "",
+  });
+
+  const hasChanges = useMemo(() => {
+    return (
+      formData.first_name !== originalFormData.first_name ||
+      formData.last_name !== originalFormData.last_name ||
+      formData.phone !== originalFormData.phone ||
+      formData.zone_geographique !== originalFormData.zone_geographique
+    );
+  }, [formData, originalFormData]);
 
   useEffect(() => {
     if (user) {
@@ -54,12 +69,14 @@ const Profil = () => {
 
       if (data) {
         setProfile(data);
-        setFormData({
+        const newFormData = {
           first_name: data.first_name || "",
           last_name: data.last_name || "",
           phone: data.phone || "",
           zone_geographique: data.zone_geographique || "",
-        });
+        };
+        setFormData(newFormData);
+        setOriginalFormData(newFormData);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -73,8 +90,7 @@ const Profil = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!user) return;
 
     setSaving(true);
@@ -96,7 +112,8 @@ const Profil = () => {
         description: "Vos informations ont été enregistrées",
       });
       
-      fetchProfile();
+      // Update original values to reset dirty state
+      setOriginalFormData({ ...formData });
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
@@ -127,7 +144,7 @@ const Profil = () => {
 
   return (
     <MobileLayout title="Mon Profil" showBackButton>
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 pb-24">
         {/* Avatar Section */}
         <div className="flex flex-col items-center gap-4">
           <Avatar className="h-24 w-24 border-4 border-primary/20">
@@ -147,104 +164,93 @@ const Profil = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Card className="shadow-card">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" />
-                Informations personnelles
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">Prénom</Label>
-                  <Input
-                    id="first_name"
-                    value={formData.first_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, first_name: e.target.value })
-                    }
-                    placeholder="Jean"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Nom</Label>
-                  <Input
-                    id="last_name"
-                    value={formData.last_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_name: e.target.value })
-                    }
-                    placeholder="Durand"
-                  />
-                </div>
-              </div>
-
+        <Card className="shadow-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              Informations personnelles
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="h-3 w-3" />
-                  Email
-                </Label>
+                <Label htmlFor="first_name">Prénom</Label>
                 <Input
-                  id="email"
-                  value={user?.email || ""}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  L'email ne peut pas être modifié
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="flex items-center gap-2">
-                  <Phone className="h-3 w-3" />
-                  Téléphone
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
+                  id="first_name"
+                  value={formData.first_name}
                   onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
+                    setFormData({ ...formData, first_name: e.target.value })
                   }
-                  placeholder="06 12 34 56 78"
+                  placeholder="Jean"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label
-                  htmlFor="zone_geographique"
-                  className="flex items-center gap-2"
-                >
-                  <MapPin className="h-3 w-3" />
-                  Zone géographique
-                </Label>
+                <Label htmlFor="last_name">Nom</Label>
                 <Input
-                  id="zone_geographique"
-                  value={formData.zone_geographique}
+                  id="last_name"
+                  value={formData.last_name}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      zone_geographique: e.target.value,
-                    })
+                    setFormData({ ...formData, last_name: e.target.value })
                   }
-                  placeholder="Rhône-Alpes"
+                  placeholder="Durand"
                 />
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Button type="submit" className="w-full gap-2" disabled={saving}>
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Enregistrer les modifications
-          </Button>
-        </form>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="flex items-center gap-2">
+                <Mail className="h-3 w-3" />
+                Email
+              </Label>
+              <Input
+                id="email"
+                value={user?.email || ""}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                L'email ne peut pas être modifié
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="flex items-center gap-2">
+                <Phone className="h-3 w-3" />
+                Téléphone
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="06 12 34 56 78"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="zone_geographique"
+                className="flex items-center gap-2"
+              >
+                <MapPin className="h-3 w-3" />
+                Zone géographique
+              </Label>
+              <Input
+                id="zone_geographique"
+                value={formData.zone_geographique}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    zone_geographique: e.target.value,
+                  })
+                }
+                placeholder="Rhône-Alpes"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Account Info */}
         <Card className="shadow-card">
@@ -258,6 +264,13 @@ const Profil = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Floating save button */}
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSubmit}
+      />
     </MobileLayout>
   );
 };

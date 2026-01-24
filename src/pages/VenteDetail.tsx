@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -18,7 +19,6 @@ import {
   Euro, 
   Zap, 
   FileText, 
-  Save, 
   Loader2,
   ExternalLink
 } from "lucide-react";
@@ -102,6 +102,38 @@ const VenteDetail = () => {
   const [montantAcompte, setMontantAcompte] = useState<number | "">("");
   const [montantSolde, setMontantSolde] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  
+  // Original values for dirty state detection
+  const [originalValues, setOriginalValues] = useState({
+    numeroContrat: "",
+    status: "en_negociation" as VenteStatus,
+    dateSignature: "",
+    dateInstallationReelle: "",
+    montantHt: "" as number | "",
+    montantTtc: "" as number | "",
+    montantAcompte: "" as number | "",
+    montantSolde: "" as number | "",
+    notes: "",
+  });
+
+  // Check if form has changes
+  const hasChanges = useMemo(() => {
+    return (
+      numeroContrat !== originalValues.numeroContrat ||
+      status !== originalValues.status ||
+      dateSignature !== originalValues.dateSignature ||
+      dateInstallationReelle !== originalValues.dateInstallationReelle ||
+      montantHt !== originalValues.montantHt ||
+      montantTtc !== originalValues.montantTtc ||
+      montantAcompte !== originalValues.montantAcompte ||
+      montantSolde !== originalValues.montantSolde ||
+      notes !== originalValues.notes
+    );
+  }, [
+    numeroContrat, status, dateSignature, dateInstallationReelle,
+    montantHt, montantTtc, montantAcompte, montantSolde, notes,
+    originalValues
+  ]);
 
   useEffect(() => {
     if (id) {
@@ -138,15 +170,24 @@ const VenteDetail = () => {
     }
 
     setVente(venteData);
-    setNumeroContrat(venteData.numero_contrat || "");
-    setStatus(venteData.status || "en_negociation");
-    setPreviousStatus(venteData.status || "en_negociation");
-    setDateInstallationReelle(venteData.date_installation_reelle || "");
-    setMontantHt(venteData.montant_ht || "");
-    setMontantTtc(venteData.montant_ttc || "");
-    setMontantAcompte(venteData.montant_acompte || "");
-    setMontantSolde(venteData.montant_solde || "");
-    setNotes(venteData.notes || "");
+    const newNumeroContrat = venteData.numero_contrat || "";
+    const newStatus = venteData.status || "en_negociation";
+    const newDateInstallationReelle = venteData.date_installation_reelle || "";
+    const newMontantHt = venteData.montant_ht || "";
+    const newMontantTtc = venteData.montant_ttc || "";
+    const newMontantAcompte = venteData.montant_acompte || "";
+    const newMontantSolde = venteData.montant_solde || "";
+    const newNotes = venteData.notes || "";
+    
+    setNumeroContrat(newNumeroContrat);
+    setStatus(newStatus);
+    setPreviousStatus(newStatus);
+    setDateInstallationReelle(newDateInstallationReelle);
+    setMontantHt(newMontantHt);
+    setMontantTtc(newMontantTtc);
+    setMontantAcompte(newMontantAcompte);
+    setMontantSolde(newMontantSolde);
+    setNotes(newNotes);
 
     // Load client info
     if (venteData.client_id) {
@@ -162,16 +203,29 @@ const VenteDetail = () => {
     }
 
     // Calculate signature date if not set
+    let finalDateSignature = venteData.date_signature || "";
     if (!venteData.date_signature) {
-      await calculateSignatureDate(venteData);
-    } else {
-      setDateSignature(venteData.date_signature);
+      finalDateSignature = await calculateSignatureDate(venteData);
     }
+    setDateSignature(finalDateSignature);
+    
+    // Store original values for dirty state detection
+    setOriginalValues({
+      numeroContrat: newNumeroContrat,
+      status: newStatus,
+      dateSignature: finalDateSignature,
+      dateInstallationReelle: newDateInstallationReelle,
+      montantHt: newMontantHt,
+      montantTtc: newMontantTtc,
+      montantAcompte: newMontantAcompte,
+      montantSolde: newMontantSolde,
+      notes: newNotes,
+    });
 
     setLoading(false);
   };
 
-  const calculateSignatureDate = async (venteData: Vente) => {
+  const calculateSignatureDate = async (venteData: Vente): Promise<string> => {
     // Try to find associated RDV through etude
     if (venteData.etude_id) {
       const { data: etude } = await supabase
@@ -198,17 +252,13 @@ const VenteDetail = () => {
             );
             
             if (r2Entry?.date) {
-              const signDate = r2Entry.date.split("T")[0];
-              setDateSignature(signDate);
-              return;
+              return r2Entry.date.split("T")[0];
             }
           }
           
           // No R2 found, use original RDV date
           if (rdv.date_heure) {
-            const signDate = rdv.date_heure.split("T")[0];
-            setDateSignature(signDate);
-            return;
+            return rdv.date_heure.split("T")[0];
           }
         }
       }
@@ -216,9 +266,10 @@ const VenteDetail = () => {
     
     // Fallback: use vente creation date
     if (venteData.created_at) {
-      const signDate = venteData.created_at.split("T")[0];
-      setDateSignature(signDate);
+      return venteData.created_at.split("T")[0];
     }
+    
+    return "";
   };
 
   const handleSave = async () => {
@@ -251,6 +302,19 @@ const VenteDetail = () => {
 
     toast.success("Vente mise à jour");
     setPreviousStatus(status);
+    
+    // Update original values to reset dirty state
+    setOriginalValues({
+      numeroContrat,
+      status,
+      dateSignature,
+      dateInstallationReelle,
+      montantHt,
+      montantTtc,
+      montantAcompte,
+      montantSolde,
+      notes,
+    });
   };
 
   if (loading) {
@@ -506,21 +570,12 @@ const VenteDetail = () => {
         )}
       </div>
 
-      {/* Fixed save button */}
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-background border-t">
-        <Button 
-          className="w-full" 
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <Save className="h-4 w-4 mr-2" />
-          )}
-          Enregistrer
-        </Button>
-      </div>
+      {/* Floating save button - only appears when changes detected */}
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSave}
+      />
     </MobileLayout>
   );
 };
