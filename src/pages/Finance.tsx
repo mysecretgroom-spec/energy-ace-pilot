@@ -215,12 +215,7 @@ const Finance = () => {
       .map(([key, data]) => ({ key, ...data }));
   }, [allFraisData]);
 
-  // Initialize with current month expanded
-  useEffect(() => {
-    if (fraisGroupedByMonth.length > 0 && expandedMonths.size === 0) {
-      setExpandedMonths(new Set([fraisGroupedByMonth[0].key]));
-    }
-  }, [fraisGroupedByMonth]);
+  // All months are collapsed by default - no initialization needed
 
   const toggleMonth = (monthKey: string) => {
     setExpandedMonths((prev) => {
