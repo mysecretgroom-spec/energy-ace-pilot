@@ -12,8 +12,6 @@ import { Sun, Loader2, Eye, EyeOff, User, Shield, Fingerprint, X } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Footer } from "@/components/layout/Footer";
-import { MFAVerify } from "@/components/auth/MFAVerify";
-import { supabase } from "@/integrations/supabase/client";
 
 const REMEMBER_EMAIL_KEY = "debalepro_remember_email";
 const STAY_CONNECTED_KEY = "debalepro_stay_connected";
@@ -48,7 +46,6 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
-  const [showMFAVerify, setShowMFAVerify] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount, updateStoredToken } = useBiometricLogin();
   const navigate = useNavigate();
@@ -82,7 +79,7 @@ const Login = () => {
     // Save stay connected preference
     localStorage.setItem(STAY_CONNECTED_KEY, stayConnected.toString());
 
-    const { error, mfaRequired } = await signIn(email, password);
+    const { error } = await signIn(email, password, stayConnected);
 
     if (error) {
       toast({
@@ -92,10 +89,6 @@ const Login = () => {
           ? "Email ou mot de passe incorrect" 
           : error.message,
       });
-      setLoading(false);
-    } else if (mfaRequired) {
-      // Show MFA verification screen
-      setShowMFAVerify(true);
       setLoading(false);
     } else {
       // Update stored token for biometric login if user has it enabled
@@ -107,17 +100,6 @@ const Login = () => {
       navigate("/");
       setLoading(false);
     }
-  };
-
-  const handleMFASuccess = async () => {
-    setShowMFAVerify(false);
-    // Update stored token for biometric login
-    await updateStoredToken();
-    toast({
-      title: "Connexion réussie",
-      description: "Bienvenue sur DébalePro !",
-    });
-    navigate("/");
   };
 
   const handleGoogleSignIn = async () => {
@@ -187,16 +169,6 @@ const Login = () => {
     }
     return account.email[0].toUpperCase();
   };
-
-  // Show MFA verification if required
-  if (showMFAVerify) {
-    return (
-      <MFAVerify 
-        onSuccess={handleMFASuccess}
-        onCancel={() => setShowMFAVerify(false)}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

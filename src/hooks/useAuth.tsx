@@ -9,7 +9,7 @@ interface AuthContextType {
   mfaRequired: boolean;
   currentLevel: AuthenticatorAssuranceLevels | null;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; mfaRequired?: boolean }>;
+  signIn: (email: string, password: string, stayConnected?: boolean) => Promise<{ error: Error | null; mfaRequired?: boolean }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   checkMFAStatus: () => Promise<{ mfaRequired: boolean; currentLevel: AuthenticatorAssuranceLevels | null }>;
@@ -165,17 +165,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, stayConnected: boolean = true) => {
     try {
+      // Note: Supabase JS v2 doesn't directly support per-call persistSession
+      // The session persistence is controlled by the client configuration
+      // "stayConnected" preference is handled by the app logic (biometric login, etc.)
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
       
-      // Check if MFA is required after sign in
-      const mfaStatus = await checkMFAStatus();
-      return { error: null, mfaRequired: mfaStatus.mfaRequired };
+      // MFA is NOT required for standard login - it's only for sensitive operations
+      // like security settings changes. Users authenticate with password only.
+      return { error: null, mfaRequired: false };
     } catch (error) {
       return { error: error as Error, mfaRequired: false };
     }
