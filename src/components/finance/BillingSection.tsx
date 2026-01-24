@@ -72,6 +72,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           decom_montant,
           regie_id,
           etude_id,
+          type_vente,
           clients (
             nom,
             prenom
@@ -147,6 +148,25 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
 
       // Calculate commissions using new bouquet logic
       const billableVentes: BillableVente[] = (ventesData || []).map((v: any) => {
+        const decomMontant = v.decom_montant || 0;
+        
+        // CAS POSE EXTERNE: Commission = montant HT - décom
+        if (v.type_vente === "external_installation") {
+          const commission = Math.max(0, v.montant_ht - decomMontant);
+          return {
+            id: v.id,
+            client_nom: v.clients?.nom || "Client inconnu",
+            client_prenom: v.clients?.prenom || null,
+            puissance_kwc: v.puissance_kwc,
+            montant_ht: v.montant_ht,
+            montant_ttc: v.montant_ttc,
+            date_pose: v.date_pose,
+            commission,
+            decom_montant: decomMontant,
+          };
+        }
+        
+        // CAS STANDARD: Commission bouquet + survente
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
         const bouquetsToUse = v.regie_id && regieBouquetsMap.has(v.regie_id)
           ? regieBouquetsMap.get(v.regie_id)!
@@ -179,7 +199,6 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           bonusSurvente = surventeHT * (partSurventePct / 100);
         }
         
-        const decomMontant = v.decom_montant || 0;
         const commission = Math.max(0, baseCommission + bonusSurvente - decomMontant);
 
         return {
