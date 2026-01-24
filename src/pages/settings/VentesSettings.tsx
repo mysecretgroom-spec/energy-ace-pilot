@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Clock, Save } from "lucide-react";
+import { Clock, Save, Loader2 } from "lucide-react";
 
 const VentesSettings = () => {
   const { user } = useAuth();
   const [transitionWeeks, setTransitionWeeks] = useState(2);
+  const [originalTransitionWeeks, setOriginalTransitionWeeks] = useState(2);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const hasChanges = transitionWeeks !== originalTransitionWeeks;
 
   useEffect(() => {
     if (user) {
@@ -32,7 +35,9 @@ const VentesSettings = () => {
       if (error) throw error;
 
       if (data) {
-        setTransitionWeeks(data.vente_auto_transition_weeks || 2);
+        const weeks = data.vente_auto_transition_weeks || 2;
+        setTransitionWeeks(weeks);
+        setOriginalTransitionWeeks(weeks);
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -59,6 +64,7 @@ const VentesSettings = () => {
       if (error) throw error;
 
       toast.success("Paramètres enregistrés");
+      setOriginalTransitionWeeks(transitionWeeks);
     } catch (error) {
       console.error("Error saving settings:", error);
       toast.error("Erreur lors de l'enregistrement");
@@ -109,13 +115,26 @@ const VentesSettings = () => {
                 à "En attente de paiement" si elles ont une date d'installation renseignée.
               </p>
             </div>
-
-            <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
-              <Save className="h-4 w-4" />
-              {saving ? "Enregistrement..." : "Enregistrer"}
-            </Button>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Fixed bottom bar with save button */}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 transition-all duration-300 ease-out ${
+          hasChanges 
+            ? "translate-y-0 opacity-100" 
+            : "translate-y-full opacity-0 pointer-events-none"
+        }`}
+      >
+        <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {saving ? "Enregistrement..." : "Enregistrer"}
+        </Button>
       </div>
     </MobileLayout>
   );

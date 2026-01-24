@@ -42,7 +42,6 @@ const ObjectifsSettings = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   
   // Selected month/year
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -50,6 +49,11 @@ const ObjectifsSettings = () => {
   
   // Objectifs data
   const [objectifs, setObjectifs] = useState<Objectifs>({
+    objectif_ca: 50000,
+    objectif_ventes: 10,
+    objectif_rdv: 30,
+  });
+  const [originalObjectifs, setOriginalObjectifs] = useState<Objectifs>({
     objectif_ca: 50000,
     objectif_ventes: 10,
     objectif_rdv: 30,
@@ -82,19 +86,23 @@ const ObjectifsSettings = () => {
       .maybeSingle();
 
     if (data) {
-      setObjectifs({
+      const loaded = {
         id: data.id,
         objectif_ca: data.objectif_ca || 50000,
         objectif_ventes: data.objectif_ventes || 10,
         objectif_rdv: data.objectif_rdv || 30,
-      });
+      };
+      setObjectifs(loaded);
+      setOriginalObjectifs(loaded);
     } else {
       // Reset to defaults if no data for this month
-      setObjectifs({
+      const defaults = {
         objectif_ca: 50000,
         objectif_ventes: 10,
         objectif_rdv: 30,
-      });
+      };
+      setObjectifs(defaults);
+      setOriginalObjectifs(defaults);
     }
 
     setLoading(false);
@@ -137,7 +145,6 @@ const ObjectifsSettings = () => {
     if (!user) return;
 
     setSaving(true);
-    setSaved(false);
 
     const payload = {
       user_id: user.id,
@@ -156,9 +163,8 @@ const ObjectifsSettings = () => {
       console.error("Error saving objectifs:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      setSaved(true);
       toast.success("Objectifs enregistrés");
-      loadObjectifs();
+      setOriginalObjectifs({ ...objectifs });
     }
 
     setSaving(false);
@@ -180,8 +186,13 @@ const ObjectifsSettings = () => {
         setSelectedMonth((m) => m + 1);
       }
     }
-    setSaved(false);
   };
+
+  // Detect changes
+  const hasChanges = 
+    objectifs.objectif_ca !== originalObjectifs.objectif_ca ||
+    objectifs.objectif_ventes !== originalObjectifs.objectif_ventes ||
+    objectifs.objectif_rdv !== originalObjectifs.objectif_rdv;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -365,22 +376,6 @@ const ObjectifsSettings = () => {
               )}
             </div>
 
-            {/* Save button */}
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full"
-              variant={saved ? "outline" : "default"}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : saved ? (
-                <Check className="h-4 w-4 mr-2 text-green-600" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {saved ? "Enregistré ✓" : "Enregistrer"}
-            </Button>
           </CardContent>
         </Card>
 
@@ -398,6 +393,28 @@ const ObjectifsSettings = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Fixed bottom bar with save button */}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 z-50 transition-all duration-300 ease-out ${
+          hasChanges 
+            ? "translate-y-0 opacity-100" 
+            : "translate-y-full opacity-0 pointer-events-none"
+        }`}
+      >
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full gap-2"
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Enregistrer
+        </Button>
       </div>
     </MobileLayout>
   );

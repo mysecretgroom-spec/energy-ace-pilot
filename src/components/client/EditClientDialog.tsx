@@ -228,11 +228,17 @@ export const EditClientDialog = ({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          {hasChanges && (
+          <div 
+            className={`transition-all duration-300 ease-out ${
+              hasChanges 
+                ? "opacity-100 scale-100" 
+                : "opacity-0 scale-95 pointer-events-none w-0 overflow-hidden"
+            }`}
+          >
             <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
@@ -243,7 +249,7 @@ export const EditClientDialog = ({
                 "Enregistrer"
               )}
             </Button>
-          )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
