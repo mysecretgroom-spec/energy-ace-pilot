@@ -2633,17 +2633,17 @@ _Envoyé depuis DébalePro_`;
         </div>
       </div>
       
-      {/* Floating Save Button - discret et neutre */}
+      {/* Floating Save Button - bleu primaire */}
       <button
         onClick={handleSave}
         disabled={!calculatedResults || saving}
-        className="fixed bottom-24 right-4 z-40 h-10 w-10 rounded-full bg-muted/50 backdrop-blur-sm border border-border/50 shadow-sm flex items-center justify-center transition-all duration-200 hover:bg-muted/80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full bg-primary shadow-lg flex items-center justify-center transition-all duration-200 hover:bg-primary/90 hover:shadow-xl active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label="Sauvegarder l'étude"
       >
         {saving ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-primary-foreground" />
         ) : (
-          <Save className="h-4 w-4 text-muted-foreground" />
+          <Save className="h-6 w-6 text-primary-foreground" />
         )}
       </button>
       
