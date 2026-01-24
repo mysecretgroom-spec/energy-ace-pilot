@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
+import { SuccessAnimation } from "@/components/ui/success-animation";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,6 +43,7 @@ const Signup = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -88,11 +90,12 @@ const Signup = () => {
         description: error.message,
       });
     } else {
-      toast({
-        title: "Compte créé !",
-        description: "Bienvenue sur DébalePro !",
-      });
-      navigate("/");
+      setShowSuccess(true);
+      
+      // Navigate after animation
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
     }
 
     setLoading(false);
@@ -111,6 +114,11 @@ const Signup = () => {
       setGoogleLoading(false);
     }
   };
+
+  // Show success animation overlay
+  if (showSuccess) {
+    return <SuccessAnimation message="Compte créé !" subMessage="Bienvenue sur DébalePro !" />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
