@@ -16,17 +16,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Calculate week boundaries (Monday to Sunday)
+    // Calculate current week boundaries (Monday to today/Friday)
     const now = new Date();
     const dayOfWeek = now.getDay();
     const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - diffToMonday - 7); // Previous week Monday
+    weekStart.setDate(now.getDate() - diffToMonday); // Current week Monday
     weekStart.setHours(0, 0, 0, 0);
     
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6); // Previous week Sunday
+    const weekEnd = new Date(now); // Today (Friday)
     weekEnd.setHours(23, 59, 59, 999);
 
     console.log(`Checking missing receipts for week: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
