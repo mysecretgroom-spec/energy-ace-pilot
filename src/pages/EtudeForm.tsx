@@ -1462,7 +1462,7 @@ _Envoyé depuis DébalePro_`;
             <img 
               src={franceRenovLogo} 
               alt="France Rénov'" 
-              className="h-10 object-contain"
+              className="h-16 object-contain"
             />
             <div className="flex-1 text-center">
               <h1 className="text-lg font-bold text-[#000091] tracking-tight">
@@ -1475,7 +1475,7 @@ _Envoyé depuis DébalePro_`;
             <img 
               src={ministereTransitionLogo} 
               alt="Ministère de la Transition Énergétique" 
-              className="h-10 object-contain"
+              className="h-16 object-contain"
             />
           </div>
           
