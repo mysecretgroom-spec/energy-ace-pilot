@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Calendar, CheckCircle } from "lucide-react";
+import { Loader2, Calendar, CheckCircle, Mail } from "lucide-react";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState("Connexion en cours...");
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "done" | "error">("idle");
+  const [syncStatus, setSyncStatus] = useState<"idle" | "calendar" | "gmail" | "done" | "error">("idle");
+  const [syncResults, setSyncResults] = useState({ calendar: 0, gmail: 0 });
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -91,7 +92,10 @@ export default function AuthCallback() {
               
               // Auto-sync Google Calendar after successful connection
               setStatus("Synchronisation du calendrier...");
-              setSyncStatus("syncing");
+              setSyncStatus("calendar");
+              
+              let calendarImported = 0;
+              let gmailImported = 0;
               
               try {
                 const syncParams = new URLSearchParams({
@@ -114,16 +118,46 @@ export default function AuthCallback() {
                 
                 if (syncResponse.ok) {
                   console.log("Calendar sync result:", syncResult);
-                  setSyncStatus("done");
-                  setStatus(`${syncResult.imported || 0} RDV importés`);
-                } else {
-                  console.warn("Calendar sync failed:", syncResult);
-                  setSyncStatus("error");
+                  calendarImported = syncResult.imported || 0;
                 }
               } catch (syncError) {
                 console.error("Calendar sync error:", syncError);
-                setSyncStatus("error");
               }
+
+              // Auto-sync Gmail after Calendar
+              setStatus("Synchronisation des emails...");
+              setSyncStatus("gmail");
+              
+              try {
+                const gmailResponse = await fetch(
+                  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-gmail-rdv`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ days: 7 }),
+                  }
+                );
+
+                const gmailResult = await gmailResponse.json();
+                
+                if (gmailResponse.ok) {
+                  console.log("Gmail sync result:", gmailResult);
+                  gmailImported = gmailResult.imported || 0;
+                }
+              } catch (gmailError) {
+                console.error("Gmail sync error:", gmailError);
+              }
+
+              setSyncResults({ calendar: calendarImported, gmail: gmailImported });
+              setSyncStatus("done");
+              
+              const parts = [];
+              if (calendarImported > 0) parts.push(`${calendarImported} RDV agenda`);
+              if (gmailImported > 0) parts.push(`${gmailImported} RDV email`);
+              setStatus(parts.length > 0 ? parts.join(" • ") : "Synchronisation terminée");
             }
           }
         } else {
@@ -147,9 +181,14 @@ export default function AuthCallback() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      {syncStatus === "syncing" ? (
+      {syncStatus === "calendar" ? (
         <div className="relative">
           <Calendar className="h-8 w-8 text-primary animate-pulse" />
+          <Loader2 className="h-4 w-4 animate-spin text-primary absolute -bottom-1 -right-1" />
+        </div>
+      ) : syncStatus === "gmail" ? (
+        <div className="relative">
+          <Mail className="h-8 w-8 text-primary animate-pulse" />
           <Loader2 className="h-4 w-4 animate-spin text-primary absolute -bottom-1 -right-1" />
         </div>
       ) : syncStatus === "done" ? (
@@ -158,8 +197,11 @@ export default function AuthCallback() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       )}
       <p className="text-muted-foreground">{status}</p>
-      {syncStatus === "syncing" && (
+      {syncStatus === "calendar" && (
         <p className="text-xs text-muted-foreground">Import des RDV Google Calendar...</p>
+      )}
+      {syncStatus === "gmail" && (
+        <p className="text-xs text-muted-foreground">Import des RDV depuis Gmail...</p>
       )}
     </div>
   );
