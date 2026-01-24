@@ -2633,6 +2633,15 @@ _Envoyé depuis DébalePro_`;
         </div>
       </div>
       
+      {/* Overlay de chargement pendant la sauvegarde */}
+      {saving && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg font-medium text-foreground">Enregistrement en cours...</p>
+          <p className="text-sm text-muted-foreground">Veuillez patienter</p>
+        </div>
+      )}
+
       {/* Floating Save Button - bleu primaire */}
       <Button
         onClick={handleSave}
