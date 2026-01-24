@@ -288,7 +288,7 @@ const EtudeForm = () => {
   const [dataFinancements, setDataFinancements] = useState<DataFinancement[]>([]);
   // Heures d'ensoleillement affichées
   const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
-  const [usePshCalculation, setUsePshCalculation] = useState(true); // true = PSH, false = Heures
+  const [usePshCalculation, setUsePshCalculation] = useState(false); // true = PSH, false = Heures
 
   // Calculated values
   const [calculatedResults, setCalculatedResults] = useState<{
