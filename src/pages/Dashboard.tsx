@@ -10,6 +10,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
+import { MFAProtectedContent } from "@/components/auth/MFAProtectedContent";
 import {
   TrendingUp, 
   Calendar, 
@@ -23,7 +24,8 @@ import {
   Clock,
   AlertCircle,
   Hotel,
-  Flame
+  Flame,
+  Lock
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -640,45 +642,86 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => openStatDialog('commissions')}
+          {/* Commission card - MFA Protected */}
+          <MFAProtectedContent
+            requireExplicitAction
+            actionButtonText="Voir commissions"
+            title="Accès aux commissions"
+            description="Entrez votre code MFA pour voir les statistiques de commissions."
+            placeholder={
+              <Card className="cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-amber-500 mb-1">
+                    <Lock className="h-4 w-4" />
+                    <span className="text-xs font-medium">Commissions</span>
+                  </div>
+                  <p className="text-xl font-bold text-muted-foreground">***</p>
+                  <p className="text-xs text-muted-foreground">
+                    Protégé par MFA
+                  </p>
+                </CardContent>
+              </Card>
+            }
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-amber-500 mb-1">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-xs font-medium">Commissions</span>
-              </div>
-              <p className="text-xl font-bold">{formatCurrency(commissionData.commissionsMois)}</p>
-              <p 
-                className="text-xs text-muted-foreground underline cursor-pointer"
-                onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
-              >
-                {formatCurrency(commissionData.commissionsEnAttente)} en attente
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Commission HEJJA - Only visible in HEJJA mode */}
-          {modeHejjaActive && (
             <Card 
-              className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2 cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => openStatDialog('hejja')}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => openStatDialog('commissions')}
             >
               <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-red-500 mb-1">
-                  <Flame className="h-4 w-4" />
-                  <span className="text-xs font-medium">Commission HEJJA</span>
-                  <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
-                    RETAPES
-                  </Badge>
+                <div className="flex items-center gap-2 text-amber-500 mb-1">
+                  <TrendingUp className="h-4 w-4" />
+                  <span className="text-xs font-medium">Commissions</span>
                 </div>
-                <p className="text-xl font-bold text-red-600">{formatCurrency(commissionData.commissionsHejja)}</p>
-                <p className="text-xs text-muted-foreground">
-                  Total sur ventes retape (masqué hors mode HEJJA)
+                <p className="text-xl font-bold">{formatCurrency(commissionData.commissionsMois)}</p>
+                <p 
+                  className="text-xs text-muted-foreground underline cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
+                >
+                  {formatCurrency(commissionData.commissionsEnAttente)} en attente
                 </p>
               </CardContent>
             </Card>
+          </MFAProtectedContent>
+
+          {/* Commission HEJJA - Only visible in HEJJA mode - MFA Protected */}
+          {modeHejjaActive && (
+            <MFAProtectedContent
+              requireExplicitAction
+              actionButtonText="Voir HEJJA"
+              title="Accès commissions HEJJA"
+              description="Entrez votre code MFA pour voir les commissions HEJJA."
+              placeholder={
+                <Card className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-red-500 mb-1">
+                      <Lock className="h-4 w-4" />
+                      <span className="text-xs font-medium">Commission HEJJA</span>
+                    </div>
+                    <p className="text-xl font-bold text-muted-foreground">***</p>
+                    <p className="text-xs text-muted-foreground">Protégé par MFA</p>
+                  </CardContent>
+                </Card>
+              }
+            >
+              <Card 
+                className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2 cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => openStatDialog('hejja')}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-red-500 mb-1">
+                    <Flame className="h-4 w-4" />
+                    <span className="text-xs font-medium">Commission HEJJA</span>
+                    <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                      RETAPES
+                    </Badge>
+                  </div>
+                  <p className="text-xl font-bold text-red-600">{formatCurrency(commissionData.commissionsHejja)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Total sur ventes retape (masqué hors mode HEJJA)
+                  </p>
+                </CardContent>
+              </Card>
+            </MFAProtectedContent>
           )}
         </div>
 
