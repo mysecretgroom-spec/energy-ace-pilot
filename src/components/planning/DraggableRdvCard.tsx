@@ -104,7 +104,7 @@ export function DraggableRdvCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-1.5 transition-all duration-200",
+        "p-1.5 transition-all duration-200 select-none",
         isDragging 
           ? "opacity-90 shadow-xl scale-105 ring-2 ring-primary cursor-grabbing" 
           : "cursor-grab hover:bg-muted/50 active:cursor-grabbing",
