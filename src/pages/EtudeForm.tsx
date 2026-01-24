@@ -1493,17 +1493,17 @@ _Envoyé depuis DébalePro_`;
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 {clientName && (
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span className="text-sm font-semibold text-gray-800 truncate">
                     {clientPrenom} {clientName}
                   </span>
                 )}
                 <Badge 
                   variant="outline" 
                   className={cn(
-                    "text-[10px] font-medium",
+                    "text-[10px] font-medium shrink-0",
                     isEditMode 
                       ? "bg-amber-500/10 text-amber-600 border-amber-300" 
                       : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
@@ -1513,9 +1513,29 @@ _Envoyé depuis DébalePro_`;
                 </Badge>
               </div>
               {clientVille && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 truncate">
                   {clientAdresse && `${clientAdresse}, `}{clientCodePostal} {clientVille}
                 </p>
+              )}
+            </div>
+            {/* HEJJA Mode Switch - discrete toggle */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Switch
+                checked={modeHejjaActive}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setShowPinDialog(true);
+                  } else {
+                    deactivateHejja();
+                  }
+                }}
+                className={cn(
+                  "data-[state=checked]:bg-red-500 h-5 w-9",
+                  modeHejjaActive && "shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                )}
+              />
+              {modeHejjaActive && (
+                <span className="text-[10px] font-bold text-red-500 uppercase">H</span>
               )}
             </div>
           </div>
