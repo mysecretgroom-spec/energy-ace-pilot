@@ -1,4 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from "react";
+import franceRenovLogo from "@/assets/logos/france-renov.png";
+import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.svg";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1458,7 +1460,7 @@ _Envoyé depuis DébalePro_`;
           {/* Logos row */}
           <div className="flex items-center justify-between gap-3">
             <img 
-              src="/src/assets/logos/france-renov.png" 
+              src={franceRenovLogo} 
               alt="France Rénov'" 
               className="h-10 object-contain"
             />
@@ -1471,7 +1473,7 @@ _Envoyé depuis DébalePro_`;
               </p>
             </div>
             <img 
-              src="/src/assets/logos/ministere-transition-energetique.svg" 
+              src={ministereTransitionLogo} 
               alt="Ministère de la Transition Énergétique" 
               className="h-10 object-contain"
             />
