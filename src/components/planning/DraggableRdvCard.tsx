@@ -1,9 +1,10 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
-import { Clock, Wrench, RefreshCw, GripVertical, Building2 } from "lucide-react";
+import { Clock, Wrench, RefreshCw, GripVertical } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
+import { useLongPress } from "@/hooks/useLongPress";
 
 interface DraggableRdvCardProps {
   id: string;
@@ -17,6 +18,8 @@ interface DraggableRdvCardProps {
   children?: React.ReactNode;
   className?: string;
   disabled?: boolean;
+  isHighlighted?: boolean;
+  onLongPress?: () => void;
 }
 
 export function DraggableRdvCard({
@@ -31,6 +34,8 @@ export function DraggableRdvCard({
   children,
   className,
   disabled = false,
+  isHighlighted = false,
+  onLongPress,
 }: DraggableRdvCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
@@ -45,9 +50,35 @@ export function DraggableRdvCard({
     },
   });
 
+  const { handlers: longPressHandlers } = useLongPress({
+    delay: 1500,
+    onLongPress: () => {
+      if (!disabled && onLongPress) {
+        onLongPress();
+      }
+    },
+  });
+
   const style = {
     transform: CSS.Translate.toString(transform),
-    zIndex: isDragging ? 50 : undefined,
+    zIndex: isDragging ? 50 : isHighlighted ? 40 : undefined,
+  };
+
+  // Merge dnd-kit listeners with long-press handlers
+  const mergedHandlers = disabled ? {} : {
+    ...listeners,
+    onTouchStart: (e: React.TouchEvent) => {
+      longPressHandlers.onTouchStart(e);
+      listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
+    },
+    onTouchEnd: longPressHandlers.onTouchEnd,
+    onTouchMove: longPressHandlers.onTouchMove,
+    onMouseDown: (e: React.MouseEvent) => {
+      longPressHandlers.onMouseDown(e);
+      listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
+    },
+    onMouseUp: longPressHandlers.onMouseUp,
+    onMouseLeave: longPressHandlers.onMouseLeave,
   };
 
   return (
@@ -59,6 +90,9 @@ export function DraggableRdvCard({
         isDragging 
           ? "opacity-90 shadow-xl scale-105 ring-2 ring-primary cursor-grabbing" 
           : "cursor-grab hover:bg-muted/50 active:cursor-grabbing",
+        isHighlighted && !isDragging
+          ? "ring-2 ring-primary shadow-lg scale-[1.02]"
+          : "",
         typeRdv === "external_installation"
           ? "border-l-2 border-l-amber-500 bg-amber-500/5"
           : isR2
@@ -67,7 +101,7 @@ export function DraggableRdvCard({
         className
       )}
       {...attributes}
-      {...listeners}
+      {...mergedHandlers}
     >
       {children || (
         <>
