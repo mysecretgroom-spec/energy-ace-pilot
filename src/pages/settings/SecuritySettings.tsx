@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound } from "lucide-react";
+import { MFASetup } from "@/components/auth/MFASetup";
 
 const SecuritySettings = () => {
   const { user } = useAuth();
@@ -442,9 +443,12 @@ const SecuritySettings = () => {
           </Card>
         )}
 
+        {/* MFA Setup */}
+        <MFASetup />
+
         {/* Info */}
         <p className="text-xs text-muted-foreground text-center px-4">
-          Le code PIN protège l'accès au mode interne HEJJA.
+          Le code PIN protège l'accès au mode interne HEJJA. Le MFA protège votre compte.
         </p>
       </div>
 
