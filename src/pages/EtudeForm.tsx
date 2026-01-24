@@ -102,6 +102,14 @@ interface DataSurcout {
   prix: number;
 }
 
+interface RegieSurcout {
+  id: string;
+  code: string;
+  nom: string;
+  prix: number;
+  categorie: string;
+}
+
 interface DataCalibre {
   id: string;
   calibre_amperes: number;
@@ -284,6 +292,7 @@ const EtudeForm = () => {
   const [dataTarifs, setDataTarifs] = useState<DataTarif[]>([]);
   const [dataBouquets, setDataBouquets] = useState<DataBouquet[]>([]);
   const [dataSurcouts, setDataSurcouts] = useState<DataSurcout[]>([]);
+  const [regieSurcouts, setRegieSurcouts] = useState<RegieSurcout[]>([]);
   const [dataCalibres, setDataCalibres] = useState<DataCalibre[]>([]);
   const [dataCompteurs, setDataCompteurs] = useState<DataCompteur[]>([]);
   const [dataAides, setDataAides] = useState<DataAide[]>([]);
@@ -420,9 +429,10 @@ const EtudeForm = () => {
     let financementsData: DataFinancement[] = [];
 
     if (currentRegieId) {
-      const [bouquetsRes, financementsRes] = await Promise.all([
+      const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
         supabase.from("regies_bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max").eq("regie_id", currentRegieId).eq("actif", true).order("puissance_kwc"),
-        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
+        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
+        supabase.from("regies_surcouts").select("id, code, nom, prix, categorie").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
       if (bouquetsRes.data) {
@@ -443,6 +453,15 @@ const EtudeForm = () => {
           actif: f.actif,
         }));
       }
+      if (surcoutsRegieRes.data) {
+        setRegieSurcouts(surcoutsRegieRes.data.map(s => ({
+          id: s.id,
+          code: s.code,
+          nom: s.nom,
+          prix: Number(s.prix),
+          categorie: s.categorie,
+        })));
+      }
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
@@ -452,6 +471,7 @@ const EtudeForm = () => {
       
       if (bouquetsRes.data) bouquetsData = bouquetsRes.data;
       if (financementsRes.data) financementsData = financementsRes.data;
+      setRegieSurcouts([]); // No regie-specific surcharges
     }
 
     setDataBouquets(bouquetsData);
@@ -600,15 +620,36 @@ const EtudeForm = () => {
 
   // Mise à jour du surcoût compteur selon le type de raccordement
   useEffect(() => {
+    // Priorité aux surcoûts régie si disponibles
+    if (regieSurcouts.length > 0) {
+      const regieCompteur = regieSurcouts.find(s => s.categorie === "compteur" && s.nom.toUpperCase().includes(typeRaccordement.replace("É", "E")));
+      if (regieCompteur) {
+        setSurcoutCompteur(regieCompteur.prix);
+        return;
+      }
+    }
+    // Fallback aux surcoûts globaux
     const compteur = dataCompteurs.find(c => c.type_compteur === typeRaccordement);
     if (compteur) {
       setSurcoutCompteur(compteur.montant);
     }
-  }, [typeRaccordement, dataCompteurs]);
+  }, [typeRaccordement, dataCompteurs, regieSurcouts]);
 
   // Mise à jour du surcoût support selon le type de support
   useEffect(() => {
-    // Surcoûts support selon l'Excel
+    // Priorité aux surcoûts régie si disponibles
+    if (regieSurcouts.length > 0) {
+      const regieSupport = regieSurcouts.find(s => 
+        s.categorie === "support" && 
+        (supportInstallation.toUpperCase().includes(s.nom.toUpperCase()) || 
+         s.nom.toUpperCase().includes(supportInstallation.replace(/ /g, "_").toUpperCase().split("(")[0].trim()))
+      );
+      if (regieSupport) {
+        setSurcoutSupport(regieSupport.prix);
+        return;
+      }
+    }
+    // Fallback aux surcoûts hardcodés
     const surcoûtsSupport: Record<string, number> = {
       "PERGOLA / CARPORT": 3900,
       "BAC GSE (SOL)": 1800,
@@ -616,7 +657,7 @@ const EtudeForm = () => {
       "TOITURE INTEGRATION": 0,
     };
     setSurcoutSupport(surcoûtsSupport[supportInstallation] || 0);
-  }, [supportInstallation]);
+  }, [supportInstallation, regieSurcouts]);
 
   // Mise à jour automatique du rendement selon orientation et inclinaison
   useEffect(() => {
@@ -1714,8 +1755,15 @@ _Envoyé depuis DébalePro_`;
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MONOPHASÉ">MONOPHASÉ</SelectItem>
-                    <SelectItem value="TRIPHASÉ">TRIPHASÉ (+{dataCompteurs.find(c => c.type_compteur === "TRIPHASÉ")?.montant || 500}€)</SelectItem>
+                    <SelectItem value="MONOPHASÉ">Monophasé</SelectItem>
+                    <SelectItem value="TRIPHASÉ">
+                      Triphasé {(() => {
+                        const regiePrice = regieSurcouts.find(s => s.categorie === "compteur" && s.nom.toUpperCase().includes("TRIPHASE"))?.prix;
+                        const globalPrice = dataCompteurs.find(c => c.type_compteur === "TRIPHASÉ")?.montant;
+                        const price = regiePrice ?? globalPrice ?? 0;
+                        return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                      })()}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1922,10 +1970,22 @@ _Envoyé depuis DébalePro_`;
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TOITURE SURIMPOSITION">TOITURE SURIMPOSITION (0€)</SelectItem>
-                  <SelectItem value="TOITURE INTEGRATION">TOITURE INTÉGRATION (0€)</SelectItem>
-                  <SelectItem value="BAC GSE (SOL)">BAC GSE - SOL (+1 800€)</SelectItem>
-                  <SelectItem value="PERGOLA / CARPORT">PERGOLA / CARPORT (+3 900€)</SelectItem>
+                  <SelectItem value="TOITURE SURIMPOSITION">Toiture Surimposition</SelectItem>
+                  <SelectItem value="TOITURE INTEGRATION">Toiture Intégration</SelectItem>
+                  <SelectItem value="BAC GSE (SOL)">
+                    Bac GSE - Sol {(() => {
+                      const regiePrice = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("bac_gse"))?.prix;
+                      const price = regiePrice ?? 1800;
+                      return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                    })()}
+                  </SelectItem>
+                  <SelectItem value="PERGOLA / CARPORT">
+                    Pergola / Carport {(() => {
+                      const regiePrice = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("pergola"))?.prix;
+                      const price = regiePrice ?? 3900;
+                      return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                    })()}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
