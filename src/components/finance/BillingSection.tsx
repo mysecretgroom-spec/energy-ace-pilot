@@ -30,7 +30,7 @@ interface BillableVente {
   puissance_kwc: number | null;
   montant_ht: number;
   montant_ttc: number;
-  date_installation: string | null;
+  date_pose: string | null;
   commission: number;
   decom_montant: number;
 }
@@ -68,7 +68,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           montant_ht,
           montant_ttc,
           puissance_kwc,
-          date_installation,
+          date_pose,
           decom_montant,
           regie_id,
           clients (
@@ -78,7 +78,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         `)
         .eq("user_id", user.id)
         .eq("status", "attente_paiement")
-        .order("date_installation", { ascending: true });
+        .order("date_pose", { ascending: true });
 
       if (ventesError) throw ventesError;
 
@@ -170,7 +170,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           puissance_kwc: v.puissance_kwc,
           montant_ht: v.montant_ht,
           montant_ttc: v.montant_ttc,
-          date_installation: v.date_installation,
+          date_pose: v.date_pose,
           commission,
           decom_montant: decomMontant,
         };
@@ -320,11 +320,11 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{vente.puissance_kwc || "-"} kWc</span>
-                        {vente.date_installation && (
+                        {vente.date_pose && (
                           <>
                             <span>•</span>
                             <span>
-                              Posé le {format(new Date(vente.date_installation), "dd MMM", { locale: fr })}
+                              Posé le {format(new Date(vente.date_pose), "dd MMM", { locale: fr })}
                             </span>
                           </>
                         )}
