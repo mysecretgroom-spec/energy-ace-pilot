@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -9,6 +10,48 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Zod schemas for input validation
+const ContactSchema = z.object({
+  nom: z.string().min(1).max(100).regex(/^[\p{L}\s\-'.]+$/u, "Invalid name format"),
+  prenom: z.string().max(100).regex(/^[\p{L}\s\-'.]*$/u, "Invalid first name format").optional(),
+  telephone: z.string().optional(),
+  telephone_secondaire: z.string().optional(),
+  email: z.string().email().max(255).optional().or(z.literal('')).transform(v => v || undefined),
+});
+
+const AdresseSchema = z.object({
+  adresse: z.string().max(500).optional(),
+  code_postal: z.string().regex(/^[0-9]{5}$/, "Invalid postal code").optional().or(z.literal('')).transform(v => v || undefined),
+  ville: z.string().max(100).optional(),
+});
+
+const RdvSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").optional(),
+  heure: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format").optional(),
+  duree_minutes: z.number().min(15).max(480).optional(),
+  type_projet: z.string().max(50).optional(),
+  commentaire: z.string().max(2000).optional(),
+});
+
+const ProjetSchema = z.object({
+  type_chauffage: z.string().max(50).optional(),
+  type_toiture: z.string().max(50).optional(),
+  orientation_toiture: z.string().max(50).optional(),
+  facture_energie: z.number().min(0).max(100000).optional(),
+  motivation: z.string().max(500).optional(),
+  budget_estime: z.number().min(0).max(1000000).optional(),
+  urgence: z.string().max(50).optional(),
+}).optional();
+
+const ExtractedLeadSchema = z.object({
+  CONTACT: ContactSchema,
+  ADRESSE: AdresseSchema.optional().default({}),
+  RDV: RdvSchema.optional().default({}),
+  PROJET: ProjetSchema,
+});
+
+type ValidatedLead = z.infer<typeof ExtractedLeadSchema>;
 
 interface ExtractedLead {
   CONTACT: {
@@ -159,6 +202,48 @@ function normalizePhone(phone: string | undefined): string | null {
   return digits;
 }
 
+// Validate and sanitize extracted lead data
+function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
+  try {
+    // Prepare data for validation
+    const dataToValidate = {
+      CONTACT: {
+        nom: extracted.CONTACT?.nom || "",
+        prenom: extracted.CONTACT?.prenom,
+        telephone: extracted.CONTACT?.telephone,
+        telephone_secondaire: extracted.CONTACT?.telephone_secondaire,
+        email: extracted.CONTACT?.email,
+      },
+      ADRESSE: extracted.ADRESSE || {},
+      RDV: extracted.RDV || {},
+      PROJET: extracted.PROJET,
+    };
+    
+    const validated = ExtractedLeadSchema.parse(dataToValidate);
+    return validated;
+  } catch (validationError) {
+    console.error("Validation error:", validationError);
+    
+    // Try to salvage basic data if possible
+    if (extracted.CONTACT?.nom) {
+      try {
+        // Minimal validation - just the name
+        const minimalData = {
+          CONTACT: {
+            nom: extracted.CONTACT.nom.slice(0, 100).replace(/[^\p{L}\s\-'.]/gu, ""),
+          },
+          ADRESSE: {},
+          RDV: {},
+        };
+        return ExtractedLeadSchema.parse(minimalData);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -167,9 +252,34 @@ serve(async (req) => {
   try {
     const { sender_email, subject, body, user_id, regie_id } = await req.json();
     
-    if (!user_id || !body) {
+    // Validate required fields
+    if (!user_id || typeof user_id !== "string") {
       return new Response(
-        JSON.stringify({ success: false, error: "Missing required fields" }),
+        JSON.stringify({ success: false, error: "Invalid or missing user_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (!body || typeof body !== "string") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid or missing email body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate UUID format for user_id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(user_id)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid user_id format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // Validate regie_id if provided
+    if (regie_id && !uuidRegex.test(regie_id)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid regie_id format" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -187,12 +297,21 @@ serve(async (req) => {
       );
     }
 
+    // Validate and sanitize extracted data
+    const validated = validateLeadData(extracted);
+    if (!validated) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Data validation failed - invalid format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Normalize phone numbers
-    const phone1 = normalizePhone(extracted.CONTACT.telephone);
-    const phone2 = normalizePhone(extracted.CONTACT.telephone_secondaire);
-    const email = extracted.CONTACT.email?.toLowerCase();
+    // Normalize phone numbers (with additional validation)
+    const phone1 = normalizePhone(validated.CONTACT.telephone);
+    const phone2 = normalizePhone(validated.CONTACT.telephone_secondaire);
+    const email = validated.CONTACT.email?.toLowerCase();
 
     // Deduplication: check if client already exists
     let existingClient = null;
@@ -222,13 +341,13 @@ serve(async (req) => {
     }
     
     // Try by name + address as last resort
-    if (!existingClient && extracted.CONTACT.nom && extracted.ADRESSE?.code_postal) {
+    if (!existingClient && validated.CONTACT.nom && validated.ADRESSE?.code_postal) {
       const { data } = await supabase
         .from("clients")
         .select("id, nom")
         .eq("user_id", user_id)
-        .ilike("nom", extracted.CONTACT.nom)
-        .eq("code_postal", extracted.ADRESSE.code_postal)
+        .ilike("nom", validated.CONTACT.nom)
+        .eq("code_postal", validated.ADRESSE.code_postal)
         .limit(1)
         .maybeSingle();
       existingClient = data;
@@ -243,9 +362,9 @@ serve(async (req) => {
       console.log(`Found existing client: ${existingClient.nom} (${clientId})`);
       
       // Update client with any new info
-      const updateData: any = {};
-      if (!existingClient.nom && extracted.CONTACT.prenom) {
-        updateData.prenom = extracted.CONTACT.prenom;
+      const updateData: Record<string, unknown> = {};
+      if (!existingClient.nom && validated.CONTACT.prenom) {
+        updateData.prenom = validated.CONTACT.prenom;
       }
       if (phone2) updateData.telephone_secondaire = phone2;
       if (email) updateData.email = email;
@@ -254,26 +373,26 @@ serve(async (req) => {
         await supabase.from("clients").update(updateData).eq("id", clientId);
       }
     } else {
-      // Create new client
+      // Create new client with validated data
       const clientData = {
         user_id,
-        nom: extracted.CONTACT.nom.toUpperCase(),
-        prenom: extracted.CONTACT.prenom || null,
+        nom: validated.CONTACT.nom.toUpperCase(),
+        prenom: validated.CONTACT.prenom || null,
         telephone: phone1,
         telephone_secondaire: phone2,
         email: email,
-        adresse: extracted.ADRESSE?.adresse || null,
-        code_postal: extracted.ADRESSE?.code_postal || null,
-        ville: extracted.ADRESSE?.ville || null,
-        source: sender_email,
-        metadata: extracted.PROJET ? {
-          type_chauffage: extracted.PROJET.type_chauffage,
-          type_toiture: extracted.PROJET.type_toiture,
-          orientation_toiture: extracted.PROJET.orientation_toiture,
-          facture_energie: extracted.PROJET.facture_energie,
-          projet_motivation: extracted.PROJET.motivation,
-          budget_estime: extracted.PROJET.budget_estime,
-          urgence: extracted.PROJET.urgence,
+        adresse: validated.ADRESSE?.adresse || null,
+        code_postal: validated.ADRESSE?.code_postal || null,
+        ville: validated.ADRESSE?.ville || null,
+        source: sender_email?.slice(0, 255) || null,
+        metadata: validated.PROJET ? {
+          type_chauffage: validated.PROJET.type_chauffage,
+          type_toiture: validated.PROJET.type_toiture,
+          orientation_toiture: validated.PROJET.orientation_toiture,
+          facture_energie: validated.PROJET.facture_energie,
+          projet_motivation: validated.PROJET.motivation,
+          budget_estime: validated.PROJET.budget_estime,
+          urgence: validated.PROJET.urgence,
         } : null,
       };
 
@@ -292,16 +411,29 @@ serve(async (req) => {
       }
 
       clientId = newClient.id;
-      console.log(`Created new client: ${extracted.CONTACT.nom} (${clientId})`);
+      console.log(`Created new client: ${validated.CONTACT.nom} (${clientId})`);
     }
 
-    // Parse RDV date/time
+    // Parse RDV date/time with validation
     let dateHeure: string | null = null;
-    if (extracted.RDV?.date) {
-      const date = extracted.RDV.date;
-      const time = extracted.RDV.heure || "09:00";
-      dateHeure = `${date}T${time}:00`;
-    } else {
+    if (validated.RDV?.date) {
+      const date = validated.RDV.date;
+      const time = validated.RDV.heure || "09:00";
+      
+      // Validate the date is not too far in the past or future
+      const parsedDate = new Date(`${date}T${time}:00`);
+      const now = new Date();
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+      const oneYearAhead = new Date(now);
+      oneYearAhead.setFullYear(now.getFullYear() + 1);
+      
+      if (parsedDate >= oneYearAgo && parsedDate <= oneYearAhead) {
+        dateHeure = `${date}T${time}:00`;
+      }
+    }
+    
+    if (!dateHeure) {
       // Default to tomorrow at 9:00
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -314,23 +446,23 @@ serve(async (req) => {
       user_id,
       client_id: clientId,
       date_heure: dateHeure,
-      duree_minutes: extracted.RDV?.duree_minutes || 90,
-      adresse: extracted.ADRESSE?.adresse || null,
-      type_projet: extracted.RDV?.type_projet || "solaire",
+      duree_minutes: validated.RDV?.duree_minutes || 90,
+      adresse: validated.ADRESSE?.adresse || null,
+      type_projet: validated.RDV?.type_projet || "solaire",
       status: "planifie",
-      commentaire: extracted.RDV?.commentaire || null,
+      commentaire: validated.RDV?.commentaire?.slice(0, 2000) || null,
       source: "gmail",
-      regie_id: regie_id || null, // Auto-attribute regie
-      metadata: extracted.PROJET ? {
+      regie_id: regie_id || null,
+      metadata: validated.PROJET ? {
         ai_extracted: true,
         extraction_date: new Date().toISOString(),
-        type_chauffage: extracted.PROJET.type_chauffage,
-        type_toiture: extracted.PROJET.type_toiture,
-        orientation_toiture: extracted.PROJET.orientation_toiture,
-        facture_energie: extracted.PROJET.facture_energie,
-        motivation: extracted.PROJET.motivation,
-        budget_estime: extracted.PROJET.budget_estime,
-        urgence: extracted.PROJET.urgence,
+        type_chauffage: validated.PROJET.type_chauffage,
+        type_toiture: validated.PROJET.type_toiture,
+        orientation_toiture: validated.PROJET.orientation_toiture,
+        facture_energie: validated.PROJET.facture_energie,
+        motivation: validated.PROJET.motivation,
+        budget_estime: validated.PROJET.budget_estime,
+        urgence: validated.PROJET.urgence,
       } : { ai_extracted: true, extraction_date: new Date().toISOString() },
     };
 
@@ -355,7 +487,7 @@ serve(async (req) => {
       user_id,
       client_id: clientId,
       action_type: "rdv_import",
-      description: `RDV importé depuis ${sender_email}${regie_id ? " (régie auto-attribuée)" : ""}`,
+      description: `RDV importé depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}`,
     });
 
     return new Response(
