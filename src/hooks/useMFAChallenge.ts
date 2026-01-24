@@ -1,67 +1,9 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isMFASessionValid, storeMFAVerification } from "@/lib/mfaSessionCache";
 
-const MFA_VERIFIED_KEY = "debalepro_mfa_verified";
-const MFA_VALIDITY_HOURS = 6;
-
-interface MFAVerifiedData {
-  userId: string;
-  verifiedAt: number;
-  expiresAt: number;
-}
-
-/**
- * Check if MFA is already verified and still valid (within 6 hours)
- */
-function isMFASessionValid(): boolean {
-  try {
-    const stored = localStorage.getItem(MFA_VERIFIED_KEY);
-    if (!stored) return false;
-
-    const data: MFAVerifiedData = JSON.parse(stored);
-    const now = Date.now();
-
-    // Check if session is still valid
-    if (data.expiresAt > now) {
-      return true;
-    }
-
-    // Session expired, clear it
-    localStorage.removeItem(MFA_VERIFIED_KEY);
-    return false;
-  } catch {
-    localStorage.removeItem(MFA_VERIFIED_KEY);
-    return false;
-  }
-}
-
-/**
- * Store MFA verification with 6-hour validity
- */
-async function storeMFAVerification(): Promise<void> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const now = Date.now();
-    const data: MFAVerifiedData = {
-      userId: user.id,
-      verifiedAt: now,
-      expiresAt: now + (MFA_VALIDITY_HOURS * 60 * 60 * 1000), // 6 hours
-    };
-
-    localStorage.setItem(MFA_VERIFIED_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error("Error storing MFA verification:", error);
-  }
-}
-
-/**
- * Clear MFA session (e.g., on logout)
- */
-export function clearMFASession(): void {
-  localStorage.removeItem(MFA_VERIFIED_KEY);
-}
+// Re-export for backward compatibility
+export { clearMFASession } from "@/lib/mfaSessionCache";
 
 interface UseMFAChallengeReturn {
   isMFARequired: boolean;
@@ -134,8 +76,12 @@ export function useMFAChallenge(): UseMFAChallengeReturn {
 
       if (verifyError) throw verifyError;
 
-      // MFA verified successfully - store in cache with 6h validity
-      await storeMFAVerification();
+      // MFA verified successfully - get user ID and store in cache with 6h validity
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        storeMFAVerification(user.id);
+      }
+      
       setIsAlreadyVerified(true);
       setIsMFARequired(false);
       setVerifyCode("");

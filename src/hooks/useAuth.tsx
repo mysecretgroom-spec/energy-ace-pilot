@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session, AuthenticatorAssuranceLevels } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { clearMFASession } from "@/hooks/useMFAChallenge";
+import { clearMFASession } from "@/lib/mfaSessionCache";
 
 interface AuthContextType {
   user: User | null;
