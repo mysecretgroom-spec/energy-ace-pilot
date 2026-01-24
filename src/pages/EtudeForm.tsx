@@ -1471,69 +1471,7 @@ _Envoyé depuis DébalePro_`;
           </div>
         </div>
 
-        {/* Mode HEJJA */}
-        <Card className={`shadow-card border-2 transition-all ${modeHejjaActive ? "border-amber-500 bg-amber-500/5" : "border-primary/30 bg-primary/5"}`}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                {modeHejjaActive ? (
-                  <ShieldCheck className="h-4 w-4 text-amber-600" />
-                ) : (
-                  <Lock className="h-4 w-4" />
-                )}
-                Mode Interne HEJJA
-              </CardTitle>
-              {modeHejjaActive && (
-                <Badge className="bg-amber-500 text-white">ACTIF</Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!modeHejjaActive ? (
-              <Button
-                variant="outline"
-                className="w-full gap-2 border-primary/30"
-                onClick={() => setShowPinDialog(true)}
-              >
-                <Lock className="h-4 w-4" />
-                Déverrouiller le mode HEJJA
-              </Button>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Prix élevé</p>
-                    <p className="text-xs text-muted-foreground">Grille prix max</p>
-                  </div>
-                  <Switch
-                    checked={modeHejjaPrix}
-                    onCheckedChange={setModeHejjaPrix}
-                  />
-                </div>
-                {modeHejjaPrix && (
-                  <div className="pt-2">
-                    <Label>Prix manuel (optionnel)</Label>
-                    <Input
-                      type="number"
-                      placeholder="Prix en €"
-                      value={prixManuel}
-                      onChange={(e) => setPrixManuel(e.target.value ? Number(e.target.value) : "")}
-                    />
-                  </div>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-muted-foreground gap-2"
-                  onClick={deactivateHejja}
-                >
-                  <ShieldOff className="h-4 w-4" />
-                  Désactiver le mode HEJJA
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        {/* PIN Dialog for HEJJA Mode - Hidden activation via long press elsewhere */}
 
         {/* PIN Dialog */}
         <PinDialog
@@ -2513,8 +2451,8 @@ _Envoyé depuis DébalePro_`;
           </DialogContent>
         </Dialog>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2 pt-2 pb-8">
+        {/* Actions secondaires */}
+        <div className="flex flex-wrap gap-2 pt-2 pb-24">
           <Button
             variant="outline"
             size="sm"
@@ -2556,20 +2494,22 @@ _Envoyé depuis DébalePro_`;
             <Share2 className="h-4 w-4" />
             Partager
           </Button>
-          <Button
-            className="flex-1 bg-gradient-hero gap-2"
-            onClick={handleSave}
-            disabled={!calculatedResults || saving}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Sauvegarder
-          </Button>
         </div>
       </div>
+      
+      {/* Floating Save Button - discret et neutre */}
+      <button
+        onClick={handleSave}
+        disabled={!calculatedResults || saving}
+        className="fixed bottom-24 right-4 z-40 h-10 w-10 rounded-full bg-muted/50 backdrop-blur-sm border border-border/50 shadow-sm flex items-center justify-center transition-all duration-200 hover:bg-muted/80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="Sauvegarder l'étude"
+      >
+        {saving ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <Save className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
       
       {/* Dialog de confirmation WhatsApp */}
       <WhatsAppConfirmDialog
