@@ -2054,39 +2054,7 @@ export type Database = {
       }
     }
     Views: {
-      google_tokens_secure: {
-        Row: {
-          access_token: string | null
-          created_at: string | null
-          expires_at: string | null
-          id: string | null
-          refresh_token: string | null
-          scopes: string[] | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          access_token?: never
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string | null
-          refresh_token?: never
-          scopes?: string[] | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          access_token?: never
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string | null
-          refresh_token?: never
-          scopes?: string[] | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       decrypt_token: { Args: { encrypted_token: string }; Returns: string }
