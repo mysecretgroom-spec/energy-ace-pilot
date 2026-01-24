@@ -36,6 +36,7 @@ interface RdvData {
   typeRdv: 'standard' | 'external_installation';
   isR2?: boolean;
   etudeId?: string | null;
+  regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
 }
@@ -236,6 +237,7 @@ export function WeekCalendarView({
                         postalCode={rdv.postalCode}
                         currentStatus={rdv.status}
                         etudeId={rdv.etudeId}
+                        regieId={rdv.regieId}
                         onStatusChange={(newStatus) => onStatusChange?.(rdv.id, newStatus)}
                       >
                         <DraggableRdvCard

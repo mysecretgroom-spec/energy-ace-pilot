@@ -54,14 +54,8 @@ const settingsSections = [
     items: [
       {
         icon: MessageCircle,
-        label: "Confirmateur WhatsApp",
-        description: "Numéro, activation, heure CQ",
-        path: "/parametres/whatsapp",
-      },
-      {
-        icon: MessageCircle,
         label: "Messages personnalisés",
-        description: "Templates par statut",
+        description: "Templates par statut de RDV",
         path: "/parametres/whatsapp-templates",
       },
     ],
