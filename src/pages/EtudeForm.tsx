@@ -1500,6 +1500,14 @@ _Envoyé depuis DébalePro_`;
                 >
                   {isEditMode ? "Modification" : "Nouvelle étude"}
                 </Badge>
+                {regieNom && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] font-medium shrink-0 bg-primary/10 text-primary border-primary/30"
+                  >
+                    {regieNom}
+                  </Badge>
+                )}
               </div>
               {clientVille && (
                 <p className="text-xs text-gray-500 truncate">
