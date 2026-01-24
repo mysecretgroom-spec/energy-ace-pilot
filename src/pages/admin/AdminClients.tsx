@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "./AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -26,6 +26,31 @@ import { fr } from "date-fns/locale";
 
 type AppAccess = "trial" | "active" | "paywall" | "blocked" | "all";
 
+interface SaasUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  sector: string;
+  created_at: string;
+}
+
+interface AccessState {
+  user_id: string;
+  trial_ends_at: string;
+  app_access: string;
+}
+
+interface Subscription {
+  user_id: string;
+  status: string;
+}
+
+interface ClientWithDetails extends SaasUser {
+  access?: AccessState;
+  subscription?: Subscription;
+}
+
 export default function AdminClients() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AppAccess>("all");
@@ -33,32 +58,23 @@ export default function AdminClients() {
   const { data: clients, isLoading } = useQuery({
     queryKey: ["admin-clients"],
     queryFn: async () => {
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("*")
-        .schema("saas" as any);
+      const { data: users, error: usersError } = await supabase.rpc("get_saas_users" as any);
 
       if (usersError) throw usersError;
 
-      const { data: accessStates } = await supabase
-        .from("access_state")
-        .select("*")
-        .schema("saas" as any);
+      const { data: accessStates } = await supabase.rpc("get_all_saas_access_states" as any);
 
-      const { data: subscriptions } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .schema("saas" as any);
+      const { data: subscriptions } = await supabase.rpc("get_all_saas_subscriptions" as any);
 
-      return users?.map((user: any) => ({
+      return (users as SaasUser[])?.map((user) => ({
         ...user,
-        access: accessStates?.find((a: any) => a.user_id === user.user_id),
-        subscription: subscriptions?.find((s: any) => s.user_id === user.user_id),
-      }));
+        access: (accessStates as AccessState[])?.find((a) => a.user_id === user.user_id),
+        subscription: (subscriptions as Subscription[])?.find((s) => s.user_id === user.user_id),
+      })) as ClientWithDetails[];
     },
   });
 
-  const filteredClients = clients?.filter((client: any) => {
+  const filteredClients = clients?.filter((client) => {
     const matchesSearch = 
       client.email?.toLowerCase().includes(search.toLowerCase()) ||
       client.first_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -137,14 +153,14 @@ export default function AdminClients() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredClients?.map((client: any) => (
+                  {filteredClients?.map((client) => (
                     <TableRow key={client.user_id}>
                       <TableCell className="font-medium">
                         {client.first_name} {client.last_name}
                       </TableCell>
                       <TableCell>{client.email}</TableCell>
                       <TableCell>{client.sector || "-"}</TableCell>
-                      <TableCell>{getStatusBadge(client.access?.app_access)}</TableCell>
+                      <TableCell>{getStatusBadge(client.access?.app_access || "")}</TableCell>
                       <TableCell>
                         {client.access?.trial_ends_at 
                           ? format(new Date(client.access.trial_ends_at), "dd MMM yyyy", { locale: fr })

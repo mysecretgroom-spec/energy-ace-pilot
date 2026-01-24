@@ -37,36 +37,54 @@ import { toast } from "sonner";
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
 
+interface SupportTicket {
+  id: string;
+  user_id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  user?: SaasUser;
+}
+
+interface SaasUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface TicketReply {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  is_admin: boolean;
+  message: string;
+  created_at: string;
+}
+
 export default function AdminSupport() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
-  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [replyText, setReplyText] = useState("");
 
   const { data: tickets, isLoading } = useQuery({
     queryKey: ["admin-support-tickets"],
     queryFn: async () => {
-      const { data: ticketsData, error } = await supabase
-        .from("support_tickets")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .schema("saas" as any);
+      const { data: ticketsData, error } = await supabase.rpc("get_all_support_tickets" as any);
 
       if (error) throw error;
 
       // Get user info for each ticket
-      const userIds = [...new Set(ticketsData?.map((t: any) => t.user_id) || [])];
-      const { data: users } = await supabase
-        .from("users")
-        .select("user_id, email, first_name, last_name")
-        .in("user_id", userIds)
-        .schema("saas" as any);
+      const { data: users } = await supabase.rpc("get_saas_users" as any);
 
-      return ticketsData?.map((ticket: any) => ({
+      return (ticketsData as SupportTicket[])?.map((ticket) => ({
         ...ticket,
-        user: users?.find((u: any) => u.user_id === ticket.user_id),
+        user: (users as SaasUser[])?.find((u) => u.user_id === ticket.user_id),
       }));
     },
   });
@@ -76,30 +94,23 @@ export default function AdminSupport() {
     queryFn: async () => {
       if (!selectedTicket?.id) return [];
       
-      const { data, error } = await supabase
-        .from("support_replies")
-        .select("*")
-        .eq("ticket_id", selectedTicket.id)
-        .order("created_at", { ascending: true })
-        .schema("saas" as any);
+      const { data, error } = await supabase.rpc("get_ticket_replies" as any, {
+        p_ticket_id: selectedTicket.id
+      });
 
       if (error) throw error;
-      return data;
+      return data as TicketReply[];
     },
     enabled: !!selectedTicket?.id,
   });
 
   const replyMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("support_replies")
-        .insert({
-          ticket_id: selectedTicket.id,
-          user_id: user?.id,
-          is_admin: true,
-          message: replyText,
-        })
-        .schema("saas" as any);
+      const { error } = await supabase.rpc("add_ticket_reply" as any, {
+        p_ticket_id: selectedTicket?.id,
+        p_message: replyText,
+        p_is_admin: true
+      });
 
       if (error) throw error;
     },
@@ -115,11 +126,10 @@ export default function AdminSupport() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: TicketStatus) => {
-      const { error } = await supabase
-        .from("support_tickets")
-        .update({ status: newStatus })
-        .eq("id", selectedTicket.id)
-        .schema("saas" as any);
+      const { error } = await supabase.rpc("update_ticket_status" as any, {
+        p_ticket_id: selectedTicket?.id,
+        p_status: newStatus
+      });
 
       if (error) throw error;
     },
@@ -129,7 +139,7 @@ export default function AdminSupport() {
     },
   });
 
-  const filteredTickets = tickets?.filter((ticket: any) => {
+  const filteredTickets = tickets?.filter((ticket) => {
     const matchesSearch = 
       ticket.subject?.toLowerCase().includes(search.toLowerCase()) ||
       ticket.user?.email?.toLowerCase().includes(search.toLowerCase());
@@ -205,7 +215,7 @@ export default function AdminSupport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTickets?.map((ticket: any) => (
+                  {filteredTickets?.map((ticket) => (
                     <TableRow key={ticket.id}>
                       <TableCell>
                         {format(new Date(ticket.created_at), "dd MMM HH:mm", { locale: fr })}
@@ -267,7 +277,7 @@ export default function AdminSupport() {
 
             <ScrollArea className="h-[300px] border rounded-lg p-4">
               <div className="space-y-4">
-                {replies?.map((reply: any) => (
+                {replies?.map((reply) => (
                   <div 
                     key={reply.id}
                     className={`p-3 rounded-lg ${

@@ -19,13 +19,10 @@ serve(async (req) => {
     const now = new Date();
     const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
-    // Find users with past_due status for more than 14 days
-    const { data: delinquentUsers, error: fetchError } = await supabase
-      .from("subscriptions")
-      .select("user_id, past_due_since, status")
-      .eq("status", "past_due")
-      .lt("past_due_since", fourteenDaysAgo.toISOString())
-      .schema("saas");
+    // Find users with past_due status for more than 14 days using RPC
+    const { data: delinquentUsers, error: fetchError } = await supabase.rpc("get_delinquent_subscriptions", {
+      p_past_due_before: fourteenDaysAgo.toISOString()
+    });
 
     if (fetchError) {
       throw fetchError;
@@ -36,19 +33,8 @@ serve(async (req) => {
     const blockedUsers: string[] = [];
 
     for (const user of delinquentUsers || []) {
-      // Update subscription status to blocked
-      await supabase
-        .from("subscriptions")
-        .update({ status: "blocked" })
-        .eq("user_id", user.user_id)
-        .schema("saas");
-
-      // Update access state to blocked
-      await supabase
-        .from("access_state")
-        .update({ app_access: "blocked" })
-        .eq("user_id", user.user_id)
-        .schema("saas");
+      // Block the user
+      await supabase.rpc("block_saas_user", { p_user_id: user.user_id });
 
       blockedUsers.push(user.user_id);
 

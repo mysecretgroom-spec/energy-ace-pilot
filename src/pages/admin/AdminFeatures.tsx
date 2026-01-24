@@ -34,45 +34,53 @@ import { toast } from "sonner";
 
 type FeatureStatus = "pending" | "under_review" | "planned" | "in_progress" | "completed" | "rejected";
 
+interface FeatureRequest {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  status: string;
+  votes: number;
+  created_at: string;
+  user?: SaasUser;
+}
+
+interface SaasUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
 export default function AdminFeatures() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<FeatureStatus | "all">("all");
-  const [selectedFeature, setSelectedFeature] = useState<any>(null);
+  const [selectedFeature, setSelectedFeature] = useState<FeatureRequest | null>(null);
 
   const { data: features, isLoading } = useQuery({
     queryKey: ["admin-feature-requests"],
     queryFn: async () => {
-      const { data: featuresData, error } = await supabase
-        .from("feature_requests")
-        .select("*")
-        .order("votes", { ascending: false })
-        .schema("saas" as any);
+      const { data: featuresData, error } = await supabase.rpc("get_all_feature_requests" as any);
 
       if (error) throw error;
 
       // Get user info
-      const userIds = [...new Set(featuresData?.map((f: any) => f.user_id) || [])];
-      const { data: users } = await supabase
-        .from("users")
-        .select("user_id, email, first_name, last_name")
-        .in("user_id", userIds)
-        .schema("saas" as any);
+      const { data: users } = await supabase.rpc("get_saas_users" as any);
 
-      return featuresData?.map((feature: any) => ({
+      return (featuresData as FeatureRequest[])?.map((feature) => ({
         ...feature,
-        user: users?.find((u: any) => u.user_id === feature.user_id),
+        user: (users as SaasUser[])?.find((u) => u.user_id === feature.user_id),
       }));
     },
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: FeatureStatus) => {
-      const { error } = await supabase
-        .from("feature_requests")
-        .update({ status: newStatus })
-        .eq("id", selectedFeature.id)
-        .schema("saas" as any);
+      const { error } = await supabase.rpc("update_feature_status" as any, {
+        p_feature_id: selectedFeature?.id,
+        p_status: newStatus
+      });
 
       if (error) throw error;
     },
@@ -82,7 +90,7 @@ export default function AdminFeatures() {
     },
   });
 
-  const filteredFeatures = features?.filter((feature: any) => {
+  const filteredFeatures = features?.filter((feature) => {
     const matchesSearch = 
       feature.title?.toLowerCase().includes(search.toLowerCase()) ||
       feature.description?.toLowerCase().includes(search.toLowerCase());
@@ -165,7 +173,7 @@ export default function AdminFeatures() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredFeatures?.map((feature: any) => (
+                  {filteredFeatures?.map((feature) => (
                     <TableRow key={feature.id}>
                       <TableCell>
                         <div className="flex items-center gap-1">

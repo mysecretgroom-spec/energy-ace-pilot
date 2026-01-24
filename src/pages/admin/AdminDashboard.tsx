@@ -4,21 +4,24 @@ import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CreditCard, Clock, AlertTriangle } from "lucide-react";
 
+interface AccessState {
+  user_id: string;
+  app_access: string;
+}
+
+interface Subscription {
+  status: string;
+}
+
 export default function AdminDashboard() {
   const { data: stats } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      // Get all access states
-      const { data: accessStates } = await supabase
-        .from("access_state")
-        .select("app_access")
-        .schema("saas" as any);
+      // Get all access states using RPC
+      const { data: accessStates } = await supabase.rpc("get_all_saas_access_states" as any);
 
-      // Get all subscriptions
-      const { data: subscriptions } = await supabase
-        .from("subscriptions")
-        .select("status")
-        .schema("saas" as any);
+      // Get all subscriptions using RPC
+      const { data: subscriptions } = await supabase.rpc("get_all_saas_subscriptions" as any);
 
       const accessCounts = {
         trial: 0,
@@ -33,20 +36,20 @@ export default function AdminDashboard() {
         canceled: 0,
       };
 
-      accessStates?.forEach((state: any) => {
+      (accessStates as AccessState[] | null)?.forEach((state) => {
         if (accessCounts[state.app_access as keyof typeof accessCounts] !== undefined) {
           accessCounts[state.app_access as keyof typeof accessCounts]++;
         }
       });
 
-      subscriptions?.forEach((sub: any) => {
+      (subscriptions as Subscription[] | null)?.forEach((sub) => {
         if (sub.status === "active") subCounts.active++;
         if (sub.status === "past_due") subCounts.past_due++;
         if (sub.status === "canceled") subCounts.canceled++;
       });
 
       return {
-        totalUsers: accessStates?.length || 0,
+        totalUsers: (accessStates as any[] | null)?.length || 0,
         accessCounts,
         subCounts,
       };
