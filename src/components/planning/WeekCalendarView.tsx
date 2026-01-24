@@ -18,6 +18,7 @@ import { RdvQuickActions } from "./RdvQuickActions";
 import { DraggableRdvCard } from "./DraggableRdvCard";
 import { DroppableDay } from "./DroppableDay";
 import { TimePickerDialog } from "./TimePickerDialog";
+import { RdvContextMenu } from "./RdvContextMenu";
 import { useDragAndDropRdv } from "@/hooks/useDragAndDropRdv";
 
 interface RdvData {
@@ -62,6 +63,8 @@ export function WeekCalendarView({
   const [activeRdv, setActiveRdv] = useState<RdvData | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [contextMenuRdv, setContextMenuRdv] = useState<RdvData | null>(null);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   // Configure sensors for both pointer and touch
   const pointerSensor = useSensor(PointerSensor, {
@@ -71,7 +74,7 @@ export function WeekCalendarView({
   });
   const touchSensor = useSensor(TouchSensor, {
     activationConstraint: {
-      delay: 200,
+      delay: 300, // Increased to avoid conflict with long-press
       tolerance: 5,
     },
   });
@@ -152,6 +155,23 @@ export function WeekCalendarView({
     }
   };
 
+  const handleLongPress = (rdv: RdvData) => {
+    setContextMenuRdv(rdv);
+    setContextMenuOpen(true);
+  };
+
+  const handleContextMenuClose = () => {
+    setContextMenuOpen(false);
+    setContextMenuRdv(null);
+  };
+
+  const handleContextMenuMove = () => {
+    if (contextMenuRdv) {
+      setPendingDrop({ rdv: contextMenuRdv, targetDate: contextMenuRdv.date });
+      setTimePickerOpen(true);
+    }
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -221,6 +241,8 @@ export function WeekCalendarView({
                           isR2={rdv.isR2}
                           regieNom={rdv.regieNom}
                           regieCouleur={rdv.regieCouleur}
+                          isHighlighted={contextMenuRdv?.id === rdv.id}
+                          onLongPress={() => handleLongPress(rdv)}
                         />
                       </RdvQuickActions>
                     ))
@@ -270,6 +292,18 @@ export function WeekCalendarView({
           targetDate={pendingDrop.targetDate}
           clientName={pendingDrop.rdv.client}
           onConfirm={handleTimeConfirm}
+        />
+      )}
+
+      {/* Context menu for long-press */}
+      {contextMenuRdv && (
+        <RdvContextMenu
+          rdv={contextMenuRdv}
+          isOpen={contextMenuOpen}
+          onClose={handleContextMenuClose}
+          onStatusChange={onStatusChange}
+          onMoveRequest={handleContextMenuMove}
+          onRefresh={onRefresh}
         />
       )}
     </DndContext>
