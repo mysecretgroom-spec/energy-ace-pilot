@@ -18,6 +18,7 @@ import { VATReport } from "@/components/finance/VATReport";
 import { BillingSection } from "@/components/finance/BillingSection";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import {
@@ -110,16 +111,28 @@ interface VenteStats {
   caMonth: number;
   caPrevMonth: number;
   commissionsMonth: number;
-  // Catégories mutuellement exclusives (sans doublon)
-  comEnAttente: number;    // signe, cq_a_faire, cq_fait, attente_financement
-  comAVenir: number;       // envoi_pose, en_installation
-  comDuSur: number;        // installe, attente_paiement
-  comPayees: number;       // paye
-  comPotentielleTotale: number; // Somme des 3 catégories non payées
+  // Catégories simplifiées
+  comEnCours: number;    // Non posé: signe, cq_*, financement, envoi_pose, en_installation
+  comAFacturer: number;  // Posé non payé: installe, attente_paiement
+  comPayees: number;     // Payé: paye
+  comPotentielleTotale: number; // enCours + aFacturer
   signedCount: number;
   avgDeal: number;
   ventesEnCours: number;
   ventesAnnulees: number;
+}
+
+interface VenteForCommission {
+  id: string;
+  montant_ht: number;
+  montant_ttc: number;
+  puissance_kwc: number | null;
+  decom_montant: number | null;
+  type_vente: 'standard' | 'external_installation';
+  regie_id: string | null;
+  etude_id: string | null;
+  status: string;
+  date_signature: string | null;
 }
 
 const Finance = () => {
@@ -133,7 +146,7 @@ const Finance = () => {
   const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
   const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]);
-  const [venteStats, setVenteStats] = useState<VenteStats | null>(null);
+  const [venteStatsState, setVenteStats] = useState<VenteStats | null>(null);
   const [loadingVentes, setLoadingVentes] = useState(true);
   const [savingFrais, setSavingFrais] = useState(false);
   const [totaux, setTotaux] = useState({
@@ -209,10 +222,17 @@ const Finance = () => {
     });
   };
 
+  // State for ventes to be used with commission hook
+  const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
+  const [rawVentes, setRawVentes] = useState<any[]>([]);
+  
+  // Use the centralized commission hook
+  const { getCommission, loading: loadingCommissions } = useVenteCommissions(ventesForCommission);
+
   useEffect(() => {
     if (!user) return;
 
-    const fetchVenteStats = async () => {
+    const fetchVenteData = async () => {
       setLoadingVentes(true);
       try {
         const now = new Date();
@@ -220,174 +240,135 @@ const Finance = () => {
         const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-        // Fetch all ventes for the user (toutes, pas juste ce mois)
+        // Fetch all ventes for the user
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at, regie_id")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, created_at, regie_id, etude_id, type_vente")
           .eq("user_id", user.id);
 
         if (error) throw error;
 
-        // Fetch bouquets (global and per-regie) and regie configs
-        const regieIds = [...new Set((ventes || []).map((v: any) => v.regie_id).filter(Boolean))] as string[];
+        setRawVentes(ventes || []);
         
-        const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
-          supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
-          regieIds.length > 0 
-            ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
-            : Promise.resolve({ data: [] }),
-          regieIds.length > 0
-            ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
-            : Promise.resolve({ data: [] }),
-          supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
-        ]);
+        // Prepare data for commission hook (exclude cancelled)
+        setVentesForCommission((ventes || []).filter(v => v.status !== 'annule').map(v => ({
+          id: v.id,
+          montant_ht: v.montant_ht,
+          montant_ttc: v.montant_ttc,
+          puissance_kwc: v.puissance_kwc,
+          decom_montant: v.decom_montant,
+          type_vente: v.type_vente || 'standard',
+          regie_id: v.regie_id,
+          etude_id: v.etude_id,
+          status: v.status,
+          date_signature: v.date_signature,
+        })));
 
-        const globalBouquets = globalBouquetsRes.data || [];
-        const regieBouquets = regieBouquetsRes.data || [];
-        const regies = regiesRes.data || [];
-        const globalSurventePct = configRes.data?.part_survente_pct || 50;
-        
-        // Create maps for quick lookup
-        const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
-        const regieBouquetsMap = new Map<string, any[]>();
-        regieBouquets.forEach((b: any) => {
-          if (b.regie_id) {
-            const existing = regieBouquetsMap.get(b.regie_id) || [];
-            existing.push(b);
-            regieBouquetsMap.set(b.regie_id, existing);
-          }
-        });
-
-        // Helper to find or interpolate bouquet
-        const findBouquet = (bouquets: any[], puissance: number) => {
-          const exact = bouquets.find(b => b.puissance_kwc === puissance);
-          if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
-          
-          const sorted = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
-          const lower = sorted.filter(b => b.puissance_kwc < puissance).pop();
-          if (lower) {
-            return { prixRecommande: lower.prix_recommande + (puissance - lower.puissance_kwc) * 1000, commissionFixe: lower.commission_fixe || 0 };
-          }
-          const upper = sorted.find(b => b.puissance_kwc > puissance);
-          if (upper) {
-            return { prixRecommande: upper.prix_recommande - (upper.puissance_kwc - puissance) * 1000, commissionFixe: upper.commission_fixe || 0 };
-          }
-          return { prixRecommande: puissance * 4500, commissionFixe: 0 };
-        };
-
-        // Helper to calculate commission for a vente using new bouquet logic
-        const calcCommission = (v: typeof ventes[0]) => {
-          if (!v.puissance_kwc) return 0;
-          
-          const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
-          const bouquetsToUse = v.regie_id && regieBouquetsMap.has(v.regie_id)
-            ? regieBouquetsMap.get(v.regie_id)!
-            : globalBouquets;
-          const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
-          
-          const bouquet = findBouquet(bouquetsToUse, v.puissance_kwc);
-          const baseCommission = bouquet.commissionFixe;
-          
-          // Calculate survente
-          let bonusSurvente = 0;
-          const puissance = v.puissance_kwc || 3;
-          const tauxTVA = puissance <= 3 ? 10 : 20;
-          const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
-          
-          if (bouquet.prixRecommande > 0 && montantTTC > bouquet.prixRecommande) {
-            const surventeTTC = montantTTC - bouquet.prixRecommande;
-            const surventeHT = surventeTTC / (1 + tauxTVA / 100);
-            bonusSurvente = surventeHT * (partSurventePct / 100);
-          }
-          
-          const decomMontant = v.decom_montant || 0;
-          return Math.max(0, baseCommission + bonusSurvente - decomMontant);
-        };
-
-        // Calculate stats
-        const ventesThisMonth = ventes?.filter(v => {
-          const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
-          return date >= startOfMonth;
-        }) || [];
-
-        const ventesPrevMonth = ventes?.filter(v => {
-          const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
-          return date >= startOfPrevMonth && date <= endOfPrevMonth;
-        }) || [];
-
-        const signedThisMonth = ventesThisMonth.filter(v => 
-          !["en_negociation", "annule"].includes(v.status)
-        );
-        
-        const signedPrevMonth = ventesPrevMonth.filter(v => 
-          !["en_negociation", "annule"].includes(v.status)
-        );
-
-        const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
-        const caPrevMonth = signedPrevMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
-
-        // Commissions this month
-        const commissionsMonth = signedThisMonth.reduce((sum, v) => sum + calcCommission(v), 0);
-
-        // === Catégories mutuellement exclusives (chaque vente dans UNE seule catégorie) ===
-        
-        // Com en attente: signe, cq_a_faire, cq_fait, attente_financement
-        const ventesEnAttente = ventes?.filter(v => 
-          ["signe", "cq_a_faire", "cq_fait", "attente_financement"].includes(v.status)
-        ) || [];
-        const comEnAttente = ventesEnAttente.reduce((sum, v) => sum + calcCommission(v), 0);
-
-        // Com à venir: envoi_pose, en_installation
-        const ventesAVenir = ventes?.filter(v => 
-          ["envoi_pose", "en_installation"].includes(v.status)
-        ) || [];
-        const comAVenir = ventesAVenir.reduce((sum, v) => sum + calcCommission(v), 0);
-
-        // Com du sûr: installe, attente_paiement
-        const ventesDuSur = ventes?.filter(v => 
-          ["installe", "attente_paiement"].includes(v.status)
-        ) || [];
-        const comDuSur = ventesDuSur.reduce((sum, v) => sum + calcCommission(v), 0);
-
-        // Com payées: paye
-        const ventesPayees = ventes?.filter(v => v.status === "paye") || [];
-        const comPayees = ventesPayees.reduce((sum, v) => sum + calcCommission(v), 0);
-
-        // Total potentiel = somme des 3 catégories non payées (sans doublon)
-        const comPotentielleTotale = comEnAttente + comAVenir + comDuSur;
-
-        const signedCount = signedThisMonth.length;
-        const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
-
-        const ventesEnCours = ventes?.filter(v => 
-          ["en_negociation", "signe", "cq_a_faire", "cq_fait", "attente_financement"].includes(v.status)
-        ).length || 0;
-
-        const ventesAnnulees = ventesThisMonth.filter(v => v.status === "annule").length;
-
-        setVenteStats({
-          caMonth,
-          caPrevMonth,
-          commissionsMonth,
-          comEnAttente,
-          comAVenir,
-          comDuSur,
-          comPayees,
-          comPotentielleTotale,
-          signedCount,
-          avgDeal,
-          ventesEnCours,
-          ventesAnnulees,
-        });
       } catch (err) {
-        console.error("Error fetching vente stats:", err);
+        console.error("Error fetching vente data:", err);
       } finally {
         setLoadingVentes(false);
       }
     };
 
-    fetchVenteStats();
+    fetchVenteData();
   }, [user]);
+
+  // Calculate stats using commission hook results
+  const venteStatsComputed = useMemo(() => {
+    if (loadingVentes || loadingCommissions || rawVentes.length === 0) return null;
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    const ventes = rawVentes;
+    
+    // Calculate stats
+    const ventesThisMonth = ventes.filter(v => {
+      const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
+      return date >= startOfMonth;
+    });
+
+    const ventesPrevMonth = ventes.filter(v => {
+      const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
+      return date >= startOfPrevMonth && date <= endOfPrevMonth;
+    });
+
+    const signedThisMonth = ventesThisMonth.filter(v => 
+      !["en_negociation", "annule"].includes(v.status)
+    );
+    
+    const signedPrevMonth = ventesPrevMonth.filter(v => 
+      !["en_negociation", "annule"].includes(v.status)
+    );
+
+    const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+    const caPrevMonth = signedPrevMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+
+    // Commissions this month (using hook)
+    const commissionsMonth = signedThisMonth.reduce((sum, v) => {
+      const comm = getCommission(v.id);
+      return sum + (comm?.commissionNette || 0);
+    }, 0);
+
+    // === Catégories simplifiées ===
+    
+    // En cours (non posé): signe, cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation
+    const ventesEnCours = ventes.filter(v => 
+      ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"].includes(v.status)
+    );
+    const comEnCours = ventesEnCours.reduce((sum, v) => {
+      const comm = getCommission(v.id);
+      return sum + (comm?.commissionNette || 0);
+    }, 0);
+
+    // À facturer (posé non payé): installe, attente_paiement
+    const ventesAFacturer = ventes.filter(v => 
+      ["installe", "attente_paiement"].includes(v.status)
+    );
+    const comAFacturer = ventesAFacturer.reduce((sum, v) => {
+      const comm = getCommission(v.id);
+      return sum + (comm?.commissionNette || 0);
+    }, 0);
+
+    // Payées: paye
+    const ventesPayees = ventes.filter(v => v.status === "paye");
+    const comPayees = ventesPayees.reduce((sum, v) => {
+      const comm = getCommission(v.id);
+      return sum + (comm?.commissionNette || 0);
+    }, 0);
+
+    // Total potentiel = en cours + à facturer
+    const comPotentielleTotale = comEnCours + comAFacturer;
+
+    const signedCount = signedThisMonth.length;
+    const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
+
+    const ventesEnCoursCount = ventes.filter(v => 
+      ["en_negociation", "signe", "cq_a_faire", "cq_fait", "attente_financement"].includes(v.status)
+    ).length;
+
+    const ventesAnnulees = ventesThisMonth.filter(v => v.status === "annule").length;
+
+    return {
+      caMonth,
+      caPrevMonth,
+      commissionsMonth,
+      comEnCours,
+      comAFacturer,
+      comPayees,
+      comPotentielleTotale,
+      signedCount,
+      avgDeal,
+      ventesEnCours: ventesEnCoursCount,
+      ventesAnnulees,
+    } as VenteStats;
+  }, [rawVentes, loadingVentes, loadingCommissions, getCommission]);
+
+  // Use computed stats
+  const venteStats = venteStatsComputed;
 
   // Fetch frais
   useEffect(() => {
@@ -657,50 +638,36 @@ const Finance = () => {
                   </Card>
                 </div>
 
-                {/* Répartition des commissions (catégories mutuellement exclusives) */}
+                {/* Répartition des commissions (2 catégories: en cours vs posé) */}
                 <Card className="shadow-card border-primary/20">
                   <CardContent className="p-4 space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
                     
-                    {/* Com En Attente */}
+                    {/* Com En Cours (non posé) */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-orange-500/10 border border-orange-200">
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-orange-600" />
                         <div>
-                          <p className="text-sm font-medium text-orange-700">Com. En Attente</p>
-                          <p className="text-xs text-orange-600/80">Signé / CQ / Financement</p>
+                          <p className="text-sm font-medium text-orange-700">En cours</p>
+                          <p className="text-xs text-orange-600/80">Non posé (signé → en installation)</p>
                         </div>
                       </div>
                       <p className="text-lg font-bold text-orange-700">
-                        {venteStats.comEnAttente.toLocaleString("fr-FR")} €
+                        {venteStats.comEnCours.toLocaleString("fr-FR")} €
                       </p>
                     </div>
                     
-                    {/* Com À Venir */}
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-200">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-medium text-blue-700">Com. À Venir</p>
-                          <p className="text-xs text-blue-600/80">Envoi pose / En installation</p>
-                        </div>
-                      </div>
-                      <p className="text-lg font-bold text-blue-700">
-                        {venteStats.comAVenir.toLocaleString("fr-FR")} €
-                      </p>
-                    </div>
-                    
-                    {/* Com Du Sûr */}
+                    {/* Com À Facturer (posé non payé) */}
                     <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-green-700">Com. Du Sûr</p>
+                          <p className="text-sm font-medium text-green-700">À facturer</p>
                           <p className="text-xs text-green-600/80">Posé / Attente paiement</p>
                         </div>
                       </div>
                       <p className="text-lg font-bold text-green-700">
-                        {venteStats.comDuSur.toLocaleString("fr-FR")} €
+                        {venteStats.comAFacturer.toLocaleString("fr-FR")} €
                       </p>
                     </div>
 
