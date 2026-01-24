@@ -368,7 +368,6 @@ const EtudeForm = () => {
     inclinaison,
     typeRevente,
     selectedSurcouts,
-    bouquetId,
     modeHejjaPsh,
     prixManuel,
     prixInstallationManuel,
@@ -676,26 +675,18 @@ const EtudeForm = () => {
     const autoconsoPct = (productionAnnuelle / conso) * 100;
 
     // === PRIX INSTALLATION ===
-    const bouquet = dataBouquets.find((b) => b.id === bouquetId);
-    
-    // Priorité : prixInstallationManuel > prixManuel (mode HEJJA) > prix bouquet > interpolation
+    // Priorité : prixInstallationManuel > prixManuel (mode HEJJA) > interpolation bouquets régie
     let prixInstallation = 0;
     let interpolated = false;
     let interpExplanation = "";
     
     if (prixInstallationManuel) {
       prixInstallation = Number(prixInstallationManuel);
-    } else if (bouquet) {
-      prixInstallation = modeHejjaPrix && prixManuel
-        ? Number(prixManuel)
-        : modeHejjaPrix
-        ? bouquet.prix_max
-        : bouquet.prix_recommande;
     } else if (dataBouquets.length > 0) {
-      // Pas de bouquet sélectionné mais puissance définie -> interpoler
+      // Toujours utiliser l'interpolation basée sur la puissance
       const interpolatedBouquet = findOrInterpolateBouquet(dataBouquets, puissance);
       prixInstallation = modeHejjaPrix 
-        ? interpolatedBouquet.prixMax 
+        ? (prixManuel ? Number(prixManuel) : interpolatedBouquet.prixMax)
         : interpolatedBouquet.prixRecommande;
       interpolated = interpolatedBouquet.isInterpolated;
       if (interpolated) {
@@ -1110,7 +1101,6 @@ const EtudeForm = () => {
     
     setExporting(true);
     
-    const selectedBouquet = dataBouquets.find(b => b.id === bouquetId);
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
     
     const pdfData: EtudeData = {
@@ -1144,7 +1134,7 @@ const EtudeForm = () => {
       factureMensuelle: Number(factureMensuelle) || 0,
       
       // Préconisation
-      bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
+      bouquetNom: `${puissanceKwc} kWc`,
       puissanceKwc: Number(puissanceKwc) || 0,
       typeRevente: typeRevente || "Non défini",
       supportInstallation: supportInstallation || "Non défini",
@@ -1210,7 +1200,6 @@ const EtudeForm = () => {
   const buildPdfData = (): EtudeData | null => {
     if (!calculatedResults) return null;
     
-    const selectedBouquet = dataBouquets.find(b => b.id === bouquetId);
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
     
     return {
@@ -1235,7 +1224,7 @@ const EtudeForm = () => {
       potentielFaisabilite: potentielFaisabilite || "Non défini",
       consoAnnuelle: Number(consoAnnuelle) || 0,
       factureMensuelle: Number(factureMensuelle) || 0,
-      bouquetNom: selectedBouquet?.nom_bouquet || "Non défini",
+      bouquetNom: `${puissanceKwc} kWc`,
       puissanceKwc: Number(puissanceKwc) || 0,
       typeRevente: typeRevente || "Non défini",
       supportInstallation: supportInstallation || "Non défini",
@@ -1882,25 +1871,6 @@ _Envoyé depuis DébalePro_`;
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 pt-4">
-            <div>
-              <Label className="text-xs">Bouquet</Label>
-              <Select value={bouquetId} onValueChange={(v) => {
-                setBouquetId(v);
-                const b = dataBouquets.find((b) => b.id === v);
-                if (b) setPuissanceKwc(b.puissance_kwc);
-              }}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Choisir un bouquet" />
-                </SelectTrigger>
-                <SelectContent>
-                  {dataBouquets.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.nom_bouquet} ({b.puissance_kwc} kWc)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Puissance Préconisée (kWc)</Label>
@@ -1910,8 +1880,6 @@ _Envoyé depuis DébalePro_`;
                   value={puissanceKwc}
                   onChange={(e) => {
                     setPuissanceKwc(e.target.value ? Number(e.target.value) : "");
-                    // Clear bouquetId when manually changing power
-                    setBouquetId("");
                   }}
                   className="h-9"
                 />
