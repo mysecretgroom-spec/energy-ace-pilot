@@ -45,12 +45,11 @@ import React, { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-// Initialize theme from localStorage
+// Initialize theme - dark mode only with HEJJA, default to light
 const initTheme = () => {
-  const savedTheme = localStorage.getItem("theme");
-  if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-    document.documentElement.classList.add("dark");
-  }
+  // Always start in light mode - dark mode is only enabled via HEJJA mode
+  document.documentElement.classList.remove("dark");
+  localStorage.setItem("theme", "light");
 };
 
 // Component to show HejjaToggle only for authenticated users
