@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +97,27 @@ export function RdvStatusSelector({
     classification: string;
     r2DateTime?: string | null;
   } | null>(null);
+  const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
 
+  // Load user's WhatsApp prompt preference
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from("settings_notifications")
+        .select("skip_whatsapp_prompt, whatsapp_enabled")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (data) {
+        // Skip prompt if user disabled it OR if WhatsApp is disabled entirely
+        setSkipWhatsAppPrompt(data.skip_whatsapp_prompt || !data.whatsapp_enabled);
+      }
+    };
+    
+    loadSettings();
+  }, [user]);
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
@@ -229,9 +249,9 @@ export function RdvStatusSelector({
       const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
       toast.success(`Statut changé en "${statusLabel}"`);
 
-      // Show WhatsApp confirmation dialog
+      // Show WhatsApp confirmation dialog (unless user disabled it)
       const classification = statusToClassification[newStatus];
-      if (classification) {
+      if (classification && !skipWhatsAppPrompt) {
         setPendingWhatsApp({
           classification,
           r2DateTime: options?.r2DateTime || null,

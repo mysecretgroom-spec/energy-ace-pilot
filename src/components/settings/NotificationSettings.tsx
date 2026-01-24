@@ -15,6 +15,7 @@ interface NotificationSettings {
   confirmateur_name: string;
   whatsapp_enabled: boolean;
   default_cq_time: string;
+  skip_whatsapp_prompt: boolean;
 }
 
 export const NotificationSettings = () => {
@@ -26,6 +27,7 @@ export const NotificationSettings = () => {
     confirmateur_name: "",
     whatsapp_enabled: true,
     default_cq_time: "10:00",
+    skip_whatsapp_prompt: false,
   });
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export const NotificationSettings = () => {
         confirmateur_name: data.confirmateur_name || "",
         whatsapp_enabled: data.whatsapp_enabled ?? true,
         default_cq_time: data.default_cq_time || "10:00",
+        skip_whatsapp_prompt: data.skip_whatsapp_prompt ?? false,
       });
     }
     setLoading(false);
@@ -68,6 +71,7 @@ export const NotificationSettings = () => {
       confirmateur_name: settings.confirmateur_name,
       whatsapp_enabled: settings.whatsapp_enabled,
       default_cq_time: settings.default_cq_time,
+      skip_whatsapp_prompt: settings.skip_whatsapp_prompt,
     };
 
     let error;
@@ -125,6 +129,21 @@ export const NotificationSettings = () => {
             checked={settings.whatsapp_enabled}
             onCheckedChange={(checked) =>
               setSettings((s) => ({ ...s, whatsapp_enabled: checked }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Ne plus demander de confirmation</Label>
+            <p className="text-xs text-muted-foreground">
+              Désactiver le dialogue de confirmation WhatsApp au changement de statut
+            </p>
+          </div>
+          <Switch
+            checked={settings.skip_whatsapp_prompt}
+            onCheckedChange={(checked) =>
+              setSettings((s) => ({ ...s, skip_whatsapp_prompt: checked }))
             }
           />
         </div>

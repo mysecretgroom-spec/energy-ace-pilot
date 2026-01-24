@@ -1794,6 +1794,7 @@ export type Database = {
           default_cq_time: string | null
           id: string
           send_to_all: boolean | null
+          skip_whatsapp_prompt: boolean | null
           updated_at: string
           user_id: string
           whatsapp_enabled: boolean | null
@@ -1805,6 +1806,7 @@ export type Database = {
           default_cq_time?: string | null
           id?: string
           send_to_all?: boolean | null
+          skip_whatsapp_prompt?: boolean | null
           updated_at?: string
           user_id: string
           whatsapp_enabled?: boolean | null
@@ -1816,6 +1818,7 @@ export type Database = {
           default_cq_time?: string | null
           id?: string
           send_to_all?: boolean | null
+          skip_whatsapp_prompt?: boolean | null
           updated_at?: string
           user_id?: string
           whatsapp_enabled?: boolean | null
