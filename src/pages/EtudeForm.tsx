@@ -1891,12 +1891,6 @@ _Envoyé depuis DébalePro_`;
                   }}
                   className="h-9"
                 />
-                {isInterpolated && interpolationExplanation && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    {interpolationExplanation}
-                  </p>
-                )}
               </div>
               <div>
                 <Label className="text-xs">Type de Revente</Label>
