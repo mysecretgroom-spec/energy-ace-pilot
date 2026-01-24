@@ -71,43 +71,51 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
-async function convertPdfPageToImage(url: string): Promise<string | null> {
+async function convertPdfPagesToImages(url: string): Promise<string[]> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return null;
+    if (!response.ok) return [];
     
     const arrayBuffer = await response.arrayBuffer();
     
     // Load PDF with timeout
     const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error("PDF loading timeout")), 15000)
+      setTimeout(() => reject(new Error("PDF loading timeout")), 30000)
     );
     
     const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
-    const page = await pdf.getPage(1);
+    const numPages = pdf.numPages;
+    const images: string[] = [];
     
-    // Render at high resolution for quality
-    const scale = 2;
-    const viewport = page.getViewport({ scale });
+    // Convert each page to an image
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      
+      // Render at high resolution for quality
+      const scale = 2;
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      
+      const context = canvas.getContext("2d");
+      if (!context) continue;
+      
+      await page.render({
+        canvasContext: context,
+        viewport,
+      }).promise;
+      
+      // Convert to JPEG for smaller file size
+      images.push(canvas.toDataURL("image/jpeg", 0.85));
+    }
     
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    
-    const context = canvas.getContext("2d");
-    if (!context) return null;
-    
-    await page.render({
-      canvasContext: context,
-      viewport,
-    }).promise;
-    
-    // Convert to JPEG for smaller file size
-    return canvas.toDataURL("image/jpeg", 0.85);
+    return images;
   } catch (err) {
-    console.error("Error converting PDF to image:", err);
-    return null;
+    console.error("Error converting PDF to images:", err);
+    return [];
   }
 }
 
@@ -281,36 +289,62 @@ export function ExportFraisPDF({ frais, periode }: ExportFraisPDFProps) {
           
           try {
             const freshUrl = await getPublicUrl(fraisItem.justificatif_url);
-            let base64: string | null = null;
             
             if (isPdf) {
-              // Convert PDF first page to image
-              base64 = await convertPdfPageToImage(freshUrl);
-            } else {
-              // Fetch image directly
-              base64 = await fetchImageAsBase64(freshUrl);
-            }
-            
-            if (base64) {
-              const imgFormat = base64.includes("image/png") ? "PNG" : "JPEG";
-              const maxWidth = pageWidth - 28;
-              const maxHeight = 230;
+              // Convert all PDF pages to images
+              const pdfImages = await convertPdfPagesToImages(freshUrl);
               
-              doc.addImage(base64, imgFormat, 14, 35, maxWidth, maxHeight, undefined, "MEDIUM");
-              
-              if (isPdf) {
-                doc.setFontSize(8);
+              if (pdfImages.length > 0) {
+                // First page already has header, add image
+                const maxWidth = pageWidth - 28;
+                const maxHeight = 230;
+                
+                doc.addImage(pdfImages[0], "JPEG", 14, 35, maxWidth, maxHeight, undefined, "MEDIUM");
+                
+                if (pdfImages.length > 1) {
+                  doc.setFontSize(8);
+                  doc.setTextColor(150, 150, 150);
+                  doc.text(`(Page 1/${pdfImages.length} du PDF)`, pageWidth / 2, 270, { align: "center" });
+                }
+                
+                // Add remaining pages
+                for (let pdfPageIdx = 1; pdfPageIdx < pdfImages.length; pdfPageIdx++) {
+                  doc.addPage();
+                  
+                  // Mini header for continuation pages
+                  doc.setFillColor(241, 245, 249);
+                  doc.rect(0, 0, pageWidth, 20, 'F');
+                  
+                  doc.setTextColor(100, 100, 100);
+                  doc.setFontSize(10);
+                  doc.text(`Justificatif ${receiptIndex} - Page ${pdfPageIdx + 1}/${pdfImages.length}`, 14, 13);
+                  
+                  doc.addImage(pdfImages[pdfPageIdx], "JPEG", 14, 28, maxWidth, maxHeight, undefined, "MEDIUM");
+                }
+              } else {
                 doc.setTextColor(150, 150, 150);
-                doc.text("(Aperçu de la première page du PDF)", pageWidth / 2, 270, { align: "center" });
+                doc.setFontSize(11);
+                doc.text("Aperçu PDF non disponible", pageWidth / 2, 100, { align: "center" });
               }
             } else {
-              doc.setTextColor(150, 150, 150);
-              doc.setFontSize(11);
-              doc.text(isPdf ? "Aperçu PDF non disponible" : "Image non disponible", pageWidth / 2, 100, { align: "center" });
+              // Fetch image directly
+              const base64 = await fetchImageAsBase64(freshUrl);
               
-              if (fraisItem.description) {
-                doc.setFontSize(10);
-                doc.text(`Description : ${fraisItem.description}`, pageWidth / 2, 115, { align: "center" });
+              if (base64) {
+                const imgFormat = base64.includes("image/png") ? "PNG" : "JPEG";
+                const maxWidth = pageWidth - 28;
+                const maxHeight = 230;
+                
+                doc.addImage(base64, imgFormat, 14, 35, maxWidth, maxHeight, undefined, "MEDIUM");
+              } else {
+                doc.setTextColor(150, 150, 150);
+                doc.setFontSize(11);
+                doc.text("Image non disponible", pageWidth / 2, 100, { align: "center" });
+                
+                if (fraisItem.description) {
+                  doc.setFontSize(10);
+                  doc.text(`Description : ${fraisItem.description}`, pageWidth / 2, 115, { align: "center" });
+                }
               }
             }
           } catch (imgErr) {
