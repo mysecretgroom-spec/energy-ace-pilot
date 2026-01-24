@@ -55,10 +55,10 @@ interface Regie {
 }
 
 interface CommissionData {
-  montant_commission: number;
-  bonus_survente: number;
-  decom_montant?: number;
-  commission_nette?: number;
+  commissionBase: number;
+  bonusSurvente: number;
+  decomMontant: number;
+  commissionNette: number;
   isInterpolated?: boolean;
 }
 
@@ -97,8 +97,8 @@ const formatCurrency = (amount: number) => {
 export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected, onClick, onRefresh }: VenteCardProps) => {
   const [decomDialogOpen, setDecomDialogOpen] = useState(false);
   const config = statusConfig[vente.status];
-  const decomMontant = vente.decom_montant || 0;
-  const rawCommission = commission ? commission.montant_commission + commission.bonus_survente : 0;
+  const decomMontant = commission?.decomMontant || vente.decom_montant || 0;
+  const rawCommission = commission ? commission.commissionBase + commission.bonusSurvente : 0;
   const totalCommission = Math.max(0, rawCommission - decomMontant);
   const isExternalInstallation = vente.type_vente === 'external_installation';
 
@@ -204,13 +204,13 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
                         <div className="space-y-1.5 text-sm">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Commission fixe</span>
-                            <span className="font-medium">{formatCurrency(commission?.montant_commission || 0)}</span>
+                            <span className="font-medium">{formatCurrency(commission?.commissionBase || 0)}</span>
                           </div>
                           
-                          {(commission?.bonus_survente || 0) > 0 && (
+                          {(commission?.bonusSurvente || 0) > 0 && (
                             <div className="flex justify-between text-green-600">
                               <span>+ Survente (50%)</span>
-                              <span className="font-medium">+{formatCurrency(commission?.bonus_survente || 0)}</span>
+                              <span className="font-medium">+{formatCurrency(commission?.bonusSurvente || 0)}</span>
                             </div>
                           )}
                           
