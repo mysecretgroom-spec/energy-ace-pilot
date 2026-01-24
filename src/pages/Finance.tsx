@@ -106,6 +106,7 @@ interface FraisItem {
   ocr_data: Json | null;
   date_debut: string | null;
   date_fin: string | null;
+  justificatif_url: string | null;
 }
 
 interface VenteStats {
@@ -477,7 +478,7 @@ const Finance = () => {
 
       const { data: allFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin")
+        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .gte("date_frais", startOfYear.toISOString().split("T")[0])
         .order("date_frais", { ascending: false });
