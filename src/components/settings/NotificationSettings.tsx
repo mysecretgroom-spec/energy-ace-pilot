@@ -29,10 +29,20 @@ export const NotificationSettings = () => {
     default_cq_time: "10:00",
     skip_whatsapp_prompt: false,
   });
+  const [originalSettings, setOriginalSettings] = useState<NotificationSettings>({
+    confirmateur_phone: "",
+    confirmateur_name: "",
+    whatsapp_enabled: true,
+    default_cq_time: "10:00",
+    skip_whatsapp_prompt: false,
+  });
 
   useEffect(() => {
     loadSettings();
   }, [user]);
+
+  // Détecter les modifications
+  const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
 
   const loadSettings = async () => {
     if (!user) return;
@@ -45,14 +55,16 @@ export const NotificationSettings = () => {
       .maybeSingle();
 
     if (data) {
-      setSettings({
+      const loadedSettings = {
         id: data.id,
         confirmateur_phone: data.confirmateur_phone || "",
         confirmateur_name: data.confirmateur_name || "",
         whatsapp_enabled: data.whatsapp_enabled ?? true,
         default_cq_time: data.default_cq_time || "10:00",
         skip_whatsapp_prompt: data.skip_whatsapp_prompt ?? false,
-      });
+      };
+      setSettings(loadedSettings);
+      setOriginalSettings(loadedSettings);
     }
     setLoading(false);
   };
@@ -93,7 +105,8 @@ export const NotificationSettings = () => {
       toast.error("Erreur lors de la sauvegarde");
     } else {
       toast.success("Paramètres enregistrés");
-      loadSettings();
+      // Mettre à jour l'original pour réinitialiser hasChanges
+      setOriginalSettings({ ...settings });
     }
     
     setSaving(false);
@@ -191,19 +204,21 @@ export const NotificationSettings = () => {
           </p>
         </div>
 
-        <Button onClick={handleSave} disabled={saving} className="w-full">
-          {saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Enregistrement...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Enregistrer
-            </>
-          )}
-        </Button>
+        {hasChanges && (
+          <Button onClick={handleSave} disabled={saving} className="w-full">
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enregistrement...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Enregistrer
+              </>
+            )}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

@@ -43,10 +43,11 @@ export const EditClientDialog = ({
 }: EditClientDialogProps) => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<ClientData>>({});
+  const [originalData, setOriginalData] = useState<Partial<ClientData>>({});
 
   useEffect(() => {
     if (client) {
-      setFormData({
+      const data = {
         nom: client.nom,
         prenom: client.prenom,
         email: client.email,
@@ -57,9 +58,14 @@ export const EditClientDialog = ({
         ville: client.ville,
         notes: client.notes,
         source: client.source,
-      });
+      };
+      setFormData(data);
+      setOriginalData(data);
     }
   }, [client]);
+
+  // Détecter les modifications
+  const hasChanges = JSON.stringify(formData) !== JSON.stringify(originalData);
 
   const handleChange = (field: keyof ClientData, value: string) => {
     setFormData((prev) => ({
@@ -226,16 +232,18 @@ export const EditClientDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Enregistrement...
-              </>
-            ) : (
-              "Enregistrer"
-            )}
-          </Button>
+          {hasChanges && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                "Enregistrer"
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
