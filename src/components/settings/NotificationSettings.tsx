@@ -204,7 +204,13 @@ export const NotificationSettings = () => {
           </p>
         </div>
 
-        {hasChanges && (
+        <div 
+          className={`transition-all duration-300 ease-out overflow-hidden ${
+            hasChanges 
+              ? "max-h-20 opacity-100" 
+              : "max-h-0 opacity-0"
+          }`}
+        >
           <Button onClick={handleSave} disabled={saving} className="w-full">
             {saving ? (
               <>
@@ -218,7 +224,7 @@ export const NotificationSettings = () => {
               </>
             )}
           </Button>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -303,31 +303,35 @@ const DataTarifs = () => {
       </div>
 
       {/* Fixed bottom bar with save button */}
-      {hasChanges && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50">
-          <Button
-            variant="outline"
-            className="flex-1 gap-2"
-            onClick={handleReset}
-            disabled={saving}
-          >
-            <RotateCcw className="h-4 w-4" />
-            Annuler
-          </Button>
-          <Button
-            className="flex-1 gap-2 bg-gradient-hero"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            Enregistrer
-          </Button>
-        </div>
-      )}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50 transition-all duration-300 ease-out ${
+          hasChanges 
+            ? "translate-y-0 opacity-100" 
+            : "translate-y-full opacity-0 pointer-events-none"
+        }`}
+      >
+        <Button
+          variant="outline"
+          className="flex-1 gap-2"
+          onClick={handleReset}
+          disabled={saving}
+        >
+          <RotateCcw className="h-4 w-4" />
+          Annuler
+        </Button>
+        <Button
+          className="flex-1 gap-2 bg-gradient-hero"
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          Enregistrer
+        </Button>
+      </div>
     </MobileLayout>
   );
 };
