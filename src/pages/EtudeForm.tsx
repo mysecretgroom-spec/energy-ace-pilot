@@ -1530,8 +1530,8 @@ _Envoyé depuis DébalePro_`;
                   }
                 }}
                 className={cn(
-                  "data-[state=checked]:bg-red-500 h-5 w-9",
-                  modeHejjaActive && "shadow-[0_0_8px_rgba(239,68,68,0.5)]"
+                  "data-[state=checked]:bg-emerald-500 h-5 w-9",
+                  modeHejjaActive && "shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                 )}
               />
               {modeHejjaActive && (
