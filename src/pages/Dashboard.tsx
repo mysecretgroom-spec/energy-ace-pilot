@@ -277,13 +277,15 @@ const Dashboard = () => {
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutMois) &&
         new Date(v.date_signature) <= new Date(finMois) &&
-        v.status !== 'annule'
+        v.status !== 'annule' &&
+        v.type_vente !== 'external_installation' // Exclure les installations externes du CA
       );
       const ventesAnnee = ventes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutAnnee) &&
         new Date(v.date_signature) <= new Date(finAnnee) &&
-        v.status !== 'annule'
+        v.status !== 'annule' &&
+        v.type_vente !== 'external_installation' // Exclure les installations externes du CA
       );
       const ventesEnCours = ventes.filter((v: any) => 
         v.status === 'en_negociation' || v.status === 'signe' || v.status === 'en_installation'
