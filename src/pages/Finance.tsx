@@ -313,11 +313,13 @@ const Finance = () => {
     });
 
     const signedThisMonth = ventesThisMonth.filter(v => 
-      !["en_negociation", "annule"].includes(v.status)
+      !["en_negociation", "annule"].includes(v.status) &&
+      v.type_vente !== 'external_installation' // Exclure les installations externes du CA
     );
     
     const signedPrevMonth = ventesPrevMonth.filter(v => 
-      !["en_negociation", "annule"].includes(v.status)
+      !["en_negociation", "annule"].includes(v.status) &&
+      v.type_vente !== 'external_installation' // Exclure les installations externes du CA
     );
 
     const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
