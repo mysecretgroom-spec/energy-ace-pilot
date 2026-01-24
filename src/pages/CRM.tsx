@@ -55,6 +55,8 @@ interface Client {
   code_postal: string | null;
   ville: string | null;
   created_at: string;
+  is_retape?: boolean;
+  retape_original_id?: string | null;
 }
 
 type VenteType = 'standard' | 'external_installation';
@@ -274,15 +276,20 @@ const CRM = () => {
     }
   };
 
-  // Client helpers
-  const filteredClients = clients.filter(
-    (client) =>
+  // Client helpers - filter out retape clients when HEJJA mode is not active
+  const filteredClients = clients.filter((client) => {
+    // Hide retape clients when HEJJA mode is not active
+    if (!modeHejjaActive && client.is_retape) return false;
+    
+    // Search filter
+    return (
       client.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (client.prenom && client.prenom.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (client.telephone && client.telephone.includes(searchQuery)) ||
       (client.ville && client.ville.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+    );
+  });
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -529,9 +536,16 @@ const CRM = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-2">
-                          <h3 className="font-semibold text-foreground">
-                            {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-foreground">
+                              {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
+                            </h3>
+                            {client.is_retape && (
+                              <Badge variant="outline" className="text-[10px] h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
+                                RETAPE
+                              </Badge>
+                            )}
+                          </div>
                           <div className="space-y-1">
                             {client.telephone && (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">

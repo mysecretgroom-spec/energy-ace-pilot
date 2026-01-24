@@ -90,12 +90,47 @@ export function RetapeDialog({
 
     setSaving(true);
     try {
-      // Create a new RDV for the client with "nouveau" status and mark as retape
-      const { data: rdvData, error: rdvError } = await supabase
+      // First, fetch the original client data
+      const { data: originalClient, error: fetchError } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", clientId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Create a duplicate client with retape flag
+      const { data: newClient, error: clientError } = await supabase
+        .from("clients")
+        .insert({
+          user_id: user.id,
+          nom: originalClient.nom,
+          prenom: originalClient.prenom,
+          email: originalClient.email,
+          telephone: originalClient.telephone,
+          telephone_secondaire: originalClient.telephone_secondaire,
+          adresse: originalClient.adresse,
+          code_postal: originalClient.code_postal,
+          ville: originalClient.ville,
+          latitude: originalClient.latitude,
+          longitude: originalClient.longitude,
+          notes: `[RETAPE] Copie de ${originalClient.nom} ${originalClient.prenom || ""}`.trim(),
+          source: "retape",
+          regie_id: selectedRegieId,
+          is_retape: true,
+          retape_original_id: clientId,
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // Create a new RDV for the duplicated client
+      const { error: rdvError } = await supabase
         .from("rdv")
         .insert({
           user_id: user.id,
-          client_id: clientId,
+          client_id: newClient.id,
           regie_id: selectedRegieId,
           date_heure: new Date().toISOString(),
           status: "nouveau",
@@ -103,21 +138,11 @@ export function RetapeDialog({
           type_projet: "photovoltaique",
           commentaire: "[RETAPE] Relance commerciale",
           source: "retape",
-        })
-        .select()
-        .single();
+        });
 
       if (rdvError) throw rdvError;
 
-      // Update client regie
-      const { error: clientError } = await supabase
-        .from("clients")
-        .update({ regie_id: selectedRegieId })
-        .eq("id", clientId);
-
-      if (clientError) throw clientError;
-
-      toast.success("Retape créée avec succès");
+      toast.success("Client retape créé avec succès");
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {

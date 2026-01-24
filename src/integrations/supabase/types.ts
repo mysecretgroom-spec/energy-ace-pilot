@@ -72,6 +72,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_retape: boolean | null
           latitude: number | null
           longitude: number | null
           metadata: Json | null
@@ -79,6 +80,7 @@ export type Database = {
           notes: string | null
           prenom: string | null
           regie_id: string | null
+          retape_original_id: string | null
           source: string | null
           telephone: string | null
           telephone_secondaire: string | null
@@ -92,6 +94,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_retape?: boolean | null
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
@@ -99,6 +102,7 @@ export type Database = {
           notes?: string | null
           prenom?: string | null
           regie_id?: string | null
+          retape_original_id?: string | null
           source?: string | null
           telephone?: string | null
           telephone_secondaire?: string | null
@@ -112,6 +116,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_retape?: boolean | null
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
@@ -119,6 +124,7 @@ export type Database = {
           notes?: string | null
           prenom?: string | null
           regie_id?: string | null
+          retape_original_id?: string | null
           source?: string | null
           telephone?: string | null
           telephone_secondaire?: string | null
@@ -132,6 +138,13 @@ export type Database = {
             columns: ["regie_id"]
             isOneToOne: false
             referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_retape_original_id_fkey"
+            columns: ["retape_original_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

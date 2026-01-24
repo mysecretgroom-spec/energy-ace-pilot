@@ -87,6 +87,8 @@ interface Client {
   source: string | null;
   created_at: string;
   metadata: ClientMetadata | null;
+  is_retape?: boolean;
+  retape_original_id?: string | null;
 }
 
 interface Rdv {
@@ -315,9 +317,16 @@ const ClientDetail = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-display font-bold text-foreground">
-              {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-display font-bold text-foreground">
+                {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
+              </h1>
+              {client.is_retape && (
+                <Badge variant="outline" className="text-xs h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
+                  RETAPE
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               Client depuis {formatDate(client.created_at)}
             </p>
