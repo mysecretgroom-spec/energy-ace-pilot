@@ -9,6 +9,7 @@ export default function AuthCallback() {
   const [status, setStatus] = useState("Connexion en cours...");
   const [syncStatus, setSyncStatus] = useState<"idle" | "calendar" | "gmail" | "done" | "error">("idle");
   const [syncResults, setSyncResults] = useState({ calendar: 0, gmail: 0 });
+  const [needsRegieSetup, setNeedsRegieSetup] = useState(false);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -128,6 +129,8 @@ export default function AuthCallback() {
               setStatus("Synchronisation des emails...");
               setSyncStatus("gmail");
               
+              let gmailNeedsRegie = false;
+              
               try {
                 const gmailResponse = await fetch(
                   `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-gmail-rdv`,
@@ -146,6 +149,23 @@ export default function AuthCallback() {
                 if (gmailResponse.ok) {
                   console.log("Gmail sync result:", gmailResult);
                   gmailImported = gmailResult.imported || 0;
+                } else {
+                  // Check if Gmail sync failed due to missing authorized emails (no Régie configured)
+                  if (gmailResult.code === "NO_AUTHORIZED_EMAILS") {
+                    console.log("No authorized emails configured, checking if Régie setup needed");
+                    
+                    // Check if user has any Régie configured
+                    const { data: regies } = await supabase
+                      .from("regies")
+                      .select("id")
+                      .eq("user_id", session.user.id)
+                      .limit(1);
+                    
+                    if (!regies || regies.length === 0) {
+                      gmailNeedsRegie = true;
+                      setNeedsRegieSetup(true);
+                    }
+                  }
                 }
               } catch (gmailError) {
                 console.error("Gmail sync error:", gmailError);
@@ -154,10 +174,20 @@ export default function AuthCallback() {
               setSyncResults({ calendar: calendarImported, gmail: gmailImported });
               setSyncStatus("done");
               
-              const parts = [];
-              if (calendarImported > 0) parts.push(`${calendarImported} RDV agenda`);
-              if (gmailImported > 0) parts.push(`${gmailImported} RDV email`);
-              setStatus(parts.length > 0 ? parts.join(" • ") : "Synchronisation terminée");
+              if (gmailNeedsRegie) {
+                setStatus("Configuration requise");
+                // Redirect to Régie settings
+                setTimeout(() => {
+                  setStatus("Redirection vers la configuration...");
+                  navigate("/parametres/regies", { replace: true });
+                }, 1500);
+                return; // Exit early, don't fall through to normal redirect
+              } else {
+                const parts = [];
+                if (calendarImported > 0) parts.push(`${calendarImported} RDV agenda`);
+                if (gmailImported > 0) parts.push(`${gmailImported} RDV email`);
+                setStatus(parts.length > 0 ? parts.join(" • ") : "Synchronisation terminée");
+              }
             }
           }
         } else {
