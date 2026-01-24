@@ -44,11 +44,13 @@ import Conditions from "./pages/Conditions";
 import Abonnement from "./pages/Abonnement";
 import Support from "./pages/Support";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminFeatures from "./pages/admin/AdminFeatures";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import React, { useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 
@@ -118,11 +120,13 @@ const App = () => {
                   <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
                   {/* Admin routes */}
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
                   <Route path="/admin/clients" element={<AdminClients />} />
                   <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                   <Route path="/admin/notifications" element={<AdminNotifications />} />
                   <Route path="/admin/support" element={<AdminSupport />} />
                   <Route path="/admin/features" element={<AdminFeatures />} />
+                  <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 {/* Onboarding modal for new users */}

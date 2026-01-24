@@ -1855,6 +1855,39 @@ export type Database = {
           },
         ]
       }
+      saas_audit_logs: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       settings_notifications: {
         Row: {
           confirmateur_name: string | null
@@ -2166,6 +2199,18 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_audit_logs: {
+        Args: { p_action_filter?: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          action: string
+          admin_email: string
+          created_at: string
+          details: Json
+          id: string
+          target_id: string
+          target_type: string
+        }[]
+      }
       get_delinquent_subscriptions: {
         Args: { p_past_due_before: string }
         Returns: {
@@ -2189,6 +2234,17 @@ export type Database = {
           subject: string
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_revenue_analytics: {
+        Args: { p_end_date?: string; p_start_date?: string }
+        Returns: {
+          active_users: number
+          churned_users: number
+          month: string
+          new_signups: number
+          total_users: number
+          trial_users: number
         }[]
       }
       get_saas_access_state: {
@@ -2257,6 +2313,15 @@ export type Database = {
         Returns: boolean
       }
       is_saas_admin: { Args: { p_user_id: string }; Returns: boolean }
+      log_admin_action: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_target_id?: string
+          p_target_type: string
+        }
+        Returns: string
+      }
       log_saas_notification: {
         Args: {
           p_audience: string
