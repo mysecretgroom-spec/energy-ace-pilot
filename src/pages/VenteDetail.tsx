@@ -90,14 +90,13 @@ const VenteDetail = () => {
   const [saving, setSaving] = useState(false);
   const [vente, setVente] = useState<Vente | null>(null);
   const [client, setClient] = useState<Client | null>(null);
+  const [previousStatus, setPreviousStatus] = useState<VenteStatus>("en_negociation");
   
   // Editable fields
   const [numeroContrat, setNumeroContrat] = useState("");
   const [status, setStatus] = useState<VenteStatus>("en_negociation");
   const [dateSignature, setDateSignature] = useState("");
-  const [dateInstallationPrevue, setDateInstallationPrevue] = useState("");
   const [dateInstallationReelle, setDateInstallationReelle] = useState("");
-  const [datePaiement, setDatePaiement] = useState("");
   const [montantHt, setMontantHt] = useState<number | "">("");
   const [montantTtc, setMontantTtc] = useState<number | "">("");
   const [montantAcompte, setMontantAcompte] = useState<number | "">("");
@@ -109,6 +108,17 @@ const VenteDetail = () => {
       loadVente();
     }
   }, [id]);
+
+  // Auto-set installation date when status changes to "installe"
+  const handleStatusChange = (newStatus: VenteStatus) => {
+    setStatus(newStatus);
+    
+    // If changing to "installe" and no installation date set, set it to today
+    if (newStatus === "installe" && previousStatus !== "installe" && !dateInstallationReelle) {
+      const today = new Date().toISOString().split("T")[0];
+      setDateInstallationReelle(today);
+    }
+  };
 
   const loadVente = async () => {
     if (!id) return;
@@ -130,10 +140,8 @@ const VenteDetail = () => {
     setVente(venteData);
     setNumeroContrat(venteData.numero_contrat || "");
     setStatus(venteData.status || "en_negociation");
-    setDateSignature(venteData.date_signature || "");
-    setDateInstallationPrevue(venteData.date_installation_prevue || "");
+    setPreviousStatus(venteData.status || "en_negociation");
     setDateInstallationReelle(venteData.date_installation_reelle || "");
-    setDatePaiement(venteData.date_paiement || "");
     setMontantHt(venteData.montant_ht || "");
     setMontantTtc(venteData.montant_ttc || "");
     setMontantAcompte(venteData.montant_acompte || "");
@@ -153,7 +161,64 @@ const VenteDetail = () => {
       }
     }
 
+    // Calculate signature date if not set
+    if (!venteData.date_signature) {
+      await calculateSignatureDate(venteData);
+    } else {
+      setDateSignature(venteData.date_signature);
+    }
+
     setLoading(false);
+  };
+
+  const calculateSignatureDate = async (venteData: Vente) => {
+    // Try to find associated RDV through etude
+    if (venteData.etude_id) {
+      const { data: etude } = await supabase
+        .from("etudes")
+        .select("rdv_id")
+        .eq("id", venteData.etude_id)
+        .maybeSingle();
+
+      if (etude?.rdv_id) {
+        const { data: rdv } = await supabase
+          .from("rdv")
+          .select("date_heure, historique")
+          .eq("id", etude.rdv_id)
+          .maybeSingle();
+
+        if (rdv) {
+          // Check historique for R2 or R2 pré-étude
+          const historique = rdv.historique as Array<{ status: string; date: string }> | null;
+          
+          if (historique && Array.isArray(historique)) {
+            // Find R2 or R2 pré-étude in history
+            const r2Entry = historique.find(
+              (h) => h.status === "r2" || h.status === "r2_prestudy"
+            );
+            
+            if (r2Entry?.date) {
+              const signDate = r2Entry.date.split("T")[0];
+              setDateSignature(signDate);
+              return;
+            }
+          }
+          
+          // No R2 found, use original RDV date
+          if (rdv.date_heure) {
+            const signDate = rdv.date_heure.split("T")[0];
+            setDateSignature(signDate);
+            return;
+          }
+        }
+      }
+    }
+    
+    // Fallback: use vente creation date
+    if (venteData.created_at) {
+      const signDate = venteData.created_at.split("T")[0];
+      setDateSignature(signDate);
+    }
   };
 
   const handleSave = async () => {
@@ -167,9 +232,7 @@ const VenteDetail = () => {
         numero_contrat: numeroContrat || null,
         status,
         date_signature: dateSignature || null,
-        date_installation_prevue: dateInstallationPrevue || null,
         date_installation_reelle: dateInstallationReelle || null,
-        date_paiement: datePaiement || null,
         montant_ht: montantHt || null,
         montant_ttc: montantTtc || null,
         montant_acompte: montantAcompte || null,
@@ -187,6 +250,7 @@ const VenteDetail = () => {
     }
 
     toast.success("Vente mise à jour");
+    setPreviousStatus(status);
   };
 
   if (loading) {
@@ -280,7 +344,7 @@ const VenteDetail = () => {
             <CardTitle className="text-base">Statut</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={status} onValueChange={(v) => setStatus(v as VenteStatus)}>
+            <Select value={status} onValueChange={(v) => handleStatusChange(v as VenteStatus)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -339,33 +403,21 @@ const VenteDetail = () => {
                 value={dateSignature}
                 onChange={(e) => setDateSignature(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Calculée auto. depuis le RDV (R2 si présent, sinon date initiale)
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dateInstallationPrevue">Installation prévue</Label>
-              <Input
-                id="dateInstallationPrevue"
-                type="date"
-                value={dateInstallationPrevue}
-                onChange={(e) => setDateInstallationPrevue(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dateInstallationReelle">Installation réelle</Label>
+              <Label htmlFor="dateInstallationReelle">Date de pose</Label>
               <Input
                 id="dateInstallationReelle"
                 type="date"
                 value={dateInstallationReelle}
                 onChange={(e) => setDateInstallationReelle(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="datePaiement">Paiement</Label>
-              <Input
-                id="datePaiement"
-                type="date"
-                value={datePaiement}
-                onChange={(e) => setDatePaiement(e.target.value)}
-              />
+              <p className="text-xs text-muted-foreground">
+                Remplie auto. au passage en statut "Posé"
+              </p>
             </div>
           </CardContent>
         </Card>
