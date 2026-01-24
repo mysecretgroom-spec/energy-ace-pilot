@@ -60,6 +60,8 @@ interface CommissionData {
   decomMontant: number;
   commissionNette: number;
   isInterpolated?: boolean;
+  mode?: "bouquet" | "pourcentage";
+  tauxApplique?: number;
 }
 
 interface VenteCardProps {
@@ -203,13 +205,17 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
                         
                         <div className="space-y-1.5 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Commission fixe</span>
+                            <span className="text-muted-foreground">
+                              {commission?.mode === "pourcentage" 
+                                ? `Commission (${commission?.tauxApplique || 0}%)` 
+                                : "Commission fixe"}
+                            </span>
                             <span className="font-medium">{formatCurrency(commission?.commissionBase || 0)}</span>
                           </div>
                           
                           {(commission?.bonusSurvente || 0) > 0 && (
                             <div className="flex justify-between text-green-600">
-                              <span>+ Survente (50%)</span>
+                              <span>+ {commission?.mode === "pourcentage" ? "Bonus tranche" : "Survente"}</span>
                               <span className="font-medium">+{formatCurrency(commission?.bonusSurvente || 0)}</span>
                             </div>
                           )}
