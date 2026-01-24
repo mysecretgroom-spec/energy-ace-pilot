@@ -101,12 +101,13 @@ interface RegieFinancement {
 
 interface RegieSurcout {
   id: string;
-  regie_id: string;
+  regie_id: string | null;
   categorie: 'support' | 'emplacement_boitier' | 'compteur';
   code: string;
   nom: string;
   prix: number;
   actif: boolean;
+  isGlobal?: boolean; // For display purposes
 }
 
 interface RegieStats {
@@ -323,19 +324,32 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, bouquetsRes, financementsRes, surcoutsRes] = await Promise.all([
+      const [emailsRes, contactsRes, bouquetsRes, financementsRes, regieSurcoutsRes, globalSurcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("regies_bouquets").select("*").eq("regie_id", regieId).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
+        supabase.from("regies_surcouts").select("*").is("regie_id", null).order("categorie"),
       ]);
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
       setRegieBouquets(bouquetsRes.data || []);
       setRegieFinancements(financementsRes.data || []);
-      setRegieSurcouts((surcoutsRes.data || []) as RegieSurcout[]);
+      
+      // Merge global and regie-specific surcouts
+      const regieSurcoutsData = (regieSurcoutsRes.data || []) as RegieSurcout[];
+      const globalSurcoutsData = (globalSurcoutsRes.data || []).map(s => ({
+        ...s,
+        isGlobal: true,
+      })) as RegieSurcout[];
+      
+      // Filter out global surcouts that have been overridden by regie-specific ones
+      const regieKeys = new Set(regieSurcoutsData.map(s => `${s.categorie}-${s.code}`));
+      const nonOverriddenGlobals = globalSurcoutsData.filter(s => !regieKeys.has(`${s.categorie}-${s.code}`));
+      
+      setRegieSurcouts([...regieSurcoutsData, ...nonOverriddenGlobals]);
     } catch (error) {
       console.error("Error fetching regie details:", error);
     }
@@ -722,11 +736,18 @@ const RegiesSettings = () => {
     }
   };
 
-  const handleDeleteSurcout = async (surcoutId: string) => {
+  const handleDeleteSurcout = async (surcout: RegieSurcout) => {
+    if (surcout.isGlobal) {
+      toast.error("Impossible de supprimer un surcoût par défaut. Vous pouvez le désactiver ou créer un surcoût personnalisé.");
+      return;
+    }
     try {
-      const { error } = await supabase.from("regies_surcouts").delete().eq("id", surcoutId);
+      const { error } = await supabase.from("regies_surcouts").delete().eq("id", surcout.id);
       if (error) throw error;
-      setRegieSurcouts(regieSurcouts.filter(s => s.id !== surcoutId));
+      // Refresh to get global defaults back if we deleted an override
+      if (selectedRegie) {
+        fetchRegieDetails(selectedRegie.id);
+      }
       toast.success("Surcoût supprimé");
     } catch (error) {
       console.error("Error deleting surcout:", error);
@@ -734,15 +755,35 @@ const RegiesSettings = () => {
   };
 
   const handleToggleSurcoutActif = async (surcout: RegieSurcout) => {
+    if (!selectedRegie || !user) return;
+    
     try {
-      const { error } = await supabase
-        .from("regies_surcouts")
-        .update({ actif: !surcout.actif })
-        .eq("id", surcout.id);
-      if (error) throw error;
-      setRegieSurcouts(regieSurcouts.map(s => 
-        s.id === surcout.id ? { ...s, actif: !s.actif } : s
-      ));
+      if (surcout.isGlobal) {
+        // Create a regie-specific override with toggled state
+        const { error } = await supabase
+          .from("regies_surcouts")
+          .insert({
+            user_id: user.id,
+            regie_id: selectedRegie.id,
+            categorie: surcout.categorie,
+            code: surcout.code,
+            nom: surcout.nom,
+            prix: surcout.prix,
+            actif: !surcout.actif, // Toggle the state
+          });
+        if (error) throw error;
+        // Refresh to get the new override
+        fetchRegieDetails(selectedRegie.id);
+      } else {
+        const { error } = await supabase
+          .from("regies_surcouts")
+          .update({ actif: !surcout.actif })
+          .eq("id", surcout.id);
+        if (error) throw error;
+        setRegieSurcouts(regieSurcouts.map(s => 
+          s.id === surcout.id ? { ...s, actif: !s.actif } : s
+        ));
+      }
     } catch (error) {
       console.error("Error toggling surcout:", error);
     }
@@ -1660,11 +1701,18 @@ const RegiesSettings = () => {
                             {getCategorieLabel(categorie)}
                           </h4>
                           {surcoutsCategorie.map((surcout) => (
-                            <Card key={surcout.id} className={!surcout.actif ? "opacity-50" : ""}>
+                            <Card key={surcout.id} className={`${!surcout.actif ? "opacity-50" : ""} ${surcout.isGlobal ? "border-dashed" : ""}`}>
                               <CardContent className="p-3">
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
-                                    <p className="font-medium text-sm">{surcout.nom}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium text-sm">{surcout.nom}</p>
+                                      {surcout.isGlobal && (
+                                        <Badge variant="outline" className="text-[10px] h-4">
+                                          Par défaut
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <p className="text-xs text-muted-foreground">{surcout.code}</p>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -1675,14 +1723,16 @@ const RegiesSettings = () => {
                                       checked={surcout.actif} 
                                       onCheckedChange={() => handleToggleSurcoutActif(surcout)}
                                     />
-                                    <Button 
-                                      size="icon" 
-                                      variant="ghost" 
-                                      className="text-destructive h-8 w-8"
-                                      onClick={() => handleDeleteSurcout(surcout.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    {!surcout.isGlobal && (
+                                      <Button 
+                                        size="icon" 
+                                        variant="ghost" 
+                                        className="text-destructive h-8 w-8"
+                                        onClick={() => handleDeleteSurcout(surcout)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </CardContent>
