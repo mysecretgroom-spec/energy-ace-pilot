@@ -123,13 +123,14 @@ export function MonthCalendarView({
                 key={dayKey}
                 onClick={() => onDayClick?.(day)}
                 className={`
-                  min-h-[60px] p-1 rounded-lg border cursor-pointer transition-colors
+                  min-h-[60px] p-1 rounded-lg border cursor-pointer transition-all duration-150 
+                  active:scale-[0.97] active:bg-primary/20
                   ${
                     isToday
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      ? "border-primary bg-primary/5 ring-1 ring-primary hover:bg-primary/10"
                       : isCurrentMonth
                       ? "border-border bg-card hover:bg-muted/50"
-                      : "border-border/50 bg-muted/30"
+                      : "border-border/50 bg-muted/30 hover:bg-muted/50"
                   }
                 `}
               >
