@@ -353,7 +353,7 @@ const CRM = () => {
     const regie = regies.find(r => r.id === v.regie_id);
     return !regie?.is_hejja;
   });
-  const totalCA = statsVentes.filter(v => v.status !== 'annule').reduce((sum, v) => sum + v.montant_ttc, 0);
+  const totalCA = statsVentes.filter(v => v.status !== 'annule' && v.type_vente !== 'external_installation').reduce((sum, v) => sum + v.montant_ttc, 0);
   const ventesSigned = statsVentes.filter(v => ['signe', 'en_installation', 'installe', 'paye'].includes(v.status)).length;
   
   // Commission HEJJA: sum of retape commissions
