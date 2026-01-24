@@ -50,14 +50,17 @@ export function DraggableRdvCard({
     },
   });
 
-  const { handlers: longPressHandlers, isLongPressing } = useLongPress({
-    delay: 800, // Reduced to trigger before drag (dnd-kit TouchSensor has 300ms delay)
+  const { handlers: longPressHandlers, isLongPressing, isPressing } = useLongPress({
+    delay: 600, // Faster trigger - before drag (dnd-kit TouchSensor has 1000ms delay)
     onLongPress: () => {
       if (!disabled && onLongPress) {
         onLongPress();
       }
     },
-    moveThreshold: 5, // Smaller threshold to cancel on slight movement
+    moveThreshold: 8,
+    disabled,
+    vibrationDuration: 50,
+    cancelOnScroll: true,
   });
 
   const style = {
@@ -97,6 +100,7 @@ export function DraggableRdvCard({
     onMouseDown: handleMouseDown,
     onMouseUp: longPressHandlers.onMouseUp,
     onMouseLeave: longPressHandlers.onMouseLeave,
+    onContextMenu: longPressHandlers.onContextMenu,
   };
 
   return (
