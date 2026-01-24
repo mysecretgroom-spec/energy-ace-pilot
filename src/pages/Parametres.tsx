@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
 import { toast } from "sonner";
 import {
@@ -20,6 +21,7 @@ import {
   Gift,
   Target,
   Building2,
+  Settings2,
 } from "lucide-react";
 
 const settingsSections = [
@@ -136,6 +138,7 @@ const settingsSections = [
 const Parametres = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { isAdmin } = useUserRole();
 
   const handleLogout = async () => {
     await signOut();
@@ -248,6 +251,36 @@ const Parametres = () => {
             </Card>
           </div>
         ))}
+
+        {/* Admin Section - Only visible for admins */}
+        {isAdmin && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-muted-foreground px-1">
+              Administration
+            </h3>
+            <Card 
+              className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors border-amber-500/30"
+              onClick={() => navigate("/admin")}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-amber-500/10">
+                    <Settings2 className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Panel Admin
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Gestion utilisateurs, abonnements
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
 
         {/* Déconnexion */}
