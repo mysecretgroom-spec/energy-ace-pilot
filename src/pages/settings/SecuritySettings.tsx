@@ -14,14 +14,16 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebAuthn } from "@/hooks/useWebAuthn";
+import { useBiometricLogin } from "@/hooks/useBiometricLogin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound } from "lucide-react";
+import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound, LogIn } from "lucide-react";
 import { MFASetup } from "@/components/auth/MFASetup";
 
 const SecuritySettings = () => {
   const { user } = useAuth();
   const { isSupported: webAuthnSupported, register: registerBiometric, unregister: unregisterBiometric, isLoading: webAuthnLoading } = useWebAuthn();
+  const { isSupported: biometricLoginSupported, registerForLogin, hasAccount, savedAccounts } = useBiometricLogin();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -29,6 +31,7 @@ const SecuritySettings = () => {
   const [hasPin, setHasPin] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricLoginEnabled, setBiometricLoginEnabled] = useState(false);
   
   // Dialog states
   const [showSetPinDialog, setShowSetPinDialog] = useState(false);
@@ -61,7 +64,7 @@ const SecuritySettings = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("pin_code, biometric_enabled")
+        .select("pin_code, biometric_enabled, biometric_login_enabled")
         .eq("user_id", user.id)
         .single();
       
@@ -69,6 +72,7 @@ const SecuritySettings = () => {
       
       setHasPin(!!data?.pin_code);
       setBiometricEnabled(data?.biometric_enabled || false);
+      setBiometricLoginEnabled(data?.biometric_login_enabled || false);
     } catch (error) {
       console.error("Error fetching security settings:", error);
     } finally {
@@ -310,6 +314,36 @@ const SecuritySettings = () => {
     }
   };
 
+  // Toggle biometric login (for the login screen)
+  const handleBiometricLoginToggle = async (enabled: boolean) => {
+    setIsSaving(true);
+    try {
+      if (enabled) {
+        // Register biometric credential for login
+        const success = await registerForLogin();
+        if (!success) {
+          toast.error("L'enregistrement biométrique a échoué. Réessayez.");
+          return;
+        }
+        setBiometricLoginEnabled(true);
+        toast.success("Connexion biométrique activée - Face ID / Touch ID disponible sur l'écran de connexion");
+      } else {
+        // Disable biometric login
+        await supabase
+          .from("profiles")
+          .update({ biometric_login_enabled: false })
+          .eq("user_id", user!.id);
+        setBiometricLoginEnabled(false);
+        toast.success("Connexion biométrique désactivée");
+      }
+    } catch (error) {
+      console.error("Error toggling biometric login:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const renderPinInputs = (
     pin: string[],
     setPinFn: React.Dispatch<React.SetStateAction<string[]>>,
@@ -455,12 +489,41 @@ const SecuritySettings = () => {
           </Card>
         )}
 
+        {/* Biometric Login Configuration */}
+        {biometricLoginSupported && (
+          <Card className="shadow-card">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500/10">
+                    <LogIn className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Connexion biométrique</p>
+                    <p className="text-sm text-muted-foreground">
+                      Face ID / Touch ID sur l'écran de connexion
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={biometricLoginEnabled || hasAccount(user?.id || "")}
+                  onCheckedChange={handleBiometricLoginToggle}
+                  disabled={isSaving}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Permet de vous reconnecter rapidement avec la biométrie sans mot de passe
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* MFA Setup */}
         <MFASetup />
 
         {/* Info */}
         <p className="text-xs text-muted-foreground text-center px-4">
-          Le code PIN protège l'accès au mode interne HEJJA. Le MFA protège votre compte.
+          Le code PIN protège l'accès au mode interne HEJJA. La connexion biométrique vous permet de vous reconnecter sans mot de passe.
         </p>
       </div>
 
