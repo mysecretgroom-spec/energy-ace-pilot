@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -40,6 +41,23 @@ export function RdvContextMenu({
   onRefresh,
 }: RdvContextMenuProps) {
   const navigate = useNavigate();
+  const [canClose, setCanClose] = useState(false);
+
+  // Prevent immediate close from touch release that opened the menu
+  useEffect(() => {
+    if (isOpen) {
+      setCanClose(false);
+      const timer = setTimeout(() => setCanClose(true), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  const handleBackdropInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    if (canClose) {
+      onClose();
+    }
+  };
 
   const handleDocuments = () => {
     navigate(`/clients/${rdv.clientId}?tab=documents`);
@@ -90,7 +108,8 @@ export function RdvContextMenu({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 bg-black/60 z-50"
-            onClick={onClose}
+            onClick={handleBackdropInteraction}
+            onTouchEnd={handleBackdropInteraction}
           />
 
           {/* Menu Sheet */}
