@@ -14,7 +14,11 @@ type Intent =
   | "update_vente_status" 
   | "import_document" 
   | "import_facture" 
-  | "query_info" 
+  | "query_commissions"
+  | "query_stats"
+  | "query_client_info"
+  | "query_rdv_planning"
+  | "query_ventes"
   | "conversation"
   | "unknown";
 
@@ -213,6 +217,17 @@ serve(async (req) => {
       );
     }
 
+    // Format response message based on query results
+    let finalResponseMessage = aiResponse.responseMessage;
+    
+    if (actionResult.actionTaken?.startsWith("query_") && actionResult.entityId) {
+      finalResponseMessage = formatQueryResponse(
+        actionResult.actionTaken,
+        actionResult.entityId,
+        request.userName
+      );
+    }
+
     // Update conversation context (keep last 5 messages)
     const newContext = [
       ...conversationContext.slice(-4),
@@ -223,7 +238,7 @@ serve(async (req) => {
       },
       {
         role: "assistant",
-        content: aiResponse.responseMessage,
+        content: finalResponseMessage,
         timestamp: new Date().toISOString(),
       },
     ];
@@ -245,7 +260,7 @@ serve(async (req) => {
       actionTaken: actionResult.actionTaken,
       entityId: actionResult.entityId,
       entityType: actionResult.entityType,
-      responseMessage: aiResponse.responseMessage,
+      responseMessage: finalResponseMessage,
     };
 
     return new Response(JSON.stringify(response), {
@@ -578,6 +593,94 @@ async function uploadMediaToStorage(
   return urlData.signedUrl;
 }
 
+// Format query response into readable WhatsApp message
+function formatQueryResponse(
+  actionTaken: string,
+  entityData: string,
+  userName: string
+): string {
+  try {
+    const data = JSON.parse(entityData);
+
+    switch (actionTaken) {
+      case "query_commissions_result": {
+        const { en_cours, a_facturer, total } = data;
+        return `💰 *Tes commissions ${userName.split(" ")[0]}*\n\n` +
+          `📊 En cours: ${en_cours.count} vente(s) → *${en_cours.total.toLocaleString("fr-FR")}€*\n` +
+          `✅ À facturer: ${a_facturer.count} vente(s) → *${a_facturer.total.toLocaleString("fr-FR")}€*\n\n` +
+          `💵 Total: *${total.toLocaleString("fr-FR")}€*`;
+      }
+
+      case "query_stats_result": {
+        const { period, rdv, ventes, ca, taux_conversion } = data;
+        const periodLabel = period === "today" ? "Aujourd'hui" : 
+                           period === "week" ? "Cette semaine" : 
+                           period === "all" ? "Tout temps" : "Ce mois";
+        return `📈 *Stats - ${periodLabel}*\n\n` +
+          `📅 RDV: *${rdv}*\n` +
+          `✍️ Ventes: *${ventes}*\n` +
+          `💶 CA: *${ca.toLocaleString("fr-FR")}€ HT*\n` +
+          `📊 Taux: *${taux_conversion}%*`;
+      }
+
+      case "query_client_result": {
+        if (!Array.isArray(data) || data.length === 0) {
+          return "❌ Aucun client trouvé avec ce nom.";
+        }
+        let msg = `👤 *Client(s) trouvé(s)*\n`;
+        for (const c of data.slice(0, 3)) {
+          msg += `\n*${c.nom}*\n`;
+          if (c.telephone) msg += `📱 ${c.telephone}\n`;
+          if (c.telephone2) msg += `📞 ${c.telephone2}\n`;
+          if (c.email) msg += `✉️ ${c.email}\n`;
+          if (c.adresse) msg += `📍 ${c.adresse}\n`;
+        }
+        return msg.trim();
+      }
+
+      case "query_rdv_result": {
+        const { period, count, rdvs } = data;
+        const periodLabel = period === "today" ? "Aujourd'hui" : 
+                           period === "week" ? "Cette semaine" : "Ce mois";
+        if (count === 0) {
+          return `📅 *${periodLabel}*: Aucun RDV prévu 🎉`;
+        }
+        let msg = `📅 *Planning - ${periodLabel}* (${count} RDV)\n`;
+        for (const r of rdvs.slice(0, 5)) {
+          msg += `\n⏰ *${r.heure}* - ${r.client}`;
+          if (r.telephone) msg += ` 📱${r.telephone}`;
+          if (r.adresse) msg += `\n   📍 ${r.adresse}`;
+          msg += `\n   ${r.type} • ${r.statut}`;
+        }
+        if (count > 5) msg += `\n\n... et ${count - 5} autre(s)`;
+        return msg;
+      }
+
+      case "query_ventes_result": {
+        const { count, ventes: ventesList } = data;
+        if (count === 0) {
+          return "📊 Aucune vente trouvée.";
+        }
+        let msg = `🏆 *Ventes* (${count})\n`;
+        for (const v of ventesList.slice(0, 5)) {
+          const status = v.installe ? "✅" : v.statut === "positif" ? "📝" : "⏳";
+          msg += `\n${status} *${v.client}*`;
+          if (v.puissance) msg += ` - ${v.puissance}kWc`;
+          if (v.montant) msg += ` - ${v.montant.toLocaleString("fr-FR")}€`;
+          msg += `\n   ${v.statut}${v.installe ? " (installé)" : ""}`;
+        }
+        if (count > 5) msg += `\n\n... et ${count - 5} autre(s)`;
+        return msg;
+      }
+
+      default:
+        return "✅ Demande traitée.";
+    }
+  } catch {
+    return "✅ Demande traitée.";
+  }
+}
+
 // Analyze intent with AI
 async function analyzeIntent(
   content: string,
@@ -592,17 +695,28 @@ async function analyzeIntent(
   requiresConfirmation: boolean;
   responseMessage: string;
 }> {
+  const today = new Date().toISOString().split("T")[0];
   const systemPrompt = `Tu es l'assistant WhatsApp intelligent de DébalePro, une application pour commerciaux en énergie renouvelable (panneaux solaires).
 
-Ton rôle est d'analyser les messages des commerciaux et d'identifier leurs intentions pour effectuer des actions automatiques.
+Ton rôle est d'analyser les messages des commerciaux et d'identifier leurs intentions pour effectuer des actions automatiques OU répondre à leurs questions.
 
 INTENTIONS POSSIBLES:
+
+## Actions de modification:
 - create_rdv: Créer un nouveau rendez-vous (mots-clés: "rdv", "rendez-vous", "demain", "lundi", heure, adresse)
 - update_rdv: Modifier un RDV existant (mots-clés: "décale", "reporte", "annule le rdv")
 - update_vente_status: Mettre à jour le statut d'une vente/RDV (mots-clés: "positif", "négatif", "signé", "absent", "r2", "a rappeler")
 - import_document: Importer un document client (CNI, RIB, facture énergie, avis d'imposition) - quand une image/PDF de document client est envoyé
 - import_facture: Importer une note de frais/ticket (restaurant, carburant, péage) - quand une photo de ticket/reçu est envoyé
-- query_info: Demander des informations (planning, stats, clients)
+
+## Requêtes d'information:
+- query_commissions: Demander des infos sur ses commissions (mots-clés: "commissions", "mes coms", "combien je gagne", "facturation", "à facturer", "en cours")
+- query_stats: Demander des statistiques (mots-clés: "stats", "statistiques", "chiffres", "combien de rdv", "combien de ventes", "CA", "chiffre d'affaires", "taux", "conversion")
+- query_client_info: Demander des infos sur un client (mots-clés: "téléphone de", "numéro de", "adresse de", "email de", "infos sur", nom de client)
+- query_rdv_planning: Demander son planning/agenda (mots-clés: "planning", "agenda", "rdv demain", "mes rdv", "prochains rdv", "aujourd'hui", "cette semaine")
+- query_ventes: Demander des infos sur les ventes (mots-clés: "mes ventes", "ventes en cours", "statut vente", "où en est")
+
+## Autres:
 - conversation: Simple conversation/salutation
 - unknown: Intention non comprise
 
@@ -634,6 +748,8 @@ Tu dois retourner un JSON avec:
     "status": "...",
     "amount": number,
     "document_type": "...",
+    "period": "today" | "week" | "month" | "all",
+    "query_type": "list" | "total" | "detail",
     "extracted_data": { ... }
   },
   "requiresConfirmation": true/false,
@@ -643,11 +759,12 @@ Tu dois retourner un JSON avec:
 Le responseMessage doit:
 - Être en français
 - Confirmer l'action effectuée ou demander des précisions
+- Pour les requêtes d'info, donner une réponse courte indiquant que les données vont être récupérées
 - Utiliser des emojis de manière modérée
 - Être concis (2-3 lignes max)
-- Pour les documents, confirmer les infos extraites
 
 Contexte utilisateur: ${userName}
+Date du jour: ${today}
 ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAction)}` : ""}`;
 
   const messages = [
@@ -679,7 +796,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "update_vente_status", "import_document", "import_facture", "query_info", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "update_vente_status", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -692,7 +809,8 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
                     status: { type: "string" },
                     amount: { type: "number" },
                     document_type: { type: "string" },
-                    extracted_data: { type: "object" }
+                    period: { type: "string", enum: ["today", "week", "month", "all"] },
+                    query_type: { type: "string", enum: ["list", "total", "detail"] }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -1020,6 +1138,293 @@ async function executeAction(
         actionTaken: "frais_imported",
         entityId: frais?.id,
         entityType: "frais",
+      };
+    }
+
+    case "query_commissions": {
+      // Get commission stats
+      const { data: ventes, error: ventesError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_total_ttc,
+          montant_ht,
+          prix_recommande_ttc,
+          puissance_kwc,
+          date_signature,
+          date_pose,
+          statut,
+          type_vente,
+          decom_montant,
+          clients(nom, prenom),
+          regies(nom, mode_calcul_commission)
+        `)
+        .eq("user_id", userId)
+        .not("statut", "eq", "annule");
+
+      if (ventesError) {
+        console.error("Error fetching ventes:", ventesError);
+        return { actionTaken: "error" };
+      }
+
+      // Calculate commissions
+      let totalEnCours = 0;
+      let totalAFacturer = 0;
+      let countEnCours = 0;
+      let countAFacturer = 0;
+      const now = new Date();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+      for (const v of ventes || []) {
+        // Skip external installations for regular commission calc
+        const isExternal = v.type_vente === "external_installation";
+        
+        let commission = 0;
+        if (isExternal) {
+          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
+        } else {
+          // Bouquet mode: Fixed per kWc + 50% survente HT
+          const puissance = v.puissance_kwc || 0;
+          const fixeParKwc = 250; // Default
+          const fixe = puissance * fixeParKwc;
+          
+          // Calculate survente
+          const totalTTC = v.montant_total_ttc || 0;
+          const prixRecoTTC = v.prix_recommande_ttc || 0;
+          const surventeTTC = Math.max(0, totalTTC - prixRecoTTC);
+          const tva = puissance <= 3 ? 1.10 : 1.20;
+          const surventeHT = surventeTTC / tva;
+          
+          commission = fixe + (surventeHT * 0.5);
+        }
+
+        if (v.date_pose) {
+          const datePose = new Date(v.date_pose);
+          if (datePose >= twoWeeksAgo) {
+            // Installed < 2 weeks = pending
+            totalEnCours += commission;
+            countEnCours++;
+          } else {
+            // Installed >= 2 weeks = ready to invoice
+            totalAFacturer += commission;
+            countAFacturer++;
+          }
+        } else if (v.statut === "positif" || v.statut === "signe") {
+          // Not installed yet
+          totalEnCours += commission;
+          countEnCours++;
+        }
+      }
+
+      const responseData = {
+        en_cours: { count: countEnCours, total: Math.round(totalEnCours) },
+        a_facturer: { count: countAFacturer, total: Math.round(totalAFacturer) },
+        total: Math.round(totalEnCours + totalAFacturer)
+      };
+
+      return {
+        actionTaken: "query_commissions_result",
+        entityType: "commissions",
+        entityId: JSON.stringify(responseData),
+      };
+    }
+
+    case "query_stats": {
+      const period = (entities.period as string) || "month";
+      let startDate: Date;
+      const now = new Date();
+      
+      switch (period) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "all":
+          startDate = new Date(2020, 0, 1);
+          break;
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+
+      // Count RDV
+      const { count: rdvCount } = await supabase
+        .from("rdv")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("date_heure", startDate.toISOString());
+
+      // Count ventes positives
+      const { data: ventesData } = await supabase
+        .from("ventes")
+        .select("id, montant_ht, statut")
+        .eq("user_id", userId)
+        .in("statut", ["positif", "signe", "installe"])
+        .gte("created_at", startDate.toISOString());
+
+      const ventesCount = ventesData?.length || 0;
+      const ca = ventesData?.reduce((sum: number, v: { montant_ht: number | null }) => sum + (v.montant_ht || 0), 0) || 0;
+
+      // Conversion rate
+      const tauxConversion = rdvCount && rdvCount > 0 ? Math.round((ventesCount / rdvCount) * 100) : 0;
+
+      const responseData = {
+        period,
+        rdv: rdvCount || 0,
+        ventes: ventesCount,
+        ca: Math.round(ca),
+        taux_conversion: tauxConversion
+      };
+
+      return {
+        actionTaken: "query_stats_result",
+        entityType: "stats",
+        entityId: JSON.stringify(responseData),
+      };
+    }
+
+    case "query_client_info": {
+      const clientName = entities.client_name as string;
+      if (!clientName) {
+        return { actionTaken: "missing_client_name" };
+      }
+
+      const { data: clients, error } = await supabase
+        .from("clients")
+        .select("id, nom, prenom, telephone, telephone_secondaire, email, adresse, code_postal, ville")
+        .eq("user_id", userId)
+        .or(`nom.ilike.%${clientName}%,prenom.ilike.%${clientName}%`)
+        .limit(3);
+
+      if (error || !clients || clients.length === 0) {
+        return { actionTaken: "client_not_found" };
+      }
+
+      // deno-lint-ignore no-explicit-any
+      const responseData = clients.map((c: any) => ({
+        nom: `${c.prenom || ""} ${c.nom}`.trim(),
+        telephone: c.telephone,
+        telephone2: c.telephone_secondaire,
+        email: c.email,
+        adresse: c.adresse ? `${c.adresse}, ${c.code_postal || ""} ${c.ville || ""}`.trim() : null
+      }));
+
+      return {
+        actionTaken: "query_client_result",
+        entityType: "client",
+        entityId: JSON.stringify(responseData),
+      };
+    }
+
+    case "query_rdv_planning": {
+      const period = (entities.period as string) || "today";
+      let startDate: Date;
+      let endDate: Date;
+      const now = new Date();
+      
+      switch (period) {
+        case "week":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+          break;
+        default: // today
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      const { data: rdvs, error } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          adresse,
+          status,
+          type_rdv,
+          clients(nom, prenom, telephone)
+        `)
+        .eq("user_id", userId)
+        .gte("date_heure", startDate.toISOString())
+        .lt("date_heure", endDate.toISOString())
+        .order("date_heure", { ascending: true })
+        .limit(10);
+
+      if (error) {
+        console.error("Error fetching RDV:", error);
+        return { actionTaken: "error" };
+      }
+
+      // deno-lint-ignore no-explicit-any
+      const responseData = (rdvs || []).map((r: any) => {
+        const client = r.clients as { nom: string; prenom: string; telephone: string } | null;
+        return {
+          heure: new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+          client: client ? `${client.prenom || ""} ${client.nom}`.trim() : "?",
+          telephone: client?.telephone || null,
+          adresse: r.adresse,
+          type: r.type_rdv,
+          statut: r.status
+        };
+      });
+
+      return {
+        actionTaken: "query_rdv_result",
+        entityType: "planning",
+        entityId: JSON.stringify({ period, count: responseData.length, rdvs: responseData }),
+      };
+    }
+
+    case "query_ventes": {
+      const clientName = entities.client_name as string;
+      
+      let query = supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_total_ttc,
+          montant_ht,
+          puissance_kwc,
+          statut,
+          date_signature,
+          date_pose,
+          clients(nom, prenom)
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (clientName) {
+        query = query.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
+      }
+
+      const { data: ventes, error } = await query;
+
+      if (error) {
+        console.error("Error fetching ventes:", error);
+        return { actionTaken: "error" };
+      }
+
+      // deno-lint-ignore no-explicit-any
+      const responseData = (ventes || []).map((v: any) => {
+        const client = v.clients as { nom: string; prenom: string } | null;
+        return {
+          client: client ? `${client.prenom || ""} ${client.nom}`.trim() : "?",
+          montant: v.montant_total_ttc,
+          puissance: v.puissance_kwc,
+          statut: v.statut,
+          date_signature: v.date_signature,
+          installe: !!v.date_pose
+        };
+      });
+
+      return {
+        actionTaken: "query_ventes_result",
+        entityType: "ventes",
+        entityId: JSON.stringify({ count: responseData.length, ventes: responseData }),
       };
     }
 
