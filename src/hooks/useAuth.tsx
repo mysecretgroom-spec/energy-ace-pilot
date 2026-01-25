@@ -209,8 +209,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     setMfaRequired(false);
     setCurrentLevel(null);
-    // Clear MFA session cache on logout
-    clearMFASession();
+    // Clear MFA session cache on logout (backend + local)
+    await clearMFASession();
     await supabase.auth.signOut();
   };
 

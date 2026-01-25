@@ -1246,6 +1246,30 @@ export type Database = {
           },
         ]
       }
+      mfa_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           client_id: string | null
@@ -2145,6 +2169,9 @@ export type Database = {
         Returns: string
       }
       block_saas_user: { Args: { p_user_id: string }; Returns: undefined }
+      check_mfa_session_valid: { Args: never; Returns: boolean }
+      cleanup_expired_mfa_sessions: { Args: never; Returns: number }
+      clear_mfa_session: { Args: never; Returns: undefined }
       create_support_ticket: {
         Args: { p_message: string; p_subject: string }
         Returns: string
@@ -2331,6 +2358,7 @@ export type Database = {
         }
         Returns: string
       }
+      store_mfa_verification: { Args: never; Returns: string }
       update_feature_status: {
         Args: { p_feature_id: string; p_status: string }
         Returns: undefined
