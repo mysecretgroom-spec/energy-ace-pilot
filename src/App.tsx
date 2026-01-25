@@ -39,6 +39,7 @@ import PushNotificationsSettings from "./pages/settings/PushNotificationsSetting
 import ObjectifsSettings from "./pages/settings/ObjectifsSettings";
 import RegiesSettings from "./pages/settings/RegiesSettings";
 import WhatsAppTemplatesSettings from "./pages/settings/WhatsAppTemplatesSettings";
+import WhatsAppAgentSettings from "./pages/settings/WhatsAppAgentSettings";
 import RegieDashboard from "./pages/RegieDashboard";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
@@ -118,6 +119,7 @@ const App = () => {
                   <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
                   <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
                   <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                   <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                   <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
