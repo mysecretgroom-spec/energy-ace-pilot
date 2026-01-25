@@ -42,6 +42,10 @@ import WhatsAppTemplatesSettings from "./pages/settings/WhatsAppTemplatesSetting
 import RegieDashboard from "./pages/RegieDashboard";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
+import Legal from "./pages/Legal";
+import CGV from "./pages/CGV";
+import SecurityPolicy from "./pages/SecurityPolicy";
+import DataRetention from "./pages/DataRetention";
 import Abonnement from "./pages/Abonnement";
 import Support from "./pages/Support";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -120,6 +124,10 @@ const App = () => {
                   <Route path="/install" element={<Install />} />
                   <Route path="/confidentialite" element={<Confidentialite />} />
                   <Route path="/conditions" element={<Conditions />} />
+                  <Route path="/legal" element={<Legal />} />
+                  <Route path="/cgv" element={<CGV />} />
+                  <Route path="/securite" element={<SecurityPolicy />} />
+                  <Route path="/data-retention" element={<DataRetention />} />
                   <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
                   <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
                   {/* Admin routes */}
