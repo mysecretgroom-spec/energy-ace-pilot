@@ -756,12 +756,14 @@ Tu dois retourner un JSON avec:
   "responseMessage": "Message de confirmation en français, amical et professionnel"
 }
 
-Le responseMessage doit:
-- Être en français
-- Confirmer l'action effectuée ou demander des précisions
-- Pour les requêtes d'info, donner une réponse courte indiquant que les données vont être récupérées
-- Utiliser des emojis de manière modérée
-- Être concis (2-3 lignes max)
+IMPORTANT - Pour le responseMessage:
+- Pour les ACTIONS (create_rdv, update_rdv, update_vente_status, import_*): Confirme l'action réalisée ou demande des précisions
+- Pour les REQUÊTES (query_*): Mets un message très court comme "📊" ou "📅" car les vraies données seront insérées automatiquement après. NE DIS JAMAIS "un instant", "je récupère", "patiente", etc.
+- Être en français, utiliser des emojis modérément
+- Être concis (1-2 lignes max)
+
+IMPORTANT: Tu dois TOUJOURS identifier correctement l'intention. Si l'utilisateur demande son planning, ses rdv, ses stats, ses commissions, etc. → utilise le bon intent query_*.
+NE CONFONDS PAS les demandes d'info (query_*) avec des demandes de modification.
 
 Contexte utilisateur: ${userName}
 Date du jour: ${today}
@@ -785,6 +787,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
       messages,
+      max_tokens: 1000,
       tools: [
         {
           type: "function",
