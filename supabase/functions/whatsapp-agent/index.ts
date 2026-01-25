@@ -420,49 +420,88 @@ async function findClientByName(
     return { clients: [], exactMatch: null, suggestions: [], notFound: true };
   }
   
-  // First, try exact match with ILIKE
-  const { data: exactClients } = await supabase
+  // Split search into words to handle "Legeron Camille" → ["legeron", "camille"]
+  const searchWords = normalizedSearch.split(/\s+/).filter(w => w.length >= 2);
+  console.log(`Searching for client: "${searchName}" → words: [${searchWords.join(", ")}]`);
+  
+  // Build OR conditions for each search word
+  // This handles cases like "Legeron Camille" by searching each word in both nom and prenom
+  const orConditions: string[] = [];
+  for (const word of searchWords) {
+    orConditions.push(`nom.ilike.%${word}%`);
+    orConditions.push(`prenom.ilike.%${word}%`);
+  }
+  
+  // Also try the full search string as-is
+  orConditions.push(`nom.ilike.%${searchName}%`);
+  orConditions.push(`prenom.ilike.%${searchName}%`);
+  
+  const { data: exactClients, error: searchError } = await supabase
     .from("clients")
     .select("id, nom, prenom")
     .eq("user_id", userId)
-    .or(`nom.ilike.%${searchName}%,prenom.ilike.%${searchName}%`)
-    .limit(10);
+    .or(orConditions.join(","))
+    .limit(20);
+  
+  if (searchError) {
+    console.error("Client search error:", searchError);
+  }
+  
+  console.log(`ILIKE search returned ${exactClients?.length || 0} clients`);
   
   if (exactClients && exactClients.length > 0) {
     const matches: ClientMatch[] = exactClients.map((c: { id: string; nom: string; prenom: string | null }) => {
       const fullName = `${c.prenom || ""} ${c.nom}`.trim();
+      const fullNameReversed = `${c.nom} ${c.prenom || ""}`.trim();
       const normalizedNom = normalizeName(c.nom);
       const normalizedPrenom = normalizeName(c.prenom || "");
       const normalizedFull = normalizeName(fullName);
+      const normalizedFullReversed = normalizeName(fullNameReversed);
       
       // Calculate score based on match quality
       let score = 0;
       let matchType: "exact" | "partial" | "fuzzy" = "partial";
       
-      // Exact match on nom
+      // Exact match on nom only
       if (normalizedNom === normalizedSearch) {
         score = 1;
         matchType = "exact";
       } 
-      // Exact match on prenom
+      // Exact match on prenom only
       else if (normalizedPrenom === normalizedSearch) {
         score = 0.95;
         matchType = "exact";
       }
-      // Exact match on full name
-      else if (normalizedFull === normalizedSearch) {
+      // Exact match on full name (prenom + nom)
+      else if (normalizedFull === normalizedSearch || normalizedFullReversed === normalizedSearch) {
         score = 1;
         matchType = "exact";
       }
-      // Starts with search term
-      else if (normalizedNom.startsWith(normalizedSearch) || normalizedPrenom.startsWith(normalizedSearch)) {
-        score = 0.9;
-        matchType = "partial";
+      // Check if ALL search words match (any order)
+      else if (searchWords.length > 1) {
+        const clientWords = `${normalizedPrenom} ${normalizedNom}`.split(/\s+/);
+        const allWordsMatch = searchWords.every(sw => 
+          clientWords.some(cw => cw === sw || cw.startsWith(sw) || sw.startsWith(cw))
+        );
+        if (allWordsMatch) {
+          score = 0.98;
+          matchType = "exact";
+        }
       }
-      // Contains search term
-      else {
-        score = 0.7;
-        matchType = "partial";
+      
+      // Partial matches
+      if (score === 0) {
+        if (normalizedNom.startsWith(normalizedSearch) || normalizedPrenom.startsWith(normalizedSearch)) {
+          score = 0.9;
+          matchType = "partial";
+        } else if (normalizedSearch.startsWith(normalizedNom) || normalizedSearch.startsWith(normalizedPrenom)) {
+          score = 0.85;
+          matchType = "partial";
+        } else {
+          // Generic contains match
+          score = 0.7;
+          matchType = "partial";
+        }
       }
       
       return { id: c.id, nom: c.nom, prenom: c.prenom, fullName, score, matchType };
@@ -470,6 +509,8 @@ async function findClientByName(
     
     matches.sort((a, b) => b.score - a.score);
     const exactMatch = matches.find(m => m.matchType === "exact") || (matches.length === 1 ? matches[0] : null);
+    
+    console.log(`Best match: ${exactMatch?.fullName} (score: ${exactMatch?.score})`);
     
     return {
       clients: matches.slice(0, limit),
@@ -2375,36 +2416,81 @@ async function executeAction(
       // Start the signing workflow - collect required data
       const clientName = entities.client_name as string;
       
-      // Find the most recent RDV for this client (or today's RDV if no name)
-      let rdvQuery = supabase
-        .from("rdv")
-        .select(`
-          id,
-          client_id,
-          regie_id,
-          clients!inner(id, nom, prenom)
-        `)
-        .eq("user_id", userId)
-        .order("date_heure", { ascending: false })
-        .limit(1);
+      let matchedClient: ClientMatch | null = null;
+      let rdv: { id: string; client_id: string; regie_id: string | null } | null = null;
       
+      // First, find the client using fuzzy search
       if (clientName) {
-        rdvQuery = rdvQuery.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
-      }
-      
-      const { data: rdvs, error: rdvError } = await rdvQuery;
-      
-      if (rdvError || !rdvs || rdvs.length === 0) {
-        return { 
-          actionTaken: "rdv_not_found",
-          customResponse: "❌ Aucun RDV trouvé. Indique-moi le nom du client pour la vente.",
+        const searchResult = await findClientByName(supabase, userId, clientName);
+        
+        if (searchResult.notFound) {
+          return { 
+            actionTaken: "client_not_found",
+            customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+          };
+        }
+        
+        if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+          const suggestionList = searchResult.suggestions
+            .map(s => `• ${s.fullName}`)
+            .join("\n");
+          return {
+            actionTaken: "client_ambiguous",
+            customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          };
+        }
+        
+        matchedClient = searchResult.exactMatch || searchResult.clients[0];
+        
+        // Find RDV for this client
+        const { data: rdvs } = await supabase
+          .from("rdv")
+          .select("id, client_id, regie_id")
+          .eq("user_id", userId)
+          .eq("client_id", matchedClient.id)
+          .order("date_heure", { ascending: false })
+          .limit(1);
+        
+        if (rdvs && rdvs.length > 0) {
+          rdv = rdvs[0];
+        }
+      } else {
+        // No client name - get most recent RDV
+        const { data: rdvs, error: rdvError } = await supabase
+          .from("rdv")
+          .select(`id, client_id, regie_id, clients!inner(id, nom, prenom)`)
+          .eq("user_id", userId)
+          .order("date_heure", { ascending: false })
+          .limit(1);
+        
+        if (rdvError || !rdvs || rdvs.length === 0) {
+          return { 
+            actionTaken: "rdv_not_found",
+            customResponse: "❌ Aucun RDV trouvé. Indique-moi le nom du client pour la vente.",
+          };
+        }
+        
+        rdv = rdvs[0];
+        // deno-lint-ignore no-explicit-any
+        const clientData = (rdvs[0] as any).clients;
+        matchedClient = {
+          id: clientData.id,
+          nom: clientData.nom,
+          prenom: clientData.prenom,
+          fullName: `${clientData.prenom || ""} ${clientData.nom}`.trim(),
+          score: 1,
+          matchType: "exact"
         };
       }
       
-      const rdv = rdvs[0];
-      // deno-lint-ignore no-explicit-any
-      const client = rdv.clients as any;
-      const clientFullName = client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client";
+      if (!matchedClient) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: "❌ Aucun client trouvé. Indique-moi le nom du client.",
+        };
+      }
+      
+      const clientFullName = matchedClient.fullName;
       
       // Check if price was mentioned in the message
       const amount = entities.amount as number;
@@ -2416,10 +2502,10 @@ async function executeAction(
         entities,
         workflowState: "collecting_signe_data",
         collectedData: {
-          clientId: client?.id || rdv.client_id,
+          clientId: matchedClient.id,
           clientName: clientFullName,
-          rdvId: rdv.id,
-          regieId: rdv.regie_id,
+          rdvId: rdv?.id,
+          regieId: rdv?.regie_id || undefined,
           puissanceKwc: puissance || undefined,
           prixTTC: amount || undefined,
         },
