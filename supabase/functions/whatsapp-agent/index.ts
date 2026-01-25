@@ -22,6 +22,7 @@ type Intent =
   | "query_rdv_planning"
   | "query_rdv_detail"     // Topo détaillé sur un RDV spécifique (infos Gmail, conso, profil)
   | "query_ventes"
+  | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
   | "approve_whatsapp"     // Approuver l'envoi d'un message WhatsApp
@@ -1516,6 +1517,7 @@ INTENTIONS DISPONIBLES:
 - query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "ventes en cours"
+- user_feedback: Corrections/préférences ("non je voulais...", "toujours inclure X", "rappelle-toi que...", "quand je dis X c'est Y")
 - conversation: salutations
 - unknown: non compris
 
@@ -1573,7 +1575,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -1588,7 +1590,10 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     amount: { type: "number" },
                     document_type: { type: "string" },
                     period: { type: "string", enum: ["today", "week", "month", "all"] },
-                    query_type: { type: "string", enum: ["list", "total", "detail"] }
+                    query_type: { type: "string", enum: ["list", "total", "detail"] },
+                    feedback_type: { type: "string", enum: ["correction", "preference", "rule", "alias"] },
+                    feedback_key: { type: "string", description: "What the user wants to correct or define (e.g. 'planning response', 'client name Martin')" },
+                    feedback_value: { type: "string", description: "The correction or preference value (e.g. 'always include date and time', 'means Jean-Martin Dupont')" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -2796,6 +2801,46 @@ async function executeAction(
         actionTaken: "query_ventes_result",
         entityType: "ventes",
         entityId: JSON.stringify({ count: responseData.length, ventes: responseData }),
+      };
+    }
+
+    case "user_feedback": {
+      const feedbackType = (entities.feedback_type as string) || "preference";
+      const feedbackKey = (entities.feedback_key as string) || "general";
+      const feedbackValue = (entities.feedback_value as string) || "";
+      
+      if (!feedbackValue) {
+        return {
+          actionTaken: "error",
+          customResponse: "Je n'ai pas compris ce que tu veux que je retienne. Reformule avec 'rappelle-toi que...' ou 'quand je dis X, c'est Y'.",
+        };
+      }
+      
+      // Save to memory
+      const memoryKey = `${feedbackType}_${feedbackKey.toLowerCase().replace(/\s+/g, "_").slice(0, 50)}`;
+      
+      await saveMemory(supabase, userId, feedbackType, memoryKey, {
+        type: feedbackType,
+        key: feedbackKey,
+        value: feedbackValue,
+        learned_at: new Date().toISOString(),
+      }, 1.0); // High confidence for explicit feedback
+      
+      // Also save as a rule if it's about formatting/output preferences
+      if (feedbackType === "preference" || feedbackType === "rule") {
+        await saveMemory(supabase, userId, "rule", `rule_${memoryKey}`, {
+          rule: feedbackValue,
+          context: feedbackKey,
+          source: "explicit_feedback",
+        }, 1.0);
+      }
+      
+      console.log(`User feedback saved: ${feedbackType}/${feedbackKey} = ${feedbackValue}`);
+      
+      return {
+        actionTaken: "feedback_saved",
+        entityType: "memory",
+        customResponse: `✅ C'est noté ! Je me souviendrai que: "${feedbackValue}"`,
       };
     }
 
