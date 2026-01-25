@@ -344,6 +344,211 @@ async function learnFromInteraction(
   }
 }
 
+// ==================== FUZZY CLIENT SEARCH ====================
+
+// Calculate Levenshtein distance between two strings
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  
+  return matrix[b.length][a.length];
+}
+
+// Calculate similarity ratio (0-1, 1 = identical)
+function similarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+}
+
+// Normalize a name for comparison (remove accents, lowercase, trim)
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s]/g, "")     // Remove special chars
+    .trim();
+}
+
+interface ClientMatch {
+  id: string;
+  nom: string;
+  prenom: string | null;
+  fullName: string;
+  score: number;
+  matchType: "exact" | "partial" | "fuzzy";
+}
+
+// Find clients by name with fuzzy matching
+// deno-lint-ignore no-explicit-any
+async function findClientByName(
+  supabase: any,
+  userId: string,
+  searchName: string,
+  options: { limit?: number; minScore?: number } = {}
+): Promise<{ 
+  clients: ClientMatch[]; 
+  exactMatch: ClientMatch | null;
+  suggestions: ClientMatch[];
+  notFound: boolean;
+}> {
+  const { limit = 5, minScore = 0.5 } = options;
+  const normalizedSearch = normalizeName(searchName);
+  
+  if (!normalizedSearch || normalizedSearch.length < 2) {
+    return { clients: [], exactMatch: null, suggestions: [], notFound: true };
+  }
+  
+  // First, try exact match with ILIKE
+  const { data: exactClients } = await supabase
+    .from("clients")
+    .select("id, nom, prenom")
+    .eq("user_id", userId)
+    .or(`nom.ilike.%${searchName}%,prenom.ilike.%${searchName}%`)
+    .limit(10);
+  
+  if (exactClients && exactClients.length > 0) {
+    const matches: ClientMatch[] = exactClients.map((c: { id: string; nom: string; prenom: string | null }) => {
+      const fullName = `${c.prenom || ""} ${c.nom}`.trim();
+      const normalizedNom = normalizeName(c.nom);
+      const normalizedPrenom = normalizeName(c.prenom || "");
+      const normalizedFull = normalizeName(fullName);
+      
+      // Calculate score based on match quality
+      let score = 0;
+      let matchType: "exact" | "partial" | "fuzzy" = "partial";
+      
+      // Exact match on nom
+      if (normalizedNom === normalizedSearch) {
+        score = 1;
+        matchType = "exact";
+      } 
+      // Exact match on prenom
+      else if (normalizedPrenom === normalizedSearch) {
+        score = 0.95;
+        matchType = "exact";
+      }
+      // Exact match on full name
+      else if (normalizedFull === normalizedSearch) {
+        score = 1;
+        matchType = "exact";
+      }
+      // Starts with search term
+      else if (normalizedNom.startsWith(normalizedSearch) || normalizedPrenom.startsWith(normalizedSearch)) {
+        score = 0.9;
+        matchType = "partial";
+      }
+      // Contains search term
+      else {
+        score = 0.7;
+        matchType = "partial";
+      }
+      
+      return { id: c.id, nom: c.nom, prenom: c.prenom, fullName, score, matchType };
+    });
+    
+    matches.sort((a, b) => b.score - a.score);
+    const exactMatch = matches.find(m => m.matchType === "exact") || (matches.length === 1 ? matches[0] : null);
+    
+    return {
+      clients: matches.slice(0, limit),
+      exactMatch,
+      suggestions: exactMatch ? [] : matches.slice(0, 3),
+      notFound: false
+    };
+  }
+  
+  // No exact match - try fuzzy search on all clients
+  console.log(`No exact match for "${searchName}", trying fuzzy search...`);
+  
+  const { data: allClients } = await supabase
+    .from("clients")
+    .select("id, nom, prenom")
+    .eq("user_id", userId)
+    .limit(500); // Get more clients for fuzzy matching
+  
+  if (!allClients || allClients.length === 0) {
+    return { clients: [], exactMatch: null, suggestions: [], notFound: true };
+  }
+  
+  // Calculate similarity for each client
+  const fuzzyMatches: ClientMatch[] = [];
+  
+  for (const c of allClients as { id: string; nom: string; prenom: string | null }[]) {
+    const fullName = `${c.prenom || ""} ${c.nom}`.trim();
+    const normalizedNom = normalizeName(c.nom);
+    const normalizedPrenom = normalizeName(c.prenom || "");
+    
+    // Calculate similarity scores
+    const nomScore = similarity(normalizedSearch, normalizedNom);
+    const prenomScore = c.prenom ? similarity(normalizedSearch, normalizedPrenom) : 0;
+    
+    // Also check if search contains common typos (transposed letters, missing letters)
+    const searchWords = normalizedSearch.split(/\s+/);
+    const nomWords = normalizedNom.split(/\s+/);
+    
+    let wordMatchScore = 0;
+    for (const sw of searchWords) {
+      for (const nw of nomWords) {
+        const wscore = similarity(sw, nw);
+        if (wscore > wordMatchScore) wordMatchScore = wscore;
+      }
+    }
+    
+    // Best score across all comparisons
+    const bestScore = Math.max(nomScore, prenomScore, wordMatchScore);
+    
+    if (bestScore >= minScore) {
+      fuzzyMatches.push({
+        id: c.id,
+        nom: c.nom,
+        prenom: c.prenom,
+        fullName,
+        score: bestScore,
+        matchType: "fuzzy"
+      });
+    }
+  }
+  
+  // Sort by score descending
+  fuzzyMatches.sort((a, b) => b.score - a.score);
+  
+  const topMatches = fuzzyMatches.slice(0, limit);
+  const highConfidenceMatch = topMatches.length > 0 && topMatches[0].score >= 0.8 
+    ? topMatches[0] 
+    : null;
+  
+  console.log(`Fuzzy search found ${fuzzyMatches.length} matches, best score: ${topMatches[0]?.score || 0}`);
+  
+  return {
+    clients: topMatches,
+    exactMatch: highConfidenceMatch,
+    suggestions: highConfidenceMatch ? [] : topMatches.slice(0, 3),
+    notFound: topMatches.length === 0
+  };
+}
+
 // ==================== ACTION LOGGING ====================
 
 // Log an agent action for audit trail and undo capability
@@ -1669,24 +1874,33 @@ async function executeAction(
 
   switch (intent) {
     case "create_rdv": {
-      // Search for client by name
+      // Search for client by name with fuzzy matching
       const clientName = entities.client_name as string;
       if (!clientName) {
         return { actionTaken: "missing_client" };
       }
 
-      const { data: clients, error: clientError } = await supabase
-        .from("clients")
-        .select("id, nom, prenom")
-        .eq("user_id", userId)
-        .or(`nom.ilike.%${clientName}%,prenom.ilike.%${clientName}%`)
-        .limit(1);
-
-      if (clientError || !clients || clients.length === 0) {
-        return { actionTaken: "client_not_found" };
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client trouvé pour "${clientName}". Vérifie l'orthographe ou crée d'abord le client.`
+        };
+      }
+      
+      // If no exact match but we have suggestions
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName} (${Math.round(s.score * 100)}%)`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais peut-être:\n${suggestionList}\n\nPrécise le nom complet.`
+        };
       }
 
-      const client = clients[0];
+      const client = searchResult.exactMatch || searchResult.clients[0];
       
       // Parse date and time
       const dateStr = entities.date as string || new Date().toISOString().split("T")[0];
@@ -1938,6 +2152,28 @@ async function executeAction(
         return { actionTaken: "missing_data" };
       }
 
+      // Find client with fuzzy search
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client "${clientName}" trouvé.`
+        };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName}`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+        };
+      }
+
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+
       // Find the most recent RDV for this client
       const { data: rdvs, error: rdvError } = await supabase
         .from("rdv")
@@ -1947,7 +2183,7 @@ async function executeAction(
           clients!inner(nom, prenom)
         `)
         .eq("user_id", userId)
-        .or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`)
+        .eq("client_id", matchedClient.id)
         .order("date_heure", { ascending: false })
         .limit(1);
 
@@ -2024,6 +2260,28 @@ async function executeAction(
         };
       }
       
+      // Find client with fuzzy search
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+        };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName}`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+        };
+      }
+
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
       // Find the vente for this client
       const { data: ventes, error: venteError } = await supabase
         .from("ventes")
@@ -2036,7 +2294,7 @@ async function executeAction(
           clients!inner(id, nom, prenom)
         `)
         .eq("user_id", userId)
-        .or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`)
+        .eq("client_id", matchedClient.id)
         .not("status", "eq", "annule")
         .order("created_at", { ascending: false })
         .limit(1);
@@ -2044,7 +2302,7 @@ async function executeAction(
       if (venteError || !ventes || ventes.length === 0) {
         return {
           actionTaken: "vente_not_found",
-          customResponse: `❌ Aucune vente trouvée pour "${clientName}". Vérifie le nom ou le statut de la vente.`,
+          customResponse: `❌ Aucune vente trouvée pour "${matchedClient.fullName}". Vérifie le statut de la vente.`,
         };
       }
       
@@ -2199,18 +2457,20 @@ async function executeAction(
       
       const clientName = entities.client_name as string;
       
-      // Try to find the client if name was mentioned
+      // Try to find the client if name was mentioned using fuzzy search
       let clientId: string | null = null;
+      let fuzzyMatchInfo: string | null = null;
+      
       if (clientName) {
-        const { data: clients } = await supabase
-          .from("clients")
-          .select("id")
-          .eq("user_id", userId)
-          .or(`nom.ilike.%${clientName}%,prenom.ilike.%${clientName}%`)
-          .limit(1);
+        const searchResult = await findClientByName(supabase, userId, clientName);
         
-        if (clients && clients.length > 0) {
-          clientId = clients[0].id;
+        if (searchResult.exactMatch) {
+          clientId = searchResult.exactMatch.id;
+        } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
+          // Use best fuzzy match if score is high enough
+          clientId = searchResult.clients[0].id;
+          fuzzyMatchInfo = searchResult.clients[0].fullName;
+          console.log(`Fuzzy matched "${clientName}" to "${fuzzyMatchInfo}"`);
         }
       }
 
@@ -2524,12 +2784,36 @@ async function executeAction(
         return { actionTaken: "missing_client_name" };
       }
 
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client trouvé pour "${clientName}".`
+        };
+      }
+      
+      // If no exact match but we have suggestions
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName} (${Math.round(s.score * 100)}%)`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais peut-être:\n${suggestionList}`
+        };
+      }
+      
+      // Get full client info for matched clients
+      const matchedIds = searchResult.exactMatch 
+        ? [searchResult.exactMatch.id]
+        : searchResult.clients.slice(0, 3).map(c => c.id);
+
       const { data: clients, error } = await supabase
         .from("clients")
         .select("id, nom, prenom, telephone, telephone_secondaire, email, adresse, code_postal, ville")
         .eq("user_id", userId)
-        .or(`nom.ilike.%${clientName}%,prenom.ilike.%${clientName}%`)
-        .limit(3);
+        .in("id", matchedIds);
 
       if (error || !clients || clients.length === 0) {
         return { actionTaken: "client_not_found" };
@@ -2634,7 +2918,29 @@ async function executeAction(
         };
       }
 
-      // Search for RDV matching client name (case-insensitive)
+      // Find client with fuzzy search
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "not_found",
+          customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+        };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName}`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+        };
+      }
+
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+
+      // Search for RDV matching client
       const { data: rdvs, error: rdvError } = await supabase
         .from("rdv")
         .select(`
@@ -2665,14 +2971,14 @@ async function executeAction(
           regies(nom, couleur)
         `)
         .eq("user_id", userId)
-        .or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`)
+        .eq("client_id", matchedClient.id)
         .order("date_heure", { ascending: false })
         .limit(1);
 
       if (rdvError || !rdvs || rdvs.length === 0) {
         return {
           actionTaken: "not_found",
-          customResponse: `Aucun RDV trouvé pour "${clientName}".`,
+          customResponse: `Aucun RDV trouvé pour "${matchedClient.fullName}".`,
         };
       }
 
