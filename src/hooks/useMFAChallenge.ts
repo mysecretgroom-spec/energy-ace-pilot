@@ -1,6 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { isMFASessionValid, storeMFAVerification } from "@/lib/mfaSessionCache";
+import { 
+  isMFASessionValid, 
+  isMFASessionValidSync, 
+  storeMFAVerification,
+  invalidateLocalCache 
+} from "@/lib/mfaSessionCache";
 
 // Re-export for backward compatibility
 export { clearMFASession } from "@/lib/mfaSessionCache";
@@ -15,23 +20,37 @@ interface UseMFAChallengeReturn {
   resetMFA: () => void;
   factorId: string | null;
   isAlreadyVerified: boolean;
+  isCheckingSession: boolean;
 }
 
 /**
  * Hook for MFA challenges on sensitive operations (security settings, account changes)
- * MFA verification is cached for 6 hours to avoid repeated prompts
+ * MFA verification is cached in backend for 6 hours to work across devices
  */
 export function useMFAChallenge(): UseMFAChallengeReturn {
   const [isMFARequired, setIsMFARequired] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(false);
   const [verifyCode, setVerifyCode] = useState("");
   const [factorId, setFactorId] = useState<string | null>(null);
-  const [isAlreadyVerified, setIsAlreadyVerified] = useState(() => isMFASessionValid());
+  // Use sync check for initial value, will be updated async
+  const [isAlreadyVerified, setIsAlreadyVerified] = useState(() => isMFASessionValidSync());
+
+  // Check backend session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const valid = await isMFASessionValid();
+      setIsAlreadyVerified(valid);
+    };
+    checkSession();
+  }, []);
 
   const checkMFARequired = useCallback(async (): Promise<boolean> => {
+    setIsCheckingSession(true);
     try {
-      // First check if we have a valid cached MFA session
-      if (isMFASessionValid()) {
+      // Check backend for valid MFA session (works across devices)
+      const sessionValid = await isMFASessionValid();
+      if (sessionValid) {
         setIsAlreadyVerified(true);
         setIsMFARequired(false);
         return false; // MFA not required, already verified
@@ -54,6 +73,8 @@ export function useMFAChallenge(): UseMFAChallengeReturn {
       console.error("Error checking MFA status:", error);
       setIsMFARequired(false);
       return false;
+    } finally {
+      setIsCheckingSession(false);
     }
   }, []);
 
@@ -76,11 +97,8 @@ export function useMFAChallenge(): UseMFAChallengeReturn {
 
       if (verifyError) throw verifyError;
 
-      // MFA verified successfully - get user ID and store in cache with 6h validity
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        storeMFAVerification(user.id);
-      }
+      // MFA verified successfully - store in backend with 6h validity
+      await storeMFAVerification();
       
       setIsAlreadyVerified(true);
       setIsMFARequired(false);
@@ -99,6 +117,7 @@ export function useMFAChallenge(): UseMFAChallengeReturn {
     setIsMFARequired(false);
     setVerifyCode("");
     setIsVerifying(false);
+    invalidateLocalCache();
   }, []);
 
   return {
@@ -111,5 +130,6 @@ export function useMFAChallenge(): UseMFAChallengeReturn {
     resetMFA,
     factorId,
     isAlreadyVerified,
+    isCheckingSession,
   };
 }
