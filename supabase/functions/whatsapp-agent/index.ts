@@ -1356,9 +1356,9 @@ async function createSignedVente(
       rdv_id: data.rdvId,
       regie_id: data.regieId,
       puissance_kwc: puissance,
-      montant_total_ttc: prixTTC,
+      montant_ttc: prixTTC,
       montant_ht: prixHT,
-      statut: "positif",
+      status: "positif",
       date_signature: new Date().toISOString().split("T")[0],
       source: "whatsapp",
     })
@@ -2430,20 +2430,19 @@ async function executeAction(
         .from("ventes")
         .select(`
           id,
-          montant_total_ttc,
+          montant_ttc,
           montant_ht,
-          prix_recommande_ttc,
           puissance_kwc,
           date_signature,
           date_pose,
-          statut,
+          status,
           type_vente,
           decom_montant,
           clients(nom, prenom),
           regies(nom, mode_calcul_commission)
         `)
         .eq("user_id", userId)
-        .not("statut", "eq", "annule");
+        .not("status", "eq", "annule");
 
       if (ventesError) {
         console.error("Error fetching ventes:", ventesError);
@@ -2471,14 +2470,21 @@ async function executeAction(
           const fixeParKwc = 250; // Default
           const fixe = puissance * fixeParKwc;
           
-          // Calculate survente
-          const totalTTC = v.montant_total_ttc || 0;
-          const prixRecoTTC = v.prix_recommande_ttc || 0;
-          const surventeTTC = Math.max(0, totalTTC - prixRecoTTC);
+          // Calculate commission based on puissance
+          const totalTTC = v.montant_ttc || 0;
+          // Use a simple commission formula: fixed per kWc + percentage
           const tva = puissance <= 3 ? 1.10 : 1.20;
-          const surventeHT = surventeTTC / tva;
+          const totalHT = totalTTC / tva;
           
-          commission = fixe + (surventeHT * 0.5);
+          // Base commission: 250€ per kWc
+          commission = puissance * 250;
+          
+          // Add bonus for higher amounts (simplified survente)
+          const basePrice = puissance * 2500; // Average base price per kWc
+          if (totalHT > basePrice) {
+            const surventeHT = totalHT - basePrice;
+            commission += surventeHT * 0.5;
+          }
         }
 
         if (v.date_pose) {
@@ -2492,7 +2498,7 @@ async function executeAction(
             totalAFacturer += commission;
             countAFacturer++;
           }
-        } else if (v.statut === "positif" || v.statut === "signe") {
+        } else if (v.status === "positif" || v.status === "signe" || v.status === "cq_a_faire" || v.status === "cq_fait") {
           // Not installed yet
           totalEnCours += commission;
           countEnCours++;
@@ -2541,9 +2547,9 @@ async function executeAction(
       // Count ventes positives
       const { data: ventesData } = await supabase
         .from("ventes")
-        .select("id, montant_ht, statut")
+        .select("id, montant_ht, status")
         .eq("user_id", userId)
-        .in("statut", ["positif", "signe", "installe"])
+        .in("status", ["positif", "signe", "installe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "attente_paiement", "paye"])
         .gte("created_at", startDate.toISOString());
 
       const ventesCount = ventesData?.length || 0;
@@ -2668,10 +2674,10 @@ async function executeAction(
         .from("ventes")
         .select(`
           id,
-          montant_total_ttc,
+          montant_ttc,
           montant_ht,
           puissance_kwc,
-          statut,
+          status,
           date_signature,
           date_pose,
           clients(nom, prenom)
@@ -2696,9 +2702,9 @@ async function executeAction(
         const client = v.clients as { nom: string; prenom: string } | null;
         return {
           client: client ? `${client.prenom || ""} ${client.nom}`.trim() : "?",
-          montant: v.montant_total_ttc,
+          montant: v.montant_ttc,
           puissance: v.puissance_kwc,
-          statut: v.statut,
+          statut: v.status,
           date_signature: v.date_signature,
           installe: !!v.date_pose
         };
