@@ -1951,6 +1951,54 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_popular: boolean | null
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number | null
+          stripe_price_id_monthly: string | null
+          stripe_price_id_yearly: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_popular?: boolean | null
+          name: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          stripe_price_id_monthly?: string | null
+          stripe_price_id_yearly?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_popular?: boolean | null
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          sort_order?: number | null
+          stripe_price_id_monthly?: string | null
+          stripe_price_id_yearly?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2177,6 +2225,7 @@ export type Database = {
         Returns: string
       }
       decrypt_token: { Args: { encrypted_token: string }; Returns: string }
+      delete_subscription_plan: { Args: { p_id: string }; Returns: undefined }
       encrypt_token: { Args: { token: string }; Returns: string }
       get_all_feature_requests: {
         Args: never
@@ -2213,6 +2262,30 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      get_all_subscription_plans: {
+        Args: never
+        Returns: {
+          created_at: string
+          description: string | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_popular: boolean | null
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          sort_order: number | null
+          stripe_price_id_monthly: string | null
+          stripe_price_id_yearly: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "subscription_plans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_all_support_tickets: {
         Args: never
@@ -2374,6 +2447,22 @@ export type Database = {
       update_ticket_status: {
         Args: { p_status: string; p_ticket_id: string }
         Returns: undefined
+      }
+      upsert_subscription_plan: {
+        Args: {
+          p_description?: string
+          p_features?: Json
+          p_id?: string
+          p_is_active?: boolean
+          p_is_popular?: boolean
+          p_name?: string
+          p_price_monthly?: number
+          p_price_yearly?: number
+          p_sort_order?: number
+          p_stripe_price_id_monthly?: string
+          p_stripe_price_id_yearly?: string
+        }
+        Returns: string
       }
     }
     Enums: {
