@@ -20,6 +20,7 @@ type Intent =
   | "query_stats"
   | "query_client_info"
   | "query_rdv_planning"
+  | "query_rdv_detail"     // Topo détaillé sur un RDV spécifique (infos Gmail, conso, profil)
   | "query_ventes"
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
@@ -1513,6 +1514,7 @@ INTENTIONS DISPONIBLES:
 - query_stats: "stats", "CA", "taux conversion", "chiffres"
 - query_client_info: "téléphone de X", "adresse de X"
 - query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
+- query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "ventes en cours"
 - conversation: salutations
 - unknown: non compris
@@ -1571,7 +1573,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -2595,6 +2597,155 @@ async function executeAction(
         actionTaken: "query_rdv_result",
         entityType: "planning",
         entityId: JSON.stringify({ period, count: responseData.length, rdvs: responseData }),
+      };
+    }
+
+    case "query_rdv_detail": {
+      const clientName = entities.client_name as string;
+      
+      if (!clientName) {
+        return {
+          actionTaken: "error",
+          customResponse: "Quel client ? Dis-moi 'topo Dupont' ou 'infos rdv Martin'.",
+        };
+      }
+
+      // Search for RDV matching client name (case-insensitive)
+      const { data: rdvs, error: rdvError } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          adresse,
+          status,
+          type_projet,
+          type_rdv,
+          commentaire,
+          metadata,
+          source,
+          is_r2,
+          clients!inner(
+            id,
+            nom,
+            prenom,
+            telephone,
+            telephone_secondaire,
+            email,
+            adresse,
+            code_postal,
+            ville,
+            notes,
+            metadata,
+            source
+          ),
+          regies(nom, couleur)
+        `)
+        .eq("user_id", userId)
+        .or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`)
+        .order("date_heure", { ascending: false })
+        .limit(1);
+
+      if (rdvError || !rdvs || rdvs.length === 0) {
+        return {
+          actionTaken: "not_found",
+          customResponse: `Aucun RDV trouvé pour "${clientName}".`,
+        };
+      }
+
+      const rdv = rdvs[0];
+      // deno-lint-ignore no-explicit-any
+      const client = rdv.clients as any;
+      // deno-lint-ignore no-explicit-any
+      const regie = rdv.regies as any;
+      const clientMeta = client?.metadata || {};
+      const rdvMeta = rdv.metadata || {};
+
+      // Format date
+      const joursFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+      const rdvDate = new Date(rdv.date_heure);
+      const jour = joursFr[rdvDate.getDay()];
+      const dateFormatted = rdvDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+      const heure = rdvDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+      // Build detailed response
+      const sections: string[] = [];
+      
+      // Header
+      const clientNom = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+      sections.push(`📋 *TOPO RDV - ${clientNom}*`);
+      sections.push(`📅 ${jour} ${dateFormatted} à ${heure}`);
+      
+      // Status and type
+      const statusLabels: Record<string, string> = {
+        nouveau: "🆕 Nouveau",
+        positif: "✅ Positif",
+        negatif: "❌ Négatif",
+        absent: "🚫 Absent",
+        reporte: "📆 Reporté",
+        r2: "🔄 R2",
+        annule: "🗑️ Annulé"
+      };
+      sections.push(`Statut: ${statusLabels[rdv.status] || rdv.status}`);
+      if (rdv.is_r2) sections.push("🔄 C'est un R2");
+      if (regie?.nom) sections.push(`Régie: ${regie.nom}`);
+
+      // Contact
+      sections.push("");
+      sections.push("📞 *CONTACT*");
+      if (client?.telephone) sections.push(`Tél: ${client.telephone}`);
+      if (client?.telephone_secondaire) sections.push(`Tél2: ${client.telephone_secondaire}`);
+      if (client?.email) sections.push(`Email: ${client.email}`);
+      
+      // Address
+      const fullAddress = [client?.adresse, client?.code_postal, client?.ville].filter(Boolean).join(", ");
+      if (fullAddress) sections.push(`📍 ${fullAddress}`);
+
+      // Consumption & Profile from metadata (Gmail import)
+      const conso = clientMeta.consommation_annuelle || clientMeta.consommation || rdvMeta.consommation_annuelle;
+      const facture = clientMeta.facture_annuelle || clientMeta.montant_facture || rdvMeta.facture_annuelle;
+      const chauffage = clientMeta.type_chauffage || rdvMeta.type_chauffage;
+      const surface = clientMeta.surface || rdvMeta.surface;
+      const nbPersonnes = clientMeta.nb_personnes || clientMeta.occupants || rdvMeta.nb_personnes;
+      const typeLogement = clientMeta.type_logement || rdvMeta.type_logement;
+      const proprietaire = clientMeta.proprietaire !== undefined ? (clientMeta.proprietaire ? "Oui" : "Non") : null;
+
+      if (conso || facture || chauffage || surface || nbPersonnes) {
+        sections.push("");
+        sections.push("⚡ *PROFIL ÉNERGÉTIQUE*");
+        if (conso) sections.push(`Conso: ${conso} kWh/an`);
+        if (facture) sections.push(`Facture: ${facture}€/an`);
+        if (chauffage) sections.push(`Chauffage: ${chauffage}`);
+        if (typeLogement) sections.push(`Logement: ${typeLogement}`);
+        if (surface) sections.push(`Surface: ${surface}m²`);
+        if (nbPersonnes) sections.push(`Occupants: ${nbPersonnes}`);
+        if (proprietaire) sections.push(`Propriétaire: ${proprietaire}`);
+      }
+
+      // Comments from RDV and client notes
+      const allComments: string[] = [];
+      if (rdv.commentaire) allComments.push(rdv.commentaire);
+      if (client?.notes) allComments.push(client.notes);
+      if (clientMeta.commentaires) allComments.push(clientMeta.commentaires);
+      if (clientMeta.notes_importees) allComments.push(clientMeta.notes_importees);
+      if (rdvMeta.commentaires) allComments.push(rdvMeta.commentaires);
+
+      if (allComments.length > 0) {
+        sections.push("");
+        sections.push("💬 *COMMENTAIRES*");
+        sections.push(allComments.join("\n"));
+      }
+
+      // Source info
+      if (rdv.source || client?.source) {
+        sections.push("");
+        sections.push(`📧 Source: ${rdv.source || client?.source}`);
+      }
+
+      return {
+        actionTaken: "query_rdv_detail_result",
+        entityType: "rdv_detail",
+        entityId: rdv.id,
+        customResponse: sections.join("\n"),
       };
     }
 
