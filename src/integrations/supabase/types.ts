@@ -2177,6 +2177,59 @@ export type Database = {
           },
         ]
       }
+      whatsapp_agent_actions: {
+        Row: {
+          action_data: Json
+          action_type: string
+          created_at: string
+          description: string
+          id: string
+          is_undone: boolean | null
+          message_id: string | null
+          previous_data: Json | null
+          target_id: string
+          target_table: string
+          undone_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_data?: Json
+          action_type: string
+          created_at?: string
+          description: string
+          id?: string
+          is_undone?: boolean | null
+          message_id?: string | null
+          previous_data?: Json | null
+          target_id: string
+          target_table: string
+          undone_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_data?: Json
+          action_type?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_undone?: boolean | null
+          message_id?: string | null
+          previous_data?: Json | null
+          target_id?: string
+          target_table?: string
+          undone_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_actions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_conversations: {
         Row: {
           context: Json | null
@@ -2551,6 +2604,7 @@ export type Database = {
         Returns: string
       }
       store_mfa_verification: { Args: never; Returns: string }
+      undo_agent_action: { Args: { p_action_id: string }; Returns: Json }
       update_feature_status: {
         Args: { p_feature_id: string; p_status: string }
         Returns: undefined

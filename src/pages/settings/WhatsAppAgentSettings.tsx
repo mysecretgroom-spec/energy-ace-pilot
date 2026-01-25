@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import AgentActionsHistory from "@/components/settings/AgentActionsHistory";
 import { 
   Bot, 
   MessageCircle, 
@@ -15,7 +17,9 @@ import {
   AlertCircle,
   Copy,
   ExternalLink,
-  Smartphone
+  Smartphone,
+  History,
+  Shield
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -94,7 +98,15 @@ const WhatsAppAgentSettings = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
+            {/* Security notice */}
+            <div className="bg-blue-500/10 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <Shield className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm text-blue-700">
+                <strong>Isolation des données</strong>: L'agent n'accède qu'à vos données personnelles via votre numéro WhatsApp. Aucun croisement avec d'autres utilisateurs.
+              </div>
+            </div>
+            
             {/* Instructions */}
             <div className="bg-muted/50 rounded-lg p-4 space-y-3">
               <h4 className="font-medium text-sm flex items-center gap-2">
@@ -109,106 +121,101 @@ const WhatsAppAgentSettings = () => {
                 <li>• Envoyez une photo de ticket → Crée une note de frais</li>
               </ul>
             </div>
-
-            {/* Webhook URL for Twilio configuration */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">URL Webhook Twilio</label>
-              <div className="flex gap-2">
-                <code className="flex-1 bg-muted px-3 py-2 rounded-lg text-xs overflow-x-auto">
-                  {WEBHOOK_URL}
-                </code>
-                <Button size="icon" variant="outline" onClick={copyWebhookUrl}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Configurez cette URL dans votre console Twilio WhatsApp
-              </p>
-            </div>
-
-            {/* Link to Twilio */}
-            <Button variant="outline" className="w-full gap-2" asChild>
-              <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4" />
-                Ouvrir Twilio Console
-              </a>
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Messages History */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageCircle className="h-5 w-5" />
-              Historique des messages
-            </CardTitle>
-            <CardDescription>
-              Les 20 derniers messages traités
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {messagesLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
-                ))}
-              </div>
-            ) : messages && messages.length > 0 ? (
-              <div className="space-y-3">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className="border rounded-lg p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(msg.created_at), "dd MMM HH:mm", { locale: fr })}
-                      </span>
-                      {getStatusBadge(msg.status)}
-                    </div>
-                    
-                    <p className="text-sm line-clamp-2">
-                      {msg.raw_content || msg.transcribed_content || "(média)"}
-                    </p>
-                    
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="text-xs">
-                        {msg.message_type}
-                      </Badge>
-                      {msg.detected_intent && (
-                        <Badge variant="secondary" className="text-xs">
-                          {getIntentLabel(msg.detected_intent)}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {msg.response_sent && (
-                      <div className="bg-primary/5 rounded p-2 text-xs">
-                        <span className="text-muted-foreground">Réponse : </span>
-                        {msg.response_sent}
-                      </div>
-                    )}
-
-                    {msg.rejection_reason && (
-                      <p className="text-xs text-amber-600">
-                        Raison : {msg.rejection_reason}
-                      </p>
-                    )}
+        {/* Tabs for Messages and Actions */}
+        <Tabs defaultValue="actions" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="actions" className="gap-2">
+              <History className="h-4 w-4" />
+              Actions
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Messages
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="actions" className="mt-4">
+            <AgentActionsHistory />
+          </TabsContent>
+          
+          <TabsContent value="messages" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5" />
+                  Historique des messages
+                </CardTitle>
+                <CardDescription>
+                  Les 20 derniers messages traités
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {messagesLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>Aucun message reçu</p>
-                <p className="text-xs mt-1">
-                  Les messages WhatsApp apparaîtront ici
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : messages && messages.length > 0 ? (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className="border rounded-lg p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(msg.created_at), "dd MMM HH:mm", { locale: fr })}
+                          </span>
+                          {getStatusBadge(msg.status)}
+                        </div>
+                        
+                        <p className="text-sm line-clamp-2">
+                          {msg.raw_content || msg.transcribed_content || "(média)"}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs">
+                            {msg.message_type}
+                          </Badge>
+                          {msg.detected_intent && (
+                            <Badge variant="secondary" className="text-xs">
+                              {getIntentLabel(msg.detected_intent)}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {msg.response_sent && (
+                          <div className="bg-primary/5 rounded p-2 text-xs">
+                            <span className="text-muted-foreground">Réponse : </span>
+                            {msg.response_sent}
+                          </div>
+                        )}
+
+                        {msg.rejection_reason && (
+                          <p className="text-xs text-amber-600">
+                            Raison : {msg.rejection_reason}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>Aucun message reçu</p>
+                    <p className="text-xs mt-1">
+                      Les messages WhatsApp apparaîtront ici
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </MobileLayout>
   );

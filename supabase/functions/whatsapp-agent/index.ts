@@ -112,6 +112,60 @@ interface ClientDocAnalysisResult {
 
 type DocumentAnalysisResult = FinanceAnalysisResult | ClientDocAnalysisResult;
 
+// Log an agent action for audit trail and undo capability
+// deno-lint-ignore no-explicit-any
+async function logAgentAction(
+  supabase: any,
+  userId: string,
+  messageId: string | null,
+  actionType: string,
+  targetTable: string,
+  targetId: string,
+  actionData: Record<string, unknown>,
+  previousData: Record<string, unknown> | null,
+  description: string
+): Promise<void> {
+  try {
+    await supabase.from("whatsapp_agent_actions").insert({
+      user_id: userId,
+      message_id: messageId,
+      action_type: actionType,
+      target_table: targetTable,
+      target_id: targetId,
+      action_data: actionData,
+      previous_data: previousData,
+      description: description,
+    });
+    console.log(`Action logged: ${actionType} on ${targetTable}/${targetId}`);
+  } catch (error) {
+    console.error("Failed to log agent action:", error);
+    // Don't throw - logging failure should not break the main flow
+  }
+}
+
+// Get previous data snapshot for undo capability
+// deno-lint-ignore no-explicit-any
+async function getPreviousData(
+  supabase: any,
+  table: string,
+  id: string,
+  userId: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+    
+    if (error || !data) return null;
+    return data as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -276,6 +330,7 @@ serve(async (req) => {
         supabase,
         request.userId,
         request.userName,
+        request.messageId,
         aiResponse!.intent,
         aiResponse!.entities,
         uploadedDocumentUrl,
@@ -986,6 +1041,21 @@ async function handlePendingWorkflow(
             };
           }
           
+          // Log each action for undo capability
+          for (const rdvId of rdvIds) {
+            await logAgentAction(
+              supabase,
+              userId,
+              null,
+              "update_rdv",
+              "rdv",
+              rdvId,
+              updateData,
+              { status: "planifie" }, // Simplified previous state
+              `RDV ${action === "annule" ? "annulé" : "modifié"} (action en masse)`
+            );
+          }
+          
           const actionLabel = action === "annule" ? "annulé(s)" : action === "reporte" ? "reporté(s)" : "modifié(s)";
           return {
             intent: "update_rdv",
@@ -1349,6 +1419,7 @@ async function executeAction(
   supabase: any,
   userId: string,
   userName: string,
+  messageId: string,
   intent: Intent,
   entities: Record<string, unknown>,
   uploadedDocumentUrl: string | null,
@@ -1405,6 +1476,19 @@ async function executeAction(
         console.error("Error creating RDV:", rdvError);
         return { actionTaken: "error" };
       }
+
+      // Log the action for audit trail
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "create_rdv",
+        "rdv",
+        rdv?.id,
+        { date_heure: dateHeure, client_id: client.id, status: "planifie" },
+        null, // No previous data for creation
+        `Création RDV ${client.prenom || ""} ${client.nom} le ${dateStr} à ${timeStr}`
+      );
 
       return { 
         actionTaken: "rdv_created", 
@@ -1574,6 +1658,9 @@ async function executeAction(
         }
       }
       
+      // Get previous data for undo capability
+      const previousRdvData = await getPreviousData(supabase, "rdv", rdv.id, userId);
+      
       const { error: updateError } = await supabase
         .from("rdv")
         .update(updateData)
@@ -1583,6 +1670,21 @@ async function executeAction(
         console.error("Error updating RDV:", updateError);
         return { actionTaken: "error" };
       }
+      
+      // Log the action
+      const clientInfo = rdv.clients as { nom: string; prenom?: string };
+      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "update_rdv",
+        "rdv",
+        rdv.id,
+        updateData,
+        previousRdvData,
+        `Modification RDV ${clientFullName}: ${action === "annule" ? "annulé" : action === "reporte" ? "reporté" : "modifié"}`
+      );
       
       return {
         actionTaken: "rdv_updated",
@@ -1629,6 +1731,9 @@ async function executeAction(
 
       const mappedStatus = statusMap[status] || status;
 
+      // Get previous data for undo
+      const previousRdvData = await getPreviousData(supabase, "rdv", rdv.id, userId);
+
       // Update RDV status
       const { error: updateError } = await supabase
         .from("rdv")
@@ -1639,6 +1744,21 @@ async function executeAction(
         console.error("Error updating RDV:", updateError);
         return { actionTaken: "error" };
       }
+
+      // Log the action
+      const clientInfo = rdv.clients as { nom: string; prenom?: string };
+      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "update_vente_status",
+        "rdv",
+        rdv.id,
+        { status: mappedStatus },
+        previousRdvData,
+        `Statut RDV ${clientFullName} → ${mappedStatus}`
+      );
 
       return { 
         actionTaken: "status_updated", 
@@ -1882,6 +2002,19 @@ async function executeAction(
         console.error("Error creating frais:", fraisError);
         return { actionTaken: "error" };
       }
+
+      // Log the action
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "create_frais",
+        "frais",
+        frais?.id,
+        { montant, categorie, date_frais: dateStr, fournisseur },
+        null, // No previous data for creation
+        `Note de frais ${fournisseur || "importée"}: ${montant}€ (${categorie})`
+      );
 
       return {
         actionTaken: "frais_imported",
