@@ -1134,11 +1134,18 @@ INTENTIONS POSSIBLES:
 
 ## Actions de modification:
 - create_rdv: Créer un nouveau rendez-vous (mots-clés: "rdv", "rendez-vous", "demain", "lundi", heure, adresse)
-- update_rdv: Modifier un RDV existant (mots-clés: "décale", "reporte", "annule le rdv")
+- update_rdv: Modifier UN SEUL RDV existant (mots-clés: "décale", "reporte", "annule le rdv DE [client]")
 - mark_signe: Marquer une vente comme SIGNÉE - workflow complet (mots-clés: "signé", "vente signée", "j'ai signé", "on a signé", "c'est signé", "j'ai vendu"). IMPORTANT: utilise TOUJOURS mark_signe pour les signatures de vente, pas update_vente_status.
 - update_vente_status: Mettre à jour le statut d'un RDV (mots-clés: "négatif", "absent", "r2", "a rappeler", "reporté") - NE PAS utiliser pour "positif/signé"
 - import_document: Importer un document client (CNI, RIB, facture énergie, avis d'imposition) - quand une image/PDF de document client est envoyé
 - import_facture: Importer une note de frais/ticket (restaurant, carburant, péage) - quand une photo de ticket/reçu est envoyé
+
+⚠️ RÈGLE CRITIQUE DE SÉCURITÉ - SUPPRESSION/ANNULATION EN MASSE:
+- Tu ne DOIS JAMAIS supprimer/annuler plusieurs RDV à la fois sans nom de client spécifique
+- Si l'utilisateur demande "annule mes rdv de la semaine" → REFUSE et demande un nom de client OU propose de lister les RDV à annuler un par un
+- Les opérations en masse (annuler tous les rdv, supprimer le planning, etc.) sont INTERDITES
+- Même avec confirmation, tu ne peux pas annuler plus de 1 RDV à la fois
+- Si l'utilisateur insiste, réponds: "❌ Pour des raisons de sécurité, je ne peux pas annuler plusieurs RDV d'un coup. Donne-moi le nom du client pour annuler son RDV."
 
 ## Requêtes d'information:
 - query_commissions: Demander des infos sur ses commissions (mots-clés: "commissions", "mes coms", "combien je gagne", "facturation", "à facturer", "en cours")
