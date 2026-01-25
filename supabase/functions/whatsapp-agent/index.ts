@@ -1500,6 +1500,99 @@ async function analyzeIntent(
 
 Ton rôle est d'analyser les messages des commerciaux et d'identifier leurs intentions pour effectuer des actions automatiques OU répondre à leurs questions.
 
+📚 DOCUMENTATION COMPLÈTE DE L'APPLICATION:
+
+== TABLES PRINCIPALES ==
+• clients: id, user_id, nom, prenom, email, telephone, telephone_secondaire, adresse, code_postal, ville, notes, source, latitude, longitude, regie_id, is_retape, retape_original_id, metadata
+• rdv: id, user_id, client_id, date_heure, duree_minutes, adresse, status (rdv_status), type_projet (project_type), type_rdv (rdv_type), is_r2, r2_type, etude_id, regie_id, google_event_id, commentaire, distance_km, travel_time_minutes, latitude, longitude, source
+• ventes: id, user_id, client_id, etude_id, numero_contrat, date_signature, date_installation_prevue, date_installation_reelle, date_pose, date_paiement, montant_ht, montant_ttc, montant_acompte, montant_solde, puissance_kwc, nombre_panneaux, type_installation, status (vente_status), type_vente (vente_type), notes, decom_montant, decom_raison, regie_id, is_retape
+• etudes: id, user_id, client_id, rdv_id, puissance_kwc, nombre_panneaux, prix_installation, prix_total, orientation, inclinaison, type_toiture, surface_toiture, amperage_disjoncteur, type_compteur_electrique, consommation_annuelle_kwh, facture_annuelle_euros, production_annuelle_kwh, autoconsommation_pct, autoconsommation_kwh, gain_autoconso_euros, revente_kwh, revente_euros, prime_autoconsommation, total_aides, mode_financement, taux_financement, duree_financement_mois, mensualite_estimee, verdict (etude_verdict), classification
+• frais: id, user_id, date_frais, montant, categorie (frais_categorie), description, justificatif_url, document_id, ocr_data, date_debut, date_fin
+• documents: id, user_id, client_id, etude_id, nom, url, type_document (document_type), mime_type, taille_bytes, extracted_text, page_count, thumbnails_urls, context_source, metadata
+• commissions: id, user_id, vente_id, montant_base, taux_commission, bonus_survente, montant_commission, date_calcul, date_paiement, paye
+• regies: id, user_id, nom, couleur, actif, is_hejja, mode_calcul_commission, part_survente_pct, logo_url
+• confirmateurs: id, user_id, nom, telephone, role (confirmateur_role), regie_id, ordre_priorite, actif
+• objectifs: id, user_id, annee, mois, objectif_rdv, objectif_ventes, objectif_ca, realise_rdv, realise_ventes, realise_ca
+• notifications: id, user_id, type (notification_type), titre, message, date_envoi, lue, date_lecture, client_id, rdv_id, vente_id
+• profiles: id, user_id, first_name, last_name, phone, avatar_url, zone_geographique, biometric_enabled, pin_code, onboarding_completed
+
+== TABLES DE CONFIGURATION ==
+• data_prix_bouquets: puissance_kwc, nom_bouquet, prix_recommande, prix_max, prix_hejja, commission_fixe, commission_pct
+• data_aides: code, nom, description, type_calcul, valeur, puissance_min, puissance_max, conditions
+• data_tarifs_revente: type_revente, prix_kwh, puissance_min, puissance_max, date_effet
+• data_psh: department_code, department_name, psh_value, max_psh_value
+• data_commissions: tranche_min, tranche_max, taux_commission, bonus_survente
+• data_calibres: calibre_amperes, puissance_kva, intensite_max_a, usage_typique
+• data_compteurs: type_compteur, montant, description
+• data_surcouts: code, nom, prix, description
+• regies_bouquets: par régie, puissance/prix personnalisés
+• regies_financements: financements par régie
+• regies_surcouts: surcouts par régie
+
+== ENUMS IMPORTANTS ==
+• rdv_status: nouveau, reporte, r2, r2_prestudy, signe, negatif, annule
+• vente_status: en_negociation, signe, cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
+• vente_type: standard, external_installation
+• rdv_type: standard, external_installation
+• project_type: photovoltaique, pompe_chaleur, isolation, ballon_thermo, autre
+• document_type: cni, cni_monsieur_recto, cni_monsieur_verso, cni_madame_recto, cni_madame_verso, justificatif_domicile, facture_energie, bon_commande, devis, contrat, plan, assurance, autre, facture_frais, photo_chantier, photo_tableau, photo_compteur, photo_toiture, rib, avis_impots, taxe_fonciere, acte_notarie, fiche_paie_monsieur, fiche_paie_madame, attestation_retraite, attestation_invalidite, bilans
+• frais_categorie: carburant, peage, repas, hotel, parking, train, location_vehicule, autre
+• etude_verdict: valide, a_etudier, invalide
+• notification_type: rappel_rdv, relance_client, commission_paye, objectif_atteint, nouveau_rdv, vente_signee, installation_prevue, autre
+
+== EDGE FUNCTIONS DISPONIBLES ==
+• whatsapp-agent: Agent IA WhatsApp (toi-même)
+• whatsapp-send: Envoi de messages WhatsApp via Twilio
+• whatsapp-webhook: Réception des messages WhatsApp entrants
+• sync-gmail-rdv, scheduled-gmail-sync, google-gmail: Import RDV depuis emails Gmail
+• sync-google-calendar, scheduled-calendar-sync, push-to-google-calendar, google-calendar: Sync Google Calendar
+• analyze-document: Analyse IA de documents (OCR, classification)
+• geocode-address, calculate-route: Géocodage et calcul d'itinéraires
+• ocr-receipt: OCR pour tickets de caisse
+• extract-bouquets: Extraction de grilles tarifaires de régies
+• process-background-jobs: Traitement des jobs asynchrones
+• auto-transition-ventes: Transitions automatiques de statut ventes
+• check-missing-receipts: Vérification justificatifs manquants
+• send-push-notification, saas-send-onesignal: Notifications push
+
+== WORKFLOWS MÉTIER EXISTANTS ==
+1. Signature de vente (mark_signe):
+   - Collecte puissance, prix TTC, heure CQ
+   - Crée vente avec status "positif"
+   - Met RDV en status "signe"
+   - Propose envoi WhatsApp au confirmateur
+
+2. Pipeline vente (update_vente_pipeline):
+   - Flux: signe → cq_a_faire → cq_fait → attente_financement → envoi_pose → en_installation → installe → attente_paiement → paye
+   - Chaque étape peut définir date_pose ou date_paiement
+
+3. Calcul commissions:
+   - Mode "fixe": montant fixe par kWc (dans data_prix_bouquets ou regies_bouquets)
+   - Mode "survente": part_survente_pct × (prix_vente - prix_recommande) / TVA
+   - Commissions à facturer quand vente posée/installée
+
+4. Import documents:
+   - Documents client → stockage bucket "documents"
+   - Notes de frais → stockage bucket "receipts", création entrée frais
+
+5. Planning/RDV:
+   - RDV liés aux clients avec géolocalisation
+   - Calcul distances entre RDV via calculate-route
+   - Sync bidirectionnelle Google Calendar
+
+6. Régies:
+   - Chaque régie a ses bouquets, financements, surcouts
+   - Les clients héritent de la régie via le RDV
+   - Les ventes héritent de la régie du client
+
+== RELATIONS IMPORTANTES ==
+- clients ← rdv (client_id) : un client a plusieurs RDV
+- clients ← ventes (client_id) : un client a plusieurs ventes
+- rdv → ventes (rdv_id → vente.etude_id) : un RDV peut mener à une vente
+- ventes ← commissions (vente_id) : une vente a une commission
+- regies ← clients, rdv, ventes (regie_id) : entités liées à une régie
+- clients, rdv, ventes, etudes → documents (client_id, etude_id) : documents associés
+
 🧠 MÉMOIRE PERSONNELLE DE L'UTILISATEUR:
 Tu as accès à la mémoire personnalisée de cet utilisateur. Utilise ces informations pour mieux le comprendre:
 ${memoriesSection}
