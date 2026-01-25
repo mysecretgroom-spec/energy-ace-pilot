@@ -159,8 +159,8 @@ const Confidentialite = () => {
           <CardContent className="p-4 pt-0">
             <p className="text-xs text-muted-foreground">
               Pour toute question concernant vos données personnelles, contactez-nous à :{" "}
-              <a href="mailto:contact@debalepro.fr" className="text-primary hover:underline">
-                contact@debalepro.fr
+              <a href="mailto:contact@debalepro.app" className="text-primary hover:underline">
+                contact@debalepro.app
               </a>
             </p>
           </CardContent>

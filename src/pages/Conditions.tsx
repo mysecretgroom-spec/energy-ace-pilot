@@ -179,8 +179,8 @@ const Conditions = () => {
             <p className="text-xs text-muted-foreground">
               <strong className="text-foreground">Contact :</strong> Pour toute question, 
               contactez-nous à{" "}
-              <a href="mailto:contact@debalepro.fr" className="text-primary hover:underline">
-                contact@debalepro.fr
+              <a href="mailto:contact@debalepro.app" className="text-primary hover:underline">
+                contact@debalepro.app
               </a>
             </p>
           </CardContent>
