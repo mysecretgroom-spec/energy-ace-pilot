@@ -122,6 +122,14 @@ const WhatsAppAgentSettings = () => {
                 <li>• <strong>"Lefebvre absent"</strong> → Marque comme absent</li>
                 <li>• Envoyez une photo de ticket → Crée une note de frais</li>
               </ul>
+              
+              <Button 
+                className="w-full mt-3 bg-green-600 hover:bg-green-700"
+                onClick={() => window.open("https://wa.me/+14155238886", "_blank")}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Ouvrir WhatsApp
+              </Button>
             </div>
           </CardContent>
         </Card>
