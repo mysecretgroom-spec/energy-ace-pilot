@@ -1095,7 +1095,7 @@ Exemple échec:
           ],
         },
       ],
-      max_tokens: 1000,
+      max_tokens: 2000,
     }),
   });
 
@@ -1260,7 +1260,7 @@ function formatQueryResponse(
           return "❌ Aucun client trouvé avec ce nom.";
         }
         let msg = `👤 *Client(s) trouvé(s)*\n`;
-        for (const c of data.slice(0, 3)) {
+        for (const c of data.slice(0, 10)) {
           msg += `\n*${c.nom}*\n`;
           if (c.telephone) msg += `📱 ${c.telephone}\n`;
           if (c.telephone2) msg += `📞 ${c.telephone2}\n`;
@@ -1278,13 +1278,13 @@ function formatQueryResponse(
           return `📅 *${periodLabel}*: Aucun RDV prévu 🎉`;
         }
         let msg = `📅 *Planning - ${periodLabel}* (${count} RDV)\n`;
-        for (const r of rdvs.slice(0, 5)) {
+        for (const r of rdvs.slice(0, 15)) {
           msg += `\n⏰ *${r.heure}* - ${r.client}`;
           if (r.telephone) msg += ` 📱${r.telephone}`;
           if (r.adresse) msg += `\n   📍 ${r.adresse}`;
           msg += `\n   ${r.type} • ${r.statut}`;
         }
-        if (count > 5) msg += `\n\n... et ${count - 5} autre(s)`;
+        if (count > 15) msg += `\n\n... et ${count - 15} autre(s)`;
         return msg;
       }
 
@@ -1294,14 +1294,14 @@ function formatQueryResponse(
           return "📊 Aucune vente trouvée.";
         }
         let msg = `🏆 *Ventes* (${count})\n`;
-        for (const v of ventesList.slice(0, 5)) {
+        for (const v of ventesList.slice(0, 15)) {
           const status = v.installe ? "✅" : v.statut === "positif" ? "📝" : "⏳";
           msg += `\n${status} *${v.client}*`;
           if (v.puissance) msg += ` - ${v.puissance}kWc`;
           if (v.montant) msg += ` - ${v.montant.toLocaleString("fr-FR")}€`;
           msg += `\n   ${v.statut}${v.installe ? " (installé)" : ""}`;
         }
-        if (count > 5) msg += `\n\n... et ${count - 5} autre(s)`;
+        if (count > 15) msg += `\n\n... et ${count - 15} autre(s)`;
         return msg;
       }
 
@@ -1828,7 +1828,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
       messages,
-      max_tokens: 2000,
+      max_tokens: 4000,
       tools: [
         {
           type: "function",
@@ -2955,7 +2955,7 @@ async function executeAction(
         .gte("date_heure", startDate.toISOString())
         .lt("date_heure", endDate.toISOString())
         .order("date_heure", { ascending: true })
-        .limit(10);
+        .limit(50);
 
       if (error) {
         console.error("Error fetching RDV:", error);
@@ -3182,7 +3182,7 @@ async function executeAction(
         `)
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(50);
 
       if (clientName) {
         query = query.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
