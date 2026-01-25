@@ -12,6 +12,7 @@ type Intent =
   | "create_rdv" 
   | "update_rdv" 
   | "update_vente_status" 
+  | "mark_signe"           // Marquer une vente comme signée (workflow complet)
   | "import_document" 
   | "import_facture" 
   | "query_commissions"
@@ -19,8 +20,39 @@ type Intent =
   | "query_client_info"
   | "query_rdv_planning"
   | "query_ventes"
+  | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
+  | "cancel_action"        // Annuler une action en attente (non/annule)
+  | "approve_whatsapp"     // Approuver l'envoi d'un message WhatsApp
+  | "decline_whatsapp"     // Refuser l'envoi d'un message WhatsApp
   | "conversation"
   | "unknown";
+
+// Workflow states for multi-step actions
+type WorkflowState = 
+  | "awaiting_confirmation"      // En attente de confirmation utilisateur
+  | "collecting_signe_data"      // Collecte des données pour signature (puissance, prix, etc.)
+  | "awaiting_whatsapp_approval" // En attente d'approbation du message WhatsApp
+  | null;
+
+interface PendingAction {
+  intent: Intent;
+  entities: Record<string, unknown>;
+  workflowState: WorkflowState;
+  collectedData?: {
+    clientId?: string;
+    clientName?: string;
+    rdvId?: string;
+    regieId?: string;
+    puissanceKwc?: number;
+    prixTTC?: number;
+    cqTime?: string;
+    commentaire?: string;
+    surcoutsIds?: string[];
+    whatsappMessage?: string;
+    confirmateurPhone?: string;
+  };
+  createdAt: string;
+}
 
 interface AgentRequest {
   messageId: string;
@@ -177,31 +209,61 @@ serve(async (req) => {
       .single();
 
     const conversationContext = (conversation?.context || []) as Array<{ role: string; content: string }>;
-    const pendingAction = conversation?.pending_action;
+    const pendingAction = conversation?.pending_action as PendingAction | null;
 
-    // Analyze intent with AI
-    const aiResponse = await analyzeIntent(
-      processedContent,
-      request.userName,
-      conversationContext,
-      pendingAction,
-      LOVABLE_API_KEY
-    );
+    // Check if we have a pending action that needs workflow handling
+    let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
+    let aiResponse: { intent: Intent; confidence: number; entities: Record<string, unknown>; requiresConfirmation: boolean; responseMessage: string };
+    let skipAiAnalysis = false;
 
-    console.log("AI analysis result:", aiResponse);
+    // Handle pending workflow states
+    if (pendingAction?.workflowState) {
+      const handled = await handlePendingWorkflow(
+        supabase,
+        request.userId,
+        request.userName,
+        processedContent,
+        pendingAction,
+        TWILIO_ACCOUNT_SID!,
+        TWILIO_AUTH_TOKEN!
+      );
+      
+      if (handled) {
+        skipAiAnalysis = true;
+        aiResponse = {
+          intent: handled.intent || "conversation",
+          confidence: 100,
+          entities: {},
+          requiresConfirmation: false,
+          responseMessage: handled.responseMessage,
+        };
+        actionResult = handled;
+      }
+    }
 
-    // Execute action based on intent
-    let actionResult: { actionTaken?: string; entityId?: string; entityType?: string } = {};
+    // If not handling a pending workflow, analyze intent with AI
+    if (!skipAiAnalysis) {
+      aiResponse = await analyzeIntent(
+        processedContent,
+        request.userName,
+        conversationContext,
+        pendingAction,
+        LOVABLE_API_KEY
+      );
+    }
 
-    if (aiResponse.intent !== "unknown" && aiResponse.intent !== "conversation" && aiResponse.confidence >= 70) {
+    console.log("AI analysis result:", aiResponse!);
+
+    // Execute action based on intent (only if not already handled by workflow)
+    if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.confidence >= 70) {
       // For import intents, we need to upload the media first
-      if ((aiResponse.intent === "import_document" || aiResponse.intent === "import_facture") && mediaData) {
+      if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
         console.log("Uploading media to storage...");
         uploadedDocumentUrl = await uploadMediaToStorage(
           supabase,
           mediaData,
           request.userId,
-          aiResponse.intent === "import_facture" ? "frais" : "documents"
+          aiResponse!.intent === "import_facture" ? "frais" : "documents"
         );
         console.log("Uploaded to:", uploadedDocumentUrl);
       }
@@ -209,16 +271,19 @@ serve(async (req) => {
       actionResult = await executeAction(
         supabase,
         request.userId,
-        aiResponse.intent,
-        aiResponse.entities,
+        request.userName,
+        aiResponse!.intent,
+        aiResponse!.entities,
         uploadedDocumentUrl,
         mediaData,
-        documentAnalysisResult
+        documentAnalysisResult,
+        TWILIO_ACCOUNT_SID!,
+        TWILIO_AUTH_TOKEN!
       );
     }
 
-    // Format response message based on query results
-    let finalResponseMessage = aiResponse.responseMessage;
+    // Format response message based on query results or custom workflow response
+    let finalResponseMessage = actionResult.customResponse || aiResponse!.responseMessage;
     
     if (actionResult.actionTaken?.startsWith("query_") && actionResult.entityId) {
       finalResponseMessage = formatQueryResponse(
@@ -227,6 +292,16 @@ serve(async (req) => {
         request.userName
       );
     }
+
+    // Determine pending action to store
+    const newPendingAction = actionResult.newPendingAction !== undefined 
+      ? actionResult.newPendingAction 
+      : (aiResponse!.requiresConfirmation ? { 
+          intent: aiResponse!.intent, 
+          entities: aiResponse!.entities, 
+          workflowState: "awaiting_confirmation" as WorkflowState,
+          createdAt: new Date().toISOString()
+        } : null);
 
     // Update conversation context (keep last 5 messages)
     const newContext = [
@@ -249,14 +324,14 @@ serve(async (req) => {
         user_id: request.userId,
         phone_number: request.fromNumber,
         context: newContext,
-        pending_action: aiResponse.requiresConfirmation ? aiResponse : null,
+        pending_action: newPendingAction,
         last_message_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
 
     const response: AgentResponse = {
-      intent: aiResponse.intent,
-      confidence: aiResponse.confidence,
-      entities: aiResponse.entities,
+      intent: aiResponse!.intent,
+      confidence: aiResponse!.confidence,
+      entities: aiResponse!.entities,
       actionTaken: actionResult.actionTaken,
       entityId: actionResult.entityId,
       entityType: actionResult.entityType,
@@ -681,6 +756,361 @@ function formatQueryResponse(
   }
 }
 
+// Handle pending workflow states (multi-step actions)
+// deno-lint-ignore no-explicit-any
+async function handlePendingWorkflow(
+  supabase: any,
+  userId: string,
+  userName: string,
+  userMessage: string,
+  pendingAction: PendingAction,
+  twilioAccountSid: string,
+  twilioAuthToken: string
+): Promise<{ intent?: Intent; actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; responseMessage: string; customResponse?: string } | null> {
+  const messageLower = userMessage.toLowerCase().trim();
+  
+  // Check for cancellation
+  const cancelPatterns = ["non", "annule", "annuler", "stop", "arrête", "arreter", "laisse tomber", "oublie"];
+  if (cancelPatterns.some(p => messageLower.includes(p))) {
+    return {
+      intent: "cancel_action",
+      actionTaken: "cancelled",
+      newPendingAction: null,
+      responseMessage: "❌ Action annulée. Comment puis-je t'aider ?",
+    };
+  }
+  
+  switch (pendingAction.workflowState) {
+    case "collecting_signe_data": {
+      // Parse the user's response for signing data
+      const collectedData = pendingAction.collectedData || {};
+      
+      // Try to extract numbers from message
+      const numbers = userMessage.match(/(\d+(?:[.,]\d+)?)/g);
+      
+      if (!collectedData.puissanceKwc && numbers && numbers.length >= 1) {
+        // First ask for power
+        const puissance = parseFloat(numbers[0].replace(",", "."));
+        if (puissance > 0 && puissance <= 100) {
+          collectedData.puissanceKwc = puissance;
+        }
+      }
+      
+      if (collectedData.puissanceKwc && !collectedData.prixTTC && numbers && numbers.length >= 1) {
+        // Then price - look for larger numbers
+        for (const num of numbers) {
+          const prix = parseFloat(num.replace(",", "."));
+          if (prix > 1000) {
+            collectedData.prixTTC = prix;
+            break;
+          }
+        }
+      }
+      
+      // Check for time pattern (HH:MM)
+      const timeMatch = userMessage.match(/(\d{1,2})[h:](\d{2})?/i);
+      if (timeMatch) {
+        const hours = timeMatch[1].padStart(2, "0");
+        const mins = timeMatch[2] || "00";
+        collectedData.cqTime = `${hours}:${mins}`;
+      }
+      
+      // Check for "ok" / "oui" / "confirme" to validate
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "c'est bon", "parfait", "envoie"];
+      const isConfirming = confirmPatterns.some(p => messageLower.includes(p));
+      
+      if (isConfirming && collectedData.puissanceKwc && collectedData.prixTTC) {
+        // We have enough data - proceed to create the vente
+        const venteResult = await createSignedVente(
+          supabase,
+          userId,
+          collectedData
+        );
+        
+        if (venteResult.success) {
+          // Now generate WhatsApp message for confirmateur approval
+          const whatsappMsg = generateConfirmateurMessage(
+            collectedData.clientName || "Client",
+            collectedData.puissanceKwc!,
+            collectedData.prixTTC!,
+            collectedData.cqTime || "10:00",
+            collectedData.commentaire
+          );
+          
+          // Get confirmateur phone
+          const confirmateurPhone = await getConfirmateurPhone(supabase, userId, collectedData.regieId);
+          
+          if (confirmateurPhone) {
+            return {
+              intent: "mark_signe",
+              actionTaken: "awaiting_whatsapp_approval",
+              entityId: venteResult.venteId,
+              entityType: "vente",
+              newPendingAction: {
+                intent: "approve_whatsapp",
+                entities: {},
+                workflowState: "awaiting_whatsapp_approval",
+                collectedData: {
+                  ...collectedData,
+                  whatsappMessage: whatsappMsg,
+                  confirmateurPhone,
+                },
+                createdAt: new Date().toISOString(),
+              },
+              responseMessage: `✅ *Vente créée !*\n\n📱 Voici le message qui sera envoyé au confirmateur:\n\n---\n${whatsappMsg}\n---\n\n*Confirmes-tu l'envoi ?* (Oui/Non)`,
+            };
+          } else {
+            return {
+              intent: "mark_signe",
+              actionTaken: "vente_created_no_confirmateur",
+              entityId: venteResult.venteId,
+              entityType: "vente",
+              newPendingAction: null,
+              responseMessage: `✅ *Vente créée !* ${collectedData.clientName} - ${collectedData.puissanceKwc}kWc - ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n\n⚠️ Aucun confirmateur configuré pour envoyer le message WhatsApp.`,
+            };
+          }
+        } else {
+          return {
+            intent: "mark_signe",
+            actionTaken: "error",
+            newPendingAction: null,
+            responseMessage: `❌ Erreur lors de la création de la vente: ${venteResult.error}`,
+          };
+        }
+      }
+      
+      // Need more data
+      let nextQuestion = "";
+      if (!collectedData.puissanceKwc) {
+        nextQuestion = "📊 Quelle est la *puissance* installée (en kWc) ?";
+      } else if (!collectedData.prixTTC) {
+        nextQuestion = "💰 Quel est le *prix TTC* de la vente ?";
+      } else if (!collectedData.cqTime) {
+        collectedData.cqTime = "10:00"; // Default
+        nextQuestion = `⏰ Heure du CQ demain ? (par défaut 10h)\n\nRécap:\n• Puissance: ${collectedData.puissanceKwc}kWc\n• Prix: ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n• CQ: ${collectedData.cqTime}\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      return {
+        intent: "mark_signe",
+        actionTaken: "collecting_data",
+        newPendingAction: {
+          ...pendingAction,
+          collectedData,
+        },
+        responseMessage: nextQuestion || `Récap:\n• Puissance: ${collectedData.puissanceKwc}kWc\n• Prix: ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n• CQ: ${collectedData.cqTime || "10:00"}\n\n*Confirmes-tu ?* (Oui/Non)`,
+      };
+    }
+    
+    case "awaiting_whatsapp_approval": {
+      const confirmPatterns = ["oui", "ok", "confirme", "envoie", "envoi", "go", "valide"];
+      const isApproved = confirmPatterns.some(p => messageLower.includes(p));
+      
+      if (isApproved && pendingAction.collectedData?.whatsappMessage && pendingAction.collectedData?.confirmateurPhone) {
+        // Send WhatsApp message to confirmateur
+        const twilioNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+        if (twilioNumber) {
+          try {
+            await sendTwilioWhatsApp(
+              twilioAccountSid,
+              twilioAuthToken,
+              twilioNumber,
+              pendingAction.collectedData.confirmateurPhone,
+              pendingAction.collectedData.whatsappMessage
+            );
+            
+            return {
+              intent: "approve_whatsapp",
+              actionTaken: "whatsapp_sent",
+              newPendingAction: null,
+              responseMessage: `✅ Message envoyé au confirmateur ! 📲`,
+            };
+          } catch (err) {
+            console.error("Error sending WhatsApp:", err);
+            return {
+              intent: "approve_whatsapp",
+              actionTaken: "whatsapp_error",
+              newPendingAction: null,
+              responseMessage: `⚠️ Erreur lors de l'envoi: ${err instanceof Error ? err.message : "erreur inconnue"}`,
+            };
+          }
+        }
+      }
+      
+      return {
+        intent: "decline_whatsapp",
+        actionTaken: "whatsapp_declined",
+        newPendingAction: null,
+        responseMessage: "❌ Envoi annulé. La vente est enregistrée mais le confirmateur n'a pas été notifié.",
+      };
+    }
+    
+    case "awaiting_confirmation": {
+      // Generic confirmation for other actions
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go"];
+      if (confirmPatterns.some(p => messageLower.includes(p))) {
+        // Execute the pending action
+        return null; // Let the main flow handle it
+      }
+      return {
+        intent: "cancel_action",
+        actionTaken: "cancelled",
+        newPendingAction: null,
+        responseMessage: "❌ Action annulée.",
+      };
+    }
+    
+    default:
+      return null;
+  }
+}
+
+// Create a signed vente from collected data
+// deno-lint-ignore no-explicit-any
+async function createSignedVente(
+  supabase: any,
+  userId: string,
+  data: PendingAction["collectedData"]
+): Promise<{ success: boolean; venteId?: string; error?: string }> {
+  if (!data?.clientId || !data.rdvId) {
+    return { success: false, error: "Données client/RDV manquantes" };
+  }
+  
+  const puissance = data.puissanceKwc || 3;
+  const prixTTC = data.prixTTC || 0;
+  const tauxTVA = puissance <= 3 ? 1.10 : 1.20;
+  const prixHT = prixTTC / tauxTVA;
+  
+  // Create or update vente
+  const { data: vente, error } = await supabase
+    .from("ventes")
+    .insert({
+      user_id: userId,
+      client_id: data.clientId,
+      rdv_id: data.rdvId,
+      regie_id: data.regieId,
+      puissance_kwc: puissance,
+      montant_total_ttc: prixTTC,
+      montant_ht: prixHT,
+      statut: "positif",
+      date_signature: new Date().toISOString().split("T")[0],
+      source: "whatsapp",
+    })
+    .select("id")
+    .single();
+  
+  if (error) {
+    console.error("Error creating vente:", error);
+    return { success: false, error: error.message };
+  }
+  
+  // Update RDV status
+  await supabase
+    .from("rdv")
+    .update({ status: "positif" })
+    .eq("id", data.rdvId);
+  
+  return { success: true, venteId: vente?.id };
+}
+
+// Generate confirmateur WhatsApp message
+function generateConfirmateurMessage(
+  clientName: string,
+  puissanceKwc: number,
+  prixTTC: number,
+  cqTime: string,
+  commentaire?: string
+): string {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const formatDate = (d: Date) => d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  
+  let msg = `*🎉 NOUVELLE VENTE SIGNÉE*\n\n`;
+  msg += `👤 Client: *${clientName}*\n`;
+  msg += `📅 Date: ${formatDate(now)}\n`;
+  msg += `⚡ Puissance: *${puissanceKwc} kWc*\n`;
+  msg += `💰 Prix: *${prixTTC.toLocaleString("fr-FR")}€ TTC*\n\n`;
+  msg += `*📞 CQ prévu:*\n`;
+  msg += `${formatDate(tomorrow)} à ${cqTime}\n`;
+  
+  if (commentaire) {
+    msg += `\n💬 Note: ${commentaire}\n`;
+  }
+  
+  msg += `\n---\n_Envoyé depuis DébalePro_`;
+  
+  return msg;
+}
+
+// Get confirmateur phone number
+// deno-lint-ignore no-explicit-any
+async function getConfirmateurPhone(
+  supabase: any,
+  userId: string,
+  regieId?: string | null
+): Promise<string | null> {
+  // First try régie contact
+  if (regieId) {
+    const { data: regieContact } = await supabase
+      .from("regies_contacts")
+      .select("telephone")
+      .eq("regie_id", regieId)
+      .eq("is_principal", true)
+      .eq("actif", true)
+      .maybeSingle();
+    
+    if (regieContact?.telephone) {
+      return `whatsapp:${regieContact.telephone.replace(/[^+\d]/g, "")}`;
+    }
+  }
+  
+  // Fallback to global settings
+  const { data: settings } = await supabase
+    .from("settings_notifications")
+    .select("confirmateur_phone")
+    .eq("user_id", userId)
+    .maybeSingle();
+  
+  if (settings?.confirmateur_phone) {
+    return `whatsapp:${settings.confirmateur_phone.replace(/[^+\d]/g, "")}`;
+  }
+  
+  return null;
+}
+
+// Send WhatsApp message via Twilio
+async function sendTwilioWhatsApp(
+  accountSid: string,
+  authToken: string,
+  fromNumber: string,
+  toNumber: string,
+  message: string
+): Promise<void> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      From: fromNumber,
+      To: toNumber,
+      Body: message,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Twilio send error:", errorText);
+    throw new Error(`Failed to send WhatsApp: ${response.status}`);
+  }
+  
+  console.log(`WhatsApp sent to ${toNumber}`);
+}
+
 // Analyze intent with AI
 async function analyzeIntent(
   content: string,
@@ -705,7 +1135,8 @@ INTENTIONS POSSIBLES:
 ## Actions de modification:
 - create_rdv: Créer un nouveau rendez-vous (mots-clés: "rdv", "rendez-vous", "demain", "lundi", heure, adresse)
 - update_rdv: Modifier un RDV existant (mots-clés: "décale", "reporte", "annule le rdv")
-- update_vente_status: Mettre à jour le statut d'une vente/RDV (mots-clés: "positif", "négatif", "signé", "absent", "r2", "a rappeler")
+- mark_signe: Marquer une vente comme SIGNÉE - workflow complet (mots-clés: "signé", "vente signée", "j'ai signé", "on a signé", "c'est signé", "j'ai vendu"). IMPORTANT: utilise TOUJOURS mark_signe pour les signatures de vente, pas update_vente_status.
+- update_vente_status: Mettre à jour le statut d'un RDV (mots-clés: "négatif", "absent", "r2", "a rappeler", "reporté") - NE PAS utiliser pour "positif/signé"
 - import_document: Importer un document client (CNI, RIB, facture énergie, avis d'imposition) - quand une image/PDF de document client est envoyé
 - import_facture: Importer une note de frais/ticket (restaurant, carburant, péage) - quand une photo de ticket/reçu est envoyé
 
@@ -799,7 +1230,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "update_vente_status", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -856,12 +1287,15 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
 async function executeAction(
   supabase: any,
   userId: string,
+  userName: string,
   intent: Intent,
   entities: Record<string, unknown>,
   uploadedDocumentUrl: string | null,
   mediaData: MediaDownloadResult | null,
-  analysisResult: DocumentAnalysisResult | null
-): Promise<{ actionTaken?: string; entityId?: string; entityType?: string }> {
+  analysisResult: DocumentAnalysisResult | null,
+  twilioAccountSid: string,
+  twilioAuthToken: string
+): Promise<{ actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string }> {
   console.log(`Executing action: ${intent}`, entities);
 
   switch (intent) {
@@ -971,6 +1405,79 @@ async function executeAction(
         actionTaken: "status_updated", 
         entityId: rdv.id, 
         entityType: "rdv" 
+      };
+    }
+
+    case "mark_signe": {
+      // Start the signing workflow - collect required data
+      const clientName = entities.client_name as string;
+      
+      // Find the most recent RDV for this client (or today's RDV if no name)
+      let rdvQuery = supabase
+        .from("rdv")
+        .select(`
+          id,
+          client_id,
+          regie_id,
+          clients!inner(id, nom, prenom)
+        `)
+        .eq("user_id", userId)
+        .order("date_heure", { ascending: false })
+        .limit(1);
+      
+      if (clientName) {
+        rdvQuery = rdvQuery.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
+      }
+      
+      const { data: rdvs, error: rdvError } = await rdvQuery;
+      
+      if (rdvError || !rdvs || rdvs.length === 0) {
+        return { 
+          actionTaken: "rdv_not_found",
+          customResponse: "❌ Aucun RDV trouvé. Indique-moi le nom du client pour la vente.",
+        };
+      }
+      
+      const rdv = rdvs[0];
+      // deno-lint-ignore no-explicit-any
+      const client = rdv.clients as any;
+      const clientFullName = client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client";
+      
+      // Check if price was mentioned in the message
+      const amount = entities.amount as number;
+      const puissance = entities.puissance_kwc as number;
+      
+      // Start the multi-step workflow
+      const pendingAction: PendingAction = {
+        intent: "mark_signe",
+        entities,
+        workflowState: "collecting_signe_data",
+        collectedData: {
+          clientId: client?.id || rdv.client_id,
+          clientName: clientFullName,
+          rdvId: rdv.id,
+          regieId: rdv.regie_id,
+          puissanceKwc: puissance || undefined,
+          prixTTC: amount || undefined,
+        },
+        createdAt: new Date().toISOString(),
+      };
+      
+      let responseMsg = `✍️ *Nouvelle vente pour ${clientFullName}* 🎉\n\n`;
+      
+      if (!puissance) {
+        responseMsg += "📊 Quelle est la *puissance* installée (en kWc) ?";
+      } else if (!amount) {
+        responseMsg += "💰 Quel est le *prix TTC* de la vente ?";
+      } else {
+        responseMsg += `Récap:\n• Puissance: ${puissance}kWc\n• Prix: ${amount.toLocaleString("fr-FR")}€\n• CQ: 10h\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      return {
+        actionTaken: "collecting_signe_data",
+        entityType: "workflow",
+        newPendingAction: pendingAction,
+        customResponse: responseMsg,
       };
     }
 
