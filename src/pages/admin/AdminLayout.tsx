@@ -27,6 +27,7 @@ const navItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/admin/clients", label: "Clients", icon: Users },
+  { path: "/admin/plans", label: "Offres", icon: CreditCard },
   { path: "/admin/subscriptions", label: "Abonnements", icon: CreditCard },
   { path: "/admin/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/support", label: "Support", icon: MessageSquare },

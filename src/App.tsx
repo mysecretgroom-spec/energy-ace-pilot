@@ -52,6 +52,7 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminSupport from "./pages/admin/AdminSupport";
 import AdminFeatures from "./pages/admin/AdminFeatures";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
+import AdminPlans from "./pages/admin/AdminPlans";
 import React, { useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 
@@ -125,6 +126,7 @@ const App = () => {
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/analytics" element={<AdminAnalytics />} />
                   <Route path="/admin/clients" element={<AdminClients />} />
+                  <Route path="/admin/plans" element={<AdminPlans />} />
                   <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                   <Route path="/admin/notifications" element={<AdminNotifications />} />
                   <Route path="/admin/support" element={<AdminSupport />} />
