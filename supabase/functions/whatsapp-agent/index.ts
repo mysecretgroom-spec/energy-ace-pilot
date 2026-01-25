@@ -1503,6 +1503,23 @@ async function analyzeIntent(
 MÉMOIRE UTILISATEUR:
 ${memoriesSection}
 
+⚠️ CLASSIFICATION PRIORITAIRE - AVANT TOUTE CHOSE, DÉTERMINE:
+Est-ce une ACTION (créer/modifier des données) ou une REMARQUE/CORRECTION (feedback sur mon comportement)?
+
+SIGNAUX DE REMARQUE/CORRECTION (→ user_feedback):
+- Commence par "non", "pas ça", "c'est pas ce que", "je voulais dire"
+- Contient "tu dois", "il faut que tu", "rappelle-toi", "n'oublie pas"
+- Contient "toujours", "jamais", "désormais", "à partir de maintenant"
+- Contient "quand je dis X c'est Y", "X veut dire Y", "X = Y"
+- Critique/corrige une réponse précédente: "non c'était pas bon", "tu as oublié de"
+- Donne une instruction sur le format: "donne-moi aussi", "inclus toujours", "mets le jour"
+
+SIGNAUX D'ACTION (→ autres intents):
+- Mentionne un NOM DE CLIENT spécifique + une action concrète
+- Demande explicite: "crée", "ajoute", "modifie", "supprime", "annule"
+- Question sur des données: "planning", "combien", "mes ventes", "stats"
+- Confirmation/annulation après une question de l'agent: "oui", "non", "confirme"
+
 INTENTIONS DISPONIBLES:
 - create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
 - update_rdv: Modifier/annuler RDV (ex: "annule rdv Martin")
@@ -1517,8 +1534,8 @@ INTENTIONS DISPONIBLES:
 - query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "ventes en cours"
-- user_feedback: Corrections/préférences ("non je voulais...", "toujours inclure X", "rappelle-toi que...", "quand je dis X c'est Y")
-- conversation: salutations
+- user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
+- conversation: salutations simples
 - unknown: non compris
 
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
@@ -1530,16 +1547,18 @@ RÈGLES CRITIQUES:
 3. Pour "payé" → update_vente_pipeline avec paye
 4. Pour "absent/négatif" → update_vente_status
 5. Actions en masse: LISTER d'abord, demander confirmation explicite
+6. Si le message CRITIQUE ou CORRIGE mon comportement → TOUJOURS user_feedback
 
-COMPRÉHENSION CONTEXTUELLE:
-- "Dupont posé" → update_vente_pipeline (installe)
-- "Martin payé" → update_vente_pipeline (paye)
-- "Bernard CQ fait" → update_vente_pipeline (cq_fait)
-- "Lambert annulé" → update_vente_pipeline (annule)
-- "Petit négatif" → update_vente_status (negatif)
+EXEMPLES DE CLASSIFICATION:
+- "Dupont posé" → update_vente_pipeline (ACTION: client + statut)
+- "quand tu donnes le planning mets toujours le jour" → user_feedback (REMARQUE: instruction format)
+- "non c'est pas ça, je voulais dire Martin pas Dupont" → user_feedback (CORRECTION)
+- "rappelle-toi que X veut dire Y" → user_feedback (RÈGLE)
+- "mes rdv demain" → query_rdv_planning (ACTION: demande données)
+- "tu as oublié de donner l'heure" → user_feedback (CRITIQUE comportement)
 
 Format réponse JSON:
-{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number},"requiresConfirmation":true/false,"responseMessage":"..."}
+{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
 Contexte: ${userName} | Date: ${today}
