@@ -15,11 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, TrendingUp, Coins, Clock, Wrench } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, TrendingUp, Coins, Clock, Wrench, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 
 interface Bouquet {
@@ -53,6 +59,7 @@ interface SigneDialogProps {
     bouquetId?: string;
     cqTime?: string;
     surcoutsIds?: string[];
+    commentaire?: string;
   }) => Promise<void>;
   updating: boolean;
 }
@@ -73,6 +80,8 @@ export function SigneDialog({
   const [prixTTC, setPrixTTC] = useState("");
   const [prixHT, setPrixHT] = useState("");
   const [cqTime, setCqTime] = useState("10:00");
+  const [commentaire, setCommentaire] = useState("");
+  const [surcoutsOpen, setSurcoutsOpen] = useState(false);
   const [loadingBouquets, setLoadingBouquets] = useState(false);
   const [loadingEtude, setLoadingEtude] = useState(false);
 
@@ -184,7 +193,9 @@ export function SigneDialog({
       setPrixTTC("");
       setPrixHT("");
       setCqTime("10:00");
+      setCommentaire("");
       setSelectedSurcoutsIds([]);
+      setSurcoutsOpen(false);
     }
   }, [open]);
 
@@ -314,6 +325,7 @@ export function SigneDialog({
       bouquetId: selectedBouquetId || undefined,
       cqTime,
       surcoutsIds: selectedSurcoutsIds.length > 0 ? selectedSurcoutsIds : undefined,
+      commentaire: commentaire.trim() || undefined,
     });
   };
 
@@ -440,49 +452,84 @@ export function SigneDialog({
             </p>
           </div>
 
-          {/* Surcoûts selection */}
+          {/* Commentaire optionnel */}
+          <div className="space-y-2">
+            <Label htmlFor="signe-commentaire" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              Commentaire (optionnel)
+            </Label>
+            <Textarea
+              id="signe-commentaire"
+              placeholder="Ajouter une note sur cette vente..."
+              value={commentaire}
+              onChange={(e) => setCommentaire(e.target.value)}
+              className="min-h-[60px] resize-none"
+            />
+          </div>
+
+          {/* Surcoûts selection - Collapsible */}
           {surcouts.length > 0 && (
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <Wrench className="h-4 w-4 text-primary" />
-                Surcoûts du projet
-              </Label>
-              <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-                {surcouts.map((surcout) => {
-                  const puissanceNum = parseFloat(puissance) || 0;
-                  const calculatedPrice = surcout.type_calcul === "par_panneau" 
-                    ? surcout.prix * puissanceNum * 2 
-                    : surcout.prix;
-                  
-                  return (
-                    <div key={surcout.id} className="flex items-center space-x-3">
-                      <Checkbox
-                        id={`surcout-${surcout.id}`}
-                        checked={selectedSurcoutsIds.includes(surcout.id)}
-                        onCheckedChange={() => toggleSurcout(surcout.id)}
-                      />
-                      <label
-                        htmlFor={`surcout-${surcout.id}`}
-                        className="flex-1 text-sm cursor-pointer flex justify-between items-center"
-                      >
-                        <span>{surcout.nom}</span>
-                        <span className="text-muted-foreground font-medium">
-                          +{formatCurrency(calculatedPrice)} €
-                        </span>
-                      </label>
-                    </div>
-                  );
-                })}
-              </div>
-              {selectedSurcoutsIds.length > 0 && (
-                <div className="flex justify-between text-sm font-medium p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                  <span>Total surcoûts</span>
-                  <span className="text-orange-600 dark:text-orange-400">
-                    +{formatCurrency(totalSurcouts)} €
+            <Collapsible open={surcoutsOpen} onOpenChange={setSurcoutsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  type="button"
+                >
+                  <span className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-primary" />
+                    Surcoûts du projet
+                    {selectedSurcoutsIds.length > 0 && (
+                      <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                        {selectedSurcoutsIds.length}
+                      </span>
+                    )}
                   </span>
+                  {surcoutsOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3 space-y-3">
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+                  {surcouts.map((surcout) => {
+                    const puissanceNum = parseFloat(puissance) || 0;
+                    const calculatedPrice = surcout.type_calcul === "par_panneau" 
+                      ? surcout.prix * puissanceNum * 2 
+                      : surcout.prix;
+                    
+                    return (
+                      <div key={surcout.id} className="flex items-center space-x-3">
+                        <Checkbox
+                          id={`surcout-${surcout.id}`}
+                          checked={selectedSurcoutsIds.includes(surcout.id)}
+                          onCheckedChange={() => toggleSurcout(surcout.id)}
+                        />
+                        <label
+                          htmlFor={`surcout-${surcout.id}`}
+                          className="flex-1 text-sm cursor-pointer flex justify-between items-center"
+                        >
+                          <span>{surcout.nom}</span>
+                          <span className="text-muted-foreground font-medium">
+                            +{formatCurrency(calculatedPrice)} €
+                          </span>
+                        </label>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+                {selectedSurcoutsIds.length > 0 && (
+                  <div className="flex justify-between text-sm font-medium p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                    <span>Total surcoûts</span>
+                    <span className="text-orange-600 dark:text-orange-400">
+                      +{formatCurrency(totalSurcouts)} €
+                    </span>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Commission preview */}
