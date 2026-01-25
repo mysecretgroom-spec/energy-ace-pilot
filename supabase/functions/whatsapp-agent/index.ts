@@ -13,6 +13,7 @@ type Intent =
   | "update_rdv" 
   | "update_vente_status" 
   | "mark_signe"           // Marquer une vente comme signée (workflow complet)
+  | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
   | "import_document" 
   | "import_facture" 
   | "query_commissions"
@@ -1254,8 +1255,24 @@ INTENTIONS POSSIBLES:
 - update_rdv: Modifier UN SEUL RDV existant (mots-clés: "décale", "reporte", "annule le rdv DE [client]")
 - mark_signe: Marquer une vente comme SIGNÉE - workflow complet (mots-clés: "signé", "vente signée", "j'ai signé", "on a signé", "c'est signé", "j'ai vendu"). IMPORTANT: utilise TOUJOURS mark_signe pour les signatures de vente, pas update_vente_status.
 - update_vente_status: Mettre à jour le statut d'un RDV (mots-clés: "négatif", "absent", "r2", "a rappeler", "reporté") - NE PAS utiliser pour "positif/signé"
+- update_vente_pipeline: Mettre à jour le statut PIPELINE d'une vente existante (installation, pose, paiement, etc.)
 - import_document: Importer un document client (CNI, RIB, facture énergie, avis d'imposition) - quand une image/PDF de document client est envoyé
 - import_facture: Importer une note de frais/ticket (restaurant, carburant, péage) - quand une photo de ticket/reçu est envoyé
+
+⚠️ COMPRÉHENSION CONTEXTUELLE - RÈGLE IMPORTANTE:
+Quand l'utilisateur mentionne juste un NOM DE FAMILLE + un STATUT/ACTION, tu dois:
+1. IDENTIFIER le client par son nom de famille (recherche flexible, pas besoin du prénom)
+2. COMPRENDRE l'action à effectuer selon le contexte
+
+EXEMPLES DE COMPRÉHENSION NATURELLE:
+- "Dupont installation demain" → update_vente_pipeline avec status "envoi_pose" et date d'installation
+- "Martin posé" ou "Martin c'est posé" → update_vente_pipeline avec status "installe"
+- "Bernard annulé" → update_vente_pipeline avec status "annule"
+- "Lefebvre paiement reçu" ou "Lefebvre payé" → update_vente_pipeline avec status "paye"
+- "Lambert CQ fait" ou "CQ Lambert ok" → update_vente_pipeline avec status "cq_fait"
+- "Petit financement ok" → update_vente_pipeline avec status "envoi_pose"
+- "Durand négatif" → update_vente_status avec status "negatif" (sur le RDV)
+- "Michel absent" → update_vente_status avec status "absent" (sur le RDV)
 
 ⚠️ RÈGLE DE SÉCURITÉ - MODIFICATION/ANNULATION EN MASSE:
 - Tu PEUX annuler/modifier plusieurs RDV à la fois, MAIS tu dois OBLIGATOIREMENT:
@@ -1282,12 +1299,24 @@ INTENTIONS POSSIBLES:
 - conversation: Simple conversation/salutation
 - unknown: Intention non comprise
 
-STATUTS DE VENTE À RECONNAÎTRE:
+STATUTS DE RDV À RECONNAÎTRE (pour update_vente_status):
 - "positif" / "signé" / "vente" → statut: positif
-- "négatif" / "annulé" / "perdu" → statut: negatif
+- "négatif" / "annulé RDV" / "perdu" → statut: negatif
 - "r2" / "rappel" / "a rappeler" → statut: a_rappeler
 - "reporté" / "décalé" → statut: reporte
 - "absent" / "pas la" / "pas là" → statut: absent
+
+STATUTS PIPELINE VENTE À RECONNAÎTRE (pour update_vente_pipeline):
+- "CQ à faire" / "contrôle qualité" → pipeline_status: cq_a_faire
+- "CQ fait" / "CQ ok" / "CQ validé" → pipeline_status: cq_fait
+- "financement" / "attente financement" → pipeline_status: attente_financement
+- "financement ok" / "financement validé" → pipeline_status: envoi_pose
+- "installation demain" / "pose prévue" / "envoi pose" → pipeline_status: envoi_pose (+ date si mentionnée)
+- "en installation" / "pose en cours" → pipeline_status: en_installation
+- "posé" / "installé" / "c'est posé" / "installation terminée" → pipeline_status: installe
+- "attente paiement" / "facturé" → pipeline_status: attente_paiement
+- "payé" / "paiement reçu" / "encaissé" → pipeline_status: paye
+- "annulé" / "vente annulée" / "rétractation" → pipeline_status: annule
 
 TYPES DE DOCUMENTS:
 - CNI, carte d'identité → document_type: "cni"
@@ -1361,7 +1390,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_ventes", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -1372,6 +1401,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
                     time: { type: "string" },
                     address: { type: "string" },
                     status: { type: "string" },
+                    pipeline_status: { type: "string", enum: ["cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye", "annule"] },
                     amount: { type: "number" },
                     document_type: { type: "string" },
                     period: { type: "string", enum: ["today", "week", "month", "all"] },
@@ -1764,6 +1794,115 @@ async function executeAction(
         actionTaken: "status_updated", 
         entityId: rdv.id, 
         entityType: "rdv" 
+      };
+    }
+
+    case "update_vente_pipeline": {
+      // Update the pipeline status of an existing vente
+      const clientName = entities.client_name as string;
+      const pipelineStatus = entities.pipeline_status as string;
+      const installDate = entities.date as string;
+      
+      if (!clientName) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Indique-moi le nom du client pour mettre à jour la vente.",
+        };
+      }
+      
+      if (!pipelineStatus) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Je n'ai pas compris le statut. Précise : posé, payé, CQ fait, installation demain, annulé, etc.",
+        };
+      }
+      
+      // Find the vente for this client
+      const { data: ventes, error: venteError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          status,
+          montant_ttc,
+          puissance_kwc,
+          date_installation,
+          clients!inner(id, nom, prenom)
+        `)
+        .eq("user_id", userId)
+        .or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`)
+        .not("status", "eq", "annule")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (venteError || !ventes || ventes.length === 0) {
+        return {
+          actionTaken: "vente_not_found",
+          customResponse: `❌ Aucune vente trouvée pour "${clientName}". Vérifie le nom ou le statut de la vente.`,
+        };
+      }
+      
+      const vente = ventes[0];
+      // deno-lint-ignore no-explicit-any
+      const client = vente.clients as any;
+      const clientFullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+      
+      // Get previous data for undo
+      const previousVenteData = await getPreviousData(supabase, "ventes", vente.id, userId);
+      
+      // Prepare update data
+      // deno-lint-ignore no-explicit-any
+      const updateData: any = { status: pipelineStatus };
+      
+      // If "installe" status, set installation date
+      if (pipelineStatus === "installe" && !vente.date_installation) {
+        updateData.date_installation = new Date().toISOString().split("T")[0];
+      }
+      
+      // If installation date mentioned (e.g., "installation demain")
+      if (installDate && (pipelineStatus === "envoi_pose" || pipelineStatus === "en_installation")) {
+        updateData.date_installation = installDate;
+      }
+      
+      const { error: updateError } = await supabase
+        .from("ventes")
+        .update(updateData)
+        .eq("id", vente.id);
+      
+      if (updateError) {
+        console.error("Error updating vente:", updateError);
+        return { actionTaken: "error" };
+      }
+      
+      // Log the action
+      const statusLabels: Record<string, string> = {
+        cq_a_faire: "CQ à faire",
+        cq_fait: "CQ fait",
+        attente_financement: "Attente financement",
+        envoi_pose: "Envoi pose",
+        en_installation: "En installation",
+        installe: "Posé ✅",
+        attente_paiement: "Attente paiement",
+        paye: "Payé 💰",
+        annule: "Annulé ❌",
+      };
+      
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "update_vente_pipeline",
+        "ventes",
+        vente.id,
+        updateData,
+        previousVenteData,
+        `Vente ${clientFullName} → ${statusLabels[pipelineStatus] || pipelineStatus}`
+      );
+      
+      return {
+        actionTaken: "vente_pipeline_updated",
+        entityId: vente.id,
+        entityType: "vente",
+        customResponse: `✅ Vente ${clientFullName} mise à jour: ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation ? ` (${updateData.date_installation})` : ""}`,
       };
     }
 
