@@ -46,6 +46,32 @@ interface MediaDownloadResult {
   filename: string;
 }
 
+// Analysis result types matching analyze-document function
+interface FinanceAnalysisResult {
+  type: "finance";
+  success: boolean;
+  montant_ttc: number | null;
+  montant_ht: number | null;
+  tva: number | null;
+  taux_tva: number | null;
+  date: string | null;
+  fournisseur: string | null;
+  description: string | null;
+  categorie: string | null;
+  error_message?: string;
+}
+
+interface ClientDocAnalysisResult {
+  type: "client_docs";
+  success: boolean;
+  document_type: string | null;
+  confidence: number;
+  description: string | null;
+  error_message?: string;
+}
+
+type DocumentAnalysisResult = FinanceAnalysisResult | ClientDocAnalysisResult;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -70,6 +96,7 @@ serve(async (req) => {
     let processedContent = request.content;
     let mediaData: MediaDownloadResult | null = null;
     let uploadedDocumentUrl: string | null = null;
+    let documentAnalysisResult: DocumentAnalysisResult | null = null;
 
     // Download media from Twilio if present
     if (request.mediaUrl && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
@@ -90,24 +117,52 @@ serve(async (req) => {
       console.log("Transcribed content:", processedContent);
     }
 
-    // Handle image analysis with Gemini Vision
-    if (request.messageType === "image" && mediaData) {
-      console.log("Analyzing image with Gemini Vision...");
-      const imageAnalysis = await analyzeImageWithGemini(mediaData, LOVABLE_API_KEY);
-      processedContent = request.content 
-        ? `${request.content}\n\n[Analyse de l'image: ${imageAnalysis}]`
-        : `[Analyse de l'image: ${imageAnalysis}]`;
-      console.log("Image analysis:", imageAnalysis);
-    }
+    // Handle image/document analysis - detect context based on content hints
+    if ((request.messageType === "image" || request.messageType === "document") && mediaData) {
+      console.log("Analyzing media with structured extraction...");
+      
+      // Determine context: look for finance-related keywords in message
+      const messageText = (request.content || "").toLowerCase();
+      const isFinanceContext = 
+        messageText.includes("frais") ||
+        messageText.includes("ticket") ||
+        messageText.includes("note") ||
+        messageText.includes("essence") ||
+        messageText.includes("carburant") ||
+        messageText.includes("péage") ||
+        messageText.includes("repas") ||
+        messageText.includes("restaurant") ||
+        messageText.includes("parking") ||
+        messageText.includes("hotel") ||
+        (messageText.includes("facture") && !messageText.includes("energie") && !messageText.includes("edf"));
 
-    // Handle document (PDF) analysis with Gemini
-    if (request.messageType === "document" && mediaData) {
-      console.log("Analyzing document with Gemini...");
-      const documentAnalysis = await analyzeDocumentWithGemini(mediaData, LOVABLE_API_KEY);
-      processedContent = request.content 
-        ? `${request.content}\n\n[Analyse du document: ${documentAnalysis}]`
-        : `[Analyse du document: ${documentAnalysis}]`;
-      console.log("Document analysis:", documentAnalysis);
+      // First try to detect if it's a receipt/invoice or a client document
+      documentAnalysisResult = await analyzeMediaStructured(
+        mediaData,
+        isFinanceContext ? "finance" : "client_docs",
+        LOVABLE_API_KEY
+      );
+
+      console.log("Structured analysis result:", documentAnalysisResult);
+
+      // Build processed content from analysis
+      if (documentAnalysisResult && documentAnalysisResult.success) {
+        if (documentAnalysisResult.type === "finance") {
+          const fin = documentAnalysisResult as FinanceAnalysisResult;
+          processedContent = request.content 
+            ? `${request.content}\n\n[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`
+            : `[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`;
+        } else {
+          const doc = documentAnalysisResult as ClientDocAnalysisResult;
+          processedContent = request.content 
+            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}, confiance=${doc.confidence}%, ${doc.description || ""}]`
+            : `[Analyse document client: type=${doc.document_type || "?"}, confiance=${doc.confidence}%, ${doc.description || ""}]`;
+        }
+      } else if (documentAnalysisResult) {
+        processedContent = request.content 
+          ? `${request.content}\n\n[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`
+          : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
+      }
     }
 
     // Get conversation context
@@ -153,7 +208,8 @@ serve(async (req) => {
         aiResponse.intent,
         aiResponse.entities,
         uploadedDocumentUrl,
-        mediaData
+        mediaData,
+        documentAnalysisResult
       );
     }
 
@@ -316,11 +372,65 @@ Retourne uniquement la transcription, sans commentaires.`
   return result.choices?.[0]?.message?.content || "[Transcription non disponible]";
 }
 
-// Analyze image using Gemini Vision
-async function analyzeImageWithGemini(
+// Analyze media with structured output (same logic as analyze-document function)
+async function analyzeMediaStructured(
   media: MediaDownloadResult,
+  context: "finance" | "client_docs",
   apiKey: string
-): Promise<string> {
+): Promise<DocumentAnalysisResult> {
+  const imageUrl = `data:${media.contentType};base64,${media.base64}`;
+
+  let prompt: string;
+
+  if (context === "finance") {
+    prompt = `Analyse cette image de facture/ticket de caisse et extrais les informations en JSON.
+
+IMPORTANT: Si l'image est floue, illisible, ou n'est pas une facture/ticket, retourne success: false avec une explication.
+
+Champs à extraire:
+- success: true si tu as pu lire et comprendre le document, false sinon
+- montant_ttc: le montant TOTAL TTC en euros (nombre décimal)
+- montant_ht: le montant HT si visible (nombre décimal ou null)
+- tva: le montant de TVA en euros si visible (nombre ou null)
+- taux_tva: le taux de TVA en % si visible (ex: 20 pour 20%)
+- date: la date au format YYYY-MM-DD
+- fournisseur: le nom du commerce/enseigne
+- description: courte description de la dépense
+- categorie: une des catégories: "carburant", "peage", "repas", "hotel", "parking", "autre"
+- error_message: si success=false, explique pourquoi
+
+Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple succès:
+{"success": true, "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+
+Exemple échec:
+{"success": false, "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue, impossible de lire le texte"}`;
+  } else {
+    prompt = `Analyse cette image de document client et détermine son type.
+
+IMPORTANT: Si l'image est floue, illisible, ou si tu n'arrives pas à identifier le type de document, retourne success: false.
+
+Types de documents possibles:
+- Photos techniques: "photo_tableau" (tableau électrique), "photo_compteur" (compteur électrique), "photo_toiture" (toit), "photo_chantier" (chantier)
+- Identité: "cni_monsieur_recto", "cni_monsieur_verso", "cni_madame_recto", "cni_madame_verso"
+- Justificatifs domicile: "justificatif_domicile", "taxe_fonciere", "acte_notarie"
+- Financiers: "rib", "avis_impots", "fiche_paie_monsieur", "fiche_paie_madame", "attestation_retraite", "attestation_invalidite", "bilans"
+- Projet: "facture_energie", "bon_commande", "devis", "contrat", "plan", "assurance"
+- Autre: "autre"
+
+Retourne un JSON avec:
+- success: true si tu as pu identifier le document, false sinon
+- document_type: le type de document parmi la liste ci-dessus
+- confidence: niveau de confiance de 0 à 100
+- description: courte description de ce que tu vois
+- error_message: si success=false, explique pourquoi
+
+Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
+{"success": true, "document_type": "photo_compteur", "confidence": 95, "description": "Photo d'un compteur Linky"}
+
+Exemple échec:
+{"success": false, "document_type": null, "confidence": 0, "description": null, "error_message": "Image floue, impossible d'identifier le document"}`;
+  }
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -328,116 +438,108 @@ async function analyzeImageWithGemini(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages: [
-        {
-          role: "system",
-          content: `Tu es un assistant qui analyse des images envoyées par des commerciaux en énergie renouvelable.
-Identifie et extrait les informations pertinentes selon le type d'image :
-
-TYPES DE DOCUMENTS CLIENTS :
-- Carte d'identité (CNI) : Nom, prénom, date de naissance, numéro
-- RIB : IBAN, BIC, titulaire du compte
-- Facture d'énergie : Fournisseur, montant, consommation kWh, PDL
-- Avis d'imposition : Revenu fiscal, nombre de parts
-- Devis/Contrat : Montant, équipements, puissance kWc
-
-NOTES DE FRAIS :
-- Ticket de caisse/restaurant : Montant TTC, TVA si visible, date, fournisseur
-- Facture carburant : Montant, litres, date
-- Péage/Parking : Montant, date
-
-PHOTOS TECHNIQUES :
-- Toiture : État, orientation, ombres, obstacles
-- Compteur électrique : Type (Linky, etc.), numéro PDL
-- Tableau électrique : Emplacement, place disponible
-
-Retourne les informations extraites de manière structurée.`
-        },
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: "Analyse cette image et extrait les informations importantes :"
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${media.contentType};base64,${media.base64}`
-              }
-            }
-          ]
-        }
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
       ],
+      max_tokens: 500,
     }),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error("Gemini vision error:", error);
-    return "Image reçue mais analyse non disponible.";
+    const errorText = await response.text();
+    console.error("AI Gateway error:", errorText);
+    
+    if (context === "finance") {
+      return {
+        type: "finance",
+        success: false,
+        montant_ttc: null,
+        montant_ht: null,
+        tva: null,
+        taux_tva: null,
+        date: null,
+        fournisseur: null,
+        description: null,
+        categorie: null,
+        error_message: "Erreur de l'API d'analyse",
+      };
+    } else {
+      return {
+        type: "client_docs",
+        success: false,
+        document_type: null,
+        confidence: 0,
+        description: null,
+        error_message: "Erreur de l'API d'analyse",
+      };
+    }
   }
 
-  const result = await response.json();
-  return result.choices?.[0]?.message?.content || "Analyse non disponible.";
-}
+  const aiResponse = await response.json();
+  const content = aiResponse.choices?.[0]?.message?.content || "";
 
-// Analyze PDF document using Gemini
-async function analyzeDocumentWithGemini(
-  media: MediaDownloadResult,
-  apiKey: string
-): Promise<string> {
-  // For PDFs, we use the same approach - Gemini can handle PDF as base64
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content: `Tu es un assistant qui analyse des documents PDF envoyés par des commerciaux.
-Extrait les informations clés du document selon son type :
-
-- Facture d'énergie : Fournisseur, PDL, consommation annuelle, montant
-- Avis d'imposition : Revenu fiscal de référence, nombre de parts
-- Devis/Contrat : Client, équipements, puissance, montant TTC
-- RIB : IBAN, BIC, titulaire
-- Document administratif : Type, numéro, informations principales
-
-Retourne les informations de manière structurée et concise.`
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Analyse ce document PDF et extrait les informations importantes :"
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${media.contentType};base64,${media.base64}`
-              }
-            }
-          ]
-        }
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("Gemini document analysis error:", error);
-    return "Document reçu mais analyse non disponible.";
+  try {
+    const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleanContent);
+    
+    if (context === "finance") {
+      return {
+        type: "finance",
+        success: parsed.success ?? false,
+        montant_ttc: parsed.montant_ttc ?? null,
+        montant_ht: parsed.montant_ht ?? null,
+        tva: parsed.tva ?? null,
+        taux_tva: parsed.taux_tva ?? null,
+        date: parsed.date ?? null,
+        fournisseur: parsed.fournisseur ?? null,
+        description: parsed.description ?? null,
+        categorie: parsed.categorie ?? null,
+        error_message: parsed.error_message,
+      };
+    } else {
+      return {
+        type: "client_docs",
+        success: parsed.success ?? false,
+        document_type: parsed.document_type ?? null,
+        confidence: parsed.confidence ?? 0,
+        description: parsed.description ?? null,
+        error_message: parsed.error_message,
+      };
+    }
+  } catch {
+    console.error("Failed to parse AI response:", content);
+    if (context === "finance") {
+      return {
+        type: "finance",
+        success: false,
+        montant_ttc: null,
+        montant_ht: null,
+        tva: null,
+        taux_tva: null,
+        date: null,
+        fournisseur: null,
+        description: null,
+        categorie: null,
+        error_message: "Impossible de traiter la réponse de l'IA",
+      };
+    } else {
+      return {
+        type: "client_docs",
+        success: false,
+        document_type: null,
+        confidence: 0,
+        description: null,
+        error_message: "Impossible de traiter la réponse de l'IA",
+      };
+    }
   }
-
-  const result = await response.json();
-  return result.choices?.[0]?.message?.content || "Analyse non disponible.";
 }
 
 // Upload media to Supabase Storage
@@ -636,7 +738,8 @@ async function executeAction(
   intent: Intent,
   entities: Record<string, unknown>,
   uploadedDocumentUrl: string | null,
-  mediaData: MediaDownloadResult | null
+  mediaData: MediaDownloadResult | null,
+  analysisResult: DocumentAnalysisResult | null
 ): Promise<{ actionTaken?: string; entityId?: string; entityType?: string }> {
   console.log(`Executing action: ${intent}`, entities);
 
@@ -755,7 +858,12 @@ async function executeAction(
         return { actionTaken: "no_media" };
       }
 
-      const documentType = entities.document_type as string || "autre";
+      // Get document type from analysis result if available
+      let documentType = entities.document_type as string || "autre";
+      if (analysisResult && analysisResult.type === "client_docs" && analysisResult.success) {
+        documentType = analysisResult.document_type || documentType;
+      }
+      
       const clientName = entities.client_name as string;
       
       // Try to find the client if name was mentioned
@@ -791,14 +899,36 @@ async function executeAction(
         return { actionTaken: "no_client_found" };
       }
 
-      // Map document type to enum
+      // Map document type to enum - extended with all types from analyze-document
       const docTypeMap: Record<string, string> = {
         cni: "cni",
+        cni_monsieur_recto: "cni",
+        cni_monsieur_verso: "cni",
+        cni_madame_recto: "cni",
+        cni_madame_verso: "cni",
         rib: "rib",
         facture_energie: "facture_energie",
+        avis_impots: "avis_imposition",
         avis_imposition: "avis_imposition",
+        photo_compteur: "photo_compteur",
+        photo_tableau: "photo_tableau",
+        photo_toiture: "photo_toiture",
+        photo_chantier: "photo_chantier",
+        justificatif_domicile: "justificatif_domicile",
+        taxe_fonciere: "taxe_fonciere",
+        bon_commande: "bon_commande",
+        devis: "devis",
+        contrat: "contrat",
         autre: "autre",
       };
+
+      // Build metadata from analysis result
+      const metadata: Record<string, unknown> = {};
+      if (analysisResult && analysisResult.type === "client_docs") {
+        metadata.ai_document_type = analysisResult.document_type;
+        metadata.ai_confidence = analysisResult.confidence;
+        metadata.ai_description = analysisResult.description;
+      }
 
       // Create document record
       const { data: doc, error: docError } = await supabase
@@ -811,7 +941,7 @@ async function executeAction(
           url: uploadedDocumentUrl,
           mime_type: mediaData?.contentType || "application/octet-stream",
           context_source: "whatsapp",
-          metadata: entities.extracted_data || {},
+          metadata,
         })
         .select("id")
         .single();
@@ -833,31 +963,50 @@ async function executeAction(
         return { actionTaken: "no_media" };
       }
 
-      const fraisType = entities.document_type as string || "autre";
-      const amount = entities.amount as number;
-      const extractedData = entities.extracted_data as Record<string, unknown> || {};
+      // Use structured analysis result for finance data
+      let montant = 0;
+      let dateStr = new Date().toISOString().split("T")[0];
+      let fournisseur = "";
+      let description = "Import WhatsApp";
+      let categorie = "autre";
+      
+      if (analysisResult && analysisResult.type === "finance" && analysisResult.success) {
+        const fin = analysisResult as FinanceAnalysisResult;
+        montant = fin.montant_ttc || 0;
+        dateStr = fin.date || dateStr;
+        fournisseur = fin.fournisseur || "";
+        description = fin.description || `${fournisseur} - Import WhatsApp`;
+        categorie = fin.categorie || "autre";
+      } else {
+        // Fallback to entities
+        montant = entities.amount as number || 0;
+      }
 
-      // Map to frais category
-      const categorieMap: Record<string, string> = {
-        frais_repas: "repas",
-        frais_carburant: "carburant",
-        frais_peage: "peage",
-        frais_parking: "parking",
-        frais_hotel: "hotel",
-        autre: "autre",
-      };
+      // Build OCR data from analysis
+      const ocrData: Record<string, unknown> = {};
+      if (analysisResult && analysisResult.type === "finance") {
+        const fin = analysisResult as FinanceAnalysisResult;
+        ocrData.montant_ttc = fin.montant_ttc;
+        ocrData.montant_ht = fin.montant_ht;
+        ocrData.tva = fin.tva;
+        ocrData.taux_tva = fin.taux_tva;
+        ocrData.fournisseur = fin.fournisseur;
+        ocrData.date = fin.date;
+        ocrData.categorie = fin.categorie;
+        ocrData.description = fin.description;
+      }
 
       // Create frais record
       const { data: frais, error: fraisError } = await supabase
         .from("frais")
         .insert({
           user_id: userId,
-          categorie: categorieMap[fraisType] || "autre",
-          montant: amount || (extractedData.amount_ttc as number) || 0,
-          date_frais: new Date().toISOString().split("T")[0],
-          description: `Import WhatsApp - ${fraisType}`,
+          categorie: categorie,
+          montant: montant,
+          date_frais: dateStr,
+          description: description,
           justificatif_url: uploadedDocumentUrl,
-          ocr_data: extractedData,
+          ocr_data: ocrData,
         })
         .select("id")
         .single();
