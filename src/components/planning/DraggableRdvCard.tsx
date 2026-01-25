@@ -68,50 +68,71 @@ export function DraggableRdvCard({
     zIndex: isDragging ? 50 : isHighlighted ? 40 : undefined,
   };
 
-  // Handle touch events - prioritize long press detection
-  const handleTouchStart = (e: React.TouchEvent) => {
-    longPressHandlers.onTouchStart(e);
-    // Don't trigger dnd-kit pointer down immediately - let long press timer start
+  // Unified pointer handler that works with both mouse and touch
+  // dnd-kit uses PointerEvents which handle both - we need to pass them through
+  // while also tracking for long press
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Track long press (works for both mouse and touch via pointer events)
+    if (e.pointerType === "touch") {
+      longPressHandlers.onTouchStart(e as unknown as React.TouchEvent);
+    } else {
+      longPressHandlers.onMouseDown(e as unknown as React.MouseEvent);
+    }
+    
+    // Always pass to dnd-kit - it has its own activation constraints (delay/distance)
+    // Long press (600ms) will trigger before touch drag (1000ms delay in sensor)
+    listeners?.onPointerDown?.(e);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // If long press was triggered, prevent default behavior
+  const handlePointerUp = (e: React.PointerEvent) => {
+    // If long press was triggered, prevent the event from bubbling
     if (isLongPressing) {
       e.preventDefault();
       e.stopPropagation();
     }
-    longPressHandlers.onTouchEnd(e);
+    
+    if (e.pointerType === "touch") {
+      longPressHandlers.onTouchEnd(e as unknown as React.TouchEvent);
+    } else {
+      longPressHandlers.onMouseUp(e as unknown as React.MouseEvent);
+    }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    longPressHandlers.onTouchMove(e);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") {
+      longPressHandlers.onTouchMove(e as unknown as React.TouchEvent);
+    }
   };
 
-  // For mouse, we can use dnd-kit listeners directly but still track long press
-  const handleMouseDown = (e: React.MouseEvent) => {
-    longPressHandlers.onMouseDown(e);
-    listeners?.onPointerDown?.(e as unknown as React.PointerEvent);
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (e.pointerType !== "touch") {
+      longPressHandlers.onMouseLeave(e as unknown as React.MouseEvent);
+    }
   };
 
   const mergedHandlers = disabled ? {} : {
-    onTouchStart: handleTouchStart,
-    onTouchEnd: handleTouchEnd,
-    onTouchMove: handleTouchMove,
-    onMouseDown: handleMouseDown,
-    onMouseUp: longPressHandlers.onMouseUp,
-    onMouseLeave: longPressHandlers.onMouseLeave,
+    onPointerDown: handlePointerDown,
+    onPointerUp: handlePointerUp,
+    onPointerMove: handlePointerMove,
+    onPointerLeave: handlePointerLeave,
     onContextMenu: longPressHandlers.onContextMenu,
   };
 
   return (
     <Card
       ref={setNodeRef}
-      style={style}
+      style={{
+        ...style,
+        touchAction: disabled ? undefined : "none", // Prevent browser scroll/zoom during drag
+      }}
       className={cn(
         "p-1.5 transition-all duration-200 select-none",
         isDragging 
           ? "opacity-90 shadow-xl scale-105 ring-2 ring-primary cursor-grabbing" 
           : "cursor-grab hover:bg-muted/50 active:cursor-grabbing",
+        isPressing && !isLongPressing && !isDragging
+          ? "scale-[0.98] bg-muted/30" // Visual feedback during press
+          : "",
         isHighlighted && !isDragging
           ? "ring-2 ring-primary shadow-lg scale-[1.02]"
           : "",
