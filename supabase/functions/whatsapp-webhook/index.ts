@@ -195,7 +195,7 @@ serve(async (req) => {
       const agentResult = await agentResponse.json();
       console.log("Agent response:", agentResult);
 
-      // Send the response message
+      // Send the response message if available
       if (agentResult.responseMessage) {
         await sendWhatsAppMessage(
           TWILIO_ACCOUNT_SID,
@@ -204,22 +204,22 @@ serve(async (req) => {
           fromNumber,
           agentResult.responseMessage
         );
-
-        // Update message with response
-        await supabase
-          .from("whatsapp_messages")
-          .update({
-            response_sent: agentResult.responseMessage,
-            detected_intent: agentResult.intent,
-            detected_entities: agentResult.entities || {},
-            action_taken: agentResult.actionTaken,
-            entity_id: agentResult.entityId,
-            entity_type: agentResult.entityType,
-            status: "processed",
-            processed_at: new Date().toISOString(),
-          })
-          .eq("id", messageRecord.id);
       }
+
+      // ALWAYS update message status to processed (whether or not there's a response)
+      await supabase
+        .from("whatsapp_messages")
+        .update({
+          response_sent: agentResult.responseMessage || null,
+          detected_intent: agentResult.intent,
+          detected_entities: agentResult.entities || {},
+          action_taken: agentResult.actionTaken,
+          entity_id: agentResult.entityId,
+          entity_type: agentResult.entityType,
+          status: "processed",
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", messageRecord.id);
 
       return new Response(
         JSON.stringify({ status: "processed", result: agentResult }),
