@@ -8,17 +8,17 @@ export const Footer = () => {
       <div className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <Link 
-            to="/confidentialite" 
+            to="/legal" 
             className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
-            Politique de confidentialité
+            Documents légaux
           </Link>
           <span className="text-border">•</span>
           <Link 
-            to="/conditions" 
+            to="/support" 
             className="hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
-            Conditions d'utilisation
+            Support
           </Link>
         </div>
         <p className="text-center">
