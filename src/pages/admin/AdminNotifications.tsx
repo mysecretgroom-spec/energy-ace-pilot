@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
   TableBody, 
@@ -23,7 +24,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { 
+  Send, 
+  Loader2, 
+  CheckCircle2, 
+  XCircle, 
+  Clock,
+  Zap,
+  Users,
+  User,
+  History,
+  FileText,
+  Copy
+} from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
@@ -35,6 +48,7 @@ interface NotificationLog {
   id: string;
   created_at: string;
   title: string;
+  message: string;
   audience: string;
   status: string;
 }
@@ -46,6 +60,64 @@ interface SaasUser {
   last_name: string;
 }
 
+// Predefined notification templates
+const notificationTemplates = [
+  {
+    id: "trial_reminder",
+    name: "Rappel fin de trial",
+    icon: "🕐",
+    audience: "status" as AudienceType,
+    statusFilter: "trial" as StatusFilter,
+    title: "Votre essai se termine bientôt",
+    message: "Il ne vous reste que quelques jours pour profiter de toutes les fonctionnalités. Abonnez-vous maintenant pour continuer !",
+  },
+  {
+    id: "paywall_recovery",
+    name: "Récupération paywall",
+    icon: "💳",
+    audience: "status" as AudienceType,
+    statusFilter: "paywall" as StatusFilter,
+    title: "Reprenez votre abonnement",
+    message: "Votre période d'essai est terminée. Abonnez-vous dès maintenant pour retrouver l'accès à toutes vos données !",
+  },
+  {
+    id: "new_feature",
+    name: "Nouvelle fonctionnalité",
+    icon: "🚀",
+    audience: "all" as AudienceType,
+    statusFilter: null,
+    title: "Nouvelle fonctionnalité disponible",
+    message: "Découvrez notre dernière mise à jour ! Connectez-vous pour en profiter.",
+  },
+  {
+    id: "maintenance",
+    name: "Maintenance",
+    icon: "🔧",
+    audience: "all" as AudienceType,
+    statusFilter: null,
+    title: "Maintenance prévue",
+    message: "Une maintenance est prévue. L'application sera temporairement indisponible.",
+  },
+  {
+    id: "promo",
+    name: "Offre promotionnelle",
+    icon: "🎉",
+    audience: "status" as AudienceType,
+    statusFilter: "trial" as StatusFilter,
+    title: "Offre spéciale pour vous !",
+    message: "Profitez de -20% sur votre premier mois d'abonnement. Offre limitée !",
+  },
+  {
+    id: "welcome",
+    name: "Bienvenue",
+    icon: "👋",
+    audience: "user" as AudienceType,
+    statusFilter: null,
+    title: "Bienvenue sur Débale Pro !",
+    message: "Nous sommes ravis de vous accueillir. Découvrez toutes les fonctionnalités de l'application.",
+  },
+];
+
 export default function AdminNotifications() {
   const queryClient = useQueryClient();
   const [audienceType, setAudienceType] = useState<AudienceType>("all");
@@ -53,24 +125,43 @@ export default function AdminNotifications() {
   const [targetUserId, setTargetUserId] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   const { data: logs, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["admin-notification-logs"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_saas_notification_logs" as any);
-
+      const { data, error } = await supabase.rpc("get_saas_notification_logs");
       if (error) throw error;
-      return data as NotificationLog[];
+      return (data as NotificationLog[]) || [];
     },
   });
 
   const { data: users } = useQuery({
     queryKey: ["admin-users-for-notif"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_saas_users" as any);
-
+      const { data, error } = await supabase.rpc("get_saas_users");
       if (error) throw error;
-      return data as SaasUser[];
+      return (data as SaasUser[]) || [];
+    },
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["admin-notif-stats"],
+    queryFn: async () => {
+      const { data: accessStates } = await supabase.rpc("get_all_saas_access_states");
+      const counts = {
+        all: (accessStates as any[])?.length || 0,
+        trial: 0,
+        active: 0,
+        paywall: 0,
+        blocked: 0,
+      };
+      (accessStates as any[])?.forEach((state) => {
+        if (counts[state.app_access as keyof typeof counts] !== undefined) {
+          counts[state.app_access as keyof typeof counts]++;
+        }
+      });
+      return counts;
     },
   });
 
@@ -99,12 +190,34 @@ export default function AdminNotifications() {
       toast.success(`Notification envoyée à ${data.recipients || 0} destinataire(s)`);
       setTitle("");
       setMessage("");
+      setSelectedTemplate(null);
       queryClient.invalidateQueries({ queryKey: ["admin-notification-logs"] });
     },
     onError: (error: any) => {
       toast.error(`Erreur: ${error.message}`);
     },
   });
+
+  const applyTemplate = (templateId: string) => {
+    const template = notificationTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    setSelectedTemplate(templateId);
+    setTitle(template.title);
+    setMessage(template.message);
+    setAudienceType(template.audience);
+    if (template.statusFilter) {
+      setStatusFilter(template.statusFilter);
+    }
+    toast.success(`Template "${template.name}" appliqué`);
+  };
+
+  const getAudienceCount = () => {
+    if (!stats) return 0;
+    if (audienceType === "all") return stats.all;
+    if (audienceType === "user") return targetUserId ? 1 : 0;
+    return stats[statusFilter] || 0;
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -117,192 +230,295 @@ export default function AdminNotifications() {
     }
   };
 
+  const replayNotification = (log: NotificationLog) => {
+    setTitle(log.title);
+    setMessage(log.message);
+    toast.info("Notification copiée - modifiez et envoyez");
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground mt-1">Envoyez des notifications push via OneSignal</p>
+          <h1 className="text-3xl font-bold">Notifications Push</h1>
+          <p className="text-muted-foreground mt-1">Envoyez des notifications ciblées à vos utilisateurs</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Composer */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Nouvelle Notification</CardTitle>
-              <CardDescription>Composez et envoyez une notification push</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Audience</Label>
-                <Select value={audienceType} onValueChange={(v) => setAudienceType(v as AudienceType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les utilisateurs</SelectItem>
-                    <SelectItem value="status">Par statut</SelectItem>
-                    <SelectItem value="user">Utilisateur spécifique</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <Tabs defaultValue="compose" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="compose" className="gap-2">
+              <Send className="h-4 w-4" />
+              Composer
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Templates
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" />
+              Historique
+            </TabsTrigger>
+          </TabsList>
 
-              {audienceType === "status" && (
-                <div className="space-y-2">
-                  <Label>Statut</Label>
-                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="active">Actif</SelectItem>
-                      <SelectItem value="paywall">Paywall</SelectItem>
-                      <SelectItem value="blocked">Bloqué</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+          <TabsContent value="compose" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Composer */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Nouvelle Notification</CardTitle>
+                  <CardDescription>Composez et envoyez une notification push</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Audience Selection */}
+                  <div className="space-y-3">
+                    <Label>Audience cible</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        type="button"
+                        variant={audienceType === "all" ? "default" : "outline"}
+                        className="h-auto py-3 flex-col gap-1"
+                        onClick={() => setAudienceType("all")}
+                      >
+                        <Users className="h-5 w-5" />
+                        <span className="text-xs">Tous</span>
+                        <span className="text-xs text-muted-foreground">{stats?.all || 0}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={audienceType === "status" ? "default" : "outline"}
+                        className="h-auto py-3 flex-col gap-1"
+                        onClick={() => setAudienceType("status")}
+                      >
+                        <Clock className="h-5 w-5" />
+                        <span className="text-xs">Par statut</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={audienceType === "user" ? "default" : "outline"}
+                        className="h-auto py-3 flex-col gap-1"
+                        onClick={() => setAudienceType("user")}
+                      >
+                        <User className="h-5 w-5" />
+                        <span className="text-xs">Utilisateur</span>
+                      </Button>
+                    </div>
+                  </div>
 
-              {audienceType === "user" && (
-                <div className="space-y-2">
-                  <Label>Utilisateur</Label>
-                  <Select value={targetUserId} onValueChange={setTargetUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un utilisateur" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users?.map((user) => (
-                        <SelectItem key={user.user_id} value={user.user_id}>
-                          {user.email} ({user.first_name} {user.last_name})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                  {audienceType === "status" && (
+                    <div className="space-y-2">
+                      <Label>Statut d'accès</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(["trial", "active", "paywall", "blocked"] as const).map((status) => (
+                          <Button
+                            key={status}
+                            type="button"
+                            variant={statusFilter === status ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setStatusFilter(status)}
+                          >
+                            {status} ({stats?.[status] || 0})
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <Label>Titre</Label>
-                <Input
-                  placeholder="Titre de la notification"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
+                  {audienceType === "user" && (
+                    <div className="space-y-2">
+                      <Label>Utilisateur</Label>
+                      <Select value={targetUserId} onValueChange={setTargetUserId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un utilisateur" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users?.map((user) => (
+                            <SelectItem key={user.user_id} value={user.user_id}>
+                              {user.email} ({user.first_name} {user.last_name})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <Label>Message</Label>
-                <Textarea
-                  placeholder="Contenu de la notification"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Titre</Label>
+                    <Input
+                      placeholder="Titre de la notification"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      maxLength={50}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{title.length}/50</p>
+                  </div>
 
-              <Button 
-                className="w-full" 
-                onClick={() => sendMutation.mutate()}
-                disabled={sendMutation.isPending || !title || !message}
-              >
-                {sendMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                Envoyer
-              </Button>
-            </CardContent>
-          </Card>
+                  <div className="space-y-2">
+                    <Label>Message</Label>
+                    <Textarea
+                      placeholder="Contenu de la notification"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      rows={4}
+                      maxLength={200}
+                    />
+                    <p className="text-xs text-muted-foreground text-right">{message.length}/200</p>
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Quick actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions Rapides</CardTitle>
-              <CardDescription>Notifications pré-configurées</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => {
-                  setAudienceType("status");
-                  setStatusFilter("trial");
-                  setTitle("Votre essai se termine bientôt");
-                  setMessage("N'attendez pas la fin de votre période d'essai pour vous abonner !");
-                }}
-              >
-                🕐 Relance Trial
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => {
-                  setAudienceType("status");
-                  setStatusFilter("paywall");
-                  setTitle("Reprenez votre abonnement");
-                  setMessage("Votre période d'essai est terminée. Abonnez-vous pour continuer !");
-                }}
-              >
-                💳 Relance Paywall
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => {
-                  setAudienceType("all");
-                  setTitle("Nouvelle fonctionnalité");
-                  setMessage("Découvrez notre dernière mise à jour !");
-                }}
-              >
-                🚀 Annonce Générale
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+              {/* Preview & Send */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Prévisualisation</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Mobile Preview */}
+                  <div className="bg-muted rounded-lg p-4 space-y-2">
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                        <span className="text-primary-foreground text-xs font-bold">DP</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">
+                          {title || "Titre de la notification"}
+                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {message || "Contenu du message..."}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">maintenant</p>
+                      </div>
+                    </div>
+                  </div>
 
-        {/* Logs */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Historique</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingLogs ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Titre</TableHead>
-                    <TableHead>Audience</TableHead>
-                    <TableHead>Statut</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs?.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        {format(new Date(log.created_at), "dd MMM HH:mm", { locale: fr })}
-                      </TableCell>
-                      <TableCell className="font-medium">{log.title}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{log.audience}</Badge>
-                      </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        {getStatusIcon(log.status)}
-                        {log.status}
-                      </TableCell>
-                    </TableRow>
+                  {/* Stats */}
+                  <div className="border rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Destinataires</span>
+                      <span className="font-medium">{getAudienceCount()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Audience</span>
+                      <Badge variant="outline">
+                        {audienceType === "all" ? "Tous" : audienceType === "status" ? statusFilter : "1 utilisateur"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={() => sendMutation.mutate()}
+                    disabled={sendMutation.isPending || !title || !message || getAudienceCount() === 0}
+                  >
+                    {sendMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    Envoyer à {getAudienceCount()} utilisateur(s)
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="templates" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Templates de Notification</CardTitle>
+                <CardDescription>Utilisez un template prédéfini pour gagner du temps</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {notificationTemplates.map((template) => (
+                    <Card 
+                      key={template.id} 
+                      className={`cursor-pointer transition-all hover:border-primary ${selectedTemplate === template.id ? "border-primary bg-primary/5" : ""}`}
+                      onClick={() => applyTemplate(template.id)}
+                    >
+                      <CardContent className="pt-4">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{template.icon}</span>
+                          <div className="flex-1">
+                            <p className="font-medium">{template.name}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{template.message}</p>
+                            <Badge variant="outline" className="mt-2 text-xs">
+                              {template.audience === "all" ? "Tous" : template.audience === "status" ? template.statusFilter : "Individuel"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Historique des Notifications</CardTitle>
+                <CardDescription>Les 50 dernières notifications envoyées</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingLogs ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : logs?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Aucune notification envoyée
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Titre</TableHead>
+                        <TableHead>Message</TableHead>
+                        <TableHead>Audience</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {logs?.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="whitespace-nowrap">
+                            {format(new Date(log.created_at), "dd MMM HH:mm", { locale: fr })}
+                          </TableCell>
+                          <TableCell className="font-medium max-w-[150px] truncate">{log.title}</TableCell>
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{log.message}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{log.audience}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(log.status)}
+                              <span className="text-sm">{log.status}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => replayNotification(log)}
+                              title="Réutiliser"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   );
