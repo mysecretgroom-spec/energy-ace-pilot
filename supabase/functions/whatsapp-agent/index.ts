@@ -42,6 +42,7 @@ interface PendingAction {
     clientId?: string;
     clientName?: string;
     rdvId?: string;
+    rdvIds?: string[];  // Pour les actions en masse
     regieId?: string;
     puissanceKwc?: number;
     prixTTC?: number;
@@ -50,6 +51,9 @@ interface PendingAction {
     surcoutsIds?: string[];
     whatsappMessage?: string;
     confirmateurPhone?: string;
+    action?: string;     // Pour update_rdv: "annule", "reporte", etc.
+    newDate?: string;
+    newTime?: string;
   };
   createdAt: string;
 }
@@ -945,11 +949,54 @@ async function handlePendingWorkflow(
     }
     
     case "awaiting_confirmation": {
-      // Generic confirmation for other actions
-      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go"];
+      // Generic confirmation for other actions (including mass update_rdv)
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon"];
       if (confirmPatterns.some(p => messageLower.includes(p))) {
-        // Execute the pending action
-        return null; // Let the main flow handle it
+        // Handle update_rdv mass action
+        if (pendingAction.intent === "update_rdv" && pendingAction.collectedData?.rdvIds) {
+          const rdvIds = pendingAction.collectedData.rdvIds;
+          const action = pendingAction.collectedData.action;
+          
+          let updateData: Record<string, unknown> = {};
+          
+          if (action === "annule") {
+            updateData = { status: "annule" };
+          } else if (action === "reporte" || action === "decale") {
+            if (pendingAction.collectedData.newDate || pendingAction.collectedData.newTime) {
+              // Would need individual date handling - for now just update status
+              updateData = { status: "reporte" };
+            } else {
+              updateData = { status: "reporte" };
+            }
+          }
+          
+          // Execute the mass update
+          const { error: updateError, count } = await supabase
+            .from("rdv")
+            .update(updateData)
+            .in("id", rdvIds);
+          
+          if (updateError) {
+            console.error("Error mass updating RDVs:", updateError);
+            return {
+              intent: "update_rdv",
+              actionTaken: "error",
+              newPendingAction: null,
+              responseMessage: `❌ Erreur lors de la mise à jour: ${updateError.message}`,
+            };
+          }
+          
+          const actionLabel = action === "annule" ? "annulé(s)" : action === "reporte" ? "reporté(s)" : "modifié(s)";
+          return {
+            intent: "update_rdv",
+            actionTaken: "mass_rdv_updated",
+            newPendingAction: null,
+            responseMessage: `✅ ${rdvIds.length} RDV ${actionLabel} avec succès !`,
+          };
+        }
+        
+        // For other pending actions, return null to let main flow handle
+        return null;
       }
       return {
         intent: "cancel_action",
@@ -1363,6 +1410,184 @@ async function executeAction(
         actionTaken: "rdv_created", 
         entityId: rdv?.id, 
         entityType: "rdv" 
+      };
+    }
+
+    case "update_rdv": {
+      const clientName = entities.client_name as string;
+      const action = entities.action as string; // "annule", "reporte", "decale"
+      const newDate = entities.date as string;
+      const newTime = entities.time as string;
+      const period = entities.period as string; // "today", "week", "month", "all"
+      const regieFilter = entities.regie_name as string;
+      
+      // Build query for RDVs to modify
+      let query = supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          status,
+          client_id,
+          clients!inner(nom, prenom)
+        `)
+        .eq("user_id", userId);
+      
+      // Apply filters
+      if (clientName) {
+        query = query.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
+      }
+      
+      // Apply period filter
+      const now = new Date();
+      if (period === "today") {
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const todayEnd = new Date(todayStart);
+        todayEnd.setDate(todayEnd.getDate() + 1);
+        query = query.gte("date_heure", todayStart.toISOString()).lt("date_heure", todayEnd.toISOString());
+      } else if (period === "week") {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+        weekStart.setHours(0, 0, 0, 0);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        query = query.gte("date_heure", weekStart.toISOString()).lt("date_heure", weekEnd.toISOString());
+      } else if (period === "next_week") {
+        const nextWeekStart = new Date(now);
+        nextWeekStart.setDate(now.getDate() - now.getDay() + 8); // Next Monday
+        nextWeekStart.setHours(0, 0, 0, 0);
+        const nextWeekEnd = new Date(nextWeekStart);
+        nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+        query = query.gte("date_heure", nextWeekStart.toISOString()).lt("date_heure", nextWeekEnd.toISOString());
+      } else if (period === "month") {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        query = query.gte("date_heure", monthStart.toISOString()).lt("date_heure", monthEnd.toISOString());
+      }
+      
+      // Filter by status - only modifiable statuses
+      query = query.in("status", ["planifie", "confirme", "a_rappeler", "reporte"]);
+      query = query.order("date_heure", { ascending: true });
+      
+      const { data: rdvsToModify, error: rdvError } = await query;
+      
+      if (rdvError) {
+        console.error("Error fetching RDVs:", rdvError);
+        return { actionTaken: "error" };
+      }
+      
+      if (!rdvsToModify || rdvsToModify.length === 0) {
+        return { 
+          actionTaken: "rdv_not_found",
+          customResponse: "❌ Aucun RDV trouvé correspondant à ta demande.",
+        };
+      }
+      
+      // If multiple RDVs found, require confirmation
+      if (rdvsToModify.length > 1) {
+        // Build the list of RDVs for confirmation
+        const rdvList = rdvsToModify.map((r: { id: string; date_heure: string; clients: { nom: string; prenom: string | null } }) => {
+          const d = new Date(r.date_heure);
+          const dateStr = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+          const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+          const clientFullName = `${r.clients.prenom || ""} ${r.clients.nom}`.trim();
+          return { id: r.id, display: `${dateStr} ${timeStr}: ${clientFullName}` };
+        });
+        
+        // Build filter description
+        const filterParts: string[] = [];
+        if (period) {
+          const periodLabels: Record<string, string> = {
+            today: "aujourd'hui",
+            week: "cette semaine",
+            next_week: "semaine prochaine",
+            month: "ce mois",
+            all: "tout",
+          };
+          filterParts.push(periodLabels[period] || period);
+        }
+        if (regieFilter) filterParts.push(`régie: ${regieFilter}`);
+        if (clientName) filterParts.push(`client: ${clientName}`);
+        
+        const filterDesc = filterParts.length > 0 ? `Filtre: ${filterParts.join(", ")}` : "";
+        
+        // Create pending action for confirmation
+        const actionLabel = action === "annule" ? "annuler" : action === "reporte" ? "reporter" : "modifier";
+        
+        const pendingAction: PendingAction = {
+          intent: "update_rdv",
+          entities,
+          workflowState: "awaiting_confirmation",
+          collectedData: {
+            rdvIds: rdvList.map((r: { id: string }) => r.id),
+            action,
+            newDate,
+            newTime,
+          },
+          createdAt: new Date().toISOString(),
+        };
+        
+        let confirmMsg = `📋 *RDV à ${actionLabel}* (${rdvsToModify.length})\n`;
+        if (filterDesc) confirmMsg += `_${filterDesc}_\n`;
+        confirmMsg += "\n";
+        
+        for (const r of rdvList.slice(0, 10)) {
+          confirmMsg += `• ${r.display}\n`;
+        }
+        if (rdvList.length > 10) {
+          confirmMsg += `... et ${rdvList.length - 10} autre(s)\n`;
+        }
+        
+        confirmMsg += `\n*Confirmes-tu l'action sur ces ${rdvsToModify.length} RDV ?* (Oui/Non)`;
+        
+        return {
+          actionTaken: "awaiting_confirmation",
+          entityType: "workflow",
+          newPendingAction: pendingAction,
+          customResponse: confirmMsg,
+        };
+      }
+      
+      // Single RDV - execute directly
+      const rdv = rdvsToModify[0];
+      let newStatus = rdv.status;
+      let updateData: Record<string, unknown> = {};
+      
+      if (action === "annule") {
+        newStatus = "annule";
+        updateData = { status: newStatus };
+      } else if (action === "reporte" || action === "decale") {
+        if (newDate || newTime) {
+          const currentDate = new Date(rdv.date_heure);
+          const targetDate = newDate ? new Date(newDate) : currentDate;
+          if (newTime) {
+            const [hours, mins] = newTime.split(":").map(Number);
+            targetDate.setHours(hours, mins, 0, 0);
+          } else {
+            targetDate.setHours(currentDate.getHours(), currentDate.getMinutes(), 0, 0);
+          }
+          updateData = { date_heure: targetDate.toISOString(), status: "reporte" };
+          newStatus = "reporte";
+        } else {
+          updateData = { status: "reporte" };
+          newStatus = "reporte";
+        }
+      }
+      
+      const { error: updateError } = await supabase
+        .from("rdv")
+        .update(updateData)
+        .eq("id", rdv.id);
+      
+      if (updateError) {
+        console.error("Error updating RDV:", updateError);
+        return { actionTaken: "error" };
+      }
+      
+      return {
+        actionTaken: "rdv_updated",
+        entityId: rdv.id,
+        entityType: "rdv",
       };
     }
 
