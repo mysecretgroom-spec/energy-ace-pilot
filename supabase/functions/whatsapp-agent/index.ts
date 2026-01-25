@@ -847,7 +847,7 @@ Exemple échec:
           ],
         },
       ],
-      max_tokens: 500,
+      max_tokens: 1000,
     }),
   });
 
@@ -1640,7 +1640,7 @@ ${pendingAction ? `Action en attente de confirmation: ${JSON.stringify(pendingAc
     body: JSON.stringify({
       model: "google/gemini-3-flash-preview",
       messages,
-      max_tokens: 1000,
+      max_tokens: 2000,
       tools: [
         {
           type: "function",
