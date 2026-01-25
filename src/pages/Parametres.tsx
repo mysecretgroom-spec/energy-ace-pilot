@@ -23,6 +23,7 @@ import {
   Building2,
   Settings2,
   MessageCircle,
+  Scale,
 } from "lucide-react";
 
 const settingsSections = [
@@ -142,6 +143,17 @@ const settingsSections = [
         label: "Code PIN / Biométrie",
         description: "Accès mode interne",
         path: "/parametres/securite",
+      },
+    ],
+  },
+  {
+    title: "Légal",
+    items: [
+      {
+        icon: Scale,
+        label: "Documents légaux",
+        description: "CGU, CGV, Confidentialité, Sécurité",
+        path: "/legal",
       },
     ],
   },
