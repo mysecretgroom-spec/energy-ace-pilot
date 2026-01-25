@@ -268,6 +268,7 @@ serve(async (req) => {
 });
 
 // Helper function to send WhatsApp message via Twilio
+// Supports long messages by splitting into chunks (WhatsApp limit ~1600 chars)
 async function sendWhatsAppMessage(
   accountSid: string,
   authToken: string,
@@ -275,26 +276,68 @@ async function sendWhatsAppMessage(
   toNumber: string,
   message: string
 ): Promise<void> {
+  const MAX_CHARS = 1500; // Safe limit below WhatsApp's 1600
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      From: fromNumber,
-      To: toNumber,
-      Body: message,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Twilio send error:", errorText);
-    throw new Error(`Failed to send WhatsApp message: ${response.status}`);
+  // Split message into chunks if too long
+  const chunks: string[] = [];
+  if (message.length <= MAX_CHARS) {
+    chunks.push(message);
+  } else {
+    // Split on newlines when possible, or force split
+    let remaining = message;
+    while (remaining.length > 0) {
+      if (remaining.length <= MAX_CHARS) {
+        chunks.push(remaining);
+        break;
+      }
+      
+      // Try to find a good split point (double newline, single newline, or space)
+      let splitIndex = remaining.lastIndexOf("\n\n", MAX_CHARS);
+      if (splitIndex < MAX_CHARS * 0.5) {
+        splitIndex = remaining.lastIndexOf("\n", MAX_CHARS);
+      }
+      if (splitIndex < MAX_CHARS * 0.5) {
+        splitIndex = remaining.lastIndexOf(" ", MAX_CHARS);
+      }
+      if (splitIndex < MAX_CHARS * 0.3) {
+        splitIndex = MAX_CHARS; // Force split
+      }
+      
+      chunks.push(remaining.substring(0, splitIndex).trim());
+      remaining = remaining.substring(splitIndex).trim();
+    }
   }
 
-  console.log(`WhatsApp message sent to ${toNumber}`);
+  // Send each chunk sequentially
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const chunkLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        From: fromNumber,
+        To: toNumber,
+        Body: chunk,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Twilio send error${chunkLabel}:`, errorText);
+      throw new Error(`Failed to send WhatsApp message: ${response.status}`);
+    }
+
+    console.log(`WhatsApp message sent to ${toNumber}${chunkLabel} (${chunk.length} chars)`);
+    
+    // Small delay between chunks to ensure order
+    if (i < chunks.length - 1) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
 }
