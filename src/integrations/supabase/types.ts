@@ -2177,6 +2177,115 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversations: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          pending_action: Json | null
+          phone_number: string
+          user_id: string
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          pending_action?: Json | null
+          phone_number: string
+          user_id: string
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          pending_action?: Json | null
+          phone_number?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          action_taken: string | null
+          created_at: string | null
+          detected_entities: Json | null
+          detected_intent: string | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          from_number: string
+          id: string
+          media_url: string | null
+          message_type: string
+          processed_at: string | null
+          raw_content: string | null
+          rejection_reason: string | null
+          response_sent: string | null
+          status: string | null
+          transcribed_content: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string | null
+          detected_entities?: Json | null
+          detected_intent?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          from_number: string
+          id?: string
+          media_url?: string | null
+          message_type: string
+          processed_at?: string | null
+          raw_content?: string | null
+          rejection_reason?: string | null
+          response_sent?: string | null
+          status?: string | null
+          transcribed_content?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string | null
+          detected_entities?: Json | null
+          detected_intent?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          from_number?: string
+          id?: string
+          media_url?: string | null
+          message_type?: string
+          processed_at?: string | null
+          raw_content?: string | null
+          rejection_reason?: string | null
+          response_sent?: string | null
+          status?: string | null
+          transcribed_content?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       whatsapp_templates: {
         Row: {
           classification: string
@@ -2227,6 +2336,16 @@ export type Database = {
       decrypt_token: { Args: { encrypted_token: string }; Returns: string }
       delete_subscription_plan: { Args: { p_id: string }; Returns: undefined }
       encrypt_token: { Args: { token: string }; Returns: string }
+      find_user_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          app_access: string
+          first_name: string
+          last_name: string
+          phone: string
+          user_id: string
+        }[]
+      }
       get_all_feature_requests: {
         Args: never
         Returns: {

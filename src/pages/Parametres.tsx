@@ -24,6 +24,7 @@ import {
   Settings2,
   MessageCircle,
   Scale,
+  Bot,
 } from "lucide-react";
 
 const settingsSections = [
@@ -53,6 +54,12 @@ const settingsSections = [
   {
     title: "WhatsApp",
     items: [
+      {
+        icon: Bot,
+        label: "Assistant IA",
+        description: "Agent WhatsApp intelligent",
+        path: "/parametres/whatsapp-agent",
+      },
       {
         icon: MessageCircle,
         label: "Messages personnalisés",
