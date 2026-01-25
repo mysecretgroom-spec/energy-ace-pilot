@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import AgentActionsHistory from "@/components/settings/AgentActionsHistory";
+import AgentMemoryManager from "@/components/settings/AgentMemoryManager";
 import { 
   Bot, 
   MessageCircle, 
@@ -19,7 +20,8 @@ import {
   ExternalLink,
   Smartphone,
   History,
-  Shield
+  Shield,
+  Brain
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -125,8 +127,12 @@ const WhatsAppAgentSettings = () => {
         </Card>
 
         {/* Tabs for Messages and Actions */}
-        <Tabs defaultValue="actions" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="memory" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="memory" className="gap-2">
+              <Brain className="h-4 w-4" />
+              Mémoire
+            </TabsTrigger>
             <TabsTrigger value="actions" className="gap-2">
               <History className="h-4 w-4" />
               Actions
@@ -136,6 +142,10 @@ const WhatsAppAgentSettings = () => {
               Messages
             </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="memory" className="mt-4">
+            <AgentMemoryManager />
+          </TabsContent>
           
           <TabsContent value="actions" className="mt-4">
             <AgentActionsHistory />

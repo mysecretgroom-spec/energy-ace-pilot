@@ -113,6 +113,237 @@ interface ClientDocAnalysisResult {
 
 type DocumentAnalysisResult = FinanceAnalysisResult | ClientDocAnalysisResult;
 
+// ==================== MEMORY SYSTEM ====================
+
+interface AgentMemory {
+  id: string;
+  memory_type: string;
+  key: string;
+  value: Record<string, unknown>;
+  confidence: number;
+  usage_count: number;
+}
+
+// Load user's agent memories
+// deno-lint-ignore no-explicit-any
+async function loadUserMemories(
+  supabase: any,
+  userId: string
+): Promise<AgentMemory[]> {
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_agent_memory")
+      .select("id, memory_type, key, value, confidence, usage_count")
+      .eq("user_id", userId)
+      .order("usage_count", { ascending: false })
+      .limit(50);
+    
+    if (error) {
+      console.error("Error loading memories:", error);
+      return [];
+    }
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+// Save or update a memory
+// deno-lint-ignore no-explicit-any
+async function saveMemory(
+  supabase: any,
+  userId: string,
+  memoryType: string,
+  key: string,
+  value: Record<string, unknown>,
+  confidence: number = 0.8
+): Promise<void> {
+  try {
+    // Upsert memory - if exists, increment usage_count and update
+    const { error } = await supabase
+      .from("whatsapp_agent_memory")
+      .upsert({
+        user_id: userId,
+        memory_type: memoryType,
+        key: key,
+        value: value,
+        confidence: confidence,
+        usage_count: 1,
+        last_used_at: new Date().toISOString(),
+      }, {
+        onConflict: "user_id,memory_type,key",
+      });
+    
+    if (error) {
+      console.error("Error saving memory:", error);
+    } else {
+      console.log(`Memory saved: ${memoryType}/${key}`);
+    }
+  } catch (err) {
+    console.error("Failed to save memory:", err);
+  }
+}
+
+// Increment usage count for a memory
+// deno-lint-ignore no-explicit-any
+async function useMemory(
+  supabase: any,
+  memoryId: string
+): Promise<void> {
+  try {
+    // Use raw SQL to increment
+    await supabase.rpc("increment_memory_usage", { memory_id: memoryId });
+  } catch {
+    // Fallback: just update last_used_at
+    await supabase
+      .from("whatsapp_agent_memory")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("id", memoryId);
+  }
+}
+
+// Format memories for AI prompt
+function formatMemoriesForPrompt(memories: AgentMemory[]): string {
+  if (!memories || memories.length === 0) {
+    return "Aucune mémoire spécifique pour cet utilisateur.";
+  }
+  
+  const grouped: Record<string, string[]> = {};
+  
+  for (const mem of memories) {
+    const type = mem.memory_type;
+    if (!grouped[type]) grouped[type] = [];
+    
+    let display = "";
+    const v = mem.value;
+    
+    if (type === "alias" && v.original && v.alias) {
+      display = `"${v.alias}" = "${v.original}"`;
+    } else if (type === "preference") {
+      display = String(v.description || JSON.stringify(v));
+    } else if (type === "pattern") {
+      display = String(v.pattern || JSON.stringify(v));
+    } else if (type === "shortcut" && v.shortcut && v.meaning) {
+      display = `"${v.shortcut}" signifie "${v.meaning}"`;
+    } else if (type === "correction" && v.wrong && v.correct) {
+      display = `"${v.wrong}" doit être compris comme "${v.correct}"`;
+    } else {
+      display = `${mem.key}: ${JSON.stringify(v)}`;
+    }
+    
+    grouped[type].push(display);
+  }
+  
+  let result = "";
+  if (grouped.alias?.length) {
+    result += `\n🏷️ ALIAS DE CLIENTS:\n${grouped.alias.map(a => `  - ${a}`).join("\n")}`;
+  }
+  if (grouped.preference?.length) {
+    result += `\n⭐ PRÉFÉRENCES:\n${grouped.preference.map(p => `  - ${p}`).join("\n")}`;
+  }
+  if (grouped.shortcut?.length) {
+    result += `\n⚡ RACCOURCIS:\n${grouped.shortcut.map(s => `  - ${s}`).join("\n")}`;
+  }
+  if (grouped.correction?.length) {
+    result += `\n📝 CORRECTIONS:\n${grouped.correction.map(c => `  - ${c}`).join("\n")}`;
+  }
+  if (grouped.pattern?.length) {
+    result += `\n🔄 HABITUDES:\n${grouped.pattern.map(p => `  - ${p}`).join("\n")}`;
+  }
+  if (grouped.context?.length) {
+    result += `\n💭 CONTEXTE:\n${grouped.context.map(c => `  - ${c}`).join("\n")}`;
+  }
+  
+  return result || "Aucune mémoire spécifique pour cet utilisateur.";
+}
+
+// Extract learnings from user interaction
+// deno-lint-ignore no-explicit-any
+async function learnFromInteraction(
+  supabase: any,
+  userId: string,
+  userMessage: string,
+  intent: string,
+  entities: Record<string, unknown>,
+  actionResult: { actionTaken?: string; entityId?: string }
+): Promise<void> {
+  try {
+    // Learn client aliases
+    if (entities.client_name && actionResult.actionTaken && actionResult.entityId) {
+      const clientName = String(entities.client_name);
+      const messageLower = userMessage.toLowerCase();
+      
+      // Check if user used a nickname or alias
+      const aliasPatterns = [
+        /(?:le|la|mon|ma|notre)\s+(?:client(?:e)?|prospect)\s+(?:de\s+)?(.+?)(?:\s|$)/i,
+        /(?:chez|pour)\s+(.+?)(?:\s|$)/i,
+      ];
+      
+      for (const pattern of aliasPatterns) {
+        const match = messageLower.match(pattern);
+        if (match && match[1] && match[1].length > 2 && match[1].length < 30) {
+          const alias = match[1].trim();
+          if (alias !== clientName.toLowerCase()) {
+            await saveMemory(supabase, userId, "alias", `alias_${alias}`, {
+              alias: alias,
+              original: clientName,
+              client_id: actionResult.entityId,
+            }, 0.7);
+          }
+        }
+      }
+    }
+    
+    // Learn status shortcuts
+    if (intent === "update_vente_pipeline" || intent === "update_vente_status") {
+      const status = entities.status || entities.pipeline_status;
+      if (status) {
+        // Store the raw message as a shortcut pattern
+        const words = userMessage.toLowerCase().split(/\s+/);
+        for (const word of words) {
+          if (word.length >= 3 && !["client", "vente", "rdv", "status"].includes(word)) {
+            // Could be a personal shortcut
+            const existingShortcut = await supabase
+              .from("whatsapp_agent_memory")
+              .select("id, usage_count")
+              .eq("user_id", userId)
+              .eq("memory_type", "shortcut")
+              .eq("key", `shortcut_${word}`)
+              .maybeSingle();
+            
+            if (existingShortcut.data) {
+              // Increment usage
+              await supabase
+                .from("whatsapp_agent_memory")
+                .update({ 
+                  usage_count: (existingShortcut.data.usage_count || 0) + 1,
+                  last_used_at: new Date().toISOString()
+                })
+                .eq("id", existingShortcut.data.id);
+            }
+          }
+        }
+      }
+    }
+    
+    // Learn time preferences
+    if (entities.time && (intent === "create_rdv" || intent === "update_rdv")) {
+      const time = String(entities.time);
+      // Track preferred RDV times
+      await saveMemory(supabase, userId, "pattern", "preferred_rdv_time", {
+        pattern: "time_preference",
+        value: time,
+        last_used: new Date().toISOString(),
+      }, 0.5);
+    }
+    
+  } catch (err) {
+    console.error("Error learning from interaction:", err);
+  }
+}
+
+// ==================== ACTION LOGGING ====================
+
 // Log an agent action for audit trail and undo capability
 // deno-lint-ignore no-explicit-any
 async function logAgentAction(
@@ -260,15 +491,20 @@ serve(async (req) => {
       }
     }
 
-    // Get conversation context
-    const { data: conversation } = await supabase
-      .from("whatsapp_conversations")
-      .select("context, pending_action")
-      .eq("user_id", request.userId)
-      .single();
+    // Get conversation context and user memories in parallel
+    const [conversationResult, userMemories] = await Promise.all([
+      supabase
+        .from("whatsapp_conversations")
+        .select("context, pending_action")
+        .eq("user_id", request.userId)
+        .single(),
+      loadUserMemories(supabase, request.userId)
+    ]);
 
-    const conversationContext = (conversation?.context || []) as Array<{ role: string; content: string }>;
-    const pendingAction = conversation?.pending_action as PendingAction | null;
+    const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
+    const pendingAction = conversationResult.data?.pending_action as PendingAction | null;
+
+    console.log(`Loaded ${userMemories.length} memories for user`);
 
     // Check if we have a pending action that needs workflow handling
     let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
@@ -300,13 +536,14 @@ serve(async (req) => {
       }
     }
 
-    // If not handling a pending workflow, analyze intent with AI
+    // If not handling a pending workflow, analyze intent with AI (with memories)
     if (!skipAiAnalysis) {
       aiResponse = await analyzeIntent(
         processedContent,
         request.userName,
         conversationContext,
         pendingAction,
+        userMemories,
         LOVABLE_API_KEY
       );
     }
@@ -377,6 +614,18 @@ serve(async (req) => {
         timestamp: new Date().toISOString(),
       },
     ];
+
+    // Learn from this interaction (non-blocking, in background)
+    if (actionResult.actionTaken && !actionResult.actionTaken.startsWith("error")) {
+      learnFromInteraction(
+        supabase,
+        request.userId,
+        processedContent,
+        aiResponse!.intent,
+        aiResponse!.entities,
+        actionResult
+      ).catch(err => console.error("Learning error:", err));
+    }
 
     await supabase
       .from("whatsapp_conversations")
@@ -1235,6 +1484,7 @@ async function analyzeIntent(
   userName: string,
   conversationContext: Array<{ role: string; content: string }>,
   pendingAction: unknown,
+  userMemories: AgentMemory[],
   apiKey: string
 ): Promise<{
   intent: Intent;
@@ -1244,9 +1494,21 @@ async function analyzeIntent(
   responseMessage: string;
 }> {
   const today = new Date().toISOString().split("T")[0];
+  const memoriesSection = formatMemoriesForPrompt(userMemories);
+  
   const systemPrompt = `Tu es l'assistant WhatsApp intelligent de DébalePro, une application pour commerciaux en énergie renouvelable (panneaux solaires).
 
 Ton rôle est d'analyser les messages des commerciaux et d'identifier leurs intentions pour effectuer des actions automatiques OU répondre à leurs questions.
+
+🧠 MÉMOIRE PERSONNELLE DE L'UTILISATEUR:
+Tu as accès à la mémoire personnalisée de cet utilisateur. Utilise ces informations pour mieux le comprendre:
+${memoriesSection}
+
+IMPORTANT MÉMOIRE:
+- Si l'utilisateur utilise un ALIAS connu, utilise le vrai nom du client correspondant
+- Respecte ses PRÉFÉRENCES et HABITUDES
+- Applique ses RACCOURCIS personnels
+- Prends en compte les CORRECTIONS passées
 
 INTENTIONS POSSIBLES:
 

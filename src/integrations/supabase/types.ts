@@ -2230,6 +2230,45 @@ export type Database = {
           },
         ]
       }
+      whatsapp_agent_memory: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          id: string
+          key: string
+          last_used_at: string | null
+          memory_type: string
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          key: string
+          last_used_at?: string | null
+          memory_type: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+          value: Json
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          key?: string
+          last_used_at?: string | null
+          memory_type?: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           context: Json | null
