@@ -1512,7 +1512,7 @@ INTENTIONS DISPONIBLES:
 - query_commissions: "mes coms", "combien je gagne", "à facturer"
 - query_stats: "stats", "CA", "taux conversion", "chiffres"
 - query_client_info: "téléphone de X", "adresse de X"
-- query_rdv_planning: "planning", "rdv demain", "agenda"
+- query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
 - query_ventes: "mes ventes", "ventes en cours"
 - conversation: salutations
 - unknown: non compris
@@ -2566,12 +2566,24 @@ async function executeAction(
         return { actionTaken: "error" };
       }
 
+      // Format days in French
+      const joursFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+      
       // deno-lint-ignore no-explicit-any
       const responseData = (rdvs || []).map((r: any) => {
         const client = r.clients as { nom: string; prenom: string; telephone: string } | null;
+        const rdvDate = new Date(r.date_heure);
+        const jour = joursFr[rdvDate.getDay()];
+        const dateFormatted = rdvDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+        const heure = rdvDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        const clientNom = client ? `${client.prenom || ""} ${client.nom}`.trim() : "?";
+        
         return {
-          heure: new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-          client: client ? `${client.prenom || ""} ${client.nom}`.trim() : "?",
+          display: `${jour} ${dateFormatted} à ${heure} - ${clientNom}`,
+          jour,
+          date: dateFormatted,
+          heure,
+          client: clientNom,
           telephone: client?.telephone || null,
           adresse: r.adresse,
           type: r.type_rdv,
