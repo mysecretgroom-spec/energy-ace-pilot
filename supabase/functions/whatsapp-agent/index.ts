@@ -29,6 +29,7 @@ type Intent =
   | "cancel_action"        // Annuler une action en attente (non/annule)
   | "approve_whatsapp"     // Approuver l'envoi d'un message WhatsApp
   | "decline_whatsapp"     // Refuser l'envoi d'un message WhatsApp
+  | "select_choice"        // Réponse à un sondage de choix (numéro ou texte)
   | "conversation"
   | "unknown";
 
@@ -37,7 +38,16 @@ type WorkflowState =
   | "awaiting_confirmation"      // En attente de confirmation utilisateur
   | "collecting_signe_data"      // Collecte des données pour signature (puissance, prix, etc.)
   | "awaiting_whatsapp_approval" // En attente d'approbation du message WhatsApp
+  | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | null;
+
+// Choice option for disambiguation polls
+interface ChoiceOption {
+  id: string;
+  label: string;
+  entityType: "client" | "rdv" | "vente";
+  data: Record<string, unknown>;
+}
 
 interface PendingAction {
   intent: Intent;
@@ -59,6 +69,10 @@ interface PendingAction {
     action?: string;     // Pour update_rdv: "annule", "reporte", etc.
     newDate?: string;
     newTime?: string;
+    // Pour les sondages de choix
+    choices?: ChoiceOption[];       // Les options proposées
+    originalIntent?: Intent;        // L'intention originale à exécuter après sélection
+    searchQuery?: string;           // La recherche originale pour contexte
   };
   createdAt: string;
 }
@@ -665,6 +679,143 @@ async function findClientByName(
     suggestions: highConfidenceMatch ? [] : topMatches.slice(0, 3),
     notFound: topMatches.length === 0
   };
+}
+
+// ==================== DISAMBIGUATION POLLING ====================
+
+// Generate a choice poll for ambiguous search results
+function generateChoicePoll(
+  suggestions: ClientMatch[],
+  searchQuery: string,
+  originalIntent: Intent,
+  entities: Record<string, unknown>
+): { pendingAction: PendingAction; responseMessage: string } {
+  const choices: ChoiceOption[] = suggestions.slice(0, 5).map((s, _index) => ({
+    id: s.id,
+    label: s.fullName,
+    entityType: "client" as const,
+    data: {
+      nom: s.nom,
+      prenom: s.prenom,
+      client_id: s.id,
+      score: s.score,
+    },
+  }));
+  
+  // Build the poll message
+  const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+  const responseMessage = `🔍 Plusieurs résultats pour "*${searchQuery}*":\n\n${choiceList}\n\n👆 *Réponds avec le numéro* de ton choix (ou "annule")`;
+  
+  const pendingAction: PendingAction = {
+    intent: "select_choice",
+    entities,
+    workflowState: "awaiting_choice_selection",
+    collectedData: {
+      choices,
+      originalIntent,
+      searchQuery,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  
+  return { pendingAction, responseMessage };
+}
+
+// Generate a choice poll for RDV disambiguation
+function generateRdvChoicePoll(
+  rdvs: Array<{ id: string; date_heure: string; clients: { nom: string; prenom: string | null } }>,
+  searchQuery: string,
+  originalIntent: Intent,
+  entities: Record<string, unknown>
+): { pendingAction: PendingAction; responseMessage: string } {
+  const choices: ChoiceOption[] = rdvs.slice(0, 5).map((r, _index) => {
+    const d = new Date(r.date_heure);
+    const dateStr = d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+    const timeStr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    const clientName = `${r.clients.prenom || ""} ${r.clients.nom}`.trim();
+    return {
+      id: r.id,
+      label: `${dateStr} ${timeStr} - ${clientName}`,
+      entityType: "rdv" as const,
+      data: {
+        rdv_id: r.id,
+        client_name: clientName,
+        date_heure: r.date_heure,
+      },
+    };
+  });
+  
+  const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+  const responseMessage = `🔍 Plusieurs RDV correspondent:\n\n${choiceList}\n\n👆 *Réponds avec le numéro* de ton choix (ou "annule")`;
+  
+  const pendingAction: PendingAction = {
+    intent: "select_choice",
+    entities,
+    workflowState: "awaiting_choice_selection",
+    collectedData: {
+      choices,
+      originalIntent,
+      searchQuery,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  
+  return { pendingAction, responseMessage };
+}
+
+// Generate a choice poll for vente disambiguation
+function generateVenteChoicePoll(
+  ventes: Array<{ id: string; status: string; montant_ttc: number | null; date_signature: string | null; clients: { nom: string; prenom: string | null } }>,
+  searchQuery: string,
+  originalIntent: Intent,
+  entities: Record<string, unknown>
+): { pendingAction: PendingAction; responseMessage: string } {
+  const statusLabels: Record<string, string> = {
+    cq_a_faire: "CQ à faire",
+    cq_fait: "CQ fait",
+    attente_financement: "Attente fin.",
+    envoi_pose: "Envoi pose",
+    en_installation: "Installation",
+    installe: "Posé",
+    attente_paiement: "Att. paiement",
+    paye: "Payé",
+    annule: "Annulé",
+  };
+  
+  const choices: ChoiceOption[] = ventes.slice(0, 5).map((v, _index) => {
+    const clientName = `${v.clients.prenom || ""} ${v.clients.nom}`.trim();
+    const status = statusLabels[v.status] || v.status;
+    const amount = v.montant_ttc ? `${v.montant_ttc.toLocaleString("fr-FR")}€` : "?€";
+    const date = v.date_signature ? new Date(v.date_signature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+    return {
+      id: v.id,
+      label: `${clientName} - ${status} - ${amount}${date ? ` (${date})` : ""}`,
+      entityType: "vente" as const,
+      data: {
+        vente_id: v.id,
+        client_name: clientName,
+        status: v.status,
+        montant_ttc: v.montant_ttc,
+      },
+    };
+  });
+  
+  const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+  const responseMessage = `🔍 Plusieurs ventes correspondent:\n\n${choiceList}\n\n👆 *Réponds avec le numéro* de ton choix (ou "annule")`;
+  
+  const pendingAction: PendingAction = {
+    intent: "select_choice",
+    entities,
+    workflowState: "awaiting_choice_selection",
+    collectedData: {
+      choices,
+      originalIntent,
+      searchQuery,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  
+  return { pendingAction, responseMessage };
 }
 
 // ==================== ACTION LOGGING ====================
@@ -1771,8 +1922,169 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "awaiting_choice_selection": {
+      // User is responding to a disambiguation poll
+      const choices = pendingAction.collectedData?.choices || [];
+      const originalIntent = pendingAction.collectedData?.originalIntent;
+      
+      if (choices.length === 0) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: pas de choix disponibles. Comment puis-je t'aider ?",
+        };
+      }
+      
+      // Try to parse user's selection - support multiple formats
+      let selectedChoice: ChoiceOption | null = null;
+      
+      // 1. Check for number selection (1, 2, 3, etc.)
+      const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
+      if (numberMatch) {
+        const choiceIndex = parseInt(numberMatch[1], 10) - 1;
+        if (choiceIndex >= 0 && choiceIndex < choices.length) {
+          selectedChoice = choices[choiceIndex];
+        }
+      }
+      
+      // 2. Check for emoji number selection (1️⃣, 2️⃣, etc.)
+      if (!selectedChoice) {
+        const emojiNumbers: Record<string, number> = {
+          "1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4,
+          "①": 0, "②": 1, "③": 2, "④": 3, "⑤": 4,
+        };
+        for (const [emoji, index] of Object.entries(emojiNumbers)) {
+          if (userMessage.includes(emoji) && index < choices.length) {
+            selectedChoice = choices[index];
+            break;
+          }
+        }
+      }
+      
+      // 3. Try to match by label (fuzzy text match)
+      if (!selectedChoice) {
+        const normalizedMessage = messageLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (const choice of choices) {
+          const normalizedLabel = choice.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          // Check if message contains the label or vice versa
+          if (normalizedMessage.includes(normalizedLabel) || normalizedLabel.includes(normalizedMessage)) {
+            selectedChoice = choice;
+            break;
+          }
+          // Check individual words
+          const labelWords = normalizedLabel.split(/\s+/);
+          const matchCount = labelWords.filter(w => normalizedMessage.includes(w)).length;
+          if (matchCount >= Math.ceil(labelWords.length / 2)) {
+            selectedChoice = choice;
+            break;
+          }
+        }
+      }
+      
+      if (!selectedChoice) {
+        // Couldn't parse selection - ask again
+        const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+        return {
+          intent: "select_choice",
+          actionTaken: "invalid_selection",
+          newPendingAction: pendingAction, // Keep the same pending action
+          responseMessage: `🤔 Je n'ai pas compris ton choix.\n\nRéponds avec le *numéro* correspondant:\n${choiceList}\n\nOu tape "annule" pour abandonner.`,
+        };
+      }
+      
+      // Selection made - update entities and execute original intent
+      console.log(`User selected choice: ${selectedChoice.label} (${selectedChoice.id})`);
+      
+      // Update entities based on the selected choice
+      const updatedEntities = { ...pendingAction.entities };
+      
+      if (selectedChoice.entityType === "client") {
+        updatedEntities.client_name = selectedChoice.label;
+        updatedEntities.client_id = selectedChoice.id;
+      } else if (selectedChoice.entityType === "rdv") {
+        updatedEntities.rdv_id = selectedChoice.id;
+        if (selectedChoice.data.client_name) {
+          updatedEntities.client_name = selectedChoice.data.client_name;
+        }
+      } else if (selectedChoice.entityType === "vente") {
+        updatedEntities.vente_id = selectedChoice.id;
+        if (selectedChoice.data.client_name) {
+          updatedEntities.client_name = selectedChoice.data.client_name;
+        }
+      }
+      
+      // Store additional data from the choice
+      Object.assign(updatedEntities, selectedChoice.data);
+      
+      // For query intents, we can execute directly with the clarified info
+      const queryIntents: Intent[] = [
+        "query_client_info", "query_rdv_detail", "query_vente_detail", 
+        "query_commissions", "query_stats", "query_rdv_planning", "query_ventes"
+      ];
+      
+      if (originalIntent && queryIntents.includes(originalIntent)) {
+        // Return with updated entities to execute the query
+        return {
+          intent: originalIntent,
+          actionTaken: "choice_selected_execute",
+          entityId: selectedChoice.id,
+          entityType: selectedChoice.entityType,
+          newPendingAction: null,
+          responseMessage: `✅ Compris: *${selectedChoice.label}*`,
+          customResponse: undefined, // Will be filled by executeAction
+        };
+      }
+      
+      // For action intents, we need confirmation
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "choice_selected_confirm",
+        entityId: selectedChoice.id,
+        entityType: selectedChoice.entityType,
+        newPendingAction: {
+          intent: originalIntent || pendingAction.intent,
+          entities: updatedEntities,
+          workflowState: "awaiting_confirmation",
+          collectedData: {
+            ...pendingAction.collectedData,
+            clientId: selectedChoice.entityType === "client" ? selectedChoice.id : pendingAction.collectedData?.clientId,
+            clientName: selectedChoice.label,
+          },
+          createdAt: new Date().toISOString(),
+        },
+        responseMessage: `📝 J'ai compris: *${selectedChoice.label}*\n\nJe vais ${getIntentActionDescription(originalIntent || pendingAction.intent, updatedEntities)}.\n\n*Confirmes-tu ?* (Oui/Non)`,
+      };
+    }
+    
     default:
       return null;
+  }
+}
+
+// Helper to describe what an intent will do
+function getIntentActionDescription(intent: Intent, entities: Record<string, unknown>): string {
+  switch (intent) {
+    case "query_client_info":
+      return `te donner les infos de ce client`;
+    case "query_rdv_detail":
+      return `te faire le topo de ce RDV`;
+    case "query_vente_detail":
+      return `te montrer les détails de cette vente`;
+    case "create_rdv":
+      return `créer un RDV${entities.date ? ` le ${entities.date}` : ""}${entities.time ? ` à ${entities.time}` : ""}`;
+    case "update_rdv":
+      return `modifier ce RDV`;
+    case "update_vente_status":
+      return `mettre à jour le statut en "${entities.status}"`;
+    case "update_vente_pipeline":
+      return `passer le pipeline à "${entities.pipeline_status}"`;
+    case "mark_signe":
+      return `enregistrer cette vente comme signée`;
+    case "update_vente_data":
+      return `modifier les données de cette vente`;
+    default:
+      return `traiter ta demande`;
   }
 }
 
@@ -2154,14 +2466,20 @@ async function executeAction(
         };
       }
       
-      // If no exact match but we have suggestions
+      // If no exact match but we have suggestions - create a poll for disambiguation
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName} (${Math.round(s.score * 100)}%)`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "create_rdv",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais peut-être:\n${suggestionList}\n\nPrécise le nom complet.`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
@@ -2428,12 +2746,18 @@ async function executeAction(
       }
       
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName}`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "update_vente_status",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
@@ -2536,12 +2860,18 @@ async function executeAction(
       }
       
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName}`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "update_vente_pipeline",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
@@ -2655,12 +2985,18 @@ async function executeAction(
         }
         
         if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-          const suggestionList = searchResult.suggestions
-            .map(s => `• ${s.fullName}`)
-            .join("\n");
+          // Generate a choice poll for the user to select the right client
+          const poll = generateChoicePoll(
+            searchResult.suggestions,
+            clientName,
+            "mark_signe",
+            entities
+          );
+          
           return {
             actionTaken: "client_ambiguous",
-            customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+            newPendingAction: poll.pendingAction,
+            customResponse: poll.responseMessage,
           };
         }
         
@@ -3106,12 +3442,18 @@ async function executeAction(
       
       // If no exact match but we have suggestions
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName} (${Math.round(s.score * 100)}%)`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "query_client_info",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais peut-être:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
       
@@ -3254,12 +3596,18 @@ async function executeAction(
       }
       
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName}`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "query_rdv_detail",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
@@ -3488,12 +3836,18 @@ async function executeAction(
       }
       
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName}`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "query_vente_detail",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
@@ -3647,12 +4001,18 @@ async function executeAction(
       }
       
       if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-        const suggestionList = searchResult.suggestions
-          .map(s => `• ${s.fullName}`)
-          .join("\n");
+        // Generate a choice poll for the user to select the right client
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "update_vente_data",
+          entities
+        );
+        
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
         };
       }
 
