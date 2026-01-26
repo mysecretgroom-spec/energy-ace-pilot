@@ -2126,6 +2126,49 @@ async function handlePendingWorkflow(
           const rdvIds = pendingAction.collectedData.rdvIds;
           const action = pendingAction.collectedData.action;
           
+          // Handle DELETE action (supprime)
+          if (action === "supprime") {
+            // Get previous data for each RDV before deletion (for audit trail)
+            for (const rdvId of rdvIds) {
+              const previousData = await getPreviousData(supabase, "rdv", rdvId, userId);
+              await logAgentAction(
+                supabase,
+                userId,
+                null,
+                "delete_rdv",
+                "rdv",
+                rdvId,
+                { deleted: true },
+                previousData,
+                `RDV supprimé définitivement (action en masse)`
+              );
+            }
+            
+            // Execute the mass delete
+            const { error: deleteError } = await supabase
+              .from("rdv")
+              .delete()
+              .in("id", rdvIds);
+            
+            if (deleteError) {
+              console.error("Error mass deleting RDVs:", deleteError);
+              return {
+                intent: "update_rdv",
+                actionTaken: "error",
+                newPendingAction: null,
+                responseMessage: `❌ Erreur lors de la suppression: ${deleteError.message}`,
+              };
+            }
+            
+            return {
+              intent: "update_rdv",
+              actionTaken: "mass_rdv_deleted",
+              newPendingAction: null,
+              responseMessage: `🗑️ ${rdvIds.length} RDV supprimé(s) définitivement !`,
+            };
+          }
+          
+          // Handle UPDATE actions (annule, reporte, decale)
           let updateData: Record<string, unknown> = {};
           
           if (action === "annule") {
@@ -2816,7 +2859,7 @@ SIGNAUX D'ACTION (→ autres intents):
 
 INTENTIONS DISPONIBLES:
 - create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
-- update_rdv: Modifier/annuler RDV (ex: "annule rdv Martin")
+- update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV (négatif, absent, r2, reporté) - NE PAS utiliser pour signé/positif
 - update_vente_pipeline: Pipeline vente existante (posé, payé, CQ fait, annulé)
@@ -2944,6 +2987,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     date: { type: "string" },
                     time: { type: "string" },
                     address: { type: "string" },
+                    action: { type: "string", enum: ["annule", "reporte", "decale", "supprime"], description: "Action to perform on RDV: annule (cancel/mark as cancelled), reporte (postpone), decale (reschedule), supprime (DELETE permanently)" },
                     status: { type: "string" },
                     pipeline_status: { type: "string", enum: ["cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye", "annule"] },
                     amount: { type: "number" },
@@ -2951,12 +2995,13 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     technicien: { type: "string" },
                     commentaire: { type: "string" },
                     document_type: { type: "string" },
-                    period: { type: "string", enum: ["today", "week", "month", "all"] },
+                    period: { type: "string", enum: ["today", "week", "next_week", "month", "all"] },
                     query_type: { type: "string", enum: ["list", "total", "detail"] },
                     query_field: { type: "string", description: "Specific field the user is asking about: commission, statut, prix, montant, puissance, panneau, date, pose, adresse, telephone, regie. Extract this when user asks a specific question like 'quelle est la commission de X?' or 'quel est le statut de Y?'" },
                     filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
                     regie_name: { type: "string", description: "Name of the régie for filtering" },
                     include_cancelled: { type: "boolean", description: "Include cancelled items (default false)" },
+                    status_filter: { type: "string", enum: ["nouveau", "reporte", "r2", "r2_prestudy", "signe", "negatif", "annule", "all"], description: "Filter RDVs by status. Use 'all' to include all statuses regardless of state" },
                     frais_categorie: { type: "string", enum: ["carburant", "repas", "hotel", "peage", "parking", "train", "location_vehicule", "autre"], description: "Expense category filter" },
                     feedback_type: { type: "string", enum: ["correction", "preference", "rule", "alias"] },
                     feedback_key: { type: "string", description: "What the user wants to correct or define" },
@@ -3138,11 +3183,12 @@ async function executeAction(
 
     case "update_rdv": {
       const clientName = entities.client_name as string;
-      const action = entities.action as string; // "annule", "reporte", "decale"
+      const action = entities.action as string; // "annule", "reporte", "decale", "supprime"
       const newDate = entities.date as string;
       const newTime = entities.time as string;
-      const period = entities.period as string; // "today", "week", "month", "all"
+      const period = entities.period as string; // "today", "week", "next_week", "month", "all"
       const regieFilter = entities.regie_name as string;
+      const statusFilter = entities.status_filter as string; // Filter by specific status
       
       // Build query for RDVs to modify
       let query = supabase
@@ -3187,9 +3233,25 @@ async function executeAction(
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         query = query.gte("date_heure", monthStart.toISOString()).lt("date_heure", monthEnd.toISOString());
       }
+      // If period === "all", no date filter applied
       
-      // Filter by status - only modifiable statuses (use valid enum values)
-      query = query.in("status", ["nouveau", "reporte", "r2", "r2_prestudy"]);
+      // Apply status filter based on action type and explicit filter
+      if (action === "supprime") {
+        // For delete: allow all statuses OR filter by specific status
+        if (statusFilter && statusFilter !== "all") {
+          query = query.eq("status", statusFilter);
+        }
+        // If statusFilter is "all" or not specified, don't filter by status - allow deleting any RDV
+      } else {
+        // For other actions (annule, reporte, decale): only modifiable statuses by default
+        if (statusFilter && statusFilter !== "all") {
+          query = query.eq("status", statusFilter);
+        } else {
+          // Default: only non-final statuses for modification
+          query = query.in("status", ["nouveau", "reporte", "r2", "r2_prestudy"]);
+        }
+      }
+      
       query = query.order("date_heure", { ascending: true });
       
       const { data: rdvsToModify, error: rdvError } = await query;
@@ -3235,7 +3297,7 @@ async function executeAction(
         const filterDesc = filterParts.length > 0 ? `Filtre: ${filterParts.join(", ")}` : "";
         
         // Create pending action for confirmation
-        const actionLabel = action === "annule" ? "annuler" : action === "reporte" ? "reporter" : "modifier";
+        const actionLabel = action === "annule" ? "annuler" : action === "reporte" ? "reporter" : action === "supprime" ? "SUPPRIMER" : "modifier";
         
         const pendingAction: PendingAction = {
           intent: "update_rdv",
@@ -3273,6 +3335,45 @@ async function executeAction(
       
       // Single RDV - execute directly
       const rdv = rdvsToModify[0];
+      const clientInfo = rdv.clients as { nom: string; prenom?: string };
+      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
+      
+      // Handle DELETE action (supprime) for single RDV
+      if (action === "supprime") {
+        // Get previous data for undo capability
+        const previousRdvData = await getPreviousData(supabase, "rdv", rdv.id, userId);
+        
+        // Log the action before deletion
+        await logAgentAction(
+          supabase,
+          userId,
+          messageId,
+          "delete_rdv",
+          "rdv",
+          rdv.id,
+          { deleted: true },
+          previousRdvData,
+          `RDV supprimé définitivement: ${clientFullName}`
+        );
+        
+        const { error: deleteError } = await supabase
+          .from("rdv")
+          .delete()
+          .eq("id", rdv.id);
+        
+        if (deleteError) {
+          console.error("Error deleting RDV:", deleteError);
+          return { actionTaken: "error" };
+        }
+        
+        return {
+          actionTaken: "rdv_deleted",
+          entityId: rdv.id,
+          entityType: "rdv",
+        };
+      }
+      
+      // Handle UPDATE actions (annule, reporte, decale)
       let newStatus = rdv.status;
       let updateData: Record<string, unknown> = {};
       
@@ -3311,8 +3412,6 @@ async function executeAction(
       }
       
       // Log the action
-      const clientInfo = rdv.clients as { nom: string; prenom?: string };
-      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
       await logAgentAction(
         supabase,
         userId,
