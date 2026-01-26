@@ -1236,6 +1236,72 @@ serve(async (req) => {
           TWILIO_ACCOUNT_SID!,
           TWILIO_AUTH_TOKEN!
         );
+        
+        // Handle feedback regeneration: after saving correction, regenerate response with correction applied
+        if (actionResult.actionTaken === "feedback_saved_regenerate") {
+          const correctionValue = actionResult.entityId || "";
+          console.log("Feedback saved, regenerating response with correction applied...");
+          
+          // Reload memories (now including the new correction)
+          const updatedMemories = await loadUserMemories(supabase, request.userId);
+          
+          // Ask AI to provide a corrected response based on the feedback
+          const regenerateResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                { 
+                  role: "system", 
+                  content: `Tu es un assistant IA qui vient d'apprendre une nouvelle correction de l'utilisateur.
+                  
+CORRECTION APPRISE: "${correctionValue}"
+
+MÉMOIRES UTILISATEUR ACTUELLES:
+${formatMemoriesForPrompt(updatedMemories)}
+
+L'utilisateur t'a corrigé. Tu dois maintenant:
+1. Confirmer brièvement que tu as noté la correction (1 ligne max)
+2. Puis, sur une nouvelle ligne, fournir une réponse en appliquant cette correction
+
+Format attendu:
+✅ C'est noté ! [confirmation courte de ce que tu retiens]
+
+[Réponse corrigée/améliorée basée sur la nouvelle règle]
+
+Sois utile et montre que tu as compris la correction en l'appliquant immédiatement.` 
+                },
+                ...conversationContext.slice(-4).map(m => ({
+                  role: m.role as "user" | "assistant",
+                  content: m.content
+                })),
+                { role: "user", content: processedContent }
+              ],
+              max_tokens: 1500,
+            }),
+          });
+          
+          if (regenerateResponse.ok) {
+            const regenResult = await regenerateResponse.json();
+            const regeneratedContent = regenResult.choices?.[0]?.message?.content;
+            if (regeneratedContent) {
+              actionResult.customResponse = regeneratedContent;
+              console.log("Regenerated response with correction applied");
+            } else {
+              // Fallback if regeneration fails
+              actionResult.customResponse = `✅ C'est noté ! Je me souviendrai que: "${correctionValue}"\n\nJe vais appliquer cette correction à mes prochaines réponses.`;
+            }
+          } else {
+            // Fallback if API call fails
+            actionResult.customResponse = `✅ C'est noté ! Je me souviendrai que: "${correctionValue}"\n\nJe vais appliquer cette correction à mes prochaines réponses.`;
+          }
+          
+          actionResult.actionTaken = "feedback_saved";
+        }
       }
     }
 
@@ -5370,10 +5436,11 @@ async function executeAction(
       
       console.log(`User feedback saved: ${feedbackType}/${feedbackKey} = ${feedbackValue}`);
       
+      // Flag for regeneration with correction applied
       return {
-        actionTaken: "feedback_saved",
+        actionTaken: "feedback_saved_regenerate",
         entityType: "memory",
-        customResponse: `✅ C'est noté ! Je me souviendrai que: "${feedbackValue}"`,
+        entityId: feedbackValue, // Pass the correction value for context
       };
     }
 
