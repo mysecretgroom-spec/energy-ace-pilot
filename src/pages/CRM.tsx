@@ -326,8 +326,8 @@ const CRM = () => {
   // "Signées" = all signed ventes (not annule)
   const signeStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation', 'installe', 'attente_paiement', 'paye'];
   
-  // "En cours" = signed but not installed yet (work in progress)
-  const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation'];
+  // "En cours" = signed but not installed yet (before pose)
+  const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
   
   const filteredVentes = ventes.filter(v => {
     // Hide retape ventes when HEJJA mode is not active
