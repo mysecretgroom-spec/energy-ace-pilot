@@ -27,19 +27,13 @@ const DATA_SECTIONS = [
   },
   {
     icon: Euro,
-    title: "Tarifs",
-    description: "Prix par puissance kWc",
+    title: "Tarifs revente",
+    description: "Prix kWh revente/autoconso",
     path: "/parametres/data-tarifs",
   },
   {
-    icon: Package,
-    title: "Bouquets",
-    description: "Offres et configurations",
-    path: "/parametres/data-bouquets",
-  },
-  {
     icon: Wallet,
-    title: "Aides Financières",
+    title: "Aides & Primes",
     description: "Prime autoconso, MaPrimeRénov",
     path: "/parametres/data-aides",
   },

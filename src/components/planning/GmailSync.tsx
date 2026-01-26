@@ -95,7 +95,7 @@ export function GmailSync({ onSyncComplete, variant = "ghost" }: GmailSyncProps)
               variant={variant}
               size="icon"
               className="text-amber-500 relative"
-              onClick={() => navigate("/parametres/emails-autorises")}
+              onClick={() => navigate("/parametres/regies")}
             >
               <Mail className="h-5 w-5" />
               <span className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full" />

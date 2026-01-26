@@ -186,7 +186,7 @@ export default function GmailAutoSync() {
                           variant="link" 
                           size="sm" 
                           className="h-auto p-0 text-primary"
-                          onClick={() => navigate("/parametres/emails-autorises")}
+                          onClick={() => navigate("/parametres/regies")}
                         >
                           Configurer
                         </Button>
