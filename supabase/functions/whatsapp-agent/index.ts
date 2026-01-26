@@ -926,14 +926,15 @@ serve(async (req) => {
 
     // Execute action based on intent (only if not already handled by workflow)
     if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.confidence >= 70) {
-      // Actions that require mandatory confirmation before execution
+      // Actions that require MANDATORY confirmation before execution - ALWAYS enforce this
       const actionIntents: Intent[] = [
         "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
         "mark_signe", "update_vente_data"
       ];
       
-      // Check if this action needs confirmation and AI requested it
-      const needsConfirmation = actionIntents.includes(aiResponse!.intent) && aiResponse!.requiresConfirmation;
+      // FORCE confirmation for all action intents, regardless of AI response
+      // This ensures no data modification happens without explicit user confirmation
+      const needsConfirmation = actionIntents.includes(aiResponse!.intent);
       
       if (needsConfirmation) {
         // Store as pending action - don't execute yet
@@ -944,6 +945,40 @@ serve(async (req) => {
           collectedData.commentaire = uploadedDocumentUrl; // Store doc URL in commentaire field
         }
         
+        // Generate a proper confirmation message if AI didn't provide one
+        let confirmationMessage = aiResponse!.responseMessage;
+        
+        // If the AI response doesn't look like a proper confirmation request, generate one
+        if (!confirmationMessage.toLowerCase().includes("confirme") && 
+            !confirmationMessage.toLowerCase().includes("oui/non") &&
+            !confirmationMessage.toLowerCase().includes("correct ?")) {
+          const entities = aiResponse!.entities;
+          const clientName = entities.client_name as string || "?";
+          const intentLabels: Record<string, string> = {
+            create_rdv: "Créer un RDV",
+            update_rdv: "Modifier le RDV",
+            update_vente_status: "Mettre à jour le statut",
+            update_vente_pipeline: "Mettre à jour la vente",
+            mark_signe: "Marquer comme signé",
+            update_vente_data: "Modifier les données de vente",
+          };
+          
+          const actionLabel = intentLabels[aiResponse!.intent] || aiResponse!.intent;
+          
+          // Build entity summary
+          const entityParts: string[] = [];
+          if (entities.client_name) entityParts.push(`Client: ${entities.client_name}`);
+          if (entities.pipeline_status) entityParts.push(`Statut: ${entities.pipeline_status}`);
+          if (entities.date) entityParts.push(`Date: ${entities.date}`);
+          if (entities.time) entityParts.push(`Heure: ${entities.time}`);
+          if (entities.montant_ttc) entityParts.push(`Montant: ${entities.montant_ttc}€`);
+          if (entities.puissance_kwc) entityParts.push(`Puissance: ${entities.puissance_kwc}kWc`);
+          
+          const entitySummary = entityParts.length > 0 ? `\n${entityParts.join(" | ")}` : "";
+          
+          confirmationMessage = `🔔 *${actionLabel}*${entitySummary}\n\nConfirmes-tu ? (Oui/Non)`;
+        }
+        
         actionResult = {
           newPendingAction: {
             intent: aiResponse!.intent,
@@ -952,7 +987,7 @@ serve(async (req) => {
             collectedData,
             createdAt: new Date().toISOString(),
           },
-          customResponse: aiResponse!.responseMessage, // AI already formatted the confirmation message
+          customResponse: confirmationMessage,
         };
       } else {
         // For import intents, we need to upload the media first
