@@ -2866,7 +2866,7 @@ SIGNAUX D'ACTION (→ autres intents):
 
 INTENTIONS DISPONIBLES:
 - create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
-- update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés")
+- update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés", "supprime les rdv de vendredi et samedi dernier")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV (négatif, absent, r2, reporté) - NE PAS utiliser pour signé/positif
 - update_vente_pipeline: Pipeline vente existante (posé, payé, CQ fait, annulé)
@@ -2894,6 +2894,16 @@ CATÉGORIES FRAIS: carburant, repas, hotel, peage, parking, train, location_vehi
 
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
+
+⚠️ PARSING DATES RELATIVES - CRITIQUE:
+- "vendredi dernier" → le vendredi de la semaine PASSÉE
+- "samedi dernier" → le samedi de la semaine PASSÉE  
+- "lundi prochain" → le lundi de la semaine PROCHAINE
+- "demain", "aujourd'hui", "hier" → dates relatives simples
+- "vendredi et samedi dernier" → DEUX dates spécifiques à extraire dans specific_dates
+- Pour ces dates relatives, tu DOIS calculer la date exacte au format YYYY-MM-DD
+- Exemple: si aujourd'hui = dimanche 26/01/2025, "vendredi dernier" = 2025-01-24, "samedi dernier" = 2025-01-25
+- Utilise specific_dates: ["2025-01-24", "2025-01-25"] pour les dates multiples
 
 ⚠️ DÉFINITIONS MÉTIER CRITIQUES:
 - "En cours" = signées mais PAS ENCORE POSÉES (signe, cq_a_faire, cq_fait, attente_financement, envoi_pose - EXCLUT en_installation et installe)
@@ -3002,7 +3012,8 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     technicien: { type: "string" },
                     commentaire: { type: "string" },
                     document_type: { type: "string" },
-                    period: { type: "string", enum: ["today", "week", "next_week", "month", "all"] },
+                    period: { type: "string", enum: ["today", "week", "next_week", "month", "all"], description: "Predefined period filter. Do NOT use if specific_dates is provided." },
+                    specific_dates: { type: "array", items: { type: "string" }, description: "Array of specific dates in YYYY-MM-DD format. Use for precise date filtering like 'vendredi dernier', 'samedi 24 janvier'. Calculate dates from relative expressions. Example: ['2025-01-24', '2025-01-25']" },
                     query_type: { type: "string", enum: ["list", "total", "detail"] },
                     query_field: { type: "string", description: "Specific field the user is asking about: commission, statut, prix, montant, puissance, panneau, date, pose, adresse, telephone, regie. Extract this when user asks a specific question like 'quelle est la commission de X?' or 'quel est le statut de Y?'" },
                     filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
@@ -3194,8 +3205,11 @@ async function executeAction(
       const newDate = entities.date as string;
       const newTime = entities.time as string;
       const period = entities.period as string; // "today", "week", "next_week", "month", "all"
+      const specificDates = entities.specific_dates as string[] | undefined; // Array of YYYY-MM-DD dates
       const regieFilter = entities.regie_name as string;
       const statusFilter = entities.status_filter as string; // Filter by specific status
+      
+      console.log(`update_rdv: period=${period}, specificDates=${JSON.stringify(specificDates)}, action=${action}`);
       
       // Build query for RDVs to modify
       let query = supabase
@@ -3214,9 +3228,31 @@ async function executeAction(
         query = query.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
       }
       
-      // Apply period filter
+      // Apply date filter - PRIORITY: specific_dates > period
       const now = new Date();
-      if (period === "today") {
+      
+      if (specificDates && specificDates.length > 0) {
+        // Build OR conditions for each specific date (match any day in the array)
+        // For each date, filter RDVs that start on that day (00:00 to 23:59)
+        const dateConditions: string[] = [];
+        for (const dateStr of specificDates) {
+          // Parse the date and create a range for the full day
+          const dateParts = dateStr.split("-");
+          if (dateParts.length === 3) {
+            const year = parseInt(dateParts[0]);
+            const month = parseInt(dateParts[1]) - 1; // JS months are 0-indexed
+            const day = parseInt(dateParts[2]);
+            const dayStart = new Date(year, month, day, 0, 0, 0);
+            const dayEnd = new Date(year, month, day, 23, 59, 59);
+            dateConditions.push(`and(date_heure.gte.${dayStart.toISOString()},date_heure.lte.${dayEnd.toISOString()})`);
+          }
+        }
+        if (dateConditions.length > 0) {
+          // Apply the OR filter for all dates
+          query = query.or(dateConditions.join(","));
+        }
+        console.log(`Applied specific_dates filter: ${specificDates.join(", ")}`);
+      } else if (period === "today") {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const todayEnd = new Date(todayStart);
         todayEnd.setDate(todayEnd.getDate() + 1);
@@ -3240,7 +3276,7 @@ async function executeAction(
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         query = query.gte("date_heure", monthStart.toISOString()).lt("date_heure", monthEnd.toISOString());
       }
-      // If period === "all", no date filter applied
+      // If period === "all" or no date filter, no date constraint applied
       
       // Apply status filter based on action type and explicit filter
       if (action === "supprime") {
@@ -3288,7 +3324,14 @@ async function executeAction(
         
         // Build filter description
         const filterParts: string[] = [];
-        if (period) {
+        if (specificDates && specificDates.length > 0) {
+          // Format specific dates for display
+          const formattedDates = specificDates.map(ds => {
+            const d = new Date(ds + "T12:00:00"); // Add time to avoid timezone issues
+            return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+          });
+          filterParts.push(formattedDates.join(" + "));
+        } else if (period) {
           const periodLabels: Record<string, string> = {
             today: "aujourd'hui",
             week: "cette semaine",
