@@ -71,8 +71,8 @@ export function CreateRegieDialog({
     }
   }, [open, isHejja]);
 
-  // Filter regies to show only non-hejja or matching type for cloning
-  const clonableRegies = existingRegies.filter(r => !isHejja || r.is_hejja === isHejja);
+  // Show all regies for cloning (user can choose any regie's configuration)
+  const clonableRegies = existingRegies;
 
   const handleCreate = async () => {
     if (!user || !nom.trim()) {
