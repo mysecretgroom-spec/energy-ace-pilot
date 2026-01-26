@@ -16,7 +16,8 @@ import {
   MicOff,
   Paperclip,
   Image as ImageIcon,
-  FileText
+  FileText,
+  MessageCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -346,7 +347,10 @@ export function AgentChat() {
               variant="outline"
               className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted"
             >
-              <span className="text-xl">🤖</span>
+              <div className="relative">
+                <MessageCircle className="h-5 w-5 text-primary" />
+                <Sparkles className="h-2.5 w-2.5 text-primary absolute -top-1 -right-1" />
+              </div>
               <span className="text-muted-foreground font-medium">Agent</span>
               <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             </Button>
