@@ -997,6 +997,8 @@ export type Database = {
           pac_economie_estimee: number | null
           pac_ecs_integre: boolean | null
           pac_energie_actuelle: string | null
+          pac_facture_chauffage_euros: number | null
+          pac_facture_elec_euros: number | null
           pac_nombre_unites_int: number | null
           pac_puissance_calorifique: number | null
           pac_subtype: Database["public"]["Enums"]["pac_subtype"] | null
@@ -1087,6 +1089,8 @@ export type Database = {
           pac_economie_estimee?: number | null
           pac_ecs_integre?: boolean | null
           pac_energie_actuelle?: string | null
+          pac_facture_chauffage_euros?: number | null
+          pac_facture_elec_euros?: number | null
           pac_nombre_unites_int?: number | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
@@ -1177,6 +1181,8 @@ export type Database = {
           pac_economie_estimee?: number | null
           pac_ecs_integre?: boolean | null
           pac_energie_actuelle?: string | null
+          pac_facture_chauffage_euros?: number | null
+          pac_facture_elec_euros?: number | null
           pac_nombre_unites_int?: number | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null

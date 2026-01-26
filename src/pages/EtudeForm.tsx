@@ -242,6 +242,8 @@ const EtudeForm = () => {
   const [pacEnergieActuelle, setPacEnergieActuelle] = useState("");
   const [pacConsoChaufffageKwh, setPacConsoChaufffageKwh] = useState<number | "">("");
   const [pacEconomieEstimee, setPacEconomieEstimee] = useState<number | "">(0);
+  const [pacFactureChauffageEuros, setPacFactureChauffageEuros] = useState<number | "">("");
+  const [pacFactureElecEuros, setPacFactureElecEuros] = useState<number | "">("");
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CHAMPS SPÉCIFIQUES ITE
@@ -677,6 +679,8 @@ const EtudeForm = () => {
         setPacEnergieActuelle(etude.pac_energie_actuelle || "");
         setPacConsoChaufffageKwh(etude.pac_conso_chauffage_kwh || "");
         setPacEconomieEstimee(etude.pac_economie_estimee || 0);
+        setPacFactureChauffageEuros(etude.pac_facture_chauffage_euros || "");
+        setPacFactureElecEuros(etude.pac_facture_elec_euros || "");
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1043,6 +1047,8 @@ const EtudeForm = () => {
       pac_energie_actuelle: productType === "PAC" ? pacEnergieActuelle : null,
       pac_conso_chauffage_kwh: productType === "PAC" && pacConsoChaufffageKwh ? Number(pacConsoChaufffageKwh) : null,
       pac_economie_estimee: productType === "PAC" && pacEconomieEstimee ? Number(pacEconomieEstimee) : null,
+      pac_facture_chauffage_euros: productType === "PAC" && pacFactureChauffageEuros ? Number(pacFactureChauffageEuros) : null,
+      pac_facture_elec_euros: productType === "PAC" && pacFactureElecEuros ? Number(pacFactureElecEuros) : null,
       // ═══════════════════════════════════════════════════════════════════════════
       // CHAMPS ITE
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1778,6 +1784,8 @@ _Envoyé depuis DébalePro_`;
                 pacEnergieActuelle: pacEnergieActuelle,
                 pacConsoChaufffageKwh: pacConsoChaufffageKwh,
                 pacEconomieEstimee: pacEconomieEstimee,
+                pacFactureChauffageEuros: pacFactureChauffageEuros,
+                pacFactureElecEuros: pacFactureElecEuros,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -1792,6 +1800,8 @@ _Envoyé depuis DébalePro_`;
                   case "pacEnergieActuelle": setPacEnergieActuelle(value as string); break;
                   case "pacConsoChaufffageKwh": setPacConsoChaufffageKwh(value as number | ""); break;
                   case "pacEconomieEstimee": setPacEconomieEstimee(value as number | ""); break;
+                  case "pacFactureChauffageEuros": setPacFactureChauffageEuros(value as number | ""); break;
+                  case "pacFactureElecEuros": setPacFactureElecEuros(value as number | ""); break;
                 }
               }}
             />

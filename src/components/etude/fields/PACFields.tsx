@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Thermometer, Home, Droplets, Gauge, Flame } from "lucide-react";
+import { Thermometer, Home, Droplets, Gauge, Flame, Receipt, Zap } from "lucide-react";
 import { PAC_OPTIONS, PacSubtype } from "@/lib/productTypes";
 
 interface PACFieldsProps {
@@ -19,6 +19,8 @@ interface PACFieldsProps {
     pacEnergieActuelle: string;
     pacConsoChaufffageKwh: number | "";
     pacEconomieEstimee: number | "";
+    pacFactureChauffageEuros: number | "";
+    pacFactureElecEuros: number | "";
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
@@ -26,10 +28,14 @@ interface PACFieldsProps {
 
 export const PACFields = ({ data, onChange, calculatedCop }: PACFieldsProps) => {
   const copValue = calculatedCop || Number(data.pacCop) || 3;
-  const consoValue = Number(data.pacConsoChaufffageKwh) || 0;
-  const showEconomies = consoValue > 0 && copValue > 0;
+  const factureChauf = Number(data.pacFactureChauffageEuros) || 0;
+  const factureElec = Number(data.pacFactureElecEuros) || 0;
+  const showEconomies = factureChauf > 0 && copValue > 0;
   const economyPct = Math.round((1 - 1 / copValue) * 100);
-  const economyEuros = Math.round(consoValue * (1 - 1 / copValue) * 0.15);
+  // Économie = facture chauffage × % réduction - (augmentation élec estimée)
+  // Approximation : la PAC consomme ~factureChauf/COP en électricité
+  const consoElecPac = factureChauf / copValue;
+  const economyEuros = Math.round(factureChauf - consoElecPac);
 
   return (
     <div className="space-y-4">
@@ -146,9 +152,62 @@ export const PACFields = ({ data, onChange, calculatedCop }: PACFieldsProps) => 
               />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Factures énergétiques */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Receipt className="h-4 w-4 text-orange-600" />
+            Factures énergétiques actuelles
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-500" />
+                Chauffage (€/an)
+              </Label>
+              <Input
+                type="number"
+                value={data.pacFactureChauffageEuros}
+                onChange={(e) => onChange("pacFactureChauffageEuros", e.target.value ? Number(e.target.value) : "")}
+                placeholder="1800"
+              />
+              <p className="text-xs text-muted-foreground">
+                Gaz, fioul ou propane
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                Électricité (€/an)
+              </Label>
+              <Input
+                type="number"
+                value={data.pacFactureElecEuros}
+                onChange={(e) => onChange("pacFactureElecEuros", e.target.value ? Number(e.target.value) : "")}
+                placeholder="1200"
+              />
+              <p className="text-xs text-muted-foreground">
+                Hors chauffage actuel
+              </p>
+            </div>
+          </div>
+
+          {(factureChauf > 0 || factureElec > 0) && (
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total énergie actuel</span>
+                <span className="font-medium">{(factureChauf + factureElec).toLocaleString("fr-FR")} €/an</span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label>Consommation chauffage actuelle (kWh/an)</Label>
+            <Label>Consommation chauffage (kWh/an)</Label>
             <Input
               type="number"
               value={data.pacConsoChaufffageKwh}
@@ -156,7 +215,7 @@ export const PACFields = ({ data, onChange, calculatedCop }: PACFieldsProps) => 
               placeholder="15000"
             />
             <p className="text-xs text-muted-foreground">
-              Pour fioul/gaz : consulter les factures annuelles
+              Optionnel : pour calcul détaillé
             </p>
           </div>
         </CardContent>
