@@ -102,10 +102,11 @@ export function SigneDialog({
         setBouquets(bouquetsData as Bouquet[]);
       }
 
-      // Fetch surcouts - first try régie-specific, then global
+      // Fetch surcouts - first try régie-specific, then global regies_surcouts, then data_surcouts
       let surcoutsData: Surcout[] = [];
       
       if (regieId) {
+        // Try régie-specific surcouts first
         const { data: regiesSurcouts } = await supabase
           .from("regies_surcouts")
           .select("id, nom, code, prix, categorie, type_calcul")
@@ -118,7 +119,21 @@ export function SigneDialog({
         }
       }
       
-      // If no régie-specific surcouts, fetch global ones
+      // If no régie-specific surcouts, try global regies_surcouts (regie_id is null)
+      if (surcoutsData.length === 0) {
+        const { data: globalRegiesSurcouts } = await supabase
+          .from("regies_surcouts")
+          .select("id, nom, code, prix, categorie, type_calcul")
+          .is("regie_id", null)
+          .eq("actif", true)
+          .order("categorie", { ascending: true });
+        
+        if (globalRegiesSurcouts && globalRegiesSurcouts.length > 0) {
+          surcoutsData = globalRegiesSurcouts;
+        }
+      }
+      
+      // Last fallback: data_surcouts table
       if (surcoutsData.length === 0) {
         const { data: globalSurcouts } = await supabase
           .from("data_surcouts")
