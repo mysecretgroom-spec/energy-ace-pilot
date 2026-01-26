@@ -164,7 +164,7 @@ export function AgentChat() {
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: data?.response || "Je n'ai pas pu traiter votre demande.",
+        content: data?.responseMessage || data?.response || "Je n'ai pas pu traiter votre demande.",
         timestamp: new Date(),
       };
 
@@ -254,7 +254,7 @@ export function AgentChat() {
             const assistantMessage: Message = {
               id: crypto.randomUUID(),
               role: "assistant",
-              content: data?.response || "Je n'ai pas pu transcrire votre message.",
+              content: data?.responseMessage || data?.response || "Je n'ai pas pu transcrire votre message.",
               timestamp: new Date(),
             };
             setMessages((prev) => [...prev, assistantMessage]);
