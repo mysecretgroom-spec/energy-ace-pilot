@@ -14,6 +14,7 @@ type Intent =
   | "update_vente_status" 
   | "mark_signe"           // Marquer une vente comme signée (workflow complet)
   | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
+  | "update_vente_data"    // Modifier les données d'une vente (prix, puissance, technicien, dates)
   | "import_document" 
   | "import_facture" 
   | "query_commissions"
@@ -22,6 +23,7 @@ type Intent =
   | "query_rdv_planning"
   | "query_rdv_detail"     // Topo détaillé sur un RDV spécifique (infos Gmail, conso, profil)
   | "query_ventes"
+  | "query_vente_detail"   // Fiche détaillée d'une vente spécifique par nom de client
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
@@ -1876,6 +1878,8 @@ INTENTIONS DISPONIBLES:
 - query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "ventes en cours"
+- query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
+- update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
@@ -1910,7 +1914,7 @@ EXEMPLES DE CLASSIFICATION:
 - "tu as oublié de donner l'heure" → user_feedback (CRITIQUE comportement)
 
 Format réponse JSON:
-{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
+{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
 Contexte: ${userName} | Date: ${today}
@@ -3345,6 +3349,303 @@ async function executeAction(
         actionTaken: "query_ventes_result",
         entityType: "ventes",
         entityId: JSON.stringify({ count: responseData.length, ventes: responseData }),
+      };
+    }
+
+    case "query_vente_detail": {
+      // Get detailed info about a specific sale by client name
+      const clientName = entities.client_name as string;
+      
+      if (!clientName) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Indique-moi le nom du client pour voir sa vente.",
+        };
+      }
+      
+      // Find client with fuzzy search
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+        };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName}`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+        };
+      }
+
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      // Find the vente for this client with all details
+      const { data: ventes, error: venteError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          status,
+          montant_ttc,
+          montant_ht,
+          puissance_kwc,
+          nombre_panneaux,
+          date_signature,
+          date_cq,
+          date_installation,
+          date_pose,
+          technicien,
+          commentaire,
+          is_external,
+          created_at,
+          clients!inner(id, nom, prenom, adresse, ville, code_postal, telephone)
+        `)
+        .eq("user_id", userId)
+        .eq("client_id", matchedClient.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (venteError || !ventes || ventes.length === 0) {
+        return {
+          actionTaken: "vente_not_found",
+          customResponse: `❌ Aucune vente trouvée pour "${matchedClient.fullName}".`,
+        };
+      }
+      
+      const vente = ventes[0];
+      // deno-lint-ignore no-explicit-any
+      const client = vente.clients as any;
+      const clientFullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+      
+      // Status labels
+      const statusLabels: Record<string, string> = {
+        cq_a_faire: "🔴 CQ à faire",
+        cq_fait: "🟡 CQ fait",
+        attente_financement: "🟡 Attente financement",
+        envoi_pose: "🔵 Envoi pose",
+        en_installation: "🔵 En installation",
+        installe: "✅ Posé",
+        attente_paiement: "💳 Attente paiement",
+        paye: "💰 Payé",
+        annule: "❌ Annulé",
+      };
+      
+      // Build response sections
+      const sections: string[] = [];
+      sections.push(`📋 *VENTE - ${clientFullName}*`);
+      sections.push("");
+      
+      // Status
+      sections.push(`📊 *Statut:* ${statusLabels[vente.status] || vente.status}`);
+      if (vente.is_external) sections.push("📦 Installation externe");
+      sections.push("");
+      
+      // Financial
+      sections.push("💰 *Financier:*");
+      if (vente.montant_ttc) sections.push(`• TTC: ${vente.montant_ttc.toLocaleString("fr-FR")}€`);
+      if (vente.montant_ht) sections.push(`• HT: ${vente.montant_ht.toLocaleString("fr-FR")}€`);
+      sections.push("");
+      
+      // Technical
+      sections.push("⚡ *Technique:*");
+      if (vente.puissance_kwc) sections.push(`• Puissance: ${vente.puissance_kwc} kWc`);
+      if (vente.nombre_panneaux) sections.push(`• Panneaux: ${vente.nombre_panneaux}`);
+      sections.push("");
+      
+      // Dates
+      sections.push("📅 *Dates:*");
+      if (vente.date_signature) sections.push(`• Signature: ${new Date(vente.date_signature).toLocaleDateString("fr-FR")}`);
+      if (vente.date_cq) sections.push(`• CQ: ${new Date(vente.date_cq).toLocaleDateString("fr-FR")}`);
+      if (vente.date_installation || vente.date_pose) {
+        const installDate = vente.date_pose || vente.date_installation;
+        sections.push(`• Pose: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
+      }
+      sections.push("");
+      
+      // Technicien
+      if (vente.technicien) {
+        sections.push(`👷 *Technicien:* ${vente.technicien}`);
+      }
+      
+      // Commentaire
+      if (vente.commentaire) {
+        sections.push("");
+        sections.push(`💬 *Commentaire:*\n${vente.commentaire}`);
+      }
+      
+      // Client info
+      sections.push("");
+      sections.push("👤 *Client:*");
+      if (client?.telephone) sections.push(`• Tél: ${client.telephone}`);
+      if (client?.adresse) {
+        const addr = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(", ");
+        sections.push(`• Adresse: ${addr}`);
+      }
+      
+      sections.push("");
+      sections.push("_💡 Tu peux modifier: prix, puissance, technicien, date pose, commentaire_");
+      
+      return {
+        actionTaken: "query_vente_detail_result",
+        entityType: "vente_detail",
+        entityId: vente.id,
+        customResponse: sections.join("\n"),
+      };
+    }
+
+    case "update_vente_data": {
+      // Update specific fields of a vente (not just pipeline status)
+      const clientName = entities.client_name as string;
+      const newAmount = entities.amount as number;
+      const newPuissance = entities.puissance_kwc as number;
+      const newTechnicien = entities.technicien as string;
+      const newCommentaire = entities.commentaire as string;
+      const newDate = entities.date as string;
+      
+      if (!clientName) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Indique-moi le nom du client pour modifier sa vente.",
+        };
+      }
+      
+      // Check if at least one field to update
+      if (!newAmount && !newPuissance && !newTechnicien && !newCommentaire && !newDate) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Que veux-tu modifier ? (prix, puissance, technicien, date pose, commentaire)",
+        };
+      }
+      
+      // Find client with fuzzy search
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+        };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const suggestionList = searchResult.suggestions
+          .map(s => `• ${s.fullName}`)
+          .join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `🔍 Pas de correspondance exacte pour "${clientName}". Tu voulais:\n${suggestionList}`
+        };
+      }
+
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      // Find the vente for this client
+      const { data: ventes, error: venteError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          status,
+          montant_ttc,
+          montant_ht,
+          puissance_kwc,
+          nombre_panneaux,
+          date_installation,
+          technicien,
+          commentaire,
+          clients!inner(id, nom, prenom)
+        `)
+        .eq("user_id", userId)
+        .eq("client_id", matchedClient.id)
+        .not("status", "eq", "annule")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (venteError || !ventes || ventes.length === 0) {
+        return {
+          actionTaken: "vente_not_found",
+          customResponse: `❌ Aucune vente active trouvée pour "${matchedClient.fullName}".`,
+        };
+      }
+      
+      const vente = ventes[0];
+      // deno-lint-ignore no-explicit-any
+      const client = vente.clients as any;
+      const clientFullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+      
+      // Get previous data for undo
+      const previousVenteData = await getPreviousData(supabase, "ventes", vente.id, userId);
+      
+      // Build update data
+      // deno-lint-ignore no-explicit-any
+      const updateData: any = {};
+      const changes: string[] = [];
+      
+      if (newAmount) {
+        updateData.montant_ttc = newAmount;
+        // Approximate HT (20% TVA)
+        updateData.montant_ht = Math.round(newAmount / 1.2);
+        changes.push(`Prix: ${newAmount.toLocaleString("fr-FR")}€`);
+      }
+      
+      if (newPuissance) {
+        updateData.puissance_kwc = newPuissance;
+        updateData.nombre_panneaux = Math.round(newPuissance * 2); // 2 panneaux par kWc
+        changes.push(`Puissance: ${newPuissance}kWc`);
+      }
+      
+      if (newTechnicien) {
+        updateData.technicien = newTechnicien;
+        changes.push(`Technicien: ${newTechnicien}`);
+      }
+      
+      if (newCommentaire) {
+        // Append to existing comment or replace
+        const existingComment = vente.commentaire || "";
+        updateData.commentaire = existingComment 
+          ? `${existingComment}\n---\n${newCommentaire}` 
+          : newCommentaire;
+        changes.push("Commentaire ajouté");
+      }
+      
+      if (newDate) {
+        updateData.date_installation = newDate;
+        changes.push(`Date pose: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
+      }
+      
+      // Update vente
+      const { error: updateError } = await supabase
+        .from("ventes")
+        .update(updateData)
+        .eq("id", vente.id);
+      
+      if (updateError) {
+        console.error("Error updating vente data:", updateError);
+        return { actionTaken: "error" };
+      }
+      
+      // Log the action
+      await logAgentAction(
+        supabase,
+        userId,
+        messageId,
+        "update_vente_data",
+        "ventes",
+        vente.id,
+        updateData,
+        previousVenteData,
+        `Modification vente ${clientFullName}: ${changes.join(", ")}`
+      );
+      
+      return {
+        actionTaken: "vente_data_updated",
+        entityId: vente.id,
+        entityType: "vente",
+        customResponse: `✅ Vente *${clientFullName}* mise à jour:\n${changes.map(c => `• ${c}`).join("\n")}`,
       };
     }
 
