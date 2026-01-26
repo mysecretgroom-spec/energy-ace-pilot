@@ -1624,7 +1624,7 @@ const RegiesSettings = () => {
                             <Button 
                               variant="link" 
                               className="p-0 h-auto text-primary"
-                              onClick={() => navigate('/parametres/commissions')}
+                              onClick={() => navigate('/parametres/ventes')}
                             >
                               Paramètres → Commissions
                             </Button>
