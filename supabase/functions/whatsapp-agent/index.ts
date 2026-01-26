@@ -1883,12 +1883,15 @@ INTENTIONS DISPONIBLES:
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
 
-⚠️ RÈGLES MÉTIER EXCLUSIONS:
-- RDV "annule" ou "reporte" → JAMAIS comptés dans le planning actif, stats, ni actions en cours
-- Ventes "annule" → JAMAIS comptées dans les ventes en cours, commissions, ni CA
-- Quand l'utilisateur demande "mes rdv" ou "planning" → NE PAS inclure les annulés/reportés
-- Quand l'utilisateur demande "mes ventes" ou "ventes en cours" → NE PAS inclure les annulées
-- Les dossiers annulés sont considérés comme fermés définitivement
+⚠️ RÈGLES MÉTIER EXCLUSIONS (par défaut):
+- Par défaut, les RDV "annule"/"reporte" et ventes "annule" sont EXCLUS des requêtes
+- "mes rdv", "planning", "mes ventes", "ventes en cours" → exclure annulés/reportés
+- Stats et commissions → JAMAIS compter les annulés
+
+📋 EXCEPTION - Requêtes explicites sur annulés:
+- Si l'utilisateur demande EXPLICITEMENT les annulés ("rdv annulés", "ventes annulées", "dossiers annulés")
+- → Utiliser include_cancelled: true dans les outils query_rdv_planning ou query_ventes
+- Exemples: "montre-moi les rdv annulés", "liste des ventes annulées ce mois"
 
 RÈGLES CRITIQUES:
 1. Pour "signé/positif/vente/j'ai vendu" → TOUJOURS mark_signe (workflow complet avec collecte données)
@@ -1907,7 +1910,7 @@ EXEMPLES DE CLASSIFICATION:
 - "tu as oublié de donner l'heure" → user_feedback (CRITIQUE comportement)
 
 Format réponse JSON:
-{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
+{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
 Contexte: ${userName} | Date: ${today}
@@ -3045,7 +3048,10 @@ async function executeAction(
           endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
       }
 
-      const { data: rdvs, error } = await supabase
+      // Check if user explicitly wants cancelled/postponed RDV
+      const includeCancelled = entities.include_cancelled === true;
+      
+      let rdvQuery = supabase
         .from("rdv")
         .select(`
           id,
@@ -3055,8 +3061,18 @@ async function executeAction(
           type_rdv,
           clients(nom, prenom, telephone)
         `)
-        .eq("user_id", userId)
-        .not("status", "in", "(annule,reporte)") // Exclure annulés et reportés
+        .eq("user_id", userId);
+      
+      // Par défaut exclure annulés/reportés, sauf si demandé explicitement
+      if (includeCancelled) {
+        // Si on demande les annulés, filtrer UNIQUEMENT sur annule/reporte
+        rdvQuery = rdvQuery.in("status", ["annule", "reporte"]);
+      } else {
+        // Par défaut, exclure annulés et reportés
+        rdvQuery = rdvQuery.not("status", "in", "(annule,reporte)");
+      }
+      
+      const { data: rdvs, error } = await rdvQuery
         .gte("date_heure", startDate.toISOString())
         .lt("date_heure", endDate.toISOString())
         .order("date_heure", { ascending: true })
@@ -3273,6 +3289,9 @@ async function executeAction(
     case "query_ventes": {
       const clientName = entities.client_name as string;
       
+      // Check if user explicitly wants cancelled sales
+      const includeCancelled = entities.include_cancelled === true;
+      
       let query = supabase
         .from("ventes")
         .select(`
@@ -3285,10 +3304,18 @@ async function executeAction(
           date_pose,
           clients(nom, prenom)
         `)
-        .eq("user_id", userId)
-        .not("status", "eq", "annule") // Exclure les ventes annulées
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .eq("user_id", userId);
+      
+      // Par défaut exclure annulées, sauf si demandé explicitement
+      if (includeCancelled) {
+        // Si on demande les annulées, filtrer UNIQUEMENT sur annule
+        query = query.eq("status", "annule");
+      } else {
+        // Par défaut, exclure les annulées
+        query = query.not("status", "eq", "annule");
+      }
+      
+      query = query.order("created_at", { ascending: false }).limit(50);
 
       if (clientName) {
         query = query.or(`clients.nom.ilike.%${clientName}%,clients.prenom.ilike.%${clientName}%`);
