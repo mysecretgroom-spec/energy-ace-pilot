@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar } from "@/components/ui/avatar";
 import { 
-  MessageCircle, 
   X, 
   Send, 
   Loader2, 
@@ -12,19 +11,30 @@ import {
   User, 
   Sparkles,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Mic,
+  MicOff,
+  Paperclip,
+  Image as ImageIcon,
+  FileText
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  attachment?: {
+    type: "image" | "document";
+    name: string;
+    url?: string;
+  };
 }
 
 const SUGGESTIONS = [
@@ -41,8 +51,12 @@ export function AgentChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Load conversation from localStorage
   useEffect(() => {
@@ -65,7 +79,7 @@ export function AgentChat() {
     if (messages.length > 0 && user?.id) {
       localStorage.setItem(
         `agent-chat-${user.id}`,
-        JSON.stringify(messages.slice(-50)) // Keep last 50 messages
+        JSON.stringify(messages.slice(-50))
       );
     }
   }, [messages, user?.id]);
@@ -84,14 +98,24 @@ export function AgentChat() {
     }
   }, [isOpen]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || !user) return;
+  // Cleanup media recorder on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+    };
+  }, [mediaRecorder]);
+
+  const sendMessage = async (text: string, attachment?: Message["attachment"]) => {
+    if ((!text.trim() && !attachment) || !user) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: text.trim(),
       timestamp: new Date(),
+      attachment,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -99,13 +123,13 @@ export function AgentChat() {
     setIsLoading(true);
 
     try {
-      // Call the agent with the message
       const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
         body: {
-          message: text.trim(),
+          message: attachment 
+            ? `[${attachment.type === "image" ? "Image" : "Document"}: ${attachment.name}] ${text.trim()}`
+            : text.trim(),
           userId: user.id,
           source: "web_chat",
-          // Pass recent conversation for context
           conversationHistory: messages.slice(-10).map(m => ({
             role: m.role,
             content: m.content
@@ -149,30 +173,195 @@ export function AgentChat() {
     }
   };
 
+  // Speech-to-text
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioChunksRef.current.length === 0) return;
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        
+        // Convert to base64 for the agent
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Audio = (reader.result as string).split(",")[1];
+          
+          setIsLoading(true);
+          try {
+            const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
+              body: {
+                userId: user?.id,
+                source: "web_chat_voice",
+                audioData: base64Audio,
+                conversationHistory: messages.slice(-10).map(m => ({
+                  role: m.role,
+                  content: m.content
+                }))
+              },
+            });
+
+            if (error) throw error;
+
+            // Add transcribed message from user
+            if (data?.transcription) {
+              const userMessage: Message = {
+                id: crypto.randomUUID(),
+                role: "user",
+                content: `🎤 ${data.transcription}`,
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, userMessage]);
+            }
+
+            // Add agent response
+            const assistantMessage: Message = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: data?.response || "Je n'ai pas pu transcrire votre message.",
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+          } catch (error) {
+            console.error("Voice processing error:", error);
+            toast.error("Erreur lors du traitement vocal");
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
+      recorder.start();
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      
+      // Haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    } catch (error) {
+      console.error("Microphone access error:", error);
+      toast.error("Impossible d'accéder au microphone");
+    }
+  }, [user?.id, messages]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      setIsRecording(false);
+      setMediaRecorder(null);
+      
+      if (navigator.vibrate) {
+        navigator.vibrate([50, 50, 50]);
+      }
+    }
+  }, [mediaRecorder]);
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // File import
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    const isImage = file.type.startsWith("image/");
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (file.size > maxSize) {
+      toast.error("Fichier trop volumineux (max 10MB)");
+      return;
+    }
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `agent-uploads/${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("documents")
+        .getPublicUrl(filePath);
+
+      // Send message with attachment
+      sendMessage(
+        input || `J'ai envoyé ${isImage ? "une image" : "un document"}: ${file.name}`,
+        {
+          type: isImage ? "image" : "document",
+          name: file.name,
+          url: urlData.publicUrl,
+        }
+      );
+
+      toast.success(`${isImage ? "Image" : "Document"} envoyé`);
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Erreur lors de l'envoi du fichier");
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  if (!user) return null;
+
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - positioned above HEJJA toggle */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-24 right-4 z-50"
+            className="fixed bottom-40 right-4 z-50"
           >
             <Button
               onClick={() => setIsOpen(true)}
-              size="lg"
-              className="h-14 w-14 rounded-full shadow-lg bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              variant="outline"
+              className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted"
             >
-              <div className="relative">
-                <Bot className="h-6 w-6" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background animate-pulse" />
-              </div>
+              <span className="text-xl">🤖</span>
+              <span className="text-muted-foreground font-medium">Agent</span>
+              <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf,.doc,.docx"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
       {/* Chat Window */}
       <AnimatePresence>
@@ -198,7 +387,7 @@ export function AgentChat() {
                 <div>
                   <h3 className="font-semibold text-sm">Assistant IA</h3>
                   <p className="text-xs text-muted-foreground">
-                    Toujours disponible pour vous aider
+                    Voix, texte et documents
                   </p>
                 </div>
               </div>
@@ -234,10 +423,10 @@ export function AgentChat() {
                     <Bot className="h-8 w-8 text-primary" />
                   </div>
                   <h4 className="font-semibold mb-1">Bonjour ! 👋</h4>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Je suis votre assistant IA. Posez-moi vos questions sur vos RDV, clients, ventes...
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Posez vos questions par texte, voix ou envoyez des documents.
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="flex flex-wrap gap-2 justify-center mb-4">
                     {SUGGESTIONS.map((suggestion) => (
                       <Button
                         key={suggestion}
@@ -249,6 +438,17 @@ export function AgentChat() {
                         {suggestion}
                       </Button>
                     ))}
+                  </div>
+                  <div className="flex gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Mic className="h-3 w-3" /> Voix
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <ImageIcon className="h-3 w-3" /> Images
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" /> Documents
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -278,6 +478,16 @@ export function AgentChat() {
                             : "bg-muted rounded-bl-md"
                         )}
                       >
+                        {message.attachment && (
+                          <div className="flex items-center gap-2 mb-1 text-xs opacity-80">
+                            {message.attachment.type === "image" ? (
+                              <ImageIcon className="h-3 w-3" />
+                            ) : (
+                              <FileText className="h-3 w-3" />
+                            )}
+                            {message.attachment.name}
+                          </div>
+                        )}
                         {message.role === "assistant" ? (
                           <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                             <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -319,22 +529,56 @@ export function AgentChat() {
               )}
             </ScrollArea>
 
-            {/* Input */}
+            {/* Input Area */}
             <div className="p-4 border-t bg-muted/30">
               <form onSubmit={handleSubmit} className="flex gap-2">
+                {/* Attachment button */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-10 w-10"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading || isRecording}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+
+                {/* Input */}
                 <Input
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Tapez votre message..."
+                  placeholder={isRecording ? "Enregistrement..." : "Tapez votre message..."}
                   className="flex-1"
-                  disabled={isLoading}
+                  disabled={isLoading || isRecording}
                 />
+
+                {/* Voice button */}
+                <Button
+                  type="button"
+                  variant={isRecording ? "destructive" : "ghost"}
+                  size="icon"
+                  className={cn(
+                    "shrink-0 h-10 w-10",
+                    isRecording && "animate-pulse"
+                  )}
+                  onClick={toggleRecording}
+                  disabled={isLoading}
+                >
+                  {isRecording ? (
+                    <MicOff className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                </Button>
+
+                {/* Send button */}
                 <Button
                   type="submit"
                   size="icon"
-                  disabled={!input.trim() || isLoading}
-                  className="shrink-0"
+                  disabled={!input.trim() || isLoading || isRecording}
+                  className="shrink-0 h-10 w-10"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
