@@ -1157,7 +1157,12 @@ serve(async (req) => {
       // This ensures no data modification happens without explicit user confirmation
       const needsConfirmation = actionIntents.includes(aiResponse!.intent);
       
-      if (needsConfirmation) {
+      // SPECIAL CASE: For update_rdv, let executeAction handle confirmation 
+      // so it can show the actual list of RDVs that will be affected
+      // This avoids double confirmation and provides better UX
+      const delegateConfirmationToAction = aiResponse!.intent === "update_rdv";
+      
+      if (needsConfirmation && !delegateConfirmationToAction) {
         // Store as pending action - don't execute yet
         console.log(`Action ${aiResponse!.intent} requires confirmation, storing pending action`);
         
@@ -1210,7 +1215,7 @@ serve(async (req) => {
           },
           customResponse: confirmationMessage,
         };
-      } else {
+      } else if (delegateConfirmationToAction || !needsConfirmation) {
         // For import intents, we need to upload the media first
         if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
           console.log("Uploading media to storage...");
@@ -3333,12 +3338,47 @@ async function executeAction(
         };
       }
       
-      // Single RDV - execute directly
+      // Single RDV - also require confirmation before execution
       const rdv = rdvsToModify[0];
       const clientInfo = rdv.clients as { nom: string; prenom?: string };
       const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
+      const rdvDate = new Date(rdv.date_heure);
+      const dateStr = rdvDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+      const timeStr = rdvDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
       
-      // Handle DELETE action (supprime) for single RDV
+      // For single RDV, check if we're coming from a confirmation (has collectedData with rdvIds)
+      // If collectedData exists with rdvIds, we're in confirmed execution mode
+      const isConfirmedExecution = entities.confirmed_single === true;
+      
+      if (!isConfirmedExecution) {
+        // Ask for confirmation first
+        const actionLabel = action === "annule" ? "ANNULER" : action === "reporte" ? "REPORTER" : action === "supprime" ? "SUPPRIMER" : "MODIFIER";
+        const warningText = action === "supprime" ? "\n\n⚠️ Cette action est **irréversible**." : "";
+        
+        const confirmMsg = `📋 *RDV à ${actionLabel}*\n\n• ${dateStr} ${timeStr}: ${clientFullName}${warningText}\n\n*Confirmes-tu ?* (Oui/Non)`;
+        
+        const singlePendingAction: PendingAction = {
+          intent: "update_rdv",
+          entities: { ...entities, confirmed_single: true },
+          workflowState: "awaiting_confirmation",
+          collectedData: {
+            rdvIds: [rdv.id],
+            action,
+            newDate,
+            newTime,
+          },
+          createdAt: new Date().toISOString(),
+        };
+        
+        return {
+          actionTaken: "awaiting_confirmation",
+          entityType: "workflow",
+          newPendingAction: singlePendingAction,
+          customResponse: confirmMsg,
+        };
+      }
+      
+      // Handle DELETE action (supprime) for single RDV - now confirmed
       if (action === "supprime") {
         // Get previous data for undo capability
         const previousRdvData = await getPreviousData(supabase, "rdv", rdv.id, userId);
