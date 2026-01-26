@@ -151,6 +151,7 @@ export type Database = {
           prix_hejja: number | null
           prix_max: number
           prix_recommande: number
+          product_type: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc: number
           regie_ids: string[] | null
           updated_at: string
@@ -167,6 +168,7 @@ export type Database = {
           prix_hejja?: number | null
           prix_max: number
           prix_recommande: number
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc: number
           regie_ids?: string[] | null
           updated_at?: string
@@ -183,6 +185,7 @@ export type Database = {
           prix_hejja?: number | null
           prix_max?: number
           prix_recommande?: number
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc?: number
           regie_ids?: string[] | null
           updated_at?: string
@@ -481,6 +484,7 @@ export type Database = {
           bonus_survente: number | null
           created_at: string
           id: string
+          product_type: Database["public"]["Enums"]["product_type"] | null
           taux_commission: number
           tranche_max: number
           tranche_min: number
@@ -490,6 +494,7 @@ export type Database = {
           bonus_survente?: number | null
           created_at?: string
           id?: string
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           taux_commission: number
           tranche_max?: number
           tranche_min?: number
@@ -499,6 +504,7 @@ export type Database = {
           bonus_survente?: number | null
           created_at?: string
           id?: string
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           taux_commission?: number
           tranche_max?: number
           tranche_min?: number
@@ -572,6 +578,69 @@ export type Database = {
         }
         Relationships: []
       }
+      data_ite_finitions: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          id: string
+          prix_m2: number
+          type_finition: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          prix_m2?: number
+          type_finition: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          prix_m2?: number
+          type_finition?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_ite_isolants: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          id: string
+          lambda: number
+          prix_m2: number
+          type_isolant: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          lambda: number
+          prix_m2?: number
+          type_isolant: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          lambda?: number
+          prix_m2?: number
+          type_isolant?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_orientation: {
         Row: {
           coefficient: number
@@ -595,6 +664,69 @@ export type Database = {
           id?: string
           inclinaison?: number
           orientation?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_pac_cop: {
+        Row: {
+          actif: boolean
+          cop_moyen: number
+          created_at: string
+          id: string
+          pac_subtype: Database["public"]["Enums"]["pac_subtype"]
+          temperature_exterieure: number
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          cop_moyen?: number
+          created_at?: string
+          id?: string
+          pac_subtype: Database["public"]["Enums"]["pac_subtype"]
+          temperature_exterieure: number
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          cop_moyen?: number
+          created_at?: string
+          id?: string
+          pac_subtype?: Database["public"]["Enums"]["pac_subtype"]
+          temperature_exterieure?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_pac_puissances: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          pac_subtype: Database["public"]["Enums"]["pac_subtype"]
+          puissance_recommandee: number
+          surface_max: number
+          surface_min: number
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          pac_subtype: Database["public"]["Enums"]["pac_subtype"]
+          puissance_recommandee: number
+          surface_max: number
+          surface_min: number
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          pac_subtype?: Database["public"]["Enums"]["pac_subtype"]
+          puissance_recommandee?: number
+          surface_max?: number
+          surface_min?: number
           user_id?: string | null
         }
         Relationships: []
@@ -841,6 +973,16 @@ export type Database = {
           gain_total_annuel: number | null
           id: string
           inclinaison: number | null
+          ite_economie_chauffage_pct: number | null
+          ite_epaisseur_isolant: number | null
+          ite_finition: string | null
+          ite_nombre_facades: number | null
+          ite_r_actuel: number | null
+          ite_r_cible: number | null
+          ite_surface_isoler: number | null
+          ite_surface_ouvertures: number | null
+          ite_type_facade: string | null
+          ite_type_isolant: string | null
           mensualite_estimee: number | null
           mode_financement: string | null
           mode_hejja_prix: boolean | null
@@ -850,6 +992,17 @@ export type Database = {
           numero_pdl: string | null
           ombre_toiture: string | null
           orientation: string | null
+          pac_conso_chauffage_kwh: number | null
+          pac_cop: number | null
+          pac_economie_estimee: number | null
+          pac_ecs_integre: boolean | null
+          pac_energie_actuelle: string | null
+          pac_nombre_unites_int: number | null
+          pac_puissance_calorifique: number | null
+          pac_subtype: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surface_chauffee: number | null
+          pac_type_emetteurs: string | null
+          pac_volume_ballon: number | null
           photo_compteur: string | null
           photo_inclinaison: string | null
           photo_tableau: string | null
@@ -858,6 +1011,7 @@ export type Database = {
           prime_autoconsommation: number | null
           prix_installation: number | null
           prix_total: number | null
+          product_type: Database["public"]["Enums"]["product_type"] | null
           production_annuelle_kwh: number | null
           puissance_kwc: number | null
           r2_date_heure: string | null
@@ -909,6 +1063,16 @@ export type Database = {
           gain_total_annuel?: number | null
           id?: string
           inclinaison?: number | null
+          ite_economie_chauffage_pct?: number | null
+          ite_epaisseur_isolant?: number | null
+          ite_finition?: string | null
+          ite_nombre_facades?: number | null
+          ite_r_actuel?: number | null
+          ite_r_cible?: number | null
+          ite_surface_isoler?: number | null
+          ite_surface_ouvertures?: number | null
+          ite_type_facade?: string | null
+          ite_type_isolant?: string | null
           mensualite_estimee?: number | null
           mode_financement?: string | null
           mode_hejja_prix?: boolean | null
@@ -918,6 +1082,17 @@ export type Database = {
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null
+          pac_conso_chauffage_kwh?: number | null
+          pac_cop?: number | null
+          pac_economie_estimee?: number | null
+          pac_ecs_integre?: boolean | null
+          pac_energie_actuelle?: string | null
+          pac_nombre_unites_int?: number | null
+          pac_puissance_calorifique?: number | null
+          pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surface_chauffee?: number | null
+          pac_type_emetteurs?: string | null
+          pac_volume_ballon?: number | null
           photo_compteur?: string | null
           photo_inclinaison?: string | null
           photo_tableau?: string | null
@@ -926,6 +1101,7 @@ export type Database = {
           prime_autoconsommation?: number | null
           prix_installation?: number | null
           prix_total?: number | null
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
           r2_date_heure?: string | null
@@ -977,6 +1153,16 @@ export type Database = {
           gain_total_annuel?: number | null
           id?: string
           inclinaison?: number | null
+          ite_economie_chauffage_pct?: number | null
+          ite_epaisseur_isolant?: number | null
+          ite_finition?: string | null
+          ite_nombre_facades?: number | null
+          ite_r_actuel?: number | null
+          ite_r_cible?: number | null
+          ite_surface_isoler?: number | null
+          ite_surface_ouvertures?: number | null
+          ite_type_facade?: string | null
+          ite_type_isolant?: string | null
           mensualite_estimee?: number | null
           mode_financement?: string | null
           mode_hejja_prix?: boolean | null
@@ -986,6 +1172,17 @@ export type Database = {
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null
+          pac_conso_chauffage_kwh?: number | null
+          pac_cop?: number | null
+          pac_economie_estimee?: number | null
+          pac_ecs_integre?: boolean | null
+          pac_energie_actuelle?: string | null
+          pac_nombre_unites_int?: number | null
+          pac_puissance_calorifique?: number | null
+          pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surface_chauffee?: number | null
+          pac_type_emetteurs?: string | null
+          pac_volume_ballon?: number | null
           photo_compteur?: string | null
           photo_inclinaison?: string | null
           photo_tableau?: string | null
@@ -994,6 +1191,7 @@ export type Database = {
           prime_autoconsommation?: number | null
           prix_installation?: number | null
           prix_total?: number | null
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           production_annuelle_kwh?: number | null
           puissance_kwc?: number | null
           r2_date_heure?: string | null
@@ -1725,6 +1923,7 @@ export type Database = {
           mode_calcul_commission: string | null
           nom: string
           part_survente_pct: number | null
+          products_offered: Database["public"]["Enums"]["product_type"][] | null
           updated_at: string
           user_id: string
         }
@@ -1738,6 +1937,9 @@ export type Database = {
           mode_calcul_commission?: string | null
           nom: string
           part_survente_pct?: number | null
+          products_offered?:
+            | Database["public"]["Enums"]["product_type"][]
+            | null
           updated_at?: string
           user_id: string
         }
@@ -1751,6 +1953,9 @@ export type Database = {
           mode_calcul_commission?: string | null
           nom?: string
           part_survente_pct?: number | null
+          products_offered?:
+            | Database["public"]["Enums"]["product_type"][]
+            | null
           updated_at?: string
           user_id?: string
         }
@@ -2106,6 +2311,7 @@ export type Database = {
           nombre_panneaux: number | null
           notes: string | null
           numero_contrat: string | null
+          product_type: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc: number | null
           regie_id: string | null
           status: Database["public"]["Enums"]["vente_status"]
@@ -2133,6 +2339,7 @@ export type Database = {
           nombre_panneaux?: number | null
           notes?: string | null
           numero_contrat?: string | null
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc?: number | null
           regie_id?: string | null
           status?: Database["public"]["Enums"]["vente_status"]
@@ -2160,6 +2367,7 @@ export type Database = {
           nombre_panneaux?: number | null
           notes?: string | null
           numero_contrat?: string | null
+          product_type?: Database["public"]["Enums"]["product_type"] | null
           puissance_kwc?: number | null
           regie_id?: string | null
           status?: Database["public"]["Enums"]["vente_status"]
@@ -2778,6 +2986,8 @@ export type Database = {
         | "vente_signee"
         | "installation_prevue"
         | "autre"
+      pac_subtype: "air_air" | "air_eau"
+      product_type: "PV" | "PAC" | "ITE"
       project_type:
         | "photovoltaique"
         | "pompe_chaleur"
@@ -2985,6 +3195,8 @@ export const Constants = {
         "installation_prevue",
         "autre",
       ],
+      pac_subtype: ["air_air", "air_eau"],
+      product_type: ["PV", "PAC", "ITE"],
       project_type: [
         "photovoltaique",
         "pompe_chaleur",
