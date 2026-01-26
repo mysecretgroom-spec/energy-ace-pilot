@@ -29,12 +29,14 @@ type Intent =
   | "query_vente_detail"   // Fiche détaillée d'une vente spécifique par nom de client
   | "query_frais"          // Liste des frais/dépenses avec filtres (période, catégorie)
   | "query_frais_detail"   // Total des frais avec répartition par catégorie
+  | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
   | "approve_whatsapp"     // Approuver l'envoi d'un message WhatsApp
   | "decline_whatsapp"     // Refuser l'envoi d'un message WhatsApp
   | "select_choice"        // Réponse à un sondage de choix (numéro ou texte)
+  | "select_regie"         // Réponse à un sondage de sélection de régie
   | "conversation"
   | "unknown";
 
@@ -44,6 +46,7 @@ type WorkflowState =
   | "collecting_signe_data"      // Collecte des données pour signature (puissance, prix, etc.)
   | "awaiting_whatsapp_approval" // En attente d'approbation du message WhatsApp
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
+  | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
   | null;
 
 // Choice option for disambiguation polls
@@ -64,6 +67,7 @@ interface PendingAction {
     rdvId?: string;
     rdvIds?: string[];  // Pour les actions en masse
     regieId?: string;
+    regieName?: string;  // Nom de la régie pour affichage
     puissanceKwc?: number;
     prixTTC?: number;
     cqTime?: string;
@@ -1910,6 +1914,62 @@ async function handlePendingWorkflow(
           };
         }
         
+        // Handle create_rdv with regie selection confirmed
+        if (pendingAction.intent === "create_rdv" && pendingAction.collectedData?.clientId) {
+          const collectedData = pendingAction.collectedData;
+          const dateStr = pendingAction.entities.date as string || new Date().toISOString().split("T")[0];
+          const timeStr = pendingAction.entities.time as string || "10:00";
+          const dateHeure = `${dateStr}T${timeStr}:00`;
+          
+          const { data: rdv, error: rdvError } = await supabase
+            .from("rdv")
+            .insert({
+              user_id: userId,
+              client_id: collectedData.clientId,
+              date_heure: dateHeure,
+              adresse: pendingAction.entities.address as string || null,
+              status: "planifie",
+              type_rdv: "R1",
+              type_projet: "pv",
+              source: "whatsapp",
+              regie_id: collectedData.regieId || null,
+            })
+            .select("id")
+            .single();
+          
+          if (rdvError) {
+            console.error("Error creating RDV:", rdvError);
+            return {
+              intent: "create_rdv",
+              actionTaken: "error",
+              newPendingAction: null,
+              responseMessage: `❌ Erreur: ${rdvError.message}`,
+            };
+          }
+          
+          // Log action
+          await logAgentAction(
+            supabase,
+            userId,
+            null,
+            "create_rdv",
+            "rdv",
+            rdv?.id,
+            { date_heure: dateHeure, client_id: collectedData.clientId, regie_id: collectedData.regieId },
+            null,
+            `Création RDV ${collectedData.clientName} le ${dateStr} à ${timeStr}`
+          );
+          
+          return {
+            intent: "create_rdv",
+            actionTaken: "rdv_created",
+            entityId: rdv?.id,
+            entityType: "rdv",
+            newPendingAction: null,
+            responseMessage: `✅ RDV créé !\n\n👤 ${collectedData.clientName}\n📅 ${dateStr} à ${timeStr}${collectedData.regieName ? `\n🏢 ${collectedData.regieName}` : ""}`,
+          };
+        }
+        
         // For other pending actions - execute the stored action
         // Return a signal to the main flow to execute the pending action
         return {
@@ -2062,6 +2122,138 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "awaiting_regie_selection": {
+      // User is responding to a regie selection poll
+      const choices = pendingAction.collectedData?.choices || [];
+      const originalIntent = pendingAction.collectedData?.originalIntent;
+      
+      if (choices.length === 0) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: pas de régies disponibles. Veuillez en configurer dans l'application.",
+        };
+      }
+      
+      // Try to parse user's selection
+      let selectedChoice: ChoiceOption | null = null;
+      
+      // 1. Number selection (1, 2, 3)
+      const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
+      if (numberMatch) {
+        const choiceIndex = parseInt(numberMatch[1], 10) - 1;
+        if (choiceIndex >= 0 && choiceIndex < choices.length) {
+          selectedChoice = choices[choiceIndex];
+        }
+      }
+      
+      // 2. Emoji numbers
+      if (!selectedChoice) {
+        const emojiNumbers: Record<string, number> = {
+          "1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4,
+          "①": 0, "②": 1, "③": 2, "④": 3, "⑤": 4,
+        };
+        for (const [emoji, index] of Object.entries(emojiNumbers)) {
+          if (userMessage.includes(emoji) && index < choices.length) {
+            selectedChoice = choices[index];
+            break;
+          }
+        }
+      }
+      
+      // 3. Text match by label
+      if (!selectedChoice) {
+        const normalizedMessage = messageLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (const choice of choices) {
+          const normalizedLabel = choice.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          if (normalizedMessage.includes(normalizedLabel) || normalizedLabel.includes(normalizedMessage)) {
+            selectedChoice = choice;
+            break;
+          }
+        }
+      }
+      
+      if (!selectedChoice) {
+        // Couldn't parse - ask again
+        const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+        return {
+          intent: "select_regie",
+          actionTaken: "invalid_selection",
+          newPendingAction: pendingAction,
+          responseMessage: `🤔 Je n'ai pas compris ton choix de régie.\n\nRéponds avec le *numéro* correspondant:\n${choiceList}\n\nOu tape "annule" pour abandonner.`,
+        };
+      }
+      
+      console.log(`User selected regie: ${selectedChoice.label} (${selectedChoice.id})`);
+      
+      // Regie selected - now continue with the original workflow
+      const updatedCollectedData = {
+        ...pendingAction.collectedData,
+        regieId: selectedChoice.id,
+        regieName: selectedChoice.label,
+      };
+      
+      // For create_rdv: proceed to create the RDV with the selected regie
+      if (originalIntent === "create_rdv") {
+        return {
+          intent: "create_rdv",
+          actionTaken: "regie_selected_continue",
+          newPendingAction: {
+            intent: "create_rdv",
+            entities: pendingAction.entities,
+            workflowState: "awaiting_confirmation",
+            collectedData: updatedCollectedData,
+            createdAt: new Date().toISOString(),
+          },
+          responseMessage: `✅ Régie: *${selectedChoice.label}*\n\n📝 Récap RDV:\n• Client: ${updatedCollectedData.clientName}\n• Date: ${pendingAction.entities.date || "aujourd'hui"} à ${pendingAction.entities.time || "10h"}\n• Régie: ${selectedChoice.label}\n\n*Confirmes-tu ?* (Oui/Non)`,
+        };
+      }
+      
+      // For mark_signe: continue collecting data
+      if (originalIntent === "mark_signe") {
+        const puissance = updatedCollectedData.puissanceKwc;
+        const prix = updatedCollectedData.prixTTC;
+        
+        let nextQuestion = `✅ Régie: *${selectedChoice.label}*\n\n`;
+        
+        if (!puissance) {
+          nextQuestion += "📊 Quelle est la *puissance* installée (en kWc) ?";
+        } else if (!prix) {
+          nextQuestion += "💰 Quel est le *prix TTC* de la vente ?";
+        } else {
+          nextQuestion += `Récap:\n• Puissance: ${puissance}kWc\n• Prix: ${prix.toLocaleString("fr-FR")}€\n• Régie: ${selectedChoice.label}\n\n*Confirmes-tu ?* (Oui/Non)`;
+        }
+        
+        return {
+          intent: "mark_signe",
+          actionTaken: "regie_selected_continue",
+          newPendingAction: {
+            intent: "mark_signe",
+            entities: pendingAction.entities,
+            workflowState: "collecting_signe_data",
+            collectedData: updatedCollectedData,
+            createdAt: new Date().toISOString(),
+          },
+          responseMessage: nextQuestion,
+        };
+      }
+      
+      // Default: continue with confirmation
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "regie_selected_confirm",
+        newPendingAction: {
+          intent: originalIntent || pendingAction.intent,
+          entities: { ...pendingAction.entities, regie_id: selectedChoice.id },
+          workflowState: "awaiting_confirmation",
+          collectedData: updatedCollectedData,
+          createdAt: new Date().toISOString(),
+        },
+        responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.\n\n*Confirmes-tu cette action ?* (Oui/Non)`,
+      };
+    }
+    
     default:
       return null;
   }
@@ -2170,6 +2362,80 @@ function generateConfirmateurMessage(
   msg += `\n---\n_Envoyé depuis DébalePro_`;
   
   return msg;
+}
+
+// Fetch user's régies (excluding HEJJA ones)
+// deno-lint-ignore no-explicit-any
+async function fetchUserRegies(supabase: any, userId: string): Promise<Array<{ id: string; nom: string; couleur: string | null }>> {
+  const { data: regies, error } = await supabase
+    .from("regies")
+    .select("id, nom, couleur")
+    .eq("user_id", userId)
+    .eq("actif", true)
+    .eq("is_hejja", false) // Exclude HEJJA régies
+    .order("nom");
+  
+  if (error) {
+    console.error("Error fetching regies:", error);
+    return [];
+  }
+  
+  return regies || [];
+}
+
+// Generate regie selection poll
+// deno-lint-ignore no-explicit-any
+async function generateRegiePoll(
+  supabase: any,
+  userId: string,
+  originalIntent: Intent,
+  entities: Record<string, unknown>,
+  collectedData: PendingAction["collectedData"]
+): Promise<{ needsSelection: boolean; pendingAction?: PendingAction; responseMessage?: string; defaultRegieId?: string }> {
+  const regies = await fetchUserRegies(supabase, userId);
+  
+  if (regies.length === 0) {
+    return { 
+      needsSelection: false, 
+      responseMessage: "⚠️ Aucune régie configurée. Configurez-en une dans l'application." 
+    };
+  }
+  
+  // If only one regie, use it automatically
+  if (regies.length === 1) {
+    return { 
+      needsSelection: false, 
+      defaultRegieId: regies[0].id 
+    };
+  }
+  
+  // Multiple régies - create a selection poll
+  const choices: ChoiceOption[] = regies.slice(0, 5).map(r => ({
+    id: r.id,
+    label: r.nom,
+    entityType: "client" as const, // Using client as a generic type here
+    data: { regie_id: r.id, regie_nom: r.nom },
+  }));
+  
+  const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+  
+  const pendingAction: PendingAction = {
+    intent: "select_regie",
+    entities,
+    workflowState: "awaiting_regie_selection",
+    collectedData: {
+      ...collectedData,
+      choices,
+      originalIntent,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  
+  return {
+    needsSelection: true,
+    pendingAction,
+    responseMessage: `🏢 *À quelle régie attribuer ce dossier ?*\n\n${choiceList}\n\nRéponds avec le *numéro* de ton choix.`,
+  };
 }
 
 // Get confirmateur phone number
@@ -2303,6 +2569,7 @@ INTENTIONS DISPONIBLES:
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
 - query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
 - query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
+- query_hejja: "mode hejja", "retape", "prix hejja", "régies hejja", "commissions hejja" → Demande liée au mode HEJJA → REDIRIGER vers l'application car l'agent n'a pas accès
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
@@ -2393,7 +2660,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -2514,6 +2781,37 @@ async function executeAction(
       const timeStr = entities.time as string || "10:00";
       const dateHeure = `${dateStr}T${timeStr}:00`;
 
+      // Check if we need to ask for regie selection
+      const regiePoll = await generateRegiePoll(
+        supabase,
+        userId,
+        "create_rdv",
+        entities,
+        {
+          clientId: client.id,
+          clientName: `${client.prenom || ""} ${client.nom}`.trim(),
+        }
+      );
+      
+      if (regiePoll.needsSelection) {
+        // Enhance the pending action with client info
+        const pendingAction = regiePoll.pendingAction!;
+        pendingAction.collectedData = {
+          ...pendingAction.collectedData,
+          clientId: client.id,
+          clientName: `${client.prenom || ""} ${client.nom}`.trim(),
+        };
+        
+        return {
+          actionTaken: "needs_regie_selection",
+          newPendingAction: pendingAction,
+          customResponse: `📅 *RDV pour ${client.prenom || ""} ${client.nom}*\n${dateStr} à ${timeStr}\n\n${regiePoll.responseMessage}`,
+        };
+      }
+      
+      // Use default or single regie
+      const regieId = regiePoll.defaultRegieId || null;
+
       // Create RDV
       const { data: rdv, error: rdvError } = await supabase
         .from("rdv")
@@ -2526,6 +2824,7 @@ async function executeAction(
           type_rdv: "R1",
           type_projet: "pv",
           source: "whatsapp",
+          regie_id: regieId,
         })
         .select("id")
         .single();
@@ -2543,7 +2842,7 @@ async function executeAction(
         "create_rdv",
         "rdv",
         rdv?.id,
-        { date_heure: dateHeure, client_id: client.id, status: "planifie" },
+        { date_heure: dateHeure, client_id: client.id, status: "planifie", regie_id: regieId },
         null, // No previous data for creation
         `Création RDV ${client.prenom || ""} ${client.nom} le ${dateStr} à ${timeStr}`
       );
@@ -2552,6 +2851,13 @@ async function executeAction(
         actionTaken: "rdv_created", 
         entityId: rdv?.id, 
         entityType: "rdv" 
+      };
+    }
+
+    case "query_hejja": {
+      return {
+        actionTaken: "hejja_redirect",
+        customResponse: `🔒 *Mode HEJJA*\n\nLes fonctionnalités HEJJA (retape, prix spéciaux, régies HEJJA, commissions HEJJA) ne sont pas accessibles via l'assistant.\n\n👉 *Accédez à l'application* pour activer le mode HEJJA et utiliser ces fonctionnalités.`,
       };
     }
 
@@ -3079,6 +3385,36 @@ async function executeAction(
       // Check if price was mentioned in the message
       const amount = entities.amount as number;
       const puissance = entities.puissance_kwc as number;
+      
+      // Check if RDV already has a regie, if not ask for selection
+      if (!rdv?.regie_id) {
+        const regiePoll = await generateRegiePoll(
+          supabase,
+          userId,
+          "mark_signe",
+          entities,
+          {
+            clientId: matchedClient.id,
+            clientName: clientFullName,
+            rdvId: rdv?.id,
+            puissanceKwc: puissance || undefined,
+            prixTTC: amount || undefined,
+          }
+        );
+        
+        if (regiePoll.needsSelection) {
+          return {
+            actionTaken: "needs_regie_selection",
+            newPendingAction: regiePoll.pendingAction,
+            customResponse: `✍️ *Nouvelle vente pour ${clientFullName}* 🎉\n\n${regiePoll.responseMessage}`,
+          };
+        }
+        
+        // If there's a default regie (only one configured), use it
+        if (regiePoll.defaultRegieId && rdv) {
+          rdv.regie_id = regiePoll.defaultRegieId;
+        }
+      }
       
       // Start the multi-step workflow
       const pendingAction: PendingAction = {
