@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
-  MapPin, 
   X, 
   Wrench,
-  Calendar
+  Calendar,
+  Calculator
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RdvStatus } from "@/components/ui/status-badge";
@@ -64,6 +64,11 @@ export function RdvContextMenu({
 
   const handleDocuments = () => {
     navigate(`/clients/${rdv.clientId}?tab=documents`);
+    onClose();
+  };
+
+  const handleNewEtude = () => {
+    navigate(`/etude/new?clientId=${rdv.clientId}&rdvId=${rdv.id}`);
     onClose();
   };
 
@@ -180,6 +185,18 @@ export function RdvContextMenu({
                   <span className="text-xs">Documents</span>
                 </Button>
 
+                {/* Nouvelle étude - only for standard RDV */}
+                {rdv.typeRdv === "standard" && (
+                  <Button
+                    variant="outline"
+                    className="h-14 flex-col gap-1"
+                    onClick={handleNewEtude}
+                  >
+                    <Calculator className="h-5 w-5" />
+                    <span className="text-xs">Nouvelle étude</span>
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   className={`h-14 flex-col gap-1 ${
@@ -197,7 +214,7 @@ export function RdvContextMenu({
 
                 <Button
                   variant="outline"
-                  className="h-14 flex-col gap-1 col-span-2"
+                  className="h-14 flex-col gap-1"
                   onClick={handleMove}
                 >
                   <Calendar className="h-5 w-5" />
