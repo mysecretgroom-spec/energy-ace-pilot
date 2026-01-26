@@ -444,6 +444,60 @@ async function learnFromInteraction(
   }
 }
 
+// ==================== MESSAGE LOGGING ====================
+
+// Log messages for web chat sources (WhatsApp webhook handles its own logging)
+// deno-lint-ignore no-explicit-any
+async function logMessage(
+  supabase: any,
+  userId: string,
+  fromNumber: string,
+  messageType: string,
+  rawContent: string,
+  mediaUrl: string | null,
+  transcribedContent: string | null,
+  intent: string,
+  entities: Record<string, unknown>,
+  actionTaken: string | null,
+  entityId: string | null,
+  entityType: string | null,
+  responseSent: string | null,
+  status: "processed" | "failed" | "rejected"
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_messages")
+      .insert({
+        user_id: userId,
+        from_number: fromNumber,
+        message_type: messageType,
+        raw_content: rawContent,
+        media_url: mediaUrl,
+        transcribed_content: transcribedContent,
+        detected_intent: intent,
+        detected_entities: entities,
+        action_taken: actionTaken,
+        entity_id: entityId,
+        entity_type: entityType,
+        response_sent: responseSent,
+        status: status,
+        processed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Failed to log message:", error);
+      return null;
+    }
+    console.log(`Message logged for ${fromNumber}: ${intent} -> ${status}`);
+    return data?.id;
+  } catch (err) {
+    console.error("Error logging message:", err);
+    return null;
+  }
+}
+
 // ==================== FUZZY CLIENT SEARCH ====================
 
 // Calculate Levenshtein distance between two strings
@@ -888,6 +942,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Declare outside try for access in catch block (for error logging)
+  // deno-lint-ignore no-explicit-any
+  let supabaseClient: any = null;
+  let requestData: AgentRequest | null = null;
+
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -899,9 +958,11 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = supabaseClient;
 
-    const request: AgentRequest = await req.json();
+    requestData = await req.json();
+    const request: AgentRequest = requestData!;
     console.log("Processing agent request:", request);
 
     let processedContent = request.content;
@@ -1243,6 +1304,26 @@ serve(async (req) => {
         last_message_at: new Date().toISOString(),
       }, { onConflict: "user_id" });
 
+    // Log message for web chat sources (WhatsApp via webhook already logs separately)
+    if (request.fromNumber === "web_chat" || (request as { source?: string }).source === "onboarding_demo") {
+      await logMessage(
+        supabase,
+        request.userId,
+        request.fromNumber,
+        request.messageType,
+        request.content,
+        request.mediaUrl || null,
+        request.messageType === "audio" ? processedContent : null,
+        aiResponse!.intent,
+        aiResponse!.entities,
+        actionResult.actionTaken || null,
+        actionResult.entityId || null,
+        actionResult.entityType || null,
+        finalResponseMessage,
+        "processed"
+      );
+    }
+
     const response: AgentResponse = {
       intent: aiResponse!.intent,
       confidence: aiResponse!.confidence,
@@ -1260,6 +1341,27 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Agent error:", error);
+    
+    // Log failed message for web chat sources (using outer-scope variables)
+    if (requestData?.fromNumber === "web_chat" && supabaseClient) {
+      logMessage(
+        supabaseClient,
+        requestData.userId,
+        requestData.fromNumber,
+        requestData.messageType || "text",
+        requestData.content || "",
+        null,
+        null,
+        "unknown",
+        {},
+        null,
+        null,
+        null,
+        null,
+        "failed"
+      ).catch(err => console.error("Failed to log error message:", err));
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",
