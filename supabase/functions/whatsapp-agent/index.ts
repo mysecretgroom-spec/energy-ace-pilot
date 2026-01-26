@@ -1850,15 +1850,14 @@ function formatQueryResponse(
       }
 
       case "query_stats_result": {
-        const { period, rdv, ventes, ca, taux_conversion } = data;
-        const periodLabel = period === "today" ? "Aujourd'hui" : 
-                           period === "week" ? "Cette semaine" : 
-                           period === "all" ? "Tout temps" : "Ce mois";
-        return `📈 *Stats - ${periodLabel}*\n\n` +
+        const { period, rdv, ventes, ventesEnCours, caTTC, caHT, taux_conversion } = data;
+        return `📈 *Stats - ${period}*\n\n` +
           `📅 RDV: *${rdv}*\n` +
-          `✍️ Ventes: *${ventes}*\n` +
-          `💶 CA: *${ca.toLocaleString("fr-FR")}€ HT*\n` +
-          `📊 Taux: *${taux_conversion}%*`;
+          `✍️ Ventes signées: *${ventes}*\n` +
+          `📂 En cours: *${ventesEnCours || 0}*\n` +
+          `💶 CA TTC: *${(caTTC || 0).toLocaleString("fr-FR")}€*\n` +
+          `💰 CA HT: *${(caHT || 0).toLocaleString("fr-FR")}€*\n` +
+          `📊 Taux conversion: *${taux_conversion}%*`;
       }
 
       case "query_client_result": {
@@ -4637,15 +4636,25 @@ async function executeAction(
 
     case "query_stats": {
       const period = (entities.period as string) || "month";
-      let startDate: Date;
       const now = new Date();
+      let startDate: Date;
+      const endDate: Date = now;
       
       switch (period) {
         case "today":
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           break;
-        case "week":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        case "week": {
+          // Start of current week (Monday)
+          const dayOfWeek = now.getDay();
+          const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - diff);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        }
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1);
           break;
         case "all":
           startDate = new Date(2020, 0, 1);
@@ -4654,33 +4663,62 @@ async function executeAction(
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
 
-      // Count RDV (exclure annulés et reportés)
+      const startDateStr = startDate.toISOString().split("T")[0];
+      const endDateStr = endDate.toISOString().split("T")[0];
+
+      // Count RDV (tous statuts dans la période, comme le dashboard)
       const { count: rdvCount } = await supabase
         .from("rdv")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
-        .not("status", "in", "(annule,reporte)")
-        .gte("date_heure", startDate.toISOString());
+        .gte("date_heure", startDate.toISOString())
+        .lte("date_heure", endDate.toISOString());
 
-      // Count ventes positives
+      // Ventes - ALIGNÉ avec Dashboard :
+      // - Filtrer par date_signature (pas created_at)
+      // - Exclure les external_installation du CA
+      // - Exclure les annulées
+      // - Utiliser montant_ttc (comme le dashboard)
       const { data: ventesData } = await supabase
         .from("ventes")
-        .select("id, montant_ht, status")
+        .select("id, montant_ht, montant_ttc, status, type_vente, date_signature")
         .eq("user_id", userId)
-        .in("status", ["positif", "signe", "installe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "attente_paiement", "paye"])
-        .gte("created_at", startDate.toISOString());
+        .neq("status", "annule")
+        .gte("date_signature", startDateStr)
+        .lte("date_signature", endDateStr);
 
-      const ventesCount = ventesData?.length || 0;
-      const ca = ventesData?.reduce((sum: number, v: { montant_ht: number | null }) => sum + (v.montant_ht || 0), 0) || 0;
+      // Filtrer les installations externes pour le CA (comme le dashboard)
+      // deno-lint-ignore no-explicit-any
+      const ventesStandard = ventesData?.filter((v: any) => v.type_vente !== "external_installation") || [];
+      const ventesCount = ventesStandard.length;
+      // deno-lint-ignore no-explicit-any
+      const caTTC = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ttc || 0), 0);
+      // deno-lint-ignore no-explicit-any
+      const caHT = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ht || 0), 0);
 
-      // Conversion rate
+      // Ventes en cours (signées mais pas encore posées) - ALIGNÉ avec Dashboard
+      const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"];
+      const { count: ventesEnCoursCount } = await supabase
+        .from("ventes")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .in("status", enCoursStatuses);
+
+      // Conversion rate based on RDV in period vs ventes signed in period
       const tauxConversion = rdvCount && rdvCount > 0 ? Math.round((ventesCount / rdvCount) * 100) : 0;
 
+      const periodLabel = period === "today" ? "aujourd'hui" : 
+                         period === "week" ? "cette semaine" : 
+                         period === "year" ? "cette année" :
+                         period === "all" ? "depuis le début" : "ce mois";
+
       const responseData = {
-        period,
+        period: periodLabel,
         rdv: rdvCount || 0,
         ventes: ventesCount,
-        ca: Math.round(ca),
+        ventesEnCours: ventesEnCoursCount || 0,
+        caTTC: Math.round(caTTC),
+        caHT: Math.round(caHT),
         taux_conversion: tauxConversion
       };
 
