@@ -23,8 +23,26 @@ import {
   ExternalLink
 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/useAuth";
+import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
+import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
+
+// Map vente status to WhatsApp classification
+const venteStatusToClassification: Record<VenteStatus, string | null> = {
+  en_negociation: null, // Pas de notification
+  signe: "positif",
+  cq_a_faire: null,
+  cq_fait: null,
+  attente_financement: null,
+  envoi_pose: null,
+  en_installation: null,
+  installe: "positif", // Installation terminée
+  attente_paiement: null,
+  paye: "positif", // Paiement reçu
+  annule: "annule",
+};
 
 interface Vente {
   id: string;
@@ -86,11 +104,21 @@ const statusColors: Record<VenteStatus, string> = {
 const VenteDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vente, setVente] = useState<Vente | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [previousStatus, setPreviousStatus] = useState<VenteStatus>("en_negociation");
+  const [regieId, setRegieId] = useState<string | null>(null);
+  
+  // WhatsApp dialog state
+  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState<{
+    classification: string;
+  } | null>(null);
+  const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
   
   // Editable fields
   const [numeroContrat, setNumeroContrat] = useState("");
@@ -156,6 +184,25 @@ const VenteDetail = () => {
     }
   }, [id]);
 
+  // Load WhatsApp settings
+  useEffect(() => {
+    const loadWhatsAppSettings = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from("settings_notifications")
+        .select("skip_whatsapp_prompt, whatsapp_enabled")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (data) {
+        setSkipWhatsAppPrompt(data.skip_whatsapp_prompt || !data.whatsapp_enabled);
+      }
+    };
+    
+    loadWhatsAppSettings();
+  }, [user]);
+
   // Auto-set installation date when status changes to "installe"
   const handleStatusChange = (newStatus: VenteStatus) => {
     setStatus(newStatus);
@@ -185,6 +232,7 @@ const VenteDetail = () => {
     }
 
     setVente(venteData);
+    setRegieId(venteData.regie_id || null);
     const newNumeroContrat = venteData.numero_contrat || "";
     const newStatus = venteData.status || "en_negociation";
     const newDateInstallationReelle = venteData.date_installation_reelle || "";
@@ -296,6 +344,7 @@ const VenteDetail = () => {
   const handleSave = async () => {
     if (!id) return;
 
+    const statusChanged = status !== previousStatus;
     setSaving(true);
 
     const { error } = await supabase
@@ -341,6 +390,33 @@ const VenteDetail = () => {
       puissanceKwc,
       typeInstallation,
     });
+
+    // Show WhatsApp dialog if status changed and has a classification
+    if (statusChanged && !skipWhatsAppPrompt) {
+      const classification = venteStatusToClassification[status];
+      if (classification) {
+        setPendingWhatsApp({ classification });
+        setShowWhatsAppDialog(true);
+      }
+    }
+  };
+
+  const handleWhatsAppConfirm = async () => {
+    if (!pendingWhatsApp || !user || !client) return;
+    
+    await sendWhatsAppNotification({
+      clientName: client.nom,
+      clientPrenom: client.prenom || undefined,
+      classification: pendingWhatsApp.classification,
+      userId: user.id,
+      regieId: regieId,
+    });
+    
+    setPendingWhatsApp(null);
+  };
+
+  const handleWhatsAppCancel = () => {
+    setPendingWhatsApp(null);
   };
 
   if (loading) {
@@ -622,6 +698,16 @@ const VenteDetail = () => {
         show={hasChanges}
         saving={saving}
         onSave={handleSave}
+      />
+
+      {/* WhatsApp Confirm Dialog */}
+      <WhatsAppConfirmDialog
+        open={showWhatsAppDialog}
+        onOpenChange={setShowWhatsAppDialog}
+        onConfirm={handleWhatsAppConfirm}
+        onCancel={handleWhatsAppCancel}
+        clientName={[client?.prenom, client?.nom].filter(Boolean).join(" ")}
+        classification={pendingWhatsApp?.classification || "positif"}
       />
     </MobileLayout>
   );
