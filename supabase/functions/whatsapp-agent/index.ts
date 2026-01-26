@@ -867,14 +867,45 @@ serve(async (req) => {
       
       if (handled) {
         skipAiAnalysis = true;
+        
+        // Check if this is a confirmed action that needs execution
+        if (handled.actionTaken === "confirmed_execute" && pendingAction) {
+          console.log(`Executing confirmed action: ${pendingAction.intent}`);
+          // Execute the original pending action
+          actionResult = await executeAction(
+            supabase,
+            request.userId,
+            request.userName,
+            request.messageId,
+            pendingAction.intent,
+            pendingAction.entities,
+            pendingAction.collectedData?.commentaire || null, // stored document URL
+            null, // mediaData not needed for confirmed action
+            null, // analysisResult not needed
+            TWILIO_ACCOUNT_SID!,
+            TWILIO_AUTH_TOKEN!
+          );
+          
+          // Override the response if action was successful
+          if (actionResult.customResponse) {
+            handled.responseMessage = actionResult.customResponse;
+          } else if (actionResult.actionTaken && !actionResult.actionTaken.includes("error")) {
+            handled.responseMessage = "✅ Action exécutée avec succès !";
+          }
+          
+          // Clear the pending action
+          actionResult.newPendingAction = null;
+        } else {
+          actionResult = handled;
+        }
+        
         aiResponse = {
           intent: handled.intent || "conversation",
           confidence: 100,
-          entities: {},
+          entities: pendingAction?.entities || {},
           requiresConfirmation: false,
           responseMessage: handled.responseMessage,
         };
-        actionResult = handled;
       }
     }
 
@@ -895,31 +926,61 @@ serve(async (req) => {
 
     // Execute action based on intent (only if not already handled by workflow)
     if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.confidence >= 70) {
-      // For import intents, we need to upload the media first
-      if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
-        console.log("Uploading media to storage...");
-        uploadedDocumentUrl = await uploadMediaToStorage(
-          supabase,
-          mediaData,
-          request.userId,
-          aiResponse!.intent === "import_facture" ? "frais" : "documents"
-        );
-        console.log("Uploaded to:", uploadedDocumentUrl);
-      }
+      // Actions that require mandatory confirmation before execution
+      const actionIntents: Intent[] = [
+        "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
+        "mark_signe", "update_vente_data"
+      ];
+      
+      // Check if this action needs confirmation and AI requested it
+      const needsConfirmation = actionIntents.includes(aiResponse!.intent) && aiResponse!.requiresConfirmation;
+      
+      if (needsConfirmation) {
+        // Store as pending action - don't execute yet
+        console.log(`Action ${aiResponse!.intent} requires confirmation, storing pending action`);
+        
+        const collectedData: PendingAction["collectedData"] = {};
+        if (uploadedDocumentUrl) {
+          collectedData.commentaire = uploadedDocumentUrl; // Store doc URL in commentaire field
+        }
+        
+        actionResult = {
+          newPendingAction: {
+            intent: aiResponse!.intent,
+            entities: aiResponse!.entities,
+            workflowState: "awaiting_confirmation",
+            collectedData,
+            createdAt: new Date().toISOString(),
+          },
+          customResponse: aiResponse!.responseMessage, // AI already formatted the confirmation message
+        };
+      } else {
+        // For import intents, we need to upload the media first
+        if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
+          console.log("Uploading media to storage...");
+          uploadedDocumentUrl = await uploadMediaToStorage(
+            supabase,
+            mediaData,
+            request.userId,
+            aiResponse!.intent === "import_facture" ? "frais" : "documents"
+          );
+          console.log("Uploaded to:", uploadedDocumentUrl);
+        }
 
-      actionResult = await executeAction(
-        supabase,
-        request.userId,
-        request.userName,
-        request.messageId,
-        aiResponse!.intent,
-        aiResponse!.entities,
-        uploadedDocumentUrl,
-        mediaData,
-        documentAnalysisResult,
-        TWILIO_ACCOUNT_SID!,
-        TWILIO_AUTH_TOKEN!
-      );
+        actionResult = await executeAction(
+          supabase,
+          request.userId,
+          request.userName,
+          request.messageId,
+          aiResponse!.intent,
+          aiResponse!.entities,
+          uploadedDocumentUrl,
+          mediaData,
+          documentAnalysisResult,
+          TWILIO_ACCOUNT_SID!,
+          TWILIO_AUTH_TOKEN!
+        );
+      }
     }
 
     // Format response message based on query results or custom workflow response
@@ -1597,8 +1658,8 @@ async function handlePendingWorkflow(
     }
     
     case "awaiting_confirmation": {
-      // Generic confirmation for other actions (including mass update_rdv)
-      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon"];
+      // Generic confirmation for actions (mass actions and single actions)
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon", "d'accord", "envoie", "fais-le", "vas-y"];
       if (confirmPatterns.some(p => messageLower.includes(p))) {
         // Handle update_rdv mass action
         if (pendingAction.intent === "update_rdv" && pendingAction.collectedData?.rdvIds) {
@@ -1619,7 +1680,7 @@ async function handlePendingWorkflow(
           }
           
           // Execute the mass update
-          const { error: updateError, count } = await supabase
+          const { error: updateError } = await supabase
             .from("rdv")
             .update(updateData)
             .in("id", rdvIds);
@@ -1658,14 +1719,20 @@ async function handlePendingWorkflow(
           };
         }
         
-        // For other pending actions, return null to let main flow handle
-        return null;
+        // For other pending actions - execute the stored action
+        // Return a signal to the main flow to execute the pending action
+        return {
+          intent: pendingAction.intent,
+          actionTaken: "confirmed_execute",
+          newPendingAction: null,
+          responseMessage: "✅ Action confirmée, exécution en cours...",
+        };
       }
       return {
         intent: "cancel_action",
         actionTaken: "cancelled",
         newPendingAction: null,
-        responseMessage: "❌ Action annulée.",
+        responseMessage: "❌ Action annulée. Comment puis-je t'aider ?",
       };
     }
     
@@ -1904,6 +1971,18 @@ RÈGLES CRITIQUES:
 4. Pour "absent/négatif" → update_vente_status
 5. Actions en masse: LISTER d'abord, demander confirmation explicite
 6. Si le message CRITIQUE ou CORRIGE mon comportement → TOUJOURS user_feedback
+
+⚠️ CONFIRMATION OBLIGATOIRE - RÈGLE ABSOLUE:
+- Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data), tu DOIS:
+  1. REFORMULER ce que tu as compris de manière claire et précise
+  2. DEMANDER CONFIRMATION explicite avec "Confirmes-tu ?" (Oui/Non)
+  3. Mettre requiresConfirmation: true dans ta réponse
+- Le responseMessage doit contenir:
+  • Un RÉCAPITULATIF de l'action prévue (client, action, détails)
+  • Les DONNÉES qui vont être modifiées
+  • La question "Confirmes-tu ?" à la fin
+- Exemple: "📝 J'ai compris:\n• Client: Dupont Jean\n• Action: Annuler le RDV du 15/01 à 14h\n\n*Confirmes-tu ?* (Oui/Non)"
+- Seules les requêtes (query_*) et conversations ne nécessitent PAS de confirmation
 
 EXEMPLES DE CLASSIFICATION:
 - "Dupont posé" → update_vente_pipeline (ACTION: client + statut)
