@@ -4,12 +4,14 @@ import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { AgentChat } from "@/components/chat/AgentChat";
 
 interface MobileLayoutProps {
   children: ReactNode;
   title?: string;
   showNav?: boolean;
   showBackButton?: boolean;
+  showAgentChat?: boolean;
 }
 
 export const MobileLayout = ({
@@ -17,6 +19,7 @@ export const MobileLayout = ({
   title,
   showNav = true,
   showBackButton = false,
+  showAgentChat = true,
 }: MobileLayoutProps) => {
   const navigate = useNavigate();
 
@@ -49,6 +52,9 @@ export const MobileLayout = ({
 
       {/* Offline Indicator */}
       <OfflineIndicator />
+
+      {/* Agent Chat */}
+      {showAgentChat && <AgentChat />}
 
       {/* Bottom Navigation */}
       {showNav && <BottomNav />}
