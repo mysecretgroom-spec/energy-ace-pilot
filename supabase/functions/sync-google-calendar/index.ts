@@ -258,7 +258,7 @@ serve(async (req) => {
               date_heure: parsed.date_heure,
               duree_minutes: parsed.duration_minutes,
               type_projet: parsed.type_projet,
-              statut: "planifie",
+              status: "nouveau",
               commentaire: parsed.notes,
               google_event_id: parsed.google_event_id,
               source: "google_calendar",

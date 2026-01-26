@@ -244,7 +244,7 @@ serve(async (req) => {
                 date_heure: startDate.toISOString(),
                 duree_minutes: durationMinutes > 0 ? durationMinutes : 60,
                 type_projet: typeProjet,
-                statut: "planifie",
+                status: "nouveau",
                 commentaire: event.description,
                 google_event_id: event.id,
                 source: "google_calendar",
