@@ -26,6 +26,9 @@ const classificationLabels: Record<string, string> = {
   r2_prestudy: "R2 Pré-étude 📋",
   attente: "En attente ⏳",
   annule: "Annulé 🚫",
+  // Vente-specific (mapped to "positif" internally but can be displayed differently)
+  installe: "Installation terminée ✅",
+  paye: "Paiement reçu 💰",
 };
 
 export function WhatsAppConfirmDialog({
