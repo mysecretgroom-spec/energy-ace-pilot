@@ -18,6 +18,9 @@ type Intent =
   | "import_document" 
   | "import_facture" 
   | "query_commissions"
+  | "query_ventes_a_facturer"  // Liste détaillée des ventes à facturer avec commissions
+  | "query_ventes_en_cours"    // Liste détaillée des ventes en cours avec commissions
+  | "query_ventes_by_filter"   // Requêtes filtrées (posées, payées, signées, etc.)
   | "query_stats"
   | "query_client_info"
   | "query_rdv_planning"
@@ -2286,12 +2289,15 @@ INTENTIONS DISPONIBLES:
 - update_vente_pipeline: Pipeline vente existante (posé, payé, CQ fait, annulé)
 - import_document: Document client (CNI, RIB, facture énergie)
 - import_facture: Note de frais (ticket, carburant, péage)
-- query_commissions: "mes coms", "combien je gagne", "à facturer"
+- query_commissions: "mes coms", "combien je gagne" → Vue globale commissions (totaux uniquement)
+- query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
+- query_ventes_en_cours: "dossiers en cours", "ventes en cours", "mes en cours" → Liste DÉTAILLÉE des ventes signées non encore posées avec NOM PRÉNOM + COMMISSION pour chaque
+- query_ventes_by_filter: "ventes posées", "ventes payées", "ventes signées", "posés < 2 sem", "par régie X" → Liste filtrée avec Entity: filter_type (poses, payees, signees, poses_recentes, par_regie)
 - query_stats: "stats", "CA", "taux conversion", "chiffres"
 - query_client_info: "téléphone de X", "adresse de X"
 - query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
-- query_ventes: "mes ventes", "ventes en cours"
+- query_ventes: "mes ventes", "toutes mes ventes" → Liste simple sans détails commission
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
@@ -2300,6 +2306,11 @@ INTENTIONS DISPONIBLES:
 
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
+
+⚠️ DÉFINITIONS MÉTIER CRITIQUES:
+- "En cours" = signées mais PAS ENCORE POSÉES (signe, cq_a_faire, cq_fait, attente_financement, envoi_pose - EXCLUT en_installation et installe)
+- "À facturer" ou "Du sûr" = posées depuis >= 2 semaines (installe depuis 14+ jours OU attente_paiement)
+- "Posées < 2 sem" = récemment posées, pas encore facturables
 
 ⚠️ RÈGLES MÉTIER EXCLUSIONS (par défaut):
 - Par défaut, les RDV "annule"/"reporte" et ventes "annule" sont EXCLUS des requêtes
@@ -2376,7 +2387,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -2389,12 +2400,18 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     status: { type: "string" },
                     pipeline_status: { type: "string", enum: ["cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye", "annule"] },
                     amount: { type: "number" },
+                    puissance_kwc: { type: "number" },
+                    technicien: { type: "string" },
+                    commentaire: { type: "string" },
                     document_type: { type: "string" },
                     period: { type: "string", enum: ["today", "week", "month", "all"] },
                     query_type: { type: "string", enum: ["list", "total", "detail"] },
+                    filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
+                    regie_name: { type: "string", description: "Name of the régie for filtering" },
+                    include_cancelled: { type: "boolean", description: "Include cancelled items (default false)" },
                     feedback_type: { type: "string", enum: ["correction", "preference", "rule", "alias"] },
-                    feedback_key: { type: "string", description: "What the user wants to correct or define (e.g. 'planning response', 'client name Martin')" },
-                    feedback_value: { type: "string", description: "The correction or preference value (e.g. 'always include date and time', 'means Jean-Martin Dupont')" }
+                    feedback_key: { type: "string", description: "What the user wants to correct or define" },
+                    feedback_value: { type: "string", description: "The correction or preference value" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -3366,6 +3383,423 @@ async function executeAction(
         actionTaken: "query_commissions_result",
         entityType: "commissions",
         entityId: JSON.stringify(responseData),
+      };
+    }
+
+    case "query_ventes_a_facturer": {
+      // Liste détaillée des ventes prêtes à facturer (posées >= 2 semaines OU attente_paiement)
+      const now = new Date();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      
+      const { data: ventes, error: ventesError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_ttc,
+          montant_ht,
+          puissance_kwc,
+          date_signature,
+          date_pose,
+          status,
+          type_vente,
+          decom_montant,
+          clients(nom, prenom),
+          regies(nom, mode_calcul_commission, part_survente_pct)
+        `)
+        .eq("user_id", userId)
+        .not("status", "eq", "annule");
+
+      if (ventesError) {
+        console.error("Error fetching ventes:", ventesError);
+        return { actionTaken: "error" };
+      }
+
+      // Filter ventes that are ready to invoice
+      const ventesAFacturer: Array<{
+        clientName: string;
+        puissance: number;
+        montant: number;
+        commission: number;
+        datePose: string;
+        status: string;
+      }> = [];
+
+      let totalCommission = 0;
+
+      for (const v of ventes || []) {
+        // Check if ready to invoice: attente_paiement OR (installe and pose >= 2 weeks ago)
+        const isAttenteP = v.status === "attente_paiement";
+        const isInstalleLongtemps = v.status === "installe" && v.date_pose && new Date(v.date_pose) <= twoWeeksAgo;
+        
+        if (!isAttenteP && !isInstalleLongtemps) continue;
+
+        // Calculate commission
+        const isExternal = v.type_vente === "external_installation";
+        let commission = 0;
+        
+        if (isExternal) {
+          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
+        } else {
+          const puissance = v.puissance_kwc || 0;
+          const totalTTC = v.montant_ttc || 0;
+          const tva = puissance <= 3 ? 1.10 : 1.20;
+          const totalHT = totalTTC / tva;
+          
+          // Base commission: 250€ per kWc
+          commission = puissance * 250;
+          
+          // Add bonus for higher amounts (survente)
+          const basePrice = puissance * 2500;
+          if (totalHT > basePrice) {
+            const surventeHT = totalHT - basePrice;
+            commission += surventeHT * 0.5;
+          }
+        }
+
+        // deno-lint-ignore no-explicit-any
+        const client = v.clients as any;
+        const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+        
+        ventesAFacturer.push({
+          clientName,
+          puissance: v.puissance_kwc || 0,
+          montant: v.montant_ttc || 0,
+          commission: Math.round(commission),
+          datePose: v.date_pose || "",
+          status: v.status
+        });
+        
+        totalCommission += commission;
+      }
+
+      // Sort by date pose (oldest first)
+      ventesAFacturer.sort((a, b) => new Date(a.datePose).getTime() - new Date(b.datePose).getTime());
+
+      // Build response message
+      let responseMsg = `💰 *DOSSIERS À FACTURER* (${ventesAFacturer.length})\n`;
+      responseMsg += `📊 Total: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
+      
+      if (ventesAFacturer.length === 0) {
+        responseMsg += "_Aucun dossier à facturer pour le moment._";
+      } else {
+        for (const v of ventesAFacturer.slice(0, 15)) {
+          const statusIcon = v.status === "attente_paiement" ? "💳" : "✅";
+          const datePoseStr = v.datePose ? new Date(v.datePose).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+          responseMsg += `${statusIcon} *${v.clientName}*\n`;
+          responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC\n`;
+          responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${datePoseStr ? ` (posé ${datePoseStr})` : ""}\n\n`;
+        }
+        
+        if (ventesAFacturer.length > 15) {
+          responseMsg += `\n... et ${ventesAFacturer.length - 15} autre(s)`;
+        }
+      }
+
+      return {
+        actionTaken: "query_ventes_a_facturer_result",
+        entityType: "ventes_a_facturer",
+        customResponse: responseMsg,
+      };
+    }
+
+    case "query_ventes_en_cours": {
+      // Liste détaillée des ventes en cours (signées mais pas encore posées)
+      // En cours = signe, cq_a_faire, cq_fait, attente_financement, envoi_pose (EXCLUT en_installation)
+      const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"];
+      
+      const { data: ventes, error: ventesError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_ttc,
+          montant_ht,
+          puissance_kwc,
+          date_signature,
+          status,
+          type_vente,
+          decom_montant,
+          clients(nom, prenom),
+          regies(nom, mode_calcul_commission, part_survente_pct)
+        `)
+        .eq("user_id", userId)
+        .in("status", enCoursStatuses);
+
+      if (ventesError) {
+        console.error("Error fetching ventes:", ventesError);
+        return { actionTaken: "error" };
+      }
+
+      const ventesEnCours: Array<{
+        clientName: string;
+        puissance: number;
+        montant: number;
+        commission: number;
+        dateSignature: string;
+        status: string;
+      }> = [];
+
+      let totalCommission = 0;
+
+      for (const v of ventes || []) {
+        // Calculate commission
+        const isExternal = v.type_vente === "external_installation";
+        let commission = 0;
+        
+        if (isExternal) {
+          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
+        } else {
+          const puissance = v.puissance_kwc || 0;
+          const totalTTC = v.montant_ttc || 0;
+          const tva = puissance <= 3 ? 1.10 : 1.20;
+          const totalHT = totalTTC / tva;
+          
+          // Base commission: 250€ per kWc
+          commission = puissance * 250;
+          
+          // Add bonus for higher amounts (survente)
+          const basePrice = puissance * 2500;
+          if (totalHT > basePrice) {
+            const surventeHT = totalHT - basePrice;
+            commission += surventeHT * 0.5;
+          }
+        }
+
+        // deno-lint-ignore no-explicit-any
+        const client = v.clients as any;
+        const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+        
+        const statusLabels: Record<string, string> = {
+          signe: "Signé",
+          cq_a_faire: "CQ à faire",
+          cq_fait: "CQ fait",
+          attente_financement: "Att. fin.",
+          envoi_pose: "Envoi pose"
+        };
+        
+        ventesEnCours.push({
+          clientName,
+          puissance: v.puissance_kwc || 0,
+          montant: v.montant_ttc || 0,
+          commission: Math.round(commission),
+          dateSignature: v.date_signature || "",
+          status: statusLabels[v.status] || v.status
+        });
+        
+        totalCommission += commission;
+      }
+
+      // Sort by signature date (oldest first)
+      ventesEnCours.sort((a, b) => new Date(a.dateSignature).getTime() - new Date(b.dateSignature).getTime());
+
+      // Build response message
+      let responseMsg = `📋 *DOSSIERS EN COURS* (${ventesEnCours.length})\n`;
+      responseMsg += `💰 Potentiel: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
+      
+      if (ventesEnCours.length === 0) {
+        responseMsg += "_Aucun dossier en cours actuellement._";
+      } else {
+        for (const v of ventesEnCours.slice(0, 15)) {
+          const dateStr = v.dateSignature ? new Date(v.dateSignature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+          responseMsg += `📝 *${v.clientName}*\n`;
+          responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC | ${v.status}\n`;
+          responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (signé ${dateStr})` : ""}\n\n`;
+        }
+        
+        if (ventesEnCours.length > 15) {
+          responseMsg += `\n... et ${ventesEnCours.length - 15} autre(s)`;
+        }
+      }
+
+      return {
+        actionTaken: "query_ventes_en_cours_result",
+        entityType: "ventes_en_cours",
+        customResponse: responseMsg,
+      };
+    }
+
+    case "query_ventes_by_filter": {
+      // Requêtes avec filtres spécifiques
+      const filterType = (entities.filter_type as string) || "poses";
+      const regieName = entities.regie_name as string;
+      const now = new Date();
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      
+      let statusFilter: string[] = [];
+      let filterLabel = "";
+      
+      switch (filterType) {
+        case "poses":
+        case "installe":
+          statusFilter = ["installe", "attente_paiement"];
+          filterLabel = "Posées";
+          break;
+        case "payees":
+        case "paye":
+          statusFilter = ["paye"];
+          filterLabel = "Payées";
+          break;
+        case "signees":
+        case "signe":
+          statusFilter = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye"];
+          filterLabel = "Signées (toutes)";
+          break;
+        case "poses_recentes":
+          // Will filter after
+          statusFilter = ["installe"];
+          filterLabel = "Posées < 2 sem";
+          break;
+        case "en_cours":
+          statusFilter = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"];
+          filterLabel = "En cours";
+          break;
+        case "a_facturer":
+          statusFilter = ["installe", "attente_paiement"];
+          filterLabel = "À facturer";
+          break;
+        default:
+          statusFilter = ["installe", "attente_paiement", "paye"];
+          filterLabel = filterType;
+      }
+
+      let query = supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_ttc,
+          montant_ht,
+          puissance_kwc,
+          date_signature,
+          date_pose,
+          status,
+          type_vente,
+          decom_montant,
+          clients(nom, prenom),
+          regies(nom, mode_calcul_commission)
+        `)
+        .eq("user_id", userId)
+        .in("status", statusFilter);
+
+      const { data: ventes, error: ventesError } = await query;
+
+      if (ventesError) {
+        console.error("Error fetching ventes:", ventesError);
+        return { actionTaken: "error" };
+      }
+
+      // deno-lint-ignore no-explicit-any
+      let filteredVentes: any[] = ventes || [];
+      
+      // Additional filters
+      if (filterType === "poses_recentes") {
+        // Only installed in last 2 weeks
+        // deno-lint-ignore no-explicit-any
+        filteredVentes = filteredVentes.filter((v: any) => 
+          v.date_pose && new Date(v.date_pose) > twoWeeksAgo
+        );
+      } else if (filterType === "a_facturer") {
+        // Only installed >= 2 weeks ago or attente_paiement
+        // deno-lint-ignore no-explicit-any
+        filteredVentes = filteredVentes.filter((v: any) => 
+          v.status === "attente_paiement" || 
+          (v.status === "installe" && v.date_pose && new Date(v.date_pose) <= twoWeeksAgo)
+        );
+      }
+      
+      // Filter by régie if specified
+      if (regieName) {
+        const regieNameLower = regieName.toLowerCase();
+        // deno-lint-ignore no-explicit-any
+        filteredVentes = filteredVentes.filter((v: any) => {
+          // deno-lint-ignore no-explicit-any
+          const regie = v.regies as any;
+          return regie?.nom?.toLowerCase().includes(regieNameLower);
+        });
+        filterLabel += ` (${regieName})`;
+      }
+
+      const results: Array<{
+        clientName: string;
+        puissance: number;
+        montant: number;
+        commission: number;
+        date: string;
+        status: string;
+      }> = [];
+
+      let totalCommission = 0;
+
+      for (const v of filteredVentes) {
+        const isExternal = v.type_vente === "external_installation";
+        let commission = 0;
+        
+        if (isExternal) {
+          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
+        } else {
+          const puissance = v.puissance_kwc || 0;
+          const totalTTC = v.montant_ttc || 0;
+          const tva = puissance <= 3 ? 1.10 : 1.20;
+          const totalHT = totalTTC / tva;
+          commission = puissance * 250;
+          const basePrice = puissance * 2500;
+          if (totalHT > basePrice) {
+            const surventeHT = totalHT - basePrice;
+            commission += surventeHT * 0.5;
+          }
+        }
+
+        // deno-lint-ignore no-explicit-any
+        const client = v.clients as any;
+        const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+        
+        const statusLabels: Record<string, string> = {
+          signe: "📝 Signé",
+          cq_a_faire: "🔴 CQ",
+          cq_fait: "🟡 CQ fait",
+          attente_financement: "🟡 Att. fin.",
+          envoi_pose: "🔵 Envoi",
+          en_installation: "🔵 Install.",
+          installe: "✅ Posé",
+          attente_paiement: "💳 Att. paie.",
+          paye: "💰 Payé"
+        };
+        
+        results.push({
+          clientName,
+          puissance: v.puissance_kwc || 0,
+          montant: v.montant_ttc || 0,
+          commission: Math.round(commission),
+          date: v.date_pose || v.date_signature || "",
+          status: statusLabels[v.status] || v.status
+        });
+        
+        totalCommission += commission;
+      }
+
+      // Sort by date
+      results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Build response
+      let responseMsg = `📊 *${filterLabel.toUpperCase()}* (${results.length})\n`;
+      responseMsg += `💰 Total commissions: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
+      
+      if (results.length === 0) {
+        responseMsg += "_Aucun dossier trouvé avec ce filtre._";
+      } else {
+        for (const v of results.slice(0, 15)) {
+          const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+          responseMsg += `${v.status} *${v.clientName}*\n`;
+          responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n\n`;
+        }
+        
+        if (results.length > 15) {
+          responseMsg += `\n... et ${results.length - 15} autre(s)`;
+        }
+      }
+
+      return {
+        actionTaken: "query_ventes_by_filter_result",
+        entityType: "ventes_filtered",
+        customResponse: responseMsg,
       };
     }
 
