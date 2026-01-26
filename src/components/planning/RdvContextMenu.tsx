@@ -163,6 +163,7 @@ export function RdvContextMenu({
                   clientId={rdv.clientId}
                   etudeId={rdv.etudeId}
                   regieId={rdv.regieId}
+                  rdvDate={rdv.date}
                   onStatusChange={handleStatusChange}
                   onWhatsAppComplete={onClose}
                 />

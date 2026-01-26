@@ -22,6 +22,7 @@ interface RdvQuickActionsProps {
   currentStatus: RdvStatus;
   etudeId?: string | null;
   regieId?: string | null;
+  rdvDate?: Date | string | null;
   onStatusChange?: (newStatus: RdvStatus) => void;
   children: React.ReactNode;
 }
@@ -38,6 +39,7 @@ export function RdvQuickActions({
   currentStatus,
   etudeId,
   regieId,
+  rdvDate,
   onStatusChange,
   children,
 }: RdvQuickActionsProps) {
@@ -97,6 +99,7 @@ export function RdvQuickActions({
               clientId={clientId}
               etudeId={etudeId}
               regieId={regieId}
+              rdvDate={rdvDate}
               onStatusChange={onStatusChange}
             />
           </div>

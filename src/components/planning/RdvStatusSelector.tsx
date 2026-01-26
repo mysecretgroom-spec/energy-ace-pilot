@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,20 +42,22 @@ interface RdvStatusSelectorProps {
   clientPrenom?: string;
   clientId?: string;
   etudeId?: string | null;
-  regieId?: string | null; // NEW: régie associée au RDV
+  regieId?: string | null;
+  rdvDate?: Date | string | null; // Date du RDV pour filtrer les statuts
   onStatusChange?: (newStatus: RdvStatus) => void;
-  onWhatsAppComplete?: () => void; // Called after WhatsApp dialog is dismissed
+  onWhatsAppComplete?: () => void;
   compact?: boolean;
 }
 
-const statusOptions: { value: RdvStatus; label: string; color: string }[] = [
-  { value: "nouveau", label: "Nouveau", color: "bg-blue-500" },
-  { value: "reporte", label: "Reporté", color: "bg-orange-500" },
-  { value: "r2", label: "R2", color: "bg-purple-500" },
-  { value: "r2_prestudy", label: "R2 Pré-étude", color: "bg-indigo-500" },
-  { value: "signe", label: "Signé", color: "bg-green-500" },
-  { value: "negatif", label: "Négatif", color: "bg-red-500" },
-  { value: "annule", label: "Annulé", color: "bg-gray-500" },
+const allStatusOptions: { value: RdvStatus; label: string; color: string; requiresPastDate: boolean }[] = [
+  { value: "nouveau", label: "Nouveau", color: "bg-blue-500", requiresPastDate: false },
+  { value: "reporte", label: "Reporté", color: "bg-orange-500", requiresPastDate: false },
+  { value: "annule", label: "Annulé", color: "bg-gray-500", requiresPastDate: false },
+  // Statuts disponibles uniquement après que le RDV ait eu lieu
+  { value: "r2", label: "R2", color: "bg-purple-500", requiresPastDate: true },
+  { value: "r2_prestudy", label: "R2 Pré-étude", color: "bg-indigo-500", requiresPastDate: true },
+  { value: "signe", label: "Signé", color: "bg-green-500", requiresPastDate: true },
+  { value: "negatif", label: "Négatif", color: "bg-red-500", requiresPastDate: true },
 ];
 
 // Map RDV status to WhatsApp classification
@@ -77,10 +79,28 @@ export function RdvStatusSelector({
   clientId,
   etudeId,
   regieId,
+  rdvDate,
   onStatusChange,
   onWhatsAppComplete,
   compact = false,
 }: RdvStatusSelectorProps) {
+  // Déterminer si le RDV est passé (l'étude a eu lieu)
+  const isRdvPast = useMemo(() => {
+    if (!rdvDate) return true; // Si pas de date, on autorise tout
+    const rdvDateTime = typeof rdvDate === 'string' ? new Date(rdvDate) : rdvDate;
+    return rdvDateTime <= new Date();
+  }, [rdvDate]);
+
+  // Filtrer les statuts disponibles selon si le RDV est passé ou non
+  const statusOptions = useMemo(() => {
+    return allStatusOptions.filter(option => {
+      // Toujours inclure le statut actuel
+      if (option.value === currentStatus) return true;
+      // Avant le RDV: seulement les statuts qui ne nécessitent pas que le RDV soit passé
+      if (!isRdvPast && option.requiresPastDate) return false;
+      return true;
+    });
+  }, [isRdvPast, currentStatus]);
   const { user } = useAuth();
   const { sendWhatsAppNotification } = useWhatsAppNotification();
   const [updating, setUpdating] = useState(false);
