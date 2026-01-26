@@ -3755,7 +3755,7 @@ async function executeAction(
           montant_ht,
           puissance_kwc,
           date_signature,
-          date_pose,
+          date_installation_reelle,
           status,
           type_vente,
           decom_montant,
@@ -3808,8 +3808,8 @@ async function executeAction(
           }
         }
 
-        if (v.date_pose) {
-          const datePose = new Date(v.date_pose);
+        if (v.date_installation_reelle) {
+          const datePose = new Date(v.date_installation_reelle);
           if (datePose >= twoWeeksAgo) {
             // Installed < 2 weeks = pending
             totalEnCours += commission;
@@ -3852,7 +3852,7 @@ async function executeAction(
           montant_ht,
           puissance_kwc,
           date_signature,
-          date_pose,
+          date_installation_reelle,
           status,
           type_vente,
           decom_montant,
@@ -3882,7 +3882,7 @@ async function executeAction(
       for (const v of ventes || []) {
         // Check if ready to invoice: attente_paiement OR (installe and pose >= 2 weeks ago)
         const isAttenteP = v.status === "attente_paiement";
-        const isInstalleLongtemps = v.status === "installe" && v.date_pose && new Date(v.date_pose) <= twoWeeksAgo;
+        const isInstalleLongtemps = v.status === "installe" && v.date_installation_reelle && new Date(v.date_installation_reelle) <= twoWeeksAgo;
         
         if (!isAttenteP && !isInstalleLongtemps) continue;
 
@@ -3918,7 +3918,7 @@ async function executeAction(
           puissance: v.puissance_kwc || 0,
           montant: v.montant_ttc || 0,
           commission: Math.round(commission),
-          datePose: v.date_pose || "",
+          datePose: v.date_installation_reelle || "",
           status: v.status
         });
         
@@ -4122,7 +4122,7 @@ async function executeAction(
           montant_ht,
           puissance_kwc,
           date_signature,
-          date_pose,
+          date_installation_reelle,
           status,
           type_vente,
           decom_montant,
@@ -4147,14 +4147,14 @@ async function executeAction(
         // Only installed in last 2 weeks
         // deno-lint-ignore no-explicit-any
         filteredVentes = filteredVentes.filter((v: any) => 
-          v.date_pose && new Date(v.date_pose) > twoWeeksAgo
+          v.date_installation_reelle && new Date(v.date_installation_reelle) > twoWeeksAgo
         );
       } else if (filterType === "a_facturer") {
         // Only installed >= 2 weeks ago or attente_paiement
         // deno-lint-ignore no-explicit-any
         filteredVentes = filteredVentes.filter((v: any) => 
           v.status === "attente_paiement" || 
-          (v.status === "installe" && v.date_pose && new Date(v.date_pose) <= twoWeeksAgo)
+          (v.status === "installe" && v.date_installation_reelle && new Date(v.date_installation_reelle) <= twoWeeksAgo)
         );
       }
       
@@ -4221,7 +4221,7 @@ async function executeAction(
           puissance: v.puissance_kwc || 0,
           montant: v.montant_ttc || 0,
           commission: Math.round(commission),
-          date: v.date_pose || v.date_signature || "",
+          date: v.date_installation_reelle || v.date_signature || "",
           status: statusLabels[v.status] || v.status
         });
         
@@ -4654,7 +4654,7 @@ async function executeAction(
           puissance_kwc,
           status,
           date_signature,
-          date_pose,
+          date_installation_reelle,
           clients(nom, prenom)
         `)
         .eq("user_id", userId);
@@ -4690,7 +4690,7 @@ async function executeAction(
           puissance: v.puissance_kwc,
           statut: v.status,
           date_signature: v.date_signature,
-          installe: !!v.date_pose
+          installe: !!v.date_installation_reelle
         };
       });
 
@@ -4748,7 +4748,7 @@ async function executeAction(
       // Available columns: id, user_id, client_id, etude_id, numero_contrat, date_signature, 
       // date_installation_prevue, date_installation_reelle, date_paiement, montant_ht, montant_ttc,
       // montant_acompte, montant_solde, puissance_kwc, nombre_panneaux, type_installation, 
-      // status, notes, created_at, updated_at, decom_montant, decom_raison, type_vente, regie_id, date_pose, is_retape
+      // status, notes, created_at, updated_at, decom_montant, decom_raison, type_vente, regie_id, is_retape
       const { data: ventes, error: venteError } = await supabase
         .from("ventes")
         .select(`
@@ -4761,7 +4761,6 @@ async function executeAction(
           date_signature,
           date_installation_prevue,
           date_installation_reelle,
-          date_pose,
           date_paiement,
           notes,
           type_installation,
@@ -4876,9 +4875,8 @@ async function executeAction(
           const dates: string[] = [];
           if (vente.date_signature) dates.push(`• Signature: ${new Date(vente.date_signature).toLocaleDateString("fr-FR")}`);
           if (vente.date_installation_prevue) dates.push(`• Pose prévue: ${new Date(vente.date_installation_prevue).toLocaleDateString("fr-FR")}`);
-          if (vente.date_pose || vente.date_installation_reelle) {
-            const installDate = vente.date_pose || vente.date_installation_reelle;
-            dates.push(`• Posé le: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
+          if (vente.date_installation_reelle) {
+            dates.push(`• Posé le: ${new Date(vente.date_installation_reelle).toLocaleDateString("fr-FR")}`);
           }
           if (vente.date_paiement) dates.push(`• Paiement: ${new Date(vente.date_paiement).toLocaleDateString("fr-FR")}`);
           
@@ -4949,9 +4947,8 @@ async function executeAction(
       sections.push("📅 *Dates:*");
       if (vente.date_signature) sections.push(`• Signature: ${new Date(vente.date_signature).toLocaleDateString("fr-FR")}`);
       if (vente.date_installation_prevue) sections.push(`• Pose prévue: ${new Date(vente.date_installation_prevue).toLocaleDateString("fr-FR")}`);
-      if (vente.date_pose || vente.date_installation_reelle) {
-        const installDate = vente.date_pose || vente.date_installation_reelle;
-        sections.push(`• Posé le: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
+      if (vente.date_installation_reelle) {
+        sections.push(`• Posé le: ${new Date(vente.date_installation_reelle).toLocaleDateString("fr-FR")}`);
       }
       if (vente.date_paiement) sections.push(`• Paiement: ${new Date(vente.date_paiement).toLocaleDateString("fr-FR")}`);
       sections.push("");
@@ -4984,7 +4981,7 @@ async function executeAction(
     case "update_vente_data": {
       // Update specific fields of a vente (not just pipeline status)
       // Available columns: montant_ttc, montant_ht, puissance_kwc, nombre_panneaux, 
-      // date_installation_prevue, date_pose, notes, type_installation
+      // date_installation_prevue, date_installation_reelle, notes, type_installation
       const clientName = entities.client_name as string;
       const newAmount = entities.amount as number;
       const newPuissance = entities.puissance_kwc as number;
@@ -5045,7 +5042,7 @@ async function executeAction(
           puissance_kwc,
           nombre_panneaux,
           date_installation_prevue,
-          date_pose,
+          date_installation_reelle,
           notes,
           clients(id, nom, prenom)
         `)
