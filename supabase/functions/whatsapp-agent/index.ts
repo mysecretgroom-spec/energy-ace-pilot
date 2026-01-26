@@ -2837,11 +2837,19 @@ async function analyzeIntent(
   requiresConfirmation: boolean;
   responseMessage: string;
 }> {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const currentTime = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  const currentDay = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
   const memoriesSection = formatMemoriesForPrompt(userMemories);
   const customPromptsSection = formatPromptsForSystem(userPrompts);
   
   const systemPrompt = `Tu es l'assistant IA WhatsApp de DébalePro pour installateurs ENR.
+
+📅 DATE ET HEURE ACTUELLES:
+- Aujourd'hui: ${currentDay}
+- Heure actuelle: ${currentTime} (Europe/Paris)
+- Date ISO: ${today}
 
 MÉMOIRE UTILISATEUR:
 ${memoriesSection}
