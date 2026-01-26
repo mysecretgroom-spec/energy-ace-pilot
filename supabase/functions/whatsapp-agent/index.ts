@@ -70,6 +70,8 @@ interface AgentRequest {
   content: string;
   mediaUrl?: string;
   mediaContentType?: string;
+  // For web chat: audio data sent directly as base64 (no Twilio)
+  audioData?: string;
 }
 
 interface AgentResponse {
@@ -745,7 +747,7 @@ serve(async (req) => {
     let uploadedDocumentUrl: string | null = null;
     let documentAnalysisResult: DocumentAnalysisResult | null = null;
 
-    // Download media from Twilio if present
+    // Download media from Twilio if present (WhatsApp source)
     if (request.mediaUrl && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
       console.log("Downloading media from Twilio...");
       mediaData = await downloadTwilioMedia(
@@ -758,10 +760,26 @@ serve(async (req) => {
     }
 
     // Handle audio transcription with Gemini
-    if (request.messageType === "audio" && mediaData) {
-      console.log("Transcribing audio message with Gemini...");
-      processedContent = await transcribeAudioWithGemini(mediaData, LOVABLE_API_KEY);
-      console.log("Transcribed content:", processedContent);
+    if (request.messageType === "audio") {
+      // Web chat: audio data sent directly as base64
+      if (request.audioData) {
+        console.log("Transcribing web audio with Gemini...");
+        const audioBytes = Uint8Array.from(atob(request.audioData), c => c.charCodeAt(0));
+        const webMediaData: MediaDownloadResult = {
+          data: audioBytes,
+          base64: request.audioData,
+          contentType: "audio/webm",
+          filename: "voice_message.webm"
+        };
+        processedContent = await transcribeAudioWithGemini(webMediaData, LOVABLE_API_KEY);
+        console.log("Transcribed web audio:", processedContent);
+      } 
+      // WhatsApp: audio from Twilio
+      else if (mediaData) {
+        console.log("Transcribing Twilio audio with Gemini...");
+        processedContent = await transcribeAudioWithGemini(mediaData, LOVABLE_API_KEY);
+        console.log("Transcribed Twilio audio:", processedContent);
+      }
     }
 
     // Handle image/document analysis - detect context based on content hints
