@@ -1883,6 +1883,13 @@ INTENTIONS DISPONIBLES:
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
 
+⚠️ RÈGLES MÉTIER EXCLUSIONS:
+- RDV "annule" ou "reporte" → JAMAIS comptés dans le planning actif, stats, ni actions en cours
+- Ventes "annule" → JAMAIS comptées dans les ventes en cours, commissions, ni CA
+- Quand l'utilisateur demande "mes rdv" ou "planning" → NE PAS inclure les annulés/reportés
+- Quand l'utilisateur demande "mes ventes" ou "ventes en cours" → NE PAS inclure les annulées
+- Les dossiers annulés sont considérés comme fermés définitivement
+
 RÈGLES CRITIQUES:
 1. Pour "signé/positif/vente/j'ai vendu" → TOUJOURS mark_signe (workflow complet avec collecte données)
 2. Pour "posé/installé" → update_vente_pipeline avec installe
@@ -2924,11 +2931,12 @@ async function executeAction(
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
 
-      // Count RDV
+      // Count RDV (exclure annulés et reportés)
       const { count: rdvCount } = await supabase
         .from("rdv")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
+        .not("status", "in", "(annule,reporte)")
         .gte("date_heure", startDate.toISOString());
 
       // Count ventes positives
@@ -3048,6 +3056,7 @@ async function executeAction(
           clients(nom, prenom, telephone)
         `)
         .eq("user_id", userId)
+        .not("status", "in", "(annule,reporte)") // Exclure annulés et reportés
         .gte("date_heure", startDate.toISOString())
         .lt("date_heure", endDate.toISOString())
         .order("date_heure", { ascending: true })
@@ -3277,6 +3286,7 @@ async function executeAction(
           clients(nom, prenom)
         `)
         .eq("user_id", userId)
+        .not("status", "eq", "annule") // Exclure les ventes annulées
         .order("created_at", { ascending: false })
         .limit(50);
 
