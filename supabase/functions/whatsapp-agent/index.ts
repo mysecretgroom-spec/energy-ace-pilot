@@ -27,6 +27,8 @@ type Intent =
   | "query_rdv_detail"     // Topo détaillé sur un RDV spécifique (infos Gmail, conso, profil)
   | "query_ventes"
   | "query_vente_detail"   // Fiche détaillée d'une vente spécifique par nom de client
+  | "query_frais"          // Liste des frais/dépenses avec filtres (période, catégorie)
+  | "query_frais_detail"   // Total des frais avec répartition par catégorie
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
@@ -2299,10 +2301,14 @@ INTENTIONS DISPONIBLES:
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "toutes mes ventes" → Liste simple sans détails commission
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
+- query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
+- query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
+
+CATÉGORIES FRAIS: carburant, repas, hotel, peage, parking, train, location_vehicule, autre
 
 STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
@@ -2387,7 +2393,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -2409,6 +2415,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
                     regie_name: { type: "string", description: "Name of the régie for filtering" },
                     include_cancelled: { type: "boolean", description: "Include cancelled items (default false)" },
+                    frais_categorie: { type: "string", enum: ["carburant", "repas", "hotel", "peage", "parking", "train", "location_vehicule", "autre"], description: "Expense category filter" },
                     feedback_type: { type: "string", enum: ["correction", "preference", "rule", "alias"] },
                     feedback_key: { type: "string", description: "What the user wants to correct or define" },
                     feedback_value: { type: "string", description: "The correction or preference value" }
@@ -4554,6 +4561,212 @@ async function executeAction(
         entityId: vente.id,
         entityType: "vente",
         customResponse: `✅ Vente *${clientFullName}* mise à jour:\n${changes.map(c => `• ${c}`).join("\n")}`,
+      };
+    }
+
+    case "query_frais": {
+      // Liste des frais avec filtres (période, catégorie)
+      const period = (entities.period as string) || "month";
+      const categorie = entities.frais_categorie as string;
+      
+      const now = new Date();
+      let startDate: Date;
+      let endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+      
+      let periodLabel = "";
+      
+      switch (period) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          periodLabel = "Aujourd'hui";
+          break;
+        case "week":
+          // Start from Monday of current week
+          const dayOfWeek = now.getDay();
+          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - diffToMonday);
+          startDate.setHours(0, 0, 0, 0);
+          periodLabel = "Cette semaine";
+          break;
+        case "all":
+          startDate = new Date(2020, 0, 1);
+          periodLabel = "Tout temps";
+          break;
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          periodLabel = "Ce mois";
+      }
+      
+      let query = supabase
+        .from("frais")
+        .select("id, montant, categorie, description, date_frais, justificatif_url")
+        .eq("user_id", userId)
+        .gte("date_frais", startDate.toISOString().split("T")[0])
+        .lte("date_frais", endDate.toISOString().split("T")[0])
+        .order("date_frais", { ascending: false })
+        .limit(50);
+      
+      if (categorie) {
+        query = query.eq("categorie", categorie);
+      }
+      
+      const { data: fraisData, error: fraisError } = await query;
+      
+      if (fraisError) {
+        console.error("Error fetching frais:", fraisError);
+        return { actionTaken: "error" };
+      }
+      
+      const categoryLabels: Record<string, string> = {
+        carburant: "⛽ Carburant",
+        repas: "🍽️ Repas",
+        hotel: "🏨 Hôtel",
+        peage: "🛣️ Péage",
+        parking: "🅿️ Parking",
+        train: "🚂 Train",
+        location_vehicule: "🚗 Location",
+        autre: "📦 Autre",
+      };
+      
+      // Calculate totals
+      const total = (fraisData || []).reduce((sum: number, f: { montant: number | null }) => sum + (f.montant || 0), 0);
+      
+      // Group by category for summary
+      const byCategory: Record<string, { count: number; total: number }> = {};
+      for (const f of fraisData || []) {
+        const cat = f.categorie;
+        if (!byCategory[cat]) byCategory[cat] = { count: 0, total: 0 };
+        byCategory[cat].count++;
+        byCategory[cat].total += f.montant || 0;
+      }
+      
+      // Build response
+      let responseMsg = `💰 *FRAIS - ${periodLabel}*${categorie ? ` (${categoryLabels[categorie] || categorie})` : ""}\n`;
+      responseMsg += `Total: *${total.toFixed(2)}€* (${fraisData?.length || 0} dépenses)\n\n`;
+      
+      if (!fraisData || fraisData.length === 0) {
+        responseMsg += "_Aucun frais enregistré sur cette période._";
+      } else {
+        // Show category summary first
+        const catSummary = Object.entries(byCategory)
+          .sort((a, b) => b[1].total - a[1].total)
+          .map(([cat, data]) => `${categoryLabels[cat] || cat}: ${data.total.toFixed(2)}€`)
+          .join(" | ");
+        responseMsg += `📊 ${catSummary}\n\n`;
+        
+        // Show recent items
+        responseMsg += "📝 *Dernières dépenses:*\n";
+        for (const f of (fraisData || []).slice(0, 10)) {
+          const date = new Date(f.date_frais).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+          const catLabel = categoryLabels[f.categorie] || f.categorie;
+          const desc = f.description ? ` - ${f.description.substring(0, 30)}` : "";
+          responseMsg += `• ${date} ${catLabel}: *${f.montant?.toFixed(2)}€*${desc}\n`;
+        }
+        
+        if ((fraisData?.length || 0) > 10) {
+          responseMsg += `\n... et ${(fraisData?.length || 0) - 10} autre(s)`;
+        }
+      }
+      
+      return {
+        actionTaken: "query_frais_result",
+        entityType: "frais",
+        customResponse: responseMsg,
+      };
+    }
+
+    case "query_frais_detail": {
+      // Total des frais avec répartition détaillée par catégorie
+      const period = (entities.period as string) || "month";
+      
+      const now = new Date();
+      let startDate: Date;
+      let endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+      
+      let periodLabel = "";
+      
+      switch (period) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          periodLabel = "Aujourd'hui";
+          break;
+        case "week":
+          const dayOfWeek = now.getDay();
+          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - diffToMonday);
+          startDate.setHours(0, 0, 0, 0);
+          periodLabel = "Cette semaine";
+          break;
+        case "all":
+          startDate = new Date(2020, 0, 1);
+          periodLabel = "Tout temps";
+          break;
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          periodLabel = "Ce mois";
+      }
+      
+      const { data: fraisData, error: fraisError } = await supabase
+        .from("frais")
+        .select("montant, categorie")
+        .eq("user_id", userId)
+        .gte("date_frais", startDate.toISOString().split("T")[0])
+        .lte("date_frais", endDate.toISOString().split("T")[0]);
+      
+      if (fraisError) {
+        console.error("Error fetching frais:", fraisError);
+        return { actionTaken: "error" };
+      }
+      
+      const categoryLabels: Record<string, string> = {
+        carburant: "⛽ Carburant",
+        repas: "🍽️ Repas",
+        hotel: "🏨 Hôtel",
+        peage: "🛣️ Péage",
+        parking: "🅿️ Parking",
+        train: "🚂 Train",
+        location_vehicule: "🚗 Location",
+        autre: "📦 Autre",
+      };
+      
+      // Aggregate by category
+      const byCategory: Record<string, { count: number; total: number }> = {};
+      let grandTotal = 0;
+      
+      for (const f of fraisData || []) {
+        const cat = f.categorie;
+        if (!byCategory[cat]) byCategory[cat] = { count: 0, total: 0 };
+        byCategory[cat].count++;
+        byCategory[cat].total += f.montant || 0;
+        grandTotal += f.montant || 0;
+      }
+      
+      // Build response
+      let responseMsg = `📊 *RÉPARTITION FRAIS - ${periodLabel}*\n`;
+      responseMsg += `💰 Total: *${grandTotal.toFixed(2)}€* (${fraisData?.length || 0} dépenses)\n\n`;
+      
+      if (Object.keys(byCategory).length === 0) {
+        responseMsg += "_Aucun frais enregistré sur cette période._";
+      } else {
+        // Sort by total descending
+        const sorted = Object.entries(byCategory).sort((a, b) => b[1].total - a[1].total);
+        
+        for (const [cat, data] of sorted) {
+          const pct = grandTotal > 0 ? Math.round((data.total / grandTotal) * 100) : 0;
+          const bar = "█".repeat(Math.min(Math.round(pct / 10), 10)) + "░".repeat(Math.max(10 - Math.round(pct / 10), 0));
+          responseMsg += `${categoryLabels[cat] || cat}\n`;
+          responseMsg += `${bar} *${data.total.toFixed(2)}€* (${pct}% - ${data.count} dép.)\n\n`;
+        }
+      }
+      
+      return {
+        actionTaken: "query_frais_detail_result",
+        entityType: "frais_detail",
+        customResponse: responseMsg,
       };
     }
 
