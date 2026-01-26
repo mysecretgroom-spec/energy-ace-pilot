@@ -26,6 +26,7 @@ interface RdvData {
   time: string;
   date: Date;
   client: string;
+  clientPrenom?: string;
   clientId: string;
   phone?: string | null;
   address?: string;

@@ -18,6 +18,7 @@ interface RdvContextMenuProps {
   rdv: {
     id: string;
     client: string;
+    clientPrenom?: string;
     clientId: string;
     time: string;
     date: Date;
@@ -96,7 +97,11 @@ export function RdvContextMenu({
   };
 
   const handleStatusChange = (newStatus: RdvStatus) => {
+    // Don't close the menu here - let the WhatsApp dialog show first
+    // The menu will stay open to allow the WhatsApp confirmation
     onStatusChange?.(rdv.id, newStatus);
+    // Note: We don't call onClose() here to keep the context menu open
+    // so the WhatsAppConfirmDialog inside RdvStatusSelector can display
   };
 
   return (
@@ -154,10 +159,12 @@ export function RdvContextMenu({
                   rdvId={rdv.id}
                   currentStatus={rdv.status}
                   clientName={rdv.client}
+                  clientPrenom={rdv.clientPrenom}
                   clientId={rdv.clientId}
                   etudeId={rdv.etudeId}
                   regieId={rdv.regieId}
                   onStatusChange={handleStatusChange}
+                  onWhatsAppComplete={onClose}
                 />
               </div>
 
