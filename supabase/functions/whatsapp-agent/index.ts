@@ -718,7 +718,59 @@ async function loadBouquetsForCommissions(supabase: any): Promise<{
 
 // ==================== FUZZY CLIENT SEARCH ====================
 
-// Calculate Levenshtein distance between two strings
+/**
+ * Get commission for a sale using the shared RPC function
+ * Falls back to local calculation if RPC fails
+ */
+// deno-lint-ignore no-explicit-any
+async function getCommissionViaRPC(supabase: any, venteId: string, fallbackParams?: {
+  montantTTC: number;
+  montantHT: number;
+  puissanceKwc: number;
+  isExternal: boolean;
+  decomMontant: number;
+  regieId?: string | null;
+  globalBouquets: BouquetData[];
+  regieBouquetsMap: Map<string, BouquetData[]>;
+  partSurventePct?: number;
+}): Promise<{
+  commission: number;
+  commissionBase: number;
+  bonusSurvente: number;
+  decomMontant: number;
+  isInterpolated: boolean;
+  mode: string;
+}> {
+  // Try RPC first
+  const { data, error } = await supabase.rpc("calculate_vente_commission", { p_vente_id: venteId });
+  
+  if (!error && data && !data.error) {
+    return {
+      commission: data.commission_nette || 0,
+      commissionBase: data.commission_base || 0,
+      bonusSurvente: data.bonus_survente || 0,
+      decomMontant: data.decom_montant || 0,
+      isInterpolated: data.is_interpolated || false,
+      mode: data.mode || "bouquet",
+    };
+  }
+  
+  // Fallback to local calculation
+  if (fallbackParams) {
+    const result = calculateCommission(fallbackParams);
+    return {
+      commission: result.commission,
+      commissionBase: result.commissionBase,
+      bonusSurvente: result.bonusSurvente,
+      decomMontant: fallbackParams.decomMontant,
+      isInterpolated: result.isInterpolated,
+      mode: "bouquet",
+    };
+  }
+  
+  return { commission: 0, commissionBase: 0, bonusSurvente: 0, decomMontant: 0, isInterpolated: false, mode: "unknown" };
+}
+
 function levenshteinDistance(a: string, b: string): number {
   const matrix: number[][] = [];
   
@@ -2060,22 +2112,30 @@ function formatQueryResponse(
 
     switch (actionTaken) {
       case "query_commissions_result": {
-        const { en_cours, a_facturer, total } = data;
-        return `💰 *Tes commissions ${userName.split(" ")[0]}*\n\n` +
-          `📊 En cours: ${en_cours.count} vente(s) → *${en_cours.total.toLocaleString("fr-FR")}€*\n` +
-          `✅ À facturer: ${a_facturer.count} vente(s) → *${a_facturer.total.toLocaleString("fr-FR")}€*\n\n` +
-          `💵 Total: *${total.toLocaleString("fr-FR")}€*`;
+        const { en_cours, a_facturer, payees, total } = data;
+        let msg = `💰 *Tes commissions ${userName.split(" ")[0]}*\n\n`;
+        msg += `📊 En cours: *${(en_cours?.total || 0).toLocaleString("fr-FR")}€*\n`;
+        msg += `✅ À facturer: *${(a_facturer?.total || 0).toLocaleString("fr-FR")}€*\n`;
+        if (payees?.total) {
+          msg += `💵 Payées: *${payees.total.toLocaleString("fr-FR")}€*\n`;
+        }
+        msg += `\n💶 Total: *${(total || 0).toLocaleString("fr-FR")}€*`;
+        return msg;
       }
 
       case "query_stats_result": {
-        const { period, rdv, ventes, ventesEnCours, caTTC, caHT, taux_conversion } = data;
-        return `📈 *Stats - ${period}*\n\n` +
+        const { period, rdv, ventes, ventesEnCours, caTTC, caHT, taux_conversion, commissions } = data;
+        let msg = `📈 *Stats - ${period}*\n\n` +
           `📅 RDV: *${rdv}*\n` +
           `✍️ Ventes signées: *${ventes}*\n` +
           `📂 En cours: *${ventesEnCours || 0}*\n` +
           `💶 CA TTC: *${(caTTC || 0).toLocaleString("fr-FR")}€*\n` +
           `💰 CA HT: *${(caHT || 0).toLocaleString("fr-FR")}€*\n` +
           `📊 Taux conversion: *${taux_conversion}%*`;
+        if (commissions) {
+          msg += `\n💵 Commissions: *${commissions.toLocaleString("fr-FR")}€*`;
+        }
+        return msg;
       }
 
       case "query_client_result": {
@@ -4324,79 +4384,96 @@ async function executeAction(
     }
 
     case "query_commissions": {
-      // Load bouquets for accurate commission calculation
-      const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
-      
-      // Get commission stats
-      const { data: ventes, error: ventesError } = await supabase
-        .from("ventes")
-        .select(`
-          id,
-          montant_ttc,
-          montant_ht,
-          puissance_kwc,
-          date_signature,
-          date_installation_reelle,
-          status,
-          type_vente,
-          decom_montant,
-          regie_id,
-          clients(nom, prenom),
-          regies(nom, mode_calcul_commission, part_survente_pct)
-        `)
-        .eq("user_id", userId)
-        .not("status", "eq", "annule");
+      // ═══════════════════════════════════════════════════════════════════════
+      // UTILISE RPC PARTAGÉE : get_commissions_by_category
+      // ═══════════════════════════════════════════════════════════════════════
+      const { data: commData, error: commError } = await supabase
+        .rpc("get_commissions_by_category", { p_user_id: userId });
 
-      if (ventesError) {
-        console.error("Error fetching ventes:", ventesError);
-        return { actionTaken: "error" };
-      }
-
-      // Calculate commissions using bouquet logic
-      let totalEnCours = 0;
-      let totalAFacturer = 0;
-      let countEnCours = 0;
-      let countAFacturer = 0;
-      const now = new Date();
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-
-      for (const v of ventes || []) {
-        const isExternal = v.type_vente === "external_installation";
-        // deno-lint-ignore no-explicit-any
-        const regie = v.regies as any;
-        const partSurvente = regie?.part_survente_pct || 50;
+      if (commError) {
+        console.error("RPC get_commissions_by_category error:", commError);
+        // Fallback to legacy approach
+        const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
         
-        const { commission } = calculateCommission({
-          montantTTC: v.montant_ttc || 0,
-          montantHT: v.montant_ht || 0,
-          puissanceKwc: v.puissance_kwc || 0,
-          isExternal,
-          decomMontant: v.decom_montant || 0,
-          regieId: v.regie_id,
-          globalBouquets,
-          regieBouquetsMap,
-          partSurventePct: partSurvente,
-        });
+        const { data: ventes, error: ventesError } = await supabase
+          .from("ventes")
+          .select(`
+            id,
+            montant_ttc,
+            montant_ht,
+            puissance_kwc,
+            date_installation_reelle,
+            status,
+            type_vente,
+            decom_montant,
+            regie_id,
+            regies(part_survente_pct)
+          `)
+          .eq("user_id", userId)
+          .not("status", "eq", "annule");
 
-        if (v.date_installation_reelle) {
-          const datePose = new Date(v.date_installation_reelle);
-          if (datePose >= twoWeeksAgo) {
+        if (ventesError) {
+          console.error("Error fetching ventes:", ventesError);
+          return { actionTaken: "error" };
+        }
+
+        let totalEnCours = 0;
+        let totalAFacturer = 0;
+        let countEnCours = 0;
+        let countAFacturer = 0;
+        const now = new Date();
+        const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+        for (const v of ventes || []) {
+          const isExternal = v.type_vente === "external_installation";
+          // deno-lint-ignore no-explicit-any
+          const regie = v.regies as any;
+          const partSurvente = regie?.part_survente_pct || 50;
+          
+          const { commission } = calculateCommission({
+            montantTTC: v.montant_ttc || 0,
+            montantHT: v.montant_ht || 0,
+            puissanceKwc: v.puissance_kwc || 0,
+            isExternal,
+            decomMontant: v.decom_montant || 0,
+            regieId: v.regie_id,
+            globalBouquets,
+            regieBouquetsMap,
+            partSurventePct: partSurvente,
+          });
+
+          if (v.date_installation_reelle) {
+            const datePose = new Date(v.date_installation_reelle);
+            if (datePose >= twoWeeksAgo) {
+              totalEnCours += commission;
+              countEnCours++;
+            } else {
+              totalAFacturer += commission;
+              countAFacturer++;
+            }
+          } else if (["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"].includes(v.status)) {
             totalEnCours += commission;
             countEnCours++;
-          } else {
-            totalAFacturer += commission;
-            countAFacturer++;
           }
-        } else if (v.status === "positif" || v.status === "signe" || v.status === "cq_a_faire" || v.status === "cq_fait") {
-          totalEnCours += commission;
-          countEnCours++;
         }
+
+        return {
+          actionTaken: "query_commissions_result",
+          entityType: "commissions",
+          entityId: JSON.stringify({
+            en_cours: { count: countEnCours, total: Math.round(totalEnCours) },
+            a_facturer: { count: countAFacturer, total: Math.round(totalAFacturer) },
+            total: Math.round(totalEnCours + totalAFacturer)
+          }),
+        };
       }
 
+      // Utilise les données de la RPC
       const responseData = {
-        en_cours: { count: countEnCours, total: Math.round(totalEnCours) },
-        a_facturer: { count: countAFacturer, total: Math.round(totalAFacturer) },
-        total: Math.round(totalEnCours + totalAFacturer)
+        en_cours: { total: Math.round(commData?.en_cours || 0) },
+        a_facturer: { total: Math.round(commData?.a_facturer || 0) },
+        payees: { total: Math.round(commData?.payees || 0) },
+        total: Math.round(commData?.total || 0)
       };
 
       return {
@@ -4849,46 +4926,63 @@ async function executeAction(
       const startDateStr = startDate.toISOString().split("T")[0];
       const endDateStr = endDate.toISOString().split("T")[0];
 
-      // Count RDV (tous statuts dans la période, comme le dashboard)
-      const { count: rdvCount } = await supabase
-        .from("rdv")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .gte("date_heure", startDate.toISOString())
-        .lte("date_heure", endDate.toISOString());
+      // ═══════════════════════════════════════════════════════════════════════
+      // UTILISE RPC PARTAGÉE : get_monthly_stats
+      // ═══════════════════════════════════════════════════════════════════════
+      const { data: statsData, error: statsError } = await supabase
+        .rpc("get_monthly_stats", {
+          p_user_id: userId,
+          p_start_date: startDateStr,
+          p_end_date: endDateStr,
+        });
 
-      // Ventes - ALIGNÉ avec Dashboard :
-      // - Filtrer par date_signature (pas created_at)
-      // - Exclure les external_installation du CA
-      // - Exclure les annulées
-      // - Utiliser montant_ttc (comme le dashboard)
-      const { data: ventesData } = await supabase
-        .from("ventes")
-        .select("id, montant_ht, montant_ttc, status, type_vente, date_signature")
-        .eq("user_id", userId)
-        .neq("status", "annule")
-        .gte("date_signature", startDateStr)
-        .lte("date_signature", endDateStr);
+      if (statsError) {
+        console.error("RPC get_monthly_stats error:", statsError);
+        // Fallback to legacy query
+        const { count: rdvCount } = await supabase
+          .from("rdv")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .gte("date_heure", startDate.toISOString())
+          .lte("date_heure", endDate.toISOString());
 
-      // Filtrer les installations externes pour le CA (comme le dashboard)
-      // deno-lint-ignore no-explicit-any
-      const ventesStandard = ventesData?.filter((v: any) => v.type_vente !== "external_installation") || [];
-      const ventesCount = ventesStandard.length;
-      // deno-lint-ignore no-explicit-any
-      const caTTC = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ttc || 0), 0);
-      // deno-lint-ignore no-explicit-any
-      const caHT = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ht || 0), 0);
+        const { data: ventesData } = await supabase
+          .from("ventes")
+          .select("id, montant_ht, montant_ttc, status, type_vente, date_signature")
+          .eq("user_id", userId)
+          .neq("status", "annule")
+          .gte("date_signature", startDateStr)
+          .lte("date_signature", endDateStr);
 
-      // Ventes en cours (signées mais pas encore posées) - ALIGNÉ avec Dashboard
-      const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"];
-      const { count: ventesEnCoursCount } = await supabase
-        .from("ventes")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .in("status", enCoursStatuses);
+        // deno-lint-ignore no-explicit-any
+        const ventesStandard = ventesData?.filter((v: any) => v.type_vente !== "external_installation") || [];
+        const ventesCount = ventesStandard.length;
+        // deno-lint-ignore no-explicit-any
+        const caTTC = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ttc || 0), 0);
+        // deno-lint-ignore no-explicit-any
+        const caHT = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ht || 0), 0);
 
-      // Conversion rate based on RDV in period vs ventes signed in period
-      const tauxConversion = rdvCount && rdvCount > 0 ? Math.round((ventesCount / rdvCount) * 100) : 0;
+        const tauxConversion = rdvCount && rdvCount > 0 ? Math.round((ventesCount / rdvCount) * 100) : 0;
+
+        const periodLabel = period === "today" ? "aujourd'hui" : 
+                           period === "week" ? "cette semaine" : 
+                           period === "year" ? "cette année" :
+                           period === "all" ? "depuis le début" : "ce mois";
+
+        return {
+          actionTaken: "query_stats_result",
+          entityType: "stats",
+          entityId: JSON.stringify({
+            period: periodLabel,
+            rdv: rdvCount || 0,
+            ventes: ventesCount,
+            ventesEnCours: 0,
+            caTTC: Math.round(caTTC),
+            caHT: Math.round(caHT),
+            taux_conversion: tauxConversion
+          }),
+        };
+      }
 
       const periodLabel = period === "today" ? "aujourd'hui" : 
                          period === "week" ? "cette semaine" : 
@@ -4897,12 +4991,13 @@ async function executeAction(
 
       const responseData = {
         period: periodLabel,
-        rdv: rdvCount || 0,
-        ventes: ventesCount,
-        ventesEnCours: ventesEnCoursCount || 0,
-        caTTC: Math.round(caTTC),
-        caHT: Math.round(caHT),
-        taux_conversion: tauxConversion
+        rdv: statsData?.rdv_total || 0,
+        ventes: statsData?.ventes_signees || 0,
+        ventesEnCours: statsData?.ventes_en_cours || 0,
+        caTTC: Math.round(statsData?.ca_ttc || 0),
+        caHT: Math.round(statsData?.ca_ht || 0),
+        taux_conversion: statsData?.taux_conversion || 0,
+        commissions: Math.round(statsData?.commissions_total || 0)
       };
 
       return {
@@ -5412,36 +5507,23 @@ async function executeAction(
       if (queryField) {
         const field = queryField.toLowerCase();
         
-        // Commission query
+        // Commission query - uses RPC for centralized logic
         if (field.includes("commission") || field.includes("comm")) {
-          // Load bouquets and calculate commission accurately
-          const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+          // Use RPC for accurate commission calculation (centralized logic)
+          const commResult = await getCommissionViaRPC(supabase, vente.id);
           
           const isExternal = vente.type_vente === "external_installation";
-          const partSurvente = regie?.part_survente_pct || 50;
-          
-          const { commission, commissionBase, bonusSurvente } = calculateCommission({
-            montantTTC: vente.montant_ttc || 0,
-            montantHT: vente.montant_ht || 0,
-            puissanceKwc: vente.puissance_kwc || 0,
-            isExternal,
-            decomMontant: vente.decom_montant || 0,
-            regieId: vente.regie_id,
-            globalBouquets,
-            regieBouquetsMap,
-            partSurventePct: partSurvente,
-          });
           
           let detailMsg = `💰 *Commission ${clientFullName}:*\n`;
-          detailMsg += `• Montant: *${Math.round(commission).toLocaleString("fr-FR")}€*\n`;
-          if (!isExternal && commissionBase > 0) {
-            detailMsg += `• Base fixe: ${Math.round(commissionBase).toLocaleString("fr-FR")}€\n`;
-            if (bonusSurvente > 0) {
-              detailMsg += `• Survente: +${Math.round(bonusSurvente).toLocaleString("fr-FR")}€\n`;
+          detailMsg += `• Montant: *${Math.round(commResult.commission).toLocaleString("fr-FR")}€*\n`;
+          if (!isExternal && commResult.commissionBase > 0) {
+            detailMsg += `• Base fixe: ${Math.round(commResult.commissionBase).toLocaleString("fr-FR")}€\n`;
+            if (commResult.bonusSurvente > 0) {
+              detailMsg += `• Survente: +${Math.round(commResult.bonusSurvente).toLocaleString("fr-FR")}€\n`;
             }
           }
-          if (vente.decom_montant && vente.decom_montant > 0) {
-            detailMsg += `• Décom: -${Math.round(vente.decom_montant).toLocaleString("fr-FR")}€\n`;
+          if (commResult.decomMontant > 0) {
+            detailMsg += `• Décom: -${Math.round(commResult.decomMontant).toLocaleString("fr-FR")}€\n`;
           }
           detailMsg += `• Vente: ${(vente.montant_ttc || 0).toLocaleString("fr-FR")}€ TTC / ${vente.puissance_kwc || 0} kWc\n`;
           detailMsg += `• Statut: ${statusLabels[vente.status] || vente.status}`;

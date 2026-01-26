@@ -2677,6 +2677,10 @@ export type Database = {
         Returns: string
       }
       block_saas_user: { Args: { p_user_id: string }; Returns: undefined }
+      calculate_vente_commission: {
+        Args: { p_vente_id: string }
+        Returns: Json
+      }
       check_mfa_session_valid: { Args: never; Returns: boolean }
       cleanup_expired_mfa_sessions: { Args: never; Returns: number }
       clear_mfa_session: { Args: never; Returns: undefined }
@@ -2781,6 +2785,10 @@ export type Database = {
           target_type: string
         }[]
       }
+      get_commissions_by_category: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       get_delinquent_subscriptions: {
         Args: { p_past_due_before: string }
         Returns: {
@@ -2793,6 +2801,10 @@ export type Database = {
           trial_ends_at: string
           user_id: string
         }[]
+      }
+      get_monthly_stats: {
+        Args: { p_end_date: string; p_start_date: string; p_user_id: string }
+        Returns: Json
       }
       get_my_support_tickets: {
         Args: never
