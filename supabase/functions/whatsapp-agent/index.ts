@@ -498,6 +498,224 @@ async function logMessage(
   }
 }
 
+// ==================== COMMISSION CALCULATION ====================
+// Aligned with useVenteCommissions.ts logic
+
+interface BouquetData {
+  puissance_kwc: number;
+  prix_recommande: number;
+  commission_fixe: number | null;
+  regie_id?: string;
+}
+
+interface CommissionParams {
+  venteId: string;
+  montantTTC: number;
+  montantHT: number;
+  puissanceKwc: number;
+  isExternal: boolean;
+  decomMontant: number;
+  regieId?: string | null;
+  etudeSurcouts?: { surcout_support: number; surcout_compteur: number; autre_surcout: number } | null;
+  bouquets: BouquetData[];
+  globalBouquets: BouquetData[];
+  regieBouquetsMap: Map<string, BouquetData[]>;
+  partSurventePct?: number;
+}
+
+/**
+ * Find or interpolate bouquet based on target power
+ * Mirrors src/lib/bouquetInterpolation.ts
+ */
+function findOrInterpolateBouquet(
+  bouquets: BouquetData[],
+  targetPuissance: number
+): { prixRecommande: number; commissionFixe: number; isInterpolated: boolean } {
+  // First try exact match
+  const exactMatch = bouquets.find(b => b.puissance_kwc === targetPuissance);
+  if (exactMatch) {
+    return {
+      prixRecommande: exactMatch.prix_recommande,
+      commissionFixe: exactMatch.commission_fixe || 0,
+      isInterpolated: false,
+    };
+  }
+
+  const sortedBouquets = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+
+  // Special case for 3.5 kWc: use 4kWc and subtract 500€
+  if (targetPuissance === 3.5) {
+    const bouquet4kwc = sortedBouquets.find(b => b.puissance_kwc === 4);
+    if (bouquet4kwc) {
+      return {
+        prixRecommande: bouquet4kwc.prix_recommande - 500,
+        commissionFixe: bouquet4kwc.commission_fixe || 0,
+        isInterpolated: true,
+      };
+    }
+  }
+
+  // Find the nearest lower bouquet and add 1000€ per kWc difference
+  const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
+  const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
+
+  if (lowerBouquet) {
+    const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
+    const adjustment = diffKwc * 1000;
+    return {
+      prixRecommande: lowerBouquet.prix_recommande + adjustment,
+      commissionFixe: lowerBouquet.commission_fixe || 0,
+      isInterpolated: true,
+    };
+  } else if (upperBouquet) {
+    const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
+    const adjustment = diffKwc * 1000;
+    return {
+      prixRecommande: upperBouquet.prix_recommande - adjustment,
+      commissionFixe: upperBouquet.commission_fixe || 0,
+      isInterpolated: true,
+    };
+  }
+
+  // No bouquets at all - return defaults (fallback)
+  return {
+    prixRecommande: targetPuissance * 4500,
+    commissionFixe: 0,
+    isInterpolated: true,
+  };
+}
+
+/**
+ * Get TVA rate by power (10% for <=3kWc, 20% otherwise)
+ */
+function getTauxTVAByPuissance(puissanceKwc: number): number {
+  return puissanceKwc <= 3 ? 10 : 20;
+}
+
+/**
+ * Convert TTC to HT
+ */
+function ttcToHT(montantTTC: number, tauxTVA: number): number {
+  if (montantTTC <= 0) return 0;
+  return montantTTC / (1 + tauxTVA / 100);
+}
+
+/**
+ * Calculate commission for a sale - aligned with useVenteCommissions.ts
+ */
+function calculateCommission(params: {
+  montantTTC: number;
+  montantHT: number;
+  puissanceKwc: number;
+  isExternal: boolean;
+  decomMontant: number;
+  regieId?: string | null;
+  etudeSurcouts?: { surcout_support: number; surcout_compteur: number; autre_surcout: number } | null;
+  globalBouquets: BouquetData[];
+  regieBouquetsMap: Map<string, BouquetData[]>;
+  partSurventePct?: number;
+}): { commission: number; commissionBase: number; bonusSurvente: number; isInterpolated: boolean } {
+  const {
+    montantTTC,
+    montantHT,
+    puissanceKwc,
+    isExternal,
+    decomMontant,
+    regieId,
+    etudeSurcouts,
+    globalBouquets,
+    regieBouquetsMap,
+    partSurventePct = 50,
+  } = params;
+
+  // External installation: commission = montant HT - décom
+  if (isExternal) {
+    const commission = Math.max(0, montantHT - decomMontant);
+    return { commission, commissionBase: montantHT, bonusSurvente: 0, isInterpolated: false };
+  }
+
+  if (!puissanceKwc || puissanceKwc <= 0) {
+    return { commission: 0, commissionBase: 0, bonusSurvente: 0, isInterpolated: false };
+  }
+
+  // Get the appropriate bouquets for this régie
+  const bouquets = (regieId && regieBouquetsMap.has(regieId))
+    ? regieBouquetsMap.get(regieId)!
+    : globalBouquets;
+
+  const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc);
+  const commissionBase = interpolated.commissionFixe;
+  const prixRecommandeTTC = interpolated.prixRecommande;
+
+  // Calculate survente bonus
+  const totalSurcoutsTTC = etudeSurcouts
+    ? (etudeSurcouts.surcout_support || 0) + (etudeSurcouts.surcout_compteur || 0) + (etudeSurcouts.autre_surcout || 0)
+    : 0;
+
+  const tauxTVA = getTauxTVAByPuissance(puissanceKwc);
+  const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
+
+  let bonusSurvente = 0;
+  if (prixRecommandeTTC > 0 && montantTTCSansSurcouts > prixRecommandeTTC) {
+    const surventeTTC = montantTTCSansSurcouts - prixRecommandeTTC;
+    const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+    bonusSurvente = surventeHT * (partSurventePct / 100);
+  }
+
+  const commission = Math.max(0, commissionBase + bonusSurvente - decomMontant);
+
+  return { commission, commissionBase, bonusSurvente, isInterpolated: interpolated.isInterpolated };
+}
+
+/**
+ * Load all bouquets and build lookup maps
+ */
+// deno-lint-ignore no-explicit-any
+async function loadBouquetsForCommissions(supabase: any): Promise<{
+  globalBouquets: BouquetData[];
+  regieBouquetsMap: Map<string, BouquetData[]>;
+}> {
+  const { data: allBouquets, error } = await supabase
+    .from("bouquets")
+    .select("puissance_kwc, prix_recommande, commission_fixe, regie_ids")
+    .eq("actif", true);
+
+  if (error || !allBouquets) {
+    console.error("Error loading bouquets:", error);
+    return { globalBouquets: [], regieBouquetsMap: new Map() };
+  }
+
+  // Global bouquets (regie_ids is null or empty)
+  // deno-lint-ignore no-explicit-any
+  const globalBouquets: BouquetData[] = allBouquets
+    .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+    .map((b: any) => ({
+      puissance_kwc: Number(b.puissance_kwc),
+      prix_recommande: Number(b.prix_recommande),
+      commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+    }));
+
+  // Régie-specific bouquets
+  const regieBouquetsMap = new Map<string, BouquetData[]>();
+  // deno-lint-ignore no-explicit-any
+  allBouquets.forEach((b: any) => {
+    if (b.regie_ids && b.regie_ids.length > 0) {
+      b.regie_ids.forEach((regieId: string) => {
+        const existing = regieBouquetsMap.get(regieId) || [];
+        existing.push({
+          puissance_kwc: Number(b.puissance_kwc),
+          prix_recommande: Number(b.prix_recommande),
+          commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+          regie_id: regieId,
+        });
+        regieBouquetsMap.set(regieId, existing);
+      });
+    }
+  });
+
+  return { globalBouquets, regieBouquetsMap };
+}
+
 // ==================== FUZZY CLIENT SEARCH ====================
 
 // Calculate Levenshtein distance between two strings
@@ -4106,6 +4324,9 @@ async function executeAction(
     }
 
     case "query_commissions": {
+      // Load bouquets for accurate commission calculation
+      const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
       // Get commission stats
       const { data: ventes, error: ventesError } = await supabase
         .from("ventes")
@@ -4119,8 +4340,9 @@ async function executeAction(
           status,
           type_vente,
           decom_montant,
+          regie_id,
           clients(nom, prenom),
-          regies(nom, mode_calcul_commission)
+          regies(nom, mode_calcul_commission, part_survente_pct)
         `)
         .eq("user_id", userId)
         .not("status", "eq", "annule");
@@ -4130,7 +4352,7 @@ async function executeAction(
         return { actionTaken: "error" };
       }
 
-      // Calculate commissions
+      // Calculate commissions using bouquet logic
       let totalEnCours = 0;
       let totalAFacturer = 0;
       let countEnCours = 0;
@@ -4139,48 +4361,33 @@ async function executeAction(
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
       for (const v of ventes || []) {
-        // Skip external installations for regular commission calc
         const isExternal = v.type_vente === "external_installation";
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
         
-        let commission = 0;
-        if (isExternal) {
-          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
-        } else {
-          // Bouquet mode: Fixed per kWc + 50% survente HT
-          const puissance = v.puissance_kwc || 0;
-          const fixeParKwc = 250; // Default
-          const fixe = puissance * fixeParKwc;
-          
-          // Calculate commission based on puissance
-          const totalTTC = v.montant_ttc || 0;
-          // Use a simple commission formula: fixed per kWc + percentage
-          const tva = puissance <= 3 ? 1.10 : 1.20;
-          const totalHT = totalTTC / tva;
-          
-          // Base commission: 250€ per kWc
-          commission = puissance * 250;
-          
-          // Add bonus for higher amounts (simplified survente)
-          const basePrice = puissance * 2500; // Average base price per kWc
-          if (totalHT > basePrice) {
-            const surventeHT = totalHT - basePrice;
-            commission += surventeHT * 0.5;
-          }
-        }
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets,
+          regieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
 
         if (v.date_installation_reelle) {
           const datePose = new Date(v.date_installation_reelle);
           if (datePose >= twoWeeksAgo) {
-            // Installed < 2 weeks = pending
             totalEnCours += commission;
             countEnCours++;
           } else {
-            // Installed >= 2 weeks = ready to invoice
             totalAFacturer += commission;
             countAFacturer++;
           }
         } else if (v.status === "positif" || v.status === "signe" || v.status === "cq_a_faire" || v.status === "cq_fait") {
-          // Not installed yet
           totalEnCours += commission;
           countEnCours++;
         }
@@ -4200,6 +4407,9 @@ async function executeAction(
     }
 
     case "query_ventes_a_facturer": {
+      // Load bouquets for accurate commission calculation
+      const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
       // Liste détaillée des ventes prêtes à facturer (posées >= 2 semaines OU attente_paiement)
       const now = new Date();
       const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -4216,6 +4426,7 @@ async function executeAction(
           status,
           type_vente,
           decom_montant,
+          regie_id,
           clients(nom, prenom),
           regies(nom, mode_calcul_commission, part_survente_pct)
         `)
@@ -4227,7 +4438,6 @@ async function executeAction(
         return { actionTaken: "error" };
       }
 
-      // Filter ventes that are ready to invoice
       const ventesAFacturer: Array<{
         clientName: string;
         puissance: number;
@@ -4240,34 +4450,27 @@ async function executeAction(
       let totalCommission = 0;
 
       for (const v of ventes || []) {
-        // Check if ready to invoice: attente_paiement OR (installe and pose >= 2 weeks ago)
         const isAttenteP = v.status === "attente_paiement";
         const isInstalleLongtemps = v.status === "installe" && v.date_installation_reelle && new Date(v.date_installation_reelle) <= twoWeeksAgo;
         
         if (!isAttenteP && !isInstalleLongtemps) continue;
 
-        // Calculate commission
         const isExternal = v.type_vente === "external_installation";
-        let commission = 0;
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
         
-        if (isExternal) {
-          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
-        } else {
-          const puissance = v.puissance_kwc || 0;
-          const totalTTC = v.montant_ttc || 0;
-          const tva = puissance <= 3 ? 1.10 : 1.20;
-          const totalHT = totalTTC / tva;
-          
-          // Base commission: 250€ per kWc
-          commission = puissance * 250;
-          
-          // Add bonus for higher amounts (survente)
-          const basePrice = puissance * 2500;
-          if (totalHT > basePrice) {
-            const surventeHT = totalHT - basePrice;
-            commission += surventeHT * 0.5;
-          }
-        }
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets,
+          regieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
 
         // deno-lint-ignore no-explicit-any
         const client = v.clients as any;
@@ -4285,17 +4488,14 @@ async function executeAction(
         totalCommission += commission;
       }
 
-      // Sort by date pose (oldest first)
       ventesAFacturer.sort((a, b) => new Date(a.datePose).getTime() - new Date(b.datePose).getTime());
 
-      // Build response message
       let responseMsg = `💰 *DOSSIERS À FACTURER* (${ventesAFacturer.length})\n`;
       responseMsg += `📊 Total: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
       
       if (ventesAFacturer.length === 0) {
         responseMsg += "_Aucun dossier à facturer pour le moment._";
       } else {
-        // Display ALL results - no truncation
         const MAX_ITEMS_PER_MESSAGE = 30;
         const totalItems = ventesAFacturer.length;
         
@@ -4307,7 +4507,6 @@ async function executeAction(
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC\n`;
           responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${datePoseStr ? ` (posé ${datePoseStr})` : ""}\n\n`;
           
-          // Add part indicator for very long lists
           if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
             responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
           }
@@ -4322,8 +4521,10 @@ async function executeAction(
     }
 
     case "query_ventes_en_cours": {
+      // Load bouquets for accurate commission calculation
+      const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
       // Liste détaillée des ventes en cours (signées mais pas encore posées)
-      // En cours = signe, cq_a_faire, cq_fait, attente_financement, envoi_pose (EXCLUT en_installation)
       const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose"];
       
       const { data: ventes, error: ventesError } = await supabase
@@ -4337,6 +4538,7 @@ async function executeAction(
           status,
           type_vente,
           decom_montant,
+          regie_id,
           clients(nom, prenom),
           regies(nom, mode_calcul_commission, part_survente_pct)
         `)
@@ -4360,28 +4562,22 @@ async function executeAction(
       let totalCommission = 0;
 
       for (const v of ventes || []) {
-        // Calculate commission
         const isExternal = v.type_vente === "external_installation";
-        let commission = 0;
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
         
-        if (isExternal) {
-          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
-        } else {
-          const puissance = v.puissance_kwc || 0;
-          const totalTTC = v.montant_ttc || 0;
-          const tva = puissance <= 3 ? 1.10 : 1.20;
-          const totalHT = totalTTC / tva;
-          
-          // Base commission: 250€ per kWc
-          commission = puissance * 250;
-          
-          // Add bonus for higher amounts (survente)
-          const basePrice = puissance * 2500;
-          if (totalHT > basePrice) {
-            const surventeHT = totalHT - basePrice;
-            commission += surventeHT * 0.5;
-          }
-        }
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets,
+          regieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
 
         // deno-lint-ignore no-explicit-any
         const client = v.clients as any;
@@ -4407,17 +4603,14 @@ async function executeAction(
         totalCommission += commission;
       }
 
-      // Sort by signature date (oldest first)
       ventesEnCours.sort((a, b) => new Date(a.dateSignature).getTime() - new Date(b.dateSignature).getTime());
 
-      // Build response message
       let responseMsg = `📋 *DOSSIERS EN COURS* (${ventesEnCours.length})\n`;
       responseMsg += `💰 Potentiel: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
       
       if (ventesEnCours.length === 0) {
         responseMsg += "_Aucun dossier en cours actuellement._";
       } else {
-        // Display ALL results - no truncation for complete responses
         const MAX_ITEMS_PER_MESSAGE = 30;
         const totalItems = ventesEnCours.length;
         
@@ -4428,7 +4621,6 @@ async function executeAction(
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC | ${v.status}\n`;
           responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (signé ${dateStr})` : ""}\n\n`;
           
-          // Add part indicator for very long lists
           if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
             responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
           }
@@ -4443,7 +4635,9 @@ async function executeAction(
     }
 
     case "query_ventes_by_filter": {
-      // Requêtes avec filtres spécifiques
+      // Load bouquets for accurate commission calculation
+      const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
       const filterType = (entities.filter_type as string) || "poses";
       const regieName = entities.regie_name as string;
       const now = new Date();
@@ -4469,7 +4663,6 @@ async function executeAction(
           filterLabel = "Signées (toutes)";
           break;
         case "poses_recentes":
-          // Will filter after
           statusFilter = ["installe"];
           filterLabel = "Posées < 2 sem";
           break;
@@ -4486,7 +4679,7 @@ async function executeAction(
           filterLabel = filterType;
       }
 
-      let query = supabase
+      const { data: ventes, error: ventesError } = await supabase
         .from("ventes")
         .select(`
           id,
@@ -4498,13 +4691,12 @@ async function executeAction(
           status,
           type_vente,
           decom_montant,
+          regie_id,
           clients(nom, prenom),
-          regies(nom, mode_calcul_commission)
+          regies(nom, mode_calcul_commission, part_survente_pct)
         `)
         .eq("user_id", userId)
         .in("status", statusFilter);
-
-      const { data: ventes, error: ventesError } = await query;
 
       if (ventesError) {
         console.error("Error fetching ventes:", ventesError);
@@ -4514,15 +4706,12 @@ async function executeAction(
       // deno-lint-ignore no-explicit-any
       let filteredVentes: any[] = ventes || [];
       
-      // Additional filters
       if (filterType === "poses_recentes") {
-        // Only installed in last 2 weeks
         // deno-lint-ignore no-explicit-any
         filteredVentes = filteredVentes.filter((v: any) => 
           v.date_installation_reelle && new Date(v.date_installation_reelle) > twoWeeksAgo
         );
       } else if (filterType === "a_facturer") {
-        // Only installed >= 2 weeks ago or attente_paiement
         // deno-lint-ignore no-explicit-any
         filteredVentes = filteredVentes.filter((v: any) => 
           v.status === "attente_paiement" || 
@@ -4530,7 +4719,6 @@ async function executeAction(
         );
       }
       
-      // Filter by régie if specified
       if (regieName) {
         const regieNameLower = regieName.toLowerCase();
         // deno-lint-ignore no-explicit-any
@@ -4555,22 +4743,21 @@ async function executeAction(
 
       for (const v of filteredVentes) {
         const isExternal = v.type_vente === "external_installation";
-        let commission = 0;
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
         
-        if (isExternal) {
-          commission = (v.montant_ht || 0) - (v.decom_montant || 0);
-        } else {
-          const puissance = v.puissance_kwc || 0;
-          const totalTTC = v.montant_ttc || 0;
-          const tva = puissance <= 3 ? 1.10 : 1.20;
-          const totalHT = totalTTC / tva;
-          commission = puissance * 250;
-          const basePrice = puissance * 2500;
-          if (totalHT > basePrice) {
-            const surventeHT = totalHT - basePrice;
-            commission += surventeHT * 0.5;
-          }
-        }
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets,
+          regieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
 
         // deno-lint-ignore no-explicit-any
         const client = v.clients as any;
@@ -4600,17 +4787,14 @@ async function executeAction(
         totalCommission += commission;
       }
 
-      // Sort by date
       results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-      // Build response
       let responseMsg = `📊 *${filterLabel.toUpperCase()}* (${results.length})\n`;
       responseMsg += `💰 Total commissions: *${Math.round(totalCommission).toLocaleString("fr-FR")}€*\n\n`;
       
       if (results.length === 0) {
         responseMsg += "_Aucun dossier trouvé avec ce filtre._";
       } else {
-        // Display ALL results - no truncation
         const MAX_ITEMS_PER_MESSAGE = 30;
         const totalItems = results.length;
         
@@ -4620,7 +4804,6 @@ async function executeAction(
           responseMsg += `${v.status} *${v.clientName}*\n`;
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n\n`;
           
-          // Add part indicator for very long lists
           if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
             responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
           }
@@ -5187,7 +5370,7 @@ async function executeAction(
           created_at,
           regie_id,
           clients(id, nom, prenom, adresse, ville, code_postal, telephone),
-          regies(nom, couleur)
+          regies(nom, couleur, part_survente_pct)
         `)
         .eq("user_id", userId)
         .eq("client_id", matchedClient.id)
@@ -5231,28 +5414,42 @@ async function executeAction(
         
         // Commission query
         if (field.includes("commission") || field.includes("comm")) {
-          // Calculate commission using the same logic as the app
-          const puissanceKwc = vente.puissance_kwc || 0;
-          const montantTtc = vente.montant_ttc || 0;
-          let commissionEstimee = 0;
+          // Load bouquets and calculate commission accurately
+          const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
           
-          if (puissanceKwc > 0 && montantTtc > 0) {
-            // Simplified commission calculation (based on typical rates)
-            const prixParKwc = montantTtc / puissanceKwc;
-            if (prixParKwc >= 2500) {
-              commissionEstimee = puissanceKwc * 200 + (prixParKwc - 2500) * puissanceKwc * 0.1;
-            } else {
-              commissionEstimee = puissanceKwc * 150;
+          const isExternal = vente.type_vente === "external_installation";
+          const partSurvente = regie?.part_survente_pct || 50;
+          
+          const { commission, commissionBase, bonusSurvente } = calculateCommission({
+            montantTTC: vente.montant_ttc || 0,
+            montantHT: vente.montant_ht || 0,
+            puissanceKwc: vente.puissance_kwc || 0,
+            isExternal,
+            decomMontant: vente.decom_montant || 0,
+            regieId: vente.regie_id,
+            globalBouquets,
+            regieBouquetsMap,
+            partSurventePct: partSurvente,
+          });
+          
+          let detailMsg = `💰 *Commission ${clientFullName}:*\n`;
+          detailMsg += `• Montant: *${Math.round(commission).toLocaleString("fr-FR")}€*\n`;
+          if (!isExternal && commissionBase > 0) {
+            detailMsg += `• Base fixe: ${Math.round(commissionBase).toLocaleString("fr-FR")}€\n`;
+            if (bonusSurvente > 0) {
+              detailMsg += `• Survente: +${Math.round(bonusSurvente).toLocaleString("fr-FR")}€\n`;
             }
           }
+          if (vente.decom_montant && vente.decom_montant > 0) {
+            detailMsg += `• Décom: -${Math.round(vente.decom_montant).toLocaleString("fr-FR")}€\n`;
+          }
+          detailMsg += `• Vente: ${(vente.montant_ttc || 0).toLocaleString("fr-FR")}€ TTC / ${vente.puissance_kwc || 0} kWc\n`;
+          detailMsg += `• Statut: ${statusLabels[vente.status] || vente.status}`;
           
           return {
             actionTaken: "query_vente_detail",
             entityId: vente.id,
-            customResponse: `💰 *Commission ${clientFullName}:*\n` +
-              `• Montant estimé: ~${Math.round(commissionEstimee).toLocaleString("fr-FR")}€\n` +
-              `• Base: ${montantTtc.toLocaleString("fr-FR")}€ TTC / ${puissanceKwc} kWc\n` +
-              `• Statut: ${statusLabels[vente.status] || vente.status}`,
+            customResponse: detailMsg,
           };
         }
         
