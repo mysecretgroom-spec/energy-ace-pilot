@@ -8,6 +8,7 @@ import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
+import { ProductType, PacSubtype } from "@/lib/productTypes";
 
 import {
   Select,
@@ -182,6 +183,9 @@ export function RdvStatusSelector({
     bouquetId?: string;
     cqTime?: string;
     surcoutsIds?: string[];
+    productType: ProductType;
+    pacSubtype?: PacSubtype;
+    surfaceM2?: number;
   }) => {
     if (!user || !clientId) return;
     
@@ -191,6 +195,9 @@ export function RdvStatusSelector({
       prixTTC: data.prixTTC,
       cqTime: data.cqTime,
       surcoutsIds: data.surcoutsIds,
+      productType: data.productType,
+      pacSubtype: data.pacSubtype,
+      surfaceM2: data.surfaceM2,
     });
   };
 
@@ -200,6 +207,9 @@ export function RdvStatusSelector({
     prixTTC?: number;
     cqTime?: string;
     surcoutsIds?: string[];
+    productType?: ProductType;
+    pacSubtype?: PacSubtype;
+    surfaceM2?: number;
   }
 
   const handleStatusChange = async (newStatus: RdvStatus, options?: StatusChangeOptions) => {
@@ -255,9 +265,17 @@ export function RdvStatusSelector({
       }
 
       // If Signé, create vente record
-      if (newStatus === "signe" && options?.puissanceKwc && options?.prixTTC && clientId) {
-        const tauxTVA = options.puissanceKwc <= 3 ? 0.10 : 0.20;
+      if (newStatus === "signe" && options?.prixTTC && clientId) {
+        const productType = options.productType || "PV";
+        const tauxTVA = productType === "PV" && options.puissanceKwc && options.puissanceKwc <= 3 ? 0.10 : 0.20;
         const prixHT = options.prixTTC / (1 + tauxTVA);
+        
+        // Map product type to type_installation
+        const typeInstallation = productType === "PV" 
+          ? "photovoltaique" 
+          : productType === "PAC" 
+            ? "pompe_a_chaleur" 
+            : "isolation_thermique";
         
         const { error: venteError } = await supabase
           .from("ventes")
@@ -265,20 +283,21 @@ export function RdvStatusSelector({
             user_id: user.id,
             client_id: clientId,
             etude_id: etudeId || null,
-            puissance_kwc: options.puissanceKwc,
+            puissance_kwc: productType !== "ITE" ? options.puissanceKwc : null,
             montant_ttc: options.prixTTC,
             montant_ht: prixHT,
             date_signature: new Date().toISOString().split("T")[0],
             status: "cq_a_faire",
             type_vente: "standard",
-            type_installation: "photovoltaique",
+            type_installation: typeInstallation,
+            product_type: productType,
           });
 
         if (venteError) {
           console.error("Error creating vente:", venteError);
           toast.error("Erreur lors de la création de la vente");
         } else {
-          toast.success("Vente créée avec succès");
+          toast.success(`Vente ${productType} créée avec succès`);
         }
       }
 

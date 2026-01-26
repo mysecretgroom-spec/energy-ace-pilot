@@ -25,8 +25,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, TrendingUp, Coins, Clock, Wrench, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { Loader2, TrendingUp, Coins, Clock, Wrench, ChevronDown, ChevronUp, MessageSquare, Sun, Thermometer, Home } from "lucide-react";
 import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
+import { ProductType, PRODUCT_SHORT_LABELS, PacSubtype, PAC_SUBTYPE_LABELS } from "@/lib/productTypes";
 
 interface Bouquet {
   id: string;
@@ -37,6 +38,7 @@ interface Bouquet {
   prix_max: number;
   commission_fixe: number | null;
   commission_pct: number | null;
+  product_type: ProductType | null;
 }
 
 interface Surcout {
@@ -53,6 +55,7 @@ interface SigneDialogProps {
   onOpenChange: (open: boolean) => void;
   etudeId?: string | null;
   regieId?: string | null;
+  defaultProductType?: ProductType;
   onConfirm: (data: { 
     puissanceKwc: number; 
     prixTTC: number; 
@@ -60,6 +63,9 @@ interface SigneDialogProps {
     cqTime?: string;
     surcoutsIds?: string[];
     commentaire?: string;
+    productType: ProductType;
+    pacSubtype?: PacSubtype;
+    surfaceM2?: number;
   }) => Promise<void>;
   updating: boolean;
 }
@@ -69,10 +75,14 @@ export function SigneDialog({
   onOpenChange,
   etudeId,
   regieId,
+  defaultProductType = "PV",
   onConfirm,
   updating,
 }: SigneDialogProps) {
-  const [bouquets, setBouquets] = useState<Bouquet[]>([]);
+  const [productType, setProductType] = useState<ProductType>(defaultProductType);
+  const [pacSubtype, setPacSubtype] = useState<PacSubtype>("air_eau");
+  const [surfaceM2, setSurfaceM2] = useState("");
+  const [allBouquets, setAllBouquets] = useState<Bouquet[]>([]);
   const [surcouts, setSurcouts] = useState<Surcout[]>([]);
   const [selectedSurcoutsIds, setSelectedSurcoutsIds] = useState<string[]>([]);
   const [selectedBouquetId, setSelectedBouquetId] = useState<string>("");
@@ -85,21 +95,28 @@ export function SigneDialog({
   const [loadingBouquets, setLoadingBouquets] = useState(false);
   const [loadingEtude, setLoadingEtude] = useState(false);
 
+  // Filter bouquets by selected product type
+  const bouquets = useMemo(() => {
+    return allBouquets.filter(b => 
+      b.product_type === productType || b.product_type === null
+    );
+  }, [allBouquets, productType]);
+
   // Fetch bouquets and surcouts on mount
   useEffect(() => {
     const fetchData = async () => {
       setLoadingBouquets(true);
       
-      // Fetch bouquets (global ones without regie_ids)
+      // Fetch all bouquets (global ones without regie_ids)
       const { data: bouquetsData } = await supabase
         .from("bouquets")
-        .select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_hejja, prix_max, commission_fixe, commission_pct")
+        .select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_hejja, prix_max, commission_fixe, commission_pct, product_type")
         .eq("actif", true)
         .is("regie_ids", null)
         .order("puissance_kwc", { ascending: true });
 
       if (bouquetsData) {
-        setBouquets(bouquetsData as Bouquet[]);
+        setAllBouquets(bouquetsData as Bouquet[]);
       }
 
       // Fetch surcouts - first try régie-specific, then global regies_surcouts, then data_surcouts
@@ -212,8 +229,11 @@ export function SigneDialog({
       setCommentaire("");
       setSelectedSurcoutsIds([]);
       setSurcoutsOpen(false);
+      setProductType(defaultProductType);
+      setPacSubtype("air_eau");
+      setSurfaceM2("");
     }
-  }, [open]);
+  }, [open, defaultProductType]);
 
   // Get selected bouquet
   const selectedBouquet = useMemo(() => {
@@ -321,15 +341,25 @@ export function SigneDialog({
     }
   };
 
-  // Handle confirm
+  // Handle confirm - validation based on product type
   const handleConfirm = async () => {
     const puissanceNum = parseFloat(puissance);
     const prixTTCNum = parseFloat(prixTTC);
+    const surfaceNum = parseFloat(surfaceM2);
 
-    if (isNaN(puissanceNum) || puissanceNum <= 0) {
-      toast.error("Veuillez saisir une puissance valide");
-      return;
+    // Validation based on product type
+    if (productType === "ITE") {
+      if (isNaN(surfaceNum) || surfaceNum <= 0) {
+        toast.error("Veuillez saisir une surface valide");
+        return;
+      }
+    } else {
+      if (isNaN(puissanceNum) || puissanceNum <= 0) {
+        toast.error("Veuillez saisir une puissance valide");
+        return;
+      }
     }
+    
     if (isNaN(prixTTCNum) || prixTTCNum <= 0) {
       toast.error("Veuillez saisir un prix TTC valide");
       return;
@@ -342,6 +372,9 @@ export function SigneDialog({
       cqTime,
       surcoutsIds: selectedSurcoutsIds.length > 0 ? selectedSurcoutsIds : undefined,
       commentaire: commentaire.trim() || undefined,
+      productType,
+      pacSubtype: productType === "PAC" ? pacSubtype : undefined,
+      surfaceM2: productType === "ITE" && surfaceM2 ? parseFloat(surfaceM2) : undefined,
     });
   };
 
@@ -379,50 +412,111 @@ export function SigneDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Product Type Selector */}
+          <div className="space-y-2">
+            <Label>Type de produit</Label>
+            <div className="flex gap-2">
+              {(["PV", "PAC", "ITE"] as ProductType[]).map((type) => {
+                const Icon = type === "PV" ? Sun : type === "PAC" ? Thermometer : Home;
+                return (
+                  <Button
+                    key={type}
+                    type="button"
+                    variant={productType === type ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      setProductType(type);
+                      setSelectedBouquetId("");
+                    }}
+                  >
+                    <Icon className="h-4 w-4 mr-1" />
+                    {PRODUCT_SHORT_LABELS[type]}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PAC Subtype selector */}
+          {productType === "PAC" && (
+            <div className="space-y-2">
+              <Label>Type de PAC</Label>
+              <Select value={pacSubtype} onValueChange={(v) => setPacSubtype(v as PacSubtype)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(PAC_SUBTYPE_LABELS) as [PacSubtype, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <p className="text-sm text-muted-foreground">
             Sélectionnez un bouquet ou saisissez les informations manuellement.
           </p>
 
           {/* Bouquet selector */}
           <div className="space-y-2">
-            <Label>Bouquet</Label>
+            <Label>Bouquet {PRODUCT_SHORT_LABELS[productType]}</Label>
             <Select
               value={selectedBouquetId}
               onValueChange={handleBouquetChange}
               disabled={loadingBouquets}
             >
               <SelectTrigger>
-                <SelectValue placeholder={loadingBouquets ? "Chargement..." : "Sélectionner un bouquet"} />
+                <SelectValue placeholder={loadingBouquets ? "Chargement..." : `Sélectionner un bouquet ${PRODUCT_SHORT_LABELS[productType]}`} />
               </SelectTrigger>
               <SelectContent>
                 {bouquets.map((bouquet) => (
                   <SelectItem key={bouquet.id} value={bouquet.id}>
-                    {bouquet.nom_bouquet} - {bouquet.puissance_kwc} kWc
+                    {bouquet.nom_bouquet} - {bouquet.puissance_kwc} {productType === "ITE" ? "m²" : "kWc"}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Puissance */}
-          <div className="space-y-2">
-            <Label htmlFor="signe-puissance">Puissance (kWc)</Label>
-            <Input
-              id="signe-puissance"
-              type="number"
-              step="0.1"
-              min="0"
-              placeholder="Ex: 3.0"
-              value={puissance}
-              onChange={(e) => handlePuissanceChange(e.target.value)}
-              disabled={loadingEtude}
-            />
-            {parseFloat(puissance) > 0 && (
-              <p className="text-xs text-muted-foreground">
-                TVA applicable : {tauxTVA * 100}%
-              </p>
-            )}
-          </div>
+          {/* Puissance (for PV/PAC) or Surface (for ITE) */}
+          {productType === "ITE" ? (
+            <div className="space-y-2">
+              <Label htmlFor="signe-surface">Surface à isoler (m²)</Label>
+              <Input
+                id="signe-surface"
+                type="number"
+                step="1"
+                min="0"
+                placeholder="Ex: 120"
+                value={surfaceM2}
+                onChange={(e) => setSurfaceM2(e.target.value)}
+                disabled={loadingEtude}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="signe-puissance">
+                {productType === "PAC" ? "Puissance calorifique (kW)" : "Puissance (kWc)"}
+              </Label>
+              <Input
+                id="signe-puissance"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder={productType === "PAC" ? "Ex: 8.5" : "Ex: 3.0"}
+                value={puissance}
+                onChange={(e) => handlePuissanceChange(e.target.value)}
+                disabled={loadingEtude}
+              />
+              {productType === "PV" && parseFloat(puissance) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  TVA applicable : {tauxTVA * 100}%
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Prix TTC */}
           <div className="space-y-2">
@@ -602,11 +696,11 @@ export function SigneDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!puissance || !prixTTC || updating}
+            disabled={(productType === "ITE" ? !surfaceM2 : !puissance) || !prixTTC || updating}
             className="bg-green-600 hover:bg-green-700"
           >
             {updating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Créer la vente
+            Créer la vente {PRODUCT_SHORT_LABELS[productType]}
           </Button>
         </DialogFooter>
       </DialogContent>
