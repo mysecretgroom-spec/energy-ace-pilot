@@ -3673,6 +3673,7 @@ async function executeAction(
       }
 
       const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      console.log(`Looking for vente with client_id: ${matchedClient.id}, user_id: ${userId}`);
       
       // Find the vente for this client
       const { data: ventes, error: venteError } = await supabase
@@ -3691,7 +3692,10 @@ async function executeAction(
         .order("created_at", { ascending: false })
         .limit(1);
       
+      console.log(`Vente search result: ${ventes?.length || 0} ventes found, error: ${venteError?.message || 'none'}`);
+      
       if (venteError || !ventes || ventes.length === 0) {
+        console.error(`Vente not found for client ${matchedClient.id}:`, venteError);
         return {
           actionTaken: "vente_not_found",
           customResponse: `❌ Aucune vente trouvée pour "${matchedClient.fullName}". Vérifie le statut de la vente.`,
