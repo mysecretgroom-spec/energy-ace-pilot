@@ -171,6 +171,7 @@ export function useLongPress({
     (e: React.TouchEvent) => {
       if (disabled) return;
       const touch = e.touches[0];
+      if (!touch) return;
       start(touch.clientX, touch.clientY);
     },
     [start, disabled]
@@ -190,6 +191,7 @@ export function useLongPress({
   const onTouchMove = useCallback(
     (e: React.TouchEvent) => {
       const touch = e.touches[0];
+      if (!touch) return;
       move(touch.clientX, touch.clientY);
     },
     [move]
