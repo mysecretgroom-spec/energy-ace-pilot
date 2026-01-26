@@ -41,6 +41,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
+import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -145,7 +146,6 @@ const RegiesSettings = () => {
   // Create dialog
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingHejja, setIsCreatingHejja] = useState(false);
-  const [newRegie, setNewRegie] = useState({ nom: "", couleur: "#0066CC", is_hejja: false });
   
   // Edit forms
   const [newEmail, setNewEmail] = useState({ email: "", nom_source: "" });
@@ -362,48 +362,6 @@ const RegiesSettings = () => {
       setRegieSurcouts([...regieSurcoutsData, ...nonOverriddenGlobals]);
     } catch (error) {
       console.error("Error fetching regie details:", error);
-    }
-  };
-
-  const handleCreateRegie = async () => {
-    if (!user || !newRegie.nom.trim()) {
-      toast.error("Le nom de la régie est requis");
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from("regies")
-        .insert({
-          user_id: user.id,
-          nom: newRegie.nom.trim(),
-          couleur: newRegie.couleur,
-          is_hejja: newRegie.is_hejja,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Une régie avec ce nom existe déjà");
-        } else {
-          throw error;
-        }
-        return;
-      }
-
-      toast.success(newRegie.is_hejja ? "Régie HEJJA créée avec succès" : "Régie créée avec succès");
-      setIsCreating(false);
-      setIsCreatingHejja(false);
-      setNewRegie({ nom: "", couleur: "#0066CC", is_hejja: false });
-      fetchRegies();
-      setSelectedRegie(data);
-    } catch (error) {
-      console.error("Error creating regie:", error);
-      toast.error("Erreur lors de la création");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -846,118 +804,47 @@ const RegiesSettings = () => {
           <div className="flex gap-2">
             {/* Bouton Régie HEJJA - uniquement si mode HEJJA actif */}
             {modeHejjaActive && (
-              <Dialog open={isCreatingHejja} onOpenChange={setIsCreatingHejja}>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10"
-                  onClick={() => {
-                    setNewRegie({ nom: "", couleur: "#E74C3C", is_hejja: true });
-                    setIsCreatingHejja(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  HEJJA
-                </Button>
-              <DialogContent className="max-w-[95vw]">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Badge className="bg-red-500">HEJJA</Badge>
-                    Nouvelle Régie HEJJA
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-sm">
-                    <p className="text-red-600 dark:text-red-400">
-                      Les régies HEJJA ne sont visibles que lorsque le mode HEJJA est actif.
-                      Les ventes associées seront masquées des statistiques standard.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Nom de la régie</label>
-                    <Input 
-                      placeholder="Ex: Régie Spéciale..." 
-                      value={newRegie.nom}
-                      onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Couleur</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color}
-                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                            newRegie.couleur === color ? "border-foreground" : "border-transparent"
-                          }`}
-                          style={{ backgroundColor: color }}
-                          onClick={() => setNewRegie({ ...newRegie, couleur: color })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <Button 
-                    className="w-full bg-red-500 hover:bg-red-600" 
-                    onClick={handleCreateRegie}
-                    disabled={saving || !newRegie.nom.trim()}
-                  >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Créer la régie HEJJA
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="gap-2 border-red-500/50 text-red-500 hover:bg-red-500/10"
+                onClick={() => setIsCreatingHejja(true)}
+              >
+                <Plus className="h-4 w-4" />
+                HEJJA
+              </Button>
             )}
 
             {/* Bouton Régie normale */}
-            <Dialog open={isCreating} onOpenChange={setIsCreating}>
-              <Button size="sm" className="gap-2" onClick={() => {
-                setNewRegie({ nom: "", couleur: "#0066CC", is_hejja: false });
-                setIsCreating(true);
-              }}>
-                <Plus className="h-4 w-4" />
-                Nouvelle
-              </Button>
-              <DialogContent className="max-w-[95vw]">
-                <DialogHeader>
-                  <DialogTitle>Nouvelle Régie</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Nom de la régie</label>
-                    <Input 
-                      placeholder="Ex: EDF ENR, Engie Solar..." 
-                      value={newRegie.nom}
-                      onChange={(e) => setNewRegie({ ...newRegie, nom: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Couleur</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color}
-                          className={`w-8 h-8 rounded-full border-2 transition-colors ${
-                            newRegie.couleur === color ? "border-foreground" : "border-transparent"
-                          }`}
-                          style={{ backgroundColor: color }}
-                          onClick={() => setNewRegie({ ...newRegie, couleur: color })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <Button 
-                    className="w-full" 
-                    onClick={handleCreateRegie}
-                    disabled={saving || !newRegie.nom.trim()}
-                  >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Créer la régie
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" className="gap-2" onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4" />
+              Nouvelle
+            </Button>
           </div>
+
+          {/* Dialog création régie normale */}
+          <CreateRegieDialog
+            open={isCreating}
+            onOpenChange={setIsCreating}
+            isHejja={false}
+            existingRegies={regies}
+            onSuccess={(newRegie) => {
+              fetchRegies();
+              setSelectedRegie(newRegie);
+            }}
+          />
+
+          {/* Dialog création régie HEJJA */}
+          <CreateRegieDialog
+            open={isCreatingHejja}
+            onOpenChange={setIsCreatingHejja}
+            isHejja={true}
+            existingRegies={regies}
+            onSuccess={(newRegie) => {
+              fetchRegies();
+              setSelectedRegie(newRegie);
+            }}
+          />
         </div>
 
         {/* Liste des régies - filtrer les régies HEJJA si mode inactif */}
