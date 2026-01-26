@@ -109,7 +109,7 @@ const CRM = () => {
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [ventesLoading, setVentesLoading] = useState(true);
-  const [venteFilter, setVenteFilter] = useState<string>("all");
+  const [venteFilter, setVenteFilter] = useState<string>("signes");
   const [typeFilter, setTypeFilter] = useState<"all" | VenteType>("all");
   const [regieFilter, setRegieFilter] = useState<string>("all");
   const [regies, setRegies] = useState<Regie[]>([]);
@@ -312,8 +312,22 @@ const CRM = () => {
     }).format(amount);
   };
 
-  // "En cours" = toutes les ventes signées mais pas encore payées ni annulées
-  const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation', 'installe', 'attente_paiement'];
+  // Helper: check if vente is installed for more than 2 weeks (billable)
+  const isInstalledAndBillable = (v: Vente): boolean => {
+    if (v.status !== 'installe') return false;
+    // Check date_installation from metadata or date_signature as fallback
+    const installDate = (v as any).date_installation || v.date_signature;
+    if (!installDate) return true; // If no date, consider it billable
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    return new Date(installDate) <= twoWeeksAgo;
+  };
+
+  // "Signées" = all signed ventes (not annule)
+  const signeStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation', 'installe', 'attente_paiement', 'paye'];
+  
+  // "En cours" = signed but not installed yet (work in progress)
+  const enCoursStatuses: VenteStatus[] = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose', 'en_installation'];
   
   const filteredVentes = ventes.filter(v => {
     // Hide retape ventes when HEJJA mode is not active
@@ -325,14 +339,32 @@ const CRM = () => {
       if (regie?.is_hejja) return false;
     }
     
+    // Always exclude cancelled
+    if (v.status === 'annule') return false;
+    
     // Filter by status category
-    if (venteFilter === "en_cours") {
+    if (venteFilter === "signes") {
+      // All signed (excluding cancelled)
+      if (!signeStatuses.includes(v.status)) return false;
+    } else if (venteFilter === "en_cours") {
+      // Work in progress (not yet installed)
       if (!enCoursStatuses.includes(v.status)) return false;
+    } else if (venteFilter === "posees_non_facturables") {
+      // Installed but less than 2 weeks ago
+      if (v.status !== 'installe') return false;
+      if (isInstalledAndBillable(v)) return false;
+    } else if (venteFilter === "a_facturer") {
+      // Installed for 2+ weeks OR attente_paiement
+      if (v.status === 'attente_paiement') {
+        // attente_paiement is always billable
+      } else if (v.status === 'installe') {
+        if (!isInstalledAndBillable(v)) return false;
+      } else {
+        return false;
+      }
     } else if (venteFilter === "paye") {
       if (v.status !== 'paye') return false;
     }
-    // "all" shows everything except cancelled
-    if (venteFilter === "all" && v.status === 'annule') return false;
     
     // Filter by type
     if (typeFilter !== "all" && v.type_vente !== typeFilter) return false;
@@ -921,14 +953,51 @@ const CRM = () => {
                 )}
               </div>
 
-              {/* Status filter tabs - Tout / En cours (signées mais pas payées) / Payées */}
-              <Tabs value={venteFilter} onValueChange={setVenteFilter}>
-                <TabsList className="w-full grid grid-cols-3">
-                  <TabsTrigger value="all">Toutes</TabsTrigger>
-                  <TabsTrigger value="en_cours">En cours</TabsTrigger>
-                  <TabsTrigger value="paye">Payées</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {/* Status filter tabs */}
+              <div className="flex gap-2 flex-wrap">
+                <Button 
+                  variant={venteFilter === "signes" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setVenteFilter("signes")}
+                  className="text-xs"
+                >
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Signées
+                </Button>
+                <Button 
+                  variant={venteFilter === "en_cours" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setVenteFilter("en_cours")}
+                  className="text-xs"
+                >
+                  En cours
+                </Button>
+                <Button 
+                  variant={venteFilter === "posees_non_facturables" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setVenteFilter("posees_non_facturables")}
+                  className="text-xs"
+                >
+                  Posées &lt;2 sem
+                </Button>
+                <Button 
+                  variant={venteFilter === "a_facturer" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setVenteFilter("a_facturer")}
+                  className="text-xs bg-green-500/10 border-green-500/30 text-green-700 hover:bg-green-500/20"
+                >
+                  <Euro className="h-3 w-3 mr-1" />
+                  À facturer
+                </Button>
+                <Button 
+                  variant={venteFilter === "paye" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setVenteFilter("paye")}
+                  className="text-xs"
+                >
+                  Payées
+                </Button>
+              </div>
             </div>
 
             {/* Ventes list */}
