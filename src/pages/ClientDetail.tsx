@@ -41,6 +41,8 @@ import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { RegieSelector } from "@/components/planning/RegieSelector";
 import { RetapeDialog } from "@/components/crm/RetapeDialog";
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
+import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -148,6 +150,19 @@ const ClientDetail = () => {
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
+
+  // Delete functionality
+  const {
+    isDeleteDialogOpen,
+    isDeleting,
+    openDeleteDialog,
+    confirmDelete,
+    cancelDelete,
+  } = useDeleteEntity({
+    tableName: "clients",
+    entityName: "Client",
+    onSuccess: () => navigate("/crm"),
+  });
 
   useEffect(() => {
     if (id && user) {
@@ -347,6 +362,14 @@ const ClientDetail = () => {
               onClick={() => setShowEditDialog(true)}
             >
               <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => openDeleteDialog(id!)}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -689,6 +712,16 @@ const ClientDetail = () => {
             onSuccess={fetchClientData}
           />
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={cancelDelete}
+          onConfirm={confirmDelete}
+          title="Supprimer ce client ?"
+          description="Cette action est irréversible. Toutes les données associées (RDV, études, documents) seront également supprimées."
+          isLoading={isDeleting}
+        />
       </div>
     </MobileLayout>
   );

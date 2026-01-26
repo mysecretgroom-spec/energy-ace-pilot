@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2 } from "lucide-react";
+import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2 } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
 import { RegieSelector } from "./RegieSelector";
@@ -9,6 +9,8 @@ import { ExternalVenteDialog } from "./ExternalVenteDialog";
 import { RdvStatus } from "@/components/ui/status-badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
+import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +64,19 @@ export function RdvActions({
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
   const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
+
+  // Delete functionality
+  const {
+    isDeleteDialogOpen,
+    isDeleting,
+    openDeleteDialog,
+    confirmDelete,
+    cancelDelete,
+  } = useDeleteEntity({
+    tableName: "rdv",
+    entityName: "RDV",
+    onSuccess: onRefresh,
+  });
 
   const handleNavigate = (path: string) => {
     onBeforeNavigate?.();
@@ -251,6 +266,17 @@ export function RdvActions({
           <Euro className="h-4 w-4" />
         </Button>
       )}
+
+      {/* Supprimer RDV */}
+      <Button
+        size="icon"
+        variant="outline"
+        className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
+        onClick={() => openDeleteDialog(rdvId)}
+        title="Supprimer le RDV"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
       
       {/* External Vente Dialog */}
       <ExternalVenteDialog
@@ -262,6 +288,16 @@ export function RdvActions({
         rdvDate={rdvDate}
         regieId={regieId}
         onSuccess={onRefresh}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Supprimer ce RDV ?"
+        description={`Le rendez-vous avec ${clientName} sera supprimé définitivement.`}
+        isLoading={isDeleting}
       />
     </div>
   );

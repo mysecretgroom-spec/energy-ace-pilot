@@ -20,12 +20,15 @@ import {
   Zap, 
   FileText, 
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
+import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -119,6 +122,19 @@ const VenteDetail = () => {
     classification: string;
   } | null>(null);
   const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
+  
+  // Delete functionality
+  const {
+    isDeleteDialogOpen,
+    isDeleting,
+    openDeleteDialog,
+    confirmDelete,
+    cancelDelete,
+  } = useDeleteEntity({
+    tableName: "ventes",
+    entityName: "Vente",
+    onSuccess: () => navigate("/crm"),
+  });
   
   // Editable fields
   const [numeroContrat, setNumeroContrat] = useState("");
@@ -452,9 +468,19 @@ const VenteDetail = () => {
               Créée le {format(new Date(vente.created_at), "dd MMMM yyyy", { locale: fr })}
             </p>
           </div>
-          <Badge className={statusColors[status]}>
-            {statusLabels[status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={statusColors[status]}>
+              {statusLabels[status]}
+            </Badge>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => openDeleteDialog(id!)}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Client info */}
@@ -708,6 +734,16 @@ const VenteDetail = () => {
         onCancel={handleWhatsAppCancel}
         clientName={[client?.prenom, client?.nom].filter(Boolean).join(" ")}
         classification={pendingWhatsApp?.classification || "positif"}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Supprimer cette vente ?"
+        description="Cette action est irréversible. La vente sera définitivement supprimée."
+        isLoading={isDeleting}
       />
     </MobileLayout>
   );
