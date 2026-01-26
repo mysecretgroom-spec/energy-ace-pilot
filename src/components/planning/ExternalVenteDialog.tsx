@@ -74,7 +74,7 @@ export function ExternalVenteDialog({
           type_vente: 'external_installation',
           status: 'installe', // Starts as "posé", will auto-transition to "attente_paiement"
           date_signature: datePose, // Date de pose
-          date_pose: datePose,
+          date_installation_reelle: datePose,
           regie_id: regieId || null,
         })
         .select()

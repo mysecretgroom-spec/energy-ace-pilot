@@ -30,7 +30,7 @@ interface BillableVente {
   puissance_kwc: number | null;
   montant_ht: number;
   montant_ttc: number;
-  date_pose: string | null;
+  date_installation_reelle: string | null;
   commission: number;
   decom_montant: number;
 }
@@ -68,7 +68,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           montant_ht,
           montant_ttc,
           puissance_kwc,
-          date_pose,
+          date_installation_reelle,
           decom_montant,
           regie_id,
           etude_id,
@@ -80,7 +80,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         `)
         .eq("user_id", user.id)
         .eq("status", "attente_paiement")
-        .order("date_pose", { ascending: true });
+        .order("date_installation_reelle", { ascending: true });
 
       if (ventesError) throw ventesError;
 
@@ -96,11 +96,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const regieIds = [...new Set(ventesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
       const etudeIds = [...new Set(ventesData.map((v: any) => v.etude_id).filter(Boolean))] as string[];
       
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
-        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
-        regieIds.length > 0 
-          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
-          : Promise.resolve({ data: [] }),
+      const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
@@ -110,19 +107,23 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           : Promise.resolve({ data: [] }),
       ]);
 
-      const globalBouquets = globalBouquetsRes.data || [];
-      const regieBouquets = regieBouquetsRes.data || [];
+      const allBouquets = bouquetsRes.data || [];
       const regies = regiesRes.data || [];
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      
+      // Separate global bouquets (regie_ids is null) from regie-specific ones
+      const globalBouquets = allBouquets.filter((b: any) => !b.regie_ids || b.regie_ids.length === 0);
       
       // Create maps for quick lookup
       const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
       const regieBouquetsMap = new Map<string, any[]>();
-      regieBouquets.forEach((b: any) => {
-        if (b.regie_id) {
-          const existing = regieBouquetsMap.get(b.regie_id) || [];
-          existing.push(b);
-          regieBouquetsMap.set(b.regie_id, existing);
+      allBouquets.forEach((b: any) => {
+        if (b.regie_ids && b.regie_ids.length > 0) {
+          b.regie_ids.forEach((regieId: string) => {
+            const existing = regieBouquetsMap.get(regieId) || [];
+            existing.push(b);
+            regieBouquetsMap.set(regieId, existing);
+          });
         }
       });
       
@@ -160,7 +161,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             puissance_kwc: v.puissance_kwc,
             montant_ht: v.montant_ht,
             montant_ttc: v.montant_ttc,
-            date_pose: v.date_pose,
+            date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
           };
@@ -208,7 +209,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           puissance_kwc: v.puissance_kwc,
           montant_ht: v.montant_ht,
           montant_ttc: v.montant_ttc,
-          date_pose: v.date_pose,
+          date_installation_reelle: v.date_installation_reelle,
           commission,
           decom_montant: decomMontant,
         };
@@ -358,11 +359,11 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{vente.puissance_kwc || "-"} kWc</span>
-                        {vente.date_pose && (
+                        {vente.date_installation_reelle && (
                           <>
                             <span>•</span>
                             <span>
-                              Posé le {format(new Date(vente.date_pose), "dd MMM", { locale: fr })}
+                              Posé le {format(new Date(vente.date_installation_reelle), "dd MMM", { locale: fr })}
                             </span>
                           </>
                         )}

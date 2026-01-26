@@ -90,31 +90,32 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       // Get unique regie IDs from ventes
       const regieIds = [...new Set(eligibleVentes.map(v => v.regie_id).filter(Boolean))] as string[];
       
-      // Fetch bouquets (global and per-regie) and regie configs
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes] = await Promise.all([
-        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
-        regieIds.length > 0 
-          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
-          : Promise.resolve({ data: [] }),
+      // Fetch bouquets (unified table) and regie configs
+      const [bouquetsRes, regiesRes, configRes] = await Promise.all([
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
       ]);
 
-      const globalBouquets = globalBouquetsRes.data || [];
-      const regieBouquets = regieBouquetsRes.data || [];
+      const allBouquets = bouquetsRes.data || [];
       const regies = regiesRes.data || [];
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      
+      // Separate global bouquets (regie_ids is null) from regie-specific ones
+      const globalBouquets = allBouquets.filter((b: any) => !b.regie_ids || b.regie_ids.length === 0);
       
       // Create maps for quick lookup
       const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
       const regieBouquetsMap = new Map<string, any[]>();
-      regieBouquets.forEach((b: any) => {
-        if (b.regie_id) {
-          const existing = regieBouquetsMap.get(b.regie_id) || [];
-          existing.push(b);
-          regieBouquetsMap.set(b.regie_id, existing);
+      allBouquets.forEach((b: any) => {
+        if (b.regie_ids && b.regie_ids.length > 0) {
+          b.regie_ids.forEach((regieId: string) => {
+            const existing = regieBouquetsMap.get(regieId) || [];
+            existing.push(b);
+            regieBouquetsMap.set(regieId, existing);
+          });
         }
       });
 

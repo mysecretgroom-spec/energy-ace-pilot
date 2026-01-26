@@ -431,19 +431,35 @@ const EtudeForm = () => {
 
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
-        supabase.from("regies_bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max").eq("regie_id", currentRegieId).eq("actif", true).order("puissance_kwc"),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids").eq("actif", true),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
       if (bouquetsRes.data) {
-        bouquetsData = bouquetsRes.data.map(b => ({
-          id: b.id,
-          nom_bouquet: b.nom_bouquet,
-          puissance_kwc: b.puissance_kwc,
-          prix_recommande: b.prix_recommande,
-          prix_max: b.prix_max,
-        }));
+        // Filter bouquets that belong to this regie (regie_ids contains currentRegieId)
+        bouquetsData = bouquetsRes.data
+          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId))
+          .map((b: any) => ({
+            id: b.id,
+            nom_bouquet: b.nom_bouquet,
+            puissance_kwc: b.puissance_kwc,
+            prix_recommande: b.prix_recommande,
+            prix_max: b.prix_max,
+          }));
+        
+        // If no regie-specific bouquets, use global ones
+        if (bouquetsData.length === 0) {
+          bouquetsData = bouquetsRes.data
+            .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+            .map((b: any) => ({
+              id: b.id,
+              nom_bouquet: b.nom_bouquet,
+              puissance_kwc: b.puissance_kwc,
+              prix_recommande: b.prix_recommande,
+              prix_max: b.prix_max,
+            }));
+        }
       }
       if (financementsRes.data) {
         financementsData = financementsRes.data.map(f => ({
@@ -467,11 +483,22 @@ const EtudeForm = () => {
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
-        supabase.from("data_prix_bouquets").select("*").eq("actif", true).order("puissance_kwc"),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids").eq("actif", true).order("puissance_kwc"),
         supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
       ]);
       
-      if (bouquetsRes.data) bouquetsData = bouquetsRes.data;
+      if (bouquetsRes.data) {
+        // Use only global bouquets (regie_ids is null or empty)
+        bouquetsData = bouquetsRes.data
+          .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+          .map((b: any) => ({
+            id: b.id,
+            nom_bouquet: b.nom_bouquet,
+            puissance_kwc: b.puissance_kwc,
+            prix_recommande: b.prix_recommande,
+            prix_max: b.prix_max,
+          }));
+      }
       if (financementsRes.data) financementsData = financementsRes.data;
       setRegieSurcouts([]); // No regie-specific surcharges
     }
