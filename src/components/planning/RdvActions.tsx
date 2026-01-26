@@ -134,6 +134,7 @@ export function RdvActions({
         clientId={clientId}
         etudeId={etudeId}
         regieId={regieId}
+        rdvDate={rdvDate}
         onStatusChange={handleStatusChangeInternal}
         compact
       />
