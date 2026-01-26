@@ -1179,14 +1179,21 @@ serve(async (req) => {
     }
 
     // Format response message based on query results or custom workflow response
+    // Priority: customResponse > formatted query > AI response
     let finalResponseMessage = actionResult.customResponse || aiResponse!.responseMessage;
     
-    if (actionResult.actionTaken?.startsWith("query_") && actionResult.entityId) {
-      finalResponseMessage = formatQueryResponse(
-        actionResult.actionTaken,
-        actionResult.entityId,
-        request.userName
-      );
+    // Only override with formatQueryResponse if:
+    // 1. It's a query action with entityId containing JSON data
+    // 2. AND there's no customResponse already set
+    if (!actionResult.customResponse && actionResult.actionTaken?.startsWith("query_") && actionResult.entityId) {
+      // Check if entityId looks like JSON data (starts with { or [)
+      if (actionResult.entityId.startsWith("{") || actionResult.entityId.startsWith("[")) {
+        finalResponseMessage = formatQueryResponse(
+          actionResult.actionTaken,
+          actionResult.entityId,
+          request.userName
+        );
+      }
     }
 
     // Determine pending action to store
@@ -4630,7 +4637,13 @@ async function executeAction(
 
       const matchedClient = searchResult.exactMatch || searchResult.clients[0];
       
+      console.log(`[query_vente_detail] Looking for vente with client_id: ${matchedClient.id}, user_id: ${userId}`);
+      
       // Find the vente for this client with all details
+      // Available columns: id, user_id, client_id, etude_id, numero_contrat, date_signature, 
+      // date_installation_prevue, date_installation_reelle, date_paiement, montant_ht, montant_ttc,
+      // montant_acompte, montant_solde, puissance_kwc, nombre_panneaux, type_installation, 
+      // status, notes, created_at, updated_at, decom_montant, decom_raison, type_vente, regie_id, date_pose, is_retape
       const { data: ventes, error: venteError } = await supabase
         .from("ventes")
         .select(`
@@ -4641,21 +4654,29 @@ async function executeAction(
           puissance_kwc,
           nombre_panneaux,
           date_signature,
-          date_cq,
-          date_installation,
+          date_installation_prevue,
+          date_installation_reelle,
           date_pose,
-          technicien,
-          commentaire,
-          is_external,
+          date_paiement,
+          notes,
+          type_installation,
+          type_vente,
+          decom_montant,
+          is_retape,
           created_at,
-          clients!inner(id, nom, prenom, adresse, ville, code_postal, telephone)
+          regie_id,
+          clients(id, nom, prenom, adresse, ville, code_postal, telephone),
+          regies(nom, couleur)
         `)
         .eq("user_id", userId)
         .eq("client_id", matchedClient.id)
         .order("created_at", { ascending: false })
         .limit(1);
       
+      console.log(`[query_vente_detail] Query result: ${ventes?.length || 0} ventes found, error: ${venteError?.message || 'none'}`);
+      
       if (venteError || !ventes || ventes.length === 0) {
+        console.error(`[query_vente_detail] No vente found for client ${matchedClient.id}. Error: ${JSON.stringify(venteError)}`);
         return {
           actionTaken: "vente_not_found",
           customResponse: `❌ Aucune vente trouvée pour "${matchedClient.fullName}".`,
@@ -4665,6 +4686,8 @@ async function executeAction(
       const vente = ventes[0];
       // deno-lint-ignore no-explicit-any
       const client = vente.clients as any;
+      // deno-lint-ignore no-explicit-any
+      const regie = vente.regies as any;
       const clientFullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
       
       // Status labels
@@ -4685,46 +4708,45 @@ async function executeAction(
       sections.push(`📋 *VENTE - ${clientFullName}*`);
       sections.push("");
       
-      // Status
+      // Status & Regie
       sections.push(`📊 *Statut:* ${statusLabels[vente.status] || vente.status}`);
-      if (vente.is_external) sections.push("📦 Installation externe");
+      if (regie?.nom) sections.push(`🏢 *Régie:* ${regie.nom}`);
+      if (vente.is_retape) sections.push("♻️ Retape");
+      if (vente.type_vente === "external") sections.push("📦 Installation externe");
       sections.push("");
       
       // Financial
       sections.push("💰 *Financier:*");
       if (vente.montant_ttc) sections.push(`• TTC: ${vente.montant_ttc.toLocaleString("fr-FR")}€`);
       if (vente.montant_ht) sections.push(`• HT: ${vente.montant_ht.toLocaleString("fr-FR")}€`);
+      if (vente.decom_montant) sections.push(`• Décom: ${vente.decom_montant.toLocaleString("fr-FR")}€`);
       sections.push("");
       
       // Technical
       sections.push("⚡ *Technique:*");
       if (vente.puissance_kwc) sections.push(`• Puissance: ${vente.puissance_kwc} kWc`);
       if (vente.nombre_panneaux) sections.push(`• Panneaux: ${vente.nombre_panneaux}`);
+      if (vente.type_installation) sections.push(`• Type: ${vente.type_installation}`);
       sections.push("");
       
       // Dates
       sections.push("📅 *Dates:*");
       if (vente.date_signature) sections.push(`• Signature: ${new Date(vente.date_signature).toLocaleDateString("fr-FR")}`);
-      if (vente.date_cq) sections.push(`• CQ: ${new Date(vente.date_cq).toLocaleDateString("fr-FR")}`);
-      if (vente.date_installation || vente.date_pose) {
-        const installDate = vente.date_pose || vente.date_installation;
-        sections.push(`• Pose: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
+      if (vente.date_installation_prevue) sections.push(`• Pose prévue: ${new Date(vente.date_installation_prevue).toLocaleDateString("fr-FR")}`);
+      if (vente.date_pose || vente.date_installation_reelle) {
+        const installDate = vente.date_pose || vente.date_installation_reelle;
+        sections.push(`• Posé le: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
       }
+      if (vente.date_paiement) sections.push(`• Paiement: ${new Date(vente.date_paiement).toLocaleDateString("fr-FR")}`);
       sections.push("");
       
-      // Technicien
-      if (vente.technicien) {
-        sections.push(`👷 *Technicien:* ${vente.technicien}`);
-      }
-      
-      // Commentaire
-      if (vente.commentaire) {
+      // Notes
+      if (vente.notes) {
+        sections.push(`💬 *Notes:*\n${vente.notes}`);
         sections.push("");
-        sections.push(`💬 *Commentaire:*\n${vente.commentaire}`);
       }
       
       // Client info
-      sections.push("");
       sections.push("👤 *Client:*");
       if (client?.telephone) sections.push(`• Tél: ${client.telephone}`);
       if (client?.adresse) {
@@ -4733,7 +4755,7 @@ async function executeAction(
       }
       
       sections.push("");
-      sections.push("_💡 Tu peux modifier: prix, puissance, technicien, date pose, commentaire_");
+      sections.push("_💡 Tu peux modifier: prix, puissance, date pose, notes_");
       
       return {
         actionTaken: "query_vente_detail_result",
@@ -4745,11 +4767,12 @@ async function executeAction(
 
     case "update_vente_data": {
       // Update specific fields of a vente (not just pipeline status)
+      // Available columns: montant_ttc, montant_ht, puissance_kwc, nombre_panneaux, 
+      // date_installation_prevue, date_pose, notes, type_installation
       const clientName = entities.client_name as string;
       const newAmount = entities.amount as number;
       const newPuissance = entities.puissance_kwc as number;
-      const newTechnicien = entities.technicien as string;
-      const newCommentaire = entities.commentaire as string;
+      const newNotes = entities.commentaire as string; // "commentaire" in entities maps to "notes" in DB
       const newDate = entities.date as string;
       
       if (!clientName) {
@@ -4760,10 +4783,10 @@ async function executeAction(
       }
       
       // Check if at least one field to update
-      if (!newAmount && !newPuissance && !newTechnicien && !newCommentaire && !newDate) {
+      if (!newAmount && !newPuissance && !newNotes && !newDate) {
         return {
           actionTaken: "missing_data",
-          customResponse: "❌ Que veux-tu modifier ? (prix, puissance, technicien, date pose, commentaire)",
+          customResponse: "❌ Que veux-tu modifier ? (prix, puissance, date pose, notes)",
         };
       }
       
@@ -4805,10 +4828,10 @@ async function executeAction(
           montant_ht,
           puissance_kwc,
           nombre_panneaux,
-          date_installation,
-          technicien,
-          commentaire,
-          clients!inner(id, nom, prenom)
+          date_installation_prevue,
+          date_pose,
+          notes,
+          clients(id, nom, prenom)
         `)
         .eq("user_id", userId)
         .eq("client_id", matchedClient.id)
@@ -4849,22 +4872,17 @@ async function executeAction(
         changes.push(`Puissance: ${newPuissance}kWc`);
       }
       
-      if (newTechnicien) {
-        updateData.technicien = newTechnicien;
-        changes.push(`Technicien: ${newTechnicien}`);
-      }
-      
-      if (newCommentaire) {
-        // Append to existing comment or replace
-        const existingComment = vente.commentaire || "";
-        updateData.commentaire = existingComment 
-          ? `${existingComment}\n---\n${newCommentaire}` 
-          : newCommentaire;
-        changes.push("Commentaire ajouté");
+      if (newNotes) {
+        // Append to existing notes or replace
+        const existingNotes = vente.notes || "";
+        updateData.notes = existingNotes 
+          ? `${existingNotes}\n---\n${newNotes}` 
+          : newNotes;
+        changes.push("Notes ajoutées");
       }
       
       if (newDate) {
-        updateData.date_installation = newDate;
+        updateData.date_installation_prevue = newDate;
         changes.push(`Date pose: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
       }
       
