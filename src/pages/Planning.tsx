@@ -66,6 +66,7 @@ interface RdvData {
   time: string;
   duration: string;
   client: string;
+  clientPrenom?: string;
   clientId: string;
   phone: string | null;
   address: string;
@@ -318,6 +319,7 @@ const Planning = () => {
           client: clientData.prenom 
             ? `${clientData.prenom} ${clientData.nom}`
             : clientData.nom,
+          clientPrenom: clientData.prenom || undefined,
           clientId: clientData.id,
           phone: clientData.telephone,
           address: finalAddress,

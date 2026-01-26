@@ -44,6 +44,7 @@ interface RdvStatusSelectorProps {
   etudeId?: string | null;
   regieId?: string | null; // NEW: régie associée au RDV
   onStatusChange?: (newStatus: RdvStatus) => void;
+  onWhatsAppComplete?: () => void; // Called after WhatsApp dialog is dismissed
   compact?: boolean;
 }
 
@@ -77,6 +78,7 @@ export function RdvStatusSelector({
   etudeId,
   regieId,
   onStatusChange,
+  onWhatsAppComplete,
   compact = false,
 }: RdvStatusSelectorProps) {
   const { user } = useAuth();
@@ -299,10 +301,12 @@ export function RdvStatusSelector({
     });
     
     setPendingWhatsApp(null);
+    onWhatsAppComplete?.(); // Close parent menu after WhatsApp action
   };
 
   const handleWhatsAppCancel = () => {
     setPendingWhatsApp(null);
+    onWhatsAppComplete?.(); // Close parent menu after user declines
   };
 
   const currentOption = statusOptions.find(s => s.value === status);
