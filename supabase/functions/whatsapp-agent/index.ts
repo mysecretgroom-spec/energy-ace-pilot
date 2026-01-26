@@ -1858,8 +1858,9 @@ function formatQueryResponse(
         if (!Array.isArray(data) || data.length === 0) {
           return "❌ Aucun client trouvé avec ce nom.";
         }
-        let msg = `👤 *Client(s) trouvé(s)*\n`;
-        for (const c of data.slice(0, 10)) {
+        let msg = `👤 *Client(s) trouvé(s)* (${data.length})\n`;
+        // Display ALL clients - no truncation
+        for (const c of data) {
           msg += `\n*${c.nom}*\n`;
           if (c.telephone) msg += `📱 ${c.telephone}\n`;
           if (c.telephone2) msg += `📞 ${c.telephone2}\n`;
@@ -1877,13 +1878,21 @@ function formatQueryResponse(
           return `📅 *${periodLabel}*: Aucun RDV prévu 🎉`;
         }
         let msg = `📅 *Planning - ${periodLabel}* (${count} RDV)\n`;
-        for (const r of rdvs.slice(0, 15)) {
+        // Display ALL RDVs - no truncation
+        const MAX_ITEMS = 40;
+        for (let i = 0; i < rdvs.length && i < MAX_ITEMS; i++) {
+          const r = rdvs[i];
           msg += `\n⏰ *${r.heure}* - ${r.client}`;
           if (r.telephone) msg += ` 📱${r.telephone}`;
           if (r.adresse) msg += `\n   📍 ${r.adresse}`;
           msg += `\n   ${r.type} • ${r.statut}`;
+          
+          // Add part indicator for very long lists
+          if (rdvs.length > 30 && (i + 1) % 30 === 0 && i < rdvs.length - 1) {
+            msg += `\n\n📄 [${Math.floor(i / 30) + 1}/${Math.ceil(Math.min(rdvs.length, MAX_ITEMS) / 30)}] Suite...\n`;
+          }
         }
-        if (count > 15) msg += `\n\n... et ${count - 15} autre(s)`;
+        if (count > MAX_ITEMS) msg += `\n\n_${count - MAX_ITEMS} RDV supplémentaires disponibles dans l'app_`;
         return msg;
       }
 
@@ -1893,14 +1902,22 @@ function formatQueryResponse(
           return "📊 Aucune vente trouvée.";
         }
         let msg = `🏆 *Ventes* (${count})\n`;
-        for (const v of ventesList.slice(0, 15)) {
+        // Display ALL ventes - no truncation
+        const MAX_ITEMS = 40;
+        for (let i = 0; i < ventesList.length && i < MAX_ITEMS; i++) {
+          const v = ventesList[i];
           const status = v.installe ? "✅" : v.statut === "positif" ? "📝" : "⏳";
           msg += `\n${status} *${v.client}*`;
           if (v.puissance) msg += ` - ${v.puissance}kWc`;
           if (v.montant) msg += ` - ${v.montant.toLocaleString("fr-FR")}€`;
           msg += `\n   ${v.statut}${v.installe ? " (installé)" : ""}`;
+          
+          // Add part indicator for very long lists
+          if (ventesList.length > 30 && (i + 1) % 30 === 0 && i < ventesList.length - 1) {
+            msg += `\n\n📄 [${Math.floor(i / 30) + 1}/${Math.ceil(Math.min(ventesList.length, MAX_ITEMS) / 30)}] Suite...\n`;
+          }
         }
-        if (count > 15) msg += `\n\n... et ${count - 15} autre(s)`;
+        if (count > MAX_ITEMS) msg += `\n\n_${count - MAX_ITEMS} ventes supplémentaires disponibles dans l'app_`;
         return msg;
       }
 
@@ -2870,6 +2887,15 @@ EXEMPLES DE CLASSIFICATION:
 - "rappelle-toi que X veut dire Y" → user_feedback (RÈGLE)
 - "mes rdv demain" → query_rdv_planning (ACTION: demande données)
 - "tu as oublié de donner l'heure" → user_feedback (CRITIQUE comportement)
+
+⚠️ RÈGLE RÉPONSE COMPLÈTE - ABSOLUE:
+- Tu DOIS TOUJOURS fournir des réponses COMPLÈTES et EXHAUSTIVES
+- JAMAIS de réponse tronquée, partielle, ou coupée
+- Si une liste contient 10 éléments, tu LISTES les 10 sans dire "... et X autres"
+- Pour les tableaux/listes: affiche TOUS les résultats demandés (jusqu'à 50 éléments)
+- Si la réponse risque d'être très longue (>1500 chars), structure-la en SECTIONS avec titres
+- Utilise des PARTIES numérotées si nécessaire: "[1/2]", "[2/2]"
+- Ne JAMAIS dire "je vais résumer" ou "voici les principaux" - donne TOUT
 
 Format réponse JSON:
 {"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
@@ -4074,16 +4100,22 @@ async function executeAction(
       if (ventesAFacturer.length === 0) {
         responseMsg += "_Aucun dossier à facturer pour le moment._";
       } else {
-        for (const v of ventesAFacturer.slice(0, 15)) {
+        // Display ALL results - no truncation
+        const MAX_ITEMS_PER_MESSAGE = 30;
+        const totalItems = ventesAFacturer.length;
+        
+        for (let i = 0; i < totalItems; i++) {
+          const v = ventesAFacturer[i];
           const statusIcon = v.status === "attente_paiement" ? "💳" : "✅";
           const datePoseStr = v.datePose ? new Date(v.datePose).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
           responseMsg += `${statusIcon} *${v.clientName}*\n`;
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC\n`;
           responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${datePoseStr ? ` (posé ${datePoseStr})` : ""}\n\n`;
-        }
-        
-        if (ventesAFacturer.length > 15) {
-          responseMsg += `\n... et ${ventesAFacturer.length - 15} autre(s)`;
+          
+          // Add part indicator for very long lists
+          if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
+            responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
+          }
         }
       }
 
@@ -4190,15 +4222,21 @@ async function executeAction(
       if (ventesEnCours.length === 0) {
         responseMsg += "_Aucun dossier en cours actuellement._";
       } else {
-        for (const v of ventesEnCours.slice(0, 15)) {
+        // Display ALL results - no truncation for complete responses
+        const MAX_ITEMS_PER_MESSAGE = 30;
+        const totalItems = ventesEnCours.length;
+        
+        for (let i = 0; i < totalItems; i++) {
+          const v = ventesEnCours[i];
           const dateStr = v.dateSignature ? new Date(v.dateSignature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
           responseMsg += `📝 *${v.clientName}*\n`;
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ TTC | ${v.status}\n`;
           responseMsg += `   → Commission: *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (signé ${dateStr})` : ""}\n\n`;
-        }
-        
-        if (ventesEnCours.length > 15) {
-          responseMsg += `\n... et ${ventesEnCours.length - 15} autre(s)`;
+          
+          // Add part indicator for very long lists
+          if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
+            responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
+          }
         }
       }
 
@@ -4377,14 +4415,20 @@ async function executeAction(
       if (results.length === 0) {
         responseMsg += "_Aucun dossier trouvé avec ce filtre._";
       } else {
-        for (const v of results.slice(0, 15)) {
+        // Display ALL results - no truncation
+        const MAX_ITEMS_PER_MESSAGE = 30;
+        const totalItems = results.length;
+        
+        for (let i = 0; i < totalItems; i++) {
+          const v = results[i];
           const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
           responseMsg += `${v.status} *${v.clientName}*\n`;
           responseMsg += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n\n`;
-        }
-        
-        if (results.length > 15) {
-          responseMsg += `\n... et ${results.length - 15} autre(s)`;
+          
+          // Add part indicator for very long lists
+          if (totalItems > MAX_ITEMS_PER_MESSAGE && (i + 1) % MAX_ITEMS_PER_MESSAGE === 0 && i < totalItems - 1) {
+            responseMsg += `\n📄 [${Math.floor(i / MAX_ITEMS_PER_MESSAGE) + 1}/${Math.ceil(totalItems / MAX_ITEMS_PER_MESSAGE)}] Suite...\n\n`;
+          }
         }
       }
 
