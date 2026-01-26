@@ -105,7 +105,7 @@ export function CreateRegieDialog({
       }
 
       // 2. Clone configuration if source regie selected
-      if (cloneFromId && newRegie) {
+      if (cloneFromId && cloneFromId !== "none" && newRegie) {
         const sourceRegie = existingRegies.find(r => r.id === cloneFromId);
         
         // Clone bouquets
@@ -201,7 +201,7 @@ export function CreateRegieDialog({
     }
   };
 
-  const hasCloneSource = cloneFromId !== "";
+  const hasCloneSource = cloneFromId !== "" && cloneFromId !== "none";
   const anyCloneOptionEnabled = cloneOptions.bouquets || cloneOptions.financements || cloneOptions.surcouts;
 
   return (
@@ -256,10 +256,12 @@ export function CreateRegieDialog({
 
               <Select value={cloneFromId} onValueChange={setCloneFromId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une régie source (optionnel)" />
+                  <SelectValue placeholder="Choisir une option..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucune - Configuration vide</SelectItem>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">🆕 Configurer manuellement</span>
+                  </SelectItem>
                   {clonableRegies.map((regie) => (
                     <SelectItem key={regie.id} value={regie.id}>
                       <div className="flex items-center gap-2">
