@@ -10,6 +10,7 @@ import { HejjaToggle } from "@/components/layout/HejjaToggle";
 import { OnboardingDialog } from "@/components/onboarding";
 import { PushPermissionPrompt } from "@/components/notifications/PushPermissionPrompt";
 import { SecurityPrompt } from "@/components/notifications/SecurityPrompt";
+import { DailyBriefingProvider } from "@/components/notifications/DailyBriefingProvider";
 import Dashboard from "./pages/Dashboard";
 import Planning from "./pages/Planning";
 import CRM from "./pages/CRM";
@@ -149,6 +150,8 @@ const App = () => {
                 <PushPermissionPrompt />
                 {/* Security prompt for biometric */}
                 <SecurityPrompt />
+                {/* Daily briefing on first connection */}
+                <DailyBriefingProvider />
                 {/* Floating HEJJA toggle - only visible when authenticated */}
                 <AuthenticatedHejjaToggle />
               </HejjaModeProvider>
