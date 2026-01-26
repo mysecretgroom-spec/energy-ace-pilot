@@ -17,7 +17,9 @@ import {
   Paperclip,
   Image as ImageIcon,
   FileText,
-  MessageCircle
+  MessageCircle,
+  History,
+  Plus
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +27,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { useAgentConversations, AgentMessage } from "@/hooks/useAgentConversations";
+import { ConversationHistory } from "./ConversationHistory";
 
 interface Message {
   id: string;
@@ -49,7 +53,8 @@ export function AgentChat() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -59,6 +64,36 @@ export function AgentChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  const {
+    conversations,
+    messages: dbMessages,
+    currentConversationId,
+    loadingConversations,
+    startNewConversation,
+    selectConversation,
+    addMessage,
+    deleteConversation,
+  } = useAgentConversations();
+
+  // Convert DB messages to local format
+  useEffect(() => {
+    if (dbMessages && dbMessages.length > 0) {
+      setLocalMessages(dbMessages.map((m: AgentMessage) => ({
+        id: m.id,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: new Date(m.created_at),
+        attachment: m.attachment_type ? {
+          type: m.attachment_type as "image" | "document",
+          name: m.attachment_name || "",
+          url: m.attachment_url || undefined,
+        } : undefined,
+      })));
+    } else if (!currentConversationId) {
+      setLocalMessages([]);
+    }
+  }, [dbMessages, currentConversationId]);
 
   // Load user profile to get name
   useEffect(() => {
@@ -76,45 +111,19 @@ export function AgentChat() {
     loadProfile();
   }, [user?.id]);
 
-  // Load conversation from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(`agent-chat-${user?.id}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setMessages(parsed.map((m: any) => ({
-          ...m,
-          timestamp: new Date(m.timestamp)
-        })));
-      } catch (e) {
-        console.error("Error loading chat history:", e);
-      }
-    }
-  }, [user?.id]);
-
-  // Save conversation to localStorage
-  useEffect(() => {
-    if (messages.length > 0 && user?.id) {
-      localStorage.setItem(
-        `agent-chat-${user.id}`,
-        JSON.stringify(messages.slice(-50))
-      );
-    }
-  }, [messages, user?.id]);
-
   // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [localMessages]);
 
   // Focus input when opened
   useEffect(() => {
-    if (isOpen && inputRef.current) {
+    if (isOpen && inputRef.current && !showHistory) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, showHistory]);
 
   // Cleanup media recorder on unmount
   useEffect(() => {
@@ -124,6 +133,14 @@ export function AgentChat() {
       }
     };
   }, [mediaRecorder]);
+
+  // Start fresh conversation when opening
+  useEffect(() => {
+    if (isOpen && !currentConversationId) {
+      // Fresh start - no conversation selected
+      setLocalMessages([]);
+    }
+  }, [isOpen, currentConversationId]);
 
   const sendMessage = async (text: string, attachment?: Message["attachment"]) => {
     if ((!text.trim() && !attachment) || !user) return;
@@ -136,11 +153,18 @@ export function AgentChat() {
       attachment,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setLocalMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
+      // Save user message to DB
+      await addMessage(
+        "user",
+        text.trim(),
+        attachment ? { type: attachment.type, name: attachment.name, url: attachment.url } : undefined
+      );
+
       // Build request matching AgentRequest interface
       const agentRequest = {
         messageId: crypto.randomUUID(),
@@ -161,14 +185,19 @@ export function AgentChat() {
 
       if (error) throw error;
 
+      const responseContent = data?.responseMessage || data?.response || "Je n'ai pas pu traiter votre demande.";
+
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: data?.responseMessage || data?.response || "Je n'ai pas pu traiter votre demande.",
+        content: responseContent,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setLocalMessages((prev) => [...prev, assistantMessage]);
+
+      // Save assistant message to DB
+      await addMessage("assistant", responseContent);
     } catch (error) {
       console.error("Agent error:", error);
       const errorMessage: Message = {
@@ -177,7 +206,7 @@ export function AgentChat() {
         content: "❌ Une erreur est survenue. Veuillez réessayer.",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, errorMessage]);
+      setLocalMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -188,11 +217,9 @@ export function AgentChat() {
     sendMessage(input);
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    if (user?.id) {
-      localStorage.removeItem(`agent-chat-${user.id}`);
-    }
+  const handleNewConversation = () => {
+    selectConversation(null);
+    setLocalMessages([]);
   };
 
   // Speech-to-text
@@ -215,31 +242,28 @@ export function AgentChat() {
 
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         
-        // Convert to base64 for the agent
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Audio = (reader.result as string).split(",")[1];
           
-            setIsLoading(true);
-            try {
-              // Build request matching AgentRequest interface for audio
-              const agentRequest = {
-                messageId: crypto.randomUUID(),
-                userId: user?.id,
-                userName: userName || "Utilisateur",
-                fromNumber: "web_chat",
-                messageType: "audio" as const,
-                content: "",
-                audioData: base64Audio,
-              };
+          setIsLoading(true);
+          try {
+            const agentRequest = {
+              messageId: crypto.randomUUID(),
+              userId: user?.id,
+              userName: userName || "Utilisateur",
+              fromNumber: "web_chat",
+              messageType: "audio" as const,
+              content: "",
+              audioData: base64Audio,
+            };
 
-              const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
-                body: agentRequest,
-              });
+            const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
+              body: agentRequest,
+            });
 
             if (error) throw error;
 
-            // Add transcribed message from user
             if (data?.transcription) {
               const userMessage: Message = {
                 id: crypto.randomUUID(),
@@ -247,17 +271,19 @@ export function AgentChat() {
                 content: `🎤 ${data.transcription}`,
                 timestamp: new Date(),
               };
-              setMessages((prev) => [...prev, userMessage]);
+              setLocalMessages((prev) => [...prev, userMessage]);
+              await addMessage("user", `🎤 ${data.transcription}`);
             }
 
-            // Add agent response
+            const responseContent = data?.responseMessage || data?.response || "Je n'ai pas pu transcrire votre message.";
             const assistantMessage: Message = {
               id: crypto.randomUUID(),
               role: "assistant",
-              content: data?.responseMessage || data?.response || "Je n'ai pas pu transcrire votre message.",
+              content: responseContent,
               timestamp: new Date(),
             };
-            setMessages((prev) => [...prev, assistantMessage]);
+            setLocalMessages((prev) => [...prev, assistantMessage]);
+            await addMessage("assistant", responseContent);
           } catch (error) {
             console.error("Voice processing error:", error);
             toast.error("Erreur lors du traitement vocal");
@@ -272,7 +298,6 @@ export function AgentChat() {
       setMediaRecorder(recorder);
       setIsRecording(true);
       
-      // Haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
@@ -280,7 +305,7 @@ export function AgentChat() {
       console.error("Microphone access error:", error);
       toast.error("Impossible d'accéder au microphone");
     }
-  }, [user?.id, messages]);
+  }, [user?.id, userName, addMessage]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
@@ -308,7 +333,7 @@ export function AgentChat() {
     if (!file || !user) return;
 
     const isImage = file.type.startsWith("image/");
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
 
     if (file.size > maxSize) {
       toast.error("Fichier trop volumineux (max 10MB)");
@@ -316,7 +341,6 @@ export function AgentChat() {
     }
 
     try {
-      // Upload to Supabase Storage
       const fileExt = file.name.split(".").pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `agent-uploads/${user.id}/${fileName}`;
@@ -331,7 +355,6 @@ export function AgentChat() {
         .from("documents")
         .getPublicUrl(filePath);
 
-      // Send message with attachment
       sendMessage(
         input || `J'ai envoyé ${isImage ? "une image" : "un document"}: ${file.name}`,
         {
@@ -347,7 +370,6 @@ export function AgentChat() {
       toast.error("Erreur lors de l'envoi du fichier");
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -357,7 +379,7 @@ export function AgentChat() {
 
   return (
     <>
-      {/* Floating Button - positioned above HEJJA toggle */}
+      {/* Floating Button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
@@ -424,6 +446,24 @@ export function AgentChat() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  onClick={() => setShowHistory(true)}
+                  title="Historique"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleNewConversation}
+                  title="Nouvelle conversation"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => setIsExpanded(!isExpanded)}
                 >
                   {isExpanded ? (
@@ -443,9 +483,24 @@ export function AgentChat() {
               </div>
             </div>
 
+            {/* History Panel */}
+            <AnimatePresence>
+              {showHistory && (
+                <ConversationHistory
+                  conversations={conversations || []}
+                  currentConversationId={currentConversationId}
+                  onSelectConversation={selectConversation}
+                  onNewConversation={handleNewConversation}
+                  onDeleteConversation={deleteConversation}
+                  onClose={() => setShowHistory(false)}
+                  isLoading={loadingConversations}
+                />
+              )}
+            </AnimatePresence>
+
             {/* Messages */}
             <ScrollArea className="flex-1 p-4" ref={scrollRef as any}>
-              {messages.length === 0 ? (
+              {localMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center px-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-4">
                     <Bot className="h-8 w-8 text-primary" />
@@ -481,7 +536,7 @@ export function AgentChat() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => (
+                  {localMessages.map((message) => (
                     <motion.div
                       key={message.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -560,7 +615,6 @@ export function AgentChat() {
             {/* Input Area */}
             <div className="p-4 border-t bg-muted/30">
               <form onSubmit={handleSubmit} className="flex gap-2">
-                {/* Attachment button */}
                 <Button
                   type="button"
                   variant="ghost"
@@ -572,7 +626,6 @@ export function AgentChat() {
                   <Paperclip className="h-4 w-4" />
                 </Button>
 
-                {/* Input */}
                 <Input
                   ref={inputRef}
                   value={input}
@@ -582,7 +635,6 @@ export function AgentChat() {
                   disabled={isLoading || isRecording}
                 />
 
-                {/* Voice button */}
                 <Button
                   type="button"
                   variant={isRecording ? "destructive" : "ghost"}
@@ -601,7 +653,6 @@ export function AgentChat() {
                   )}
                 </Button>
 
-                {/* Send button */}
                 <Button
                   type="submit"
                   size="icon"
@@ -615,14 +666,6 @@ export function AgentChat() {
                   )}
                 </Button>
               </form>
-              {messages.length > 0 && (
-                <button
-                  onClick={clearChat}
-                  className="text-xs text-muted-foreground hover:text-foreground mt-2 transition-colors"
-                >
-                  Effacer la conversation
-                </button>
-              )}
             </div>
           </motion.div>
         )}
