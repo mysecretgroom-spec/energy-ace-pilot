@@ -2686,6 +2686,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     document_type: { type: "string" },
                     period: { type: "string", enum: ["today", "week", "month", "all"] },
                     query_type: { type: "string", enum: ["list", "total", "detail"] },
+                    query_field: { type: "string", description: "Specific field the user is asking about: commission, statut, prix, montant, puissance, panneau, date, pose, adresse, telephone, regie. Extract this when user asks a specific question like 'quelle est la commission de X?' or 'quel est le statut de Y?'" },
                     filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
                     regie_name: { type: "string", description: "Name of the régie for filtering" },
                     include_cancelled: { type: "boolean", description: "Include cancelled items (default false)" },
@@ -4601,6 +4602,8 @@ async function executeAction(
     case "query_vente_detail": {
       // Get detailed info about a specific sale by client name
       const clientName = entities.client_name as string;
+      // Detect what specific info is being asked (from extracted entities or original query)
+      const queryField = entities.query_field as string || null;
       
       if (!clientName) {
         return {
@@ -4637,7 +4640,7 @@ async function executeAction(
 
       const matchedClient = searchResult.exactMatch || searchResult.clients[0];
       
-      console.log(`[query_vente_detail] Looking for vente with client_id: ${matchedClient.id}, user_id: ${userId}`);
+      console.log(`[query_vente_detail] Looking for vente with client_id: ${matchedClient.id}, user_id: ${userId}, queryField: ${queryField}`);
       
       // Find the vente for this client with all details
       // Available columns: id, user_id, client_id, etude_id, numero_contrat, date_signature, 
@@ -4703,6 +4706,117 @@ async function executeAction(
         annule: "❌ Annulé",
       };
       
+      // TARGETED RESPONSE: Check if a specific field was requested
+      // Common query patterns: commission, statut, prix, puissance, date, adresse, téléphone
+      if (queryField) {
+        const field = queryField.toLowerCase();
+        
+        // Commission query
+        if (field.includes("commission") || field.includes("comm")) {
+          // Calculate commission using the same logic as the app
+          const puissanceKwc = vente.puissance_kwc || 0;
+          const montantTtc = vente.montant_ttc || 0;
+          let commissionEstimee = 0;
+          
+          if (puissanceKwc > 0 && montantTtc > 0) {
+            // Simplified commission calculation (based on typical rates)
+            const prixParKwc = montantTtc / puissanceKwc;
+            if (prixParKwc >= 2500) {
+              commissionEstimee = puissanceKwc * 200 + (prixParKwc - 2500) * puissanceKwc * 0.1;
+            } else {
+              commissionEstimee = puissanceKwc * 150;
+            }
+          }
+          
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `💰 *Commission ${clientFullName}:*\n` +
+              `• Montant estimé: ~${Math.round(commissionEstimee).toLocaleString("fr-FR")}€\n` +
+              `• Base: ${montantTtc.toLocaleString("fr-FR")}€ TTC / ${puissanceKwc} kWc\n` +
+              `• Statut: ${statusLabels[vente.status] || vente.status}`,
+          };
+        }
+        
+        // Status query
+        if (field.includes("statut") || field.includes("status") || field.includes("état") || field.includes("avancement")) {
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `📊 *Statut ${clientFullName}:* ${statusLabels[vente.status] || vente.status}`,
+          };
+        }
+        
+        // Price query
+        if (field.includes("prix") || field.includes("montant") || field.includes("ttc") || field.includes("ht")) {
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `💶 *Prix ${clientFullName}:*\n` +
+              `• TTC: ${(vente.montant_ttc || 0).toLocaleString("fr-FR")}€\n` +
+              `• HT: ${(vente.montant_ht || 0).toLocaleString("fr-FR")}€`,
+          };
+        }
+        
+        // Power/panels query
+        if (field.includes("puissance") || field.includes("kwc") || field.includes("panneau")) {
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `⚡ *Installation ${clientFullName}:*\n` +
+              `• Puissance: ${vente.puissance_kwc || 0} kWc\n` +
+              `• Panneaux: ${vente.nombre_panneaux || 0}`,
+          };
+        }
+        
+        // Date query
+        if (field.includes("date") || field.includes("quand") || field.includes("pose") || field.includes("installation")) {
+          const dates: string[] = [];
+          if (vente.date_signature) dates.push(`• Signature: ${new Date(vente.date_signature).toLocaleDateString("fr-FR")}`);
+          if (vente.date_installation_prevue) dates.push(`• Pose prévue: ${new Date(vente.date_installation_prevue).toLocaleDateString("fr-FR")}`);
+          if (vente.date_pose || vente.date_installation_reelle) {
+            const installDate = vente.date_pose || vente.date_installation_reelle;
+            dates.push(`• Posé le: ${new Date(installDate).toLocaleDateString("fr-FR")}`);
+          }
+          if (vente.date_paiement) dates.push(`• Paiement: ${new Date(vente.date_paiement).toLocaleDateString("fr-FR")}`);
+          
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `📅 *Dates ${clientFullName}:*\n${dates.length > 0 ? dates.join("\n") : "Aucune date renseignée"}`,
+          };
+        }
+        
+        // Address query
+        if (field.includes("adresse") || field.includes("où") || field.includes("lieu")) {
+          const addr = [client?.adresse, client?.code_postal, client?.ville].filter(Boolean).join(", ");
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `📍 *Adresse ${clientFullName}:* ${addr || "Non renseignée"}`,
+          };
+        }
+        
+        // Phone query
+        if (field.includes("tel") || field.includes("téléphone") || field.includes("numero") || field.includes("numéro") || field.includes("appeler")) {
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `📞 *Téléphone ${clientFullName}:* ${client?.telephone || "Non renseigné"}`,
+          };
+        }
+        
+        // Regie query
+        if (field.includes("regie") || field.includes("régie")) {
+          return {
+            actionTaken: "query_vente_detail",
+            entityId: vente.id,
+            customResponse: `🏢 *Régie ${clientFullName}:* ${regie?.nom || "Non attribuée"}`,
+          };
+        }
+      }
+      
+      // DEFAULT: Full detail response (when no specific field requested)
       // Build response sections
       const sections: string[] = [];
       sections.push(`📋 *VENTE - ${clientFullName}*`);
