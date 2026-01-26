@@ -1245,6 +1245,11 @@ serve(async (req) => {
           // Reload memories (now including the new correction)
           const updatedMemories = await loadUserMemories(supabase, request.userId);
           
+          // Get the last assistant response to ensure we don't repeat it
+          const lastAssistantResponse = conversationContext
+            .filter(m => m.role === "assistant")
+            .slice(-1)[0]?.content || "";
+          
           // Ask AI to provide a corrected response based on the feedback
           const regenerateResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
@@ -1257,47 +1262,115 @@ serve(async (req) => {
               messages: [
                 { 
                   role: "system", 
-                  content: `Tu es un assistant IA qui vient d'apprendre une nouvelle correction de l'utilisateur.
-                  
-CORRECTION APPRISE: "${correctionValue}"
+                  content: `Tu es un assistant IA pour un commercial en énergies renouvelables. L'utilisateur vient de te corriger.
 
-MÉMOIRES UTILISATEUR ACTUELLES:
+🔴 CORRECTION/INSTRUCTION REÇUE: "${correctionValue}"
+
+📚 MÉMOIRES DE L'UTILISATEUR:
 ${formatMemoriesForPrompt(updatedMemories)}
 
-L'utilisateur t'a corrigé. Tu dois maintenant:
-1. Confirmer brièvement que tu as noté la correction (1 ligne max)
-2. Puis, sur une nouvelle ligne, fournir une réponse en appliquant cette correction
+⚠️ RÉPONSE PRÉCÉDENTE (À NE PAS RÉPÉTER):
+"${lastAssistantResponse.substring(0, 500)}"
 
-Format attendu:
-✅ C'est noté ! [confirmation courte de ce que tu retiens]
+📋 RÈGLES STRICTES:
+1. CONFIRME la correction en UNE LIGNE maximum (ex: "✅ C'est noté ! Je [reformulation courte]")
+2. Puis, APRÈS un saut de ligne, fournis une NOUVELLE réponse qui APPLIQUE IMMÉDIATEMENT la correction
+3. Ta nouvelle réponse doit être DIFFÉRENTE de la précédente - elle doit montrer le CHANGEMENT
+4. Si la correction concerne le format/style → reformate ta dernière réponse selon les nouvelles instructions
+5. Si la correction concerne le contenu → corrige/complète les informations
+6. Si la correction est une règle générale → montre un exemple d'application
 
-[Réponse corrigée/améliorée basée sur la nouvelle règle]
+❌ INTERDIT:
+- Répéter la même réponse que précédemment
+- Dire "je vais appliquer à mes prochaines réponses" (tu dois l'appliquer MAINTENANT)
+- Ignorer la demande de l'utilisateur
 
-Sois utile et montre que tu as compris la correction en l'appliquant immédiatement.` 
+FORMAT ATTENDU:
+✅ C'est noté ! [confirmation courte]
+
+[NOUVELLE réponse différente, avec la correction appliquée]` 
                 },
-                ...conversationContext.slice(-4).map(m => ({
+                ...conversationContext.slice(-6).map(m => ({
                   role: m.role as "user" | "assistant",
                   content: m.content
                 })),
                 { role: "user", content: processedContent }
               ],
-              max_tokens: 1500,
+              max_tokens: 2000,
             }),
           });
           
           if (regenerateResponse.ok) {
             const regenResult = await regenerateResponse.json();
             const regeneratedContent = regenResult.choices?.[0]?.message?.content;
+            
             if (regeneratedContent) {
-              actionResult.customResponse = regeneratedContent;
-              console.log("Regenerated response with correction applied");
+              // Verify the response is different from the previous one
+              const normalizedNew = regeneratedContent.toLowerCase().replace(/\s+/g, " ").trim();
+              const normalizedOld = lastAssistantResponse.toLowerCase().replace(/\s+/g, " ").trim();
+              
+              // Calculate simple similarity (shared words ratio)
+              const newWordsArray = normalizedNew.split(" ").filter((w: string) => w.length > 3);
+              const oldWordsArray = normalizedOld.split(" ").filter((w: string) => w.length > 3);
+              const newWords = new Set<string>(newWordsArray);
+              const oldWords = new Set<string>(oldWordsArray);
+              const intersection = newWordsArray.filter((w: string) => oldWords.has(w));
+              const similarity = oldWords.size > 0 ? intersection.length / oldWords.size : 0;
+              
+              console.log(`Response similarity: ${(similarity * 100).toFixed(1)}%`);
+              
+              if (similarity > 0.85) {
+                // Too similar, force a different response by re-requesting
+                console.log("Response too similar, requesting more distinct version...");
+                const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: "google/gemini-3-flash-preview",
+                    messages: [
+                      { 
+                        role: "system", 
+                        content: `L'utilisateur a demandé: "${correctionValue}"
+
+Ta réponse précédente était trop similaire. Tu DOIS fournir une réponse DIFFÉRENTE qui montre clairement que tu as compris et appliqué la correction.
+
+Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENTE.` 
+                      },
+                      { role: "user", content: `Dernière question/demande: ${processedContent}\n\nRéponds différemment en appliquant: ${correctionValue}` }
+                    ],
+                    max_tokens: 1500,
+                    temperature: 0.8, // Higher temperature for more variety
+                  }),
+                });
+                
+                if (retryResponse.ok) {
+                  const retryResult = await retryResponse.json();
+                  const retryContent = retryResult.choices?.[0]?.message?.content;
+                  if (retryContent) {
+                    actionResult.customResponse = retryContent;
+                    console.log("Regenerated with forced variation");
+                  } else {
+                    actionResult.customResponse = regeneratedContent;
+                  }
+                } else {
+                  actionResult.customResponse = regeneratedContent;
+                }
+              } else {
+                actionResult.customResponse = regeneratedContent;
+                console.log("Regenerated response with correction applied (verified different)");
+              }
             } else {
               // Fallback if regeneration fails
-              actionResult.customResponse = `✅ C'est noté ! Je me souviendrai que: "${correctionValue}"\n\nJe vais appliquer cette correction à mes prochaines réponses.`;
+              actionResult.customResponse = `✅ C'est noté ! Je me souviendrai que: "${correctionValue}"\n\nVoici la correction appliquée: ${correctionValue}`;
             }
           } else {
             // Fallback if API call fails
-            actionResult.customResponse = `✅ C'est noté ! Je me souviendrai que: "${correctionValue}"\n\nJe vais appliquer cette correction à mes prochaines réponses.`;
+            const errorText = await regenerateResponse.text().catch(() => "unknown error");
+            console.error("Regeneration API error:", errorText);
+            actionResult.customResponse = `✅ C'est noté ! "${correctionValue}"\n\nJe vais appliquer cette instruction.`;
           }
           
           actionResult.actionTaken = "feedback_saved";
