@@ -54,10 +54,27 @@ export function AgentChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [userName, setUserName] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Load user profile to get name
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("user_id", user.id)
+        .single();
+      if (data) {
+        setUserName(`${data.first_name || ""} ${data.last_name || ""}`.trim() || "Utilisateur");
+      }
+    }
+    loadProfile();
+  }, [user?.id]);
 
   // Load conversation from localStorage
   useEffect(() => {
@@ -124,18 +141,22 @@ export function AgentChat() {
     setIsLoading(true);
 
     try {
+      // Build request matching AgentRequest interface
+      const agentRequest = {
+        messageId: crypto.randomUUID(),
+        userId: user.id,
+        userName: userName || "Utilisateur",
+        fromNumber: "web_chat",
+        messageType: attachment?.type === "image" ? "image" : attachment?.type === "document" ? "document" : "text",
+        content: attachment 
+          ? `[${attachment.type === "image" ? "Image" : "Document"}: ${attachment.name}] ${text.trim()}`
+          : text.trim(),
+        mediaUrl: attachment?.url,
+        mediaContentType: attachment?.type === "image" ? "image/jpeg" : "application/pdf",
+      };
+
       const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
-        body: {
-          message: attachment 
-            ? `[${attachment.type === "image" ? "Image" : "Document"}: ${attachment.name}] ${text.trim()}`
-            : text.trim(),
-          userId: user.id,
-          source: "web_chat",
-          conversationHistory: messages.slice(-10).map(m => ({
-            role: m.role,
-            content: m.content
-          }))
-        },
+        body: agentRequest,
       });
 
       if (error) throw error;
@@ -199,19 +220,22 @@ export function AgentChat() {
         reader.onloadend = async () => {
           const base64Audio = (reader.result as string).split(",")[1];
           
-          setIsLoading(true);
-          try {
-            const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
-              body: {
+            setIsLoading(true);
+            try {
+              // Build request matching AgentRequest interface for audio
+              const agentRequest = {
+                messageId: crypto.randomUUID(),
                 userId: user?.id,
-                source: "web_chat_voice",
+                userName: userName || "Utilisateur",
+                fromNumber: "web_chat",
+                messageType: "audio" as const,
+                content: "",
                 audioData: base64Audio,
-                conversationHistory: messages.slice(-10).map(m => ({
-                  role: m.role,
-                  content: m.content
-                }))
-              },
-            });
+              };
+
+              const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
+                body: agentRequest,
+              });
 
             if (error) throw error;
 
