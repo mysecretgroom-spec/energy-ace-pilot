@@ -1637,8 +1637,8 @@ _Envoyé depuis DébalePro_`;
       )}
 
       <div className="space-y-4">
-        {/* Official Header with logos */}
-        <div className="bg-white border-b-4 border-[#000091] px-4 py-3">
+        {/* Official Header with logos - Sticky */}
+        <div className="bg-white border-b-4 border-[#000091] px-4 py-3 sticky top-0 z-40 shadow-md">
           {/* Tricolor band */}
           <div className="flex h-1 mb-3 rounded-full overflow-hidden">
             <div className="flex-1 bg-[#000091]" />
