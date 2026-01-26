@@ -2165,7 +2165,7 @@ async function handlePendingWorkflow(
               "rdv",
               rdvId,
               updateData,
-              { status: "planifie" }, // Simplified previous state
+              { status: "nouveau" }, // Simplified previous state
               `RDV ${action === "annule" ? "annulé" : "modifié"} (action en masse)`
             );
           }
@@ -2193,7 +2193,7 @@ async function handlePendingWorkflow(
               client_id: collectedData.clientId,
               date_heure: dateHeure,
               adresse: pendingAction.entities.address as string || null,
-              status: "planifie",
+              status: "nouveau",
               type_rdv: "R1",
               type_projet: "pv",
               source: "whatsapp",
@@ -3095,7 +3095,7 @@ async function executeAction(
           client_id: client.id,
           date_heure: dateHeure,
           adresse: entities.address as string || null,
-          status: "planifie",
+          status: "nouveau",
           type_rdv: "R1",
           type_projet: "pv",
           source: "whatsapp",
@@ -3117,7 +3117,7 @@ async function executeAction(
         "create_rdv",
         "rdv",
         rdv?.id,
-        { date_heure: dateHeure, client_id: client.id, status: "planifie", regie_id: regieId },
+        { date_heure: dateHeure, client_id: client.id, status: "nouveau", regie_id: regieId },
         null, // No previous data for creation
         `Création RDV ${client.prenom || ""} ${client.nom} le ${dateStr} à ${timeStr}`
       );
@@ -3188,8 +3188,8 @@ async function executeAction(
         query = query.gte("date_heure", monthStart.toISOString()).lt("date_heure", monthEnd.toISOString());
       }
       
-      // Filter by status - only modifiable statuses
-      query = query.in("status", ["planifie", "confirme", "a_rappeler", "reporte"]);
+      // Filter by status - only modifiable statuses (use valid enum values)
+      query = query.in("status", ["nouveau", "reporte", "r2", "r2_prestudy"]);
       query = query.order("date_heure", { ascending: true });
       
       const { data: rdvsToModify, error: rdvError } = await query;

@@ -449,7 +449,7 @@ serve(async (req) => {
       duree_minutes: validated.RDV?.duree_minutes || 90,
       adresse: validated.ADRESSE?.adresse || null,
       type_projet: validated.RDV?.type_projet || "solaire",
-      status: "planifie",
+      status: "nouveau",
       commentaire: validated.RDV?.commentaire?.slice(0, 2000) || null,
       source: "gmail",
       regie_id: regie_id || null,
