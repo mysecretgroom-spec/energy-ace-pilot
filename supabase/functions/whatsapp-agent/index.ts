@@ -1411,6 +1411,8 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
           createdAt: new Date().toISOString()
         } : null);
 
+    console.log(`Pending action to store: ${newPendingAction ? JSON.stringify({ intent: newPendingAction.intent, workflowState: newPendingAction.workflowState, hasRdvIds: !!newPendingAction.collectedData?.rdvIds }) : "null"}`);
+
     // Update conversation context (keep last 5 messages)
     const newContext = [
       ...conversationContext.slice(-4),
