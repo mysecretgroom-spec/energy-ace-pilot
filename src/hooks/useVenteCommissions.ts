@@ -47,6 +47,7 @@ interface VenteInput {
   regie_id?: string | null;
   etude_id?: string | null;
   status?: string;
+  product_type?: "PV" | "PAC" | "ITE" | null;
 }
 
 interface RegieConfig {
