@@ -68,45 +68,63 @@ export function DraggableRdvCard({
     zIndex: isDragging ? 50 : isHighlighted ? 40 : undefined,
   };
 
+  // Create synthetic touch/mouse events from pointer events for useLongPress
+  const createSyntheticTouchEvent = (e: React.PointerEvent): React.TouchEvent => ({
+    ...e,
+    touches: [{ clientX: e.clientX, clientY: e.clientY }] as unknown as React.TouchList,
+    targetTouches: [] as unknown as React.TouchList,
+    changedTouches: [] as unknown as React.TouchList,
+  } as unknown as React.TouchEvent);
+
+  const createSyntheticMouseEvent = (e: React.PointerEvent): React.MouseEvent => ({
+    ...e,
+    button: e.button,
+    clientX: e.clientX,
+    clientY: e.clientY,
+  } as unknown as React.MouseEvent);
+
   // Unified pointer handler that works with both mouse and touch
-  // dnd-kit uses PointerEvents which handle both - we need to pass them through
-  // while also tracking for long press
   const handlePointerDown = (e: React.PointerEvent) => {
-    // Track long press (works for both mouse and touch via pointer events)
+    // Track long press
     if (e.pointerType === "touch") {
-      longPressHandlers.onTouchStart(e as unknown as React.TouchEvent);
+      longPressHandlers.onTouchStart(createSyntheticTouchEvent(e));
     } else {
-      longPressHandlers.onMouseDown(e as unknown as React.MouseEvent);
+      longPressHandlers.onMouseDown(createSyntheticMouseEvent(e));
     }
     
-    // Always pass to dnd-kit - it has its own activation constraints (delay/distance)
-    // Long press (600ms) will trigger before touch drag (1000ms delay in sensor)
+    // Always pass to dnd-kit for drag detection
     listeners?.onPointerDown?.(e);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    // If long press was triggered, prevent the event from bubbling
+    // End long press tracking first
+    if (e.pointerType === "touch") {
+      longPressHandlers.onTouchEnd(createSyntheticTouchEvent(e));
+    } else {
+      longPressHandlers.onMouseUp(createSyntheticMouseEvent(e));
+    }
+    
+    // If long press was triggered, prevent further propagation
     if (isLongPressing) {
       e.preventDefault();
       e.stopPropagation();
-    }
-    
-    if (e.pointerType === "touch") {
-      longPressHandlers.onTouchEnd(e as unknown as React.TouchEvent);
-    } else {
-      longPressHandlers.onMouseUp(e as unknown as React.MouseEvent);
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (e.pointerType === "touch") {
-      longPressHandlers.onTouchMove(e as unknown as React.TouchEvent);
+      longPressHandlers.onTouchMove(createSyntheticTouchEvent(e));
     }
+  };
+
+  const handlePointerCancel = () => {
+    // Clean up long press state when pointer is cancelled
+    longPressHandlers.onMouseLeave({} as React.MouseEvent);
   };
 
   const handlePointerLeave = (e: React.PointerEvent) => {
     if (e.pointerType !== "touch") {
-      longPressHandlers.onMouseLeave(e as unknown as React.MouseEvent);
+      longPressHandlers.onMouseLeave(createSyntheticMouseEvent(e));
     }
   };
 
@@ -114,6 +132,7 @@ export function DraggableRdvCard({
     onPointerDown: handlePointerDown,
     onPointerUp: handlePointerUp,
     onPointerMove: handlePointerMove,
+    onPointerCancel: handlePointerCancel,
     onPointerLeave: handlePointerLeave,
     onContextMenu: longPressHandlers.onContextMenu,
   };
