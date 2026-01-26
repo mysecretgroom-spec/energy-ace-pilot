@@ -239,6 +239,7 @@ export function WeekCalendarView({
                         currentStatus={rdv.status}
                         etudeId={rdv.etudeId}
                         regieId={rdv.regieId}
+                        rdvDate={rdv.date}
                         onStatusChange={(newStatus) => onStatusChange?.(rdv.id, newStatus)}
                       >
                         <DraggableRdvCard
