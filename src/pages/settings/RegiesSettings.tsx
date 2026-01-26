@@ -208,7 +208,7 @@ const RegiesSettings = () => {
       const [allRdv, allVentes, allBouquets, allEtudes, globalConfig] = await Promise.all([
         supabase.from("rdv").select("id, regie_id, date_heure"),
         supabase.from("ventes").select("id, regie_id, status, montant_ht, montant_ttc, puissance_kwc, decom_montant, type_vente, etude_id, date_signature"),
-        supabase.from("regies_bouquets").select("*").eq("actif", true),
+        supabase.from("bouquets").select("id, puissance_kwc, prix_recommande, commission_fixe, regie_ids, actif").eq("actif", true),
         supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout"),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
       ]);
@@ -222,17 +222,21 @@ const RegiesSettings = () => {
       // Create maps for quick lookup
       const etudeSurcoutsMap = new Map(etudesData.map(e => [e.id, e]));
       
-      // Group bouquets by regie_id
-      const bouquetsByRegie = new Map<string, typeof bouquetsData>();
+      // Group bouquets by regie (use regie_ids array)
+      const bouquetsByRegie = new Map<string, any[]>();
       for (const b of bouquetsData) {
-        const existing = bouquetsByRegie.get(b.regie_id) || [];
-        existing.push({
-          ...b,
-          puissance_kwc: Number(b.puissance_kwc),
-          prix_recommande: Number(b.prix_recommande),
-          commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
-        });
-        bouquetsByRegie.set(b.regie_id, existing);
+        if (b.regie_ids && b.regie_ids.length > 0) {
+          for (const regieId of b.regie_ids) {
+            const existing = bouquetsByRegie.get(regieId) || [];
+            existing.push({
+              ...b,
+              puissance_kwc: Number(b.puissance_kwc),
+              prix_recommande: Number(b.prix_recommande),
+              commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+            });
+            bouquetsByRegie.set(regieId, existing);
+          }
+        }
       }
       
       // Calculate stats for each regie
@@ -329,7 +333,7 @@ const RegiesSettings = () => {
       const [emailsRes, contactsRes, bouquetsRes, financementsRes, regieSurcoutsRes, globalSurcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
-        supabase.from("regies_bouquets").select("*").eq("regie_id", regieId).order("puissance_kwc"),
+        supabase.from("bouquets").select("*").contains("regie_ids", [regieId]).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
         supabase.from("regies_surcouts").select("*").is("regie_id", null).order("categorie"),
@@ -337,7 +341,11 @@ const RegiesSettings = () => {
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
-      setRegieBouquets(bouquetsRes.data || []);
+      // Transform bouquets to match RegieBouquet interface
+      setRegieBouquets((bouquetsRes.data || []).map((b: any) => ({
+        ...b,
+        regie_id: regieId, // For backwards compatibility with the interface
+      })));
       setRegieFinancements(financementsRes.data || []);
       
       // Merge global and regie-specific surcouts
@@ -604,12 +612,16 @@ const RegiesSettings = () => {
     
     try {
       const { error } = await supabase
-        .from("regies_bouquets")
+        .from("bouquets")
         .insert({
           user_id: user.id,
-          regie_id: selectedRegie.id,
-          ...newBouquet,
+          regie_ids: [selectedRegie.id], // Use regie_ids array instead of regie_id
           nom_bouquet: newBouquet.nom_bouquet.trim(),
+          puissance_kwc: newBouquet.puissance_kwc,
+          prix_recommande: newBouquet.prix_recommande,
+          prix_max: newBouquet.prix_max,
+          prix_hejja: newBouquet.prix_hejja,
+          commission_fixe: newBouquet.commission_fixe,
           actif: true,
         });
 
@@ -633,7 +645,7 @@ const RegiesSettings = () => {
 
   const handleDeleteBouquet = async (bouquetId: string) => {
     try {
-      const { error } = await supabase.from("regies_bouquets").delete().eq("id", bouquetId);
+      const { error } = await supabase.from("bouquets").delete().eq("id", bouquetId);
       if (error) throw error;
       setRegieBouquets(regieBouquets.filter(b => b.id !== bouquetId));
       toast.success("Bouquet supprimé");

@@ -154,7 +154,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
     try {
       const inserts = selectedBouquets.map((b) => ({
         user_id: userId,
-        regie_id: regieId,
+        regie_ids: [regieId], // Use array for the new unified bouquets table
         nom_bouquet: b.nom_bouquet,
         puissance_kwc: b.puissance_kwc,
         prix_recommande: b.prix_recommande,
@@ -166,7 +166,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
         actif: true,
       }));
 
-      const { error } = await supabase.from("regies_bouquets").insert(inserts);
+      const { error } = await supabase.from("bouquets").insert(inserts);
 
       if (error) throw error;
 

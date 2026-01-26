@@ -90,15 +90,16 @@ export function SigneDialog({
     const fetchData = async () => {
       setLoadingBouquets(true);
       
-      // Fetch bouquets
+      // Fetch bouquets (global ones without regie_ids)
       const { data: bouquetsData } = await supabase
-        .from("data_prix_bouquets")
-        .select("*")
+        .from("bouquets")
+        .select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_hejja, prix_max, commission_fixe, commission_pct")
         .eq("actif", true)
+        .is("regie_ids", null)
         .order("puissance_kwc", { ascending: true });
 
       if (bouquetsData) {
-        setBouquets(bouquetsData);
+        setBouquets(bouquetsData as Bouquet[]);
       }
 
       // Fetch surcouts - first try régie-specific, then global

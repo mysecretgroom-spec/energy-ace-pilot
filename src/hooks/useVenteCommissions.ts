@@ -75,11 +75,8 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       const regieIds = [...new Set(ventes.map((v) => v.regie_id).filter(Boolean))] as string[];
       const etudeIds = [...new Set(ventes.map((v) => v.etude_id).filter(Boolean))] as string[];
 
-      const [globalBouquetsRes, regieBouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
-        supabase.from("data_prix_bouquets").select("puissance_kwc, prix_recommande, commission_fixe").eq("actif", true),
-        regieIds.length > 0
-          ? supabase.from("regies_bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_id").eq("actif", true).in("regie_id", regieIds)
-          : Promise.resolve({ data: [] }),
+      const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
@@ -94,22 +91,31 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       // ─────────────────────────────────────────────────────────────────────
       // ÉTAPE 2: Préparer les lookups
       // ─────────────────────────────────────────────────────────────────────
-      const globalBouquets: BouquetData[] = (globalBouquetsRes.data || []).map((b) => ({
-        puissance_kwc: Number(b.puissance_kwc),
-        prix_recommande: Number(b.prix_recommande),
-        commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
-      }));
-
-      const regieBouquetsMap = new Map<string, BouquetData[]>();
-      (regieBouquetsRes.data || []).forEach((b) => {
-        const existing = regieBouquetsMap.get(b.regie_id) || [];
-        existing.push({
+      const allBouquets = bouquetsRes.data || [];
+      
+      // Global bouquets (regie_ids is null or empty)
+      const globalBouquets: BouquetData[] = allBouquets
+        .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+        .map((b: any) => ({
           puissance_kwc: Number(b.puissance_kwc),
           prix_recommande: Number(b.prix_recommande),
           commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
-          regie_id: b.regie_id,
-        });
-        regieBouquetsMap.set(b.regie_id, existing);
+        }));
+
+      const regieBouquetsMap = new Map<string, BouquetData[]>();
+      allBouquets.forEach((b: any) => {
+        if (b.regie_ids && b.regie_ids.length > 0) {
+          b.regie_ids.forEach((regieId: string) => {
+            const existing = regieBouquetsMap.get(regieId) || [];
+            existing.push({
+              puissance_kwc: Number(b.puissance_kwc),
+              prix_recommande: Number(b.prix_recommande),
+              commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+              regie_id: regieId,
+            });
+            regieBouquetsMap.set(regieId, existing);
+          });
+        }
       });
 
       const regieConfigMap = new Map<string, RegieConfig>(

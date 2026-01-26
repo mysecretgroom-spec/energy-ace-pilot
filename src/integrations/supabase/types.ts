@@ -65,6 +65,57 @@ export type Database = {
         }
         Relationships: []
       }
+      bouquets: {
+        Row: {
+          actif: boolean
+          commission_fixe: number | null
+          commission_pct: number | null
+          created_at: string
+          description: string | null
+          id: string
+          nom_bouquet: string
+          prix_hejja: number | null
+          prix_max: number
+          prix_recommande: number
+          puissance_kwc: number
+          regie_ids: string[] | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom_bouquet: string
+          prix_hejja?: number | null
+          prix_max: number
+          prix_recommande: number
+          puissance_kwc: number
+          regie_ids?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          commission_fixe?: number | null
+          commission_pct?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom_bouquet?: string
+          prix_hejja?: number | null
+          prix_max?: number
+          prix_recommande?: number
+          puissance_kwc?: number
+          regie_ids?: string[] | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           adresse: string | null
@@ -470,54 +521,6 @@ export type Database = {
           id?: string
           inclinaison?: number
           orientation?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      data_prix_bouquets: {
-        Row: {
-          actif: boolean
-          commission_fixe: number | null
-          commission_pct: number | null
-          created_at: string
-          description: string | null
-          id: string
-          nom_bouquet: string
-          prix_hejja: number | null
-          prix_max: number
-          prix_recommande: number
-          puissance_kwc: number
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          actif?: boolean
-          commission_fixe?: number | null
-          commission_pct?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          nom_bouquet: string
-          prix_hejja?: number | null
-          prix_max: number
-          prix_recommande: number
-          puissance_kwc: number
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          actif?: boolean
-          commission_fixe?: number | null
-          commission_pct?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          nom_bouquet?: string
-          prix_hejja?: number | null
-          prix_max?: number
-          prix_recommande?: number
-          puissance_kwc?: number
-          updated_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -1679,65 +1682,6 @@ export type Database = {
         }
         Relationships: []
       }
-      regies_bouquets: {
-        Row: {
-          actif: boolean
-          commission_fixe: number | null
-          commission_pct: number | null
-          created_at: string
-          description: string | null
-          id: string
-          nom_bouquet: string
-          prix_hejja: number | null
-          prix_max: number
-          prix_recommande: number
-          puissance_kwc: number
-          regie_id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          actif?: boolean
-          commission_fixe?: number | null
-          commission_pct?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          nom_bouquet: string
-          prix_hejja?: number | null
-          prix_max?: number
-          prix_recommande?: number
-          puissance_kwc: number
-          regie_id: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          actif?: boolean
-          commission_fixe?: number | null
-          commission_pct?: number | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          nom_bouquet?: string
-          prix_hejja?: number | null
-          prix_max?: number
-          prix_recommande?: number
-          puissance_kwc?: number
-          regie_id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "regies_bouquets_regie_id_fkey"
-            columns: ["regie_id"]
-            isOneToOne: false
-            referencedRelation: "regies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       regies_contacts: {
         Row: {
           actif: boolean
@@ -2075,7 +2019,6 @@ export type Database = {
           date_installation_prevue: string | null
           date_installation_reelle: string | null
           date_paiement: string | null
-          date_pose: string | null
           date_signature: string | null
           decom_montant: number | null
           decom_raison: string | null
@@ -2103,7 +2046,6 @@ export type Database = {
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
-          date_pose?: string | null
           date_signature?: string | null
           decom_montant?: number | null
           decom_raison?: string | null
@@ -2131,7 +2073,6 @@ export type Database = {
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
-          date_pose?: string | null
           date_signature?: string | null
           decom_montant?: number | null
           decom_raison?: string | null

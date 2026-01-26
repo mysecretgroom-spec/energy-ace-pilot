@@ -137,7 +137,7 @@ interface VenteForCommission {
   etude_id: string | null;
   status: string;
   date_signature: string | null;
-  date_pose: string | null;
+  date_installation_reelle: string | null;
   client_nom?: string;
   client_prenom?: string;
   client_id?: string;
@@ -250,7 +250,7 @@ const Finance = () => {
         // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_pose, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom)")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom)")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -269,7 +269,7 @@ const Finance = () => {
           etude_id: v.etude_id,
           status: v.status,
           date_signature: v.date_signature,
-          date_pose: v.date_pose,
+          date_installation_reelle: v.date_installation_reelle,
           client_nom: v.clients?.nom || "Client",
           client_prenom: v.clients?.prenom || "",
           client_id: v.client_id,
@@ -338,15 +338,15 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
 
-    // Posé non payé: installe, attente_paiement - split by date_pose
+    // Posé non payé: installe, attente_paiement - split by date_installation_reelle
     const ventesPosees = ventes.filter(v => 
       ["installe", "attente_paiement"].includes(v.status)
     );
     
     // En attente de facturation: posé < 2 semaines
     const ventesAttenteFacturation = ventesPosees.filter(v => {
-      if (!v.date_pose) return true; // Si pas de date, on considère récent par défaut
-      return new Date(v.date_pose) > twoWeeksAgo;
+      if (!v.date_installation_reelle) return true; // Si pas de date, on considère récent par défaut
+      return new Date(v.date_installation_reelle) > twoWeeksAgo;
     });
     const comAttenteFacturation = ventesAttenteFacturation.reduce((sum, v) => {
       const comm = getCommission(v.id);
@@ -355,8 +355,8 @@ const Finance = () => {
     
     // À facturer: posé >= 2 semaines
     const ventesAFacturer = ventesPosees.filter(v => {
-      if (!v.date_pose) return false; // Si pas de date, pas facturable
-      return new Date(v.date_pose) <= twoWeeksAgo;
+      if (!v.date_installation_reelle) return false; // Si pas de date, pas facturable
+      return new Date(v.date_installation_reelle) <= twoWeeksAgo;
     });
     const comAFacturer = ventesAFacturer.reduce((sum, v) => {
       const comm = getCommission(v.id);
@@ -415,8 +415,8 @@ const Finance = () => {
     const filterByType = (statuses: string[], dateFilter?: 'recent' | 'old') => {
       return ventesForCommission.filter(v => {
         if (!statuses.includes(v.status)) return false;
-        if (dateFilter === 'recent') return !v.date_pose || new Date(v.date_pose) > twoWeeksAgo;
-        if (dateFilter === 'old') return v.date_pose && new Date(v.date_pose) <= twoWeeksAgo;
+        if (dateFilter === 'recent') return !v.date_installation_reelle || new Date(v.date_installation_reelle) > twoWeeksAgo;
+        if (dateFilter === 'old') return v.date_installation_reelle && new Date(v.date_installation_reelle) <= twoWeeksAgo;
         return true;
       });
     };
@@ -428,7 +428,7 @@ const Finance = () => {
         label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
         sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
         value: comm?.commissionNette || 0,
-        date: v.date_pose || v.date_signature || undefined,
+        date: v.date_installation_reelle || v.date_signature || undefined,
         navigateTo: `/ventes/${v.id}`,
       };
     });
