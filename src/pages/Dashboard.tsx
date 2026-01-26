@@ -289,8 +289,10 @@ const Dashboard = () => {
         v.status !== 'annule' &&
         v.type_vente !== 'external_installation' // Exclure les installations externes du CA
       );
+      // Ventes en cours = signées mais pas encore posées (signe -> envoi_pose)
+      const enCoursStatuses = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
       const ventesEnCours = ventes.filter((v: any) => 
-        v.status === 'en_negociation' || v.status === 'signe' || v.status === 'en_installation'
+        enCoursStatuses.includes(v.status) && v.status !== 'annule'
       );
 
       // Process RDV
