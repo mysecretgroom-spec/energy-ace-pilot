@@ -1,23 +1,28 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+import { ChevronRight, ChevronLeft, X, Sparkles, CheckCircle } from "lucide-react";
 
 import { WelcomeStep } from "./steps/WelcomeStep";
+import { FeaturesStep } from "./steps/FeaturesStep";
+import { AgentDemoStep } from "./steps/AgentDemoStep";
 import { WhatsAppStep } from "./steps/WhatsAppStep";
 import { GoogleStep } from "./steps/GoogleStep";
 import { DataConfigStep } from "./steps/DataConfigStep";
 import { CompletionStep } from "./steps/CompletionStep";
 
 const STEPS = [
-  { id: "welcome", label: "Bienvenue" },
-  { id: "whatsapp", label: "WhatsApp" },
-  { id: "google", label: "Google" },
-  { id: "data", label: "Données" },
-  { id: "complete", label: "Terminé" },
+  { id: "welcome", label: "Bienvenue", required: false },
+  { id: "features", label: "Fonctionnalités", required: false },
+  { id: "agent", label: "Assistant IA", required: false },
+  { id: "whatsapp", label: "WhatsApp", required: false },
+  { id: "google", label: "Google", required: false },
+  { id: "data", label: "Données", required: false },
+  { id: "complete", label: "Terminé", required: false },
 ];
 
 export function OnboardingDialog() {
@@ -92,31 +97,40 @@ export function OnboardingDialog() {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="max-w-lg p-0 gap-0 overflow-hidden"
+        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        {/* Progress bar */}
-        <div className="px-6 pt-6">
-          <Progress value={progress} className="h-1.5" />
-          <div className="flex justify-between mt-2">
+        {/* Header with progress */}
+        <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/5 to-transparent">
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-1.5 mb-4">
             {STEPS.map((step, index) => (
-              <span
+              <button
                 key={step.id}
-                className={`text-xs transition-colors ${
-                  index <= currentStep
-                    ? "text-primary font-medium"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {step.label}
-              </span>
+                onClick={() => setCurrentStep(index)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300",
+                  index === currentStep
+                    ? "bg-primary w-8"
+                    : index < currentStep
+                    ? "bg-primary/60 w-3"
+                    : "bg-muted w-3"
+                )}
+              />
             ))}
+          </div>
+          
+          {/* Step label */}
+          <div className="text-center">
+            <span className="text-xs font-medium text-muted-foreground">
+              Étape {currentStep + 1} sur {STEPS.length}
+            </span>
           </div>
         </div>
 
         {/* Step content */}
-        <div className="px-6 py-8 min-h-[400px]">
+        <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -126,36 +140,52 @@ export function OnboardingDialog() {
               transition={{ duration: 0.2 }}
             >
               {currentStep === 0 && <WelcomeStep />}
-              {currentStep === 1 && <WhatsAppStep />}
-              {currentStep === 2 && <GoogleStep />}
-              {currentStep === 3 && <DataConfigStep />}
-              {currentStep === 4 && <CompletionStep />}
+              {currentStep === 1 && <FeaturesStep />}
+              {currentStep === 2 && <AgentDemoStep />}
+              {currentStep === 3 && <WhatsAppStep />}
+              {currentStep === 4 && <GoogleStep />}
+              {currentStep === 5 && <DataConfigStep />}
+              {currentStep === 6 && <CompletionStep />}
             </motion.div>
           </AnimatePresence>
         </div>
 
         {/* Navigation */}
-        <div className="px-6 pb-6 flex items-center justify-between border-t pt-4 bg-muted/30">
+        <div className="px-6 py-4 flex items-center justify-between border-t bg-muted/20">
           <div>
             {currentStep > 0 && currentStep < STEPS.length - 1 && (
-              <Button variant="ghost" onClick={handlePrevious}>
-                Précédent
+              <Button 
+                variant="ghost" 
+                onClick={handlePrevious}
+                className="gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Retour
               </Button>
             )}
           </div>
           <div className="flex gap-2">
-            {currentStep < STEPS.length - 1 && (
-              <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+            {currentStep < STEPS.length - 1 && currentStep > 0 && (
+              <Button 
+                variant="ghost" 
+                onClick={handleSkip} 
+                className="text-muted-foreground"
+              >
                 Passer
               </Button>
             )}
             {currentStep < STEPS.length - 1 ? (
-              <Button onClick={handleNext}>
-                Suivant
+              <Button onClick={handleNext} className="gap-1">
+                {currentStep === 0 ? "Commencer" : "Suivant"}
+                <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleComplete} className="bg-green-600 hover:bg-green-700">
-                Commencer !
+              <Button 
+                onClick={handleComplete} 
+                className="gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+              >
+                <Sparkles className="h-4 w-4" />
+                C'est parti !
               </Button>
             )}
           </div>
