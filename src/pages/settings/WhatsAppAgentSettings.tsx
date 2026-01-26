@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import AgentActionsHistory from "@/components/settings/AgentActionsHistory";
 import AgentMemoryManager from "@/components/settings/AgentMemoryManager";
+import AgentPromptsManager from "@/components/settings/AgentPromptsManager";
 import { 
   Bot, 
   MessageCircle, 
@@ -21,7 +22,8 @@ import {
   Smartphone,
   History,
   Shield,
-  Brain
+  Brain,
+  Wand2
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -134,22 +136,30 @@ const WhatsAppAgentSettings = () => {
           </CardContent>
         </Card>
 
-        {/* Tabs for Messages and Actions */}
-        <Tabs defaultValue="memory" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="memory" className="gap-2">
+        {/* Tabs for Messages, Actions, Memory, and Prompts */}
+        <Tabs defaultValue="prompts" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="prompts" className="gap-1 text-xs">
+              <Wand2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Instructions</span>
+            </TabsTrigger>
+            <TabsTrigger value="memory" className="gap-1 text-xs">
               <Brain className="h-4 w-4" />
-              Mémoire
+              <span className="hidden sm:inline">Mémoire</span>
             </TabsTrigger>
-            <TabsTrigger value="actions" className="gap-2">
+            <TabsTrigger value="actions" className="gap-1 text-xs">
               <History className="h-4 w-4" />
-              Actions
+              <span className="hidden sm:inline">Actions</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2">
+            <TabsTrigger value="messages" className="gap-1 text-xs">
               <MessageCircle className="h-4 w-4" />
-              Messages
+              <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="prompts" className="mt-4">
+            <AgentPromptsManager />
+          </TabsContent>
           
           <TabsContent value="memory" className="mt-4">
             <AgentMemoryManager />

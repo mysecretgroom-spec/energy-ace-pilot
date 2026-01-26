@@ -126,6 +126,79 @@ interface AgentMemory {
   usage_count: number;
 }
 
+// User-defined prompt tokens for agent customization
+interface AgentPrompt {
+  id: string;
+  prompt_type: string;
+  title: string;
+  content: string;
+  priority: number;
+}
+
+// Load user's custom prompt tokens
+// deno-lint-ignore no-explicit-any
+async function loadUserPrompts(
+  supabase: any,
+  userId: string
+): Promise<AgentPrompt[]> {
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_agent_prompts")
+      .select("id, prompt_type, title, content, priority")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("priority", { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      console.error("Error loading user prompts:", error);
+      return [];
+    }
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+// Format user prompts for AI system prompt
+function formatPromptsForSystem(prompts: AgentPrompt[]): string {
+  if (!prompts || prompts.length === 0) {
+    return "";
+  }
+  
+  const grouped: Record<string, string[]> = {
+    persona: [],
+    instruction: [],
+    rule: [],
+    context: [],
+  };
+  
+  for (const prompt of prompts) {
+    const type = prompt.prompt_type || "instruction";
+    if (!grouped[type]) grouped[type] = [];
+    grouped[type].push(`• ${prompt.content}`);
+  }
+  
+  let result = "\n\n🎯 INSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR:";
+  
+  if (grouped.persona?.length) {
+    result += `\n\n👤 PERSONNALITÉ/TON:\n${grouped.persona.join("\n")}`;
+  }
+  if (grouped.instruction?.length) {
+    result += `\n\n📋 INSTRUCTIONS:\n${grouped.instruction.join("\n")}`;
+  }
+  if (grouped.rule?.length) {
+    result += `\n\n⚠️ RÈGLES IMPÉRATIVES:\n${grouped.rule.join("\n")}`;
+  }
+  if (grouped.context?.length) {
+    result += `\n\n💼 CONTEXTE MÉTIER:\n${grouped.context.join("\n")}`;
+  }
+  
+  result += "\n\n⚡ Ces instructions priment sur le comportement par défaut.";
+  
+  return result;
+}
+
 // Load user's agent memories
 // deno-lint-ignore no-explicit-any
 async function loadUserMemories(
@@ -739,20 +812,21 @@ serve(async (req) => {
       }
     }
 
-    // Get conversation context and user memories in parallel
-    const [conversationResult, userMemories] = await Promise.all([
+    // Get conversation context, user memories, and custom prompts in parallel
+    const [conversationResult, userMemories, userPrompts] = await Promise.all([
       supabase
         .from("whatsapp_conversations")
         .select("context, pending_action")
         .eq("user_id", request.userId)
         .single(),
-      loadUserMemories(supabase, request.userId)
+      loadUserMemories(supabase, request.userId),
+      loadUserPrompts(supabase, request.userId)
     ]);
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
     const pendingAction = conversationResult.data?.pending_action as PendingAction | null;
 
-    console.log(`Loaded ${userMemories.length} memories for user`);
+    console.log(`Loaded ${userMemories.length} memories and ${userPrompts.length} custom prompts for user`);
 
     // Check if we have a pending action that needs workflow handling
     let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
@@ -784,7 +858,7 @@ serve(async (req) => {
       }
     }
 
-    // If not handling a pending workflow, analyze intent with AI (with memories)
+    // If not handling a pending workflow, analyze intent with AI (with memories and custom prompts)
     if (!skipAiAnalysis) {
       aiResponse = await analyzeIntent(
         processedContent,
@@ -792,6 +866,7 @@ serve(async (req) => {
         conversationContext,
         pendingAction,
         userMemories,
+        userPrompts,
         LOVABLE_API_KEY
       );
     }
@@ -1733,6 +1808,7 @@ async function analyzeIntent(
   conversationContext: Array<{ role: string; content: string }>,
   pendingAction: unknown,
   userMemories: AgentMemory[],
+  userPrompts: AgentPrompt[],
   apiKey: string
 ): Promise<{
   intent: Intent;
@@ -1743,11 +1819,13 @@ async function analyzeIntent(
 }> {
   const today = new Date().toISOString().split("T")[0];
   const memoriesSection = formatMemoriesForPrompt(userMemories);
+  const customPromptsSection = formatPromptsForSystem(userPrompts);
   
   const systemPrompt = `Tu es l'assistant IA WhatsApp de DébalePro pour installateurs ENR.
 
 MÉMOIRE UTILISATEUR:
 ${memoriesSection}
+${customPromptsSection}
 
 ⚠️ CLASSIFICATION PRIORITAIRE - AVANT TOUTE CHOSE, DÉTERMINE:
 Est-ce une ACTION (créer/modifier des données) ou une REMARQUE/CORRECTION (feedback sur mon comportement)?
