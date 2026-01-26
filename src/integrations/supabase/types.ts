@@ -2789,6 +2789,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      get_dashboard_kpis: {
+        Args: { p_month?: number; p_user_id: string; p_year?: number }
+        Returns: Json
+      }
       get_delinquent_subscriptions: {
         Args: { p_past_due_before: string }
         Returns: {
@@ -2801,6 +2805,10 @@ export type Database = {
           trial_ends_at: string
           user_id: string
         }[]
+      }
+      get_frais_summary: {
+        Args: { p_end_date?: string; p_start_date?: string; p_user_id: string }
+        Returns: Json
       }
       get_monthly_stats: {
         Args: { p_end_date: string; p_start_date: string; p_user_id: string }
@@ -2817,6 +2825,15 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      get_rdv_planning: {
+        Args: {
+          p_end_date: string
+          p_include_cancelled?: boolean
+          p_start_date: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       get_revenue_analytics: {
         Args: { p_end_date?: string; p_start_date?: string }
@@ -2912,6 +2929,10 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      search_client_fuzzy: {
+        Args: { p_limit?: number; p_query: string; p_user_id: string }
+        Returns: Json
       }
       store_mfa_verification: { Args: never; Returns: string }
       undo_agent_action: { Args: { p_action_id: string }; Returns: Json }
