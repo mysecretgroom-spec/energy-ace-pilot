@@ -78,8 +78,7 @@ export const RGECardDialog = () => {
         {/* RGE Card - Rotated for landscape view */}
         <div className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center">
           <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col">
-            {/* Header with Ministère and France Rénov logos - LARGE */}
-            <div className="bg-white py-6 px-8 flex items-center justify-between shrink-0">
+            <div className="bg-white py-6 px-8 flex items-center justify-center gap-16">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
@@ -101,7 +100,7 @@ export const RGECardDialog = () => {
 
             {/* Main content - centered rectangle */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-2xl border border-white/20 shadow-xl">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-3xl border border-white/20 shadow-xl">
                 {/* Photo and info */}
                 <div className="flex gap-6 items-center">
                   <div className="relative shrink-0">
@@ -165,7 +164,7 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Footer with certifications */}
-            <div className="bg-white py-3 px-6 shrink-0">
+            <div className="bg-white py-4 px-8 shrink-0">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider">
                   Certifications
