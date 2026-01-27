@@ -37,7 +37,7 @@ import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
-// Données communes PAC/ITE
+// Données communes
 const dataSharedItems = [
   { icon: Flame, label: "Prix énergies fossiles", description: "Gaz, fioul, propane, bois", path: "/parametres/data-energies-prix" },
   { icon: MapPin, label: "Zones climatiques (DJU)", description: "Besoins chauffage par région", path: "/parametres/data-zones-climatiques" },
@@ -58,6 +58,8 @@ const dataPacItems = [
   { icon: Shield, label: "Niveaux d'isolation", description: "Coefficients et besoins kWh/m²", path: "/parametres/data-isolation-pac" },
   { icon: Thermometer, label: "COP par température", description: "Performance selon T° ext.", path: "/parametres/data-cop-pac" },
   { icon: Zap, label: "Puissances recommandées", description: "kW selon surface", path: "/parametres/data-puissances-pac" },
+  { icon: Zap, label: "Types de compteurs", description: "Monophasé, triphasé", path: "/parametres/data-compteurs" },
+  { icon: Gauge, label: "Calibres disjoncteur", description: "Ampérage et puissances kVA", path: "/parametres/data-calibres" },
   { icon: Gift, label: "Aides & Primes PAC", description: "MaPrimeRénov, CEE", path: "/parametres/data-aides-pac" },
 ];
 
@@ -246,7 +248,7 @@ const Parametres = () => {
           </h3>
           <div className="space-y-2">
             <DataProductSection
-              title="Données Communes (PAC & ITE)"
+              title="Données Communes"
               icon={Flame}
               iconColor="text-red-600"
               bgColor="bg-red-500/10"
