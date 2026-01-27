@@ -15,6 +15,7 @@ type Intent =
   | "mark_signe"           // Marquer une vente comme signée (workflow complet)
   | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
   | "update_vente_data"    // Modifier les données d'une vente (prix, puissance, technicien, dates)
+  | "create_external_vente" // Créer une vente externe (installation tierce) - peut créer nouveau client
   | "import_document" 
   | "import_facture" 
   | "query_commissions"
@@ -44,6 +45,7 @@ type Intent =
 type WorkflowState = 
   | "awaiting_confirmation"      // En attente de confirmation utilisateur
   | "collecting_signe_data"      // Collecte des données pour signature (puissance, prix, etc.)
+  | "collecting_external_vente_data" // Collecte des données pour vente externe (nouveau client optionnel)
   | "awaiting_whatsapp_approval" // En attente d'approbation du message WhatsApp
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
@@ -82,6 +84,10 @@ interface PendingAction {
     choices?: ChoiceOption[];       // Les options proposées
     originalIntent?: Intent;        // L'intention originale à exécuter après sélection
     searchQuery?: string;           // La recherche originale pour contexte
+    // Pour les ventes externes avec nouveau client
+    isNewClient?: boolean;          // Indique qu'on crée un nouveau client
+    commission?: number;            // Commission HT pour vente externe
+    datePose?: string;              // Date de pose pour vente externe
   };
   createdAt: string;
 }
@@ -2846,6 +2852,165 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "collecting_external_vente_data": {
+      // Collecting data for external sale (installation externe)
+      const collectedData = pendingAction.collectedData || {};
+      
+      // Check for confirmation
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon", "d'accord"];
+      const isConfirming = confirmPatterns.some(p => messageLower.includes(p));
+      
+      // If we have all data and user confirms, execute
+      if (isConfirming && collectedData.clientName && collectedData.commission && collectedData.datePose) {
+        // Create client if new
+        let clientId = collectedData.clientId;
+        
+        if (collectedData.isNewClient && !clientId) {
+          // Create the new client
+          const { data: newClient, error: clientError } = await supabase
+            .from("clients")
+            .insert({
+              user_id: userId,
+              nom: collectedData.clientName,
+              source: "whatsapp_agent",
+              regie_id: collectedData.regieId || null,
+            })
+            .select("id")
+            .single();
+          
+          if (clientError) {
+            console.error("Error creating client:", clientError);
+            return {
+              intent: "create_external_vente",
+              actionTaken: "error",
+              newPendingAction: null,
+              responseMessage: `❌ Erreur lors de la création du client: ${clientError.message}`,
+            };
+          }
+          
+          clientId = newClient?.id;
+          console.log(`Created new client ${collectedData.clientName} with ID: ${clientId}`);
+        }
+        
+        if (!clientId) {
+          return {
+            intent: "create_external_vente",
+            actionTaken: "error",
+            newPendingAction: null,
+            responseMessage: "❌ Erreur: impossible de créer ou trouver le client.",
+          };
+        }
+        
+        // Create the external vente
+        const { data: vente, error: venteError } = await supabase
+          .from("ventes")
+          .insert({
+            user_id: userId,
+            client_id: clientId,
+            montant_ht: collectedData.commission,
+            montant_ttc: collectedData.commission, // Same for external
+            type_vente: "external_installation",
+            status: "installe",
+            date_signature: collectedData.datePose,
+            date_installation_reelle: collectedData.datePose,
+            regie_id: collectedData.regieId || null,
+          })
+          .select("id")
+          .single();
+        
+        if (venteError) {
+          console.error("Error creating external vente:", venteError);
+          return {
+            intent: "create_external_vente",
+            actionTaken: "error",
+            newPendingAction: null,
+            responseMessage: `❌ Erreur lors de la création de la vente: ${venteError.message}`,
+          };
+        }
+        
+        // Log the action
+        await logAgentAction(
+          supabase,
+          userId,
+          null,
+          "create_external_vente",
+          "ventes",
+          vente?.id,
+          { 
+            client_name: collectedData.clientName, 
+            commission: collectedData.commission, 
+            date_pose: collectedData.datePose,
+            is_new_client: collectedData.isNewClient,
+          },
+          null,
+          `Vente externe créée: ${collectedData.clientName} - ${collectedData.commission}€ HT`
+        );
+        
+        return {
+          intent: "create_external_vente",
+          actionTaken: "external_vente_created",
+          entityId: vente?.id,
+          entityType: "vente",
+          newPendingAction: null,
+          responseMessage: `✅ *Vente externe créée !*\n\n👤 Client: ${collectedData.clientName}${collectedData.isNewClient ? " (nouveau)" : ""}\n📅 Posé le: ${new Date(collectedData.datePose!).toLocaleDateString("fr-FR")}\n💰 Commission: ${collectedData.commission?.toLocaleString("fr-FR")}€ HT`,
+        };
+      }
+      
+      // If not confirming, try to extract data from message
+      const numbers = userMessage.match(/(\d+(?:[.,]\d+)?)/g);
+      
+      // Try to extract commission amount
+      if (!collectedData.commission && numbers) {
+        for (const num of numbers) {
+          const amount = parseFloat(num.replace(",", "."));
+          if (amount >= 50 && amount <= 50000) { // Reasonable commission range
+            collectedData.commission = amount;
+            break;
+          }
+        }
+      }
+      
+      // Try to extract date (various formats)
+      if (!collectedData.datePose) {
+        // Check for DD/MM/YYYY or DD-MM-YYYY format
+        const dateMatch = userMessage.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        if (dateMatch) {
+          const day = parseInt(dateMatch[1]);
+          const month = parseInt(dateMatch[2]) - 1;
+          let year = parseInt(dateMatch[3]);
+          if (year < 100) year += 2000;
+          const parsedDate = new Date(year, month, day);
+          if (!isNaN(parsedDate.getTime())) {
+            collectedData.datePose = parsedDate.toISOString().split("T")[0];
+          }
+        }
+      }
+      
+      // Build next question or summary
+      let nextQuestion = "";
+      
+      if (!collectedData.clientName) {
+        nextQuestion = "👤 Quel est le nom du client ?";
+      } else if (!collectedData.commission) {
+        nextQuestion = "💰 Quel est le montant de la commission (en € HT) ?";
+      } else if (!collectedData.datePose) {
+        nextQuestion = "📅 Quelle est la date de pose ? (ex: 20/01/2026)";
+      } else {
+        // All data collected - show summary
+        nextQuestion = `📝 *Récapitulatif vente externe:*\n\n👤 Client: ${collectedData.clientName}${collectedData.isNewClient ? " (nouveau)" : ""}\n📅 Date de pose: ${new Date(collectedData.datePose).toLocaleDateString("fr-FR")}\n💰 Commission: ${collectedData.commission?.toLocaleString("fr-FR")}€ HT\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      return {
+        intent: "create_external_vente",
+        actionTaken: "collecting_data",
+        newPendingAction: {
+          ...pendingAction,
+          collectedData,
+        },
+        responseMessage: nextQuestion,
+      };
+    }
+    
     default:
       return null;
   }
@@ -2872,6 +3037,8 @@ function getIntentActionDescription(intent: Intent, entities: Record<string, unk
       return `enregistrer cette vente comme signée`;
     case "update_vente_data":
       return `modifier les données de cette vente`;
+    case "create_external_vente":
+      return `créer une vente externe avec commission`;
     default:
       return `traiter ta demande`;
   }
@@ -3212,9 +3379,18 @@ RÈGLES CRITIQUES:
 4. Pour "absent/négatif" → update_vente_status
 5. Actions en masse: LISTER d'abord, demander confirmation explicite
 6. Si le message CRITIQUE ou CORRIGE mon comportement → TOUJOURS user_feedback
+7. Pour "vente externe/installation externe/commission externe" → create_external_vente (crée client si nouveau)
+
+🔧 VENTES EXTERNES (create_external_vente):
+- Une vente externe = installation faite par un tiers (pas tes propres dossiers)
+- Tu enregistres uniquement ta COMMISSION (pas de CA)
+- SI le client n'existe pas (recherche échouée), tu PEUX le créer automatiquement
+- Données à collecter: nom_client, commission_ht, date_pose
+- Si l'utilisateur dit "c'est un nouveau client" après une recherche échouée → mets is_new_client: true dans les entities
+- Exemple: "vente externe Massenat 700€ posé le 20/01" → create_external_vente
 
 ⚠️ CONFIRMATION OBLIGATOIRE - RÈGLE ABSOLUE:
-- Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data), tu DOIS:
+- Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente), tu DOIS:
   1. REFORMULER ce que tu as compris de manière claire et précise
   2. DEMANDER CONFIRMATION explicite avec "Confirmes-tu ?" (Oui/Non)
   3. Mettre requiresConfirmation: true dans ta réponse
@@ -3279,7 +3455,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -3308,7 +3484,10 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     frais_categorie: { type: "string", enum: ["carburant", "repas", "hotel", "peage", "parking", "train", "location_vehicule", "autre"], description: "Expense category filter" },
                     feedback_type: { type: "string", enum: ["correction", "preference", "rule", "alias"] },
                     feedback_key: { type: "string", description: "What the user wants to correct or define" },
-                    feedback_value: { type: "string", description: "The correction or preference value" }
+                    feedback_value: { type: "string", description: "The correction or preference value" },
+                    commission: { type: "number", description: "Commission amount in EUR HT for external sales" },
+                    date_pose: { type: "string", description: "Installation date in YYYY-MM-DD format for external sales" },
+                    is_new_client: { type: "boolean", description: "True if the client doesn't exist and should be created" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -4192,6 +4371,109 @@ async function executeAction(
       
       return {
         actionTaken: "collecting_signe_data",
+        entityType: "workflow",
+        newPendingAction: pendingAction,
+        customResponse: responseMsg,
+      };
+    }
+
+    case "create_external_vente": {
+      // Create an external sale (installation done by third party, only commission)
+      const clientName = entities.client_name as string;
+      const commission = entities.commission as number || entities.amount as number;
+      const datePose = entities.date_pose as string || entities.date as string;
+      const isNewClient = entities.is_new_client as boolean;
+      
+      if (!clientName) {
+        return {
+          actionTaken: "missing_data",
+          customResponse: "❌ Indique-moi le nom du client pour cette vente externe.",
+        };
+      }
+      
+      // First, try to find the client
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      // If client not found and user hasn't confirmed new client creation
+      if (searchResult.notFound && !isNewClient) {
+        // Start workflow to collect data and potentially create new client
+        const pendingAction: PendingAction = {
+          intent: "create_external_vente",
+          entities,
+          workflowState: "collecting_external_vente_data",
+          collectedData: {
+            clientName: clientName,
+            isNewClient: true, // Client doesn't exist, will need to create
+            commission: commission || undefined,
+            datePose: datePose || undefined,
+          },
+          createdAt: new Date().toISOString(),
+        };
+        
+        let responseMsg = `📦 *Vente externe pour ${clientName}* (nouveau client)\n\n`;
+        
+        if (!commission) {
+          responseMsg += "💰 Quel est le montant de la *commission* (en € HT) ?";
+        } else if (!datePose) {
+          responseMsg += "📅 Quelle est la *date de pose* ? (ex: 20/01/2026)";
+        } else {
+          responseMsg += `📝 Récap:\n• Client: ${clientName} (nouveau)\n• Commission: ${commission.toLocaleString("fr-FR")}€ HT\n• Posé le: ${datePose}\n\n*Confirmes-tu ?* (Oui/Non)`;
+        }
+        
+        return {
+          actionTaken: "collecting_external_vente_data",
+          entityType: "workflow",
+          newPendingAction: pendingAction,
+          customResponse: responseMsg,
+        };
+      }
+      
+      // If client not found with suggestions, offer disambiguation
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0 && !isNewClient) {
+        const poll = generateChoicePoll(
+          searchResult.suggestions,
+          clientName,
+          "create_external_vente",
+          entities
+        );
+        
+        return {
+          actionTaken: "client_ambiguous",
+          newPendingAction: poll.pendingAction,
+          customResponse: poll.responseMessage,
+        };
+      }
+      
+      // Client found or creating new one
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      // Start the workflow with found/new client
+      const pendingAction: PendingAction = {
+        intent: "create_external_vente",
+        entities,
+        workflowState: "collecting_external_vente_data",
+        collectedData: {
+          clientId: matchedClient?.id,
+          clientName: matchedClient?.fullName || clientName,
+          isNewClient: isNewClient || false,
+          commission: commission || undefined,
+          datePose: datePose || undefined,
+        },
+        createdAt: new Date().toISOString(),
+      };
+      
+      let responseMsg = `📦 *Vente externe pour ${matchedClient?.fullName || clientName}*\n\n`;
+      
+      if (!commission) {
+        responseMsg += "💰 Quel est le montant de la *commission* (en € HT) ?";
+      } else if (!datePose) {
+        responseMsg += "📅 Quelle est la *date de pose* ? (ex: 20/01/2026)";
+      } else {
+        responseMsg += `📝 Récap:\n• Client: ${matchedClient?.fullName || clientName}\n• Commission: ${commission.toLocaleString("fr-FR")}€ HT\n• Posé le: ${datePose}\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      return {
+        actionTaken: "collecting_external_vente_data",
         entityType: "workflow",
         newPendingAction: pendingAction,
         customResponse: responseMsg,
