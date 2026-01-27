@@ -116,17 +116,17 @@ export const RGECardDialog = () => {
           onTouchEnd={handleTouchEnd}
         >
           <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
-            {/* Header with Ministère and France Rénov logos - more spacing */}
-            <div className="bg-white py-4 px-8 flex items-center justify-center gap-24 rounded-t-3xl">
+            {/* Header with Ministère and France Rénov logos - larger and more spaced */}
+            <div className="bg-white py-6 px-12 flex items-center justify-between rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-16 object-contain"
+                className="h-20 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-16 object-contain"
+                className="h-20 object-contain"
               />
             </div>
 
