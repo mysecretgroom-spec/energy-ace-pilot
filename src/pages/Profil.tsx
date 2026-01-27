@@ -409,18 +409,18 @@ const Profil = () => {
               </div>
             </div>
 
-            {/* Stage name section */}
+            {/* Alias name section */}
             <div className="pt-4 border-t border-border">
               <div className="flex items-center gap-2 mb-3">
                 <IdCard className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Nom de scène</span>
+                <span className="text-sm font-medium">Alias</span>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 Utilisés uniquement dans les études et sur la carte RGE. L'agent IA utilisera votre vrai nom.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="prenom_scene">Prénom de scène</Label>
+                  <Label htmlFor="prenom_scene">Prénom Alias</Label>
                   <Input
                     id="prenom_scene"
                     value={formData.prenom_scene}
@@ -431,7 +431,7 @@ const Profil = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nom_scene">Nom de scène</Label>
+                  <Label htmlFor="nom_scene">Nom Alias</Label>
                   <Input
                     id="nom_scene"
                     value={formData.nom_scene}
