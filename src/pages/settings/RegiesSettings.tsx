@@ -332,10 +332,11 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, bouquetsRes, financementsRes, regieSurcoutsRes, globalSurcoutsRes] = await Promise.all([
+      const [emailsRes, contactsRes, regieBouquetsRes, globalBouquetsRes, financementsRes, regieSurcoutsRes, globalSurcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("bouquets").select("*").contains("regie_ids", [regieId]).order("puissance_kwc"),
+        supabase.from("bouquets").select("*").is("regie_ids", null).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
         supabase.from("regies_surcouts").select("*").is("regie_id", null).order("categorie"),
@@ -343,11 +344,24 @@ const RegiesSettings = () => {
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
-      // Transform bouquets to match RegieBouquet interface
-      setRegieBouquets((bouquetsRes.data || []).map((b: any) => ({
+      
+      // Merge regie-specific and global bouquets
+      const regieBouquetsData = (regieBouquetsRes.data || []).map((b: any) => ({
         ...b,
-        regie_id: regieId, // For backwards compatibility with the interface
-      })));
+        regie_id: regieId,
+        isGlobal: false,
+      }));
+      const globalBouquetsData = (globalBouquetsRes.data || []).map((b: any) => ({
+        ...b,
+        regie_id: regieId,
+        isGlobal: true,
+      }));
+      
+      // Filter out global bouquets that have been overridden by regie-specific ones (same nom_bouquet + product_type)
+      const regieKeys = new Set(regieBouquetsData.map((b: any) => `${b.product_type || 'PV'}-${b.nom_bouquet}`));
+      const nonOverriddenGlobalBouquets = globalBouquetsData.filter((b: any) => !regieKeys.has(`${b.product_type || 'PV'}-${b.nom_bouquet}`));
+      
+      setRegieBouquets([...regieBouquetsData, ...nonOverriddenGlobalBouquets]);
       setRegieFinancements(financementsRes.data || []);
       
       // Merge global and regie-specific surcouts
@@ -358,8 +372,8 @@ const RegiesSettings = () => {
       })) as RegieSurcout[];
       
       // Filter out global surcouts that have been overridden by regie-specific ones
-      const regieKeys = new Set(regieSurcoutsData.map(s => `${s.categorie}-${s.code}`));
-      const nonOverriddenGlobals = globalSurcoutsData.filter(s => !regieKeys.has(`${s.categorie}-${s.code}`));
+      const surcoutKeys = new Set(regieSurcoutsData.map(s => `${s.categorie}-${s.code}`));
+      const nonOverriddenGlobals = globalSurcoutsData.filter(s => !surcoutKeys.has(`${s.categorie}-${s.code}`));
       
       setRegieSurcouts([...regieSurcoutsData, ...nonOverriddenGlobals]);
     } catch (error) {

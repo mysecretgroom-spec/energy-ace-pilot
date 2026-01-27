@@ -33,6 +33,7 @@ interface RegieBouquet {
   description: string | null;
   actif: boolean;
   product_type: ProductType | null;
+  isGlobal?: boolean;
 }
 
 interface SelectedRegie {
@@ -312,23 +313,32 @@ export function ProductBouquetsSection({
 
                   {/* Liste des bouquets */}
                   {bouquets.map((bouquet) => (
-                    <Card key={bouquet.id}>
+                    <Card key={bouquet.id} className={bouquet.isGlobal ? "border-dashed" : ""}>
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
+                              {bouquet.isGlobal && (
+                                <Badge variant="outline" className="text-[10px] h-4">
+                                  Par défaut
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {bouquet.puissance_kwc} {cfg.unit}
                             </p>
                           </div>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="text-destructive h-8 w-8"
-                            onClick={() => handleDeleteBouquet(bouquet.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!bouquet.isGlobal && (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="text-destructive h-8 w-8"
+                              onClick={() => handleDeleteBouquet(bouquet.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                         <div className="flex gap-4 mt-3">
                           <div className="flex-1">
