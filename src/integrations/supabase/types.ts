@@ -2034,10 +2034,12 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          nom_scene: string | null
           numero_agrement: string | null
           onboarding_completed: boolean
           phone: string | null
           pin_code: string | null
+          prenom_scene: string | null
           telephone_pro: string | null
           updated_at: string
           user_id: string
@@ -2052,10 +2054,12 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          nom_scene?: string | null
           numero_agrement?: string | null
           onboarding_completed?: boolean
           phone?: string | null
           pin_code?: string | null
+          prenom_scene?: string | null
           telephone_pro?: string | null
           updated_at?: string
           user_id: string
@@ -2070,10 +2074,12 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          nom_scene?: string | null
           numero_agrement?: string | null
           onboarding_completed?: boolean
           phone?: string | null
           pin_code?: string | null
+          prenom_scene?: string | null
           telephone_pro?: string | null
           updated_at?: string
           user_id?: string

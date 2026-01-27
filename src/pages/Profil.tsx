@@ -23,6 +23,8 @@ interface Profile {
   created_at: string;
   numero_agrement: string | null;
   telephone_pro: string | null;
+  nom_scene: string | null;
+  prenom_scene: string | null;
 }
 
 const Profil = () => {
@@ -41,6 +43,8 @@ const Profil = () => {
     zone_geographique: "",
     numero_agrement: "",
     telephone_pro: "",
+    nom_scene: "",
+    prenom_scene: "",
   });
   const [originalFormData, setOriginalFormData] = useState({
     first_name: "",
@@ -49,6 +53,8 @@ const Profil = () => {
     zone_geographique: "",
     numero_agrement: "",
     telephone_pro: "",
+    nom_scene: "",
+    prenom_scene: "",
   });
 
   const hasChanges = useMemo(() => {
@@ -58,7 +64,9 @@ const Profil = () => {
       formData.phone !== originalFormData.phone ||
       formData.zone_geographique !== originalFormData.zone_geographique ||
       formData.numero_agrement !== originalFormData.numero_agrement ||
-      formData.telephone_pro !== originalFormData.telephone_pro
+      formData.telephone_pro !== originalFormData.telephone_pro ||
+      formData.nom_scene !== originalFormData.nom_scene ||
+      formData.prenom_scene !== originalFormData.prenom_scene
     );
   }, [formData, originalFormData]);
 
@@ -89,6 +97,8 @@ const Profil = () => {
           zone_geographique: data.zone_geographique || "",
           numero_agrement: data.numero_agrement || "",
           telephone_pro: data.telephone_pro || "",
+          nom_scene: data.nom_scene || "",
+          prenom_scene: data.prenom_scene || "",
         };
         setFormData(newFormData);
         setOriginalFormData(newFormData);
@@ -119,6 +129,8 @@ const Profil = () => {
           zone_geographique: formData.zone_geographique || null,
           numero_agrement: formData.numero_agrement || null,
           telephone_pro: formData.telephone_pro || null,
+          nom_scene: formData.nom_scene || null,
+          prenom_scene: formData.prenom_scene || null,
         })
         .eq("user_id", user.id);
 
@@ -394,6 +406,41 @@ const Profil = () => {
                   }
                   placeholder="Durand"
                 />
+              </div>
+            </div>
+
+            {/* Stage name section */}
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <IdCard className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Nom de scène</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Utilisés uniquement dans les études et sur la carte RGE. L'agent IA utilisera votre vrai nom.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="prenom_scene">Prénom de scène</Label>
+                  <Input
+                    id="prenom_scene"
+                    value={formData.prenom_scene}
+                    onChange={(e) =>
+                      setFormData({ ...formData, prenom_scene: e.target.value })
+                    }
+                    placeholder="Ex: Jean-Pierre"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nom_scene">Nom de scène</Label>
+                  <Input
+                    id="nom_scene"
+                    value={formData.nom_scene}
+                    onChange={(e) =>
+                      setFormData({ ...formData, nom_scene: e.target.value })
+                    }
+                    placeholder="Ex: Martin"
+                  />
+                </div>
               </div>
             </div>
 

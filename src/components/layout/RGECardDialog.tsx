@@ -28,6 +28,8 @@ interface Profile {
   avatar_url: string | null;
   numero_agrement: string | null;
   telephone_pro: string | null;
+  nom_scene: string | null;
+  prenom_scene: string | null;
 }
 
 export const RGECardDialog = () => {
@@ -52,7 +54,7 @@ export const RGECardDialog = () => {
     
     const { data } = await supabase
       .from("profiles")
-      .select("first_name, last_name, avatar_url, numero_agrement, telephone_pro")
+      .select("first_name, last_name, avatar_url, numero_agrement, telephone_pro, nom_scene, prenom_scene")
       .eq("user_id", user.id)
       .single();
 
@@ -85,8 +87,11 @@ export const RGECardDialog = () => {
     setDragY(0);
   };
 
-  const fullName = profile?.first_name || profile?.last_name
-    ? `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()
+  // Use stage name if available, otherwise fallback to real name
+  const displayFirstName = profile?.prenom_scene || profile?.first_name;
+  const displayLastName = profile?.nom_scene || profile?.last_name;
+  const fullName = displayFirstName || displayLastName
+    ? `${displayFirstName || ""} ${displayLastName || ""}`.trim()
     : null;
 
   return (
