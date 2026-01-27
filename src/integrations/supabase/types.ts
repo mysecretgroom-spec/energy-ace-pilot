@@ -2364,7 +2364,7 @@ export type Database = {
           regie_id: string | null
           type_calcul: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           actif?: boolean
@@ -2377,7 +2377,7 @@ export type Database = {
           regie_id?: string | null
           type_calcul?: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           actif?: boolean
@@ -2390,7 +2390,7 @@ export type Database = {
           regie_id?: string | null
           type_calcul?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
