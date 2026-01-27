@@ -30,10 +30,18 @@ import {
   Layers,
   PaintBucket,
   ChevronDown,
+  Flame,
+  MapPin,
 } from "lucide-react";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+
+// Données communes PAC/ITE
+const dataSharedItems = [
+  { icon: Flame, label: "Prix énergies fossiles", description: "Gaz, fioul, propane, bois", path: "/parametres/data-energies-prix" },
+  { icon: MapPin, label: "Zones climatiques (DJU)", description: "Besoins chauffage par région", path: "/parametres/data-zones-climatiques" },
+];
 
 // Données PV
 const dataPvItems = [
@@ -50,12 +58,15 @@ const dataPacItems = [
   { icon: Shield, label: "Niveaux d'isolation", description: "Coefficients et besoins kWh/m²", path: "/parametres/data-isolation-pac" },
   { icon: Thermometer, label: "COP par température", description: "Performance selon T° ext.", path: "/parametres/data-cop-pac" },
   { icon: Zap, label: "Puissances recommandées", description: "kW selon surface", path: "/parametres/data-puissances-pac" },
+  { icon: Gift, label: "Aides & Primes PAC", description: "MaPrimeRénov, CEE", path: "/parametres/data-aides-pac" },
 ];
 
 // Données ITE
 const dataIteItems = [
   { icon: Layers, label: "Types d'isolants", description: "Lambda, prix au m²", path: "/parametres/data-isolants-ite" },
   { icon: PaintBucket, label: "Finitions", description: "Enduit, bardage, prix", path: "/parametres/data-finitions-ite" },
+  { icon: Home, label: "Types de murs", description: "R initial selon mur existant", path: "/parametres/data-murs-ite" },
+  { icon: Gift, label: "Aides & Primes ITE", description: "MaPrimeRénov, CEE", path: "/parametres/data-aides-ite" },
 ];
 
 const settingsSections = [
@@ -235,12 +246,19 @@ const Parametres = () => {
           </h3>
           <div className="space-y-2">
             <DataProductSection
+              title="Données Communes (PAC & ITE)"
+              icon={Flame}
+              iconColor="text-red-600"
+              bgColor="bg-red-500/10"
+              items={dataSharedItems}
+              defaultOpen
+            />
+            <DataProductSection
               title="Données Photovoltaïque (PV)"
               icon={Sun}
               iconColor="text-yellow-600"
               bgColor="bg-yellow-500/10"
               items={dataPvItems}
-              defaultOpen
             />
             <DataProductSection
               title="Données Pompe à Chaleur (PAC)"

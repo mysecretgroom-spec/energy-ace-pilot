@@ -446,6 +446,96 @@ export type Database = {
         }
         Relationships: []
       }
+      data_aides_ite: {
+        Row: {
+          actif: boolean
+          code: string
+          conditions: string | null
+          created_at: string
+          id: string
+          montant_m2: number | null
+          montant_plafond: number | null
+          nom: string
+          profil_revenus: string | null
+          surface_min: number | null
+          type_aide: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          code: string
+          conditions?: string | null
+          created_at?: string
+          id?: string
+          montant_m2?: number | null
+          montant_plafond?: number | null
+          nom: string
+          profil_revenus?: string | null
+          surface_min?: number | null
+          type_aide: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          code?: string
+          conditions?: string | null
+          created_at?: string
+          id?: string
+          montant_m2?: number | null
+          montant_plafond?: number | null
+          nom?: string
+          profil_revenus?: string | null
+          surface_min?: number | null
+          type_aide?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_aides_pac: {
+        Row: {
+          actif: boolean
+          code: string
+          conditions: string | null
+          created_at: string
+          id: string
+          montant_fixe: number | null
+          montant_plafond: number | null
+          nom: string
+          pac_subtype: string | null
+          profil_revenus: string | null
+          type_aide: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          code: string
+          conditions?: string | null
+          created_at?: string
+          id?: string
+          montant_fixe?: number | null
+          montant_plafond?: number | null
+          nom: string
+          pac_subtype?: string | null
+          profil_revenus?: string | null
+          type_aide: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          code?: string
+          conditions?: string | null
+          created_at?: string
+          id?: string
+          montant_fixe?: number | null
+          montant_plafond?: number | null
+          nom?: string
+          pac_subtype?: string | null
+          profil_revenus?: string | null
+          type_aide?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_calibres: {
         Row: {
           actif: boolean
@@ -542,6 +632,42 @@ export type Database = {
         }
         Relationships: []
       }
+      data_energies_prix: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          id: string
+          pouvoir_calorifique_kwh: number | null
+          prix_kwh: number
+          type_energie: string
+          unite: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          pouvoir_calorifique_kwh?: number | null
+          prix_kwh?: number
+          type_energie: string
+          unite?: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          pouvoir_calorifique_kwh?: number | null
+          prix_kwh?: number
+          type_energie?: string
+          unite?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_financements: {
         Row: {
           actif: boolean
@@ -575,6 +701,42 @@ export type Database = {
           taux_effectif?: number
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_ite_economies: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          economie_chauffage_pct: number
+          gain_r_max: number
+          gain_r_min: number
+          id: string
+          user_id: string | null
+          zone_climatique: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          economie_chauffage_pct: number
+          gain_r_max: number
+          gain_r_min: number
+          id?: string
+          user_id?: string | null
+          zone_climatique?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          economie_chauffage_pct?: number
+          gain_r_max?: number
+          gain_r_min?: number
+          id?: string
+          user_id?: string | null
+          zone_climatique?: string | null
         }
         Relationships: []
       }
@@ -637,6 +799,42 @@ export type Database = {
           lambda?: number
           prix_m2?: number
           type_isolant?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_ite_murs: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          epaisseur_cm: number | null
+          id: string
+          r_initial: number
+          type_mur: string
+          u_initial: number
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          epaisseur_cm?: number | null
+          id?: string
+          r_initial: number
+          type_mur: string
+          u_initial: number
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          epaisseur_cm?: number | null
+          id?: string
+          r_initial?: number
+          type_mur?: string
+          u_initial?: number
           user_id?: string | null
         }
         Relationships: []
@@ -878,6 +1076,45 @@ export type Database = {
           puissance_min?: number
           type_revente?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_zones_climatiques: {
+        Row: {
+          actif: boolean
+          altitude_moyenne: number | null
+          created_at: string
+          department_code: string
+          department_name: string
+          description: string | null
+          dju_base18: number
+          id: string
+          user_id: string | null
+          zone_climatique: string
+        }
+        Insert: {
+          actif?: boolean
+          altitude_moyenne?: number | null
+          created_at?: string
+          department_code: string
+          department_name: string
+          description?: string | null
+          dju_base18: number
+          id?: string
+          user_id?: string | null
+          zone_climatique: string
+        }
+        Update: {
+          actif?: boolean
+          altitude_moyenne?: number | null
+          created_at?: string
+          department_code?: string
+          department_name?: string
+          description?: string | null
+          dju_base18?: number
+          id?: string
+          user_id?: string | null
+          zone_climatique?: string
         }
         Relationships: []
       }
