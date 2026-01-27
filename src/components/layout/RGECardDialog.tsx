@@ -192,9 +192,9 @@ export const RGECardDialog = () => {
                   </div>
 
                   {/* Agrément number + QR Code stacked vertically */}
-                  <div className="shrink-0 flex flex-col items-center gap-4">
+                  <div className="shrink-0 flex flex-col items-center gap-4 w-40">
                     {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg p-5 text-center">
+                    <div className="bg-white/15 rounded-lg p-5 text-center w-full">
                       <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
                         N° d'Agrément
                       </p>
@@ -207,11 +207,11 @@ export const RGECardDialog = () => {
                       )}
                     </div>
 
-                    {/* QR Code - no background */}
-                    <div className="text-center flex flex-col items-center gap-2">
+                    {/* QR Code - same width */}
+                    <div className="text-center flex flex-col items-center gap-2 w-full">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
+                        className="bg-white p-3 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md w-full flex justify-center"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
