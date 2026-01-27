@@ -59,9 +59,9 @@ export const RGECardDialog = () => {
     return (first + last).toUpperCase() || "?";
   };
 
-  const fullName = profile?.first_name && profile?.last_name
-    ? `${profile.first_name} ${profile.last_name}`
-    : "Commercial";
+  const fullName = profile?.first_name || profile?.last_name
+    ? `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim()
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -107,32 +107,51 @@ export const RGECardDialog = () => {
                   <Avatar className="h-24 w-24 border-4 border-white/40 shadow-lg shrink-0">
                     <AvatarImage src={profile?.avatar_url || undefined} />
                     <AvatarFallback className="bg-white/20 text-white text-2xl font-bold">
-                      {getInitials()}
+                      {profile?.avatar_url ? getInitials() : "?"}
                     </AvatarFallback>
                   </Avatar>
+                  {!profile?.avatar_url && (
+                    <div className="absolute -bottom-1 left-20 bg-amber-500 text-[8px] px-1 rounded text-white">
+                      Photo manquante
+                    </div>
+                  )}
                   
                   <div className="flex-1">
-                    <h4 className="text-2xl font-bold mb-1">{fullName}</h4>
+                    {fullName ? (
+                      <h4 className="text-2xl font-bold mb-1">{fullName}</h4>
+                    ) : (
+                      <div className="mb-1">
+                        <p className="text-lg text-white/50 italic">Nom Prénom</p>
+                        <p className="text-[10px] text-amber-400">À renseigner dans le profil</p>
+                      </div>
+                    )}
                     <p className="text-white/80 text-sm mb-2">Technicien agréé</p>
-                    {profile?.telephone_pro && (
+                    {profile?.telephone_pro ? (
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="h-4 w-4" />
                         <span>{profile.telephone_pro}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-white/50" />
+                        <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
                     )}
                   </div>
                   
                   {/* Agrément number */}
-                  {profile?.numero_agrement && (
-                    <div className="bg-white/15 rounded-lg p-3 shrink-0 text-center">
-                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
-                        N° d'Agrément
-                      </p>
+                  <div className="bg-white/15 rounded-lg p-3 shrink-0 text-center">
+                    <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                      N° d'Agrément
+                    </p>
+                    {profile?.numero_agrement ? (
                       <p className="text-lg font-mono font-bold">
                         {profile.numero_agrement}
                       </p>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-sm text-white/50 italic">Non renseigné</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Certifications logos */}
