@@ -70,7 +70,7 @@ export const RGECardDialog = () => {
           <IdCard className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm p-0 overflow-hidden">
+      <DialogContent className="w-full h-full max-w-none max-h-none m-0 p-0 overflow-hidden rounded-none border-none flex flex-col">
         <DialogHeader className="sr-only">
           <DialogTitle>Carte RGE Professionnelle</DialogTitle>
         </DialogHeader>
