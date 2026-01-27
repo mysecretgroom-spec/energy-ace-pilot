@@ -46,6 +46,12 @@ import ObjectifsSettings from "./pages/settings/ObjectifsSettings";
 import RegiesSettings from "./pages/settings/RegiesSettings";
 import WhatsAppTemplatesSettings from "./pages/settings/WhatsAppTemplatesSettings";
 import WhatsAppAgentSettings from "./pages/settings/WhatsAppAgentSettings";
+import DataEnergiesPrix from "./pages/settings/DataEnergiesPrix";
+import DataZonesClimatiques from "./pages/settings/DataZonesClimatiques";
+import DataAidesPAC from "./pages/settings/DataAidesPAC";
+import DataAidesITE from "./pages/settings/DataAidesITE";
+import DataMursITE from "./pages/settings/DataMursITE";
+import DataEconomiesITE from "./pages/settings/DataEconomiesITE";
 import RegieDashboard from "./pages/RegieDashboard";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
@@ -124,6 +130,12 @@ const App = () => {
                   <Route path="/parametres/data-puissances-pac" element={<ProtectedRoute><DataPuissancesPAC /></ProtectedRoute>} />
                   <Route path="/parametres/data-isolants-ite" element={<ProtectedRoute><DataIsolantsITE /></ProtectedRoute>} />
                   <Route path="/parametres/data-finitions-ite" element={<ProtectedRoute><DataFinitionsITE /></ProtectedRoute>} />
+                  <Route path="/parametres/data-energies-prix" element={<ProtectedRoute><DataEnergiesPrix /></ProtectedRoute>} />
+                  <Route path="/parametres/data-zones-climatiques" element={<ProtectedRoute><DataZonesClimatiques /></ProtectedRoute>} />
+                  <Route path="/parametres/data-aides-pac" element={<ProtectedRoute><DataAidesPAC /></ProtectedRoute>} />
+                  <Route path="/parametres/data-aides-ite" element={<ProtectedRoute><DataAidesITE /></ProtectedRoute>} />
+                  <Route path="/parametres/data-murs-ite" element={<ProtectedRoute><DataMursITE /></ProtectedRoute>} />
+                  <Route path="/parametres/data-economies-ite" element={<ProtectedRoute><DataEconomiesITE /></ProtectedRoute>} />
                   <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                   <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
