@@ -104,18 +104,26 @@ export const RGECardDialog = () => {
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-2xl border border-white/20 shadow-xl">
                 {/* Photo and info */}
                 <div className="flex gap-6 items-center">
-                  <Avatar className="h-24 w-24 border-4 border-white/40 shadow-lg shrink-0">
-                    <AvatarImage src={profile?.avatar_url || undefined} />
-                    <AvatarFallback className="bg-white/20 text-white text-2xl font-bold">
-                      {profile?.avatar_url ? getInitials() : "?"}
-                    </AvatarFallback>
-                  </Avatar>
-                  {!profile?.avatar_url && (
-                    <div className="absolute -bottom-1 left-20 bg-amber-500 text-[8px] px-1 rounded text-white">
-                      Photo manquante
+                  <div className="relative shrink-0">
+                    <div className="h-28 w-20 border-4 border-white/40 shadow-lg rounded-lg overflow-hidden bg-white/20">
+                      {profile?.avatar_url ? (
+                        <img 
+                          src={profile.avatar_url} 
+                          alt="Photo" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
+                          ?
+                        </div>
+                      )}
                     </div>
-                  )}
-                  
+                    {!profile?.avatar_url && (
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 text-[8px] px-1 rounded text-white whitespace-nowrap">
+                        Photo manquante
+                      </div>
+                    )}
+                  </div>
                   <div className="flex-1">
                     {fullName ? (
                       <h4 className="text-2xl font-bold mb-1">{fullName}</h4>
