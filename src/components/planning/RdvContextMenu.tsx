@@ -119,7 +119,7 @@ export function RdvContextMenu({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/60 z-50"
+            className="fixed inset-0 bg-black/60 z-[100]"
             onClick={handleBackdropInteraction}
             onTouchEnd={handleBackdropInteraction}
           />
@@ -130,7 +130,7 @@ export function RdvContextMenu({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl border-t shadow-2xl max-h-[80vh] overflow-y-auto overscroll-contain"
+            className="fixed inset-x-0 bottom-0 z-[100] bg-background rounded-t-2xl border-t shadow-2xl max-h-[80vh] overflow-y-auto overscroll-contain safe-bottom"
           >
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-2">
