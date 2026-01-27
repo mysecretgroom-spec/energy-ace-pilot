@@ -184,13 +184,13 @@ export const RGECardDialog = () => {
                     )}
                     <p className="text-white/80 text-base mb-3">Technicien agréé</p>
                     {profile?.telephone_pro ? (
-                      <div className="flex items-center justify-center gap-2 text-base">
-                        <Phone className="h-5 w-5" />
-                        <span>{profile.telephone_pro}</span>
+                      <div className="flex items-center justify-center gap-3 text-xl">
+                        <Phone className="h-7 w-7" />
+                        <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-2 text-base">
-                        <Phone className="h-5 w-5 text-white/50" />
+                      <div className="flex items-center justify-center gap-3 text-xl">
+                        <Phone className="h-7 w-7 text-white/50" />
                         <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
                     )}
