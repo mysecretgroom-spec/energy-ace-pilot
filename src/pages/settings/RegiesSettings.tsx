@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
+import { EditRegieDialog } from "@/components/regie/EditRegieDialog";
 import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
 import { ProductSurcoutsSection } from "@/components/regie/ProductSurcoutsSection";
 import { SiretSearchField } from "@/components/regie/SiretSearchField";
@@ -147,9 +148,10 @@ const RegiesSettings = () => {
   const [regieFinancements, setRegieFinancements] = useState<RegieFinancement[]>([]);
   const [regieSurcouts, setRegieSurcouts] = useState<RegieSurcout[]>([]);
   
-  // Create dialog
+  // Create/Edit dialogs
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingHejja, setIsCreatingHejja] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   
   // Edit forms
   const [newEmail, setNewEmail] = useState({ email: "", nom_source: "" });
@@ -977,6 +979,17 @@ const RegiesSettings = () => {
                       className="h-8 w-8 text-white hover:bg-white/20"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setIsEditing(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-8 w-8 text-white hover:bg-white/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate(`/regies/${selectedRegie.id}`);
                       }}
                     >
@@ -1505,6 +1518,19 @@ const RegiesSettings = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Edit Regie Dialog */}
+        {selectedRegie && (
+          <EditRegieDialog
+            open={isEditing}
+            onOpenChange={setIsEditing}
+            regie={selectedRegie}
+            onSuccess={(updatedRegie) => {
+              setSelectedRegie({ ...selectedRegie, ...updatedRegie });
+              setRegies(regies.map(r => r.id === updatedRegie.id ? { ...r, ...updatedRegie } : r));
+            }}
+          />
+        )}
       </div>
     </MobileLayout>
   );

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Building2, Check, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Loader2, Building2, Check, Search, Keyboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CompanyResult {
@@ -19,6 +19,7 @@ interface SiretSearchFieldProps {
   value: string;
   onChange: (siret: string, company?: CompanyResult) => void;
   className?: string;
+  allowManualEntry?: boolean;
 }
 
 export function SiretSearchField({
@@ -26,12 +27,15 @@ export function SiretSearchField({
   value,
   onChange,
   className,
+  allowManualEntry = false,
 }: SiretSearchFieldProps) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CompanyResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualSiret, setManualSiret] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -46,15 +50,23 @@ export function SiretSearchField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Initialize manual mode if value exists but no search results
+  useEffect(() => {
+    if (value && allowManualEntry && !selectedCompany && !hasSearched) {
+      setManualMode(true);
+      setManualSiret(value);
+    }
+  }, [value, allowManualEntry, selectedCompany, hasSearched]);
+
   // Search when company name changes and has at least 3 characters
   useEffect(() => {
-    if (companyName.length >= 3) {
+    if (companyName.length >= 3 && !manualMode) {
       searchCompanies(companyName);
-    } else {
+    } else if (!manualMode) {
       setResults([]);
       setHasSearched(false);
     }
-  }, [companyName]);
+  }, [companyName, manualMode]);
 
   const searchCompanies = async (query: string) => {
     setLoading(true);
@@ -102,6 +114,24 @@ export function SiretSearchField({
     setSelectedCompany(company);
     onChange(company.siret, company);
     setShowDropdown(false);
+    setManualMode(false);
+  };
+
+  const handleManualSiretChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits
+    const cleaned = e.target.value.replace(/\D/g, "").slice(0, 14);
+    setManualSiret(cleaned);
+    onChange(cleaned);
+  };
+
+  const toggleManualMode = () => {
+    setManualMode(!manualMode);
+    if (!manualMode) {
+      setSelectedCompany(null);
+      setManualSiret(value);
+    } else {
+      setManualSiret("");
+    }
   };
 
   const formatSiret = (siret: string) => {
@@ -109,29 +139,65 @@ export function SiretSearchField({
     return siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4');
   };
 
+  const isRequired = !allowManualEntry;
+
   return (
     <div ref={containerRef} className={cn("space-y-2 relative", className)}>
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          SIRET <span className="text-destructive">*</span>
+          SIRET {isRequired && <span className="text-destructive">*</span>}
         </Label>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        <div className="flex items-center gap-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {allowManualEntry && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs gap-1"
+              onClick={toggleManualMode}
+            >
+              {manualMode ? (
+                <>
+                  <Search className="h-3 w-3" />
+                  Rechercher
+                </>
+              ) : (
+                <>
+                  <Keyboard className="h-3 w-3" />
+                  Saisir
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative">
-        <Input
-          value={value ? formatSiret(value) : ""}
-          placeholder={companyName.length < 3 ? "Saisissez le nom pour rechercher..." : "Sélectionner dans la liste..."}
-          readOnly
-          onClick={() => results.length > 0 && setShowDropdown(true)}
-          className={cn(
-            "cursor-pointer",
-            results.length > 0 && "pr-10",
-            !value && hasSearched && results.length > 0 && "border-destructive"
-          )}
-        />
-        {results.length > 0 && (
+        {manualMode ? (
+          <Input
+            value={manualSiret ? formatSiret(manualSiret) : ""}
+            placeholder="Saisir les 14 chiffres du SIRET..."
+            onChange={handleManualSiretChange}
+            className={cn(
+              manualSiret && manualSiret.length === 14 && "border-green-500"
+            )}
+          />
+        ) : (
+          <Input
+            value={value ? formatSiret(value) : ""}
+            placeholder={companyName.length < 3 ? "Saisissez le nom pour rechercher..." : "Sélectionner dans la liste..."}
+            readOnly
+            onClick={() => results.length > 0 && setShowDropdown(true)}
+            className={cn(
+              "cursor-pointer",
+              results.length > 0 && "pr-10",
+              !value && hasSearched && results.length > 0 && isRequired && "border-destructive"
+            )}
+          />
+        )}
+        {!manualMode && results.length > 0 && (
           <Search 
             className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer"
             onClick={() => setShowDropdown(true)}
@@ -139,8 +205,19 @@ export function SiretSearchField({
         )}
       </div>
 
+      {/* Manual mode validation */}
+      {manualMode && manualSiret && (
+        <p className={cn(
+          "text-xs",
+          manualSiret.length === 14 ? "text-green-600" : "text-muted-foreground"
+        )}>
+          {manualSiret.length}/14 chiffres
+          {manualSiret.length === 14 && " ✓"}
+        </p>
+      )}
+
       {/* Selected company info */}
-      {selectedCompany && (
+      {selectedCompany && !manualMode && (
         <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
           <p className="font-medium text-foreground">{selectedCompany.nom}</p>
           {selectedCompany.ville && (
@@ -150,7 +227,7 @@ export function SiretSearchField({
       )}
 
       {/* Dropdown */}
-      {showDropdown && results.length > 0 && (
+      {showDropdown && results.length > 0 && !manualMode && (
         <div
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-64 overflow-auto"
@@ -188,14 +265,23 @@ export function SiretSearchField({
       )}
 
       {/* No results message */}
-      {hasSearched && !loading && results.length === 0 && companyName.length >= 3 && (
+      {hasSearched && !loading && results.length === 0 && companyName.length >= 3 && !manualMode && (
         <p className="text-xs text-destructive">
           Aucune entreprise trouvée pour "{companyName}"
+          {allowManualEntry && (
+            <button
+              type="button"
+              className="ml-1 underline"
+              onClick={() => setManualMode(true)}
+            >
+              Saisir manuellement
+            </button>
+          )}
         </p>
       )}
 
       {/* Required hint when results available but none selected */}
-      {!value && hasSearched && results.length > 0 && !showDropdown && (
+      {!value && hasSearched && results.length > 0 && !showDropdown && !manualMode && isRequired && (
         <p className="text-xs text-destructive">
           Veuillez sélectionner une entreprise dans la liste
         </p>
