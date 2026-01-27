@@ -5,9 +5,24 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, MapPin, Snowflake, ThermometerSun } from "lucide-react";
+import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, MapPin, Snowflake, ThermometerSun, PlugZap } from "lucide-react";
 import { PacSubtype } from "@/lib/productTypes";
 import { useEtudeReferenceData } from "@/hooks/useEtudeReferenceData";
+import { supabase } from "@/integrations/supabase/client";
+
+interface CompteurData {
+  id: string;
+  type_compteur: string;
+  montant: number;
+  actif: boolean;
+}
+
+interface CalibreData {
+  id: string;
+  calibre_amperes: number;
+  puissance_kva: number;
+  actif: boolean;
+}
 
 interface PACFieldsEnhancedProps {
   data: {
@@ -26,6 +41,9 @@ interface PACFieldsEnhancedProps {
     pacFactureElecEuros: number | "";
     pacNiveauIsolation: string;
     pacPrixKwhElec: number | "";
+    typeCompteur?: string;
+    calibreDisjoncteur?: number | "";
+    puissanceSouscriteKva?: number | "";
   };
   departement?: string;
   onChange: (field: string, value: unknown) => void;
@@ -73,8 +91,34 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, onEconomiesCalc
     loading,
   } = useEtudeReferenceData();
 
+  // Compteurs et calibres depuis la DB
+  const [compteurs, setCompteurs] = useState<CompteurData[]>([]);
+  const [calibres, setCalibres] = useState<CalibreData[]>([]);
+
+  useEffect(() => {
+    const loadElecData = async () => {
+      const [compteursRes, calibresRes] = await Promise.all([
+        supabase.from("data_compteurs").select("*").eq("actif", true).order("type_compteur"),
+        supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
+      ]);
+      if (compteursRes.data) setCompteurs(compteursRes.data as CompteurData[]);
+      if (calibresRes.data) setCalibres(calibresRes.data as CalibreData[]);
+    };
+    loadElecData();
+  }, []);
+
   // Température extérieure moyenne de conception (basée sur zone climatique)
   const [temperatureBase, setTemperatureBase] = useState(7);
+
+  // Auto-set puissance souscrite when calibre changes
+  useEffect(() => {
+    if (data.calibreDisjoncteur) {
+      const calibre = calibres.find(c => c.calibre_amperes === Number(data.calibreDisjoncteur));
+      if (calibre && !data.puissanceSouscriteKva) {
+        onChange("puissanceSouscriteKva", calibre.puissance_kva);
+      }
+    }
+  }, [data.calibreDisjoncteur, calibres]);
 
   // Get zone climatique from département
   const zoneClimatique = useMemo(() => {
@@ -377,6 +421,74 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, onEconomiesCalc
                 <span className="text-muted-foreground">Total énergie actuel</span>
                 <span className="font-medium">{(factureChauf + factureElec).toLocaleString("fr-FR")} €/an</span>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Installation électrique */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <PlugZap className="h-4 w-4 text-amber-600" />
+            Installation électrique
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label>Type compteur</Label>
+              <Select value={data.typeCompteur || ""} onValueChange={(val) => onChange("typeCompteur", val)}>
+                <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  {compteurs.map((c) => (
+                    <SelectItem key={c.id} value={c.type_compteur}>
+                      {c.type_compteur}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Calibre (A)</Label>
+              <Select 
+                value={data.calibreDisjoncteur ? String(data.calibreDisjoncteur) : ""} 
+                onValueChange={(val) => onChange("calibreDisjoncteur", Number(val))}
+              >
+                <SelectTrigger><SelectValue placeholder="A" /></SelectTrigger>
+                <SelectContent>
+                  {calibres.map((c) => (
+                    <SelectItem key={c.id} value={String(c.calibre_amperes)}>
+                      {c.calibre_amperes}A
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Puissance (kVA)</Label>
+              <Input
+                type="number"
+                step="0.5"
+                value={data.puissanceSouscriteKva || ""}
+                onChange={(e) => onChange("puissanceSouscriteKva", e.target.value ? Number(e.target.value) : "")}
+                placeholder="6"
+              />
+            </div>
+          </div>
+          {Number(data.puissanceSouscriteKva) > 0 && Number(data.pacPuissanceCalorifique) > 0 && (
+            <div className={`p-3 rounded-lg border ${
+              Number(data.puissanceSouscriteKva) >= Number(data.pacPuissanceCalorifique) * 0.4
+                ? "bg-green-50 border-green-200"
+                : "bg-amber-50 border-amber-200"
+            }`}>
+              <p className="text-xs">
+                {Number(data.puissanceSouscriteKva) >= Number(data.pacPuissanceCalorifique) * 0.4 ? (
+                  <span className="text-green-700 font-medium">✓ Puissance souscrite adaptée à la PAC</span>
+                ) : (
+                  <span className="text-amber-700 font-medium">⚠️ Prévoir augmentation puissance souscrite</span>
+                )}
+              </p>
             </div>
           )}
         </CardContent>
