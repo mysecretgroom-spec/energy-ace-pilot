@@ -336,7 +336,7 @@ const RegiesSettings = () => {
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("bouquets").select("*").contains("regie_ids", [regieId]).order("puissance_kwc"),
-        supabase.from("bouquets").select("*").is("regie_ids", null).order("puissance_kwc"),
+        supabase.from("bouquets").select("*").is("regie_ids", null).eq("actif", true).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
         supabase.from("regies_surcouts").select("*").is("regie_id", null).order("categorie"),

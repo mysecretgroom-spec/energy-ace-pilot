@@ -88,8 +88,12 @@ export function ProductBouquetsSection({
   });
 
   // Filter bouquets by product type (null = PV for backwards compatibility)
+  // Only show active bouquets
   const getBouquetsByProduct = (productType: ProductType) => {
     return regieBouquets.filter(b => {
+      // Only show active bouquets
+      if (!b.actif) return false;
+      
       if (productType === "PV") {
         return !b.product_type || b.product_type === "PV";
       }
@@ -135,11 +139,36 @@ export function ProductBouquetsSection({
     }
   };
 
-  const handleDeleteBouquet = async (bouquetId: string) => {
+  const handleDeleteBouquet = async (bouquet: RegieBouquet) => {
     try {
-      const { error } = await supabase.from("bouquets").delete().eq("id", bouquetId);
-      if (error) throw error;
-      toast.success("Bouquet supprimé");
+      if (bouquet.isGlobal) {
+        // For global bouquets, create a regie-specific inactive copy to "exclude" it
+        const { error } = await supabase.from("bouquets").insert({
+          user_id: userId,
+          nom_bouquet: bouquet.nom_bouquet,
+          puissance_kwc: bouquet.puissance_kwc,
+          prix_recommande: bouquet.prix_recommande,
+          prix_max: bouquet.prix_max,
+          prix_hejja: bouquet.prix_hejja || 0,
+          commission_fixe: bouquet.commission_fixe,
+          commission_pct: bouquet.commission_pct || 0,
+          description: bouquet.description,
+          regie_ids: [selectedRegie.id],
+          product_type: bouquet.product_type || "PV",
+          actif: false, // Mark as inactive for this regie
+        });
+
+        if (error) throw error;
+        toast.success("Bouquet désactivé pour cette régie");
+      } else {
+        // For regie-specific bouquets, just delete or deactivate
+        const { error } = await supabase
+          .from("bouquets")
+          .update({ actif: false })
+          .eq("id", bouquet.id);
+        if (error) throw error;
+        toast.success("Bouquet désactivé");
+      }
       onRefresh();
     } catch (error) {
       console.error("Error deleting bouquet:", error);
@@ -319,9 +348,14 @@ export function ProductBouquetsSection({
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
-                              {bouquet.isGlobal && (
+                          {bouquet.isGlobal && (
                                 <Badge variant="outline" className="text-[10px] h-4">
                                   Par défaut
+                                </Badge>
+                              )}
+                              {!bouquet.actif && (
+                                <Badge variant="secondary" className="text-[10px] h-4 bg-destructive/10 text-destructive">
+                                  Désactivé
                                 </Badge>
                               )}
                             </div>
@@ -329,16 +363,15 @@ export function ProductBouquetsSection({
                               {bouquet.puissance_kwc} {cfg.unit}
                             </p>
                           </div>
-                          {!bouquet.isGlobal && (
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="text-destructive h-8 w-8"
-                              onClick={() => handleDeleteBouquet(bouquet.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="text-destructive h-8 w-8"
+                            onClick={() => handleDeleteBouquet(bouquet)}
+                            title={bouquet.isGlobal ? "Désactiver pour cette régie" : "Désactiver"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                         <div className="flex gap-4 mt-3">
                           <div className="flex-1">
