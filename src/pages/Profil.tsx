@@ -9,7 +9,7 @@ import { MFAProtectedContent } from "@/components/auth/MFAProtectedContent";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Mail, Phone, MapPin, Shield } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, Shield, IdCard, Briefcase } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -20,6 +20,8 @@ interface Profile {
   zone_geographique: string | null;
   avatar_url: string | null;
   created_at: string;
+  numero_agrement: string | null;
+  telephone_pro: string | null;
 }
 
 const Profil = () => {
@@ -34,12 +36,16 @@ const Profil = () => {
     last_name: "",
     phone: "",
     zone_geographique: "",
+    numero_agrement: "",
+    telephone_pro: "",
   });
   const [originalFormData, setOriginalFormData] = useState({
     first_name: "",
     last_name: "",
     phone: "",
     zone_geographique: "",
+    numero_agrement: "",
+    telephone_pro: "",
   });
 
   const hasChanges = useMemo(() => {
@@ -47,7 +53,9 @@ const Profil = () => {
       formData.first_name !== originalFormData.first_name ||
       formData.last_name !== originalFormData.last_name ||
       formData.phone !== originalFormData.phone ||
-      formData.zone_geographique !== originalFormData.zone_geographique
+      formData.zone_geographique !== originalFormData.zone_geographique ||
+      formData.numero_agrement !== originalFormData.numero_agrement ||
+      formData.telephone_pro !== originalFormData.telephone_pro
     );
   }, [formData, originalFormData]);
 
@@ -76,6 +84,8 @@ const Profil = () => {
           last_name: data.last_name || "",
           phone: data.phone || "",
           zone_geographique: data.zone_geographique || "",
+          numero_agrement: data.numero_agrement || "",
+          telephone_pro: data.telephone_pro || "",
         };
         setFormData(newFormData);
         setOriginalFormData(newFormData);
@@ -104,6 +114,8 @@ const Profil = () => {
           last_name: formData.last_name || null,
           phone: formData.phone || null,
           zone_geographique: formData.zone_geographique || null,
+          numero_agrement: formData.numero_agrement || null,
+          telephone_pro: formData.telephone_pro || null,
         })
         .eq("user_id", user.id);
 
@@ -201,9 +213,16 @@ const Profil = () => {
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Phone className="h-3 w-3" />
-                    Téléphone
+                    Téléphone personnel
                   </Label>
                   <Input value={formData.phone || "—"} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Briefcase className="h-3 w-3" />
+                    Téléphone professionnel
+                  </Label>
+                  <Input value={formData.telephone_pro || "—"} disabled className="bg-muted" />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
@@ -211,6 +230,13 @@ const Profil = () => {
                     Zone géographique
                   </Label>
                   <Input value={formData.zone_geographique || "—"} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <IdCard className="h-3 w-3" />
+                    N° Agrément RGE
+                  </Label>
+                  <Input value={formData.numero_agrement || "—"} disabled className="bg-muted" />
                 </div>
                 <p className="text-xs text-muted-foreground text-center pt-2">
                   Cliquez sur "Modifier le profil" pour éditer vos informations
@@ -271,7 +297,7 @@ const Profil = () => {
             <div className="space-y-2">
               <Label htmlFor="phone" className="flex items-center gap-2">
                 <Phone className="h-3 w-3" />
-                Téléphone
+                Téléphone personnel
               </Label>
               <Input
                 id="phone"
@@ -282,6 +308,28 @@ const Profil = () => {
                 }
                 placeholder="06 12 34 56 78"
               />
+              <p className="text-xs text-muted-foreground">
+                Utilisé pour contacter l'agent WhatsApp
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telephone_pro" className="flex items-center gap-2">
+                <Briefcase className="h-3 w-3" />
+                Téléphone professionnel
+              </Label>
+              <Input
+                id="telephone_pro"
+                type="tel"
+                value={formData.telephone_pro}
+                onChange={(e) =>
+                  setFormData({ ...formData, telephone_pro: e.target.value })
+                }
+                placeholder="01 23 45 67 89"
+              />
+              <p className="text-xs text-muted-foreground">
+                Affiché sur la carte RGE
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -303,6 +351,24 @@ const Profil = () => {
                 }
                 placeholder="Rhône-Alpes"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="numero_agrement" className="flex items-center gap-2">
+                <IdCard className="h-3 w-3" />
+                N° Agrément RGE
+              </Label>
+              <Input
+                id="numero_agrement"
+                value={formData.numero_agrement}
+                onChange={(e) =>
+                  setFormData({ ...formData, numero_agrement: e.target.value })
+                }
+                placeholder="RGE-XXXXX-XXXXX"
+              />
+              <p className="text-xs text-muted-foreground">
+                Affiché sur la carte RGE professionnelle
+              </p>
             </div>
           </CardContent>
         </Card>
