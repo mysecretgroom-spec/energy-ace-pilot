@@ -35,6 +35,7 @@ interface Profile {
 export const RGECardDialog = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentRegieName, setCurrentRegieName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -43,6 +44,7 @@ export const RGECardDialog = () => {
   useEffect(() => {
     if (user && open) {
       fetchProfile();
+      fetchCurrentOrNextRdvRegie();
     }
     if (!open) {
       setDragY(0);
@@ -60,6 +62,65 @@ export const RGECardDialog = () => {
 
     if (data) {
       setProfile(data);
+    }
+  };
+
+  const fetchCurrentOrNextRdvRegie = async () => {
+    if (!user) return;
+    
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // First, try to find current RDV (date_heure <= now, ordered by most recent)
+    const { data: currentRdv } = await supabase
+      .from("rdv")
+      .select(`
+        id,
+        date_heure,
+        duree_minutes,
+        regie_id,
+        regies:regie_id (nom)
+      `)
+      .eq("user_id", user.id)
+      .lte("date_heure", nowIso)
+      .not("status", "in", '("annule","reporte")')
+      .order("date_heure", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (currentRdv?.regies) {
+      // Check if the RDV is still ongoing
+      const rdvStart = new Date(currentRdv.date_heure);
+      const rdvEnd = new Date(rdvStart.getTime() + (currentRdv.duree_minutes || 60) * 60 * 1000);
+      
+      if (now <= rdvEnd) {
+        const regie = currentRdv.regies as { nom: string };
+        setCurrentRegieName(regie.nom);
+        return;
+      }
+    }
+
+    // If no current RDV, find next upcoming RDV
+    const { data: nextRdv } = await supabase
+      .from("rdv")
+      .select(`
+        id,
+        date_heure,
+        regie_id,
+        regies:regie_id (nom)
+      `)
+      .eq("user_id", user.id)
+      .gte("date_heure", nowIso)
+      .not("status", "in", '("annule","reporte")')
+      .order("date_heure", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (nextRdv?.regies) {
+      const regie = nextRdv.regies as { nom: string };
+      setCurrentRegieName(regie.nom);
+    } else {
+      setCurrentRegieName(null);
     }
   };
 
@@ -175,14 +236,17 @@ export const RGECardDialog = () => {
                   {/* Technician info - centered */}
                   <div className="text-center">
                     {fullName ? (
-                      <h4 className="text-3xl font-bold mb-2">{fullName}</h4>
+                      <h4 className="text-3xl font-bold mb-1">{fullName}</h4>
                     ) : (
-                      <div className="mb-2">
+                      <div className="mb-1">
                         <p className="text-xl text-white/50 italic">Nom Prénom</p>
                         <p className="text-[10px] text-amber-400">À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 text-base mb-3">Technicien agréé</p>
+                    <p className="text-white/80 text-base mb-1">Technicien agréé</p>
+                    {currentRegieName && (
+                      <p className="text-lg font-semibold text-white/90 mb-2">{currentRegieName}</p>
+                    )}
                     {profile?.telephone_pro ? (
                       <div className="flex items-center justify-center gap-3 text-xl">
                         <Phone className="h-7 w-7" />
