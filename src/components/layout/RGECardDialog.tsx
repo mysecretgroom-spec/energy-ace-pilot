@@ -146,8 +146,8 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Main content - larger floating inner card */}
-            <div className="flex-1 flex items-center justify-center p-4">
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
+            <div className="flex-1 flex items-center justify-center p-2 pb-1">
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-4xl h-full max-h-[85%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
                 {/* Photo and info - centered layout */}
                 <div className="flex-1 flex items-center justify-center gap-10 p-10">
                   {/* Photo - height matches the two stacked elements */}
