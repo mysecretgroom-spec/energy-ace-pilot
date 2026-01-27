@@ -145,9 +145,9 @@ export const RGECardDialog = () => {
               <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
                 {/* Photo and info - centered layout */}
                 <div className="flex-1 flex items-center justify-center gap-10 p-10">
-                  {/* Photo - larger */}
+                  {/* Photo - height matches the two stacked elements */}
                   <div className="relative shrink-0">
-                    <div className="h-40 w-28 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
+                    <div className="h-52 w-36 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -191,35 +191,38 @@ export const RGECardDialog = () => {
                     )}
                   </div>
 
-                  {/* Agrément number */}
-                  <div className="bg-white/15 rounded-lg p-5 shrink-0 text-center">
-                    <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
-                      N° d'Agrément
-                    </p>
-                    {profile?.numero_agrement ? (
-                      <p className="text-2xl font-mono font-bold">
-                        {profile.numero_agrement}
+                  {/* Agrément number + QR Code stacked vertically */}
+                  <div className="shrink-0 flex flex-col items-center gap-4">
+                    {/* Agrément number */}
+                    <div className="bg-white/15 rounded-lg p-5 text-center">
+                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                        N° d'Agrément
                       </p>
-                    ) : (
-                      <p className="text-sm text-white/50 italic">Non renseigné</p>
-                    )}
-                  </div>
+                      {profile?.numero_agrement ? (
+                        <p className="text-2xl font-mono font-bold">
+                          {profile.numero_agrement}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-white/50 italic">Non renseigné</p>
+                      )}
+                    </div>
 
-                  {/* QR Code - no background */}
-                  <div className="shrink-0 text-center flex flex-col items-center gap-2">
-                    <button
-                      onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                      className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
-                      title="Vérifier sur France Rénov'"
-                    >
-                      <QRCodeSVG 
-                        value={FRANCE_RENOV_URL} 
-                        size={80}
-                        level="M"
-                        includeMargin={false}
-                      />
-                    </button>
-                    <p className="text-[9px] text-white/70">Vérifier sur France Rénov'</p>
+                    {/* QR Code - no background */}
+                    <div className="text-center flex flex-col items-center gap-2">
+                      <button
+                        onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
+                        className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
+                        title="Vérifier sur France Rénov'"
+                      >
+                        <QRCodeSVG 
+                          value={FRANCE_RENOV_URL} 
+                          size={70}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </button>
+                      <p className="text-[9px] text-white/70">Vérifier sur France Rénov'</p>
+                    </div>
                   </div>
                 </div>
 
