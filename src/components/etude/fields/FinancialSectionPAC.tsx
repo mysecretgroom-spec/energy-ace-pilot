@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Euro, PiggyBank, CreditCard, TrendingUp, Flame, Zap, Thermometer } from "lucide-react";
+import { Euro, PiggyBank, CreditCard, TrendingUp, Flame, Zap, Thermometer, AlertCircle, TrendingDown } from "lucide-react";
 
 interface AidesPAC {
   maPrimeRenov: number;
@@ -33,23 +33,19 @@ interface FinancialSectionPACProps {
   onDureeMoisChange: (mois: number | "") => void;
   mensualiteManuelle: number | "";
   onMensualiteChange: (value: number | "") => void;
-  // Factures actuelles
+  // Factures actuelles et économies
   factureChauf: number;
   factureElec: number;
   copMoyen: number;
+  // Économies calculées depuis PACFields
+  economiesCalculees?: {
+    besoinsChauffageKwh: number;
+    consoElecPacKwh: number;
+    surcoutElecEuros: number;
+    economieNetteEuros: number;
+    economieNetteMessage: number;
+  } | null;
 }
-
-const AIDES_PAC_BASE = {
-  // MaPrimeRénov' selon revenus et type PAC (barèmes 2024-2025)
-  air_eau: {
-    maPrimeRenov: { tres_modeste: 5000, modeste: 4000, intermediaire: 3000, aise: 0 },
-    cee: 4000, // CEE moyen estimé
-  },
-  air_air: {
-    maPrimeRenov: { tres_modeste: 0, modeste: 0, intermediaire: 0, aise: 0 }, // PAC Air/Air non éligible
-    cee: 900, // CEE moyen estimé
-  },
-};
 
 export const FinancialSectionPAC = ({
   pacSubtype,
@@ -72,12 +68,10 @@ export const FinancialSectionPAC = ({
   factureChauf,
   factureElec,
   copMoyen,
+  economiesCalculees,
 }: FinancialSectionPACProps) => {
   const prixFinal = prixInstallationManuel || prixInstallation;
   const prixTotal = Number(prixFinal) + autreSurcout;
-  
-  // Calcul des aides selon type PAC
-  const aidesBase = pacSubtype === "air_air" ? AIDES_PAC_BASE.air_air : AIDES_PAC_BASE.air_eau;
   
   // TVA réduite 5.5% si résidence > 2 ans (économie ~ 14.5% vs TVA 20%)
   const ecoTvaCalculee = prixTotal * 0.145;
@@ -100,13 +94,12 @@ export const FinancialSectionPAC = ({
   
   const mensualite = mensualiteManuelle || mensualiteCalculee;
   
-  // Calcul des économies
-  const cop = copMoyen || 3.5;
-  const consoElecPac = factureChauf / cop; // Coût élec avec PAC
-  const economieAnnuelle = factureChauf - consoElecPac;
-  const economieMensuelle = economieAnnuelle / 12;
+  // Utiliser les économies calculées depuis PACFields si disponibles
+  const economieMensuelle = economiesCalculees?.economieNetteMessage ?? 0;
+  const economieAnnuelle = economiesCalculees?.economieNetteEuros ?? 0;
+  const surcoutElec = economiesCalculees?.surcoutElecEuros ?? 0;
   
-  // Bilan mensuel
+  // Bilan mensuel (économie - mensualité)
   const bilanMensuel = economieMensuelle - Number(mensualite);
 
   return (
@@ -258,39 +251,53 @@ export const FinancialSectionPAC = ({
                 className="h-6 w-20 text-right text-xs"
               />
             </div>
-            
-            <Separator className="my-2" />
-            
-            {/* FINANCEMENT */}
-            <div className="pt-2">
-              <p className="text-xs font-bold mb-1">FINANCEMENT</p>
-              <Select value={financementId} onValueChange={onFinancementChange}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue placeholder="Sélectionner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {financements.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.nom} ({f.taux_effectif}%)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {financementId && (
-              <div className="text-xs text-muted-foreground mt-1">
-                <div className="flex justify-between">
-                  <span>Taux effectif</span>
-                  <span>{selectedFinancement?.taux_effectif}%</span>
-                </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* FINANCEMENT */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-2 bg-blue-500/10">
+          <CardTitle className="text-xs flex items-center gap-1">
+            <CreditCard className="h-3 w-3 text-blue-600" />
+            FINANCEMENT
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-3 text-xs">
+          <div>
+            <Label className="text-xs">Organisme de financement</Label>
+            <Select value={financementId} onValueChange={onFinancementChange}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Sélectionner" />
+              </SelectTrigger>
+              <SelectContent>
+                {financements.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.nom} ({f.taux_effectif}%)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {financementId && (
+            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+              <div className="flex justify-between">
+                <span>Taux effectif</span>
+                <span>{selectedFinancement?.taux_effectif}%</span>
               </div>
-            )}
-            
-            <div className="mt-2">
-              <label className="text-xs text-muted-foreground">Durée (mois)</label>
+              <div className="flex justify-between">
+                <span>TAEG</span>
+                <span>{selectedFinancement?.taeg}%</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Durée (mois)</Label>
               <Select value={String(dureeMois)} onValueChange={(v) => onDureeMoisChange(Number(v))}>
-                <SelectTrigger className="h-7 text-xs">
+                <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Durée" />
                 </SelectTrigger>
                 <SelectContent>
@@ -302,77 +309,102 @@ export const FinancialSectionPAC = ({
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="mt-2">
-              <label className="text-xs text-muted-foreground">Mensualité manuelle</label>
+            <div>
+              <Label className="text-xs">Mensualité</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={mensualiteManuelle}
                 onChange={(e) => onMensualiteChange(e.target.value ? Number(e.target.value) : "")}
-                placeholder={`Calculée: ${mensualiteCalculee.toFixed(2)}€`}
-                className="h-7 text-xs"
+                placeholder={`${mensualiteCalculee.toFixed(2)}€`}
+                className="h-8 text-xs"
               />
             </div>
-            
-            <div className="flex justify-between font-bold bg-muted/50 rounded p-1 mt-1">
-              <span>Mensualité</span>
-              <span>{Number(mensualite).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          
+          <div className="flex justify-between font-bold bg-blue-100 rounded p-2">
+            <span>Mensualité finale</span>
+            <span className="text-blue-700">{Number(mensualite).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€/mois</span>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* BILAN ÉCONOMIQUE */}
+      {/* BILAN ÉCONOMIQUE FINAL */}
       <Card className="shadow-card border-2 border-primary/50">
         <CardHeader className="pb-2 bg-primary/20">
           <CardTitle className="text-sm flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
-            Bilan Économique PAC
+            Rentabilité du Projet
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 pt-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-              <div className="flex items-center gap-2 mb-1">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <p className="text-xs text-muted-foreground">Facture chauffage actuelle</p>
-              </div>
-              <p className="font-bold text-lg">{(factureChauf / 12).toFixed(0)} €<span className="text-xs font-normal">/mois</span></p>
+        <CardContent className="space-y-4 pt-4">
+          {/* Résumé des flux */}
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div className="bg-red-50 rounded-lg p-2 border border-red-200 text-center">
+              <TrendingDown className="h-4 w-4 text-red-500 mx-auto mb-1" />
+              <p className="text-[10px] text-muted-foreground">Fossile supprimé</p>
+              <p className="font-bold text-red-600">-{(factureChauf / 12).toFixed(0)}€</p>
             </div>
-            <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-              <div className="flex items-center gap-2 mb-1">
-                <Thermometer className="h-4 w-4 text-green-600" />
-                <p className="text-xs text-muted-foreground">Économie estimée</p>
-              </div>
-              <p className="font-bold text-lg text-green-600">+{economieMensuelle.toFixed(0)} €<span className="text-xs font-normal">/mois</span></p>
+            <div className="bg-amber-50 rounded-lg p-2 border border-amber-200 text-center">
+              <Zap className="h-4 w-4 text-amber-500 mx-auto mb-1" />
+              <p className="text-[10px] text-muted-foreground">Élec PAC</p>
+              <p className="font-bold text-amber-600">+{(surcoutElec / 12).toFixed(0)}€</p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-2 border border-blue-200 text-center">
+              <CreditCard className="h-4 w-4 text-blue-500 mx-auto mb-1" />
+              <p className="text-[10px] text-muted-foreground">Mensualité</p>
+              <p className="font-bold text-blue-600">-{Number(mensualite).toFixed(0)}€</p>
             </div>
           </div>
           
+          {/* Bilan mensuel */}
           <div className={`rounded-lg p-4 text-center ${
             bilanMensuel >= 0 ? "bg-green-100" :
             bilanMensuel >= -50 ? "bg-amber-100" :
             "bg-red-100"
           }`}>
-            <p className="text-sm text-muted-foreground mb-2">Bilan Mensuel (Économie - Mensualité)</p>
+            <p className="text-sm text-muted-foreground mb-2">
+              Bilan Mensuel = Économie ({economieMensuelle >= 0 ? "+" : ""}{economieMensuelle.toFixed(0)}€) - Mensualité ({Number(mensualite).toFixed(0)}€)
+            </p>
             <div className="flex items-center justify-center gap-3">
-              <Badge className={`${
-                bilanMensuel >= 0 ? "bg-green-600" :
-                bilanMensuel >= -50 ? "bg-amber-500" :
-                "bg-red-500"
-              } text-white`}>
-                {bilanMensuel >= 0 ? "RENTABLE" : bilanMensuel >= -50 ? "QUASI-NEUTRE" : "À FINANCER"}
-              </Badge>
+              {bilanMensuel >= 0 ? (
+                <Badge className="bg-green-600 text-white">RENTABLE</Badge>
+              ) : bilanMensuel >= -50 ? (
+                <Badge className="bg-amber-500 text-white">QUASI-NEUTRE</Badge>
+              ) : (
+                <Badge className="bg-red-500 text-white">EFFORT FINANCIER</Badge>
+              )}
               <span className={`font-bold text-2xl ${
                 bilanMensuel >= 0 ? "text-green-600" :
                 bilanMensuel >= -50 ? "text-amber-600" :
                 "text-red-600"
               }`}>
-                {bilanMensuel >= 0 ? "+" : ""}{bilanMensuel.toFixed(0)}€
+                {bilanMensuel >= 0 ? "+" : ""}{bilanMensuel.toFixed(0)}€/mois
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              COP moyen utilisé : {cop.toFixed(1)}
+            
+            {bilanMensuel < 0 && (
+              <p className="text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Effort mensuel de {Math.abs(bilanMensuel).toFixed(0)}€ pendant {nbMois / 12} ans
+              </p>
+            )}
+            
+            {bilanMensuel >= 0 && (
+              <p className="text-xs text-green-600 mt-3">
+                ✓ Le projet s'autofinance grâce aux économies d'énergie
+              </p>
+            )}
+          </div>
+          
+          {/* Économie totale sur durée financement */}
+          <div className="bg-muted/50 rounded-lg p-3 text-center">
+            <p className="text-xs text-muted-foreground">Économie totale sur {nbMois / 12} ans</p>
+            <p className={`font-bold text-lg ${economieAnnuelle * (nbMois / 12) - prixAidesDéduites >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {(economieAnnuelle * (nbMois / 12) - prixAidesDéduites).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              COP moyen utilisé : {copMoyen.toFixed(1)}
             </p>
           </div>
         </CardContent>

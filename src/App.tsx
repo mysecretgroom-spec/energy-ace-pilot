@@ -34,6 +34,7 @@ import DataTarifs from "./pages/settings/DataTarifs";
 import DataCompteurs from "./pages/settings/DataCompteurs";
 import DataCalibres from "./pages/settings/DataCalibres";
 import DataAides from "./pages/settings/DataAides";
+import DataIsolationPAC from "./pages/settings/DataIsolationPAC";
 import SecuritySettings from "./pages/settings/SecuritySettings";
 import VentesSettings from "./pages/settings/VentesSettings";
 import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
@@ -114,6 +115,7 @@ const App = () => {
                   <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
                   <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
                   <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
+                  <Route path="/parametres/data-isolation-pac" element={<ProtectedRoute><DataIsolationPAC /></ProtectedRoute>} />
                   <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                   <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
