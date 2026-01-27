@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,8 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { IdCard, Phone } from "lucide-react";
+import { IdCard, Phone, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,10 +31,16 @@ export const RGECardDialog = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [open, setOpen] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startYRef = useRef(0);
 
   useEffect(() => {
     if (user && open) {
       fetchProfile();
+    }
+    if (!open) {
+      setDragY(0);
     }
   }, [user, open]);
 
@@ -53,10 +58,28 @@ export const RGECardDialog = () => {
     }
   };
 
-  const getInitials = () => {
-    const first = profile?.first_name?.[0] || "";
-    const last = profile?.last_name?.[0] || "";
-    return (first + last).toUpperCase() || "?";
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startYRef.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startYRef.current;
+    // Only allow dragging down
+    if (diff > 0) {
+      setDragY(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    // If dragged more than 100px, close the dialog
+    if (dragY > 100) {
+      setOpen(false);
+    }
+    setDragY(0);
   };
 
   const fullName = profile?.first_name || profile?.last_name
@@ -75,37 +98,52 @@ export const RGECardDialog = () => {
           <DialogTitle>Carte RGE Professionnelle</DialogTitle>
         </DialogHeader>
         
-        {/* RGE Card - Floating business card style */}
-        <div className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center p-6">
+        {/* Swipe indicator */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60 z-10">
+          <ChevronDown className="h-6 w-6 animate-bounce" />
+          <span className="text-xs">Glisser pour fermer</span>
+        </div>
+
+        {/* RGE Card - Floating business card style with drag gesture */}
+        <div 
+          className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center p-4 transition-transform duration-200"
+          style={{ 
+            transform: `rotate(90deg) translateX(${dragY}px)`,
+            opacity: Math.max(0.3, 1 - dragY / 300)
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
-            {/* Header with Ministère and France Rénov logos */}
-            <div className="bg-white py-5 px-8 flex items-center justify-center gap-16 rounded-t-3xl">
+            {/* Header with Ministère and France Rénov logos - more spacing */}
+            <div className="bg-white py-4 px-8 flex items-center justify-center gap-24 rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-20 object-contain"
+                className="h-16 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-20 object-contain"
+                className="h-16 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-2.5 px-6 text-center shrink-0 shadow-sm">
-              <h3 className="text-base font-bold tracking-widest uppercase drop-shadow-sm">
+            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-2 px-6 text-center shrink-0 shadow-sm">
+              <h3 className="text-sm font-bold tracking-widest uppercase drop-shadow-sm">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
-            {/* Main content - floating inner card */}
-            <div className="flex-1 flex items-center justify-center p-5">
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-6 w-full max-w-2xl border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
+            {/* Main content - larger floating inner card */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-8 w-full max-w-4xl border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
                 {/* Photo and info */}
-                <div className="flex gap-5 items-center">
+                <div className="flex gap-6 items-center">
                   <div className="relative shrink-0">
-                    <div className="h-24 w-[4.5rem] border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
+                    <div className="h-28 w-20 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -148,12 +186,12 @@ export const RGECardDialog = () => {
                   </div>
                   
                   {/* Agrément number */}
-                  <div className="bg-white/15 rounded-lg p-3 shrink-0 text-center">
+                  <div className="bg-white/15 rounded-lg p-4 shrink-0 text-center">
                     <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
                       N° d'Agrément
                     </p>
                     {profile?.numero_agrement ? (
-                      <p className="text-lg font-mono font-bold">
+                      <p className="text-xl font-mono font-bold">
                         {profile.numero_agrement}
                       </p>
                     ) : (
@@ -164,35 +202,35 @@ export const RGECardDialog = () => {
               </div>
             </div>
 
-            {/* Footer with certifications */}
-            <div className="bg-white py-4 px-6 shrink-0 rounded-b-3xl">
+            {/* Footer with certifications - larger */}
+            <div className="bg-white py-5 px-8 shrink-0 rounded-b-3xl">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-medium">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
                   Certifications
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
                   <img 
                     src={logoRgeEcoArtisan} 
                     alt="RGE Eco Artisan" 
-                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
+                    className="h-14 object-contain"
                   />
                   <img 
                     src={logoQualipac} 
                     alt="QualiPAC" 
-                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
+                    className="h-14 object-contain"
                   />
                   <img 
                     src={logoQualipv} 
                     alt="QualiPV" 
-                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
+                    className="h-14 object-contain"
                   />
                   <img 
                     src={logoQualitenr} 
                     alt="QualiT'EnR" 
-                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
+                    className="h-14 object-contain"
                   />
                 </div>
-                <p className="text-[9px] text-gray-500 font-medium">
+                <p className="text-[10px] text-gray-500 font-medium">
                   Reconnu Garant de l'Environnement
                 </p>
               </div>
