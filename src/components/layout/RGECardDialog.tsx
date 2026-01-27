@@ -139,9 +139,9 @@ export const RGECardDialog = () => {
 
             {/* Main content - larger floating inner card */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-10 w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
                 {/* Photo and info */}
-                <div className="flex gap-6 items-center">
+                <div className="flex-1 flex gap-6 items-center p-10">
                   <div className="relative shrink-0">
                     <div className="h-28 w-20 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
                       {profile?.avatar_url ? (
@@ -199,40 +199,40 @@ export const RGECardDialog = () => {
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Footer with certifications - larger */}
-            <div className="bg-white py-5 px-8 shrink-0 rounded-b-3xl">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-                  Certifications
-                </p>
-                <div className="flex items-center gap-6">
-                  <img 
-                    src={logoRgeEcoArtisan} 
-                    alt="RGE Eco Artisan" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualipac} 
-                    alt="QualiPAC" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualipv} 
-                    alt="QualiPV" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualitenr} 
-                    alt="QualiT'EnR" 
-                    className="h-14 object-contain"
-                  />
+                {/* Certifications band inside the central card */}
+                <div className="bg-white py-4 px-6 rounded-b-xl">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+                      Certifications
+                    </p>
+                    <div className="flex items-center gap-6">
+                      <img 
+                        src={logoRgeEcoArtisan} 
+                        alt="RGE Eco Artisan" 
+                        className="h-12 object-contain"
+                      />
+                      <img 
+                        src={logoQualipac} 
+                        alt="QualiPAC" 
+                        className="h-12 object-contain"
+                      />
+                      <img 
+                        src={logoQualipv} 
+                        alt="QualiPV" 
+                        className="h-12 object-contain"
+                      />
+                      <img 
+                        src={logoQualitenr} 
+                        alt="QualiT'EnR" 
+                        className="h-12 object-contain"
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-500 font-medium">
+                      Reconnu Garant de l'Environnement
+                    </p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-500 font-medium">
-                  Reconnu Garant de l'Environnement
-                </p>
               </div>
             </div>
           </div>
