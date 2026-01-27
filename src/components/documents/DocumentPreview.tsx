@@ -18,7 +18,9 @@ import {
   Loader2,
   FileText,
   ExternalLink,
+  ArrowRight,
 } from "lucide-react";
+import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -30,6 +32,8 @@ interface DocumentPreviewProps {
     type_document: string;
   }>;
   initialIndex?: number;
+  clientId?: string;
+  onTransferSuccess?: () => void;
 }
 
 export function DocumentPreview({
@@ -37,12 +41,15 @@ export function DocumentPreview({
   onClose,
   documents,
   initialIndex = 0,
+  clientId,
+  onTransferSuccess,
 }: DocumentPreviewProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
 
   const currentDoc = documents[currentIndex];
 
@@ -152,6 +159,15 @@ export function DocumentPreview({
               
               <Button variant="ghost" size="icon" onClick={handleDownload} title="Télécharger">
                 <Download className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTransferDialogOpen(true)}
+                title="Transférer"
+              >
+                <ArrowRight className="h-4 w-4" />
               </Button>
               
               <Button
@@ -288,6 +304,18 @@ export function DocumentPreview({
           </div>
         )}
       </DialogContent>
+
+      {/* Transfer Dialog */}
+      <TransferDocumentsDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        documentIds={[currentDoc.id]}
+        currentClientId={clientId}
+        onSuccess={() => {
+          onTransferSuccess?.();
+          onClose();
+        }}
+      />
     </Dialog>
   );
 }

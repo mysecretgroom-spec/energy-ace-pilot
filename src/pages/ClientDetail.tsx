@@ -677,6 +677,8 @@ const ClientDetail = () => {
                   thumbnails_urls: (doc as any).thumbnails_urls || null,
                 }))}
                 clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
+                clientId={id}
+                onDocumentsChange={fetchClientData}
               />
             )}
           </TabsContent>

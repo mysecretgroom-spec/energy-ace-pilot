@@ -7,11 +7,13 @@ import {
   Square,
   FileArchive,
   Eye,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PDFDocument } from "pdf-lib";
 import { DocumentPreview } from "./DocumentPreview";
 import { DocumentCard } from "./DocumentCard";
+import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 
 interface DocumentItem {
   id: string;
@@ -25,15 +27,20 @@ interface DocumentItem {
 interface MultiDocumentSelectorProps {
   documents: DocumentItem[];
   clientName: string;
+  clientId?: string;
+  onDocumentsChange?: () => void;
 }
 
 export function MultiDocumentSelector({
   documents,
   clientName,
+  clientId,
+  onDocumentsChange,
 }: MultiDocumentSelectorProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -247,6 +254,16 @@ export function MultiDocumentSelector({
                 </Button>
                 
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTransferDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  Transférer
+                </Button>
+                
+                <Button
                   size="sm"
                   onClick={generateCombinedPdf}
                   disabled={isGenerating}
@@ -289,6 +306,24 @@ export function MultiDocumentSelector({
         onClose={() => setPreviewOpen(false)}
         documents={previewDocuments}
         initialIndex={previewInitialIndex}
+        clientId={clientId}
+        onTransferSuccess={() => {
+          setPreviewOpen(false);
+          setSelectedIds(new Set());
+          onDocumentsChange?.();
+        }}
+      />
+
+      {/* Transfer dialog for multi-selection */}
+      <TransferDocumentsDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        documentIds={Array.from(selectedIds)}
+        currentClientId={clientId}
+        onSuccess={() => {
+          setSelectedIds(new Set());
+          onDocumentsChange?.();
+        }}
       />
     </>
   );
