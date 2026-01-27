@@ -698,6 +698,45 @@ export type Database = {
         }
         Relationships: []
       }
+      data_pac_isolation: {
+        Row: {
+          actif: boolean | null
+          besoins_kwh_m2_an: number
+          coefficient_deperdition: number
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          niveau_isolation: string
+          ordre: number | null
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean | null
+          besoins_kwh_m2_an: number
+          coefficient_deperdition: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          niveau_isolation: string
+          ordre?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean | null
+          besoins_kwh_m2_an?: number
+          coefficient_deperdition?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          niveau_isolation?: string
+          ordre?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_pac_puissances: {
         Row: {
           actif: boolean
@@ -992,16 +1031,22 @@ export type Database = {
           numero_pdl: string | null
           ombre_toiture: string | null
           orientation: string | null
+          pac_besoins_chauffage_kwh: number | null
           pac_conso_chauffage_kwh: number | null
+          pac_conso_elec_pac_kwh: number | null
           pac_cop: number | null
           pac_economie_estimee: number | null
+          pac_economie_nette_euros: number | null
           pac_ecs_integre: boolean | null
           pac_energie_actuelle: string | null
           pac_facture_chauffage_euros: number | null
           pac_facture_elec_euros: number | null
+          pac_niveau_isolation: string | null
           pac_nombre_unites_int: number | null
+          pac_prix_kwh_elec: number | null
           pac_puissance_calorifique: number | null
           pac_subtype: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surcout_elec_euros: number | null
           pac_surface_chauffee: number | null
           pac_type_emetteurs: string | null
           pac_volume_ballon: number | null
@@ -1084,16 +1129,22 @@ export type Database = {
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null
+          pac_besoins_chauffage_kwh?: number | null
           pac_conso_chauffage_kwh?: number | null
+          pac_conso_elec_pac_kwh?: number | null
           pac_cop?: number | null
           pac_economie_estimee?: number | null
+          pac_economie_nette_euros?: number | null
           pac_ecs_integre?: boolean | null
           pac_energie_actuelle?: string | null
           pac_facture_chauffage_euros?: number | null
           pac_facture_elec_euros?: number | null
+          pac_niveau_isolation?: string | null
           pac_nombre_unites_int?: number | null
+          pac_prix_kwh_elec?: number | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surcout_elec_euros?: number | null
           pac_surface_chauffee?: number | null
           pac_type_emetteurs?: string | null
           pac_volume_ballon?: number | null
@@ -1176,16 +1227,22 @@ export type Database = {
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null
+          pac_besoins_chauffage_kwh?: number | null
           pac_conso_chauffage_kwh?: number | null
+          pac_conso_elec_pac_kwh?: number | null
           pac_cop?: number | null
           pac_economie_estimee?: number | null
+          pac_economie_nette_euros?: number | null
           pac_ecs_integre?: boolean | null
           pac_energie_actuelle?: string | null
           pac_facture_chauffage_euros?: number | null
           pac_facture_elec_euros?: number | null
+          pac_niveau_isolation?: string | null
           pac_nombre_unites_int?: number | null
+          pac_prix_kwh_elec?: number | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
+          pac_surcout_elec_euros?: number | null
           pac_surface_chauffee?: number | null
           pac_type_emetteurs?: string | null
           pac_volume_ballon?: number | null

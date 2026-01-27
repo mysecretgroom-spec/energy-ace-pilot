@@ -244,6 +244,15 @@ const EtudeForm = () => {
   const [pacEconomieEstimee, setPacEconomieEstimee] = useState<number | "">(0);
   const [pacFactureChauffageEuros, setPacFactureChauffageEuros] = useState<number | "">("");
   const [pacFactureElecEuros, setPacFactureElecEuros] = useState<number | "">("");
+  const [pacNiveauIsolation, setPacNiveauIsolation] = useState<string>("moyen");
+  const [pacPrixKwhElec, setPacPrixKwhElec] = useState<number | "">(0.23);
+  const [pacEconomiesCalculees, setPacEconomiesCalculees] = useState<{
+    besoinsChauffageKwh: number;
+    consoElecPacKwh: number;
+    surcoutElecEuros: number;
+    economieNetteEuros: number;
+    economieNetteMessage: number;
+  } | null>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CHAMPS SPÉCIFIQUES ITE
@@ -700,6 +709,8 @@ const EtudeForm = () => {
         setPacEconomieEstimee(etude.pac_economie_estimee || 0);
         setPacFactureChauffageEuros(etude.pac_facture_chauffage_euros || "");
         setPacFactureElecEuros(etude.pac_facture_elec_euros || "");
+        setPacNiveauIsolation(etude.pac_niveau_isolation || "moyen");
+        setPacPrixKwhElec(etude.pac_prix_kwh_elec || 0.23);
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1070,6 +1081,12 @@ const EtudeForm = () => {
       pac_economie_estimee: productType === "PAC" && pacEconomieEstimee ? Number(pacEconomieEstimee) : null,
       pac_facture_chauffage_euros: productType === "PAC" && pacFactureChauffageEuros ? Number(pacFactureChauffageEuros) : null,
       pac_facture_elec_euros: productType === "PAC" && pacFactureElecEuros ? Number(pacFactureElecEuros) : null,
+      pac_niveau_isolation: productType === "PAC" ? pacNiveauIsolation : null,
+      pac_prix_kwh_elec: productType === "PAC" && pacPrixKwhElec ? Number(pacPrixKwhElec) : null,
+      pac_besoins_chauffage_kwh: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.besoinsChauffageKwh : null,
+      pac_conso_elec_pac_kwh: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.consoElecPacKwh : null,
+      pac_surcout_elec_euros: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.surcoutElecEuros : null,
+      pac_economie_nette_euros: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.economieNetteEuros : null,
       // ═══════════════════════════════════════════════════════════════════════════
       // CHAMPS ITE
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1809,6 +1826,8 @@ _Envoyé depuis DébalePro_`;
                 pacEconomieEstimee: pacEconomieEstimee,
                 pacFactureChauffageEuros: pacFactureChauffageEuros,
                 pacFactureElecEuros: pacFactureElecEuros,
+                pacNiveauIsolation: pacNiveauIsolation,
+                pacPrixKwhElec: pacPrixKwhElec,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -1825,8 +1844,11 @@ _Envoyé depuis DébalePro_`;
                   case "pacEconomieEstimee": setPacEconomieEstimee(value as number | ""); break;
                   case "pacFactureChauffageEuros": setPacFactureChauffageEuros(value as number | ""); break;
                   case "pacFactureElecEuros": setPacFactureElecEuros(value as number | ""); break;
+                  case "pacNiveauIsolation": setPacNiveauIsolation(value as string); break;
+                  case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
                 }
               }}
+              onEconomiesCalculated={setPacEconomiesCalculees}
             />
           )}
 
@@ -2441,6 +2463,7 @@ _Envoyé depuis DébalePro_`;
             factureChauf={Number(pacFactureChauffageEuros) || 0}
             factureElec={Number(pacFactureElecEuros) || 0}
             copMoyen={Number(pacCop) || 3.5}
+            economiesCalculees={pacEconomiesCalculees}
           />
         )}
 

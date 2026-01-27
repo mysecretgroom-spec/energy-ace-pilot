@@ -25,6 +25,7 @@ import {
   MessageCircle,
   Scale,
   Bot,
+  Thermometer,
 } from "lucide-react";
 
 const settingsSections = [
@@ -128,6 +129,12 @@ const settingsSections = [
         label: "Aides & Primes",
         description: "Prime autoconso, éco TVA",
         path: "/parametres/data-aides",
+      },
+      {
+        icon: Thermometer,
+        label: "Isolation PAC",
+        description: "Niveaux d'isolation et besoins kWh",
+        path: "/parametres/data-isolation-pac",
       },
     ],
   },
