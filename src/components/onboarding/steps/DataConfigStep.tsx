@@ -3,45 +3,38 @@ import { Button } from "@/components/ui/button";
 import { 
   Settings, 
   Zap, 
-  Euro, 
   Sun, 
-  Gauge, 
-  Package, 
   ArrowRight,
-  Wallet,
-  Compass,
+  Thermometer,
+  Home,
+  ChevronRight,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const DATA_SECTIONS = [
+const PRODUCT_SECTIONS = [
   {
     icon: Sun,
-    title: "PSH (Heures Solaires)",
-    description: "Rendement par région",
-    path: "/parametres/data-psh",
+    title: "Données PV",
+    description: "PSH, orientation, tarifs, aides",
+    path: "/parametres",
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-500/10",
   },
   {
-    icon: Compass,
-    title: "Orientation",
-    description: "Coefficients par orientation",
-    path: "/parametres/data-orientation",
+    icon: Thermometer,
+    title: "Données PAC",
+    description: "Isolation, COP, puissances",
+    path: "/parametres",
+    color: "text-blue-600",
+    bgColor: "bg-blue-500/10",
   },
   {
-    icon: Euro,
-    title: "Tarifs revente",
-    description: "Prix kWh revente/autoconso",
-    path: "/parametres/data-tarifs",
-  },
-  {
-    icon: Wallet,
-    title: "Aides & Primes",
-    description: "Prime autoconso, MaPrimeRénov",
-    path: "/parametres/data-aides",
-  },
-  {
-    icon: Gauge,
-    title: "Compteurs & Calibres",
-    description: "Types de raccordement",
-    path: "/parametres/data-compteurs",
+    icon: Home,
+    title: "Données ITE",
+    description: "Isolants, finitions",
+    path: "/parametres",
+    color: "text-orange-600",
+    bgColor: "bg-orange-500/10",
   },
 ];
 
@@ -49,7 +42,6 @@ export function DataConfigStep() {
   const navigate = useNavigate();
 
   const handleNavigate = (path: string) => {
-    // Close modal and navigate
     navigate(path);
   };
 
@@ -62,7 +54,7 @@ export function DataConfigStep() {
         </div>
         <h2 className="text-xl font-bold">Données de Référence</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Configurez les tarifs, aides et paramètres techniques
+          Configurez les tarifs, aides et paramètres par produit
         </p>
       </div>
 
@@ -79,25 +71,29 @@ export function DataConfigStep() {
         </div>
       </div>
 
-      {/* Sections grid */}
-      <div className="grid grid-cols-2 gap-2">
-        {DATA_SECTIONS.map((section) => (
+      {/* Product sections */}
+      <div className="space-y-2">
+        {PRODUCT_SECTIONS.map((section) => (
           <button
-            key={section.path}
+            key={section.title}
             onClick={() => handleNavigate(section.path)}
-            className="flex flex-col items-start p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
+            className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left group"
           >
-            <section.icon className="h-5 w-5 text-primary mb-2" />
-            <h4 className="font-medium text-sm">{section.title}</h4>
-            <p className="text-xs text-muted-foreground">{section.description}</p>
-            <ArrowRight className="h-3 w-3 text-muted-foreground mt-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className={cn("p-2 rounded-lg", section.bgColor)}>
+              <section.icon className={cn("h-5 w-5", section.color)} />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-medium text-sm">{section.title}</h4>
+              <p className="text-xs text-muted-foreground">{section.description}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>
         ))}
       </div>
 
       {/* Skip hint */}
       <p className="text-xs text-center text-muted-foreground">
-        Vous pourrez modifier ces données à tout moment dans Paramètres → Données
+        Vous pourrez modifier ces données à tout moment dans Paramètres → Tables DATA
       </p>
     </div>
   );
