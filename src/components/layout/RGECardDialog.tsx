@@ -99,8 +99,8 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Main content - centered rectangle */}
-            <div className="flex-1 flex items-center justify-center p-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-3xl border border-white/20 shadow-xl">
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 w-full max-w-3xl border border-white/20 shadow-xl">
                 {/* Photo and info */}
                 <div className="flex gap-6 items-center">
                   <div className="relative shrink-0">
@@ -164,7 +164,7 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Footer with certifications */}
-            <div className="bg-white py-4 px-8 shrink-0">
+            <div className="bg-white py-6 px-8 shrink-0">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider">
                   Certifications
