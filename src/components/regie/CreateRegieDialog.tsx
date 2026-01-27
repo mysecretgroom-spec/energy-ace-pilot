@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Copy, Building2, Euro, Wrench, CreditCard, Check } from "lucide-react";
+import { SiretSearchField } from "./SiretSearchField";
 
 interface Regie {
   id: string;
@@ -51,6 +52,7 @@ export function CreateRegieDialog({
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [nom, setNom] = useState("");
+  const [siret, setSiret] = useState("");
   const [couleur, setCouleur] = useState("#0066CC");
   const [cloneFromId, setCloneFromId] = useState<string>("");
   const [cloneOptions, setCloneOptions] = useState({
@@ -64,6 +66,7 @@ export function CreateRegieDialog({
   useEffect(() => {
     if (open) {
       setNom("");
+      setSiret("");
       setCouleur(isHejja ? "#E74C3C" : "#0066CC");
       setCloneFromId("");
       setCloneOptions({ bouquets: true, financements: true, surcouts: true });
@@ -91,6 +94,7 @@ export function CreateRegieDialog({
           nom: nom.trim(),
           couleur,
           is_hejja: isHejja,
+          siret: siret || null,
         })
         .select()
         .single();
@@ -225,6 +229,13 @@ export function CreateRegieDialog({
               autoFocus
             />
           </div>
+
+          {/* SIRET Search */}
+          <SiretSearchField
+            companyName={nom}
+            value={siret}
+            onChange={(newSiret) => setSiret(newSiret)}
+          />
 
           {/* Couleur */}
           <div className="space-y-2">

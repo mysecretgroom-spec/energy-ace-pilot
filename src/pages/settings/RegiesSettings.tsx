@@ -44,6 +44,7 @@ import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
 import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
 import { ProductSurcoutsSection } from "@/components/regie/ProductSurcoutsSection";
+import { SiretSearchField } from "@/components/regie/SiretSearchField";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,6 +61,7 @@ interface Regie {
   mode_calcul_commission: string;
   part_survente_pct: number;
   is_hejja: boolean;
+  siret: string | null;
 }
 
 interface RegieEmail {
@@ -458,7 +460,26 @@ const RegiesSettings = () => {
     }
   };
 
-  // Email handlers
+  const handleUpdateSiret = async (siret: string) => {
+    if (!selectedRegie) return;
+    
+    try {
+      const { error } = await supabase
+        .from("regies")
+        .update({ siret: siret || null })
+        .eq("id", selectedRegie.id);
+
+      if (error) throw error;
+      
+      setSelectedRegie({ ...selectedRegie, siret });
+      setRegies(regies.map(r => r.id === selectedRegie.id ? { ...r, siret } : r));
+      toast.success("SIRET mis à jour");
+    } catch (error) {
+      console.error("Error updating SIRET:", error);
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
   const handleAddEmail = async () => {
     if (!selectedRegie || !user || !newEmail.email.trim()) return;
     
@@ -1189,6 +1210,17 @@ const RegiesSettings = () => {
                                   <p className="text-lg font-bold text-primary">{conversionRate}%</p>
                                 </div>
                               </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Section SIRET */}
+                          <Card>
+                            <CardContent className="p-4">
+                              <SiretSearchField
+                                companyName={selectedRegie.nom}
+                                value={selectedRegie.siret || ""}
+                                onChange={(siret) => handleUpdateSiret(siret)}
+                              />
                             </CardContent>
                           </Card>
                         </>

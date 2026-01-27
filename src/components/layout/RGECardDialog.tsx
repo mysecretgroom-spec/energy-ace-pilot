@@ -58,12 +58,6 @@ export const RGECardDialog = () => {
     }
   }, [user, open]);
 
-  // Fetch company SIRET when régie name changes
-  useEffect(() => {
-    if (currentRegieName && open) {
-      fetchCompanySiret(currentRegieName);
-    }
-  }, [currentRegieName, open]);
 
   const fetchCompanySiret = async (companyName: string) => {
     try {
@@ -115,7 +109,7 @@ export const RGECardDialog = () => {
         date_heure,
         duree_minutes,
         regie_id,
-        regies:regie_id (nom)
+        regies:regie_id (nom, siret)
       `)
       .eq("user_id", user.id)
       .lte("date_heure", nowIso)
@@ -130,8 +124,15 @@ export const RGECardDialog = () => {
       const rdvEnd = new Date(rdvStart.getTime() + (currentRdv.duree_minutes || 60) * 60 * 1000);
       
       if (now <= rdvEnd) {
-        const regie = currentRdv.regies as { nom: string };
+        const regie = currentRdv.regies as { nom: string; siret: string | null };
         setCurrentRegieName(regie.nom);
+        // Use stored SIRET if available
+        if (regie.siret) {
+          setCompanyInfo({ nom: regie.nom, siret: regie.siret });
+        } else {
+          // Fallback to API search
+          fetchCompanySiret(regie.nom);
+        }
         return;
       }
     }
@@ -143,7 +144,7 @@ export const RGECardDialog = () => {
         id,
         date_heure,
         regie_id,
-        regies:regie_id (nom)
+        regies:regie_id (nom, siret)
       `)
       .eq("user_id", user.id)
       .gte("date_heure", nowIso)
@@ -153,10 +154,18 @@ export const RGECardDialog = () => {
       .maybeSingle();
 
     if (nextRdv?.regies) {
-      const regie = nextRdv.regies as { nom: string };
+      const regie = nextRdv.regies as { nom: string; siret: string | null };
       setCurrentRegieName(regie.nom);
+      // Use stored SIRET if available
+      if (regie.siret) {
+        setCompanyInfo({ nom: regie.nom, siret: regie.siret });
+      } else {
+        // Fallback to API search
+        fetchCompanySiret(regie.nom);
+      }
     } else {
       setCurrentRegieName(null);
+      setCompanyInfo(null);
     }
   };
 

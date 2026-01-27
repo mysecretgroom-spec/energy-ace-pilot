@@ -2236,6 +2236,7 @@ export type Database = {
           nom: string
           part_survente_pct: number | null
           products_offered: Database["public"]["Enums"]["product_type"][] | null
+          siret: string | null
           updated_at: string
           user_id: string
         }
@@ -2252,6 +2253,7 @@ export type Database = {
           products_offered?:
             | Database["public"]["Enums"]["product_type"][]
             | null
+          siret?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2268,6 +2270,7 @@ export type Database = {
           products_offered?:
             | Database["public"]["Enums"]["product_type"][]
             | null
+          siret?: string | null
           updated_at?: string
           user_id?: string
         }
