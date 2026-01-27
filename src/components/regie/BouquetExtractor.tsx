@@ -43,10 +43,46 @@ interface BouquetExtractorProps {
   productType?: ProductType;
 }
 
-const productConfig: Record<ProductType, { label: string; icon: React.ElementType; unit: string; unitLabel: string; color: string }> = {
-  PV: { label: "Photovoltaïque", icon: Sun, unit: "kWc", unitLabel: "Puissance", color: "text-amber-600" },
-  PAC: { label: "Pompe à Chaleur", icon: Thermometer, unit: "kW", unitLabel: "Puissance", color: "text-blue-600" },
-  ITE: { label: "Isolation", icon: Home, unit: "m²", unitLabel: "Surface", color: "text-green-600" },
+const productConfig: Record<ProductType, { 
+  label: string; 
+  icon: React.ElementType; 
+  unit: string; 
+  unitLabel: string; 
+  color: string;
+  step: string;
+  placeholder: string;
+  hints: string;
+}> = {
+  PV: { 
+    label: "Photovoltaïque", 
+    icon: Sun, 
+    unit: "kWc", 
+    unitLabel: "Puissance", 
+    color: "text-amber-600",
+    step: "0.5",
+    placeholder: "3, 6, 9...",
+    hints: "Panneaux solaires, onduleur, optimiseurs"
+  },
+  PAC: { 
+    label: "Pompe à Chaleur", 
+    icon: Thermometer, 
+    unit: "kW", 
+    unitLabel: "Puissance calorifique", 
+    color: "text-blue-600",
+    step: "0.5",
+    placeholder: "6, 8, 10, 12...",
+    hints: "Air/Air, Air/Eau, COP, ECS, unités intérieures"
+  },
+  ITE: { 
+    label: "Isolation Extérieure", 
+    icon: Home, 
+    unit: "m²", 
+    unitLabel: "Surface à isoler", 
+    color: "text-green-600",
+    step: "10",
+    placeholder: "80, 100, 150...",
+    hints: "Type isolant, épaisseur, finition"
+  },
 };
 
 export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productType = "PV" }: BouquetExtractorProps) {
@@ -244,9 +280,11 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-sm">Importer grille tarifaire {productConfig[productType].label}</p>
+                <p className="font-medium text-sm">Importer grille tarifaire {productConfig[productType].label}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    PDF ou image de la grille de prix et commissions
+                    PDF ou image avec prix, commissions
+                    {productType === "PAC" && " (Air/Air, Air/Eau, COP...)"}
+                    {productType === "ITE" && " (isolant, épaisseur, finition...)"}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -334,18 +372,21 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                     
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          {productType === "ITE" ? <Home className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                        <label className={`text-[10px] flex items-center gap-1 ${productConfig[productType].color}`}>
+                          {productType === "PV" && <Zap className="h-3 w-3" />}
+                          {productType === "PAC" && <Thermometer className="h-3 w-3" />}
+                          {productType === "ITE" && <Home className="h-3 w-3" />}
                           {productConfig[productType].unit}
                         </label>
                         <Input
                           type="number"
-                          step={productType === "ITE" ? "10" : "0.1"}
+                          step={productConfig[productType].step}
                           value={bouquet.puissance_kwc}
                           onChange={(e) =>
                             updateBouquet(index, "puissance_kwc", parseFloat(e.target.value) || 0)
                           }
                           className="h-7 text-xs"
+                          placeholder={productConfig[productType].placeholder}
                         />
                       </div>
                       <div>
@@ -379,7 +420,10 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                     </div>
                     
                     {bouquet.description && (
-                      <p className="text-xs text-muted-foreground">{bouquet.description}</p>
+                      <p className="text-xs text-muted-foreground italic">{bouquet.description}</p>
+                    )}
+                    {!bouquet.description && (
+                      <p className="text-[10px] text-muted-foreground/50">{productConfig[productType].hints}</p>
                     )}
                   </div>
                 </div>
