@@ -161,43 +161,41 @@ export const RGECardDialog = () => {
                     )}
                   </div>
                 </div>
-
-                {/* Certifications logos */}
-                <div className="bg-white rounded-lg p-3 mt-4">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 text-center">
-                    Certifications
-                  </p>
-                  <div className="flex items-center justify-center gap-6">
-                    <img 
-                      src={logoRgeEcoArtisan} 
-                      alt="RGE Eco Artisan" 
-                      className="h-10 object-contain"
-                    />
-                    <img 
-                      src={logoQualipac} 
-                      alt="QualiPAC" 
-                      className="h-10 object-contain"
-                    />
-                    <img 
-                      src={logoQualipv} 
-                      alt="QualiPV" 
-                      className="h-10 object-contain"
-                    />
-                    <img 
-                      src={logoQualitenr} 
-                      alt="QualiT'EnR" 
-                      className="h-10 object-contain"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="bg-[#1a5276] py-2 px-6 text-center shrink-0">
-              <p className="text-xs text-white/70">
-                Reconnu Garant de l'Environnement
-              </p>
+            {/* Footer with certifications */}
+            <div className="bg-white py-3 px-6 shrink-0">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                  Certifications
+                </p>
+                <div className="flex items-center gap-6">
+                  <img 
+                    src={logoRgeEcoArtisan} 
+                    alt="RGE Eco Artisan" 
+                    className="h-12 object-contain"
+                  />
+                  <img 
+                    src={logoQualipac} 
+                    alt="QualiPAC" 
+                    className="h-12 object-contain"
+                  />
+                  <img 
+                    src={logoQualipv} 
+                    alt="QualiPV" 
+                    className="h-12 object-contain"
+                  />
+                  <img 
+                    src={logoQualitenr} 
+                    alt="QualiT'EnR" 
+                    className="h-12 object-contain"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Reconnu Garant de l'Environnement
+                </p>
+              </div>
             </div>
           </div>
         </div>
