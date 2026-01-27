@@ -17,6 +17,7 @@ interface ITEFieldsProps {
     iteSurfaceOuvertures: number | "";
     iteFinition: string;
     iteEconomieChauffagePct: number | "";
+    iteFactureChaufActuelle?: number | "";
   };
   onChange: (field: string, value: any) => void;
   isolantLambda?: number;
@@ -196,6 +197,30 @@ export const ITEFields = ({ data, onChange, isolantLambda = 0.038 }: ITEFieldsPr
                 <div className="font-medium text-sm">{opt.label}</div>
               </button>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Facture chauffage actuelle */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingDown className="h-4 w-4 text-orange-600" />
+            Facture de chauffage
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Facture chauffage annuelle (€/an)</Label>
+            <Input
+              type="number"
+              value={data.iteFactureChaufActuelle || ""}
+              onChange={(e) => onChange("iteFactureChaufActuelle", e.target.value ? Number(e.target.value) : "")}
+              placeholder="1800"
+            />
+            <p className="text-xs text-muted-foreground">
+              Gaz, fioul, électricité ou bois pour le chauffage
+            </p>
           </div>
         </CardContent>
       </Card>
