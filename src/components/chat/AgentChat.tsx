@@ -380,13 +380,14 @@ export function AgentChat() {
   return (
     <>
       {/* Floating Button */}
+      {/* Floating Button - positioned above BottomNav (72px + safe) and Hejja toggle */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-40 right-4 z-50"
+            className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] right-4 z-40"
           >
             <Button
               onClick={() => setIsOpen(true)}
@@ -413,7 +414,7 @@ export function AgentChat() {
         onChange={handleFileSelect}
       />
 
-      {/* Chat Window */}
+      {/* Chat Window - positioned above BottomNav */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -425,7 +426,7 @@ export function AgentChat() {
               "fixed z-50 bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden",
               isExpanded
                 ? "inset-4 md:inset-8"
-                : "bottom-4 right-4 w-[calc(100vw-2rem)] max-w-md h-[70vh] max-h-[600px]"
+                : "bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-4 left-4 md:left-auto md:w-[400px] h-[60vh] max-h-[500px]"
             )}
           >
             {/* Header */}

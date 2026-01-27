@@ -310,12 +310,12 @@ export function HejjaToggle() {
         </div>
       )}
 
-      {/* Full button on other pages */}
+      {/* Full button on other pages - positioned above BottomNav */}
       <Button
         variant={isActive ? "default" : "outline"}
         size="sm"
         onClick={handleClick}
-        className={`fixed bottom-24 right-4 z-50 shadow-lg rounded-full h-12 px-4 gap-2 transition-all ${
+        className={`fixed bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-4 z-40 shadow-lg rounded-full h-12 px-4 gap-2 transition-all ${
           isActive 
             ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
             : "bg-background/95 backdrop-blur border-border hover:bg-muted"
