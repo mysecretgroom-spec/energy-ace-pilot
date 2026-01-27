@@ -703,7 +703,7 @@ const Finance = () => {
                         {venteStats.commissionsMonth.toLocaleString("fr-FR")} €
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Commissions ce mois
+                        Commissions ce mois <span className="font-medium">(HT)</span>
                       </p>
                     </CardContent>
                   </Card>
@@ -744,7 +744,7 @@ const Finance = () => {
                 {/* Répartition des commissions */}
                 <Card className="shadow-card border-primary/20">
                   <CardContent className="p-4 space-y-3">
-                    <p className="text-sm font-medium text-muted-foreground">Répartition des commissions</p>
+                    <p className="text-sm font-medium text-muted-foreground">Répartition des commissions <span className="text-xs">(HT)</span></p>
                     
                     {/* Com En Cours (non posé) */}
                     <div 
@@ -802,7 +802,7 @@ const Finance = () => {
                       <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/15 border-2 border-amber-400">
                         <div className="flex items-center gap-2">
                           <Euro className="h-5 w-5 text-amber-700" />
-                          <p className="text-sm font-bold text-amber-800">TOTAL POTENTIEL</p>
+                          <p className="text-sm font-bold text-amber-800">TOTAL POTENTIEL HT</p>
                         </div>
                         <p className="text-xl font-bold text-amber-800">
                           {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
