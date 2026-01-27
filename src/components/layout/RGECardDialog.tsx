@@ -78,94 +78,97 @@ export const RGECardDialog = () => {
         {/* RGE Card - Rotated for landscape view */}
         <div className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center">
           <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col">
-            {/* Header with Ministère logo */}
-            <div className="bg-white p-4 flex items-center justify-between shrink-0">
+            {/* Header with Ministère and France Rénov logos - LARGE */}
+            <div className="bg-white py-6 px-8 flex items-center justify-between shrink-0">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-16 object-contain"
+                className="h-24 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-16 object-contain"
+                className="h-24 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-[#27ae60] py-3 px-6 text-center shrink-0">
-              <h3 className="text-xl font-bold tracking-wide uppercase">
+            <div className="bg-[#27ae60] py-2 px-6 text-center shrink-0">
+              <h3 className="text-lg font-bold tracking-wide uppercase">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
-            {/* Main content */}
-            <div className="p-6 flex-1 flex flex-col justify-between">
-              {/* Photo and info */}
-              <div className="flex gap-6 items-start">
-                <Avatar className="h-28 w-28 border-4 border-white/30 shadow-lg shrink-0">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
-                  <AvatarFallback className="bg-white/20 text-white text-3xl font-bold">
-                    {getInitials()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h4 className="text-2xl font-bold mb-2">{fullName}</h4>
-                  <p className="text-white/80 text-base mb-3">Technicien agréé</p>
-                  {profile?.telephone_pro && (
-                    <div className="flex items-center gap-2 text-base">
-                      <Phone className="h-5 w-5" />
-                      <span>{profile.telephone_pro}</span>
+            {/* Main content - centered rectangle */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-2xl border border-white/20 shadow-xl">
+                {/* Photo and info */}
+                <div className="flex gap-6 items-center">
+                  <Avatar className="h-24 w-24 border-4 border-white/40 shadow-lg shrink-0">
+                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarFallback className="bg-white/20 text-white text-2xl font-bold">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1">
+                    <h4 className="text-2xl font-bold mb-1">{fullName}</h4>
+                    <p className="text-white/80 text-sm mb-2">Technicien agréé</p>
+                    {profile?.telephone_pro && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4" />
+                        <span>{profile.telephone_pro}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Agrément number */}
+                  {profile?.numero_agrement && (
+                    <div className="bg-white/15 rounded-lg p-3 shrink-0 text-center">
+                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                        N° d'Agrément
+                      </p>
+                      <p className="text-lg font-mono font-bold">
+                        {profile.numero_agrement}
+                      </p>
                     </div>
                   )}
                 </div>
-                
-                {/* Agrément number - moved to right side */}
-                {profile?.numero_agrement && (
-                  <div className="bg-white/10 rounded-lg p-4 shrink-0">
-                    <p className="text-xs text-white/70 uppercase tracking-wider mb-1">
-                      N° d'Agrément
-                    </p>
-                    <p className="text-xl font-mono font-bold">
-                      {profile.numero_agrement}
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              {/* Certifications logos */}
-              <div className="bg-white rounded-lg p-4 mt-4">
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 text-center">
-                  Certifications
-                </p>
-                <div className="flex items-center justify-center gap-8">
-                  <img 
-                    src={logoRgeEcoArtisan} 
-                    alt="RGE Eco Artisan" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualipac} 
-                    alt="QualiPAC" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualipv} 
-                    alt="QualiPV" 
-                    className="h-14 object-contain"
-                  />
-                  <img 
-                    src={logoQualitenr} 
-                    alt="QualiT'EnR" 
-                    className="h-14 object-contain"
-                  />
+                {/* Certifications logos */}
+                <div className="bg-white rounded-lg p-3 mt-4">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 text-center">
+                    Certifications
+                  </p>
+                  <div className="flex items-center justify-center gap-6">
+                    <img 
+                      src={logoRgeEcoArtisan} 
+                      alt="RGE Eco Artisan" 
+                      className="h-10 object-contain"
+                    />
+                    <img 
+                      src={logoQualipac} 
+                      alt="QualiPAC" 
+                      className="h-10 object-contain"
+                    />
+                    <img 
+                      src={logoQualipv} 
+                      alt="QualiPV" 
+                      className="h-10 object-contain"
+                    />
+                    <img 
+                      src={logoQualitenr} 
+                      alt="QualiT'EnR" 
+                      className="h-10 object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="bg-[#1a5276] py-3 px-6 text-center shrink-0">
-              <p className="text-sm text-white/70">
+            <div className="bg-[#1a5276] py-2 px-6 text-center shrink-0">
+              <p className="text-xs text-white/70">
                 Reconnu Garant de l'Environnement
               </p>
             </div>
