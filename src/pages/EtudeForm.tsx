@@ -48,7 +48,7 @@ import {
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
-import { ProductTypeSelector, PACFields, ITEFields } from "@/components/etude";
+import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { ProductType } from "@/lib/productTypes";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
@@ -258,6 +258,25 @@ const EtudeForm = () => {
   const [iteSurfaceOuvertures, setIteSurfaceOuvertures] = useState<number | "">(0);
   const [iteFinition, setIteFinition] = useState("");
   const [iteEconomieChauffagePct, setIteEconomieChauffagePct] = useState<number | "">(0);
+  const [iteFactureChaufActuelle, setIteFactureChaufActuelle] = useState<number | "">(0);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AIDES PAC & ITE (état local pour section financière)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [aidesPAC, setAidesPAC] = useState({
+    maPrimeRenov: 4000,
+    cee: 4000,
+    ecoTva: 0,
+    aideLocale: 0,
+  });
+  const [aidesITE, setAidesITE] = useState({
+    maPrimeRenov: 0,
+    cee: 0,
+    ecoTva: 0,
+    aideLocale: 0,
+  });
+  const [pacPrixManuel, setPacPrixManuel] = useState<number | "">("");
+  const [itePrixManuel, setItePrixManuel] = useState<number | "">("");
 
   // Mode HEJJA - use global context
   const { 
@@ -990,7 +1009,9 @@ const EtudeForm = () => {
   };
 
   const handleSave = async () => {
-    if (!clientId || !user || !calculatedResults) return;
+    // Pour PV, calculatedResults est requis. Pour PAC/ITE, on sauvegarde directement
+    if (!clientId || !user) return;
+    if (productType === "PV" && !calculatedResults) return;
 
     setSaving(true);
 
@@ -1062,32 +1083,34 @@ const EtudeForm = () => {
       ite_surface_ouvertures: productType === "ITE" && iteSurfaceOuvertures ? Number(iteSurfaceOuvertures) : null,
       ite_finition: productType === "ITE" ? iteFinition : null,
       ite_economie_chauffage_pct: productType === "ITE" && iteEconomieChauffagePct ? Number(iteEconomieChauffagePct) : null,
-      // Prix
-      prix_installation: calculatedResults.prixInstallation,
+      // Prix (adapté selon productType)
+      prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
       autre_surcout: autreSurcout,
-      prix_total: calculatedResults.prixTotalHorsAides,
+      prix_total: productType === "PV" ? calculatedResults?.prixTotalHorsAides : ((Number(pacPrixManuel) || Number(itePrixManuel) || 0) + autreSurcout),
       // Aides
-      prime_autoconsommation: productType === "PV" ? calculatedResults.primeAutoconsommation : null,
-      eco_tva: productType === "PV" ? calculatedResults.ecoTva : null,
-      total_aides: calculatedResults.totalAides,
-      total_aides_deduites: calculatedResults.totalAidesDeduites,
+      prime_autoconsommation: productType === "PV" ? calculatedResults?.primeAutoconsommation : null,
+      eco_tva: productType === "PV" ? calculatedResults?.ecoTva : (productType === "PAC" ? aidesPAC.ecoTva : aidesITE.ecoTva),
+      total_aides: productType === "PV" ? calculatedResults?.totalAides : 
+        (productType === "PAC" ? (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale) :
+        (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale)),
+      total_aides_deduites: productType === "PV" ? calculatedResults?.totalAidesDeduites : null,
       aides_manuelles: modeHejjaActive && aidesManuelles.length > 0 
         ? JSON.parse(JSON.stringify(aidesManuelles)) 
-        : null,
+        : (productType === "PAC" ? aidesPAC : productType === "ITE" ? aidesITE : null),
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
-      mensualite_estimee: calculatedResults.mensualite,
+      mensualite_estimee: productType === "PV" ? calculatedResults?.mensualite : (mensualiteManuelle || null),
       // Rentabilité
-      economie_autoconso_mensuelle: productType === "PV" ? calculatedResults.autoconsommationEuros : null,
-      revente_mensuelle_estimee: productType === "PV" ? calculatedResults.reventeMensuelleEstimee : null,
-      resultat_transfert_charge: productType === "PV" ? calculatedResults.resultatTransfertCharge : null,
-      resultat_mensuel: productType === "PV" ? calculatedResults.resultatTransfertCharge : null,
-      verdict: calculatedResults.verdict,
+      economie_autoconso_mensuelle: productType === "PV" ? calculatedResults?.autoconsommationEuros : null,
+      revente_mensuelle_estimee: productType === "PV" ? calculatedResults?.reventeMensuelleEstimee : null,
+      resultat_transfert_charge: productType === "PV" ? calculatedResults?.resultatTransfertCharge : null,
+      resultat_mensuel: productType === "PV" ? calculatedResults?.resultatTransfertCharge : null,
+      verdict: productType === "PV" ? calculatedResults?.verdict : null,
       mode_hejja_psh: modeHejjaPsh,
       mode_hejja_prix: modeHejjaPrix,
       classification: classification || null,
@@ -1823,6 +1846,7 @@ _Envoyé depuis DébalePro_`;
                 iteSurfaceOuvertures: iteSurfaceOuvertures,
                 iteFinition: iteFinition,
                 iteEconomieChauffagePct: iteEconomieChauffagePct,
+                iteFactureChaufActuelle: iteFactureChaufActuelle,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -1836,6 +1860,7 @@ _Envoyé depuis DébalePro_`;
                   case "iteSurfaceOuvertures": setIteSurfaceOuvertures(value as number | ""); break;
                   case "iteFinition": setIteFinition(value as string); break;
                   case "iteEconomieChauffagePct": setIteEconomieChauffagePct(value as number | ""); break;
+                  case "iteFactureChaufActuelle": setIteFactureChaufActuelle(value as number | ""); break;
                 }
               }}
             />
@@ -2383,15 +2408,83 @@ _Envoyé depuis DébalePro_`;
         </>
         )}
 
-        {/* =============== PRÉ-ÉTUDE FINANCIÈRE =============== */}
-        <div className="pt-4">
-          <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
-            PRÉ-ÉTUDE FINANCIÈRE
-          </h2>
-        </div>
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {/* PRÉ-ÉTUDE FINANCIÈRE - Conditionnel selon productType */}
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
 
-        {/* PRIX & AIDES */}
-        {calculatedResults && (
+        {/* Section Financière PAC */}
+        {productType === "PAC" && (
+          <FinancialSectionPAC
+            pacSubtype={pacSubtype}
+            pacPuissance={Number(pacPuissanceCalorifique) || 0}
+            prixInstallation={(() => {
+              // Chercher bouquet PAC correspondant
+              const pacBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("PAC"));
+              const puissance = Number(pacPuissanceCalorifique) || 8;
+              const bouquet = pacBouquets.find((b: any) => Math.abs(b.puissance_kwc - puissance) < 2);
+              return bouquet?.prix_recommande || puissance * 1500;
+            })()}
+            prixInstallationManuel={pacPrixManuel}
+            onPrixChange={setPacPrixManuel}
+            autreSurcout={autreSurcout}
+            onAutreSurcoutChange={setAutreSurcout}
+            aides={aidesPAC}
+            onAidesChange={setAidesPAC}
+            modeHejja={modeHejjaActive}
+            financements={dataFinancements}
+            financementId={financementId}
+            onFinancementChange={setFinancementId}
+            dureeMois={dureeMoisManuelle}
+            onDureeMoisChange={setDureeMoisManuelle}
+            mensualiteManuelle={mensualiteManuelle}
+            onMensualiteChange={setMensualiteManuelle}
+            factureChauf={Number(pacFactureChauffageEuros) || 0}
+            factureElec={Number(pacFactureElecEuros) || 0}
+            copMoyen={Number(pacCop) || 3.5}
+          />
+        )}
+
+        {/* Section Financière ITE */}
+        {productType === "ITE" && (
+          <FinancialSectionITE
+            surfaceIsoler={Number(iteSurfaceIsoler) || 0}
+            prixInstallation={(() => {
+              // Chercher bouquet ITE correspondant
+              const iteBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("ITE"));
+              const surface = Number(iteSurfaceIsoler) || 100;
+              const bouquet = iteBouquets.find((b: any) => Math.abs(b.puissance_kwc - surface) < 30);
+              return bouquet?.prix_recommande || surface * 150;
+            })()}
+            prixInstallationManuel={itePrixManuel}
+            onPrixChange={setItePrixManuel}
+            autreSurcout={autreSurcout}
+            onAutreSurcoutChange={setAutreSurcout}
+            aides={aidesITE}
+            onAidesChange={setAidesITE}
+            modeHejja={modeHejjaActive}
+            financements={dataFinancements}
+            financementId={financementId}
+            onFinancementChange={setFinancementId}
+            dureeMois={dureeMoisManuelle}
+            onDureeMoisChange={setDureeMoisManuelle}
+            mensualiteManuelle={mensualiteManuelle}
+            onMensualiteChange={setMensualiteManuelle}
+            economieChauffagePct={Number(iteEconomieChauffagePct) || 25}
+            factureChaufActuelle={Number(iteFactureChaufActuelle) || Number(pacFactureChauffageEuros) || 1800}
+          />
+        )}
+
+        {/* =============== PRÉ-ÉTUDE FINANCIÈRE PV =============== */}
+        {productType === "PV" && (
+          <div className="pt-4">
+            <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
+              PRÉ-ÉTUDE FINANCIÈRE
+            </h2>
+          </div>
+        )}
+
+        {/* PRIX & AIDES PV */}
+        {productType === "PV" && calculatedResults && (
           <div className="grid grid-cols-2 gap-3">
             {/* PRIX */}
             <Card className="shadow-card">
@@ -2558,8 +2651,8 @@ _Envoyé depuis DébalePro_`;
           </div>
         )}
 
-        {/* RENTABILITÉ FINANCIÈRE */}
-        {calculatedResults && (
+        {/* RENTABILITÉ FINANCIÈRE PV */}
+        {productType === "PV" && calculatedResults && (
           <Card className="shadow-card border-2 border-primary/50">
             <CardHeader className="pb-2 bg-primary/20">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -2598,8 +2691,8 @@ _Envoyé depuis DébalePro_`;
           </Card>
         )}
 
-        {/* CLASSIFICATION DU DOSSIER */}
-        {calculatedResults && (
+        {/* CLASSIFICATION DU DOSSIER - Disponible pour tous les types */}
+        {(calculatedResults || productType === "PAC" || productType === "ITE") && (
           <Card className="shadow-card">
             <CardHeader className="pb-2 bg-muted/50">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -2883,7 +2976,7 @@ _Envoyé depuis DébalePro_`;
       {/* Floating Save Button - bleu primaire */}
       <Button
         onClick={handleSave}
-        disabled={!calculatedResults || saving}
+        disabled={saving || (productType === "PV" && !calculatedResults)}
         className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
         size="icon"
         aria-label="Sauvegarder l'étude"
