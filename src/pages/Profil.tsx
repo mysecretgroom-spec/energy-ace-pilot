@@ -145,7 +145,12 @@ const Profil = () => {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user) {
+      console.log("No file or user", { file: !!file, user: !!user });
+      return;
+    }
+
+    console.log("Starting photo upload", { fileName: file.name, fileType: file.type, fileSize: file.size });
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -171,29 +176,43 @@ const Profil = () => {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/avatar.${fileExt}`;
+      console.log("Uploading to path:", fileName);
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      console.log("Upload result:", { uploadData, uploadError });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Update profile with new avatar URL
+      console.log("Public URL:", urlData.publicUrl);
+
+      // Update profile with new avatar URL - add cache buster
+      const avatarUrlWithCacheBuster = `${urlData.publicUrl}?t=${Date.now()}`;
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: urlData.publicUrl })
+        .update({ avatar_url: avatarUrlWithCacheBuster })
         .eq('user_id', user.id);
 
-      if (updateError) throw updateError;
+      console.log("Profile update result:", { updateError });
+
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
 
       // Update local state
-      setProfile(prev => prev ? { ...prev, avatar_url: urlData.publicUrl } : null);
+      setProfile(prev => prev ? { ...prev, avatar_url: avatarUrlWithCacheBuster } : null);
 
       toast({
         title: "Photo mise à jour",
@@ -203,7 +222,7 @@ const Profil = () => {
       console.error("Error uploading photo:", error);
       toast({
         title: "Erreur",
-        description: "Impossible de télécharger la photo",
+        description: error instanceof Error ? error.message : "Impossible de télécharger la photo",
         variant: "destructive",
       });
     } finally {
