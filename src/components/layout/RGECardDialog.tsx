@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { IdCard, Phone, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { QRCodeSVG } from "qrcode.react";
 
 // Import logos
 import logoFranceRenov from "@/assets/logos/france-renov.png";
@@ -18,6 +19,8 @@ import logoRgeEcoArtisan from "@/assets/logos/rge-eco-artisan.png";
 import logoQualipac from "@/assets/logos/qualipac.png";
 import logoQualipv from "@/assets/logos/qualipv.png";
 import logoQualitenr from "@/assets/logos/qualitenr.png";
+
+const FRANCE_RENOV_URL = "https://france-renov.gouv.fr/annuaires-professionnels/artisan-rge-architecte#/tab";
 
 interface Profile {
   first_name: string | null;
@@ -140,10 +143,11 @@ export const RGECardDialog = () => {
             {/* Main content - larger floating inner card */}
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
-                {/* Photo and info */}
-                <div className="flex-1 flex gap-6 items-center p-10">
+                {/* Photo and info - centered layout */}
+                <div className="flex-1 flex items-center justify-center gap-10 p-10">
+                  {/* Photo - larger */}
                   <div className="relative shrink-0">
-                    <div className="h-28 w-20 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
+                    <div className="h-40 w-28 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -151,7 +155,7 @@ export const RGECardDialog = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
+                        <div className="w-full h-full flex items-center justify-center text-white text-3xl font-bold">
                           ?
                         </div>
                       )}
@@ -162,41 +166,60 @@ export const RGECardDialog = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1">
+
+                  {/* Technician info - centered */}
+                  <div className="text-center">
                     {fullName ? (
-                      <h4 className="text-2xl font-bold mb-1">{fullName}</h4>
+                      <h4 className="text-3xl font-bold mb-2">{fullName}</h4>
                     ) : (
-                      <div className="mb-1">
-                        <p className="text-lg text-white/50 italic">Nom Prénom</p>
+                      <div className="mb-2">
+                        <p className="text-xl text-white/50 italic">Nom Prénom</p>
                         <p className="text-[10px] text-amber-400">À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 text-sm mb-2">Technicien agréé</p>
+                    <p className="text-white/80 text-base mb-3">Technicien agréé</p>
                     {profile?.telephone_pro ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4" />
+                      <div className="flex items-center justify-center gap-2 text-base">
+                        <Phone className="h-5 w-5" />
                         <span>{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-white/50" />
+                      <div className="flex items-center justify-center gap-2 text-base">
+                        <Phone className="h-5 w-5 text-white/50" />
                         <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
                     )}
                   </div>
-                  
-                  {/* Agrément number */}
-                  <div className="bg-white/15 rounded-lg p-4 shrink-0 text-center">
-                    <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
-                      N° d'Agrément
-                    </p>
-                    {profile?.numero_agrement ? (
-                      <p className="text-xl font-mono font-bold">
-                        {profile.numero_agrement}
+
+                  {/* Agrément number + QR Code */}
+                  <div className="bg-white/15 rounded-lg p-5 shrink-0 text-center flex flex-col items-center gap-3">
+                    <div>
+                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                        N° d'Agrément
                       </p>
-                    ) : (
-                      <p className="text-sm text-white/50 italic">Non renseigné</p>
-                    )}
+                      {profile?.numero_agrement ? (
+                        <p className="text-2xl font-mono font-bold">
+                          {profile.numero_agrement}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-white/50 italic">Non renseigné</p>
+                      )}
+                    </div>
+                    
+                    {/* QR Code as button */}
+                    <button
+                      onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
+                      className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
+                      title="Vérifier sur France Rénov'"
+                    >
+                      <QRCodeSVG 
+                        value={FRANCE_RENOV_URL} 
+                        size={80}
+                        level="M"
+                        includeMargin={false}
+                      />
+                    </button>
+                    <p className="text-[8px] text-white/60">Vérifier sur France Rénov'</p>
                   </div>
                 </div>
 
