@@ -232,31 +232,31 @@ export const RGECardDialog = () => {
                 </div>
 
                 {/* Certifications band inside the central card */}
-                <div className="bg-white py-4 px-6 rounded-b-xl">
+                <div className="bg-white py-4 px-6 rounded-b-xl mx-auto max-w-3xl w-full">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
                       Certifications
                     </p>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                       <img 
                         src={logoRgeEcoArtisan} 
                         alt="RGE Eco Artisan" 
-                        className="h-12 object-contain"
+                        className="h-10 object-contain"
                       />
                       <img 
                         src={logoQualipac} 
                         alt="QualiPAC" 
-                        className="h-12 object-contain"
+                        className="h-10 object-contain"
                       />
                       <img 
                         src={logoQualipv} 
                         alt="QualiPV" 
-                        className="h-12 object-contain"
+                        className="h-10 object-contain"
                       />
                       <img 
                         src={logoQualitenr} 
                         alt="QualiT'EnR" 
-                        className="h-12 object-contain"
+                        className="h-10 object-contain"
                       />
                     </div>
                     <p className="text-[10px] text-gray-500 font-medium">
