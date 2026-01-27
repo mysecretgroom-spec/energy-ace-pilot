@@ -166,14 +166,24 @@ export function DocumentPreview({
             </>
           )}
 
-          {/* Floating Transfer Button */}
-          <Button
-            className="absolute bottom-6 right-6 z-20 shadow-lg gap-2"
-            onClick={() => setTransferDialogOpen(true)}
-          >
-            <ArrowRight className="h-4 w-4" />
-            Transférer
-          </Button>
+          {/* Floating Action Buttons */}
+          <div className="absolute bottom-6 right-6 z-20 flex gap-2">
+            <Button
+              variant="secondary"
+              className="shadow-lg gap-2"
+              onClick={handleDownload}
+            >
+              <Download className="h-4 w-4" />
+              Télécharger
+            </Button>
+            <Button
+              className="shadow-lg gap-2"
+              onClick={() => setTransferDialogOpen(true)}
+            >
+              <ArrowRight className="h-4 w-4" />
+              Transférer
+            </Button>
+          </div>
 
           {/* Loading indicator */}
           {isLoading && (
