@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { RGECardDialog } from "./RGECardDialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
@@ -12,6 +13,7 @@ interface MobileLayoutProps {
   showNav?: boolean;
   showBackButton?: boolean;
   showAgentChat?: boolean;
+  showRGECard?: boolean;
 }
 
 export const MobileLayout = ({
@@ -20,8 +22,14 @@ export const MobileLayout = ({
   showNav = true,
   showBackButton = false,
   showAgentChat = true,
+  showRGECard = true,
 }: MobileLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Hide RGE card on etude pages
+  const isEtudePage = location.pathname.includes("/etude");
+  const shouldShowRGECard = showRGECard && !isEtudePage;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -39,10 +47,14 @@ export const MobileLayout = ({
                 <ArrowLeft className="h-6 w-6" />
               </Button>
             )}
-            <h1 className={`text-lg font-display font-semibold text-foreground ${!showBackButton ? 'flex-1 text-center' : ''}`}>
+            <h1 className={`text-lg font-display font-semibold text-foreground ${!showBackButton ? 'flex-1 text-center' : 'flex-1'}`}>
               {title}
             </h1>
-            {showBackButton && <div className="w-11" />}
+            {shouldShowRGECard ? (
+              <RGECardDialog />
+            ) : (
+              showBackButton && <div className="w-10" />
+            )}
           </div>
         </header>
       )}
