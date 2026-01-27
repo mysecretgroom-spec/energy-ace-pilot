@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { MFAProtectedContent } from "@/components/auth/MFAProtectedContent";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User, Mail, Phone, MapPin, Shield, IdCard, Briefcase } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, Shield, IdCard, Briefcase, Camera } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -29,8 +30,10 @@ const Profil = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mfaVerified, setMfaVerified] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
@@ -140,6 +143,78 @@ const Profil = () => {
     }
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez sélectionner une image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erreur",
+        description: "L'image ne doit pas dépasser 5 Mo",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlData.publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatar_url: urlData.publicUrl } : null);
+
+      toast({
+        title: "Photo mise à jour",
+        description: "Votre photo de profil a été enregistrée",
+      });
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger la photo",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPhoto(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const getInitials = () => {
     const first = formData.first_name?.[0] || "";
     const last = formData.last_name?.[0] || "";
@@ -161,12 +236,34 @@ const Profil = () => {
       <div className="p-4 space-y-6 pb-24">
         {/* Avatar Section */}
         <div className="flex flex-col items-center gap-4">
-          <Avatar className="h-24 w-24 border-4 border-primary/20">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-gradient-hero text-primary-foreground text-2xl font-bold">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="h-24 w-24 border-4 border-primary/20">
+              <AvatarImage src={profile?.avatar_url || undefined} />
+              <AvatarFallback className="bg-gradient-hero text-primary-foreground text-2xl font-bold">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full shadow-md"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">
               {formData.first_name || formData.last_name
@@ -174,6 +271,9 @@ const Profil = () => {
                 : "Nouveau Utilisateur"}
             </h2>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Appuyez sur l'icône caméra pour changer la photo
+            </p>
           </div>
         </div>
 

@@ -83,12 +83,12 @@ export const RGECardDialog = () => {
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-12 object-contain"
+                className="h-16 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-12 object-contain"
+                className="h-16 object-contain"
               />
             </div>
 
@@ -111,7 +111,7 @@ export const RGECardDialog = () => {
                 </Avatar>
                 <div className="flex-1">
                   <h4 className="text-2xl font-bold mb-2">{fullName}</h4>
-                  <p className="text-white/80 text-base mb-3">Commercial Énergie</p>
+                  <p className="text-white/80 text-base mb-3">Technicien agréé</p>
                   {profile?.telephone_pro && (
                     <div className="flex items-center gap-2 text-base">
                       <Phone className="h-5 w-5" />
