@@ -40,26 +40,26 @@ interface CompanyInfo {
 export const RGECardDialog = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [currentRegieName, setCurrentRegieName] = useState<string | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [open, setOpen] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [siretSearchComplete, setSiretSearchComplete] = useState(false);
   const startYRef = useRef(0);
 
   useEffect(() => {
     if (user && open) {
       fetchProfile();
-      fetchCurrentOrNextRdvRegie();
+      fetchRegieWithSiret();
     }
     if (!open) {
       setDragY(0);
       setCompanyInfo(null);
+      setSiretSearchComplete(false);
     }
   }, [user, open]);
 
-
-  const fetchCompanySiret = async (companyName: string) => {
+  const fetchCompanySiret = async (companyName: string): Promise<CompanyInfo | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('search-siret', {
         body: { companyName },
@@ -67,17 +67,19 @@ export const RGECardDialog = () => {
 
       if (error) {
         console.error('Error fetching SIRET:', error);
-        return;
+        return null;
       }
 
-      if (data) {
-        setCompanyInfo({
+      if (data?.siret) {
+        return {
           nom: data.nom || companyName,
           siret: data.siret,
-        });
+        };
       }
+      return null;
     } catch (err) {
       console.error('Error calling search-siret:', err);
+      return null;
     }
   };
 
@@ -95,11 +97,20 @@ export const RGECardDialog = () => {
     }
   };
 
-  const fetchCurrentOrNextRdvRegie = async () => {
+  const fetchRegieWithSiret = async () => {
     if (!user) return;
     
     const now = new Date();
     const nowIso = now.toISOString();
+
+    // Helper function to try to get SIRET from a regie
+    const tryGetSiret = async (regie: { nom: string; siret: string | null }): Promise<CompanyInfo | null> => {
+      if (regie.siret) {
+        return { nom: regie.nom, siret: regie.siret };
+      }
+      // Try API search
+      return await fetchCompanySiret(regie.nom);
+    };
 
     // First, try to find current RDV (date_heure <= now, ordered by most recent)
     const { data: currentRdv } = await supabase
@@ -109,7 +120,7 @@ export const RGECardDialog = () => {
         date_heure,
         duree_minutes,
         regie_id,
-        regies:regie_id (nom, siret)
+        regies:regie_id (nom, siret, is_hejja)
       `)
       .eq("user_id", user.id)
       .lte("date_heure", nowIso)
@@ -118,55 +129,68 @@ export const RGECardDialog = () => {
       .limit(1)
       .maybeSingle();
 
+    let foundSiret: CompanyInfo | null = null;
+
     if (currentRdv?.regies) {
-      // Check if the RDV is still ongoing
       const rdvStart = new Date(currentRdv.date_heure);
       const rdvEnd = new Date(rdvStart.getTime() + (currentRdv.duree_minutes || 60) * 60 * 1000);
       
       if (now <= rdvEnd) {
-        const regie = currentRdv.regies as { nom: string; siret: string | null };
-        setCurrentRegieName(regie.nom);
-        // Use stored SIRET if available
-        if (regie.siret) {
-          setCompanyInfo({ nom: regie.nom, siret: regie.siret });
-        } else {
-          // Fallback to API search
-          fetchCompanySiret(regie.nom);
+        const regie = currentRdv.regies as { nom: string; siret: string | null; is_hejja: boolean };
+        if (!regie.is_hejja) {
+          foundSiret = await tryGetSiret(regie);
         }
-        return;
       }
     }
 
-    // If no current RDV, find next upcoming RDV
-    const { data: nextRdv } = await supabase
-      .from("rdv")
-      .select(`
-        id,
-        date_heure,
-        regie_id,
-        regies:regie_id (nom, siret)
-      `)
-      .eq("user_id", user.id)
-      .gte("date_heure", nowIso)
-      .not("status", "in", '("annule","reporte")')
-      .order("date_heure", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    // If no SIRET found from current RDV, try next RDV
+    if (!foundSiret) {
+      const { data: nextRdv } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          regie_id,
+          regies:regie_id (nom, siret, is_hejja)
+        `)
+        .eq("user_id", user.id)
+        .gte("date_heure", nowIso)
+        .not("status", "in", '("annule","reporte")')
+        .order("date_heure", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-    if (nextRdv?.regies) {
-      const regie = nextRdv.regies as { nom: string; siret: string | null };
-      setCurrentRegieName(regie.nom);
-      // Use stored SIRET if available
-      if (regie.siret) {
-        setCompanyInfo({ nom: regie.nom, siret: regie.siret });
-      } else {
-        // Fallback to API search
-        fetchCompanySiret(regie.nom);
+      if (nextRdv?.regies) {
+        const regie = nextRdv.regies as { nom: string; siret: string | null; is_hejja: boolean };
+        if (!regie.is_hejja) {
+          foundSiret = await tryGetSiret(regie);
+        }
       }
-    } else {
-      setCurrentRegieName(null);
-      setCompanyInfo(null);
     }
+
+    // If still no SIRET, search through all non-HEJJA regies
+    if (!foundSiret) {
+      const { data: allRegies } = await (supabase as any)
+        .from("regies")
+        .select("id, nom, siret, is_hejja")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .eq("is_hejja", false)
+        .order("nom") as { data: Array<{ id: string; nom: string; siret: string | null; is_hejja: boolean }> | null };
+
+      if (allRegies) {
+        for (const regie of allRegies) {
+          const siretInfo = await tryGetSiret(regie);
+          if (siretInfo) {
+            foundSiret = siretInfo;
+            break;
+          }
+        }
+      }
+    }
+
+    setCompanyInfo(foundSiret);
+    setSiretSearchComplete(true);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -289,25 +313,23 @@ export const RGECardDialog = () => {
                       </div>
                     )}
                     <p className="text-white/80 text-base mb-1">Technicien agréé</p>
-                    {(companyInfo?.nom || currentRegieName) && (
+                    {siretSearchComplete && companyInfo && (
                       <div className="mb-2">
                         <p className="text-lg font-semibold text-white/90">
-                          {companyInfo?.nom || currentRegieName}
+                          {companyInfo.nom}
                         </p>
-                        {companyInfo?.siret && (
-                          <p className="text-sm text-white/70 font-mono">
-                            SIRET: {companyInfo.siret}
-                          </p>
-                        )}
+                        <p className="text-sm text-white/70 font-mono">
+                          SIRET: {companyInfo.siret}
+                        </p>
                       </div>
                     )}
                     {profile?.telephone_pro ? (
-                      <div className="flex items-center justify-center gap-3 text-xl">
+                      <div className={`flex items-center justify-center gap-3 text-xl ${!companyInfo ? 'mt-2' : ''}`}>
                         <Phone className="h-7 w-7" />
                         <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-3 text-xl">
+                      <div className={`flex items-center justify-center gap-3 text-xl ${!companyInfo ? 'mt-2' : ''}`}>
                         <Phone className="h-7 w-7 text-white/50" />
                         <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
