@@ -43,6 +43,7 @@ import {
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
 import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
+import { ProductSurcoutsSection } from "@/components/regie/ProductSurcoutsSection";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1352,145 +1353,17 @@ const RegiesSettings = () => {
                     />
                   </TabsContent>
 
-                  {/* Onglet Surcoûts */}
-                  <TabsContent value="surcouts" className="p-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Surcoûts techniques spécifiques à cette régie
-                    </p>
-
-                    {/* Formulaire ajout surcoût */}
-                    <Card>
-                      <CardContent className="p-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Catégorie</label>
-                            <select
-                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                              value={newSurcout.categorie}
-                              onChange={(e) => setNewSurcout({ ...newSurcout, categorie: e.target.value as 'support' | 'emplacement_boitier' | 'compteur' })}
-                            >
-                              <option value="support">Support d'installation</option>
-                              <option value="emplacement_boitier">Emplacement boîtier</option>
-                              <option value="compteur">Type de compteur</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Code</label>
-                            <Input
-                              placeholder="ex: sol_beton"
-                              value={newSurcout.code}
-                              onChange={(e) => setNewSurcout({ ...newSurcout, code: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Nom affiché</label>
-                            <Input
-                              placeholder="ex: Sol béton"
-                              value={newSurcout.nom}
-                              onChange={(e) => setNewSurcout({ ...newSurcout, nom: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Prix €</label>
-                            <Input
-                              type="number"
-                              value={newSurcout.prix}
-                              onChange={(e) => setNewSurcout({ ...newSurcout, prix: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Type calcul</label>
-                            <select
-                              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                              value={newSurcout.type_calcul}
-                              onChange={(e) => setNewSurcout({ ...newSurcout, type_calcul: e.target.value as 'fixe' | 'par_panneau' })}
-                            >
-                              <option value="fixe">Forfait fixe</option>
-                              <option value="par_panneau">Par panneau</option>
-                            </select>
-                          </div>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          className="w-full"
-                          onClick={handleAddSurcout} 
-                          disabled={!newSurcout.code.trim() || !newSurcout.nom.trim()}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Ajouter le surcoût
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    {/* Liste des surcoûts groupés par catégorie */}
-                    {(['support', 'emplacement_boitier', 'compteur'] as const).map((categorie) => {
-                      const surcoutsCategorie = regieSurcouts.filter(s => s.categorie === categorie);
-                      if (surcoutsCategorie.length === 0) return null;
-                      
-                      return (
-                        <div key={categorie} className="space-y-2">
-                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            {getCategorieLabel(categorie)}
-                          </h4>
-                          {surcoutsCategorie.map((surcout) => (
-                            <Card key={surcout.id} className={`${!surcout.actif ? "opacity-50" : ""} ${surcout.isGlobal ? "border-dashed" : ""}`}>
-                              <CardContent className="p-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <p className="font-medium text-sm">{surcout.nom}</p>
-                                      {surcout.isGlobal && (
-                                        <Badge variant="outline" className="text-[10px] h-4">
-                                          Par défaut
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">{surcout.code}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-green-600">
-                                      {surcout.type_calcul === 'par_panneau' 
-                                        ? `${formatCurrency(surcout.prix)}/pann.`
-                                        : formatCurrency(surcout.prix)}
-                                    </span>
-                                    <Switch 
-                                      checked={surcout.actif} 
-                                      onCheckedChange={() => handleToggleSurcoutActif(surcout)}
-                                    />
-                                    {!surcout.isGlobal && (
-                                      <Button 
-                                        size="icon" 
-                                        variant="ghost" 
-                                        className="text-destructive h-8 w-8"
-                                        onClick={() => handleDeleteSurcout(surcout)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      );
-                    })}
-
-                    {regieSurcouts.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        Aucun surcoût configuré
-                      </p>
-                    )}
-
-                    <Card className="bg-muted/50 border-dashed">
-                      <CardContent className="p-3">
-                        <p className="text-xs text-muted-foreground text-center">
-                          💡 Les surcoûts configurés ici seront automatiquement proposés lors de la création des études pour cette régie.
-                        </p>
-                      </CardContent>
-                    </Card>
+                  {/* Onglet Surcoûts - Multi-produit */}
+                  <TabsContent value="surcouts" className="p-4">
+                    <ProductSurcoutsSection
+                      regieId={selectedRegie.id}
+                      userId={user?.id || ""}
+                      regieSurcouts={regieSurcouts.map(s => ({
+                        ...s,
+                        type_calcul: s.type_calcul as 'fixe' | 'par_panneau' | 'par_m2',
+                      }))}
+                      onRefresh={() => fetchRegieDetails(selectedRegie.id)}
+                    />
                   </TabsContent>
 
                   {/* Onglet Financements */}
