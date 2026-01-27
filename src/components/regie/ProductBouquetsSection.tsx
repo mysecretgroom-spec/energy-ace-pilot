@@ -234,25 +234,22 @@ export function ProductBouquetsSection({
                     Tarifs et commissions <span className="font-medium">{cfg.label}</span>
                   </p>
 
-                  {/* Extraction AI - only for PV */}
-                  {productType === "PV" && (
-                    <>
-                      <BouquetExtractor
-                        regieId={selectedRegie.id}
-                        userId={userId}
-                        onBouquetsCreated={onRefresh}
-                      />
-                      
-                      <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-background px-2 text-muted-foreground">ou ajouter manuellement</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  {/* Extraction AI - tous produits */}
+                  <BouquetExtractor
+                    regieId={selectedRegie.id}
+                    userId={userId}
+                    onBouquetsCreated={onRefresh}
+                    productType={productType}
+                  />
+                  
+                  <div className="relative py-2">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">ou ajouter manuellement</span>
+                    </div>
+                  </div>
 
                   {/* Formulaire ajout bouquet */}
                   <Card>

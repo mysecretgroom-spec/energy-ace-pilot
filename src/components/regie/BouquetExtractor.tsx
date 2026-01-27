@@ -17,7 +17,12 @@ import {
   Euro,
   Zap,
   AlertCircle,
+  Thermometer,
+  Home,
+  Sun,
 } from "lucide-react";
+
+type ProductType = "PV" | "PAC" | "ITE";
 
 interface ExtractedBouquet {
   nom_bouquet: string;
@@ -35,9 +40,16 @@ interface BouquetExtractorProps {
   regieId: string;
   userId: string;
   onBouquetsCreated: () => void;
+  productType?: ProductType;
 }
 
-export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: BouquetExtractorProps) {
+const productConfig: Record<ProductType, { label: string; icon: React.ElementType; unit: string; unitLabel: string; color: string }> = {
+  PV: { label: "Photovoltaïque", icon: Sun, unit: "kWc", unitLabel: "Puissance", color: "text-amber-600" },
+  PAC: { label: "Pompe à Chaleur", icon: Thermometer, unit: "kW", unitLabel: "Puissance", color: "text-blue-600" },
+  ITE: { label: "Isolation", icon: Home, unit: "m²", unitLabel: "Surface", color: "text-green-600" },
+};
+
+export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productType = "PV" }: BouquetExtractorProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,11 +94,12 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
       setIsUploading(false);
       setIsExtracting(true);
 
-      // Call extraction function
+      // Call extraction function with productType
       const { data, error } = await supabase.functions.invoke("extract-bouquets", {
         body: {
           imageBase64: base64,
           mimeType: file.type,
+          productType,
         },
       });
 
@@ -163,6 +176,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
         commission_fixe: b.commission_fixe,
         commission_pct: b.commission_pct,
         description: b.description,
+        product_type: productType,
         actif: true,
       }));
 
@@ -218,7 +232,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
               <div className="flex flex-col items-center justify-center py-6 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground">
-                  {isExtracting ? "Analyse en cours avec Gemini..." : "Chargement..."}
+                  {isExtracting ? `Analyse ${productConfig[productType].label} en cours...` : "Chargement..."}
                 </p>
               </div>
             ) : (
@@ -230,7 +244,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium text-sm">Importer une grille tarifaire</p>
+                  <p className="font-medium text-sm">Importer grille tarifaire {productConfig[productType].label}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     PDF ou image de la grille de prix et commissions
                   </p>
@@ -321,12 +335,12 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated }: Bouquet
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <Zap className="h-3 w-3" />
-                          kWc
+                          {productType === "ITE" ? <Home className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                          {productConfig[productType].unit}
                         </label>
                         <Input
                           type="number"
-                          step="0.1"
+                          step={productType === "ITE" ? "10" : "0.1"}
                           value={bouquet.puissance_kwc}
                           onChange={(e) =>
                             updateBouquet(index, "puissance_kwc", parseFloat(e.target.value) || 0)
