@@ -32,10 +32,16 @@ interface Profile {
   prenom_scene: string | null;
 }
 
+interface CompanyInfo {
+  nom: string | null;
+  siret: string | null;
+}
+
 export const RGECardDialog = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentRegieName, setCurrentRegieName] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [open, setOpen] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -48,8 +54,38 @@ export const RGECardDialog = () => {
     }
     if (!open) {
       setDragY(0);
+      setCompanyInfo(null);
     }
   }, [user, open]);
+
+  // Fetch company SIRET when régie name changes
+  useEffect(() => {
+    if (currentRegieName && open) {
+      fetchCompanySiret(currentRegieName);
+    }
+  }, [currentRegieName, open]);
+
+  const fetchCompanySiret = async (companyName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('search-siret', {
+        body: { companyName },
+      });
+
+      if (error) {
+        console.error('Error fetching SIRET:', error);
+        return;
+      }
+
+      if (data) {
+        setCompanyInfo({
+          nom: data.nom || companyName,
+          siret: data.siret,
+        });
+      }
+    } catch (err) {
+      console.error('Error calling search-siret:', err);
+    }
+  };
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -244,8 +280,17 @@ export const RGECardDialog = () => {
                       </div>
                     )}
                     <p className="text-white/80 text-base mb-1">Technicien agréé</p>
-                    {currentRegieName && (
-                      <p className="text-lg font-semibold text-white/90 mb-2">{currentRegieName}</p>
+                    {(companyInfo?.nom || currentRegieName) && (
+                      <div className="mb-2">
+                        <p className="text-lg font-semibold text-white/90">
+                          {companyInfo?.nom || currentRegieName}
+                        </p>
+                        {companyInfo?.siret && (
+                          <p className="text-sm text-white/70 font-mono">
+                            SIRET: {companyInfo.siret}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {profile?.telephone_pro ? (
                       <div className="flex items-center justify-center gap-3 text-xl">
