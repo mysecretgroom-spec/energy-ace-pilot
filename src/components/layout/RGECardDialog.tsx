@@ -139,7 +139,7 @@ export const RGECardDialog = () => {
 
             {/* Main content - larger floating inner card */}
             <div className="flex-1 flex items-center justify-center p-4">
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-8 w-full max-w-4xl border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-10 w-full max-w-4xl h-full max-h-[70%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
                 {/* Photo and info */}
                 <div className="flex gap-6 items-center">
                   <div className="relative shrink-0">
