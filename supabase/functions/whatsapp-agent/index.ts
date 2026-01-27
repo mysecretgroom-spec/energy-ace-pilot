@@ -3385,9 +3385,10 @@ RÈGLES CRITIQUES:
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
 - Tu enregistres uniquement ta COMMISSION (pas de CA)
 - SI le client n'existe pas (recherche échouée), tu PEUX le créer automatiquement
-- Données à collecter: nom_client, commission_ht, date_pose
+- OBLIGATOIRE dans les entities: client_name, commission, date_pose
+- ⚠️ TOUJOURS INCLURE client_name dans les entities ! C'est le nom du client.
 - Si l'utilisateur dit "c'est un nouveau client" après une recherche échouée → mets is_new_client: true dans les entities
-- Exemple: "vente externe Massenat 700€ posé le 20/01" → create_external_vente
+- Exemple: "vente externe Massenat 700€ posé le 20/01" → create_external_vente avec entities: {"client_name":"Massenat","commission":700,"date_pose":"2026-01-20","is_new_client":true}
 
 ⚠️ CONFIRMATION OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente), tu DOIS:
