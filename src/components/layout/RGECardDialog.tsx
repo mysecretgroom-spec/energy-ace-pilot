@@ -191,22 +191,22 @@ export const RGECardDialog = () => {
                     )}
                   </div>
 
-                  {/* Agrément number + QR Code */}
-                  <div className="bg-white/15 rounded-lg p-5 shrink-0 text-center flex flex-col items-center gap-3">
-                    <div>
-                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
-                        N° d'Agrément
+                  {/* Agrément number */}
+                  <div className="bg-white/15 rounded-lg p-5 shrink-0 text-center">
+                    <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                      N° d'Agrément
+                    </p>
+                    {profile?.numero_agrement ? (
+                      <p className="text-2xl font-mono font-bold">
+                        {profile.numero_agrement}
                       </p>
-                      {profile?.numero_agrement ? (
-                        <p className="text-2xl font-mono font-bold">
-                          {profile.numero_agrement}
-                        </p>
-                      ) : (
-                        <p className="text-sm text-white/50 italic">Non renseigné</p>
-                      )}
-                    </div>
-                    
-                    {/* QR Code as button */}
+                    ) : (
+                      <p className="text-sm text-white/50 italic">Non renseigné</p>
+                    )}
+                  </div>
+
+                  {/* QR Code - no background */}
+                  <div className="shrink-0 text-center flex flex-col items-center gap-2">
                     <button
                       onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
                       className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
@@ -219,7 +219,7 @@ export const RGECardDialog = () => {
                         includeMargin={false}
                       />
                     </button>
-                    <p className="text-[8px] text-white/60">Vérifier sur France Rénov'</p>
+                    <p className="text-[9px] text-white/70">Vérifier sur France Rénov'</p>
                   </div>
                 </div>
 
