@@ -35,6 +35,10 @@ import DataCompteurs from "./pages/settings/DataCompteurs";
 import DataCalibres from "./pages/settings/DataCalibres";
 import DataAides from "./pages/settings/DataAides";
 import DataIsolationPAC from "./pages/settings/DataIsolationPAC";
+import DataCopPAC from "./pages/settings/DataCopPAC";
+import DataPuissancesPAC from "./pages/settings/DataPuissancesPAC";
+import DataIsolantsITE from "./pages/settings/DataIsolantsITE";
+import DataFinitionsITE from "./pages/settings/DataFinitionsITE";
 import SecuritySettings from "./pages/settings/SecuritySettings";
 import VentesSettings from "./pages/settings/VentesSettings";
 import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
@@ -116,6 +120,10 @@ const App = () => {
                   <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
                   <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
                   <Route path="/parametres/data-isolation-pac" element={<ProtectedRoute><DataIsolationPAC /></ProtectedRoute>} />
+                  <Route path="/parametres/data-cop-pac" element={<ProtectedRoute><DataCopPAC /></ProtectedRoute>} />
+                  <Route path="/parametres/data-puissances-pac" element={<ProtectedRoute><DataPuissancesPAC /></ProtectedRoute>} />
+                  <Route path="/parametres/data-isolants-ite" element={<ProtectedRoute><DataIsolantsITE /></ProtectedRoute>} />
+                  <Route path="/parametres/data-finitions-ite" element={<ProtectedRoute><DataFinitionsITE /></ProtectedRoute>} />
                   <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                   <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />

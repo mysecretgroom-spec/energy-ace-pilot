@@ -26,152 +26,141 @@ import {
   Scale,
   Bot,
   Thermometer,
+  Home,
+  Layers,
+  PaintBucket,
+  ChevronDown,
 } from "lucide-react";
+import { useState } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+
+// Données PV
+const dataPvItems = [
+  { icon: Sun, label: "PSH / Heures ensoleillement", description: "Par département", path: "/parametres/data-psh" },
+  { icon: Compass, label: "Orientation / Inclinaison", description: "Coefficients de production", path: "/parametres/data-orientation" },
+  { icon: Euro, label: "Tarifs revente", description: "Prix kWh revente/autoconso", path: "/parametres/data-tarifs" },
+  { icon: Zap, label: "Types de compteurs", description: "Monophasé, triphasé", path: "/parametres/data-compteurs" },
+  { icon: Gauge, label: "Calibres disjoncteur", description: "Ampérage et puissances", path: "/parametres/data-calibres" },
+  { icon: Gift, label: "Aides & Primes PV", description: "Prime autoconso, éco TVA", path: "/parametres/data-aides" },
+];
+
+// Données PAC
+const dataPacItems = [
+  { icon: Shield, label: "Niveaux d'isolation", description: "Coefficients et besoins kWh/m²", path: "/parametres/data-isolation-pac" },
+  { icon: Thermometer, label: "COP par température", description: "Performance selon T° ext.", path: "/parametres/data-cop-pac" },
+  { icon: Zap, label: "Puissances recommandées", description: "kW selon surface", path: "/parametres/data-puissances-pac" },
+];
+
+// Données ITE
+const dataIteItems = [
+  { icon: Layers, label: "Types d'isolants", description: "Lambda, prix au m²", path: "/parametres/data-isolants-ite" },
+  { icon: PaintBucket, label: "Finitions", description: "Enduit, bardage, prix", path: "/parametres/data-finitions-ite" },
+];
 
 const settingsSections = [
   {
     title: "Profil",
     items: [
-      {
-        icon: User,
-        label: "Mon profil",
-        description: "Nom, téléphone, email",
-        path: "/profil",
-      },
-      {
-        icon: Target,
-        label: "Mes objectifs",
-        description: "CA, ventes, RDV mensuels",
-        path: "/parametres/objectifs",
-      },
-      {
-        icon: Bell,
-        label: "Notifications",
-        description: "Alertes RDV, rappels",
-        path: "/notifications",
-      },
+      { icon: User, label: "Mon profil", description: "Nom, téléphone, email", path: "/profil" },
+      { icon: Target, label: "Mes objectifs", description: "CA, ventes, RDV mensuels", path: "/parametres/objectifs" },
+      { icon: Bell, label: "Notifications", description: "Alertes RDV, rappels", path: "/notifications" },
     ],
   },
   {
     title: "WhatsApp",
     items: [
-      {
-        icon: Bot,
-        label: "Assistant IA",
-        description: "Agent WhatsApp intelligent",
-        path: "/parametres/whatsapp-agent",
-      },
-      {
-        icon: MessageCircle,
-        label: "Messages personnalisés",
-        description: "Templates par statut de RDV",
-        path: "/parametres/whatsapp-templates",
-      },
+      { icon: Bot, label: "Assistant IA", description: "Agent WhatsApp intelligent", path: "/parametres/whatsapp-agent" },
+      { icon: MessageCircle, label: "Messages personnalisés", description: "Templates par statut de RDV", path: "/parametres/whatsapp-templates" },
     ],
   },
   {
     title: "Régies & Sources",
     items: [
-      {
-        icon: Building2,
-        label: "Régies",
-        description: "Sources RDV, emails, contacts, tarifs",
-        path: "/parametres/regies",
-      },
+      { icon: Building2, label: "Régies", description: "Sources RDV, emails, contacts, tarifs", path: "/parametres/regies" },
     ],
   },
   {
     title: "Import RDV",
     items: [
-      {
-        icon: Clock,
-        label: "Sync Gmail automatique",
-        description: "Import périodique des RDV",
-        path: "/parametres/gmail-auto-sync",
-      },
-    ],
-  },
-  {
-    title: "Tables DATA",
-    items: [
-      {
-        icon: Sun,
-        label: "PSH / Heures ensoleillement",
-        description: "Par département",
-        path: "/parametres/data-psh",
-      },
-      {
-        icon: Compass,
-        label: "Orientation / Inclinaison",
-        description: "Coefficients de production",
-        path: "/parametres/data-orientation",
-      },
-      {
-        icon: Euro,
-        label: "Tarifs revente",
-        description: "Prix kWh revente/autoconso",
-        path: "/parametres/data-tarifs",
-      },
-      {
-        icon: Zap,
-        label: "Types de compteurs",
-        description: "Monophasé, triphasé",
-        path: "/parametres/data-compteurs",
-      },
-      {
-        icon: Gauge,
-        label: "Calibres disjoncteur",
-        description: "Ampérage et puissances",
-        path: "/parametres/data-calibres",
-      },
-      {
-        icon: Gift,
-        label: "Aides & Primes",
-        description: "Prime autoconso, éco TVA",
-        path: "/parametres/data-aides",
-      },
-      {
-        icon: Thermometer,
-        label: "Isolation PAC",
-        description: "Niveaux d'isolation et besoins kWh",
-        path: "/parametres/data-isolation-pac",
-      },
+      { icon: Clock, label: "Sync Gmail automatique", description: "Import périodique des RDV", path: "/parametres/gmail-auto-sync" },
     ],
   },
   {
     title: "Automatisations",
     items: [
-      {
-        icon: Clock,
-        label: "Transition ventes",
-        description: "Délai Posé → Attente paiement",
-        path: "/parametres/ventes",
-      },
+      { icon: Clock, label: "Transition ventes", description: "Délai Posé → Attente paiement", path: "/parametres/ventes" },
     ],
   },
   {
     title: "Sécurité",
     items: [
-      {
-        icon: Shield,
-        label: "Code PIN / Biométrie",
-        description: "Accès mode interne",
-        path: "/parametres/securite",
-      },
+      { icon: Shield, label: "Code PIN / Biométrie", description: "Accès mode interne", path: "/parametres/securite" },
     ],
   },
   {
     title: "Légal",
     items: [
-      {
-        icon: Scale,
-        label: "Documents légaux",
-        description: "CGU, CGV, Confidentialité, Sécurité",
-        path: "/legal",
-      },
+      { icon: Scale, label: "Documents légaux", description: "CGU, CGV, Confidentialité, Sécurité", path: "/legal" },
     ],
   },
 ];
+
+interface DataProductSectionProps {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: string;
+  bgColor: string;
+  items: Array<{ icon: React.ComponentType<{ className?: string }>; label: string; description: string; path: string }>;
+  defaultOpen?: boolean;
+}
+
+const DataProductSection = ({ title, icon: Icon, iconColor, bgColor, items, defaultOpen = false }: DataProductSectionProps) => {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="shadow-card overflow-hidden">
+        <CollapsibleTrigger className="w-full">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className={cn("p-2 rounded-lg", bgColor)}>
+              <Icon className={cn("h-4 w-4", iconColor)} />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground">{items.length} paramètres</p>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+          </CardContent>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t divide-y divide-border">
+            {items.map((item) => {
+              const ItemIcon = item.icon;
+              return (
+                <div
+                  key={item.path}
+                  className="flex items-center gap-3 p-4 pl-12 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(item.path)}
+                >
+                  <div className="p-2 rounded-lg bg-muted">
+                    <ItemIcon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              );
+            })}
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+};
 
 const Parametres = () => {
   const navigate = useNavigate();
@@ -220,8 +209,6 @@ const Parametres = () => {
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
             Notifications
           </h3>
-          
-          {/* Push Notifications Card */}
           <Card 
             className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
             onClick={() => navigate("/parametres/notifications-push")}
@@ -232,17 +219,44 @@ const Parametres = () => {
                   <Bell className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    Notifications Push
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Alertes sur téléphone
-                  </p>
+                  <p className="text-sm font-medium text-foreground">Notifications Push</p>
+                  <p className="text-xs text-muted-foreground">Alertes sur téléphone</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Data Tables Section - Organized by Product */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground px-1">
+            Tables DATA par Produit
+          </h3>
+          <div className="space-y-2">
+            <DataProductSection
+              title="Données Photovoltaïque (PV)"
+              icon={Sun}
+              iconColor="text-yellow-600"
+              bgColor="bg-yellow-500/10"
+              items={dataPvItems}
+              defaultOpen
+            />
+            <DataProductSection
+              title="Données Pompe à Chaleur (PAC)"
+              icon={Thermometer}
+              iconColor="text-blue-600"
+              bgColor="bg-blue-500/10"
+              items={dataPacItems}
+            />
+            <DataProductSection
+              title="Données Isolation (ITE)"
+              icon={Home}
+              iconColor="text-orange-600"
+              bgColor="bg-orange-500/10"
+              items={dataIteItems}
+            />
+          </div>
         </div>
 
         {/* Sections de paramètres */}
@@ -274,12 +288,8 @@ const Parametres = () => {
                         <Icon className="h-4 w-4 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {item.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.description}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
@@ -306,12 +316,8 @@ const Parametres = () => {
                     <Settings2 className="h-4 w-4 text-amber-500" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      Panel Admin
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Gestion utilisateurs, abonnements
-                    </p>
+                    <p className="text-sm font-medium text-foreground">Panel Admin</p>
+                    <p className="text-xs text-muted-foreground">Gestion utilisateurs, abonnements</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -319,7 +325,6 @@ const Parametres = () => {
             </Card>
           </div>
         )}
-
 
         {/* Déconnexion */}
         <Button
