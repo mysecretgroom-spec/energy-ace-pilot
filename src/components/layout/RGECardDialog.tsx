@@ -75,36 +75,37 @@ export const RGECardDialog = () => {
           <DialogTitle>Carte RGE Professionnelle</DialogTitle>
         </DialogHeader>
         
-        {/* RGE Card - Rotated for landscape view */}
-        <div className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center">
-          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col">
-            <div className="bg-white py-6 px-8 flex items-center justify-center gap-16">
+        {/* RGE Card - Floating business card style */}
+        <div className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center p-6">
+          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
+            {/* Header with Ministère and France Rénov logos */}
+            <div className="bg-white py-5 px-8 flex items-center justify-center gap-16 rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-24 object-contain"
+                className="h-20 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-24 object-contain"
+                className="h-20 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-[#27ae60] py-2 px-6 text-center shrink-0">
-              <h3 className="text-lg font-bold tracking-wide uppercase">
+            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-2.5 px-6 text-center shrink-0 shadow-sm">
+              <h3 className="text-base font-bold tracking-widest uppercase drop-shadow-sm">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
-            {/* Main content - centered rectangle */}
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 w-full max-w-3xl border border-white/20 shadow-xl">
+            {/* Main content - floating inner card */}
+            <div className="flex-1 flex items-center justify-center p-5">
+              <div className="bg-white/15 backdrop-blur-md rounded-2xl p-6 w-full max-w-2xl border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)]">
                 {/* Photo and info */}
-                <div className="flex gap-6 items-center">
+                <div className="flex gap-5 items-center">
                   <div className="relative shrink-0">
-                    <div className="h-28 w-20 border-4 border-white/40 shadow-lg rounded-lg overflow-hidden bg-white/20">
+                    <div className="h-24 w-[4.5rem] border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -164,34 +165,34 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Footer with certifications */}
-            <div className="bg-white py-6 px-8 shrink-0">
+            <div className="bg-white py-4 px-6 shrink-0 rounded-b-3xl">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-medium">
                   Certifications
                 </p>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                   <img 
                     src={logoRgeEcoArtisan} 
                     alt="RGE Eco Artisan" 
-                    className="h-12 object-contain"
+                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
                   />
                   <img 
                     src={logoQualipac} 
                     alt="QualiPAC" 
-                    className="h-12 object-contain"
+                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
                   />
                   <img 
                     src={logoQualipv} 
                     alt="QualiPV" 
-                    className="h-12 object-contain"
+                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
                   />
                   <img 
                     src={logoQualitenr} 
                     alt="QualiT'EnR" 
-                    className="h-12 object-contain"
+                    className="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"
                   />
                 </div>
-                <p className="text-[10px] text-gray-500">
+                <p className="text-[9px] text-gray-500 font-medium">
                   Reconnu Garant de l'Environnement
                 </p>
               </div>
