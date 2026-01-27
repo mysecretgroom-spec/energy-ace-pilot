@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { Loader2, User, Mail, Phone, MapPin, Shield, IdCard, Briefcase, Camera } from "lucide-react";
 
 interface Profile {
@@ -277,23 +278,26 @@ const Profil = () => {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
               onChange={handlePhotoUpload}
               className="hidden"
+              id="avatar-upload"
             />
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full shadow-md"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingPhoto}
+            <label
+              htmlFor="avatar-upload"
+              className={cn(
+                "absolute -bottom-1 -right-1 h-8 w-8 rounded-full shadow-md cursor-pointer",
+                "flex items-center justify-center",
+                "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                uploadingPhoto && "pointer-events-none opacity-50"
+              )}
             >
               {uploadingPhoto ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Camera className="h-4 w-4" />
               )}
-            </Button>
+            </label>
           </div>
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground">
