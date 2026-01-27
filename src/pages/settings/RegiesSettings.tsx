@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
+import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1331,206 +1332,24 @@ const RegiesSettings = () => {
                     </Card>
                   </TabsContent>
 
-                  {/* Onglet Bouquets/Tarifs */}
-                  <TabsContent value="bouquets" className="p-4 space-y-4">
-                    {/* Configuration du mode de calcul */}
-                    <Card className="border-primary/20 bg-primary/5">
-                      <CardContent className="p-4 space-y-4">
-                        <div className="flex items-center gap-2">
-                          <Euro className="h-4 w-4 text-primary" />
-                          <h4 className="font-semibold text-sm">Mode de calcul des commissions</h4>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant={selectedRegie.mode_calcul_commission === 'bouquet' ? 'default' : 'outline'}
-                            size="sm"
-                            className="w-full justify-start gap-2"
-                            onClick={() => handleUpdateCommissionMode('bouquet')}
-                          >
-                            <Check className={selectedRegie.mode_calcul_commission === 'bouquet' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
-                            Bouquet + Survente
-                          </Button>
-                          <Button
-                            variant={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'default' : 'outline'}
-                            size="sm"
-                            className="w-full justify-start gap-2"
-                            onClick={() => handleUpdateCommissionMode('pourcentage')}
-                          >
-                            <Check className={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
-                            % sur CA
-                          </Button>
-                        </div>
-
-                        {selectedRegie.mode_calcul_commission === 'bouquet' && (
-                          <div className="space-y-2">
-                            <label className="text-xs text-muted-foreground">Part de survente reversée (%)</label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={selectedRegie.part_survente_pct}
-                                onChange={(e) => handleUpdateSurventePct(parseFloat(e.target.value) || 0)}
-                                className="w-24"
-                              />
-                              <span className="text-sm text-muted-foreground">%</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Commission = Fixe bouquet + {selectedRegie.part_survente_pct}% de (Prix vendu - Prix recommandé) HT
-                            </p>
-                          </div>
-                        )}
-
-                        {selectedRegie.mode_calcul_commission === 'pourcentage' && (
-                          <p className="text-xs text-muted-foreground">
-                            Commission = Pourcentage du CA selon les tranches configurées dans les paramètres globaux
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {selectedRegie.mode_calcul_commission === 'bouquet' && (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          Tarifs et commissions spécifiques à cette régie
-                        </p>
-
-                    {/* Extraction AI */}
-                    {user && (
-                      <BouquetExtractor
-                        regieId={selectedRegie.id}
-                        userId={user.id}
-                        onBouquetsCreated={() => fetchRegieDetails(selectedRegie.id)}
-                      />
-                    )}
-
-                    {/* Séparateur */}
-                    <div className="relative py-2">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">ou ajouter manuellement</span>
-                      </div>
-                    </div>
-
-                    {/* Formulaire ajout bouquet */}
-                    <Card>
-                      <CardContent className="p-3 space-y-2">
-                        <Input
-                          placeholder="Nom du bouquet"
-                          value={newBouquet.nom_bouquet}
-                          onChange={(e) => setNewBouquet({ ...newBouquet, nom_bouquet: e.target.value })}
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Puissance (kWc)</label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={newBouquet.puissance_kwc}
-                              onChange={(e) => setNewBouquet({ ...newBouquet, puissance_kwc: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Prix recommandé</label>
-                            <Input
-                              type="number"
-                              value={newBouquet.prix_recommande}
-                              onChange={(e) => setNewBouquet({ ...newBouquet, prix_recommande: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Prix max</label>
-                            <Input
-                              type="number"
-                              value={newBouquet.prix_max}
-                              onChange={(e) => setNewBouquet({ ...newBouquet, prix_max: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Commission €</label>
-                            <Input
-                              type="number"
-                              value={newBouquet.commission_fixe}
-                              onChange={(e) => setNewBouquet({ ...newBouquet, commission_fixe: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          className="w-full"
-                          onClick={handleAddBouquet} 
-                          disabled={!newBouquet.nom_bouquet.trim()}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Ajouter le bouquet
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    {regieBouquets.map((bouquet) => (
-                      <Card key={bouquet.id}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {bouquet.puissance_kwc} kWc
-                              </p>
-                            </div>
-                            <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="text-destructive h-8 w-8"
-                              onClick={() => handleDeleteBouquet(bouquet.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex gap-4 mt-3">
-                            <div className="flex-1">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Prix reco.</p>
-                              <p className="text-sm font-semibold text-foreground">
-                                {formatCurrency(bouquet.prix_recommande)}
-                              </p>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Commission</p>
-                              <p className="text-sm font-semibold text-green-600">
-                                {formatCurrency(bouquet.commission_fixe)}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-
-                    {regieBouquets.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        Aucun bouquet configuré
-                      </p>
-                    )}
-                      </>
-                    )}
-
-                    {selectedRegie.mode_calcul_commission === 'pourcentage' && (
-                      <Card className="bg-muted/30">
-                        <CardContent className="p-4">
-                          <p className="text-sm text-muted-foreground text-center">
-                            En mode pourcentage, les commissions sont calculées selon les tranches définies dans{' '}
-                            <Button 
-                              variant="link" 
-                              className="p-0 h-auto text-primary"
-                              onClick={() => navigate('/parametres/ventes')}
-                            >
-                              Paramètres → Commissions
-                            </Button>
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
+                  {/* Onglet Bouquets/Tarifs - Multi-produit */}
+                  <TabsContent value="bouquets" className="p-4">
+                    <ProductBouquetsSection
+                      selectedRegie={{
+                        id: selectedRegie.id,
+                        nom: selectedRegie.nom,
+                        mode_calcul_commission: selectedRegie.mode_calcul_commission,
+                        part_survente_pct: selectedRegie.part_survente_pct,
+                      }}
+                      regieBouquets={regieBouquets.map(b => ({
+                        ...b,
+                        product_type: (b as any).product_type || null,
+                      }))}
+                      userId={user?.id || ""}
+                      onRefresh={() => fetchRegieDetails(selectedRegie.id)}
+                      onUpdateCommissionMode={handleUpdateCommissionMode}
+                      onUpdateSurventePct={handleUpdateSurventePct}
+                    />
                   </TabsContent>
 
                   {/* Onglet Surcoûts */}
