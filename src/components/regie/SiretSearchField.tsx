@@ -114,7 +114,7 @@ export function SiretSearchField({
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          SIRET
+          SIRET <span className="text-destructive">*</span>
         </Label>
         {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
@@ -127,7 +127,8 @@ export function SiretSearchField({
           onClick={() => results.length > 0 && setShowDropdown(true)}
           className={cn(
             "cursor-pointer",
-            results.length > 0 && "pr-10"
+            results.length > 0 && "pr-10",
+            !value && hasSearched && results.length > 0 && "border-destructive"
           )}
         />
         {results.length > 0 && (
@@ -188,8 +189,15 @@ export function SiretSearchField({
 
       {/* No results message */}
       {hasSearched && !loading && results.length === 0 && companyName.length >= 3 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-destructive">
           Aucune entreprise trouvée pour "{companyName}"
+        </p>
+      )}
+
+      {/* Required hint when results available but none selected */}
+      {!value && hasSearched && results.length > 0 && !showDropdown && (
+        <p className="text-xs text-destructive">
+          Veuillez sélectionner une entreprise dans la liste
         </p>
       )}
     </div>

@@ -83,6 +83,11 @@ export function CreateRegieDialog({
       return;
     }
 
+    if (!siret || siret.length !== 14) {
+      toast.error("Veuillez sélectionner une entreprise avec un SIRET valide");
+      return;
+    }
+
     setSaving(true);
     try {
       // 1. Create the new regie
@@ -354,7 +359,7 @@ export function CreateRegieDialog({
           <Button
             className={`w-full ${isHejja ? "bg-red-500 hover:bg-red-600" : ""}`}
             onClick={handleCreate}
-            disabled={saving || !nom.trim()}
+            disabled={saving || !nom.trim() || !siret || siret.length !== 14}
           >
             {saving ? (
               <>
