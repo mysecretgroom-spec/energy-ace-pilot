@@ -129,7 +129,7 @@ export function DocumentPreview({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 gap-0">
-        {/* Header */}
+        {/* Header - minimal */}
         <DialogHeader className="p-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
@@ -138,46 +138,6 @@ export function DocumentPreview({
                 {currentDoc.type_document.replace(/_/g, " ")}
                 {documents.length > 1 && ` • ${currentIndex + 1} / ${documents.length}`}
               </p>
-            </div>
-            
-            <div className="flex items-center gap-1">
-              {fileType === "image" && (
-                <>
-                  <Button variant="ghost" size="icon" onClick={handleZoomOut} title="Zoom arrière">
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
-                  <Button variant="ghost" size="icon" onClick={handleZoomIn} title="Zoom avant">
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={handleRotate} title="Pivoter">
-                    <RotateCw className="h-4 w-4" />
-                  </Button>
-                  <div className="w-px h-6 bg-border mx-1" />
-                </>
-              )}
-              
-              <Button variant="ghost" size="icon" onClick={handleDownload} title="Télécharger">
-                <Download className="h-4 w-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTransferDialogOpen(true)}
-                title="Transférer"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => window.open(currentDoc.url, "_blank")}
-                title="Ouvrir dans un nouvel onglet"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -205,6 +165,15 @@ export function DocumentPreview({
               </Button>
             </>
           )}
+
+          {/* Floating Transfer Button */}
+          <Button
+            className="absolute bottom-6 right-6 z-20 shadow-lg gap-2"
+            onClick={() => setTransferDialogOpen(true)}
+          >
+            <ArrowRight className="h-4 w-4" />
+            Transférer
+          </Button>
 
           {/* Loading indicator */}
           {isLoading && (
