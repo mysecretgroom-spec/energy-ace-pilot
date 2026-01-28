@@ -244,7 +244,7 @@ export const RGECardDialog = () => {
 
         {/* RGE Card - Floating business card style with drag gesture */}
         <div 
-          className="origin-center w-[100vh] h-[100vw] flex items-center justify-center p-2 transition-transform duration-200"
+          className="origin-center w-[100vh] h-[100vw] flex items-center justify-center transition-transform duration-200"
           style={{ 
             transform: `rotate(90deg) translateX(${dragY}px)`,
             opacity: Math.max(0.3, 1 - dragY / 300)
@@ -253,7 +253,7 @@ export const RGECardDialog = () => {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
+          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-[98%] h-[96%] flex flex-col rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
             {/* Header with Ministère and France Rénov logos */}
             <div className="bg-white py-4 px-6 flex items-center justify-between rounded-t-2xl shrink-0">
               <img 
