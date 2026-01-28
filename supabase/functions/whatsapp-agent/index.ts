@@ -3130,7 +3130,7 @@ async function handlePendingWorkflow(
             await supabase
               .from("pending_documents")
               .update({
-                status: "assigned",
+                status: "manually_assigned",
                 assigned_client_id: clientId,
                 assigned_document_type: documentType,
                 assigned_at: new Date().toISOString(),
@@ -3707,7 +3707,7 @@ async function handlePendingWorkflow(
         await supabase
           .from("pending_documents")
           .update({
-            status: "assigned",
+            status: "manually_assigned",
             assigned_client_id: selectedClientId,
             assigned_document_type: documentType,
             assigned_at: new Date().toISOString(),

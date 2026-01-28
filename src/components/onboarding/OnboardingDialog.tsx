@@ -9,7 +9,9 @@ import { ChevronRight, ChevronLeft, X, Sparkles, CheckCircle } from "lucide-reac
 
 import { WelcomeStep } from "./steps/WelcomeStep";
 import { FeaturesStep } from "./steps/FeaturesStep";
-import { AgentDemoStep } from "./steps/AgentDemoStep";
+import { SettingsStep } from "./steps/SettingsStep";
+import { AgentInstructionsStep } from "./steps/AgentInstructionsStep";
+import { HejjaModeStep } from "./steps/HejjaModeStep";
 import { WhatsAppStep } from "./steps/WhatsAppStep";
 import { GoogleStep } from "./steps/GoogleStep";
 import { DataConfigStep } from "./steps/DataConfigStep";
@@ -18,7 +20,9 @@ import { CompletionStep } from "./steps/CompletionStep";
 const STEPS = [
   { id: "welcome", label: "Bienvenue", required: false },
   { id: "features", label: "Fonctionnalités", required: false },
-  { id: "agent", label: "Assistant IA", required: false },
+  { id: "settings", label: "Paramètres", required: false },
+  { id: "agent", label: "Agent IA", required: false },
+  { id: "hejja", label: "Mode HEJJA", required: false },
   { id: "whatsapp", label: "WhatsApp", required: false },
   { id: "google", label: "Google", required: false },
   { id: "data", label: "Données", required: false },
@@ -141,11 +145,13 @@ export function OnboardingDialog() {
             >
               {currentStep === 0 && <WelcomeStep />}
               {currentStep === 1 && <FeaturesStep />}
-              {currentStep === 2 && <AgentDemoStep />}
-              {currentStep === 3 && <WhatsAppStep />}
-              {currentStep === 4 && <GoogleStep />}
-              {currentStep === 5 && <DataConfigStep />}
-              {currentStep === 6 && <CompletionStep />}
+              {currentStep === 2 && <SettingsStep />}
+              {currentStep === 3 && <AgentInstructionsStep />}
+              {currentStep === 4 && <HejjaModeStep />}
+              {currentStep === 5 && <WhatsAppStep />}
+              {currentStep === 6 && <GoogleStep />}
+              {currentStep === 7 && <DataConfigStep />}
+              {currentStep === 8 && <CompletionStep />}
             </motion.div>
           </AnimatePresence>
         </div>
