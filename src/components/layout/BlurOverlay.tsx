@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const BLUR_RESET_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
@@ -20,6 +20,8 @@ export function BlurOverlay({
   opaque = false 
 }: BlurOverlayProps) {
   const [isBlurred, setIsBlurred] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Check if already dismissed (persisted) - resets after 30 min
   useEffect(() => {
@@ -45,60 +47,78 @@ export function BlurOverlay({
     }
   }, [storageKey]);
 
-  // Handle scroll event
-  useEffect(() => {
-    if (!isBlurred) return;
-
-    const handleScroll = () => {
-      dismissBlur();
-    };
-
-    // Listen to scroll on both window and touch events
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("touchmove", handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("touchmove", handleScroll);
-    };
-  }, [isBlurred, dismissBlur]);
-
-  // Handle click
-  const handleClick = useCallback(() => {
+  // Handle direct click on the blur overlay only
+  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isBlurred) {
       dismissBlur();
     }
   }, [isBlurred, dismissBlur]);
 
+  // Handle touch start - record position for drag detection
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isBlurred) return;
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, [isBlurred]);
+
+  // Handle touch move - detect drag/swipe on the overlay
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isBlurred || !touchStartRef.current) return;
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
+    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+    
+    // If user has dragged more than 20px, dismiss the blur
+    if (deltaX > 20 || deltaY > 20) {
+      dismissBlur();
+      touchStartRef.current = null;
+    }
+  }, [isBlurred, dismissBlur]);
+
+  // Handle touch end - reset touch tracking
+  const handleTouchEnd = useCallback(() => {
+    touchStartRef.current = null;
+  }, []);
+
   return (
-    <div className="relative" onClick={handleClick}>
-      {/* Blur overlay - more opaque */}
+    <div 
+      ref={containerRef}
+      className="relative"
+    >
+      {/* Blur overlay - captures interactions directly */}
       <AnimatePresence>
         {isBlurred && (
           <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className={`absolute inset-0 z-20 pointer-events-none flex items-center justify-center rounded-xl ${
+            className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl cursor-pointer ${
               opaque ? "bg-background/80" : "bg-background/40"
             }`}
             style={{ 
               backdropFilter: `blur(${blurAmount + 6}px)`, 
-              WebkitBackdropFilter: `blur(${blurAmount + 6}px)` 
+              WebkitBackdropFilter: `blur(${blurAmount + 6}px)`,
+              touchAction: "pan-x pan-y"
             }}
+            onClick={handleOverlayClick}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: 0.2 }}
-              className="text-center pointer-events-auto"
+              className="text-center"
             >
               <div className={`rounded-2xl px-6 py-4 shadow-lg border border-border ${
                 opaque ? "bg-card" : "bg-card/95 backdrop-blur-sm"
               }`}>
                 <p className="text-sm text-muted-foreground">
-                  Touchez ou scrollez pour afficher
+                  Touchez ou glissez pour afficher
                 </p>
               </div>
             </motion.div>
