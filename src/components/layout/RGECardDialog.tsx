@@ -391,36 +391,36 @@ export const RGECardDialog = () => {
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-1.5 sm:gap-2 w-20 sm:w-36 lg:w-44">
+                  <div className="shrink-0 flex flex-col items-center gap-3 sm:gap-2 w-24 sm:w-36 lg:w-44">
                     {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg text-center w-full p-2 sm:p-3 lg:p-4">
-                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
+                    <div className="bg-white/15 rounded-lg text-center w-full py-4 px-2 sm:p-3 lg:p-4">
+                      <p className="text-white/70 uppercase tracking-wider mb-1 text-[10px] sm:text-xs">
                         N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
-                        <p className="font-mono font-bold leading-tight text-sm sm:text-xl lg:text-2xl">
+                        <p className="font-mono font-bold leading-tight text-base sm:text-xl lg:text-2xl">
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-white/50 italic text-[10px] sm:text-sm">Non renseigné</p>
+                        <p className="text-white/50 italic text-xs sm:text-sm">Non renseigné</p>
                       )}
                     </div>
 
                     {/* QR Code */}
-                    <div className="text-center flex flex-col items-center gap-1 w-full">
+                    <div className="text-center flex flex-col items-center gap-1.5 w-full">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1.5 sm:p-3"
+                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-2 sm:p-3"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 36 : 70}
+                          size={isMobile ? 56 : 70}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-white/70 text-[8px] sm:text-xs">Vérifier sur France Rénov'</p>
+                      <p className="text-white/70 text-[10px] sm:text-xs">Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
