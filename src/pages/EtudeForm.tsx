@@ -1680,80 +1680,80 @@ _Envoyé depuis DébalePro_`;
         </div>
       )}
 
-      <div className="space-y-4">
-        {/* Official Header with logos - Sticky */}
-        <div className="bg-white border-b-4 border-[#000091] px-4 py-3 sticky top-0 z-40 shadow-md">
-          {/* Tricolor band */}
-          <div className="flex h-1 mb-3 rounded-full overflow-hidden">
+      <div className="space-y-3 sm:space-y-4">
+        {/* Official Header with logos - Sticky - Compact on mobile */}
+        <div className="bg-white border-b-2 sm:border-b-4 border-[#000091] px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-40 shadow-md">
+          {/* Tricolor band - thinner on mobile */}
+          <div className="flex h-0.5 sm:h-1 mb-2 sm:mb-3 rounded-full overflow-hidden">
             <div className="flex-1 bg-[#000091]" />
             <div className="flex-1 bg-white border-y border-gray-200" />
             <div className="flex-1 bg-[#E1000F]" />
           </div>
           
-          {/* Logos row */}
-          <div className="flex items-center justify-between gap-3">
+          {/* Logos row - smaller on mobile */}
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
             <img 
               src={franceRenovLogo} 
               alt="France Rénov'" 
-              className="h-16 object-contain"
+              className="h-10 sm:h-16 object-contain"
             />
-            <div className="flex-1 text-center">
-              <h1 className="text-lg font-bold text-[#000091] tracking-tight">
+            <div className="flex-1 text-center min-w-0">
+              <h1 className="text-sm sm:text-lg font-bold text-[#000091] tracking-tight truncate">
                 ÉTUDE ÉNERGÉTIQUE
               </h1>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">
-                {productType === "PV" && "Installation Photovoltaïque"}
+              <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider truncate">
+                {productType === "PV" && "Photovoltaïque"}
                 {productType === "PAC" && "Pompe à Chaleur"}
-                {productType === "ITE" && "Isolation Thermique Extérieure"}
+                {productType === "ITE" && "Isolation Thermique"}
               </p>
             </div>
             <img 
               src={ministereTransitionLogo} 
-              alt="Ministère de la Transition Énergétique" 
-              className="h-16 object-contain"
+              alt="Ministère" 
+              className="h-10 sm:h-16 object-contain"
             />
           </div>
           
-          {/* Back button and client info */}
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8">
+          {/* Back button and client info - more compact on mobile */}
+          <div className="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-7 w-7 sm:h-8 sm:w-8 shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {clientName && (
-                  <span className="text-sm font-semibold text-gray-800 truncate">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-800 truncate max-w-[120px] sm:max-w-none">
                     {clientPrenom} {clientName}
                   </span>
                 )}
                 <Badge 
                   variant="outline" 
                   className={cn(
-                    "text-[10px] font-medium shrink-0",
+                    "text-[9px] sm:text-[10px] font-medium shrink-0 px-1.5 py-0.5",
                     isEditMode 
                       ? "bg-amber-500/10 text-amber-600 border-amber-300" 
                       : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
                   )}
                 >
-                  {isEditMode ? "Modification" : "Nouvelle étude"}
+                  {isEditMode ? "Modif." : "Nouv."}
                 </Badge>
                 {regieNom && (
                   <Badge 
                     variant="outline" 
-                    className="text-[10px] font-medium shrink-0 bg-primary/10 text-primary border-primary/30"
+                    className="text-[9px] sm:text-[10px] font-medium shrink-0 bg-primary/10 text-primary border-primary/30 px-1.5 py-0.5 hidden sm:inline-flex"
                   >
                     {regieNom}
                   </Badge>
                 )}
               </div>
               {clientVille && (
-                <p className="text-xs text-gray-500 truncate">
-                  {clientAdresse && `${clientAdresse}, `}{clientCodePostal} {clientVille}
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                  {clientCodePostal} {clientVille}
                 </p>
               )}
             </div>
             {/* HEJJA Mode Switch - discrete toggle */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <Switch
                 checked={modeHejjaActive}
                 onCheckedChange={(checked) => {
@@ -1764,18 +1764,18 @@ _Envoyé depuis DébalePro_`;
                   }
                 }}
                 className={cn(
-                  "data-[state=checked]:bg-emerald-500 h-5 w-9",
+                  "data-[state=checked]:bg-emerald-500 h-4 w-8 sm:h-5 sm:w-9",
                   modeHejjaActive && "shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                 )}
               />
               {modeHejjaActive && (
-                <span className="text-[10px] font-bold text-red-500 uppercase">H</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-red-500 uppercase">H</span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="px-4 space-y-4 pb-24">
+        <div className="px-3 sm:px-4 space-y-3 sm:space-y-4 pb-24">
           {/* PIN Dialog for HEJJA Mode - Hidden activation via long press elsewhere */}
 
           {/* PIN Dialog */}
@@ -1791,7 +1791,7 @@ _Envoyé depuis DébalePro_`;
           {/* SÉLECTEUR TYPE DE PRODUIT */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           <Card className="shadow-card border-2 border-primary/30">
-            <CardContent className="pt-4">
+            <CardContent className="pt-3 sm:pt-4 pb-3 sm:pb-4">
               <ProductTypeSelector
                 value={productType}
                 onChange={setProductType}
@@ -1801,11 +1801,11 @@ _Envoyé depuis DébalePro_`;
           </Card>
 
           {/* =============== ÉTUDE TECHNIQUE =============== */}
-          <div className="pt-2">
-            <div className="flex items-center gap-2 justify-center mb-4">
+          <div className="pt-1 sm:pt-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-              <h2 className="text-sm font-bold text-[#000091] uppercase tracking-wider px-3">
-                Diagnostic Technique {productType !== "PV" && `(${productType})`}
+              <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                Diagnostic {productType !== "PV" && `(${productType})`}
               </h2>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
             </div>
@@ -1900,11 +1900,11 @@ _Envoyé depuis DébalePro_`;
 
         {/* VISITE TECHNIQUE - TOITURE */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Home className="h-4 w-4 text-primary" />
-                Visite Technique - Toiture
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                Toiture
               </CardTitle>
               {clientId && (
                 <QuickPhotoButton
@@ -1915,86 +1915,86 @@ _Envoyé depuis DébalePro_`;
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Ombre sur toiture</Label>
+                <Label className="text-[10px] sm:text-xs">Ombre</Label>
                 <Select value={ombreToiture} onValueChange={setOmbreToiture}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0 à 5%">0 à 5%</SelectItem>
-                    <SelectItem value="5 à 15%">5 à 15%</SelectItem>
-                    <SelectItem value="15 à 30%">15 à 30%</SelectItem>
-                    <SelectItem value="> 30%">&gt; 30%</SelectItem>
+                    <SelectItem value="0 à 5%">0-5%</SelectItem>
+                    <SelectItem value="5 à 15%">5-15%</SelectItem>
+                    <SelectItem value="15 à 30%">15-30%</SelectItem>
+                    <SelectItem value="> 30%">&gt;30%</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Surface Toiture</Label>
+                <Label className="text-[10px] sm:text-xs">Surface</Label>
                 <Select value={surfaceToiture} onValueChange={setSurfaceToiture}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="OK">OK</SelectItem>
-                    <SelectItem value="LIMITE">LIMITE</SelectItem>
-                    <SelectItem value="NON CONFORME">NON CONFORME</SelectItem>
+                    <SelectItem value="LIMITE">Limite</SelectItem>
+                    <SelectItem value="NON CONFORME">Non conforme</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Type de Toiture</Label>
+                <Label className="text-[10px] sm:text-xs">Type</Label>
                 <Select value={typeToiture} onValueChange={setTypeToiture}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TUILE">TUILE</SelectItem>
-                    <SelectItem value="ARDOISE">ARDOISE</SelectItem>
-                    <SelectItem value="BAC ACIER">BAC ACIER</SelectItem>
-                    <SelectItem value="FIBROCIMENT">FIBROCIMENT</SelectItem>
-                    <SelectItem value="TOIT PLAT">TOIT PLAT</SelectItem>
+                    <SelectItem value="TUILE">Tuile</SelectItem>
+                    <SelectItem value="ARDOISE">Ardoise</SelectItem>
+                    <SelectItem value="BAC ACIER">Bac acier</SelectItem>
+                    <SelectItem value="FIBROCIMENT">Fibrociment</SelectItem>
+                    <SelectItem value="TOIT PLAT">Toit plat</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">État Toiture</Label>
+                <Label className="text-[10px] sm:text-xs">État</Label>
                 <Select value={etatToiture} onValueChange={setEtatToiture}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="OK">OK</SelectItem>
-                    <SelectItem value="À RÉNOVER">À RÉNOVER</SelectItem>
-                    <SelectItem value="NON CONFORME">NON CONFORME</SelectItem>
+                    <SelectItem value="À RÉNOVER">À rénover</SelectItem>
+                    <SelectItem value="NON CONFORME">Non conforme</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Orientation Toiture</Label>
+                <Label className="text-[10px] sm:text-xs">Orientation</Label>
                 <Select value={orientation} onValueChange={setOrientation}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SUD">SUD</SelectItem>
-                    <SelectItem value="SUD-EST">SUD-EST</SelectItem>
-                    <SelectItem value="SUD-OUEST">SUD-OUEST</SelectItem>
-                    <SelectItem value="EST">EST</SelectItem>
-                    <SelectItem value="OUEST">OUEST</SelectItem>
+                    <SelectItem value="SUD">Sud</SelectItem>
+                    <SelectItem value="SUD-EST">Sud-Est</SelectItem>
+                    <SelectItem value="SUD-OUEST">Sud-Ouest</SelectItem>
+                    <SelectItem value="EST">Est</SelectItem>
+                    <SelectItem value="OUEST">Ouest</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Inclinaison Toiture</Label>
+                <Label className="text-[10px] sm:text-xs">Inclinaison</Label>
                 <Select value={String(inclinaison)} onValueChange={(v) => setInclinaison(Number(v))}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2012,11 +2012,11 @@ _Envoyé depuis DébalePro_`;
 
         {/* COMPTEUR ÉLECTRIQUE */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Plug className="h-4 w-4 text-primary" />
-                Compteur Électrique
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Plug className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                Compteur
               </CardTitle>
               {clientId && (
                 <QuickPhotoButton
@@ -2027,12 +2027,12 @@ _Envoyé depuis DébalePro_`;
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Compteur</Label>
+                <Label className="text-[10px] sm:text-xs">Type</Label>
                 <Select value={typeCompteurElectrique} onValueChange={setTypeCompteurElectrique}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2043,19 +2043,19 @@ _Envoyé depuis DébalePro_`;
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Type de Compteur</Label>
+                <Label className="text-[10px] sm:text-xs">Raccordement</Label>
                 <Select value={typeRaccordement} onValueChange={setTypeRaccordement}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MONOPHASÉ">Monophasé</SelectItem>
+                    <SelectItem value="MONOPHASÉ">Mono</SelectItem>
                     <SelectItem value="TRIPHASÉ">
-                      Triphasé {(() => {
+                      Tri {(() => {
                         const regiePrice = regieSurcouts.find(s => s.categorie === "compteur" && s.nom.toUpperCase().includes("TRIPHASE"))?.prix;
                         const globalPrice = dataCompteurs.find(c => c.type_compteur === "TRIPHASÉ")?.montant;
                         const price = regiePrice ?? globalPrice ?? 0;
-                        return price > 0 ? `(+${price.toLocaleString("fr-FR")}€)` : "";
+                        return price > 0 ? `+${price}€` : "";
                       })()}
                     </SelectItem>
                   </SelectContent>
@@ -2063,13 +2063,13 @@ _Envoyé depuis DébalePro_`;
               </div>
             </div>
             <div>
-              <Label className="text-xs">Numéro PDL</Label>
+              <Label className="text-[10px] sm:text-xs">N° PDL</Label>
               <Input
                 type="text"
                 placeholder="ex: 16271345864078"
                 value={numeroPdl}
                 onChange={(e) => setNumeroPdl(e.target.value)}
-                className="h-9"
+                className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>
           </CardContent>
@@ -2077,11 +2077,11 @@ _Envoyé depuis DébalePro_`;
 
         {/* TABLEAU ÉLECTRIQUE */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Settings className="h-4 w-4 text-primary" />
-                Tableau Électrique
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                Tableau
               </CardTitle>
               {clientId && (
                 <QuickPhotoButton
@@ -2092,33 +2092,33 @@ _Envoyé depuis DébalePro_`;
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Ampérage Disjoncteur</Label>
+                <Label className="text-[10px] sm:text-xs">Ampérage</Label>
                 <Select value={String(amperageDisjoncteur)} onValueChange={(v) => setAmperageDisjoncteur(Number(v))}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {dataCalibres.map((c) => (
                       <SelectItem key={c.id} value={String(c.calibre_amperes)}>
-                        {c.calibre_amperes} A ({c.puissance_kva} kVA)
+                        {c.calibre_amperes}A ({c.puissance_kva}kVA)
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Emplacement Boîtier</Label>
+                <Label className="text-[10px] sm:text-xs">Emplacement</Label>
                 <Select value={emplacementBoitier} onValueChange={setEmplacementBoitier}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="À côté">À côté</SelectItem>
-                    <SelectItem value="Distant (&lt; 10m)">Distant (&lt; 10m)</SelectItem>
-                    <SelectItem value="Distant (&gt; 10m)">Distant (&gt; 10m)</SelectItem>
+                    <SelectItem value="Distant (&lt; 10m)">&lt;10m</SelectItem>
+                    <SelectItem value="Distant (&gt; 10m)">&gt;10m</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2128,27 +2128,28 @@ _Envoyé depuis DébalePro_`;
 
         {/* RÉSULTAT VISITE TECHNIQUE */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-secondary/20">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4 text-secondary" />
-              Résultat de la Visite Technique
+          <CardHeader className="pb-2 bg-secondary/20 px-3 sm:px-6 py-2 sm:py-3">
+            <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" />
+              Résultat Visite
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent className="pt-3 sm:pt-4 px-3 sm:px-6">
             <div>
-              <Label className="text-xs">Potentiel de Faisabilité Technique (PFT)</Label>
+              <Label className="text-[10px] sm:text-xs">Potentiel (PFT)</Label>
               <Select value={potentielFaisabilite} onValueChange={setPotentielFaisabilite}>
-                <SelectTrigger className={`h-10 ${
-                  potentielFaisabilite === "Faisable" ? "bg-status-signed/10 border-status-signed text-status-signed" :
-                  potentielFaisabilite === "À étudier" ? "bg-status-reported/10 border-status-reported text-status-reported" :
-                  "bg-status-negative/10 border-status-negative text-status-negative"
-                }`}>
-                  <SelectValue />
+                <SelectTrigger className={cn(
+                  "h-9 sm:h-10 text-xs sm:text-sm",
+                  potentielFaisabilite === "Faisable" && "bg-status-signed/10 border-status-signed text-status-signed",
+                  potentielFaisabilite === "À étudier" && "bg-status-reported/10 border-status-reported text-status-reported",
+                  potentielFaisabilite === "Non faisable" && "bg-status-negative/10 border-status-negative text-status-negative"
+                )}>
+                  <SelectValue placeholder="Choisir" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Faisable">Faisable</SelectItem>
-                  <SelectItem value="À étudier">À étudier</SelectItem>
-                  <SelectItem value="Non faisable">Non faisable</SelectItem>
+                  <SelectItem value="Faisable">✓ Faisable</SelectItem>
+                  <SelectItem value="À étudier">⚠ À étudier</SelectItem>
+                  <SelectItem value="Non faisable">✗ Non faisable</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2156,58 +2157,58 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* =============== PRÉCONISATION TECHNIQUE =============== */}
-        <div className="pt-4">
-          <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
-            PRÉCONISATION TECHNIQUE
+        <div className="pt-2 sm:pt-4">
+          <h2 className="text-sm sm:text-lg font-display font-bold text-center text-primary mb-3 sm:mb-4">
+            PRÉCONISATION
           </h2>
         </div>
 
         {/* CONSOMMATIONS */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Zap className="h-4 w-4 text-secondary" />
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
+            <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" />
               Consommations
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Consommation annuelle</Label>
+                <Label className="text-[10px] sm:text-xs">Conso. annuelle</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="ex: 11600"
+                    placeholder="11600"
                     value={consoAnnuelle}
                     onChange={(e) => setConsoAnnuelle(e.target.value ? Number(e.target.value) : "")}
-                    className="h-9"
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
-                  <span className="flex items-center text-xs text-muted-foreground">kWh/an</span>
+                  <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
                 </div>
               </div>
               <div>
-                <Label className="text-xs">Facture mensuelle (hors abo)</Label>
+                <Label className="text-[10px] sm:text-xs">Facture/mois</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
-                    placeholder="ex: 230"
+                    placeholder="230"
                     value={factureMensuelle}
                     onChange={(e) => setFactureMensuelle(e.target.value ? Number(e.target.value) : "")}
-                    className="h-9"
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
-                  <span className="flex items-center text-xs text-muted-foreground">€/mois</span>
+                  <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
                 </div>
               </div>
             </div>
             {/* Prix unitaire calculé */}
             {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
               <div className="bg-muted/50 rounded-lg p-2 text-center">
-                <p className="text-xs text-muted-foreground">Prix unitaire kWh (calculé)</p>
-                <p className="font-bold text-primary">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Prix kWh</p>
+                <p className="font-bold text-sm sm:text-base text-primary">
                   {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Facture annuelle : {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")} €
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                  Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
                 </p>
               </div>
             )}
@@ -2216,16 +2217,16 @@ _Envoyé depuis DébalePro_`;
 
         {/* PRÉCONISATION */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sun className="h-4 w-4 text-primary" />
-              Préconisation
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
+            <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+              <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+              Installation
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
-            <div className="grid grid-cols-2 gap-3">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Puissance Préconisée (kWc)</Label>
+                <Label className="text-[10px] sm:text-xs">Puissance (kWc)</Label>
                 <Input
                   type="number"
                   step="0.5"
@@ -2233,19 +2234,19 @@ _Envoyé depuis DébalePro_`;
                   onChange={(e) => {
                     setPuissanceKwc(e.target.value ? Number(e.target.value) : "");
                   }}
-                  className="h-9"
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
                 />
               </div>
               <div>
-                <Label className="text-xs">Type de Revente</Label>
+                <Label className="text-[10px] sm:text-xs">Revente</Label>
                 <Select value={typeRevente} onValueChange={setTypeRevente}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Choisir un type" />
+                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                    <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
                     {[...new Set(dataTarifs.map(t => t.type_revente))].map((type) => {
-                      const label = type === "autoconsommation" ? "Autoconsommation" :
-                                    type === "revente_totale" ? "Revente totale" :
+                      const label = type === "autoconsommation" ? "Autoconso" :
+                                    type === "revente_totale" ? "Revente" :
                                     type === "surplus" ? "Surplus" : type;
                       return (
                         <SelectItem key={type} value={type}>
@@ -2258,36 +2259,36 @@ _Envoyé depuis DébalePro_`;
               </div>
             </div>
             <div>
-              <Label className="text-xs">Support d'installation</Label>
+              <Label className="text-[10px] sm:text-xs">Support</Label>
               <Select value={supportInstallation} onValueChange={setSupportInstallation}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TOITURE SURIMPOSITION">Toiture Surimposition</SelectItem>
-                  <SelectItem value="TOITURE INTEGRATION">Toiture Intégration</SelectItem>
+                  <SelectItem value="TOITURE SURIMPOSITION">Surimposition</SelectItem>
+                  <SelectItem value="TOITURE INTEGRATION">Intégration</SelectItem>
                   <SelectItem value="BAC GSE (SOL)">
-                    Bac GSE - Sol {(() => {
+                    Sol {(() => {
                       const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("bac_gse"));
                       if (regieSurcout) {
                         if (regieSurcout.type_calcul === "par_panneau") {
-                          return `(+${regieSurcout.prix.toLocaleString("fr-FR")}€/panneau)`;
+                          return `+${regieSurcout.prix}€/pan`;
                         }
-                        return regieSurcout.prix > 0 ? `(+${regieSurcout.prix.toLocaleString("fr-FR")}€)` : "";
+                        return regieSurcout.prix > 0 ? `+${regieSurcout.prix}€` : "";
                       }
-                      return "(+1 800€)";
+                      return "+1800€";
                     })()}
                   </SelectItem>
                   <SelectItem value="PERGOLA / CARPORT">
-                    Pergola / Carport {(() => {
+                    Pergola {(() => {
                       const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("pergola"));
                       if (regieSurcout) {
                         if (regieSurcout.type_calcul === "par_panneau") {
-                          return `(+${regieSurcout.prix.toLocaleString("fr-FR")}€/panneau)`;
+                          return `+${regieSurcout.prix}€/pan`;
                         }
-                        return regieSurcout.prix > 0 ? `(+${regieSurcout.prix.toLocaleString("fr-FR")}€)` : "";
+                        return regieSurcout.prix > 0 ? `+${regieSurcout.prix}€` : "";
                       }
-                      return "(+3 900€)";
+                      return "+3900€";
                     })()}
                   </SelectItem>
                 </SelectContent>
@@ -2298,131 +2299,115 @@ _Envoyé depuis DébalePro_`;
 
         {/* DONNÉES TECHNIQUES */}
         <Card className="shadow-card">
-          <CardHeader className="pb-2 bg-primary/10">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Ruler className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
+            <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+              <Ruler className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               Données Techniques
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 pt-4">
+          <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             {/* Switch mode de calcul */}
-            <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Sun className="h-4 w-4 text-amber-500" />
-                <span className="text-xs font-medium">Mode de calcul production</span>
+            <div className="flex items-center justify-between p-1.5 sm:p-2 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
+                <span className="text-[10px] sm:text-xs font-medium">Calcul</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>Heures</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className={`text-[10px] sm:text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>H</span>
                 <Switch
                   checked={usePshCalculation}
                   onCheckedChange={setUsePshCalculation}
+                  className="h-4 w-7 sm:h-5 sm:w-9"
                 />
-                <span className={`text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
+                <span className={`text-[10px] sm:text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
               </div>
             </div>
             
             {/* Affichage conditionnel selon le mode */}
             {usePshCalculation ? (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 sm:p-3">
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">PSH (kWh/kWc/an)</span>
-                    <span className="text-xs text-amber-600/70">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">PSH</span>
+                    <span className="text-[10px] sm:text-xs text-amber-600/70 truncate max-w-[100px]">
                       {dataPsh.find(p => p.department_code === departement)?.department_name ?? "—"}
                     </span>
                   </div>
-                  <span className="font-bold text-amber-600 text-lg">
+                  <span className="font-bold text-amber-600 text-base sm:text-lg">
                     {dataPsh.find(p => p.department_code === departement)?.psh_value ?? "N/A"}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Formule : Puissance × PSH × Rendement
-                </p>
               </div>
             ) : (
               <div>
-                <Label className="text-xs">Heures d'ensoleillement (Heures/An)</Label>
+                <Label className="text-[10px] sm:text-xs">Heures ensoleillement</Label>
                 <Input
                   type="number"
                   value={heuresEnsoleillement}
                   onChange={(e) => setHeuresEnsoleillement(Number(e.target.value) || 2890)}
-                  className="h-9"
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Formule: Puissance × Heures × Rendement
-                </p>
               </div>
             )}
             
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs">Surface d'installation (m²)</Label>
-                <div className="flex gap-1">
-                  <Input
-                    type="number"
-                    value={surfaceInstallation}
-                    onChange={(e) => setSurfaceInstallation(e.target.value ? Number(e.target.value) : "")}
-                    className="h-9"
-                  />
-                  <span className="flex items-center text-xs text-muted-foreground">m²</span>
-                </div>
+                <Label className="text-[10px] sm:text-xs">Surface (m²)</Label>
+                <Input
+                  type="number"
+                  value={surfaceInstallation}
+                  onChange={(e) => setSurfaceInstallation(e.target.value ? Number(e.target.value) : "")}
+                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                />
               </div>
               <div>
-                <Label className="text-xs">Rendement (auto.)</Label>
-                <div className="flex gap-1">
-                  <Input
-                    type="number"
-                    value={rendementProductivite}
-                    onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
-                    className="h-9 bg-muted/30"
-                    readOnly
-                  />
-                  <span className="flex items-center text-xs text-muted-foreground">%</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Calculé selon {orientation} / {inclinaison}°
+                <Label className="text-[10px] sm:text-xs">Rendement</Label>
+                <Input
+                  type="number"
+                  value={rendementProductivite}
+                  onChange={(e) => setRendementProductivite(Number(e.target.value) || 100)}
+                  className="h-8 sm:h-9 text-xs sm:text-sm bg-muted/30"
+                  readOnly
+                />
+                <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5">
+                  {orientation}/{inclinaison}°
                 </p>
               </div>
             </div>
-            {departement && (
-              <p className="text-xs text-muted-foreground text-center">
-                Département: {dataPsh.find(p => p.department_code === departement)?.department_name || departement}
-                {usePshCalculation && ` • PSH: ${dataPsh.find(p => p.department_code === departement)?.psh_value || "N/A"} kWh/kWc/an`}
-              </p>
-            )}
           </CardContent>
         </Card>
 
         {/* RÉSULTAT DE LA PRÉCONISATION */}
         {calculatedResults && (
           <Card className="shadow-card border-2 border-secondary/50">
-            <CardHeader className="pb-2 bg-secondary/20">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-secondary" />
-                Résultat de la Préconisation
+            <CardHeader className="pb-2 bg-secondary/20 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" />
+                Résultat
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground">Production Annuelle</p>
-                  <p className="font-bold text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-xs font-normal">kWh</span></p>
+            <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
+                <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Production</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-[10px] sm:text-xs font-normal">kWh</span></p>
                 </div>
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground">Surplus de Production</p>
-                  <p className="font-bold text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-xs font-normal">kWh</span></p>
+                <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Surplus</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-[10px] sm:text-xs font-normal">kWh</span></p>
                 </div>
               </div>
-              <div className={`rounded-lg p-3 text-center ${
-                calculatedResults.autoconsoPct >= 100 ? "bg-status-signed/10" :
-                calculatedResults.autoconsoPct >= 80 ? "bg-status-reported/10" :
-                "bg-muted/50"
-              }`}>
-                <p className="text-xs text-muted-foreground">Autoconsommation</p>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="font-bold text-xl">{calculatedResults.autoconsoPct.toFixed(2)}%</span>
+              <div className={cn(
+                "rounded-lg p-2 sm:p-3 text-center",
+                calculatedResults.autoconsoPct >= 100 && "bg-status-signed/10",
+                calculatedResults.autoconsoPct >= 80 && calculatedResults.autoconsoPct < 100 && "bg-status-reported/10",
+                calculatedResults.autoconsoPct < 80 && "bg-muted/50"
+              )}>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Autoconsommation</p>
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                  <span className="font-bold text-lg sm:text-xl">{calculatedResults.autoconsoPct.toFixed(1)}%</span>
                   {calculatedResults.autoconsoPct >= 100 && (
-                    <Badge className="bg-status-signed text-white">VALIDE</Badge>
+                    <Badge className="bg-status-signed text-white text-[10px] sm:text-xs px-1.5 py-0.5">OK</Badge>
                   )}
                 </div>
               </div>
@@ -2681,35 +2666,37 @@ _Envoyé depuis DébalePro_`;
         {/* RENTABILITÉ FINANCIÈRE PV */}
         {productType === "PV" && calculatedResults && (
           <Card className="shadow-card border-2 border-primary/50">
-            <CardHeader className="pb-2 bg-primary/20">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Rentabilité Financière
+            <CardHeader className="pb-2 bg-primary/20 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                Rentabilité
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm">Autoconsommation (€)</span>
-                <span className="font-medium">{calculatedResults.autoconsommationEuros.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+            <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+              <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
+                <span>Autoconso.</span>
+                <span className="font-medium whitespace-nowrap">{calculatedResults.autoconsommationEuros.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
               </div>
-              <div className="flex justify-between items-center py-1">
-                <span className="text-sm">Revente Mensuelle Estimative (€)</span>
-                <span className="font-medium">{calculatedResults.reventeMensuelleEstimee.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+              <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
+                <span>Revente/mois</span>
+                <span className="font-medium whitespace-nowrap">{calculatedResults.reventeMensuelleEstimee.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
               </div>
               <Separator />
-              <div className={`rounded-lg p-4 text-center ${
-                calculatedResults.resultatTransfertCharge > 0 ? "bg-status-signed/10" :
-                calculatedResults.resultatTransfertCharge >= -30 ? "bg-status-reported/10" :
-                "bg-status-negative/10"
-              }`}>
-                <p className="text-sm text-muted-foreground mb-2">Résultat Transfert de Charge</p>
-                <div className="flex items-center justify-center gap-3">
+              <div className={cn(
+                "rounded-lg p-2.5 sm:p-4 text-center",
+                calculatedResults.resultatTransfertCharge > 0 && "bg-status-signed/10",
+                calculatedResults.resultatTransfertCharge >= -30 && calculatedResults.resultatTransfertCharge <= 0 && "bg-status-reported/10",
+                calculatedResults.resultatTransfertCharge < -30 && "bg-status-negative/10"
+              )}>
+                <p className="text-[10px] sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">Transfert de Charge</p>
+                <div className="flex items-center justify-center gap-2 sm:gap-3">
                   {getVerdictDisplay()}
-                  <span className={`font-bold text-2xl ${
-                    calculatedResults.resultatTransfertCharge > 0 ? "text-status-signed" :
-                    calculatedResults.resultatTransfertCharge >= -30 ? "text-status-reported" :
-                    "text-status-negative"
-                  }`}>
+                  <span className={cn(
+                    "font-bold text-xl sm:text-2xl whitespace-nowrap",
+                    calculatedResults.resultatTransfertCharge > 0 && "text-status-signed",
+                    calculatedResults.resultatTransfertCharge >= -30 && calculatedResults.resultatTransfertCharge <= 0 && "text-status-reported",
+                    calculatedResults.resultatTransfertCharge < -30 && "text-status-negative"
+                  )}>
                     {calculatedResults.resultatTransfertCharge >= 0 ? "+" : ""}{calculatedResults.resultatTransfertCharge.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
                   </span>
                 </div>
@@ -2721,42 +2708,42 @@ _Envoyé depuis DébalePro_`;
         {/* CLASSIFICATION DU DOSSIER - Disponible pour tous les types */}
         {(calculatedResults || productType === "PAC" || productType === "ITE") && (
           <Card className="shadow-card">
-            <CardHeader className="pb-2 bg-muted/50">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Tag className="h-4 w-4 text-primary" />
-                Classification du Dossier
+            <CardHeader className="pb-2 bg-muted/50 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                Classification
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 pt-4">
+            <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div>
-                <Label className="text-xs">Statut du dossier</Label>
+                <Label className="text-[10px] sm:text-xs">Statut</Label>
                 <Select value={classification} onValueChange={setClassification}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Choisir une classification" />
+                  <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                    <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="positif">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-status-signed" />
-                        Positif - Vente signée
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-status-signed" />
+                        <span className="text-xs sm:text-sm">Positif</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="negatif">
-                      <div className="flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-status-negative" />
-                        Négatif - Projet abandonné
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-status-negative" />
+                        <span className="text-xs sm:text-sm">Négatif</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="r2">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-status-r2" />
-                        R2 - Second rendez-vous
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-status-r2" />
+                        <span className="text-xs sm:text-sm">R2</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="r2_prestudy">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-status-reported" />
-                        R2 Pré-étude - En attente
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-status-reported" />
+                        <span className="text-xs sm:text-sm">R2 Pré-étude</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -2945,47 +2932,48 @@ _Envoyé depuis DébalePro_`;
           </DialogContent>
         </Dialog>
 
-        {/* Actions secondaires */}
-        <div className="flex flex-wrap gap-2 pt-2 pb-24">
+        {/* Actions secondaires - optimisées mobile */}
+        <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-2 pb-24">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
+            className="h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
           >
             Annuler
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="gap-1"
+            className="gap-1 h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
             onClick={handlePreview}
             disabled={!calculatedResults}
           >
-            <Eye className="h-4 w-4" />
-            Aperçu
+            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Aperçu</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="gap-1"
+            className="gap-1 h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
             onClick={handleExportPdf}
             disabled={!calculatedResults || exporting}
           >
             {exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
             ) : (
-              <Download className="h-4 w-4" />
+              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             )}
             PDF
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="gap-1"
+            className="gap-1 h-8 sm:h-9 px-2.5 sm:px-3"
             onClick={handleShare}
             disabled={!calculatedResults}
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Button>
           </div>
         </div>
@@ -3000,18 +2988,18 @@ _Envoyé depuis DébalePro_`;
         </div>
       )}
 
-      {/* Floating Save Button - bleu primaire */}
+      {/* Floating Save Button - optimisé mobile */}
       <Button
         onClick={handleSave}
         disabled={saving || (productType === "PV" && !calculatedResults)}
-        className="fixed bottom-24 right-4 z-40 h-14 w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
+        className="fixed bottom-20 sm:bottom-24 right-3 sm:right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
         size="icon"
         aria-label="Sauvegarder l'étude"
       >
         {saving ? (
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
         ) : (
-          <Save className="h-6 w-6" />
+          <Save className="h-5 w-5 sm:h-6 sm:w-6" />
         )}
       </Button>
       

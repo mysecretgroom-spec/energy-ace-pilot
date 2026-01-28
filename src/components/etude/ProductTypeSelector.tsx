@@ -23,14 +23,14 @@ export const ProductTypeSelector = ({
   availableProducts = ["PV", "PAC", "ITE"],
 }: ProductTypeSelectorProps) => {
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-muted-foreground">Type de produit</label>
+    <div className="space-y-1.5 sm:space-y-2">
+      <label className="text-xs sm:text-sm font-medium text-muted-foreground">Type de produit</label>
       <ToggleGroup
         type="single"
         value={value}
         onValueChange={(val) => val && onChange(val as ProductType)}
         disabled={disabled}
-        className="justify-start gap-2"
+        className="justify-start gap-1.5 sm:gap-2 w-full"
       >
         {availableProducts.map((product) => {
           const Icon = PRODUCT_ICON_COMPONENTS[product];
@@ -42,19 +42,19 @@ export const ProductTypeSelector = ({
               value={product}
               aria-label={PRODUCT_LABELS[product]}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all",
+                "flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 transition-all min-h-[44px]",
                 isSelected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-muted bg-background hover:bg-muted/50"
               )}
             >
-              <Icon className={cn("h-5 w-5", isSelected ? PRODUCT_COLORS[product] : "text-muted-foreground")} />
-              <span className="font-medium">{PRODUCT_SHORT_LABELS[product]}</span>
+              <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", isSelected ? PRODUCT_COLORS[product] : "text-muted-foreground")} />
+              <span className="font-medium text-xs sm:text-sm">{PRODUCT_SHORT_LABELS[product]}</span>
             </ToggleGroupItem>
           );
         })}
       </ToggleGroup>
-      <p className="text-xs text-muted-foreground">{PRODUCT_LABELS[value]}</p>
+      <p className="text-[10px] sm:text-xs text-muted-foreground">{PRODUCT_LABELS[value]}</p>
     </div>
   );
 };
