@@ -30,14 +30,19 @@ interface RdvData {
 interface MonthCalendarViewProps {
   currentDate: Date;
   rdvList: RdvData[];
+  workingDays?: number[];
   onDayClick?: (date: Date) => void;
 }
 
 const DAY_NAMES = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
+// Default working days: Monday to Saturday (no Sunday)
+const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5, 6];
+
 export function MonthCalendarView({
   currentDate,
   rdvList,
+  workingDays = DEFAULT_WORKING_DAYS,
   onDayClick,
 }: MonthCalendarViewProps) {
   // Calculate calendar grid
@@ -117,6 +122,7 @@ export function MonthCalendarView({
               (r) => r.typeRdv === "external_installation"
             );
             const hasR2 = dayRdvs.some((r) => r.isR2);
+            const isWorkingDay = workingDays.includes(day.getDay());
 
             return (
               <div
@@ -128,6 +134,8 @@ export function MonthCalendarView({
                   ${
                     isToday
                       ? "border-primary bg-primary/5 ring-1 ring-primary hover:bg-primary/10"
+                      : !isWorkingDay
+                      ? "border-border/30 bg-muted/60 opacity-60"
                       : isCurrentMonth
                       ? "border-border bg-card hover:bg-muted/50"
                       : "border-border/50 bg-muted/30 hover:bg-muted/50"

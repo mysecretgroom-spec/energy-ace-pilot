@@ -23,6 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
+import { useWorkingDays } from "@/hooks/useWorkingDays";
 import {
   Clock,
   MapPin,
@@ -117,6 +118,9 @@ const Planning = () => {
     tomorrowFirstDistance,
     refetch: refetchRoutes 
   } = usePlanningRoutes(currentDate);
+
+  // Use working days settings
+  const { workingDays } = useWorkingDays();
 
   // Fetch regies
   useEffect(() => {
@@ -570,6 +574,7 @@ const Planning = () => {
           <WeekCalendarView
             currentDate={currentDate}
             rdvList={rdvList}
+            workingDays={workingDays}
             onRdvClick={handleCalendarRdvClick}
             onDayClick={handleDayClick}
             onStatusChange={() => fetchRdvs()}
@@ -582,6 +587,7 @@ const Planning = () => {
           <MonthCalendarView
             currentDate={currentDate}
             rdvList={rdvList}
+            workingDays={workingDays}
             onDayClick={handleDayClick}
           />
         )}

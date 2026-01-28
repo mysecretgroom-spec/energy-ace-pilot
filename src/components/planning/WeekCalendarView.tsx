@@ -45,6 +45,7 @@ interface RdvData {
 interface WeekCalendarViewProps {
   currentDate: Date;
   rdvList: RdvData[];
+  workingDays?: number[];
   onRdvClick?: (rdv: RdvData) => void;
   onDayClick?: (date: Date) => void;
   onStatusChange?: (rdvId: string, newStatus: RdvStatus) => void;
@@ -56,9 +57,13 @@ interface PendingDrop {
   targetDate: Date;
 }
 
+// Default working days: Monday to Saturday (no Sunday)
+const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5, 6];
+
 export function WeekCalendarView({ 
   currentDate, 
   rdvList, 
+  workingDays = DEFAULT_WORKING_DAYS,
   onRdvClick, 
   onDayClick,
   onStatusChange,
@@ -94,10 +99,15 @@ export function WeekCalendarView({
     return startOfWeek(currentDate, { weekStartsOn: 1 });
   }, [currentDate]);
 
-  // Generate 7 days of the week
+  // Generate days of the week - only working days
   const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [weekStart]);
+    const allDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    // Filter to only include working days
+    return allDays.filter((day) => {
+      const dayOfWeek = day.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      return workingDays.includes(dayOfWeek);
+    });
+  }, [weekStart, workingDays]);
 
   // Group RDVs by day
   const rdvsByDay = useMemo(() => {
@@ -183,7 +193,7 @@ export function WeekCalendarView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-7 gap-1">
+      <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${weekDays.length}, minmax(0, 1fr))` }}>
         {weekDays.map((day) => {
           const isToday = isSameDay(day, today);
           const dayKey = format(day, "yyyy-MM-dd");

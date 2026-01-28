@@ -2712,6 +2712,7 @@ export type Database = {
           updated_at: string
           user_id: string
           vente_auto_transition_weeks: number
+          working_days: number[] | null
         }
         Insert: {
           created_at?: string
@@ -2727,6 +2728,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           vente_auto_transition_weeks?: number
+          working_days?: number[] | null
         }
         Update: {
           created_at?: string
@@ -2742,6 +2744,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vente_auto_transition_weeks?: number
+          working_days?: number[] | null
         }
         Relationships: []
       }
