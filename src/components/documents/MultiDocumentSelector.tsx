@@ -100,9 +100,32 @@ export function MultiDocumentSelector({
       return bytes.buffer;
     }
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
-    return response.arrayBuffer();
+    // Try fetching with no-cors mode fallback
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+      return response.arrayBuffer();
+    } catch (corsError) {
+      console.warn("CORS issue, trying with proxy approach...", corsError);
+      
+      // Fallback: try to download using XMLHttpRequest which may handle CORS differently
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(xhr.response);
+          } else {
+            reject(new Error(`XHR failed: ${xhr.status}`));
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error('XHR network error'));
+        xhr.send();
+      });
+    }
   };
 
   // Open preview for a single document
