@@ -300,16 +300,16 @@ export const RGECardDialog = () => {
             }}
           >
             {/* Header with Ministère and France Rénov logos */}
-            <div className="bg-white flex items-center justify-between shrink-0 py-3 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
+            <div className="bg-white flex items-center justify-between shrink-0 py-2 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-20 sm:h-14 lg:h-28 object-contain"
+                className="h-14 sm:h-14 lg:h-28 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-20 sm:h-14 lg:h-28 object-contain"
+                className="h-14 sm:h-14 lg:h-28 object-contain"
               />
             </div>
 
@@ -391,36 +391,36 @@ export const RGECardDialog = () => {
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-3 sm:gap-2 w-24 sm:w-36 lg:w-44">
-                    {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg text-center w-full py-4 px-2 sm:p-3 lg:p-4">
-                      <p className="text-white/70 uppercase tracking-wider mb-1 text-[10px] sm:text-xs">
+                  <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-20 sm:w-36 lg:w-44">
+                    {/* Agrément number - ratio 5:3 */}
+                    <div className="bg-white/15 rounded-lg text-center w-full aspect-[5/3] flex flex-col justify-center p-1.5 sm:p-3 lg:p-4">
+                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
                         N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
-                        <p className="font-mono font-bold leading-tight text-base sm:text-xl lg:text-2xl">
+                        <p className="font-mono font-bold leading-tight text-sm sm:text-xl lg:text-2xl">
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-white/50 italic text-xs sm:text-sm">Non renseigné</p>
+                        <p className="text-white/50 italic text-[9px] sm:text-sm">Non renseigné</p>
                       )}
                     </div>
 
-                    {/* QR Code */}
-                    <div className="text-center flex flex-col items-center gap-1.5 w-full">
+                    {/* QR Code - ratio 5:3 container */}
+                    <div className="text-center flex flex-col items-center justify-center gap-1 w-full aspect-[5/3]">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-2 sm:p-3"
+                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1 sm:p-3"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 56 : 70}
+                          size={isMobile ? 32 : 70}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-white/70 text-[10px] sm:text-xs">Vérifier sur France Rénov'</p>
+                      <p className="text-white/70 text-[7px] sm:text-xs">Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
