@@ -2557,31 +2557,45 @@ async function handlePendingWorkflow(
       if (isApproved && pendingAction.collectedData?.whatsappMessage && pendingAction.collectedData?.confirmateurPhone) {
         // Send WhatsApp message to confirmateur
         const twilioNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
-        if (twilioNumber) {
-          try {
-            await sendTwilioWhatsApp(
-              twilioAccountSid,
-              twilioAuthToken,
-              twilioNumber,
-              pendingAction.collectedData.confirmateurPhone,
-              pendingAction.collectedData.whatsappMessage
-            );
-            
+        if (twilioNumber && twilioAccountSid && twilioAuthToken) {
+          console.log(`Attempting to send WhatsApp to confirmateur: ${pendingAction.collectedData.confirmateurPhone}`);
+          
+          const sendResult = await sendTwilioWhatsApp(
+            twilioAccountSid,
+            twilioAuthToken,
+            twilioNumber,
+            pendingAction.collectedData.confirmateurPhone,
+            pendingAction.collectedData.whatsappMessage
+          );
+          
+          if (sendResult.success) {
             return {
               intent: "approve_whatsapp",
               actionTaken: "whatsapp_sent",
               newPendingAction: null,
-              responseMessage: `✅ Message envoyé au confirmateur ! 📲`,
+              responseMessage: `✅ Message envoyé au confirmateur ! 📲\n\n_SID: ${sendResult.messageSid}_`,
             };
-          } catch (err) {
-            console.error("Error sending WhatsApp:", err);
+          } else {
+            console.error("WhatsApp send failed:", sendResult.error);
             return {
               intent: "approve_whatsapp",
               actionTaken: "whatsapp_error",
               newPendingAction: null,
-              responseMessage: `⚠️ Erreur lors de l'envoi: ${err instanceof Error ? err.message : "erreur inconnue"}`,
+              responseMessage: `⚠️ Erreur lors de l'envoi WhatsApp: ${sendResult.error}\n\n_Vérifiez que le numéro ${pendingAction.collectedData.confirmateurPhone} a bien rejoint le sandbox Twilio._`,
             };
           }
+        } else {
+          console.error("Twilio credentials missing:", { 
+            hasNumber: !!twilioNumber, 
+            hasSid: !!twilioAccountSid, 
+            hasToken: !!twilioAuthToken 
+          });
+          return {
+            intent: "approve_whatsapp",
+            actionTaken: "twilio_not_configured",
+            newPendingAction: null,
+            responseMessage: "⚠️ Twilio n'est pas configuré. Impossible d'envoyer le message WhatsApp.",
+          };
         }
       }
       
@@ -3559,7 +3573,10 @@ async function getConfirmateurPhone(
       .maybeSingle();
     
     if (regieContact?.telephone) {
-      return `whatsapp:${regieContact.telephone.replace(/[^+\d]/g, "")}`;
+      // Clean phone number: remove all non-digit characters except +
+      const cleanPhone = regieContact.telephone.replace(/[^+\d]/g, "");
+      console.log(`Found régie contact phone: ${regieContact.telephone} -> cleaned: ${cleanPhone}`);
+      return `whatsapp:${cleanPhone}`;
     }
   }
   
@@ -3571,9 +3588,12 @@ async function getConfirmateurPhone(
     .maybeSingle();
   
   if (settings?.confirmateur_phone) {
-    return `whatsapp:${settings.confirmateur_phone.replace(/[^+\d]/g, "")}`;
+    const cleanPhone = settings.confirmateur_phone.replace(/[^+\d]/g, "");
+    console.log(`Using global confirmateur phone: ${settings.confirmateur_phone} -> cleaned: ${cleanPhone}`);
+    return `whatsapp:${cleanPhone}`;
   }
   
+  console.log("No confirmateur phone found (neither régie contact nor global settings)");
   return null;
 }
 
@@ -3584,8 +3604,10 @@ async function sendTwilioWhatsApp(
   fromNumber: string,
   toNumber: string,
   message: string
-): Promise<void> {
+): Promise<{ success: boolean; messageSid?: string; error?: string }> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+  
+  console.log(`Sending WhatsApp from ${fromNumber} to ${toNumber} (message length: ${message.length})`);
   
   const response = await fetch(url, {
     method: "POST",
@@ -3600,13 +3622,15 @@ async function sendTwilioWhatsApp(
     }),
   });
 
+  const responseData = await response.json();
+  
   if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Twilio send error:", errorText);
-    throw new Error(`Failed to send WhatsApp: ${response.status}`);
+    console.error("Twilio send error:", JSON.stringify(responseData));
+    return { success: false, error: responseData.message || `Status ${response.status}` };
   }
   
-  console.log(`WhatsApp sent to ${toNumber}`);
+  console.log(`WhatsApp sent successfully to ${toNumber}, SID: ${responseData.sid}, status: ${responseData.status}`);
+  return { success: true, messageSid: responseData.sid };
 }
 
 // Generate default response message based on intent when AI returns empty response
