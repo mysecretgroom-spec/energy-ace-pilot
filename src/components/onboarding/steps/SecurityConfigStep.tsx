@@ -110,7 +110,7 @@ export function SecurityConfigStep({ onComplete }: SecurityConfigStepProps) {
 
         if (updateError) throw updateError;
 
-        toast.success("Code PIN configuré");
+        toast.success("Code PIN configuré ✓");
         onComplete();
       } catch (err) {
         console.error("Error setting PIN:", err);

@@ -65,7 +65,7 @@ export function RegieConfigStep({ onComplete }: RegieConfigStepProps) {
 
       if (error) throw error;
 
-      toast.success("Régie créée avec succès");
+      toast.success("Régie créée ✓");
       onComplete();
     } catch (error) {
       console.error("Error creating regie:", error);

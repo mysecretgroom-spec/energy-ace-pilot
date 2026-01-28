@@ -319,28 +319,6 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
     refreshCompletionStatus();
   }, [refreshCompletionStatus]);
 
-  const next = useCallback(async () => {
-    if (currentStepIndex < steps.length - 1) {
-      const nextIndex = currentStepIndex + 1;
-      setCurrentStepIndex(nextIndex);
-    } else {
-      complete();
-    }
-  }, [currentStepIndex, steps.length]);
-
-  const previous = useCallback(() => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1);
-    }
-  }, [currentStepIndex]);
-
-  const skipPresentation = useCallback(() => {
-    const firstConfigIndex = steps.findIndex(s => s.type === "config");
-    if (firstConfigIndex !== -1) {
-      setCurrentStepIndex(firstConfigIndex);
-    }
-  }, [steps]);
-
   const complete = useCallback(async () => {
     if (!user) return;
 
@@ -355,6 +333,39 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       console.error("Error completing onboarding:", err);
     }
   }, [user]);
+
+  const next = useCallback(async () => {
+    const current = steps[currentStepIndex];
+    
+    // For config steps, verify completion before advancing
+    if (current?.type === "config" && current.completionCheck) {
+      const isComplete = await current.completionCheck();
+      if (isComplete) {
+        setCompletedSteps(prev => 
+          prev.includes(current.id) ? prev : [...prev, current.id]
+        );
+      }
+    }
+    
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    } else {
+      complete();
+    }
+  }, [currentStepIndex, steps, complete]);
+
+  const previous = useCallback(() => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  }, [currentStepIndex]);
+
+  const skipPresentation = useCallback(() => {
+    const firstConfigIndex = steps.findIndex(s => s.type === "config");
+    if (firstConfigIndex !== -1) {
+      setCurrentStepIndex(firstConfigIndex);
+    }
+  }, [steps]);
 
   const markStepComplete = useCallback((stepId: string) => {
     setCompletedSteps(prev => {
