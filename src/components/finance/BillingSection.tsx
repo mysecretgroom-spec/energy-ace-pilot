@@ -78,6 +78,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const [factureVentes, setFactureVentes] = useState<BillableVente[]>([]);
   const [loadingFactureVentes, setLoadingFactureVentes] = useState(false);
   const [copiedFactureId, setCopiedFactureId] = useState<string | null>(null);
+  const [addableVentes, setAddableVentes] = useState<BillableVente[]>([]);
+  const [selectedAddIds, setSelectedAddIds] = useState<Set<string>>(new Set());
+  const [addingToFacture, setAddingToFacture] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -599,9 +602,71 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const handleEditFacture = async (facture: Facture) => {
     setEditingFacture(facture);
     setLoadingFactureVentes(true);
+    setSelectedAddIds(new Set());
     const ventesData = await fetchFactureVentes(facture);
     setFactureVentes(ventesData);
+    // Calculate addable ventes (billable ventes not in this facture)
+    const factureVenteIds = new Set(facture.vente_ids);
+    setAddableVentes(ventes.filter(v => !factureVenteIds.has(v.id)));
     setLoadingFactureVentes(false);
+  };
+
+  // Toggle addable vente selection
+  const toggleAddableSelection = (id: string) => {
+    setSelectedAddIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Add selected ventes to the facture
+  const handleAddVentesToFacture = async () => {
+    if (!editingFacture || selectedAddIds.size === 0 || !user) return;
+
+    setAddingToFacture(true);
+    try {
+      const newVenteIds = [...editingFacture.vente_ids, ...Array.from(selectedAddIds)];
+      const addedVentes = addableVentes.filter(v => selectedAddIds.has(v.id));
+      const addedCommission = addedVentes.reduce((sum, v) => sum + v.commission, 0);
+      const newTotal = Number(editingFacture.montant_total_ht) + addedCommission;
+
+      // Update facture
+      const { error: factureError } = await supabase
+        .from("factures")
+        .update({
+          vente_ids: newVenteIds,
+          montant_total_ht: newTotal,
+        })
+        .eq("id", editingFacture.id);
+
+      if (factureError) throw factureError;
+
+      // Update ventes status to attente_paiement
+      const { error: ventesError } = await supabase
+        .from("ventes")
+        .update({ status: "attente_paiement" })
+        .in("id", Array.from(selectedAddIds));
+
+      if (ventesError) throw ventesError;
+
+      toast.success(`${selectedAddIds.size} vente(s) ajoutée(s) à la facture`);
+      
+      // Refresh data
+      setEditingFacture(null);
+      fetchBillableVentes();
+      fetchPendingFactures();
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error adding ventes to facture:", error);
+      toast.error("Erreur lors de l'ajout des ventes");
+    } finally {
+      setAddingToFacture(false);
+    }
   };
 
   const totalPendingInvoices = factures.reduce((sum, f) => sum + Number(f.montant_total_ht), 0);
@@ -848,7 +913,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       )}
 
       {/* Edit Facture Dialog */}
-      <Dialog open={!!editingFacture} onOpenChange={(open) => !open && setEditingFacture(null)}>
+      <Dialog open={!!editingFacture} onOpenChange={(open) => { if (!open) { setEditingFacture(null); setSelectedAddIds(new Set()); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -862,7 +927,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="space-y-4 overflow-y-auto">
+            <div className="space-y-4 overflow-y-auto flex-1">
+              {/* Current ventes in facture */}
               <p className="text-sm text-muted-foreground">
                 Ventes incluses dans cette facture :
               </p>
@@ -904,8 +970,6 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                 </Table>
               </div>
               
-              <Separator />
-              
               <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                 <span className="font-medium">TOTAL HT</span>
                 <span className="text-lg font-bold text-purple-700">
@@ -916,6 +980,74 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
               <p className="text-xs text-muted-foreground">
                 💡 Cliquez sur une vente pour la modifier (ajouter décom, etc.)
               </p>
+
+              {/* Addable ventes section */}
+              {addableVentes.length > 0 && (
+                <>
+                  <Separator />
+                  
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-amber-800">
+                      Ajouter des ventes "En attente de paiement" :
+                    </p>
+                    
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-amber-50/50">
+                      {addableVentes.map((vente) => (
+                        <div
+                          key={vente.id}
+                          className={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${
+                            selectedAddIds.has(vente.id)
+                              ? "bg-amber-100 border-amber-300"
+                              : "bg-white border-amber-100 hover:bg-amber-50"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selectedAddIds.has(vente.id)}
+                            onCheckedChange={() => toggleAddableSelection(vente.id)}
+                            className="border-amber-400 data-[state=checked]:bg-amber-600"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {vente.puissance_kwc || "-"} kWc
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-amber-700 text-sm">{formatCurrency(vente.commission)} €</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {selectedAddIds.size > 0 && (
+                      <div className="flex items-center justify-between p-2 bg-amber-100 rounded-lg">
+                        <span className="text-sm">
+                          {selectedAddIds.size} vente(s) • +{formatCurrency(
+                            addableVentes
+                              .filter(v => selectedAddIds.has(v.id))
+                              .reduce((sum, v) => sum + v.commission, 0)
+                          )} €
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={handleAddVentesToFacture}
+                          disabled={addingToFacture}
+                          className="gap-1 bg-amber-600 hover:bg-amber-700"
+                        >
+                          {addingToFacture ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4" />
+                          )}
+                          Ajouter
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
           
