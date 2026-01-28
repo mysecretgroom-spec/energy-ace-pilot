@@ -300,34 +300,34 @@ export const RGECardDialog = () => {
             }}
           >
             {/* Header with Ministère and France Rénov logos */}
-            <div className="bg-white flex items-center justify-between shrink-0 py-2 px-3 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
+            <div className="bg-white flex items-center justify-between shrink-0 py-3 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-6 sm:h-14 lg:h-28 object-contain"
+                className="h-8 sm:h-14 lg:h-28 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-6 sm:h-14 lg:h-28 object-contain"
+                className="h-8 sm:h-14 lg:h-28 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] text-center shrink-0 shadow-sm py-1 px-2 sm:py-2 sm:px-6">
-              <h3 className="font-bold tracking-widest uppercase drop-shadow-sm text-[10px] sm:text-sm lg:text-base">
+            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] text-center shrink-0 shadow-sm py-1.5 px-3 sm:py-2 sm:px-6">
+              <h3 className="font-bold tracking-widest uppercase drop-shadow-sm text-xs sm:text-sm lg:text-base">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex items-center justify-center min-h-0 p-1.5 sm:p-4 lg:p-6">
-              <div className="bg-white/15 backdrop-blur-md w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col rounded-lg sm:rounded-2xl">
+            <div className="flex-1 flex items-center justify-center min-h-0 p-2 sm:p-4 lg:p-6">
+              <div className="bg-white/15 backdrop-blur-md w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col rounded-xl sm:rounded-2xl">
                 {/* Photo and info - always horizontal layout */}
-                <div className="flex-1 flex flex-row items-center justify-between min-h-0 gap-2 sm:gap-8 lg:gap-12 p-1.5 sm:p-6 lg:p-8">
+                <div className="flex-1 flex flex-row items-center justify-between min-h-0 gap-3 sm:gap-8 lg:gap-12 p-2 sm:p-6 lg:p-8">
                   {/* Photo */}
                   <div className="relative shrink-0">
-                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-14 w-11 sm:h-40 sm:w-32 lg:h-52 lg:w-40">
+                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-20 w-16 sm:h-40 sm:w-32 lg:h-52 lg:w-40">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -335,14 +335,14 @@ export const RGECardDialog = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-base sm:text-3xl lg:text-4xl">
+                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-xl sm:text-3xl lg:text-4xl">
                           ?
                         </div>
                       )}
                     </div>
                     {!profile?.avatar_url && (
-                      <div className="absolute -bottom-0.5 -right-0.5 bg-amber-500 px-0.5 rounded text-white whitespace-nowrap text-[4px] sm:text-[8px] lg:text-xs">
-                        Photo
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap text-[6px] sm:text-[8px] lg:text-xs">
+                        Photo manquante
                       </div>
                     )}
                   </div>
@@ -350,84 +350,84 @@ export const RGECardDialog = () => {
                   {/* Technician info */}
                   <div className="text-center flex-1 min-w-0 px-1">
                     {fullName ? (
-                      <h4 className="font-bold mb-0.5 truncate text-xs sm:text-2xl lg:text-3xl">{fullName}</h4>
+                      <h4 className="font-bold mb-0.5 truncate text-base sm:text-2xl lg:text-3xl">{fullName}</h4>
                     ) : (
                       <div className="mb-0.5">
-                        <p className="text-white/50 italic text-[10px] sm:text-xl lg:text-2xl">Nom Prénom</p>
-                        <p className="text-amber-400 text-[5px] sm:text-xs">À renseigner</p>
+                        <p className="text-white/50 italic text-sm sm:text-xl lg:text-2xl">Nom Prénom</p>
+                        <p className="text-amber-400 text-[8px] sm:text-xs">À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 mb-0.5 sm:mb-1 text-[8px] sm:text-sm lg:text-base">Technicien agréé</p>
+                    <p className="text-white/80 mb-0.5 sm:mb-1 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
                     {siretSearchComplete && companyInfo && (
                       <div className="mb-0.5 sm:mb-1">
-                        <p className="font-semibold text-white/90 truncate text-[9px] sm:text-base lg:text-lg">
+                        <p className="font-semibold text-white/90 truncate text-sm sm:text-base lg:text-lg">
                           {companyInfo.nom}
                         </p>
                         <button
                           onClick={handleCopySiret}
-                          className="inline-flex items-center gap-0.5 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-[7px] sm:text-sm"
+                          className="inline-flex items-center gap-1 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-xs sm:text-sm"
                           title="Cliquer pour copier le SIRET"
                         >
                           SIRET: {companyInfo.siret}
                           {siretCopied ? (
-                            <Check className="h-2 w-2 sm:h-4 sm:w-4" />
+                            <Check className="h-3 w-3 sm:h-4 sm:w-4" />
                           ) : (
-                            <Copy className="h-2 w-2 sm:h-4 sm:w-4" />
+                            <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                           )}
                         </button>
                       </div>
                     )}
                     {profile?.telephone_pro ? (
-                      <div className={`flex items-center justify-center gap-0.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-[10px] sm:text-lg lg:text-xl`}>
-                        <Phone className="h-2.5 w-2.5 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
+                      <div className={`flex items-center justify-center gap-1.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-sm sm:text-lg lg:text-xl`}>
+                        <Phone className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
                         <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className={`flex items-center justify-center gap-0.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-[9px] sm:text-base`}>
-                        <Phone className="text-white/50 h-2.5 w-2.5 sm:h-5 sm:w-5" />
-                        <span className="text-white/50 italic">Tél. manquant</span>
+                      <div className={`flex items-center justify-center gap-1 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-xs sm:text-base`}>
+                        <Phone className="text-white/50 h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                        <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
                     )}
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-0.5 sm:gap-2 w-14 sm:w-36 lg:w-44">
+                  <div className="shrink-0 flex flex-col items-center gap-1.5 sm:gap-2 w-20 sm:w-36 lg:w-44">
                     {/* Agrément number */}
-                    <div className="bg-white/15 rounded text-center w-full p-1 sm:p-3 lg:p-4">
-                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[5px] sm:text-xs">
-                        N° Agrément
+                    <div className="bg-white/15 rounded-lg text-center w-full p-2 sm:p-3 lg:p-4">
+                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
+                        N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
-                        <p className="font-mono font-bold leading-tight text-[8px] sm:text-xl lg:text-2xl">
+                        <p className="font-mono font-bold leading-tight text-sm sm:text-xl lg:text-2xl">
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-white/50 italic text-[6px] sm:text-sm">Non renseigné</p>
+                        <p className="text-white/50 italic text-[10px] sm:text-sm">Non renseigné</p>
                       )}
                     </div>
 
                     {/* QR Code */}
-                    <div className="text-center flex flex-col items-center gap-0.5 w-full">
+                    <div className="text-center flex flex-col items-center gap-1 w-full">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white rounded hover:scale-105 transition-transform cursor-pointer shadow-md p-0.5 sm:p-3"
+                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1.5 sm:p-3"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 22 : 70}
+                          size={isMobile ? 36 : 70}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-white/70 text-[5px] sm:text-xs leading-tight">France Rénov'</p>
+                      <p className="text-white/70 text-[8px] sm:text-xs">Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Certifications band */}
                 <div className="bg-white shrink-0 py-2 px-3 sm:py-3 sm:px-6 lg:py-4 lg:px-8 rounded-b-lg sm:rounded-b-xl">
-                  <div className="flex items-center justify-center sm:justify-between gap-2">
+                  <div className="flex items-center justify-center sm:justify-between gap-2 sm:gap-4">
                     <p className="text-gray-500 uppercase tracking-wider font-medium text-xs hidden sm:block">
                       Certifications
                     </p>
@@ -435,22 +435,22 @@ export const RGECardDialog = () => {
                       <img 
                         src={logoRgeEcoArtisan} 
                         alt="RGE Eco Artisan" 
-                        className="h-6 sm:h-8 lg:h-10 object-contain"
+                        className="h-5 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualipac} 
                         alt="QualiPAC" 
-                        className="h-6 sm:h-8 lg:h-10 object-contain"
+                        className="h-5 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualipv} 
                         alt="QualiPV" 
-                        className="h-6 sm:h-8 lg:h-10 object-contain"
+                        className="h-5 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualitenr} 
                         alt="QualiT'EnR" 
-                        className="h-6 sm:h-8 lg:h-10 object-contain"
+                        className="h-5 sm:h-8 lg:h-10 object-contain"
                       />
                     </div>
                     <p className="text-gray-500 font-medium text-xs lg:text-sm hidden sm:block">
