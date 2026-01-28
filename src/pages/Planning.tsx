@@ -477,7 +477,7 @@ const Planning = () => {
           <DialogTrigger asChild>
             <Button 
               size="lg" 
-              className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+8rem)] sm:bottom-[calc(72px+env(safe-area-inset-bottom)+5rem)] right-4 z-30 h-14 w-14 rounded-full shadow-lg bg-gradient-hero active:scale-95 transition-transform"
+              className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] left-4 z-30 h-14 w-14 rounded-full shadow-lg bg-gradient-hero active:scale-95 transition-transform sm:bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] sm:left-auto sm:right-4"
             >
               <Plus className="h-6 w-6" />
             </Button>
