@@ -3545,10 +3545,11 @@ async function generateRegiePoll(
   const regies = await fetchUserRegies(supabase, userId);
   
   if (regies.length === 0) {
+    const appUrl = Deno.env.get("APP_URL") || "https://energy-ace-pilot.lovable.app";
     return { 
       needsSelection: false, 
       error: true,
-      responseMessage: "⚠️ Aucune régie configurée. Tu dois d'abord créer une régie dans l'application (Paramètres > Régies)." 
+      responseMessage: `🏢 *Configuration requise*\n\nAucune régie n'est encore configurée dans ton compte.\n\nPour utiliser l'agent, tu dois d'abord créer au moins une régie :\n👉 ${appUrl}/parametres/regies\n\nUne fois ta régie créée, reviens me voir et on pourra travailler ensemble ! 💪`
     };
   }
   
