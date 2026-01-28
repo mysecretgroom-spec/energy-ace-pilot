@@ -762,7 +762,7 @@ const Finance = () => {
                           <p className="text-xs text-orange-600/80">Non posé (signé → installation)</p>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-orange-700">
+                      <p className="text-base font-bold text-orange-700">
                         {venteStats.comEnCours.toLocaleString("fr-FR")} €
                       </p>
                     </div>
