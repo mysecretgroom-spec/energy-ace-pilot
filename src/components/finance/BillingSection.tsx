@@ -712,28 +712,33 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
               {factures.map((facture) => (
                 <div
                   key={facture.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-white border border-purple-100"
+                  className="p-3 rounded-lg bg-white border border-purple-100 space-y-2"
                 >
-                  <div>
-                    <p className="font-medium text-sm">{facture.numero_facture}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>{format(new Date(facture.date_emission), "dd MMM yyyy", { locale: fr })}</span>
-                      <span>•</span>
-                      <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
+                  {/* Ligne 1: Numéro + Montant */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{facture.numero_facture}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span>{format(new Date(facture.date_emission), "dd MMM yyyy", { locale: fr })}</span>
+                        <span>•</span>
+                        <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
+                      </div>
                     </div>
+                    <p className="font-bold text-purple-700 whitespace-nowrap shrink-0">
+                      {formatCurrency(Number(facture.montant_total_ht))} €
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-purple-700">{formatCurrency(Number(facture.montant_total_ht))} €</p>
-                    
-                    {/* Dropdown menu */}
+                  
+                  {/* Ligne 2: Actions */}
+                  <div className="flex items-center justify-end gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-9 w-9">
                           <MoreVertical className="h-4 w-4 text-purple-600" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="bg-background z-50">
                         <DropdownMenuItem onClick={() => handleEditFacture(facture)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Modifier
@@ -753,14 +758,14 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                       size="sm"
                       onClick={() => handleMarkAsPaid(facture)}
                       disabled={markingPaid === facture.id}
-                      className="gap-1 bg-green-600 hover:bg-green-700"
+                      className="gap-1.5 bg-green-600 hover:bg-green-700 h-9"
                     >
                       {markingPaid === facture.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <CreditCard className="h-4 w-4" />
                       )}
-                      Payée
+                      <span>Payée</span>
                     </Button>
                   </div>
                 </div>
