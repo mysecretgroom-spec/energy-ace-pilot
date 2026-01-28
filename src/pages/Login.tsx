@@ -96,7 +96,7 @@ const Login = () => {
     } else {
       // Update stored token for biometric login if user has it enabled
       await updateStoredToken();
-      setSuccessMessage({ title: "Connexion réussie", subtitle: "Bienvenue sur DébalePro !" });
+      setSuccessMessage({ title: "Connexion réussie", subtitle: "Bienvenue sur RGE app !" });
       setShowSuccess(true);
       setLoading(false);
       
@@ -193,7 +193,7 @@ const Login = () => {
               <Sun className="h-8 w-8 text-primary-foreground" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-display">DébalePro</CardTitle>
+              <CardTitle className="text-2xl font-display">RGE app</CardTitle>
               <CardDescription>Connectez-vous à votre espace commercial</CardDescription>
             </div>
           </CardHeader>
