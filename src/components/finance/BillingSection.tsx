@@ -60,7 +60,10 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setLoading(true);
 
     try {
-      // Fetch ventes with status "attente_paiement" including etude_id for surcharges
+      // À facturer = installe OU attente_paiement avec date_installation >= 2 semaines
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+      
       const { data: ventesData, error: ventesError } = await supabase
         .from("ventes")
         .select(`
@@ -73,28 +76,38 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           regie_id,
           etude_id,
           type_vente,
+          status,
           clients (
             nom,
             prenom
           )
         `)
         .eq("user_id", user.id)
-        .eq("status", "attente_paiement")
+        .in("status", ["installe", "attente_paiement"])
         .order("date_installation_reelle", { ascending: true });
 
       if (ventesError) throw ventesError;
 
-      // If no ventes in attente_paiement, just set empty and return
-      if (!ventesData || ventesData.length === 0) {
+      // Filtrer: date_installation_reelle >= 2 semaines
+      const billableData = (ventesData || []).filter((v: any) => {
+        if (!v.date_installation_reelle) return false;
+        return new Date(v.date_installation_reelle) <= twoWeeksAgo;
+      });
+
+      // If no ventes billable, just set empty and return
+      if (billableData.length === 0) {
         setVentes([]);
         setTotalBillable(0);
         setLoading(false);
         return;
       }
+      
+      // Use filtered data for the rest
+      const filteredVentesData = billableData;
 
       // Fetch bouquets (global and per-regie), regie configs, and etude surcharges
-      const regieIds = [...new Set(ventesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
-      const etudeIds = [...new Set(ventesData.map((v: any) => v.etude_id).filter(Boolean))] as string[];
+      const regieIds = [...new Set(filteredVentesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
+      const etudeIds = [...new Set(filteredVentesData.map((v: any) => v.etude_id).filter(Boolean))] as string[];
       
       const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
@@ -148,7 +161,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       };
 
       // Calculate commissions using new bouquet logic
-      const billableVentes: BillableVente[] = (ventesData || []).map((v: any) => {
+      const billableVentes: BillableVente[] = filteredVentesData.map((v: any) => {
         const decomMontant = v.decom_montant || 0;
         
         // CAS POSE EXTERNE: Commission = montant HT - décom
