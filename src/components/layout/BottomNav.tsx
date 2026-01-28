@@ -30,10 +30,10 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                 key={path}
                 to={path}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 flex-1 py-3 px-2 rounded-xl transition-all duration-200 active:scale-95",
+                  "relative flex flex-col items-center justify-center gap-1 flex-1 py-3 px-2 rounded-xl transition-all duration-200 active:scale-90 touch-action-manipulation",
                   isActive
                     ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground active:text-foreground"
                 )}
               >
                 <div className={cn(

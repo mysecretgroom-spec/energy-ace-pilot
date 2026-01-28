@@ -171,10 +171,21 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  /* Better touch targets */
-  button, a, [role="button"] {
+  /* Better touch targets - only for primary interactive elements */
+  button:not(.touch-compact), 
+  [role="button"]:not(.touch-compact) {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Touch-optimized interactive elements */
+  .touch-target-lg {
+    @apply min-h-[48px] min-w-[48px];
+  }
+
+  /* Prevent accidental double-tap zoom */
+  input, textarea, select, button {
+    touch-action: manipulation;
   }
 
   /* Smooth scrolling containers */

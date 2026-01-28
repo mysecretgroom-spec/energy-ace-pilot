@@ -310,12 +310,12 @@ export function HejjaToggle() {
         </div>
       )}
 
-      {/* Full button on other pages - positioned above BottomNav */}
+      {/* Full button on other pages - positioned above BottomNav, side by side with Agent on larger screens */}
       <Button
         variant={isActive ? "default" : "outline"}
         size="sm"
         onClick={handleClick}
-        className={`fixed bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-4 z-40 shadow-lg rounded-full h-12 px-4 gap-2 transition-all ${
+        className={`fixed bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-4 z-40 shadow-lg rounded-full h-12 px-4 gap-2 transition-all active:scale-95 touch-action-manipulation ${
           isActive 
             ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
             : "bg-background/95 backdrop-blur border-border hover:bg-muted"
@@ -325,7 +325,7 @@ export function HejjaToggle() {
           <>
             <span className="text-xl">😈</span>
             <span className="font-bold">HEJJA</span>
-            <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse">
+            <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse touch-compact">
               🔥
             </Badge>
           </>

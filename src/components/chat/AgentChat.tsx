@@ -379,7 +379,6 @@ export function AgentChat() {
 
   return (
     <>
-      {/* Floating Button */}
       {/* Floating Button - positioned above BottomNav (72px + safe) and Hejja toggle */}
       <AnimatePresence>
         {!isOpen && (
@@ -387,12 +386,12 @@ export function AgentChat() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] right-4 z-40"
+            className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] right-4 z-40 sm:bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] sm:right-[180px]"
           >
             <Button
               onClick={() => setIsOpen(true)}
               variant="outline"
-              className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted"
+              className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform touch-action-manipulation"
             >
               <div className="relative">
                 <MessageCircle className="h-5 w-5 text-primary" />
@@ -414,7 +413,7 @@ export function AgentChat() {
         onChange={handleFileSelect}
       />
 
-      {/* Chat Window - positioned above BottomNav */}
+      {/* Chat Window - positioned above BottomNav, responsive sizing */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -425,8 +424,8 @@ export function AgentChat() {
             className={cn(
               "fixed z-50 bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden",
               isExpanded
-                ? "inset-4 md:inset-8"
-                : "bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-4 left-4 md:left-auto md:w-[400px] h-[60vh] max-h-[500px]"
+                ? "inset-2 sm:inset-4 md:inset-8"
+                : "bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-2 left-2 sm:right-4 sm:left-auto sm:w-[400px] md:w-[420px] h-[55vh] sm:h-[60vh] max-h-[500px]"
             )}
           >
             {/* Header */}
