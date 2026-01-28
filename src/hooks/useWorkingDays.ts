@@ -51,29 +51,45 @@ export function useWorkingDays() {
   }, [fetchWorkingDays]);
 
   const updateWorkingDays = useCallback(async (newWorkingDays: number[]) => {
-    if (!user) return;
-
-    // Optimistic update
-    setWorkingDays(newWorkingDays);
+    if (!user) return false;
 
     try {
-      const { error } = await supabase
+      // First check if record exists
+      const { data: existing } = await supabase
         .from("user_settings")
-        .upsert({
-          user_id: user.id,
-          working_days: newWorkingDays,
-        });
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // Update existing record
+        const result = await supabase
+          .from("user_settings")
+          .update({ working_days: newWorkingDays })
+          .eq("user_id", user.id);
+        error = result.error;
+      } else {
+        // Insert new record
+        const result = await supabase
+          .from("user_settings")
+          .insert({ user_id: user.id, working_days: newWorkingDays });
+        error = result.error;
+      }
 
       if (error) {
         console.error("Error updating working days:", error);
-        // Revert on error
-        fetchWorkingDays();
+        return false;
       }
+
+      // Update local state after successful save
+      setWorkingDays(newWorkingDays);
+      return true;
     } catch (err) {
       console.error("Error in updateWorkingDays:", err);
-      fetchWorkingDays();
+      return false;
     }
-  }, [user, fetchWorkingDays]);
+  }, [user]);
 
   const isWorkingDay = useCallback((dayOfWeek: number) => {
     return workingDays.includes(dayOfWeek);
