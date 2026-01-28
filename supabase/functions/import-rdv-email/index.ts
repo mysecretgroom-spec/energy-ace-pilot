@@ -145,21 +145,25 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
    - "ballon_thermo" (pour ECS, ballon, chauffe-eau)
    - "autre" (si aucun match)
 
-6. **EMAIL** - Si absent ou invalide, OMETS le champ (ne mets pas de valeur vide ou invalide)
+6. **EMAIL** - Si absent ou invalide, NE METS PAS le champ du tout (pas de valeur vide, pas "INCONNU", pas null)
 
 7. **COMMENTAIRES** - Inclus les infos importantes du contexte:
    - Historique client (déjà reçu des devis, mauvaise expérience...)
    - Instructions spéciales
    - Motivation/hésitations
 
+8. **RÈGLE ABSOLUE - JAMAIS "INCONNU"**:
+   - Si une info n'est pas dans l'email, NE METS PAS le champ
+   - NE JAMAIS mettre "INCONNU", "N/A", "null", "" ou des valeurs vides
+   - Omets simplement le champ s'il n'y a pas de donnée
+
 ## STRUCTURE JSON ATTENDUE:
 
 {
   "CONTACT": {
-    "nom": "NOM DE FAMILLE EN MAJUSCULES",
-    "prenom": "Prénom",
-    "telephone": "0612345678",
-    "telephone_secondaire": "0698765432"
+    "nom": "BERNIER",
+    "prenom": "Eric",
+    "telephone": "0612345678"
   },
   "ADRESSE": {
     "adresse": "25 RUE DES 3 FLEURS",
@@ -174,12 +178,12 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
     "commentaire": "A déjà reçu 3 devis entre 25k-30k pour 6kWc. Mauvaise expérience PAC. Faire étude technique approfondie."
   },
   "PROJET": {
-    "type_chauffage": "electrique",
-    "facture_energie": 2500,
-    "motivation": "Réduction facture énergétique",
-    "urgence": "court_terme"
+    "type_chauffage": "bois",
+    "facture_energie": 130
   }
 }
+
+IMPORTANT: Si un champ n'a pas de valeur trouvée, NE L'INCLUS PAS dans le JSON. Pas de "INCONNU" !
 
 RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
