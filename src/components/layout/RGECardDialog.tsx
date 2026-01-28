@@ -47,11 +47,11 @@ export const RGECardDialog = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [open, setOpen] = useState(false);
-  const [dragY, setDragY] = useState(0);
+  const [dragDistance, setDragDistance] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [siretSearchComplete, setSiretSearchComplete] = useState(false);
   const [siretCopied, setSiretCopied] = useState(false);
-  const startYRef = useRef(0);
+  const startPosRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (user && open) {
@@ -59,7 +59,7 @@ export const RGECardDialog = () => {
       fetchRegieWithSiret();
     }
     if (!open) {
-      setDragY(0);
+      setDragDistance(0);
       setCompanyInfo(null);
       setSiretSearchComplete(false);
       setSiretCopied(false);
@@ -196,26 +196,27 @@ export const RGECardDialog = () => {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    startYRef.current = e.touches[0].clientY;
+    startPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
+    const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
-    const diff = currentY - startYRef.current;
-    // On mobile with 90deg rotation, Y movement maps to visual "down" which should close
-    if (diff > 0) {
-      setDragY(diff);
-    }
+    const diffX = Math.abs(currentX - startPosRef.current.x);
+    const diffY = Math.abs(currentY - startPosRef.current.y);
+    // Use the maximum distance in any direction
+    const distance = Math.max(diffX, diffY);
+    setDragDistance(distance);
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    if (dragY > 80) {
+    if (dragDistance > 60) {
       setOpen(false);
     }
-    setDragY(0);
+    setDragDistance(0);
   };
 
   const displayFirstName = profile?.prenom_scene || profile?.first_name;
@@ -244,7 +245,13 @@ export const RGECardDialog = () => {
           <IdCard className="h-[30px] w-[30px]" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-full h-full max-w-none max-h-none m-0 p-0 overflow-hidden rounded-none border-none bg-black/60 backdrop-blur-sm flex items-center justify-center">
+      <DialogContent 
+        className="w-full h-full max-w-none max-h-none m-0 p-0 overflow-hidden rounded-none border-none bg-black/60 backdrop-blur-sm flex items-center justify-center"
+        style={isMobile ? { touchAction: 'none' } : undefined}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>Carte RGE Professionnelle</DialogTitle>
         </DialogHeader>
@@ -261,7 +268,7 @@ export const RGECardDialog = () => {
 
         {/* Swipe indicator - mobile only */}
         {isMobile && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60 z-10">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60 z-10 pointer-events-none">
             <ChevronDown className="h-6 w-6 animate-bounce" />
             <span className="text-xs">Glisser pour fermer</span>
           </div>
@@ -277,13 +284,9 @@ export const RGECardDialog = () => {
               : "w-full h-full p-8 lg:p-12"
           }`}
           style={isMobile ? { 
-            transform: `rotate(90deg) translateY(${dragY}px)`,
-            opacity: Math.max(0.3, 1 - dragY / 200),
-            touchAction: 'none'
+            transform: `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})`,
+            opacity: Math.max(0.3, 1 - dragDistance / 150)
           } : undefined}
-          onTouchStart={isMobile ? handleTouchStart : undefined}
-          onTouchMove={isMobile ? handleTouchMove : undefined}
-          onTouchEnd={isMobile ? handleTouchEnd : undefined}
         >
           <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none ${
             isMobile 
