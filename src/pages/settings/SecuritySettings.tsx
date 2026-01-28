@@ -380,7 +380,7 @@ const SecuritySettings = () => {
 
   return (
     <MobileLayout title="Sécurité" showBackButton>
-      <div className="p-4 pb-8 space-y-4">
+      <div className="p-4 pb-8 space-y-4" data-onboarding="security-settings">
         {/* Status Card */}
         <Card className="shadow-card">
           <CardHeader className="pb-2">

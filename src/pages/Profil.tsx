@@ -380,7 +380,7 @@ const Profil = () => {
             </Card>
           }
         >
-        <Card className="shadow-card">
+        <Card className="shadow-card" data-onboarding="profile-form">
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />

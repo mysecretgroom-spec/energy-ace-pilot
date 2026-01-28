@@ -832,7 +832,7 @@ const RegiesSettings = () => {
 
   return (
     <MobileLayout title="Régies" showBackButton>
-      <div className="p-4 pb-8 space-y-4">
+      <div className="p-4 pb-8 space-y-4" data-onboarding="regie-list">
         {/* Header avec bouton d'ajout */}
         <div className="flex items-center justify-between gap-2">
           <div>

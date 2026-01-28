@@ -1,3 +1,4 @@
+export { InteractiveOnboardingProvider, useInteractiveOnboarding } from "./InteractiveOnboarding";
 export { OnboardingDialog } from "./OnboardingDialog";
 export { WelcomeStep } from "./steps/WelcomeStep";
 export { FeaturesStep } from "./steps/FeaturesStep";
