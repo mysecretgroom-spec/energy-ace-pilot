@@ -17,7 +17,7 @@ import { toast } from "sonner";
 // Import logos
 import logoFranceRenov from "@/assets/logos/france-renov.png";
 import logoMinistere from "@/assets/logos/ministere-transition-energetique.svg";
-import logoRgeEcoArtisan from "@/assets/logos/rge-eco-artisan.png";
+import logoRgeEcoArtisan from "@/assets/logos/rge-eco-artisan-new.png";
 import logoQualipac from "@/assets/logos/qualipac.png";
 import logoQualipv from "@/assets/logos/qualipv.png";
 import logoQualitenr from "@/assets/logos/qualitenr.png";
@@ -299,13 +299,18 @@ export const RGECardDialog = () => {
               minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
             }}
           >
-            {/* Header with Ministère and France Rénov logos */}
+            {/* Header with Ministère, Company name and France Rénov logos */}
             <div className="bg-white flex items-center justify-between shrink-0 py-2 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
                 className="h-14 sm:h-14 lg:h-28 object-contain"
               />
+              {siretSearchComplete && companyInfo && (
+                <p className="font-bold text-gray-800 text-center truncate max-w-[40%] text-sm sm:text-xl lg:text-2xl">
+                  {companyInfo.nom}
+                </p>
+              )}
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
@@ -357,36 +362,31 @@ export const RGECardDialog = () => {
                         <p className="text-amber-400 text-[8px] sm:text-xs">À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 mb-0.5 sm:mb-1 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
-                    {siretSearchComplete && companyInfo && (
-                      <div>
-                        <p className="font-semibold text-white/90 truncate text-sm sm:text-base lg:text-lg">
-                          {companyInfo.nom}
-                        </p>
-                        <button
-                          onClick={handleCopySiret}
-                          className="inline-flex items-center gap-1 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-xs sm:text-sm"
-                          title="Cliquer pour copier le SIRET"
-                        >
-                          SIRET: {companyInfo.siret}
-                          {siretCopied ? (
-                            <Check className="h-3 w-3 sm:h-4 sm:w-4" />
-                          ) : (
-                            <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                          )}
-                        </button>
-                      </div>
-                    )}
+                    <p className="text-white/80 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
                     {profile?.telephone_pro ? (
-                      <div className={`flex items-center justify-center gap-1.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-sm sm:text-lg lg:text-xl`}>
+                      <div className="flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-lg lg:text-xl">
                         <Phone className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
                         <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className={`flex items-center justify-center gap-1 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-xs sm:text-base`}>
+                      <div className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base">
                         <Phone className="text-white/50 h-3.5 w-3.5 sm:h-5 sm:w-5" />
                         <span className="text-white/50 italic">Tél. pro manquant</span>
                       </div>
+                    )}
+                    {siretSearchComplete && companyInfo && (
+                      <button
+                        onClick={handleCopySiret}
+                        className="inline-flex items-center gap-1 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-xs sm:text-sm"
+                        title="Cliquer pour copier le SIRET"
+                      >
+                        SIRET: {companyInfo.siret}
+                        {siretCopied ? (
+                          <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                        ) : (
+                          <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                        )}
+                      </button>
                     )}
                   </div>
 
@@ -426,7 +426,7 @@ export const RGECardDialog = () => {
                 </div>
 
                 {/* Certifications band */}
-                <div className="bg-[#ebecef] shrink-0 py-2 px-3 sm:py-3 sm:px-6 lg:py-4 lg:px-8 rounded-b-lg sm:rounded-b-xl">
+                <div className="bg-white shrink-0 py-2 px-3 sm:py-3 sm:px-6 lg:py-4 lg:px-8 rounded-b-lg sm:rounded-b-xl">
                   <div className="flex items-center justify-center sm:justify-between gap-2 sm:gap-4">
                     <p className="text-gray-500 uppercase tracking-wider font-medium text-xs hidden sm:block">
                       Certifications
