@@ -115,7 +115,7 @@ Structure attendue:
     "date": "Date au format YYYY-MM-DD",
     "heure": "Heure au format HH:MM",
     "duree_minutes": 90,
-    "type_projet": "photovoltaique|pompe_chaleur|renovation|autre",
+    "type_projet": "photovoltaique|pompe_chaleur|isolation|ballon_thermo|autre",
     "commentaire": "Notes importantes"
   },
   "PROJET": {
@@ -442,13 +442,30 @@ serve(async (req) => {
     }
 
     // Create RDV with regie_id
+    // Map type_projet to valid enum values
+    const validProjectTypes = ["photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre"];
+    let typeProjet = validated.RDV?.type_projet?.toLowerCase() || "photovoltaique";
+    
+    // Map common variations to valid enum values
+    if (typeProjet.includes("solaire") || typeProjet.includes("pv") || typeProjet.includes("panneau")) {
+      typeProjet = "photovoltaique";
+    } else if (typeProjet.includes("pac") || typeProjet.includes("chaleur") || typeProjet.includes("pompe")) {
+      typeProjet = "pompe_chaleur";
+    } else if (typeProjet.includes("isol") || typeProjet.includes("ite")) {
+      typeProjet = "isolation";
+    } else if (typeProjet.includes("ballon") || typeProjet.includes("thermo") || typeProjet.includes("ecs")) {
+      typeProjet = "ballon_thermo";
+    } else if (!validProjectTypes.includes(typeProjet)) {
+      typeProjet = "photovoltaique"; // Default to photovoltaique
+    }
+    
     const rdvData = {
       user_id,
       client_id: clientId,
       date_heure: dateHeure,
       duree_minutes: validated.RDV?.duree_minutes || 90,
       adresse: validated.ADRESSE?.adresse || null,
-      type_projet: validated.RDV?.type_projet || "solaire",
+      type_projet: typeProjet,
       status: "nouveau",
       commentaire: validated.RDV?.commentaire?.slice(0, 2000) || null,
       source: "gmail",
