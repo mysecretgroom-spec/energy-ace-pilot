@@ -603,17 +603,17 @@ function OnboardingOverlay() {
               </div>
             )}
 
-            {/* Back button for config steps */}
-            {!isPresentation && currentStepIndex > 0 && (
-              <div className="flex justify-start">
+            {/* Back button for config steps - only show if not first config step */}
+            {!isPresentation && currentStepIndex > presentationSteps.length && (
+              <div className="flex justify-start mt-2 pt-2 border-t border-border/50">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={previous}
-                  className="h-9 px-3 touch-manipulation text-muted-foreground"
+                  className="h-8 px-2 touch-manipulation text-muted-foreground text-xs"
                 >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Retour
+                  <ChevronLeft className="h-3.5 w-3.5 mr-0.5" />
+                  Étape précédente
                 </Button>
               </div>
             )}
