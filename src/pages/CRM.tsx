@@ -18,6 +18,7 @@ import { PipelineKanban } from "@/components/crm/PipelineKanban";
 import { VenteSelectionBar } from "@/components/crm/VenteSelectionBar";
 import { QontoInvoice } from "@/components/crm/QontoInvoice";
 import { VenteCard } from "@/components/crm/VenteCard";
+import { MultiSelectFilter, FilterOption } from "@/components/crm/MultiSelectFilter";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import {
   Search,
@@ -33,6 +34,7 @@ import {
   CheckCircle2,
   Filter,
   Building2,
+  Tag,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -57,6 +59,7 @@ interface Client {
   created_at: string;
   is_retape?: boolean;
   retape_original_id?: string | null;
+  regie_id?: string | null;
 }
 
 type VenteType = 'standard' | 'external_installation';
@@ -109,9 +112,10 @@ const CRM = () => {
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [ventesLoading, setVentesLoading] = useState(true);
-  const [venteFilter, setVenteFilter] = useState<string>("signes");
+  const [statusFilters, setStatusFilters] = useState<VenteStatus[]>([]);
   const [typeFilter, setTypeFilter] = useState<"all" | VenteType>("all");
-  const [regieFilter, setRegieFilter] = useState<string>("all");
+  const [regieFilters, setRegieFilters] = useState<string[]>([]);
+  const [clientRegieFilters, setClientRegieFilters] = useState<string[]>([]);
   const [regies, setRegies] = useState<Regie[]>([]);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
@@ -168,7 +172,7 @@ const CRM = () => {
   useEffect(() => {
     const regieParam = searchParams.get("regie");
     if (regieParam) {
-      setRegieFilter(regieParam);
+      setRegieFilters([regieParam]);
       setActiveTab("ventes");
     }
   }, [searchParams]);
@@ -281,6 +285,11 @@ const CRM = () => {
     // Hide retape clients when HEJJA mode is not active
     if (!modeHejjaActive && client.is_retape) return false;
     
+    // Filter by regie (multi-select)
+    if (clientRegieFilters.length > 0) {
+      if (!client.regie_id || !clientRegieFilters.includes(client.regie_id)) return false;
+    }
+    
     // Search filter
     return (
       client.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -342,34 +351,19 @@ const CRM = () => {
     // Always exclude cancelled
     if (v.status === 'annule') return false;
     
-    // Filter by status category
-    if (venteFilter === "signes") {
-      // All signed (excluding cancelled)
-      if (!signeStatuses.includes(v.status)) return false;
-    } else if (venteFilter === "en_cours") {
-      // Work in progress (not yet installed)
-      if (!enCoursStatuses.includes(v.status)) return false;
-    } else if (venteFilter === "posees_non_facturables") {
-      // Installed but less than 2 weeks ago
-      if (v.status !== 'installe') return false;
-      if (isInstalledAndBillable(v)) return false;
-    } else if (venteFilter === "a_facturer") {
-      // Installed for 2+ weeks OR attente_paiement
-      if (v.status === 'attente_paiement') {
-        // attente_paiement is always billable
-      } else if (v.status === 'installe') {
-        if (!isInstalledAndBillable(v)) return false;
-      } else {
-        return false;
-      }
-    } else if (venteFilter === "paye") {
-      if (v.status !== 'paye') return false;
+    // Filter by status (multi-select)
+    if (statusFilters.length > 0) {
+      if (!statusFilters.includes(v.status)) return false;
     }
     
     // Filter by type
     if (typeFilter !== "all" && v.type_vente !== typeFilter) return false;
-    // Filter by regie
-    if (regieFilter !== "all" && (v as any).regie_id !== regieFilter) return false;
+    
+    // Filter by regie (multi-select)
+    if (regieFilters.length > 0) {
+      if (!v.regie_id || !regieFilters.includes(v.regie_id)) return false;
+    }
+    
     // Filter by date range
     const signatureDate = v.date_signature || v.created_at;
     if (dateFrom && new Date(signatureDate) < new Date(dateFrom)) return false;
@@ -513,16 +507,34 @@ const CRM = () => {
               />
             </div>
 
-            {/* Toggle for active clients filter */}
-            <div className="flex items-center justify-between px-1 py-2 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
+            {/* Filters row */}
+            <div className="flex gap-2">
+              {/* Toggle for active clients filter */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg flex-1">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Clients actifs uniquement</span>
+                <span className="text-xs font-medium">Actifs</span>
+                <Switch
+                  checked={showActiveOnly}
+                  onCheckedChange={setShowActiveOnly}
+                />
               </div>
-              <Switch
-                checked={showActiveOnly}
-                onCheckedChange={setShowActiveOnly}
-              />
+              
+              {/* Regie filter for clients */}
+              {regies.length > 0 && (
+                <MultiSelectFilter
+                  label="Régie"
+                  icon={<Building2 className="h-4 w-4" />}
+                  placeholder="Toutes les régies"
+                  options={regies.map(r => ({
+                    id: r.id,
+                    label: r.nom,
+                    color: r.couleur
+                  }))}
+                  selected={clientRegieFilters}
+                  onChange={setClientRegieFilters}
+                  className="flex-1"
+                />
+              )}
             </div>
 
             {/* Stats */}
@@ -530,6 +542,7 @@ const CRM = () => {
               <span className="text-muted-foreground">
                 {filteredClients.length} client{filteredClients.length > 1 ? "s" : ""}
                 {showActiveOnly && " actif" + (filteredClients.length > 1 ? "s" : "")}
+                {clientRegieFilters.length > 0 && ` • ${clientRegieFilters.length} régie${clientRegieFilters.length > 1 ? 's' : ''}`}
               </span>
               <Button size="sm" className="bg-gradient-hero gap-1">
                 <Plus className="h-4 w-4" />
@@ -881,7 +894,46 @@ const CRM = () => {
 
             {/* Filters section */}
             <div className="space-y-3">
-              {/* Type and Regie filters */}
+              {/* Status and Regie multi-select filters */}
+              <div className="flex gap-2">
+                <MultiSelectFilter
+                  label="Statut"
+                  icon={<Tag className="h-4 w-4" />}
+                  placeholder="Tous les statuts"
+                  options={[
+                    { id: 'signe', label: 'Signé' },
+                    { id: 'cq_a_faire', label: 'CQ à faire' },
+                    { id: 'cq_fait', label: 'CQ fait' },
+                    { id: 'attente_financement', label: 'Attente financement' },
+                    { id: 'envoi_pose', label: 'Envoi pose' },
+                    { id: 'en_installation', label: 'En installation' },
+                    { id: 'installe', label: 'Installé' },
+                    { id: 'attente_paiement', label: 'Attente paiement' },
+                    { id: 'paye', label: 'Payé' },
+                  ]}
+                  selected={statusFilters}
+                  onChange={(s) => setStatusFilters(s as VenteStatus[])}
+                  className="flex-1"
+                />
+                
+                {regies.length > 0 && (
+                  <MultiSelectFilter
+                    label="Régie"
+                    icon={<Building2 className="h-4 w-4" />}
+                    placeholder="Toutes les régies"
+                    options={regies.map(r => ({
+                      id: r.id,
+                      label: r.nom,
+                      color: r.couleur
+                    }))}
+                    selected={regieFilters}
+                    onChange={setRegieFilters}
+                    className="flex-1"
+                  />
+                )}
+              </div>
+
+              {/* Type filter */}
               <div className="flex gap-2">
                 <Select value={typeFilter} onValueChange={(v: "all" | VenteType) => setTypeFilter(v)}>
                   <SelectTrigger className="flex-1">
@@ -893,31 +945,6 @@ const CRM = () => {
                     <SelectItem value="external_installation">Installations externes</SelectItem>
                   </SelectContent>
                 </Select>
-                
-                {regies.length > 0 && (
-                  <Select value={regieFilter} onValueChange={setRegieFilter}>
-                    <SelectTrigger className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <SelectValue placeholder="Régie" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Toutes les régies</SelectItem>
-                      {regies.map((regie) => (
-                        <SelectItem key={regie.id} value={regie.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full" 
-                              style={{ backgroundColor: regie.couleur }}
-                            />
-                            {regie.nom}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
               </div>
 
               {/* Date range filter */}
@@ -953,51 +980,28 @@ const CRM = () => {
                 )}
               </div>
 
-              {/* Status filter tabs */}
-              <div className="flex gap-2 flex-wrap">
-                <Button 
-                  variant={venteFilter === "signes" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setVenteFilter("signes")}
-                  className="text-xs"
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Signées
-                </Button>
-                <Button 
-                  variant={venteFilter === "en_cours" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setVenteFilter("en_cours")}
-                  className="text-xs"
-                >
-                  En cours
-                </Button>
-                <Button 
-                  variant={venteFilter === "posees_non_facturables" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setVenteFilter("posees_non_facturables")}
-                  className="text-xs"
-                >
-                  Posées &lt;2 sem
-                </Button>
-                <Button 
-                  variant={venteFilter === "a_facturer" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setVenteFilter("a_facturer")}
-                  className="text-xs bg-green-500/10 border-green-500/30 text-green-700 hover:bg-green-500/20"
-                >
-                  <Euro className="h-3 w-3 mr-1" />
-                  À facturer
-                </Button>
-                <Button 
-                  variant={venteFilter === "paye" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setVenteFilter("paye")}
-                  className="text-xs"
-                >
-                  Payées
-                </Button>
-              </div>
+              {/* Active filters summary */}
+              {(statusFilters.length > 0 || regieFilters.length > 0) && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Filter className="h-3 w-3" />
+                  <span>
+                    {filteredVentes.length} vente{filteredVentes.length > 1 ? 's' : ''} 
+                    {statusFilters.length > 0 && ` • ${statusFilters.length} statut${statusFilters.length > 1 ? 's' : ''}`}
+                    {regieFilters.length > 0 && ` • ${regieFilters.length} régie${regieFilters.length > 1 ? 's' : ''}`}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setStatusFilters([]);
+                      setRegieFilters([]);
+                    }}
+                  >
+                    Effacer
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Ventes list */}
@@ -1051,28 +1055,19 @@ const CRM = () => {
           <TabsContent value="pipeline" className="mt-4 space-y-4">
             {/* Regie filter for pipeline */}
             {regies.length > 0 && (
-              <Select value={regieFilter} onValueChange={setRegieFilter}>
-                <SelectTrigger className="w-full">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrer par régie" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les régies</SelectItem>
-                  {regies.map((regie) => (
-                    <SelectItem key={regie.id} value={regie.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: regie.couleur }}
-                        />
-                        {regie.nom}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MultiSelectFilter
+                label="Régie"
+                icon={<Building2 className="h-4 w-4" />}
+                placeholder="Toutes les régies"
+                options={regies.map(r => ({
+                  id: r.id,
+                  label: r.nom,
+                  color: r.couleur
+                }))}
+                selected={regieFilters}
+                onChange={setRegieFilters}
+                className="w-full"
+              />
             )}
             
             {ventesLoading ? (
