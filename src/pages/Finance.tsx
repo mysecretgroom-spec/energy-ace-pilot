@@ -919,56 +919,58 @@ const Finance = () => {
             {/* Expense Chart */}
             <ExpenseChart frais={allFraisData} />
 
-            {/* Actions */}
-            <div className="flex gap-2 flex-wrap">
+            {/* Actions - Stack on mobile */}
+            <div className="space-y-2">
               <Button 
-                className="flex-1 bg-gradient-hero gap-2 h-12"
+                className="w-full bg-gradient-hero gap-2 h-12"
                 onClick={() => setMultiImportOpen(true)}
               >
                 <Plus className="h-5 w-5" />
                 Importer des factures
               </Button>
               
-              <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2 h-12">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Import CSV
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="p-0 max-w-lg max-h-[85vh] overflow-hidden">
-                  <BankImport 
-                    onSuccess={() => {
-                      setBankImportOpen(false);
-                      // Refresh data
-                      if (user) {
-                        supabase
-                          .from("frais")
-                          .select("*")
-                          .eq("user_id", user.id)
-                          .order("date_frais", { ascending: false })
-                          .limit(10)
-                          .then(({ data }) => {
-                            if (data) setFraisData(data as FraisItem[]);
-                          });
-                      }
-                    }}
-                    onCancel={() => setBankImportOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-              
-              <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <FolderOpen className="h-4 w-4" />
-                    Factures
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="p-0 max-w-lg max-h-[85vh]">
-                  <ReceiptGallery onClose={() => setGalleryOpen(false)} />
-                </DialogContent>
-              </Dialog>
+              <div className="grid grid-cols-2 gap-2">
+                <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-11 w-full">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      <span className="truncate">Import CSV</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="p-0 max-w-lg max-h-[85vh] overflow-hidden">
+                    <BankImport 
+                      onSuccess={() => {
+                        setBankImportOpen(false);
+                        // Refresh data
+                        if (user) {
+                          supabase
+                            .from("frais")
+                            .select("*")
+                            .eq("user_id", user.id)
+                            .order("date_frais", { ascending: false })
+                            .limit(10)
+                            .then(({ data }) => {
+                              if (data) setFraisData(data as FraisItem[]);
+                            });
+                        }
+                      }}
+                      onCancel={() => setBankImportOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-11 w-full">
+                      <FolderOpen className="h-4 w-4" />
+                      <span className="truncate">Factures</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="p-0 max-w-lg max-h-[85vh]">
+                    <ReceiptGallery onClose={() => setGalleryOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
             
             {/* Plaid Bank Connection */}
