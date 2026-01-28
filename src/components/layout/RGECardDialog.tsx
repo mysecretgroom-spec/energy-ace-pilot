@@ -304,12 +304,12 @@ export const RGECardDialog = () => {
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-12 sm:h-14 lg:h-28 object-contain"
+                className="h-20 sm:h-14 lg:h-28 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-12 sm:h-14 lg:h-28 object-contain"
+                className="h-20 sm:h-14 lg:h-28 object-contain"
               />
             </div>
 
