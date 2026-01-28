@@ -271,18 +271,18 @@ export const RGECardDialog = () => {
             {/* Header with Ministère and France Rénov logos */}
             <div className={`bg-white flex items-center justify-between shrink-0 ${
               isMobile 
-                ? "py-4 px-6 rounded-t-2xl" 
-                : "py-6 px-10 lg:py-8 lg:px-16 rounded-t-3xl"
+                ? "py-2 px-4 rounded-t-2xl" 
+                : "py-4 px-8 lg:py-8 lg:px-16 rounded-t-3xl"
             }`}>
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className={isMobile ? "h-16 object-contain" : "h-20 lg:h-28 object-contain"}
+                className={isMobile ? "h-10 object-contain" : "h-14 lg:h-28 object-contain"}
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className={isMobile ? "h-16 object-contain" : "h-20 lg:h-28 object-contain"}
+                className={isMobile ? "h-10 object-contain" : "h-14 lg:h-28 object-contain"}
               />
             </div>
 
