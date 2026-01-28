@@ -801,19 +801,6 @@ const Finance = () => {
                       </p>
                     </div>
 
-                    {/* Séparateur et Total */}
-                    <div className="border-t border-dashed pt-3 mt-2">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/15 border-2 border-amber-400">
-                        <div className="flex items-center gap-2">
-                          <Euro className="h-5 w-5 text-amber-700" />
-                          <p className="text-sm font-bold text-amber-800">TOTAL POTENTIEL HT</p>
-                        </div>
-                        <p className="text-xl font-bold text-amber-800">
-                          {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
-                        </p>
-                      </div>
-                    </div>
-
                     {/* Com Payées */}
                     <div 
                       className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-300 cursor-pointer hover:bg-emerald-500/20 transition-colors"
@@ -829,6 +816,19 @@ const Finance = () => {
                       <p className="text-lg font-bold text-emerald-700">
                         {venteStats.comPayees.toLocaleString("fr-FR")} €
                       </p>
+                    </div>
+
+                    {/* Séparateur et Total */}
+                    <div className="border-t border-dashed pt-3 mt-2">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/15 border-2 border-amber-400">
+                        <div className="flex items-center gap-2">
+                          <Euro className="h-4 w-4 text-amber-700" />
+                          <p className="text-xs font-bold text-amber-800">TOTAL POTENTIEL HT</p>
+                        </div>
+                        <p className="text-base font-bold text-amber-800">
+                          {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
