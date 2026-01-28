@@ -107,6 +107,11 @@ const CRM = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
+  const [clientCategoryFilters, setClientCategoryFilters] = useState<string[]>([]);
+  
+  // Client-RDV status mapping (loaded with clients)
+  const [clientRdvStatuses, setClientRdvStatuses] = useState<Record<string, string[]>>({});
+  const [clientVenteStatuses, setClientVenteStatuses] = useState<Record<string, VenteStatus[]>>({});
   
   // Ventes state
   const [ventes, setVentes] = useState<Vente[]>([]);
@@ -200,55 +205,63 @@ const CRM = () => {
     if (!user) return;
     setClientsLoading(true);
     
-    if (showActiveOnly) {
-      // Only fetch clients that have at least one RDV with active status
-      // Active statuses: nouveau, reporte, r2, r2_prestudy, signe
-      const activeStatuses = ['nouveau', 'reporte', 'r2', 'r2_prestudy', 'signe'] as const;
-      
-      // First get RDVs with active status to find active client IDs
-      const { data: rdvData, error: rdvError } = await supabase
+    // Fetch all clients, RDV statuses, and vente statuses for categorization
+    const [clientsRes, rdvRes, ventesRes] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
         .from("rdv")
-        .select("client_id")
+        .select("client_id, status")
+        .eq("user_id", user.id),
+      supabase
+        .from("ventes")
+        .select("client_id, status")
         .eq("user_id", user.id)
-        .in("status", activeStatuses);
-      
-      if (rdvError) {
-        console.error("Error fetching active RDVs:", rdvError);
-        setClientsLoading(false);
-        return;
-      }
-      
-      // Get unique client IDs from active RDVs
-      const activeClientIds = [...new Set(rdvData?.map(r => r.client_id) || [])];
-      
-      if (activeClientIds.length === 0) {
-        setClients([]);
-        setClientsLoading(false);
-        return;
-      }
-      
-      // Fetch only clients with active RDVs
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .in("id", activeClientIds)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setClients(data);
-      }
-    } else {
-      // Fetch all clients
-      const { data, error } = await supabase
-        .from("clients")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setClients(data);
+    ]);
+    
+    if (clientsRes.error) {
+      console.error("Error fetching clients:", clientsRes.error);
+      setClientsLoading(false);
+      return;
+    }
+    
+    // Build client -> rdv statuses mapping
+    const rdvStatusMap: Record<string, string[]> = {};
+    for (const rdv of rdvRes.data || []) {
+      if (!rdvStatusMap[rdv.client_id]) rdvStatusMap[rdv.client_id] = [];
+      if (!rdvStatusMap[rdv.client_id].includes(rdv.status)) {
+        rdvStatusMap[rdv.client_id].push(rdv.status);
       }
     }
+    setClientRdvStatuses(rdvStatusMap);
+    
+    // Build client -> vente statuses mapping
+    const venteStatusMap: Record<string, VenteStatus[]> = {};
+    for (const vente of ventesRes.data || []) {
+      if (!venteStatusMap[vente.client_id]) venteStatusMap[vente.client_id] = [];
+      if (!venteStatusMap[vente.client_id].includes(vente.status as VenteStatus)) {
+        venteStatusMap[vente.client_id].push(vente.status as VenteStatus);
+      }
+    }
+    setClientVenteStatuses(venteStatusMap);
+    
+    let clientsToShow = clientsRes.data || [];
+    
+    if (showActiveOnly) {
+      // Active = has at least one RDV with active status
+      const activeStatuses = ['nouveau', 'reporte', 'r2', 'r2_prestudy', 'signe'];
+      const activeClientIds = new Set(
+        Object.entries(rdvStatusMap)
+          .filter(([_, statuses]) => statuses.some(s => activeStatuses.includes(s)))
+          .map(([clientId]) => clientId)
+      );
+      clientsToShow = clientsToShow.filter(c => activeClientIds.has(c.id));
+    }
+    
+    setClients(clientsToShow);
     setClientsLoading(false);
   };
 
@@ -280,6 +293,41 @@ const CRM = () => {
     }
   };
 
+  // Helper: get client category based on their RDV/Vente statuses
+  const getClientCategory = (clientId: string): string[] => {
+    const rdvStatuses = clientRdvStatuses[clientId] || [];
+    const venteStatuses = clientVenteStatuses[clientId] || [];
+    
+    const categories: string[] = [];
+    
+    // "Signés" = has at least one vente (not annule)
+    const hasActiveVente = venteStatuses.some(s => s !== 'annule');
+    if (hasActiveVente) categories.push('signe');
+    
+    // "R2/Reporté" = has RDV with r2, r2_prestudy, or reporte status
+    const hasR2 = rdvStatuses.some(s => ['r2', 'r2_prestudy', 'reporte'].includes(s));
+    if (hasR2) categories.push('r2_reporte');
+    
+    // "Nouveaux" = has RDV with nouveau status (no vente yet)
+    const hasNouveau = rdvStatuses.includes('nouveau');
+    if (hasNouveau && !hasActiveVente) categories.push('nouveau');
+    
+    // "Annulés" = all ventes are annulé OR RDV is annule/ni
+    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule');
+    const hasAnnuleRdv = rdvStatuses.some(s => ['annule', 'ni'].includes(s));
+    if (allVentesAnnule || (hasAnnuleRdv && !hasActiveVente)) categories.push('annule');
+    
+    return categories;
+  };
+
+  // Client category filter options
+  const clientCategoryOptions: FilterOption[] = [
+    { id: 'signe', label: 'Signés', color: '#22c55e' },
+    { id: 'r2_reporte', label: 'R2 / Reporté', color: '#3b82f6' },
+    { id: 'nouveau', label: 'Nouveaux', color: '#f59e0b' },
+    { id: 'annule', label: 'Annulés', color: '#ef4444' },
+  ];
+
   // Client helpers - filter out retape clients when HEJJA mode is not active
   const filteredClients = clients.filter((client) => {
     // Hide retape clients when HEJJA mode is not active
@@ -288,6 +336,12 @@ const CRM = () => {
     // Filter by regie (multi-select)
     if (clientRegieFilters.length > 0) {
       if (!client.regie_id || !clientRegieFilters.includes(client.regie_id)) return false;
+    }
+    
+    // Filter by category (multi-select)
+    if (clientCategoryFilters.length > 0) {
+      const clientCategories = getClientCategory(client.id);
+      if (!clientCategoryFilters.some(cat => clientCategories.includes(cat))) return false;
     }
     
     // Search filter
@@ -508,9 +562,9 @@ const CRM = () => {
             </div>
 
             {/* Filters row */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Toggle for active clients filter */}
-              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg flex-1">
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-medium">Actifs</span>
                 <Switch
@@ -518,6 +572,16 @@ const CRM = () => {
                   onCheckedChange={setShowActiveOnly}
                 />
               </div>
+              
+              {/* Category filter for clients */}
+              <MultiSelectFilter
+                label="Statut"
+                icon={<Tag className="h-4 w-4" />}
+                placeholder="Tous les statuts"
+                options={clientCategoryOptions}
+                selected={clientCategoryFilters}
+                onChange={setClientCategoryFilters}
+              />
               
               {/* Regie filter for clients */}
               {regies.length > 0 && (
@@ -532,7 +596,6 @@ const CRM = () => {
                   }))}
                   selected={clientRegieFilters}
                   onChange={setClientRegieFilters}
-                  className="flex-1"
                 />
               )}
             </div>
@@ -542,7 +605,7 @@ const CRM = () => {
               <span className="text-muted-foreground">
                 {filteredClients.length} client{filteredClients.length > 1 ? "s" : ""}
                 {showActiveOnly && " actif" + (filteredClients.length > 1 ? "s" : "")}
-                {clientRegieFilters.length > 0 && ` • ${clientRegieFilters.length} régie${clientRegieFilters.length > 1 ? 's' : ''}`}
+                {clientCategoryFilters.length > 0 && ` • ${clientCategoryFilters.length} filtre${clientCategoryFilters.length > 1 ? 's' : ''}`}
               </span>
               <Button size="sm" className="bg-gradient-hero gap-1">
                 <Plus className="h-4 w-4" />
