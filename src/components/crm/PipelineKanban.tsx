@@ -365,83 +365,82 @@ export function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
         </Card>
       </div>
 
-      {/* Kanban Board */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-4" style={{ minWidth: "max-content" }}>
-          {pipelineColumns.map((column) => {
-            const columnVentes = getVentesByStatus(column.status);
-            const columnTotal = getColumnTotal(column.status);
-            
-            return (
-              <div
-                key={column.status}
-                className="w-64 flex-shrink-0"
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, column.status)}
-              >
-                <Card className={`${column.bgColor} border`}>
-                  <CardHeader className="p-3 pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={column.color}>{column.icon}</span>
-                        <CardTitle className={`text-sm font-medium ${column.color}`}>
-                          {column.label}
-                        </CardTitle>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {columnVentes.length}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+      {/* Kanban Board - Vertical Layout */}
+      <div className="space-y-3">
+        {pipelineColumns.map((column) => {
+          const columnVentes = getVentesByStatus(column.status);
+          const columnTotal = getColumnTotal(column.status);
+          
+          return (
+            <Card
+              key={column.status}
+              className={`${column.bgColor} border`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.status)}
+            >
+              <CardHeader className="p-3 pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={column.color}>{column.icon}</span>
+                    <CardTitle className={`text-sm font-medium ${column.color}`}>
+                      {column.label}
+                    </CardTitle>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
                       {formatCurrency(columnTotal)}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="p-2 pt-0 space-y-2 min-h-[200px]">
-                    {columnVentes.length === 0 ? (
-                      <div className="h-24 flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
-                        <p className="text-xs text-muted-foreground">Glissez ici</p>
-                      </div>
-                    ) : (
-                      columnVentes.map((vente) => (
-                        <Card
-                          key={vente.id}
-                          className="bg-background cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, vente.id)}
-                          onClick={() => navigate(`/ventes/${vente.id}`)}
-                        >
-                          <CardContent className="p-3">
-                            <div className="flex items-start gap-2">
-                              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-1">
-                                  <User className="h-3 w-3 text-muted-foreground" />
-                                  <p className="text-sm font-medium truncate">
-                                    {vente.client?.nom} {vente.client?.prenom || ""}
-                                  </p>
-                                </div>
-                                <p className="text-sm font-bold text-primary">
-                                  {formatCurrency(vente.montant_ttc)}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">
+                      {columnVentes.length}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-2 pt-0">
+                {columnVentes.length === 0 ? (
+                  <div className="h-16 flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground">Glissez ici</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {columnVentes.map((vente) => (
+                      <Card
+                        key={vente.id}
+                        className="bg-background cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, vente.id)}
+                        onClick={() => navigate(`/ventes/${vente.id}`)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-start gap-2">
+                            <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mb-1">
+                                <User className="h-3 w-3 text-muted-foreground" />
+                                <p className="text-sm font-medium truncate">
+                                  {vente.client?.nom} {vente.client?.prenom || ""}
                                 </p>
-                                {vente.puissance_kwc && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {vente.puissance_kwc} kWc
-                                  </p>
-                                )}
                               </div>
+                              <p className="text-sm font-bold text-primary">
+                                {formatCurrency(vente.montant_ttc)}
+                              </p>
+                              {vente.puissance_kwc && (
+                                <p className="text-xs text-muted-foreground">
+                                  {vente.puissance_kwc} kWc
+                                </p>
+                              )}
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
       {/* Cancelled sales */}
       {cancelledVentes.length > 0 && (
