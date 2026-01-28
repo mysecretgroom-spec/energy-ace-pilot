@@ -1,156 +1,64 @@
 
-# Plan : Attribution intelligente de la régie via les en-têtes Reply-To/Cc
 
-## Objectif
+# Plan de correction : Carte RGE - Éléments manquants sur mobile
 
-Modifier la logique de synchronisation Gmail pour utiliser les en-têtes `Reply-To` et `Cc` comme fallback lorsque l'email `From` ne permet pas de trouver une régie correspondante dans `emails_autorises`.
+## Problème identifié
 
-**Important** : On ne stocke pas ces headers supplémentaires, on les utilise uniquement pour la recherche de régie.
+La carte RGE s'affiche correctement (photo, logos des en-têtes, certifications) mais **la zone centrale est complètement vide** (nom, téléphone, régie, SIRET, agrément, QR code).
 
-## Logique actuelle vs nouvelle logique
+### Cause technique
+
+Le problème vient d'un conflit de layout CSS dans un contexte de rotation 90deg :
+
+1. **Cascade de `flex-1` + `min-h-0`** : Ces classes sont utilisées à 3 niveaux imbriqués (lignes 324, 325, 327), ce qui cause un effondrement de hauteur
+2. **`overflow-hidden` sur le conteneur** : Combiné avec les flex shrink, le contenu devient invisible car il déborde d'une zone de hauteur zéro
+3. **`h-full` sur des éléments sans hauteur parent définie** : Le conteneur central (ligne 325) utilise `h-full` mais son parent `flex-1` n'a pas de hauteur explicite en contexte mobile rotaté
+
+## Solution proposée
+
+Remplacer le layout "flex avec shrink" par un layout plus explicite et robuste pour mobile :
+
+### Modifications dans `RGECardDialog.tsx`
+
+1. **Zone de contenu principal (ligne 324)** : Supprimer `min-h-0` et ajouter une hauteur minimale explicite pour mobile
+   
+2. **Conteneur intérieur (ligne 325)** : Remplacer `h-full` par une hauteur automatique et utiliser `flex-grow` au lieu de hauteur complète
+
+3. **Zone photo + info (ligne 327)** : Supprimer `min-h-0` qui cause le collapse, et s'assurer que le contenu a de l'espace garanti
+
+4. **Photo (ligne 330)** : Remplacer `h-[80%]` par une taille fixe en pixels pour mobile afin d'éviter les calculs de pourcentage sur une hauteur zéro
+
+### Détail des changements
 
 ```text
-ACTUEL:
-Email From: no-reply@chelly.cloud
-   → Cherche dans emails_autorises
-   → Trouvé → regie_id = X (celle liée à no-reply@chelly.cloud)
-   → Pas de fallback si regie_id est null
+Ligne 324 (Main content wrapper):
+- Avant: className="flex-1 flex items-center justify-center min-h-0 p-2..."
+- Après: className="flex-1 flex items-center justify-center p-2..." 
+         + style avec minHeight conditionnel sur mobile
 
-NOUVEAU:
-Email From: no-reply@chelly.cloud (Reply-To: leadsb148@gmail.com)
-   → Cherche From dans emails_autorises → regieId trouvé ? 
-      → OUI → Utiliser ce regieId
-      → NON (ou null) → Chercher Reply-To dans emails_autorises
-         → Trouvé → Utiliser ce regieId
-         → NON → Chercher dans Cc
-            → Trouvé → Utiliser ce regieId
-            → NON → regieId reste null
-```
+Ligne 325 (Inner container):
+- Avant: className="...w-full h-full...overflow-hidden flex flex-col..."
+- Après: className="...w-full...overflow-visible flex flex-col..."
+         + hauteur gérée par le contenu au lieu de h-full
 
-## Modifications dans `sync-gmail-rdv/index.ts`
+Ligne 327 (Photo and info row):
+- Avant: className="flex-1 flex flex-row...min-h-0 gap-3..."
+- Après: className="flex flex-row...gap-3..." (retrait flex-1 et min-h-0)
 
-### 1. Nouvelle fonction : extraction de tous les en-têtes utiles
+Ligne 330 (Photo container):
+- Avant: h-[80%] aspect-[3/4] sm:h-40
+- Après: h-20 aspect-[3/4] sm:h-40 (taille fixe sur mobile)
 
-```typescript
-interface EmailHeaders {
-  from: string;
-  replyTo: string | null;
-  cc: string[];
-}
-
-function extractAllEmailHeaders(headers: any[]): EmailHeaders {
-  const getHeader = (name: string) => 
-    headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
-  
-  const fromRaw = getHeader("From");
-  const replyToRaw = getHeader("Reply-To");
-  const ccRaw = getHeader("Cc");
-  
-  return {
-    from: extractEmailAddress(fromRaw),
-    replyTo: replyToRaw ? extractEmailAddress(replyToRaw) : null,
-    cc: ccRaw 
-      ? ccRaw.split(",").map((e: string) => extractEmailAddress(e.trim())).filter(Boolean)
-      : []
-  };
-}
-```
-
-### 2. Nouvelle fonction : recherche de régie par ordre de priorité
-
-```typescript
-function findRegieFromHeaders(
-  emailHeaders: EmailHeaders,
-  emailToRegieMap: Record<string, string | null>
-): { regieId: string | null; source: string } {
-  // 1. D'abord essayer From (comportement actuel)
-  const fromRegieId = emailToRegieMap[emailHeaders.from];
-  if (fromRegieId) {
-    return { regieId: fromRegieId, source: emailHeaders.from };
-  }
-  
-  // 2. Si From n'a pas de regie, essayer Reply-To
-  if (emailHeaders.replyTo && emailToRegieMap[emailHeaders.replyTo]) {
-    console.log(`Regie found via Reply-To: ${emailHeaders.replyTo}`);
-    return { regieId: emailToRegieMap[emailHeaders.replyTo], source: emailHeaders.replyTo };
-  }
-  
-  // 3. Sinon essayer Cc
-  for (const ccEmail of emailHeaders.cc) {
-    if (emailToRegieMap[ccEmail]) {
-      console.log(`Regie found via Cc: ${ccEmail}`);
-      return { regieId: emailToRegieMap[ccEmail], source: ccEmail };
-    }
-  }
-  
-  // 4. Aucune régie trouvée - utiliser From quand même (peut être null)
-  return { regieId: emailToRegieMap[emailHeaders.from] || null, source: emailHeaders.from };
-}
-```
-
-### 3. Modification du traitement des messages
-
-Remplacer le bloc actuel (lignes ~379-423) :
-
-```typescript
-// AVANT
-const subject = headers.find(...)?.value || "";
-const from = headers.find(...)?.value || "";
-const senderEmail = extractEmailAddress(from);
-// Verify sender is authorized
-if (!authorizedEmailList.includes(senderEmail)) {
-  ...
-}
-// Get regie_id from email source
-const regieId = emailToRegieMap[senderEmail] || null;
-
-// APRÈS
-const subject = headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "";
-const emailHeaders = extractAllEmailHeaders(headers);
-const senderEmail = emailHeaders.from;
-
-// Log all headers for debugging
-console.log(`Email headers: From=${senderEmail}, Reply-To=${emailHeaders.replyTo}, Cc=${emailHeaders.cc.join(",")}`);
-
-// Verify sender is authorized (From must be in authorized list)
-if (!authorizedEmailList.includes(senderEmail)) {
-  console.log(`Skipping unauthorized sender: ${senderEmail}`);
-  result.skipped++;
-  continue;
-}
-
-// Find regie - try From first, then Reply-To, then Cc
-const { regieId, source: regieSource } = findRegieFromHeaders(emailHeaders, emailToRegieMap);
-if (regieId && regieSource !== senderEmail) {
-  console.log(`Regie attribution via fallback header: ${regieSource}`);
-}
+Ligne 394 (Agrément + QR section):
+- Avant: w-[120px] sm:w-36 lg:w-44
+- Après: w-24 sm:w-36 lg:w-44 (légèrement plus compact sur mobile)
 ```
 
 ## Résultat attendu
 
-### Logs enrichis
+- La photo reste visible (comme actuellement)
+- Le nom, "Technicien agréé", et téléphone s'affichent au centre
+- Le numéro d'agrément et le QR code s'affichent à droite
+- La régie et le SIRET s'affichent (une fois chargés)
+- Les certifications en bas restent visibles
 
-```
-Email headers: From=no-reply@chelly.cloud, Reply-To=leadsb148@gmail.com, Cc=
-Regie found via Reply-To: leadsb148@gmail.com
-Regie attribution via fallback header: leadsb148@gmail.com
-Processing: Votre RDV du 29/01/2026 10:00 from no-reply@chelly.cloud
-```
-
-### Comportement
-
-| Scénario | From | Reply-To | Régie attribuée |
-|----------|------|----------|-----------------|
-| Régie dans From | contact@groupeventvert.fr | - | Groupe Vent Vert |
-| Régie dans Reply-To | no-reply@chelly.cloud | leadsb148@gmail.com | SB148 |
-| Aucune régie | no-reply@chelly.cloud | autre@email.com | null |
-
-## Prérequis
-
-L'email `leadsb148@gmail.com` doit être configuré dans **Paramètres > Régies > SB148 > Emails autorisés** pour que l'attribution via Reply-To fonctionne.
-
-## Fichier modifié
-
-| Fichier | Modification |
-|---------|--------------|
-| `supabase/functions/sync-gmail-rdv/index.ts` | Ajout extraction headers + logique fallback régie |
