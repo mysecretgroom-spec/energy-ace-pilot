@@ -200,10 +200,11 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
     setSelectedVentes([]);
   };
 
-  const totalCommissions = Array.from(commissions.values()).reduce(
-    (sum, c) => sum + c.montant_commission + c.bonus_survente, 
-    0
-  );
+  // montant_commission = commissionFixe + bonusSurvente - decomMontant (déjà calculé)
+  const totalCommissions = selectedVentes.reduce((sum, venteId) => {
+    const c = commissions.get(venteId);
+    return sum + (c?.montant_commission || 0);
+  }, 0);
 
   const generatePDF = async () => {
     if (selectedVentes.length === 0) {
