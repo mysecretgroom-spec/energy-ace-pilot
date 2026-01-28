@@ -325,7 +325,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setCreating(true);
     try {
       const invoiceNumber = generateInvoiceNumber();
-      const { error } = await supabase
+      
+      // 1. Create the facture
+      const { error: factureError } = await supabase
         .from("factures")
         .insert({
           user_id: user.id,
@@ -335,7 +337,15 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           statut: "emise",
         });
 
-      if (error) throw error;
+      if (factureError) throw factureError;
+
+      // 2. Update ventes to "attente_paiement" status
+      const { error: ventesError } = await supabase
+        .from("ventes")
+        .update({ status: "attente_paiement" })
+        .in("id", selectedVentes.map(v => v.id));
+
+      if (ventesError) throw ventesError;
 
       toast.success(`Facture ${invoiceNumber} créée`);
       clearSelection();
