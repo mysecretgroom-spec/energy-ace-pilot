@@ -7,11 +7,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { IdCard, Phone, ChevronDown, X } from "lucide-react";
+import { IdCard, Phone, ChevronDown, X, Copy, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "sonner";
 
 // Import logos
 import logoFranceRenov from "@/assets/logos/france-renov.png";
@@ -49,6 +50,7 @@ export const RGECardDialog = () => {
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [siretSearchComplete, setSiretSearchComplete] = useState(false);
+  const [siretCopied, setSiretCopied] = useState(false);
   const startYRef = useRef(0);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export const RGECardDialog = () => {
       setDragY(0);
       setCompanyInfo(null);
       setSiretSearchComplete(false);
+      setSiretCopied(false);
     }
   }, [user, open]);
 
@@ -220,6 +223,19 @@ export const RGECardDialog = () => {
     ? `${displayFirstName || ""} ${displayLastName || ""}`.trim()
     : null;
 
+  const handleCopySiret = async () => {
+    if (companyInfo?.siret) {
+      try {
+        await navigator.clipboard.writeText(companyInfo.siret);
+        setSiretCopied(true);
+        toast.success("SIRET copié !");
+        setTimeout(() => setSiretCopied(false), 2000);
+      } catch (err) {
+        toast.error("Impossible de copier");
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -265,7 +281,7 @@ export const RGECardDialog = () => {
           onTouchMove={isMobile ? handleTouchMove : undefined}
           onTouchEnd={isMobile ? handleTouchEnd : undefined}
         >
-          <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden ${
+          <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none ${
             isMobile 
               ? "w-[98%] h-[96%] rounded-2xl" 
               : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
@@ -364,11 +380,20 @@ export const RGECardDialog = () => {
                         }`}>
                           {companyInfo.nom}
                         </p>
-                        <p className={`text-white/70 font-mono ${
-                          isMobile ? "text-xs" : "text-sm"
-                        }`}>
+                        <button
+                          onClick={handleCopySiret}
+                          className={`inline-flex items-center gap-1.5 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 ${
+                            isMobile ? "text-xs" : "text-sm"
+                          }`}
+                          title="Cliquer pour copier le SIRET"
+                        >
                           SIRET: {companyInfo.siret}
-                        </p>
+                          {siretCopied ? (
+                            <Check className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
+                          ) : (
+                            <Copy className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
+                          )}
+                        </button>
                       </div>
                     )}
                     {profile?.telephone_pro ? (
