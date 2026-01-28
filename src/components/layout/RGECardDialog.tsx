@@ -297,8 +297,8 @@ export const RGECardDialog = () => {
                 : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
             }`}
             style={isMobile ? {
-              width: '92vw',
-              height: '85vh'
+              width: 'min(90vh, calc(90vw * 1004 / 650))',
+              aspectRatio: '1004 / 650'
             } : undefined}
           >
             {/* Header with Ministère and France Rénov logos */}
