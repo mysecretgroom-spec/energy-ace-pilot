@@ -274,21 +274,26 @@ export const RGECardDialog = () => {
           </div>
         )}
 
-        {/* RGE Card - Adapts to screen, vertical card on mobile */}
+        {/* RGE Card - Horizontal format on mobile (rotated 90deg) */}
         <div 
-          className={`flex items-center justify-center transition-all w-full h-full p-4 sm:p-8 ${
+          className={`flex items-center justify-center transition-all ${
             isDragging ? 'duration-0' : 'duration-200'
           }`}
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
             transform: isMobile 
-              ? `scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
+              ? `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
               : undefined,
+            // On mobile: card width = screen height minus padding, card height = screen width minus safe areas
+            width: isMobile ? 'calc(100dvh - 6rem)' : '100%',
+            height: isMobile ? 'calc(100vw - 2rem)' : '100%',
+            padding: isMobile ? undefined : '2rem',
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl w-full max-w-lg sm:max-w-4xl"
+            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl w-full h-full"
             style={{ 
+              maxWidth: isMobile ? undefined : '64rem',
               minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
             }}
           >
