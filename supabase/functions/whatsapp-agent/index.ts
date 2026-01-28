@@ -3404,20 +3404,18 @@ async function createSignedVente(
   const tauxTVA = puissance <= 3 ? 1.10 : 1.20;
   const prixHT = prixTTC / tauxTVA;
   
-  // Create the vente
+  // Create the vente (note: table ventes has no rdv_id or source column)
   const { data: vente, error } = await supabase
     .from("ventes")
     .insert({
       user_id: userId,
       client_id: clientId,
-      rdv_id: rdvId || null,
       regie_id: data?.regieId,
       puissance_kwc: puissance,
       montant_ttc: prixTTC,
       montant_ht: prixHT,
       status: "positif",
       date_signature: new Date().toISOString().split("T")[0],
-      source: "whatsapp",
     })
     .select("id")
     .single();
