@@ -187,7 +187,7 @@ const Parametres = () => {
 
   return (
     <MobileLayout title="Paramètres">
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 max-w-2xl mx-auto">
         {/* Header profil - clickable */}
         <Card 
           className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"

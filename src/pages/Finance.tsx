@@ -626,7 +626,7 @@ const Finance = () => {
 
   return (
     <MobileLayout title="Finance">
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 max-w-4xl mx-auto">
         {/* Tabs Ventes / Frais */}
         <Tabs
           value={activeTab}
@@ -698,8 +698,8 @@ const Finance = () => {
                   </CardContent>
                 </Card>
 
-                {/* Stats grid - 2 cols */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Stats grid - responsive */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Card className="shadow-card">
                     <CardContent className="p-4 text-center">
                       <Euro className="h-6 w-6 mx-auto mb-2 text-primary" />

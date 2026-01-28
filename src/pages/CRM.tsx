@@ -476,7 +476,7 @@ const CRM = () => {
 
   return (
     <MobileLayout title="CRM">
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-24 max-w-5xl mx-auto">
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full grid grid-cols-3">
@@ -570,7 +570,7 @@ const CRM = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredClients.map((client, index) => (
                   <Card
                     key={client.id}
@@ -624,7 +624,7 @@ const CRM = () => {
           {/* Ventes Tab */}
           <TabsContent value="ventes" className="space-y-4 mt-4">
             {/* Stats header */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">CA Total</p>
