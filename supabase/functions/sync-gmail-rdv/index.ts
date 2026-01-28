@@ -210,6 +210,60 @@ function extractEmailAddress(from: string): string {
   return match ? match[1].toLowerCase() : from.toLowerCase();
 }
 
+// Interface for extracted email headers
+interface EmailHeaders {
+  from: string;
+  replyTo: string | null;
+  cc: string[];
+}
+
+// Extract all useful email headers for regie attribution
+function extractAllEmailHeaders(headers: any[]): EmailHeaders {
+  const getHeader = (name: string) => 
+    headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
+  
+  const fromRaw = getHeader("From");
+  const replyToRaw = getHeader("Reply-To");
+  const ccRaw = getHeader("Cc");
+  
+  return {
+    from: extractEmailAddress(fromRaw),
+    replyTo: replyToRaw ? extractEmailAddress(replyToRaw) : null,
+    cc: ccRaw 
+      ? ccRaw.split(",").map((e: string) => extractEmailAddress(e.trim())).filter(Boolean)
+      : []
+  };
+}
+
+// Find regie by checking From first, then Reply-To, then Cc as fallback
+function findRegieFromHeaders(
+  emailHeaders: EmailHeaders,
+  emailToRegieMap: Record<string, string | null>
+): { regieId: string | null; source: string } {
+  // 1. First try From (current behavior)
+  const fromRegieId = emailToRegieMap[emailHeaders.from];
+  if (fromRegieId) {
+    return { regieId: fromRegieId, source: emailHeaders.from };
+  }
+  
+  // 2. If From has no regie, try Reply-To
+  if (emailHeaders.replyTo && emailToRegieMap[emailHeaders.replyTo]) {
+    console.log(`Regie found via Reply-To: ${emailHeaders.replyTo}`);
+    return { regieId: emailToRegieMap[emailHeaders.replyTo]!, source: emailHeaders.replyTo };
+  }
+  
+  // 3. Otherwise try Cc
+  for (const ccEmail of emailHeaders.cc) {
+    if (emailToRegieMap[ccEmail]) {
+      console.log(`Regie found via Cc: ${ccEmail}`);
+      return { regieId: emailToRegieMap[ccEmail]!, source: ccEmail };
+    }
+  }
+  
+  // 4. No regie found - use From anyway (may be null)
+  return { regieId: emailToRegieMap[emailHeaders.from] || null, source: emailHeaders.from };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -379,10 +433,13 @@ serve(async (req) => {
         const headers = msgData.payload?.headers || [];
         
         const subject = headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "";
-        const from = headers.find((h: any) => h.name.toLowerCase() === "from")?.value || "";
-        const senderEmail = extractEmailAddress(from);
+        const emailHeaders = extractAllEmailHeaders(headers);
+        const senderEmail = emailHeaders.from;
 
-        // Verify sender is authorized
+        // Log all headers for debugging
+        console.log(`Email headers: From=${senderEmail}, Reply-To=${emailHeaders.replyTo}, Cc=${emailHeaders.cc.join(",")}`);
+
+        // Verify sender is authorized (From must be in authorized list)
         if (!authorizedEmailList.includes(senderEmail)) {
           console.log(`Skipping unauthorized sender: ${senderEmail}`);
           result.skipped++;
@@ -419,8 +476,11 @@ serve(async (req) => {
 
         console.log(`Processing: ${subject} from ${senderEmail}`);
 
-        // Get regie_id from email source for auto-attribution
-        const regieId = emailToRegieMap[senderEmail] || null;
+        // Find regie - try From first, then Reply-To, then Cc as fallback
+        const { regieId, source: regieSource } = findRegieFromHeaders(emailHeaders, emailToRegieMap);
+        if (regieId && regieSource !== senderEmail) {
+          console.log(`Regie attribution via fallback header: ${regieSource}`);
+        }
         
         // Call import-rdv-email to parse and create RDV
         const importResponse = await fetch(
