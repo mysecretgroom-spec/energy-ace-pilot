@@ -149,13 +149,13 @@ export function FeaturesStep() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
+    <div className="space-y-3 sm:space-y-4">
+      {/* Header - compact on mobile */}
       <div className="text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <span className="text-sm font-medium text-primary">
-            Fonctionnalité {currentIndex + 1}/{FEATURES.length}
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          <span className="text-xs sm:text-sm font-medium text-primary">
+            {currentIndex + 1}/{FEATURES.length} • {feature.title}
           </span>
         </div>
       </div>
@@ -167,71 +167,91 @@ export function FeaturesStep() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
-          className="space-y-4"
+          className="space-y-3 sm:space-y-4"
         >
-          {/* Icon & Title */}
+          {/* Icon & Title - smaller on mobile */}
           <div className="text-center">
             <div className={cn(
-              "mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br flex items-center justify-center mb-3",
+              "mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br flex items-center justify-center mb-2 sm:mb-3",
               feature.color
             )}>
-              <feature.icon className="h-8 w-8 text-white" />
+              <feature.icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold">{feature.title}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="text-lg sm:text-xl font-bold">{feature.title}</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
               {feature.description}
             </p>
           </div>
 
-          {/* Highlights */}
-          <div className="space-y-2">
-            {feature.highlights.map((highlight, i) => (
+          {/* Highlights - compact on mobile */}
+          <div className="space-y-1.5 sm:space-y-2">
+            {feature.highlights.slice(0, 3).map((highlight, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50"
+                className="flex items-center gap-2 p-1.5 sm:p-2 rounded-md sm:rounded-lg bg-muted/50"
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                <span className="text-sm">{highlight}</span>
+                <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-primary shrink-0" />
+                <span className="text-xs sm:text-sm line-clamp-1">{highlight}</span>
               </motion.div>
             ))}
+            {feature.highlights.length > 3 && (
+              <p className="text-[10px] text-muted-foreground text-center sm:hidden">
+                +{feature.highlights.length - 3} autres...
+              </p>
+            )}
+            {/* Show all on desktop */}
+            <div className="hidden sm:block space-y-2">
+              {feature.highlights.slice(3).map((highlight, i) => (
+                <motion.div
+                  key={i + 3}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: (i + 3) * 0.1 }}
+                  className="flex items-center gap-2 p-2 rounded-lg bg-muted/50"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                  <span className="text-sm">{highlight}</span>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
-          {/* Tip */}
-          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <p className="text-sm text-primary font-medium">
+          {/* Tip - compact on mobile */}
+          <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-[11px] sm:text-sm text-primary font-medium leading-snug">
               {feature.tip}
             </p>
           </div>
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between pt-2">
+      {/* Navigation - touch-friendly */}
+      <div className="flex items-center justify-between pt-1 sm:pt-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={goPrev}
           disabled={currentIndex === 0}
-          className="gap-1"
+          className="gap-0.5 sm:gap-1 h-8 sm:h-9 px-2 sm:px-3 touch-manipulation"
         >
           <ChevronLeft className="h-4 w-4" />
-          Précédent
+          <span className="hidden sm:inline">Précédent</span>
         </Button>
 
-        {/* Dots */}
-        <div className="flex gap-1.5">
+        {/* Dots - smaller on mobile */}
+        <div className="flex gap-1 sm:gap-1.5">
           {FEATURES.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentIndex(i)}
               className={cn(
-                "w-2 h-2 rounded-full transition-all",
+                "h-1.5 sm:h-2 rounded-full transition-all touch-manipulation",
                 i === currentIndex
-                  ? "bg-primary w-4"
-                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                  ? "bg-primary w-3 sm:w-4"
+                  : "bg-muted-foreground/30 w-1.5 sm:w-2"
               )}
             />
           ))}
@@ -242,9 +262,9 @@ export function FeaturesStep() {
           size="sm"
           onClick={goNext}
           disabled={currentIndex === FEATURES.length - 1}
-          className="gap-1"
+          className="gap-0.5 sm:gap-1 h-8 sm:h-9 px-2 sm:px-3 touch-manipulation"
         >
-          Suivant
+          <span className="hidden sm:inline">Suivant</span>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

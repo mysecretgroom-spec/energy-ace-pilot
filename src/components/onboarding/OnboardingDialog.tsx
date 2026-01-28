@@ -101,25 +101,25 @@ export function OnboardingDialog() {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh]"
+        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] sm:max-h-[85vh] w-[calc(100%-2rem)] sm:w-full rounded-2xl sm:rounded-xl"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        {/* Header with progress */}
-        <div className="relative px-6 pt-6 pb-4 bg-gradient-to-b from-primary/5 to-transparent">
-          {/* Step indicator */}
-          <div className="flex items-center justify-center gap-1.5 mb-4">
+        {/* Header with progress - compact on mobile */}
+        <div className="relative px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-b from-primary/5 to-transparent">
+          {/* Step indicator - smaller on mobile */}
+          <div className="flex items-center justify-center gap-1 sm:gap-1.5 mb-2 sm:mb-4">
             {STEPS.map((step, index) => (
               <button
                 key={step.id}
                 onClick={() => setCurrentStep(index)}
                 className={cn(
-                  "h-1.5 rounded-full transition-all duration-300",
+                  "h-1 sm:h-1.5 rounded-full transition-all duration-300 touch-manipulation",
                   index === currentStep
-                    ? "bg-primary w-8"
+                    ? "bg-primary w-6 sm:w-8"
                     : index < currentStep
-                    ? "bg-primary/60 w-3"
-                    : "bg-muted w-3"
+                    ? "bg-primary/60 w-2 sm:w-3"
+                    : "bg-muted w-2 sm:w-3"
                 )}
               />
             ))}
@@ -127,14 +127,14 @@ export function OnboardingDialog() {
           
           {/* Step label */}
           <div className="text-center">
-            <span className="text-xs font-medium text-muted-foreground">
-              Étape {currentStep + 1} sur {STEPS.length}
+            <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+              {currentStep + 1}/{STEPS.length} • {STEPS[currentStep].label}
             </span>
           </div>
         </div>
 
-        {/* Step content */}
-        <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
+        {/* Step content - optimized scroll for mobile */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto max-h-[55vh] sm:max-h-[60vh] overscroll-contain">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -156,39 +156,46 @@ export function OnboardingDialog() {
           </AnimatePresence>
         </div>
 
-        {/* Navigation */}
-        <div className="px-6 py-4 flex items-center justify-between border-t bg-muted/20">
-          <div>
+        {/* Navigation - touch-friendly on mobile */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-t bg-muted/20 gap-2">
+          <div className="min-w-0">
             {currentStep > 0 && currentStep < STEPS.length - 1 && (
               <Button 
                 variant="ghost" 
                 onClick={handlePrevious}
-                className="gap-1"
+                className="gap-1 h-10 sm:h-9 px-2 sm:px-3 touch-manipulation"
+                size="sm"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Retour
+                <span className="hidden sm:inline">Retour</span>
               </Button>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 shrink-0">
             {currentStep < STEPS.length - 1 && currentStep > 0 && (
               <Button 
                 variant="ghost" 
                 onClick={handleSkip} 
-                className="text-muted-foreground"
+                className="text-muted-foreground h-10 sm:h-9 px-3 touch-manipulation"
+                size="sm"
               >
                 Passer
               </Button>
             )}
             {currentStep < STEPS.length - 1 ? (
-              <Button onClick={handleNext} className="gap-1">
+              <Button 
+                onClick={handleNext} 
+                className="gap-1 h-10 sm:h-9 px-4 sm:px-3 touch-manipulation active:scale-95 transition-transform"
+                size="sm"
+              >
                 {currentStep === 0 ? "Commencer" : "Suivant"}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button 
                 onClick={handleComplete} 
-                className="gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="gap-2 h-10 sm:h-9 px-4 sm:px-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 touch-manipulation active:scale-95 transition-transform"
+                size="sm"
               >
                 <Sparkles className="h-4 w-4" />
                 C'est parti !

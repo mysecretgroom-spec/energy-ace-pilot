@@ -54,53 +54,53 @@ export function AgentInstructionsStep() {
   const [activeTab, setActiveTab] = useState(0);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
+    <div className="space-y-3 sm:space-y-5">
+      {/* Header - compact on mobile */}
       <div className="text-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="mx-auto w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-4"
+          className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mb-2 sm:mb-4"
         >
-          <Bot className="h-7 w-7 text-white" />
+          <Bot className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
         </motion.div>
-        <h2 className="text-xl font-bold">Assistant IA</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Disponible 24h/24 via WhatsApp ou dans l'application
+        <h2 className="text-lg sm:text-xl font-bold">Assistant IA</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+          24h/24 via WhatsApp ou in-app
         </p>
       </div>
 
-      {/* Channels */}
-      <div className="flex justify-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 text-xs font-medium">
-          <MessageCircle className="h-3.5 w-3.5" />
+      {/* Channels - compact on mobile */}
+      <div className="flex justify-center gap-2 sm:gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-green-500/10 text-green-600 text-[10px] sm:text-xs font-medium">
+          <MessageCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           WhatsApp
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-          <Sparkles className="h-3.5 w-3.5" />
-          Chat App
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 text-primary text-[10px] sm:text-xs font-medium">
+          <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          Chat
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 text-xs font-medium">
-          <Mic className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-500/10 text-blue-600 text-[10px] sm:text-xs font-medium">
+          <Mic className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Vocal
         </div>
       </div>
 
-      {/* Capability tabs */}
-      <div className="space-y-3">
-        <div className="flex gap-1 p-1 bg-muted rounded-lg">
+      {/* Capability tabs - touch-friendly */}
+      <div className="space-y-2 sm:space-y-3">
+        <div className="flex gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-muted rounded-md sm:rounded-lg">
           {AGENT_CAPABILITIES.map((cap, index) => (
             <button
               key={cap.title}
               onClick={() => setActiveTab(index)}
               className={cn(
-                "flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
+                "flex-1 px-1.5 sm:px-2 py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-colors touch-manipulation",
                 activeTab === index 
                   ? "bg-background shadow text-foreground" 
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground"
               )}
             >
-              {cap.title}
+              {cap.title.split(' ')[0]}
             </button>
           ))}
         </div>
@@ -111,20 +111,20 @@ export function AgentInstructionsStep() {
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
-            className="p-3 rounded-lg bg-muted/50"
+            className="p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-muted/50"
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
               {(() => {
                 const Icon = AGENT_CAPABILITIES[activeTab].icon;
-                return <Icon className="h-4 w-4 text-primary" />;
+                return <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />;
               })()}
-              <span className="text-sm font-medium">{AGENT_CAPABILITIES[activeTab].title}</span>
+              <span className="text-xs sm:text-sm font-medium">{AGENT_CAPABILITIES[activeTab].title}</span>
             </div>
-            <div className="space-y-1.5">
-              {AGENT_CAPABILITIES[activeTab].examples.map((example, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
+            <div className="space-y-1">
+              {AGENT_CAPABILITIES[activeTab].examples.slice(0, 2).map((example, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-[10px] sm:text-xs">
                   <span className="text-muted-foreground">→</span>
-                  <span className="italic text-muted-foreground">"{example}"</span>
+                  <span className="italic text-muted-foreground line-clamp-1">"{example}"</span>
                 </div>
               ))}
             </div>
@@ -132,26 +132,26 @@ export function AgentInstructionsStep() {
         </AnimatePresence>
       </div>
 
-      {/* Key commands */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-          <Lightbulb className="h-3.5 w-3.5" />
+      {/* Key commands - 2x2 grid on mobile */}
+      <div className="space-y-1.5 sm:space-y-2">
+        <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground flex items-center gap-1">
+          <Lightbulb className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Commandes clés
         </h4>
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
           {KEY_COMMANDS.map((cmd) => (
-            <div key={cmd.command} className="p-2 rounded bg-muted/50">
-              <p className="text-xs font-mono text-primary">{cmd.command}</p>
-              <p className="text-[10px] text-muted-foreground">{cmd.desc}</p>
+            <div key={cmd.command} className="p-1.5 sm:p-2 rounded bg-muted/50">
+              <p className="text-[9px] sm:text-xs font-mono text-primary truncate">{cmd.command}</p>
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground">{cmd.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Tip */}
-      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-        <p className="text-xs text-muted-foreground">
-          💬 <strong>L'agent apprend de vos habitudes !</strong> Il mémorise vos alias clients, expressions temporelles et préférences pour mieux vous comprendre.
+      {/* Tip - compact on mobile */}
+      <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-primary/5 border border-primary/10">
+        <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+          💬 <strong>L'agent apprend</strong> de vos habitudes et mémorise vos préférences.
         </p>
       </div>
     </div>

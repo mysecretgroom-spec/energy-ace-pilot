@@ -82,25 +82,25 @@ export function WhatsAppStep() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header - compact on mobile */}
       <div className="text-center">
-        <div className="mx-auto w-14 h-14 rounded-xl bg-green-500/10 flex items-center justify-center mb-4">
-          <MessageCircle className="h-7 w-7 text-green-600" />
+        <div className="mx-auto w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-green-500/10 flex items-center justify-center mb-2 sm:mb-4">
+          <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold">Configuration WhatsApp</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Recevez les mises à jour de vos RDV directement sur WhatsApp
+        <h2 className="text-lg sm:text-xl font-bold">Config WhatsApp</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+          Notifications RDV sur WhatsApp
         </p>
       </div>
 
-      {/* Form */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+      {/* Form - compact on mobile */}
+      <div className="space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-muted/50">
           <div>
-            <Label className="text-sm font-medium">Activer WhatsApp</Label>
-            <p className="text-xs text-muted-foreground">
-              Notifications au confirmateur
+            <Label className="text-xs sm:text-sm font-medium">Activer WhatsApp</Label>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">
+              Notifications confirmateur
             </p>
           </div>
           <Switch
@@ -111,8 +111,8 @@ export function WhatsAppStep() {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmateur_name">Nom du confirmateur</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="confirmateur_name" className="text-xs sm:text-sm">Nom confirmateur</Label>
           <Input
             id="confirmateur_name"
             placeholder="Ex: Jean Dupont"
@@ -120,27 +120,26 @@ export function WhatsAppStep() {
             onChange={(e) =>
               setSettings((s) => ({ ...s, confirmateur_name: e.target.value }))
             }
+            className="h-9 sm:h-10 text-sm"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmateur_phone">Numéro WhatsApp</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="confirmateur_phone" className="text-xs sm:text-sm">Numéro WhatsApp</Label>
           <Input
             id="confirmateur_phone"
             type="tel"
-            placeholder="Ex: +33612345678"
+            placeholder="+33612345678"
             value={settings.confirmateur_phone}
             onChange={(e) =>
               setSettings((s) => ({ ...s, confirmateur_phone: e.target.value }))
             }
+            className="h-9 sm:h-10 text-sm"
           />
-          <p className="text-xs text-muted-foreground">
-            Format international avec indicatif pays
-          </p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="default_cq_time">Heure CQ par défaut</Label>
+        <div className="space-y-1.5 sm:space-y-2">
+          <Label htmlFor="default_cq_time" className="text-xs sm:text-sm">Heure CQ</Label>
           <Input
             id="default_cq_time"
             type="time"
@@ -148,16 +147,14 @@ export function WhatsAppStep() {
             onChange={(e) =>
               setSettings((s) => ({ ...s, default_cq_time: e.target.value }))
             }
+            className="h-9 sm:h-10 text-sm"
           />
-          <p className="text-xs text-muted-foreground">
-            Heure du contrôle qualité (statut Positif)
-          </p>
         </div>
 
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="w-full"
+          className="w-full h-10 sm:h-11 touch-manipulation active:scale-[0.98] transition-transform"
           variant={saved ? "outline" : "default"}
         >
           {saving ? (
