@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const BLUR_RESET_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
 interface BlurOverlayProps {
   children: ReactNode;
-  /** Storage key for persistence - if set, blur won't show again once dismissed */
+  /** Storage key for persistence - if set, blur won't show again once dismissed (for 30 min) */
   storageKey?: string;
   /** Blur intensity (default: 8) */
   blurAmount?: number;
@@ -19,12 +21,18 @@ export function BlurOverlay({
 }: BlurOverlayProps) {
   const [isBlurred, setIsBlurred] = useState(true);
 
-  // Check if already dismissed (persisted)
+  // Check if already dismissed (persisted) - resets after 30 min
   useEffect(() => {
     if (storageKey) {
-      const dismissed = sessionStorage.getItem(`blur_dismissed_${storageKey}`);
-      if (dismissed === "true") {
-        setIsBlurred(false);
+      const dismissedAt = sessionStorage.getItem(`blur_dismissed_${storageKey}`);
+      if (dismissedAt) {
+        const elapsed = Date.now() - parseInt(dismissedAt, 10);
+        if (elapsed < BLUR_RESET_INTERVAL_MS) {
+          setIsBlurred(false);
+        } else {
+          // 30 min passed, clear and show blur again
+          sessionStorage.removeItem(`blur_dismissed_${storageKey}`);
+        }
       }
     }
   }, [storageKey]);
@@ -32,7 +40,8 @@ export function BlurOverlay({
   const dismissBlur = useCallback(() => {
     setIsBlurred(false);
     if (storageKey) {
-      sessionStorage.setItem(`blur_dismissed_${storageKey}`, "true");
+      // Store timestamp instead of boolean
+      sessionStorage.setItem(`blur_dismissed_${storageKey}`, Date.now().toString());
     }
   }, [storageKey]);
 
@@ -63,7 +72,7 @@ export function BlurOverlay({
 
   return (
     <div className="relative" onClick={handleClick}>
-      {/* Blur overlay */}
+      {/* Blur overlay - more opaque */}
       <AnimatePresence>
         {isBlurred && (
           <motion.div
@@ -71,11 +80,11 @@ export function BlurOverlay({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
             className={`absolute inset-0 z-20 pointer-events-none flex items-center justify-center rounded-xl ${
-              opaque ? "bg-background/60" : ""
+              opaque ? "bg-background/80" : "bg-background/40"
             }`}
             style={{ 
-              backdropFilter: `blur(${blurAmount + 4}px)`, 
-              WebkitBackdropFilter: `blur(${blurAmount + 4}px)` 
+              backdropFilter: `blur(${blurAmount + 6}px)`, 
+              WebkitBackdropFilter: `blur(${blurAmount + 6}px)` 
             }}
           >
             <motion.div
@@ -86,7 +95,7 @@ export function BlurOverlay({
               className="text-center pointer-events-auto"
             >
               <div className={`rounded-2xl px-6 py-4 shadow-lg border border-border ${
-                opaque ? "bg-card" : "bg-card/90 backdrop-blur-sm"
+                opaque ? "bg-card" : "bg-card/95 backdrop-blur-sm"
               }`}>
                 <p className="text-sm text-muted-foreground">
                   Touchez ou scrollez pour afficher
