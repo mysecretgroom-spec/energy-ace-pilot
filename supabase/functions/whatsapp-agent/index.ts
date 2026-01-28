@@ -368,6 +368,8 @@ function formatMemoriesForPrompt(memories: AgentMemory[]): string {
       display = `"${v.shortcut}" signifie "${v.meaning}"`;
     } else if (type === "correction" && v.wrong && v.correct) {
       display = `"${v.wrong}" doit être compris comme "${v.correct}"`;
+    } else if (type === "temporal" && v.expression && v.meaning) {
+      display = `"${v.expression}" = "${v.meaning}"${v.is_custom ? " (défini par l'utilisateur)" : ""}`;
     } else {
       display = `${mem.key}: ${JSON.stringify(v)}`;
     }
@@ -378,6 +380,9 @@ function formatMemoriesForPrompt(memories: AgentMemory[]): string {
   let result = "";
   if (grouped.alias?.length) {
     result += `\n🏷️ ALIAS DE CLIENTS:\n${grouped.alias.map(a => `  - ${a}`).join("\n")}`;
+  }
+  if (grouped.temporal?.length) {
+    result += `\n📅 EXPRESSIONS TEMPORELLES:\n${grouped.temporal.map(t => `  - ${t}`).join("\n")}`;
   }
   if (grouped.preference?.length) {
     result += `\n⭐ PRÉFÉRENCES:\n${grouped.preference.map(p => `  - ${p}`).join("\n")}`;
@@ -409,10 +414,11 @@ async function learnFromInteraction(
   actionResult: { actionTaken?: string; entityId?: string }
 ): Promise<void> {
   try {
+    const messageLower = userMessage.toLowerCase();
+    
     // Learn client aliases
     if (entities.client_name && actionResult.actionTaken && actionResult.entityId) {
       const clientName = String(entities.client_name);
-      const messageLower = userMessage.toLowerCase();
       
       // Check if user used a nickname or alias
       const aliasPatterns = [
@@ -478,8 +484,110 @@ async function learnFromInteraction(
       }, 0.5);
     }
     
+    // Learn temporal expressions - NEW!
+    if (intent === "query_rdv_planning" || intent === "create_rdv" || intent === "update_rdv") {
+      await learnTemporalExpressions(supabase, userId, messageLower, entities);
+    }
+    
   } catch (err) {
     console.error("Error learning from interaction:", err);
+  }
+}
+
+// Learn custom temporal expressions from user
+// deno-lint-ignore no-explicit-any
+async function learnTemporalExpressions(
+  supabase: any,
+  userId: string,
+  message: string,
+  entities: Record<string, unknown>
+): Promise<void> {
+  try {
+    // Common non-standard temporal expressions to learn
+    const temporalPatterns: Array<{ pattern: RegExp; meaning: string }> = [
+      { pattern: /ma\s*tourn[eé]e?/i, meaning: "rdv du jour (mes rendez-vous d'aujourd'hui)" },
+      { pattern: /mes\s*visites?/i, meaning: "rdv du jour" },
+      { pattern: /mon\s*programme/i, meaning: "planning du jour" },
+      { pattern: /mon\s*agenda/i, meaning: "planning" },
+      { pattern: /le\s*prochain/i, meaning: "prochain rdv à venir" },
+      { pattern: /ce\s*aprèm/i, meaning: "cet après-midi" },
+      { pattern: /d['']?main/i, meaning: "demain" },
+      { pattern: /aprem/i, meaning: "après-midi" },
+      { pattern: /mat(?:in)?/i, meaning: "matin" },
+      { pattern: /fin\s*de\s*journ[eé]e/i, meaning: "fin de journée (17h-20h)" },
+      { pattern: /d[eé]but\s*de\s*journ[eé]e/i, meaning: "début de journée (8h-12h)" },
+      { pattern: /cette\s*aprem/i, meaning: "cet après-midi" },
+      { pattern: /en\s*fin\s*de\s*semaine/i, meaning: "vendredi/weekend" },
+      { pattern: /week-?end/i, meaning: "samedi et dimanche" },
+      { pattern: /en\s*d[eé]but\s*de\s*semaine/i, meaning: "lundi/mardi" },
+    ];
+    
+    for (const { pattern, meaning } of temporalPatterns) {
+      const match = message.match(pattern);
+      if (match) {
+        const expression = match[0].toLowerCase().trim();
+        const key = `temporal_${expression.replace(/\s+/g, "_")}`;
+        
+        // Check if we already have this expression
+        const existing = await supabase
+          .from("whatsapp_agent_memory")
+          .select("id, usage_count, value")
+          .eq("user_id", userId)
+          .eq("memory_type", "temporal")
+          .eq("key", key)
+          .maybeSingle();
+        
+        if (existing.data) {
+          // Increment usage count
+          await supabase
+            .from("whatsapp_agent_memory")
+            .update({ 
+              usage_count: (existing.data.usage_count || 0) + 1,
+              last_used_at: new Date().toISOString()
+            })
+            .eq("id", existing.data.id);
+        } else {
+          // Save new temporal expression
+          await saveMemory(supabase, userId, "temporal", key, {
+            expression: expression,
+            meaning: meaning,
+            resolved_period: entities.period || null,
+            resolved_dates: entities.specific_dates || null,
+          }, 0.6);
+          console.log(`Learned temporal expression: "${expression}" → ${meaning}`);
+        }
+        
+        break; // Only learn one per message
+      }
+    }
+    
+    // Learn custom expressions from user feedback
+    // If user said something like "quand je dis X, ça veut dire Y"
+    const customPatterns = [
+      /quand\s+je\s+dis?\s+[""«]?(.+?)[""»]?\s*[,:]?\s*(?:ça\s+veut\s+dire|c'?est|=)\s*[""«]?(.+?)[""»]?$/i,
+      /[""«](.+?)[""»]\s*=\s*[""«]?(.+?)[""»]?$/i,
+    ];
+    
+    for (const pattern of customPatterns) {
+      const match = message.match(pattern);
+      if (match && match[1] && match[2]) {
+        const userExpression = match[1].trim().toLowerCase();
+        const userMeaning = match[2].trim();
+        
+        if (userExpression.length >= 3 && userExpression.length <= 50 && userMeaning.length >= 3) {
+          const key = `custom_temporal_${userExpression.replace(/\s+/g, "_")}`;
+          await saveMemory(supabase, userId, "temporal", key, {
+            expression: userExpression,
+            meaning: userMeaning,
+            is_custom: true,
+          }, 0.9); // High confidence for explicit user definitions
+          console.log(`User defined temporal expression: "${userExpression}" → "${userMeaning}"`);
+        }
+        break;
+      }
+    }
+  } catch (err) {
+    console.error("Error learning temporal expressions:", err);
   }
 }
 
@@ -4692,27 +4800,56 @@ STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en
 ⚠️ PARSING DATES RELATIVES - CRITIQUE:
 Tu as accès à la date actuelle (${currentDay}, ${today}). CALCULE toi-même les dates relatives:
 
-RÉFÉRENCES TEMPORELLES SIMPLES (utilise period):
-- "aujourd'hui", "ce jour" → period: "today"
-- "demain" → period: "tomorrow"
-- "cette semaine" → period: "week"
-- "semaine prochaine" → period: "next_week"
-- "ce mois", "ce mois-ci" → period: "month"
+📆 RÉFÉRENCES TEMPORELLES SIMPLES (utilise period):
+- "aujourd'hui", "ce jour", "de la journée" → period: "today"
+- "demain", "le lendemain" → period: "tomorrow"  
+- "cette semaine", "de la semaine" → period: "week"
+- "semaine prochaine", "la semaine pro" → period: "next_week"
+- "ce mois", "ce mois-ci", "du mois" → period: "month"
 
-RÉFÉRENCES AVEC CALCUL (utilise specific_dates):
-- "hier" → la veille de today
-- "après-demain" → today + 2 jours
+📅 RÉFÉRENCES AVEC CALCUL (utilise specific_dates):
+Exemples avec today = ${today}:
+- "hier" → calcule today - 1 jour
+- "avant-hier" → calcule today - 2 jours
+- "après-demain" → calcule today + 2 jours
+- "dans 3 jours" → calcule today + 3 jours
 - "vendredi dernier" → le vendredi de la semaine PASSÉE
 - "samedi dernier" → le samedi de la semaine PASSÉE  
-- "lundi prochain" → le lundi de la semaine PROCHAINE
+- "lundi prochain", "lundi qui vient" → le lundi de la semaine PROCHAINE
+- "mardi prochain" → le mardi de la semaine PROCHAINE
+- "le 15", "le 20 janvier" → date exacte du mois courant/spécifié
 - "vendredi et samedi dernier" → DEUX dates dans specific_dates
+- "la semaine dernière" → calcule 7 dates (lundi à dimanche précédent)
 
-CALCUL OBLIGATOIRE:
+⏰ EXPRESSIONS TEMPORELLES FAMILIÈRES:
+- "d'main", "demain matin", "demain aprèm" → period: "tomorrow"
+- "ce soir", "cette aprèm", "ce matin" → period: "today"
+- "en fin de semaine", "ce weekend" → calculer vendredi/samedi/dimanche
+- "début de semaine", "en début de semaine" → calculer lundi/mardi
+- "la veille" → today - 1 jour
+- "le surlendemain" → today + 2 jours
+- "il y a X jours" → today - X jours
+- "dans X jours" → today + X jours
+
+🔢 CALCUL OBLIGATOIRE avec today = ${today}:
 - Tu DOIS calculer la date exacte au format YYYY-MM-DD
-- Exemple: si aujourd'hui = dimanche 26/01/2025, "vendredi dernier" = 2025-01-24, "samedi dernier" = 2025-01-25
-- "demain" avec today = 2026-01-28 → 2026-01-29
-- "après-demain" avec today = 2026-01-28 → 2026-01-30
-- Utilise specific_dates: ["2025-01-24", "2025-01-25"] pour les dates multiples
+- "demain" → calcule ${today} + 1 jour
+- "après-demain" → calcule ${today} + 2 jours
+- "hier" → calcule ${today} - 1 jour
+- Utilise specific_dates: ["YYYY-MM-DD", "YYYY-MM-DD"] pour les dates multiples
+
+💡 EXEMPLES CONCRETS (avec aujourd'hui = ${currentDay}):
+- "mes rdv demain" → period: "tomorrow"
+- "planning de la semaine" → period: "week"
+- "rdv d'hier" → specific_dates avec date calculée
+- "que fais-je après-demain" → specific_dates avec date calculée
+- "les rdv du 15" → specific_dates: ["YYYY-MM-15"]
+
+🧠 APPRENTISSAGE EXPRESSIONS:
+Si l'utilisateur utilise une expression temporelle que tu ne connais pas mais que tu peux déduire:
+1. Analyse le contexte et déduis la date
+2. Si c'est une expression récurrente/personnalisée, suggère à l'utilisateur de la mémoriser
+3. Exemple: si l'utilisateur dit "ma tournée" et ça semble signifier "mes rdv du jour", tu peux le déduire et proposer de mémoriser cette expression
 
 ⚠️ DÉFINITIONS MÉTIER CRITIQUES:
 - "En cours" = signées mais PAS ENCORE POSÉES (signe, cq_a_faire, cq_fait, attente_financement, envoi_pose - EXCLUT en_installation et installe)
