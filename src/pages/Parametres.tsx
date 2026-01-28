@@ -94,6 +94,12 @@ const settingsSections = [
     ],
   },
   {
+    title: "Planning",
+    items: [
+      { icon: Clock, label: "Jours travaillés", description: "Jours affichés dans la vue semaine", path: "/parametres/jours-travailles" },
+    ],
+  },
+  {
     title: "Import RDV",
     items: [
       { icon: Clock, label: "Sync Gmail automatique", description: "Import périodique des RDV", path: "/parametres/gmail-auto-sync" },

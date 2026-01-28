@@ -52,6 +52,7 @@ import DataAidesPAC from "./pages/settings/DataAidesPAC";
 import DataAidesITE from "./pages/settings/DataAidesITE";
 import DataMursITE from "./pages/settings/DataMursITE";
 import DataEconomiesITE from "./pages/settings/DataEconomiesITE";
+import WorkingDaysSettings from "./pages/settings/WorkingDaysSettings";
 import RegieDashboard from "./pages/RegieDashboard";
 import Confidentialite from "./pages/Confidentialite";
 import Conditions from "./pages/Conditions";
@@ -143,6 +144,7 @@ const App = () => {
                   <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
                   <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
+                  <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
                   <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                   <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
                   <Route path="/install" element={<Install />} />
