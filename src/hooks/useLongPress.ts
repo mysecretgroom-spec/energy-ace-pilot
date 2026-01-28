@@ -35,8 +35,8 @@ interface UseLongPressResult {
   isPressing: boolean;
 }
 
-const DEFAULT_DELAY = 600; // Reduced for better responsiveness
-const DEFAULT_MOVE_THRESHOLD = 10;
+const DEFAULT_DELAY = 500; // Faster trigger for better responsiveness
+const DEFAULT_MOVE_THRESHOLD = 15; // More forgiving threshold for finger movement
 const DEFAULT_VIBRATION = 50;
 const PROGRESS_UPDATE_INTERVAL = 16; // ~60fps
 

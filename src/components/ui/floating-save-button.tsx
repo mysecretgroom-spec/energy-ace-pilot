@@ -24,7 +24,7 @@ export const FloatingSaveButton = ({
   return (
     <div
       className={cn(
-        "fixed bottom-20 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t shadow-lg transition-all duration-300 ease-out z-50",
+        "fixed bottom-20 sm:bottom-24 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t shadow-lg transition-all duration-300 ease-out z-50 safe-bottom",
         show
           ? "translate-y-0 opacity-100"
           : "translate-y-full opacity-0 pointer-events-none",

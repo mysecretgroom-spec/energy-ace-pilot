@@ -373,17 +373,17 @@ const Planning = () => {
 
   return (
     <MobileLayout title="Planning">
-      <div className="p-4 space-y-4 pb-28">
-        {/* Sélecteur de vue */}
+      <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-7xl mx-auto">
+        {/* Sélecteur de vue - responsive sizing */}
         <Tabs
           value={viewMode}
           onValueChange={(v) => setViewMode(v as ViewMode)}
           className="w-full"
         >
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="jour">Jour</TabsTrigger>
-            <TabsTrigger value="semaine">Semaine</TabsTrigger>
-            <TabsTrigger value="mois">Mois</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-3 h-12 sm:h-10">
+            <TabsTrigger value="jour" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Jour</TabsTrigger>
+            <TabsTrigger value="semaine" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Semaine</TabsTrigger>
+            <TabsTrigger value="mois" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Mois</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -393,25 +393,25 @@ const Planning = () => {
             variant="ghost"
             size="icon"
             onClick={() => navigateDate("prev")}
-            className="h-12 w-12"
+            className="h-12 w-12 sm:h-10 sm:w-10 active:scale-95 transition-transform"
           >
-            <ChevronLeft className="h-6 w-6" />
+            <ChevronLeft className="h-6 w-6 sm:h-5 sm:w-5" />
           </Button>
-          <h2 className="text-base font-semibold text-foreground capitalize">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground capitalize text-center flex-1">
             {formatDateHeader(currentDate)}
           </h2>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigateDate("next")}
-            className="h-12 w-12"
+            className="h-12 w-12 sm:h-10 sm:w-10 active:scale-95 transition-transform"
           >
-            <ChevronRight className="h-6 w-6" />
+            <ChevronRight className="h-6 w-6 sm:h-5 sm:w-5" />
           </Button>
         </div>
 
-        {/* Header stats et filtre régie */}
-        <div className="flex items-center justify-between gap-2">
+        {/* Header stats et filtre régie - responsive layout */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Car className="h-5 w-5" />
@@ -425,15 +425,15 @@ const Planning = () => {
             )}
           </div>
           
-          {/* Actions regroupées */}
-          <div className="flex items-center gap-2">
+          {/* Actions regroupées - responsive wrap */}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Filtre Régie */}
             {regies.length > 0 && (
               <Select
                 value={selectedRegieId || "all"}
                 onValueChange={(value) => setSelectedRegieId(value === "all" ? null : value)}
               >
-                <SelectTrigger className="w-[130px] h-9">
+                <SelectTrigger className="w-[130px] sm:w-[150px] h-10 sm:h-9">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="Régie" />
@@ -462,6 +462,7 @@ const Planning = () => {
                 variant={showMap ? "default" : "ghost"}
                 size="icon"
                 onClick={() => setShowMap(!showMap)}
+                className="h-10 w-10 sm:h-9 sm:w-9"
               >
                 <Map className="h-5 w-5" />
               </Button>
@@ -471,17 +472,17 @@ const Planning = () => {
           </div>
         </div>
 
-        {/* FAB Nouveau RDV */}
+        {/* FAB Nouveau RDV - responsive positioning */}
         <Dialog open={quickRdvOpen} onOpenChange={setQuickRdvOpen}>
           <DialogTrigger asChild>
             <Button 
               size="lg" 
-              className="fixed bottom-[140px] right-4 z-30 h-14 w-14 rounded-full shadow-lg bg-gradient-hero"
+              className="fixed bottom-[160px] sm:bottom-[140px] right-4 z-30 h-14 w-14 rounded-full shadow-lg bg-gradient-hero active:scale-95 transition-transform"
             >
               <Plus className="h-6 w-6" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-md p-0 overflow-hidden">
             <QuickRdvForm
               defaultDate={currentDate}
               onSuccess={() => {

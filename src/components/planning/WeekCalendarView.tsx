@@ -71,16 +71,16 @@ export function WeekCalendarView({
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
 
   // Configure sensors for both pointer and touch
-  // Long press triggers at 800ms, so we set touch delay higher to let long press win
+  // Long press triggers at 500ms, so we set touch delay higher to let long press win
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
-      distance: 10, // Requires 10px movement to start drag
+      distance: 12, // Requires 12px movement to start drag
     },
   });
   const touchSensor = useSensor(TouchSensor, {
     activationConstraint: {
-      delay: 1000, // Must hold 1s before drag starts - longer than long press (800ms)
-      tolerance: 8,
+      delay: 800, // Must hold 800ms before drag starts - longer than long press (500ms)
+      tolerance: 15, // More forgiving for finger movement
     },
   });
   const sensors = useSensors(pointerSensor, touchSensor);

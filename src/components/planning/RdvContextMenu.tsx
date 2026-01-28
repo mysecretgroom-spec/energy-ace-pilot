@@ -124,30 +124,32 @@ export function RdvContextMenu({
             onTouchEnd={handleBackdropInteraction}
           />
 
-          {/* Menu Sheet */}
+          {/* Menu Sheet - responsive for tablet/desktop */}
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed inset-x-0 bottom-0 z-[100] bg-background rounded-t-2xl border-t shadow-2xl max-h-[80vh] overflow-y-auto overscroll-contain safe-bottom"
+            className="fixed z-[100] bg-background rounded-t-2xl sm:rounded-2xl border-t sm:border shadow-2xl overflow-y-auto overscroll-contain safe-bottom
+              inset-x-0 bottom-0 max-h-[80vh]
+              sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md sm:w-full sm:max-h-[70vh]"
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
+            {/* Handle - only on mobile */}
+            <div className="flex justify-center pt-3 pb-2 sm:hidden">
               <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
             </div>
 
             {/* Header */}
-            <div className="px-4 pb-3 border-b flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground">{rdv.client}</h3>
+            <div className="px-4 pb-3 pt-2 sm:pt-4 border-b flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground truncate">{rdv.client}</h3>
                 <p className="text-sm text-muted-foreground">{rdv.time}</p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
-                className="h-10 w-10 min-h-[44px] min-w-[44px]"
+                className="h-10 w-10 min-h-[44px] min-w-[44px] flex-shrink-0 touch-target-lg"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -174,14 +176,14 @@ export function RdvContextMenu({
                 />
               </div>
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              {/* Action Buttons - responsive grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
                 <Button
                   variant="outline"
-                  className="h-14 flex-col gap-1"
+                  className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
                   onClick={handleDocuments}
                 >
-                  <FileText className="h-5 w-5" />
+                  <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
                   <span className="text-xs">Documents</span>
                 </Button>
 
@@ -189,24 +191,24 @@ export function RdvContextMenu({
                 {rdv.typeRdv === "standard" && (
                   <Button
                     variant="outline"
-                    className="h-14 flex-col gap-1"
+                    className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
                     onClick={handleNewEtude}
                   >
-                    <Calculator className="h-5 w-5" />
+                    <Calculator className="h-5 w-5 sm:h-4 sm:w-4" />
                     <span className="text-xs">Nouvelle étude</span>
                   </Button>
                 )}
 
                 <Button
                   variant="outline"
-                  className={`h-14 flex-col gap-1 ${
+                  className={`h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg ${
                     rdv.typeRdv === "external_installation" 
                       ? "border-amber-500 bg-amber-500/10 text-amber-600" 
                       : ""
                   }`}
                   onClick={handleExternalToggle}
                 >
-                  <Wrench className="h-5 w-5" />
+                  <Wrench className="h-5 w-5 sm:h-4 sm:w-4" />
                   <span className="text-xs">
                     {rdv.typeRdv === "external_installation" ? "Retirer externe" : "RDV Externe"}
                   </span>
@@ -214,10 +216,10 @@ export function RdvContextMenu({
 
                 <Button
                   variant="outline"
-                  className="h-14 flex-col gap-1"
+                  className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
                   onClick={handleMove}
                 >
-                  <Calendar className="h-5 w-5" />
+                  <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
                   <span className="text-xs">Déplacer le RDV</span>
                 </Button>
               </div>
