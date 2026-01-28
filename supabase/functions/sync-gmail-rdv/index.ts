@@ -235,33 +235,37 @@ function extractAllEmailHeaders(headers: any[]): EmailHeaders {
   };
 }
 
-// Find regie by checking From first, then Reply-To, then Cc as fallback
+// Find regie by checking ALL headers simultaneously (From, Reply-To, Cc)
+// Returns the first match found with a non-null regie_id
 function findRegieFromHeaders(
   emailHeaders: EmailHeaders,
   emailToRegieMap: Record<string, string | null>
 ): { regieId: string | null; source: string } {
-  // 1. First try From (current behavior)
-  const fromRegieId = emailToRegieMap[emailHeaders.from];
-  if (fromRegieId) {
-    return { regieId: fromRegieId, source: emailHeaders.from };
+  // Collect all emails to check simultaneously
+  const emailsToCheck: Array<{ email: string; header: string }> = [
+    { email: emailHeaders.from, header: "From" }
+  ];
+  if (emailHeaders.replyTo) {
+    emailsToCheck.push({ email: emailHeaders.replyTo, header: "Reply-To" });
+  }
+  for (const cc of emailHeaders.cc) {
+    emailsToCheck.push({ email: cc, header: "Cc" });
   }
   
-  // 2. If From has no regie, try Reply-To
-  if (emailHeaders.replyTo && emailToRegieMap[emailHeaders.replyTo]) {
-    console.log(`Regie found via Reply-To: ${emailHeaders.replyTo}`);
-    return { regieId: emailToRegieMap[emailHeaders.replyTo]!, source: emailHeaders.replyTo };
-  }
+  console.log(`Checking ${emailsToCheck.length} emails for regie: ${emailsToCheck.map(e => `${e.header}:${e.email}`).join(", ")}`);
   
-  // 3. Otherwise try Cc
-  for (const ccEmail of emailHeaders.cc) {
-    if (emailToRegieMap[ccEmail]) {
-      console.log(`Regie found via Cc: ${ccEmail}`);
-      return { regieId: emailToRegieMap[ccEmail]!, source: ccEmail };
+  // Find the first email that has a regie in the authorized list
+  for (const { email, header } of emailsToCheck) {
+    const regieId = emailToRegieMap[email];
+    if (regieId) {
+      console.log(`Regie found via ${header}: ${email}`);
+      return { regieId, source: email };
     }
   }
   
-  // 4. No regie found - use From anyway (may be null)
-  return { regieId: emailToRegieMap[emailHeaders.from] || null, source: emailHeaders.from };
+  // No regie found in any header
+  console.log("No regie found in any header");
+  return { regieId: null, source: emailHeaders.from };
 }
 
 serve(async (req) => {
