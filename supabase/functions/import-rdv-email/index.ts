@@ -466,13 +466,15 @@ serve(async (req) => {
     }
 
     // Parse RDV date/time with validation
+    // IMPORTANT: Emails contain French local time, so we need to store with Europe/Paris timezone
     let dateHeure: string | null = null;
     if (validated.RDV?.date) {
       const date = validated.RDV.date;
       const time = validated.RDV.heure || "09:00";
       
       // Validate the date is not too far in the past or future
-      const parsedDate = new Date(`${date}T${time}:00`);
+      // Parse as Europe/Paris timezone (where the RDV actually takes place)
+      const parsedDate = new Date(`${date}T${time}:00+01:00`); // CET offset for validation
       const now = new Date();
       const oneYearAgo = new Date(now);
       oneYearAgo.setFullYear(now.getFullYear() - 1);
@@ -480,16 +482,32 @@ serve(async (req) => {
       oneYearAhead.setFullYear(now.getFullYear() + 1);
       
       if (parsedDate >= oneYearAgo && parsedDate <= oneYearAhead) {
-        dateHeure = `${date}T${time}:00`;
+        // Determine if date falls in DST (summer time) for France
+        // DST in France: last Sunday of March to last Sunday of October
+        const month = parseInt(date.split('-')[1], 10);
+        const day = parseInt(date.split('-')[2], 10);
+        const year = parseInt(date.split('-')[0], 10);
+        
+        // Simple DST check for France (approximate)
+        // March 25 - October 31 is roughly summer time
+        const isSummerTime = (month > 3 && month < 10) || 
+          (month === 3 && day >= 25) || 
+          (month === 10 && day <= 27);
+        
+        const offset = isSummerTime ? "+02:00" : "+01:00";
+        dateHeure = `${date}T${time}:00${offset}`;
       }
     }
     
     if (!dateHeure) {
-      // Default to tomorrow at 9:00
+      // Default to tomorrow at 9:00 Paris time
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      dateHeure = tomorrow.toISOString();
+      const year = tomorrow.getFullYear();
+      const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+      const day = String(tomorrow.getDate()).padStart(2, '0');
+      // Use CET offset for default
+      dateHeure = `${year}-${month}-${day}T09:00:00+01:00`;
     }
 
     // Create RDV with regie_id
