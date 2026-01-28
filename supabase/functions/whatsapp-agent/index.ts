@@ -4527,10 +4527,91 @@ async function executeAction(
       let matchedClient: ClientMatch | null = null;
       let rdv: { id: string; client_id: string; regie_id: string | null } | null = null;
       
-      // If user confirmed this is a new client, skip search
+      // If user confirmed this is a new client, create the client first
       if (isNewClient && clientName) {
-        // Will be handled below - matchedClient stays null, will create new client
-        console.log(`New client confirmed: ${clientName}, type: ${venteType || "interne"}`);
+        console.log(`Creating new client for sale: ${clientName}, type: ${venteType || "interne"}`);
+        
+        // First, check if we need a regie selection
+        const regiePoll = await generateRegiePoll(
+          supabase,
+          userId,
+          "mark_signe",
+          entities,
+          {
+            clientName: clientName,
+            isNewClient: true,
+            puissanceKwc: entities.puissance_kwc as number || undefined,
+            prixTTC: entities.amount as number || undefined,
+          }
+        );
+        
+        if (regiePoll.needsSelection) {
+          return {
+            actionTaken: "needs_regie_selection",
+            newPendingAction: {
+              ...regiePoll.pendingAction!,
+              collectedData: {
+                ...regiePoll.pendingAction!.collectedData,
+                isNewClient: true,
+                clientName: clientName,
+              },
+            },
+            customResponse: `✍️ *Nouvelle vente pour ${clientName}* (nouveau client) 🎉\n\n${regiePoll.responseMessage}`,
+          };
+        }
+        
+        const regieId = regiePoll.defaultRegieId || entities.regie_id as string || null;
+        
+        // Create the new client
+        const { data: newClient, error: clientError } = await supabase
+          .from("clients")
+          .insert({
+            user_id: userId,
+            nom: clientName,
+            source: "whatsapp_agent",
+            regie_id: regieId,
+          })
+          .select("id, nom, prenom")
+          .single();
+        
+        if (clientError) {
+          console.error("Error creating client:", clientError);
+          return { 
+            actionTaken: "error",
+            customResponse: `❌ Erreur lors de la création du client: ${clientError.message}`
+          };
+        }
+        
+        matchedClient = {
+          id: newClient.id,
+          nom: newClient.nom,
+          prenom: newClient.prenom || "",
+          fullName: newClient.nom,
+          score: 1,
+          matchType: "exact" as const,
+        };
+        console.log(`New client created: ${matchedClient.id}`);
+        
+        // Create a RDV for the new client (dated today)
+        const { data: newRdv, error: rdvError } = await supabase
+          .from("rdv")
+          .insert({
+            user_id: userId,
+            client_id: matchedClient.id,
+            date_heure: new Date().toISOString(),
+            status: "positif",
+            type_rdv: "R1",
+            type_projet: "pv",
+            source: "whatsapp_agent",
+            regie_id: regieId,
+          })
+          .select("id, client_id, regie_id")
+          .single();
+        
+        if (!rdvError && newRdv) {
+          rdv = newRdv;
+          console.log(`New RDV created: ${newRdv.id}`);
+        }
       }
       // First, find the client using fuzzy search
       else if (clientName) {
