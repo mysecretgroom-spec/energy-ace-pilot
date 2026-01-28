@@ -280,19 +280,27 @@ export const RGECardDialog = () => {
             isDragging ? 'duration-0' : 'duration-200'
           } ${
             isMobile 
-              ? "origin-center w-[100vh] h-[100vw]" 
+              ? "origin-center" 
               : "w-full h-full p-8 lg:p-12"
           }`}
           style={isMobile ? { 
+            width: '100vh',
+            height: '100vw',
             transform: `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})`,
             opacity: Math.max(0.3, 1 - dragDistance / 150)
           } : undefined}
         >
-          <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none ${
-            isMobile 
-              ? "w-[95%] h-[95%] rounded-2xl" 
-              : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
-          }`}>
+          <div 
+            className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none ${
+              isMobile 
+                ? "rounded-2xl" 
+                : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
+            }`}
+            style={isMobile ? {
+              width: '92vw',
+              height: '85vh'
+            } : undefined}
+          >
             {/* Header with Ministère and France Rénov logos */}
             <div className={`bg-white flex items-center justify-between shrink-0 ${
               isMobile 
