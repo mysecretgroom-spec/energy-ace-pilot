@@ -282,11 +282,12 @@ export const RGECardDialog = () => {
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
             transform: isMobile 
-              ? `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
+              ? `rotate(90deg) scale(${Math.max(0.8, 1 - dragDistance / 500)})` 
               : undefined,
-            width: isMobile ? '100vh' : '100%',
+            // Use 100dvh for dynamic viewport height (excludes browser chrome)
+            width: isMobile ? '100dvh' : '100%',
             height: isMobile ? '100vw' : '100%',
-            padding: isMobile ? '0.5rem' : '2rem',
+            padding: isMobile ? '2rem' : '2rem',
           }}
         >
           <div 
@@ -294,8 +295,8 @@ export const RGECardDialog = () => {
             style={{ 
               aspectRatio: isMobile ? '16/9' : undefined,
               width: isMobile ? 'auto' : '100%',
-              height: isMobile ? 'calc(100vw - 1rem)' : 'auto',
-              maxWidth: isMobile ? 'calc(100vh - 1rem)' : '64rem',
+              height: isMobile ? 'calc(100vw - 5rem)' : 'auto',
+              maxWidth: isMobile ? 'calc(100dvh - 5rem)' : '64rem',
               minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
             }}
           >
