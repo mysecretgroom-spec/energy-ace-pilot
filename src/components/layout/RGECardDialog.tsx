@@ -274,19 +274,26 @@ export const RGECardDialog = () => {
           </div>
         )}
 
-        {/* RGE Card - Fixed orientation, responsive layout */}
+        {/* RGE Card - Fixed horizontal orientation on mobile */}
         <div 
           className={`flex items-center justify-center transition-all ${
             isDragging ? 'duration-0' : 'duration-200'
-          } w-full h-full p-2 sm:p-8 lg:p-12`}
+          }`}
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
-            transform: isMobile ? `scale(${Math.max(0.9, 1 - dragDistance / 500)})` : undefined
+            transform: isMobile 
+              ? `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
+              : undefined,
+            width: isMobile ? '100vh' : '100%',
+            height: isMobile ? '100vw' : '100%',
+            padding: isMobile ? '1rem' : undefined,
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none w-full max-w-5xl rounded-2xl sm:rounded-3xl"
-            style={{ aspectRatio: isMobile ? '4/3' : '16/9' }}
+            className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl ${
+              isMobile ? 'w-full h-full' : 'w-full max-w-5xl'
+            }`}
+            style={{ aspectRatio: isMobile ? undefined : '16/9' }}
           >
             {/* Header with Ministère and France Rénov logos */}
             <div className="bg-white flex items-center justify-between shrink-0 py-3 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
