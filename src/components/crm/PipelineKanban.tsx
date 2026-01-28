@@ -48,13 +48,6 @@ interface PipelineKanbanProps {
 
 const pipelineColumns: { status: VenteStatus; label: string; color: string; bgColor: string; icon: React.ReactNode }[] = [
   { 
-    status: 'en_negociation', 
-    label: 'Négociation', 
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-500/10 border-amber-200',
-    icon: <Clock className="h-4 w-4" />
-  },
-  { 
     status: 'signe', 
     label: 'Signé', 
     color: 'text-blue-600',
