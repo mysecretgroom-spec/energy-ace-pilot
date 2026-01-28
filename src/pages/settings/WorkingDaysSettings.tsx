@@ -1,10 +1,13 @@
+import { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { Save, Loader2 } from "lucide-react";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
@@ -18,36 +21,73 @@ const DAYS = [
 
 const WorkingDaysSettings = () => {
   const { workingDays, loading, updateWorkingDays } = useWorkingDays();
+  const [localDays, setLocalDays] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  const handleToggleDay = async (dayValue: number) => {
-    const isCurrentlyWorking = workingDays.includes(dayValue);
+  // Initialize local state when workingDays loads
+  useEffect(() => {
+    if (!loading && workingDays) {
+      setLocalDays(workingDays);
+    }
+  }, [workingDays, loading]);
+
+  // Check for changes
+  useEffect(() => {
+    if (!loading) {
+      const changed = JSON.stringify(localDays.sort((a, b) => a - b)) !== 
+                      JSON.stringify(workingDays.sort((a, b) => a - b));
+      setHasChanges(changed);
+    }
+  }, [localDays, workingDays, loading]);
+
+  const handleToggleDay = (dayValue: number) => {
+    const isCurrentlySelected = localDays.includes(dayValue);
     
-    let newWorkingDays: number[];
-    if (isCurrentlyWorking) {
+    let newDays: number[];
+    if (isCurrentlySelected) {
       // Remove the day
-      newWorkingDays = workingDays.filter((d) => d !== dayValue);
+      newDays = localDays.filter((d) => d !== dayValue);
     } else {
-      // Add the day and sort
-      newWorkingDays = [...workingDays, dayValue].sort((a, b) => {
-        // Sort with Monday first (1,2,3,4,5,6,0)
-        const order = [1, 2, 3, 4, 5, 6, 0];
-        return order.indexOf(a) - order.indexOf(b);
-      });
+      // Add the day
+      newDays = [...localDays, dayValue];
     }
 
     // Must have at least one working day
-    if (newWorkingDays.length === 0) {
+    if (newDays.length === 0) {
       toast.error("Vous devez avoir au moins un jour travaillé");
       return;
     }
 
-    await updateWorkingDays(newWorkingDays);
-    toast.success("Jours travaillés mis à jour");
+    setLocalDays(newDays);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    
+    // Sort days in order (Monday first: 1,2,3,4,5,6,0)
+    const sortedDays = [...localDays].sort((a, b) => {
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      return order.indexOf(a) - order.indexOf(b);
+    });
+
+    const success = await updateWorkingDays(sortedDays);
+    
+    setSaving(false);
+    
+    if (success) {
+      toast.success("Jours travaillés enregistrés", {
+        description: "Le planning sera mis à jour"
+      });
+      setHasChanges(false);
+    } else {
+      toast.error("Erreur lors de l'enregistrement");
+    }
   };
 
   return (
     <MobileLayout title="Jours travaillés">
-      <div className="p-4 space-y-4 max-w-lg mx-auto">
+      <div className="p-4 space-y-4 max-w-lg mx-auto pb-32">
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg">Jours travaillés</CardTitle>
@@ -65,11 +105,15 @@ const WorkingDaysSettings = () => {
             ) : (
               <div className="space-y-3">
                 {DAYS.map((day) => {
-                  const isChecked = workingDays.includes(day.value);
+                  const isChecked = localDays.includes(day.value);
                   return (
                     <div
                       key={day.value}
-                      className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                      className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                        isChecked 
+                          ? "bg-primary/5 border-primary/30" 
+                          : "bg-card hover:bg-muted/50"
+                      }`}
                       onClick={() => handleToggleDay(day.value)}
                     >
                       <Checkbox
@@ -96,6 +140,29 @@ const WorkingDaysSettings = () => {
           💡 La vue semaine n'affichera que les jours travaillés. La vue mois grisera les jours non travaillés.
         </p>
       </div>
+
+      {/* Floating save button */}
+      {hasChanges && (
+        <div className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] left-4 right-4 z-40 max-w-lg mx-auto">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-12 shadow-lg bg-gradient-hero gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Enregistrement...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                Enregistrer les modifications
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </MobileLayout>
   );
 };
