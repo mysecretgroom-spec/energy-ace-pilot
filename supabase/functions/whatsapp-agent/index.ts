@@ -1598,38 +1598,47 @@ serve(async (req) => {
           collectedData.commentaire = uploadedDocumentUrl; // Store doc URL in commentaire field
         }
         
-        // Generate a proper confirmation message if AI didn't provide one
+        // Use the AI-generated confirmation message directly - it should already be properly formatted
+        // Only override if the AI didn't provide a proper confirmation request
         let confirmationMessage = aiResponse!.responseMessage;
         
-        // If the AI response doesn't look like a proper confirmation request, generate one
-        if (!confirmationMessage.toLowerCase().includes("confirme") && 
-            !confirmationMessage.toLowerCase().includes("oui/non") &&
-            !confirmationMessage.toLowerCase().includes("correct ?")) {
+        // Check if AI response is a valid confirmation request (contains confirmation prompt)
+        const hasConfirmationPrompt = confirmationMessage.toLowerCase().includes("confirme") || 
+                                       confirmationMessage.toLowerCase().includes("oui/non") ||
+                                       confirmationMessage.toLowerCase().includes("correct ?");
+        
+        // If the AI response doesn't look like a proper confirmation, generate a summary
+        if (!hasConfirmationPrompt) {
           const entities = aiResponse!.entities;
-          const clientName = entities.client_name as string || "?";
           const intentLabels: Record<string, string> = {
-            create_rdv: "Créer un RDV",
-            update_rdv: "Modifier le RDV",
-            update_vente_status: "Mettre à jour le statut",
-            update_vente_pipeline: "Mettre à jour la vente",
-            mark_signe: "Marquer comme signé",
-            update_vente_data: "Modifier les données de vente",
+            create_rdv: "📅 Créer un RDV",
+            update_rdv: "📅 Modifier/Annuler RDV",
+            update_vente_status: "📊 Mettre à jour le statut",
+            update_vente_pipeline: "📊 Mettre à jour la vente",
+            mark_signe: "✍️ Enregistrer une vente signée",
+            update_vente_data: "📝 Modifier les données de vente",
+            create_external_vente: "📦 Vente externe",
+            import_document: "📄 Importer un document",
+            import_facture: "🧾 Importer une note de frais",
           };
           
           const actionLabel = intentLabels[aiResponse!.intent] || aiResponse!.intent;
           
-          // Build entity summary
+          // Build entity summary as bullet points
           const entityParts: string[] = [];
-          if (entities.client_name) entityParts.push(`Client: ${entities.client_name}`);
-          if (entities.pipeline_status) entityParts.push(`Statut: ${entities.pipeline_status}`);
-          if (entities.date) entityParts.push(`Date: ${entities.date}`);
-          if (entities.time) entityParts.push(`Heure: ${entities.time}`);
-          if (entities.montant_ttc) entityParts.push(`Montant: ${entities.montant_ttc}€`);
-          if (entities.puissance_kwc) entityParts.push(`Puissance: ${entities.puissance_kwc}kWc`);
+          if (entities.client_name) entityParts.push(`• Client: ${entities.client_name}`);
+          if (entities.pipeline_status) entityParts.push(`• Statut: ${entities.pipeline_status}`);
+          if (entities.status) entityParts.push(`• Statut: ${entities.status}`);
+          if (entities.date) entityParts.push(`• Date: ${entities.date}`);
+          if (entities.time) entityParts.push(`• Heure: ${entities.time}`);
+          if (entities.amount || entities.montant_ttc) entityParts.push(`• Montant: ${Number(entities.amount || entities.montant_ttc).toLocaleString("fr-FR")}€`);
+          if (entities.puissance_kwc) entityParts.push(`• Puissance: ${entities.puissance_kwc}kWc`);
+          if (entities.action) entityParts.push(`• Action: ${entities.action}`);
+          if (entities.document_type) entityParts.push(`• Type: ${entities.document_type}`);
           
-          const entitySummary = entityParts.length > 0 ? `\n${entityParts.join(" | ")}` : "";
+          const entitySummary = entityParts.length > 0 ? `\n${entityParts.join("\n")}` : "";
           
-          confirmationMessage = `🔔 *${actionLabel}*${entitySummary}\n\nConfirmes-tu ? (Oui/Non)`;
+          confirmationMessage = `📋 *${actionLabel}*${entitySummary}\n\n*Confirmes-tu ?* (Oui/Non)`;
         }
         
         actionResult = {
@@ -3974,17 +3983,23 @@ RÈGLES CRITIQUES:
 - INTERDIT de bloquer avec un message d'erreur sur le client - laisse le backend gérer
 - Exemple: "signé chez Poirier 4kwc 19900€" → mark_signe avec entities: {"client_name":"Poirier","puissance_kwc":4,"amount":19900} - PAS de message d'erreur!
 
-⚠️ CONFIRMATION OBLIGATOIRE - RÈGLE ABSOLUE:
-- Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente), tu DOIS:
-  1. REFORMULER ce que tu as compris de manière claire et précise
-  2. DEMANDER CONFIRMATION explicite avec "Confirmes-tu ?" (Oui/Non)
-  3. Mettre requiresConfirmation: true dans ta réponse
-- Le responseMessage doit contenir:
-  • Un RÉCAPITULATIF de l'action prévue (client, action, détails)
-  • Les DONNÉES qui vont être modifiées
-  • La question "Confirmes-tu ?" à la fin
-- Exemple: "📝 J'ai compris:\n• Client: Dupont Jean\n• Action: Annuler le RDV du 15/01 à 14h\n\n*Confirmes-tu ?* (Oui/Non)"
-- Seules les requêtes (query_*) et conversations ne nécessitent PAS de confirmation
+⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
+- Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
+- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_document, import_facture
+- FORMAT OBLIGATOIRE du responseMessage:
+  📋 *[TYPE ACTION]*
+  • Client: [Nom complet]
+  • [Détail 1]: [Valeur] (ex: Puissance: 9kWc)
+  • [Détail 2]: [Valeur] (ex: Prix: 18 500€)
+  • [Action]: [Description précise]
+  
+  *Confirmes-tu ?* (Oui/Non)
+- JAMAIS de confirmation intermédiaire (pas de "quel est le prix?", puis "quelle régie?" puis "confirme")
+- Si des données manquent, LISTE ce qu'il te faut en UNE SEULE question
+- Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
+- Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
+- Mets requiresConfirmation: true dans ta réponse JSON
+- Seules les requêtes (query_*), user_feedback et conversations ne nécessitent PAS de confirmation
 
 EXEMPLES DE CLASSIFICATION:
 - "Dupont posé" → update_vente_pipeline (ACTION: client + statut)
