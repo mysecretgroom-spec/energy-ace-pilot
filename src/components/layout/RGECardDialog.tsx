@@ -221,8 +221,8 @@ export const RGECardDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-11 w-11">
-          <IdCard className="h-6 w-6" />
+        <Button variant="ghost" size="icon" className="h-12 w-12">
+          <IdCard className="h-[30px] w-[30px]" />
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full h-full max-w-none max-h-none m-0 p-0 overflow-hidden rounded-none border-none bg-black/60 backdrop-blur-sm flex items-center justify-center">
