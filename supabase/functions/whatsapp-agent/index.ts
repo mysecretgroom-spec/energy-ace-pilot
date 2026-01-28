@@ -4690,13 +4690,28 @@ STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
 STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
 
 ⚠️ PARSING DATES RELATIVES - CRITIQUE:
+Tu as accès à la date actuelle (${currentDay}, ${today}). CALCULE toi-même les dates relatives:
+
+RÉFÉRENCES TEMPORELLES SIMPLES (utilise period):
+- "aujourd'hui", "ce jour" → period: "today"
+- "demain" → period: "tomorrow"
+- "cette semaine" → period: "week"
+- "semaine prochaine" → period: "next_week"
+- "ce mois", "ce mois-ci" → period: "month"
+
+RÉFÉRENCES AVEC CALCUL (utilise specific_dates):
+- "hier" → la veille de today
+- "après-demain" → today + 2 jours
 - "vendredi dernier" → le vendredi de la semaine PASSÉE
 - "samedi dernier" → le samedi de la semaine PASSÉE  
 - "lundi prochain" → le lundi de la semaine PROCHAINE
-- "demain", "aujourd'hui", "hier" → dates relatives simples
-- "vendredi et samedi dernier" → DEUX dates spécifiques à extraire dans specific_dates
-- Pour ces dates relatives, tu DOIS calculer la date exacte au format YYYY-MM-DD
+- "vendredi et samedi dernier" → DEUX dates dans specific_dates
+
+CALCUL OBLIGATOIRE:
+- Tu DOIS calculer la date exacte au format YYYY-MM-DD
 - Exemple: si aujourd'hui = dimanche 26/01/2025, "vendredi dernier" = 2025-01-24, "samedi dernier" = 2025-01-25
+- "demain" avec today = 2026-01-28 → 2026-01-29
+- "après-demain" avec today = 2026-01-28 → 2026-01-30
 - Utilise specific_dates: ["2025-01-24", "2025-01-25"] pour les dates multiples
 
 ⚠️ DÉFINITIONS MÉTIER CRITIQUES:
@@ -4832,8 +4847,8 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     technicien: { type: "string" },
                     commentaire: { type: "string" },
                     document_type: { type: "string" },
-                    period: { type: "string", enum: ["today", "week", "next_week", "month", "all"], description: "Predefined period filter. Do NOT use if specific_dates is provided." },
-                    specific_dates: { type: "array", items: { type: "string" }, description: "Array of specific dates in YYYY-MM-DD format. Use for precise date filtering like 'vendredi dernier', 'samedi 24 janvier'. Calculate dates from relative expressions. Example: ['2025-01-24', '2025-01-25']" },
+                    period: { type: "string", enum: ["today", "tomorrow", "week", "next_week", "month", "all"], description: "Predefined period filter. Use 'tomorrow' for 'demain'. Do NOT use if specific_dates is provided." },
+                    specific_dates: { type: "array", items: { type: "string" }, description: "Array of specific dates in YYYY-MM-DD format. Use for precise date filtering like 'vendredi dernier', 'après-demain', 'samedi 24 janvier'. CALCULATE dates from relative expressions using today's date. Example: ['2025-01-24', '2025-01-25']" },
                     query_type: { type: "string", enum: ["list", "total", "detail"] },
                     query_field: { type: "string", description: "Specific field the user is asking about: commission, statut, prix, montant, puissance, panneau, date, pose, adresse, telephone, regie. Extract this when user asks a specific question like 'quelle est la commission de X?' or 'quel est le statut de Y?'" },
                     filter_type: { type: "string", enum: ["poses", "payees", "signees", "poses_recentes", "en_cours", "a_facturer", "par_regie"], description: "Filter type for query_ventes_by_filter" },
@@ -7105,22 +7120,51 @@ async function executeAction(
 
     case "query_rdv_planning": {
       const period = (entities.period as string) || "today";
+      const specificDates = entities.specific_dates as string[] | undefined;
       let startDate: Date;
       let endDate: Date;
       const now = new Date();
       
-      switch (period) {
-        case "week":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-          break;
-        default: // today
+      // Check if we have specific dates (takes priority over period)
+      if (specificDates && specificDates.length > 0) {
+        // Parse specific dates and create date range
+        const parsedDates = specificDates.map(d => new Date(d + "T00:00:00")).filter(d => !isNaN(d.getTime()));
+        if (parsedDates.length > 0) {
+          parsedDates.sort((a, b) => a.getTime() - b.getTime());
+          startDate = new Date(parsedDates[0]);
+          // End date is the last date + 1 day
+          endDate = new Date(parsedDates[parsedDates.length - 1].getTime() + 24 * 60 * 60 * 1000);
+        } else {
+          // Fallback to today
           startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+        }
+      } else {
+        switch (period) {
+          case "tomorrow":
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+            endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+            break;
+          case "week":
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+            break;
+          case "next_week": {
+            // Start from next Monday
+            const dayOfWeek = now.getDay();
+            const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilMonday);
+            endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+            break;
+          }
+          case "month":
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            endDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+            break;
+          default: // today
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+        }
       }
 
       // Check if user explicitly wants cancelled/postponed RDV
@@ -7319,15 +7363,24 @@ async function executeAction(
       if (fullAddress) sections.push(`📍 ${fullAddress}`);
 
       // Consumption & Profile from metadata (Gmail import)
-      const conso = clientMeta.consommation_annuelle || clientMeta.consommation || rdvMeta.consommation_annuelle;
-      const facture = clientMeta.facture_annuelle || clientMeta.montant_facture || rdvMeta.facture_annuelle;
+      const conso = clientMeta.consommation_annuelle || clientMeta.consommation || rdvMeta.consommation_annuelle || clientMeta.conso_kwh;
+      const facture = clientMeta.facture_annuelle || clientMeta.montant_facture || rdvMeta.facture_annuelle || clientMeta.facture_energie;
       const chauffage = clientMeta.type_chauffage || rdvMeta.type_chauffage;
-      const surface = clientMeta.surface || rdvMeta.surface;
-      const nbPersonnes = clientMeta.nb_personnes || clientMeta.occupants || rdvMeta.nb_personnes;
-      const typeLogement = clientMeta.type_logement || rdvMeta.type_logement;
+      const surface = clientMeta.surface || rdvMeta.surface || clientMeta.surface_habitable;
+      const nbPersonnes = clientMeta.nb_personnes || clientMeta.occupants || rdvMeta.nb_personnes || clientMeta.nombre_personnes;
+      const typeLogement = clientMeta.type_logement || rdvMeta.type_logement || clientMeta.type_habitation;
       const proprietaire = clientMeta.proprietaire !== undefined ? (clientMeta.proprietaire ? "Oui" : "Non") : null;
+      
+      // Additional useful fields
+      const age = clientMeta.age || rdvMeta.age;
+      const revenus = clientMeta.revenus || clientMeta.profil_revenus || rdvMeta.revenus || rdvMeta.profil_revenus || clientMeta.tranche_revenus;
+      const budget = clientMeta.budget_estime || clientMeta.budget || rdvMeta.budget_estime;
+      const motivation = clientMeta.motivation || clientMeta.projet_motivation || rdvMeta.motivation;
+      const urgence = clientMeta.urgence || rdvMeta.urgence;
+      const toiture = clientMeta.type_toiture || rdvMeta.type_toiture;
+      const orientation = clientMeta.orientation || clientMeta.orientation_toiture || rdvMeta.orientation;
 
-      if (conso || facture || chauffage || surface || nbPersonnes) {
+      if (conso || facture || chauffage || surface || nbPersonnes || age || revenus) {
         sections.push("");
         sections.push("⚡ *PROFIL ÉNERGÉTIQUE*");
         if (conso) sections.push(`Conso: ${conso} kWh/an`);
@@ -7337,6 +7390,19 @@ async function executeAction(
         if (surface) sections.push(`Surface: ${surface}m²`);
         if (nbPersonnes) sections.push(`Occupants: ${nbPersonnes}`);
         if (proprietaire) sections.push(`Propriétaire: ${proprietaire}`);
+        if (toiture) sections.push(`Toiture: ${toiture}`);
+        if (orientation) sections.push(`Orientation: ${orientation}`);
+      }
+      
+      // Client profile
+      if (age || revenus || budget) {
+        sections.push("");
+        sections.push("👤 *PROFIL CLIENT*");
+        if (age) sections.push(`Âge: ${age} ans`);
+        if (revenus) sections.push(`Revenus: ${revenus}`);
+        if (budget) sections.push(`Budget estimé: ${budget}€`);
+        if (motivation) sections.push(`Motivation: ${motivation}`);
+        if (urgence) sections.push(`Urgence: ${urgence}`);
       }
 
       // Comments from RDV and client notes
