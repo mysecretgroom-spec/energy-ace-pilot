@@ -406,21 +406,21 @@ export const RGECardDialog = () => {
                       )}
                     </div>
 
-                    {/* QR Code - ratio 6:3 (2:1) container */}
-                    <div className="text-center flex flex-col items-center justify-center gap-1 w-full aspect-[2/1]">
+                    {/* QR Code - same dimensions as agrément */}
+                    <div className="bg-white rounded-lg text-center w-full aspect-[2/1] flex flex-col items-center justify-center p-1.5 sm:p-3 lg:p-4">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1 sm:p-3"
+                        className="hover:scale-105 transition-transform cursor-pointer"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 40 : 70}
+                          size={isMobile ? 44 : 70}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-white/70 text-[7px] sm:text-xs">Vérifier sur France Rénov'</p>
+                      <p className="text-gray-500 text-[6px] sm:text-xs mt-0.5">Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
