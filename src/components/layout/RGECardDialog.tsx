@@ -286,15 +286,17 @@ export const RGECardDialog = () => {
               : undefined,
             width: isMobile ? '100vh' : '100%',
             height: isMobile ? '100vw' : '100%',
-            padding: isMobile ? '1rem' : '2rem',
+            padding: isMobile ? '0.5rem' : '2rem',
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl w-full h-full sm:max-w-5xl sm:h-auto"
+            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl"
             style={{ 
-              aspectRatio: isMobile ? undefined : '16/9',
-              maxWidth: isMobile ? 'calc(100vh - 2rem)' : undefined,
-              maxHeight: isMobile ? 'calc(100vw - 2rem)' : undefined,
+              aspectRatio: '16/9',
+              width: isMobile ? 'auto' : '100%',
+              height: isMobile ? 'calc(100vw - 1rem)' : 'auto',
+              maxWidth: isMobile ? 'calc(100vh - 1rem)' : '64rem',
+              maxHeight: isMobile ? undefined : '100%',
             }}
           >
             {/* Header with Ministère and France Rénov logos */}
