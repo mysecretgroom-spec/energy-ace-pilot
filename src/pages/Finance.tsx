@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { BlurOverlay } from "@/components/layout/BlurOverlay";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -637,6 +638,7 @@ const Finance = () => {
 
   return (
     <MobileLayout title="Finance">
+      <BlurOverlay storageKey="finance">
       <div className="p-4 space-y-4 max-w-4xl mx-auto">
         {/* Tabs Ventes / Frais */}
         <Tabs
@@ -1351,6 +1353,7 @@ const Finance = () => {
         total={getFinanceDialogData.total}
         emptyMessage="Aucune vente"
       />
+      </BlurOverlay>
     </MobileLayout>
   );
 };
