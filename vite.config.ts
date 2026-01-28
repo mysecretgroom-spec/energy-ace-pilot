@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
         short_name: "RGE app",
         description: "Application de gestion commerciale pour installateurs en énergies renouvelables",
         theme_color: "#2563eb",
-        background_color: "#ffffff",
+        background_color: "#6b7280",
         display: "standalone",
         orientation: "portrait",
         scope: "/",
