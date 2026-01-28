@@ -292,11 +292,11 @@ export const RGECardDialog = () => {
           <div 
             className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl"
             style={{ 
-              aspectRatio: '16/9',
+              aspectRatio: isMobile ? '16/9' : undefined,
               width: isMobile ? 'auto' : '100%',
               height: isMobile ? 'calc(100vw - 1rem)' : 'auto',
               maxWidth: isMobile ? 'calc(100vh - 1rem)' : '64rem',
-              maxHeight: isMobile ? undefined : '100%',
+              minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
             }}
           >
             {/* Header with Ministère and France Rénov logos */}
