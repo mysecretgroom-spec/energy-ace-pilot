@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt", "pwa-icons/*.png"],
       manifest: {
-        name: "RGE app - Gestion commerciale ENR",
+        name: "DébalePro - Gestion commerciale ENR",
         short_name: "RGE app",
         description: "Application de gestion commerciale pour installateurs en énergies renouvelables",
         theme_color: "#2563eb",
