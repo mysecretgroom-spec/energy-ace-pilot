@@ -150,6 +150,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
         adresse: address || null,
         ville: city || null,
         code_postal: postalCode || null,
+        regie_id: selectedRegieId || null, // Link client to the selected régie
       })
       .select("id")
       .single();
@@ -171,6 +172,10 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
     if (!user) return;
     if (!clientName.trim()) {
       toast.error("Nom du client obligatoire");
+      return;
+    }
+    if (!selectedRegieId) {
+      toast.error("Veuillez sélectionner une régie");
       return;
     }
 
@@ -418,37 +423,37 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
           </div>
         </div>
 
-        {/* Régie selection */}
-        {regies.length > 0 && (
-          <div className="space-y-2">
-            <Label htmlFor="regie" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Source / Régie
-            </Label>
-            <Select 
-              value={selectedRegieId || "none"} 
-              onValueChange={(v) => setSelectedRegieId(v === "none" ? "" : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une régie (optionnel)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Aucune</SelectItem>
-                {regies.map((regie) => (
-                  <SelectItem key={regie.id} value={regie.id}>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: regie.couleur || "#888" }}
-                      />
-                      {regie.nom}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Régie selection (required) */}
+        <div className="space-y-2">
+          <Label htmlFor="regie" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Régie <span className="text-destructive">*</span>
+          </Label>
+          <Select 
+            value={selectedRegieId || ""} 
+            onValueChange={setSelectedRegieId}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sélectionner une régie" />
+            </SelectTrigger>
+            <SelectContent>
+              {regies.map((regie) => (
+                <SelectItem key={regie.id} value={regie.id}>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: regie.couleur || "#888" }}
+                    />
+                    {regie.nom}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {regies.length === 0 && (
+            <p className="text-xs text-destructive">Aucune régie configurée</p>
+          )}
+        </div>
 
         {/* Comment */}
         <div className="space-y-2">
