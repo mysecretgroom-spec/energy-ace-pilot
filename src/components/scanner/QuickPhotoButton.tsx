@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
-import imageCompression from "browser-image-compression";
+import { generatePdfFromFile } from "@/components/scanner/services/pdfGenerator";
 
 import { QuickPhotoCategory, QUICK_PHOTO_LABELS, PhotoCategory } from "@/lib/documentCategories";
 
@@ -40,48 +40,46 @@ export function QuickPhotoButton({
     setIsUploading(true);
 
     try {
-      // Compress image
-      const compressedFile = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      });
-
+      // Convertir l'image en PDF
+      const { blob: pdfBlob, thumbnails } = await generatePdfFromFile(file);
+      
       // If offline, save to IndexedDB
       if (!isOnline) {
         const reader = new FileReader();
         reader.onload = async (event) => {
-          const imageData = event.target?.result as string;
+          const pdfData = event.target?.result as string;
           await savePendingDocument({
             clientId,
-            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
+            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
             typeDocument: "photo_chantier",
-            imageData,
-            mimeType: compressedFile.type,
+            imageData: pdfData,
+            mimeType: "application/pdf",
             contextSource: category,
           });
           setHasPhoto(true);
           onPhotoSaved?.();
         };
-        reader.readAsDataURL(compressedFile);
+        reader.readAsDataURL(pdfBlob);
         setIsUploading(false);
         if (e.target) e.target.value = "";
         return;
       }
 
-      // Online: upload directly
+      // Online: upload PDF directly
       const timestamp = Date.now();
-      const extension = file.name.split(".").pop() || "jpg";
-      const fileName = `${clientId}/${category}_${timestamp}.${extension}`;
+      const fileName = `${clientId}/${category}_${timestamp}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
-        .upload(fileName, compressedFile, {
-          contentType: compressedFile.type,
+        .upload(fileName, pdfBlob, {
+          contentType: "application/pdf",
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        throw uploadError;
+      }
 
       const { data: urlData } = supabase.storage
         .from("documents")
@@ -90,20 +88,24 @@ export function QuickPhotoButton({
       const { error: dbError } = await supabase.from("documents").insert({
         user_id: user.id,
         client_id: clientId,
-        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}`,
+        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
         type_document: "photo_chantier",
         url: urlData.publicUrl,
-        taille_bytes: compressedFile.size,
-        mime_type: compressedFile.type,
+        taille_bytes: pdfBlob.size,
+        mime_type: "application/pdf",
         context_source: category,
+        thumbnails_urls: thumbnails.length > 0 ? thumbnails : null,
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+        throw dbError;
+      }
 
       setHasPhoto(true);
       toast({
         title: "Photo enregistrée",
-        description: `${QUICK_PHOTO_LABELS[category]} ajouté au dossier client`,
+        description: `${QUICK_PHOTO_LABELS[category]} converti en PDF et ajouté au dossier`,
       });
 
       onPhotoSaved?.();
@@ -112,7 +114,7 @@ export function QuickPhotoButton({
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible d'enregistrer la photo",
+        description: error instanceof Error ? error.message : "Impossible d'enregistrer la photo",
       });
     } finally {
       setIsUploading(false);
