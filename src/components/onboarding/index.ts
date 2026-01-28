@@ -9,3 +9,9 @@ export { WhatsAppStep } from "./steps/WhatsAppStep";
 export { GoogleStep } from "./steps/GoogleStep";
 export { DataConfigStep } from "./steps/DataConfigStep";
 export { CompletionStep } from "./steps/CompletionStep";
+
+// Inline config steps for interactive onboarding
+export { ProfileConfigStep } from "./steps/ProfileConfigStep";
+export { RegieConfigStep } from "./steps/RegieConfigStep";
+export { GoogleConfigStep } from "./steps/GoogleConfigStep";
+export { SecurityConfigStep } from "./steps/SecurityConfigStep";
