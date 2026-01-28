@@ -21,7 +21,16 @@ import logoQualipac from "@/assets/logos/qualipac.png";
 import logoQualipv from "@/assets/logos/qualipv.png";
 import logoQualitenr from "@/assets/logos/qualitenr.png";
 
-const FRANCE_RENOV_URL = "https://france-renov.gouv.fr/annuaires-professionnels/artisan-rge-architecte#/tab";
+const FRANCE_RENOV_BASE_URL = "https://france-renov.gouv.fr/annuaires-professionnels/artisan-rge-architecte";
+
+// Generate URL with pre-filled SIRET search
+const getFranceRenovUrl = (siret: string | null): string => {
+  if (!siret) {
+    return `${FRANCE_RENOV_BASE_URL}#/tab`;
+  }
+  // URL format: base#/recherche/type=pro/siret={siret}
+  return `${FRANCE_RENOV_BASE_URL}#/recherche/type=pro/siret=${siret}`;
+};
 
 interface Profile {
   first_name: string | null;
@@ -415,14 +424,14 @@ export const RGECardDialog = () => {
                     {/* QR Code */}
                     <div className="text-center flex flex-col items-center gap-1 w-full">
                       <button
-                        onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
+                        onClick={() => window.open(getFranceRenovUrl(companyInfo?.siret || null), '_blank')}
                         className={`bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md ${
                           isMobile ? "p-2" : "p-3"
                         }`}
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
-                          value={FRANCE_RENOV_URL} 
+                          value={getFranceRenovUrl(companyInfo?.siret || null)} 
                           size={isMobile ? 50 : 70}
                           level="M"
                           includeMargin={false}
