@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Image, Download, Eye } from "lucide-react";
+import { FileText, Image, Download, Eye, Trash2, RefreshCw } from "lucide-react";
 import { useLongPress } from "@/hooks/useLongPress";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,8 @@ interface DocumentCardProps {
   fileType: "pdf" | "image" | "unknown";
   onToggleSelection: () => void;
   onOpenPreview: () => void;
+  onDelete?: () => void;
+  onReplace?: (file: File) => void;
   formatDate: (date: string) => string;
 }
 
@@ -28,13 +30,33 @@ export function DocumentCard({
   fileType,
   onToggleSelection,
   onOpenPreview,
+  onDelete,
+  onReplace,
   formatDate,
 }: DocumentCardProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const { handlers, isPressing, progress } = useLongPress({
     delay: 500,
     onLongPress: onOpenPreview,
     onPress: onToggleSelection,
   });
+
+  const handleReplaceClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onReplace) {
+      onReplace(file);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <Card
@@ -52,6 +74,15 @@ export function DocumentCard({
           style={{ width: `${progress * 100}%` }}
         />
       )}
+      
+      {/* Hidden file input for replace */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf"
+        className="hidden"
+        onChange={handleFileChange}
+      />
       
       <CardContent className="p-3">
         <div className="flex items-center gap-3">
@@ -103,6 +134,18 @@ export function DocumentCard({
             >
               <Eye className="h-4 w-4" />
             </Button>
+            {onReplace && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleReplaceClick}
+                onTouchEnd={(e) => e.stopPropagation()}
+                title="Remplacer"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -116,6 +159,21 @@ export function DocumentCard({
             >
               <Download className="h-4 w-4" />
             </Button>
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                onTouchEnd={(e) => e.stopPropagation()}
+                title="Supprimer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
