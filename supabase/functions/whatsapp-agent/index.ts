@@ -49,6 +49,7 @@ type WorkflowState =
   | "awaiting_whatsapp_approval" // En attente d'approbation du message WhatsApp
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
+  | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
   | null;
 
 // Choice option for disambiguation polls
@@ -1044,6 +1045,55 @@ function generateChoicePoll(
   // Build the poll message
   const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
   const responseMessage = `🔍 Plusieurs résultats pour "*${searchQuery}*":\n\n${choiceList}\n\n👆 *Réponds avec le numéro* de ton choix (ou "annule")`;
+  
+  const pendingAction: PendingAction = {
+    intent: "select_choice",
+    entities,
+    workflowState: "awaiting_choice_selection",
+    collectedData: {
+      choices,
+      originalIntent,
+      searchQuery,
+    },
+    createdAt: new Date().toISOString(),
+  };
+  
+  return { pendingAction, responseMessage };
+}
+
+// Generate a choice poll for ambiguous search results WITH a "new client" option
+function generateChoicePollWithNewClient(
+  suggestions: ClientMatch[],
+  searchQuery: string,
+  originalIntent: Intent,
+  entities: Record<string, unknown>
+): { pendingAction: PendingAction; responseMessage: string } {
+  const choices: ChoiceOption[] = suggestions.slice(0, 4).map((s, _index) => ({
+    id: s.id,
+    label: s.fullName,
+    entityType: "client" as const,
+    data: {
+      nom: s.nom,
+      prenom: s.prenom,
+      client_id: s.id,
+      score: s.score,
+    },
+  }));
+  
+  // Add a "New Client" option at the end
+  choices.push({
+    id: "NEW_CLIENT",
+    label: `➕ Nouveau client "${searchQuery}"`,
+    entityType: "client" as const,
+    data: {
+      is_new_client: true,
+      client_name: searchQuery,
+    },
+  });
+  
+  // Build the poll message
+  const choiceList = choices.map((c, i) => `${i + 1}️⃣ ${c.label}`).join("\n");
+  const responseMessage = `🔍 Résultats pour "*${searchQuery}*":\n\n${choiceList}\n\n👆 *Réponds avec le numéro* de ton choix (ou "annule")`;
   
   const pendingAction: PendingAction = {
     intent: "select_choice",
@@ -2602,12 +2652,25 @@ async function handlePendingWorkflow(
       // Try to parse user's selection - support multiple formats
       let selectedChoice: ChoiceOption | null = null;
       
+      // 0. First, check if user is indicating a new client (e.g., "c'est un nouveau client", "nouveau", "new client")
+      const newClientPatterns = [
+        "nouveau client", "new client", "c'est un nouveau", "c'est nouveau", 
+        "pas dans la liste", "aucun de ces", "autre client", "creer", "créer",
+        "nouveau", "nouvelle"
+      ];
+      const hasNewClientChoice = choices.some(c => c.id === "NEW_CLIENT");
+      if (hasNewClientChoice && newClientPatterns.some(p => messageLower.includes(p))) {
+        selectedChoice = choices.find(c => c.id === "NEW_CLIENT") || null;
+      }
+      
       // 1. Check for number selection (1, 2, 3, etc.)
-      const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
-      if (numberMatch) {
-        const choiceIndex = parseInt(numberMatch[1], 10) - 1;
-        if (choiceIndex >= 0 && choiceIndex < choices.length) {
-          selectedChoice = choices[choiceIndex];
+      if (!selectedChoice) {
+        const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
+        if (numberMatch) {
+          const choiceIndex = parseInt(numberMatch[1], 10) - 1;
+          if (choiceIndex >= 0 && choiceIndex < choices.length) {
+            selectedChoice = choices[choiceIndex];
+          }
         }
       }
       
@@ -2658,6 +2721,31 @@ async function handlePendingWorkflow(
       
       // Selection made - update entities and execute original intent
       console.log(`User selected choice: ${selectedChoice.label} (${selectedChoice.id})`);
+      
+      // Check if user selected "New Client" option
+      if (selectedChoice.id === "NEW_CLIENT" && selectedChoice.data.is_new_client) {
+        // User wants to create a new client - ask for sale type (internal/external)
+        const clientName = selectedChoice.data.client_name as string || pendingAction.collectedData?.searchQuery || "";
+        const originalEntities = pendingAction.entities;
+        
+        return {
+          intent: originalIntent || pendingAction.intent,
+          actionTaken: "new_client_selected",
+          newPendingAction: {
+            intent: originalIntent || pendingAction.intent,
+            entities: { ...originalEntities, is_new_client: true, client_name: clientName },
+            workflowState: "awaiting_new_sale_type",
+            collectedData: {
+              clientName: clientName,
+              isNewClient: true,
+              puissanceKwc: originalEntities.puissance_kwc as number || undefined,
+              prixTTC: originalEntities.amount as number || undefined,
+            },
+            createdAt: new Date().toISOString(),
+          },
+          responseMessage: `🆕 Création d'un nouveau client "${clientName}".\n\n*Est-ce une nouvelle vente ?*\n\n1️⃣ Vente *interne* (avec RDV, puissance, prix TTC)\n2️⃣ Vente *externe* (installation tierce, commission uniquement)\n\n👆 *Réponds 1 ou 2* (ou "annule")`,
+        };
+      }
       
       // Update entities based on the selected choice
       const updatedEntities = { ...pendingAction.entities };
@@ -3011,6 +3099,75 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "awaiting_new_sale_type": {
+      // User needs to choose between internal and external sale for a new client
+      const collectedData = pendingAction.collectedData || {};
+      
+      // Parse user's selection (1 = interne, 2 = externe)
+      let selectedType: "interne" | "externe" | null = null;
+      
+      // Check for number selection
+      if (userMessage.match(/^[#]?1\.?$/) || messageLower.includes("interne") || messageLower.includes("1️⃣")) {
+        selectedType = "interne";
+      } else if (userMessage.match(/^[#]?2\.?$/) || messageLower.includes("externe") || messageLower.includes("2️⃣")) {
+        selectedType = "externe";
+      }
+      
+      if (!selectedType) {
+        // Couldn't parse selection - ask again
+        return {
+          intent: "mark_signe",
+          actionTaken: "invalid_selection",
+          newPendingAction: pendingAction,
+          responseMessage: `🤔 Je n'ai pas compris. Réponds *1* pour une vente interne ou *2* pour une vente externe.\n\n1️⃣ Vente *interne* (avec RDV, puissance, prix TTC)\n2️⃣ Vente *externe* (installation tierce, commission uniquement)\n\nOu tape "annule" pour abandonner.`,
+        };
+      }
+      
+      // User selected a type - now continue with the appropriate workflow
+      if (selectedType === "externe") {
+        // Switch to external sale workflow
+        return {
+          intent: "create_external_vente",
+          actionTaken: "switched_to_external",
+          newPendingAction: {
+            intent: "create_external_vente",
+            entities: { ...pendingAction.entities, is_new_client: true },
+            workflowState: "collecting_external_vente_data",
+            collectedData: {
+              clientName: collectedData.clientName,
+              isNewClient: true,
+              commission: collectedData.prixTTC || undefined, // Use price as commission if provided
+            },
+            createdAt: new Date().toISOString(),
+          },
+          responseMessage: `📦 *Vente externe pour ${collectedData.clientName}* (nouveau client)\n\n💰 Quel est le montant de la *commission* (en € HT) ?`,
+        };
+      }
+      
+      // Internal sale - continue with mark_signe workflow for new client
+      return {
+        intent: "mark_signe",
+        actionTaken: "new_client_internal_sale",
+        newPendingAction: {
+          intent: "mark_signe",
+          entities: { ...pendingAction.entities, is_new_client: true, vente_type: "interne" },
+          workflowState: "collecting_signe_data",
+          collectedData: {
+            clientName: collectedData.clientName,
+            isNewClient: true,
+            puissanceKwc: collectedData.puissanceKwc || undefined,
+            prixTTC: collectedData.prixTTC || undefined,
+          },
+          createdAt: new Date().toISOString(),
+        },
+        responseMessage: collectedData.puissanceKwc && collectedData.prixTTC
+          ? `📝 *Nouvelle vente interne pour ${collectedData.clientName}* (nouveau client)\n\nRécap:\n• Puissance: ${collectedData.puissanceKwc}kWc\n• Prix: ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n\n*Confirmes-tu ?* (Oui/Non)`
+          : collectedData.puissanceKwc
+            ? `📝 *Nouvelle vente interne pour ${collectedData.clientName}* (nouveau client)\n\n💰 Quel est le *prix TTC* de la vente ?`
+            : `📝 *Nouvelle vente interne pour ${collectedData.clientName}* (nouveau client)\n\n📊 Quelle est la *puissance* installée (en kWc) ?`,
+      };
+    }
+    
     default:
       return null;
   }
@@ -3050,24 +3207,75 @@ async function createSignedVente(
   supabase: any,
   userId: string,
   data: PendingAction["collectedData"]
-): Promise<{ success: boolean; venteId?: string; error?: string }> {
-  if (!data?.clientId || !data.rdvId) {
-    return { success: false, error: "Données client/RDV manquantes" };
+): Promise<{ success: boolean; venteId?: string; clientId?: string; error?: string }> {
+  let clientId = data?.clientId;
+  let rdvId = data?.rdvId;
+  
+  // If this is a new client, create the client first
+  if (data?.isNewClient && !clientId && data.clientName) {
+    console.log(`Creating new client: ${data.clientName}`);
+    
+    const { data: newClient, error: clientError } = await supabase
+      .from("clients")
+      .insert({
+        user_id: userId,
+        nom: data.clientName,
+        source: "whatsapp_agent",
+        regie_id: data.regieId || null,
+      })
+      .select("id")
+      .single();
+    
+    if (clientError) {
+      console.error("Error creating client:", clientError);
+      return { success: false, error: `Erreur création client: ${clientError.message}` };
+    }
+    
+    clientId = newClient?.id;
+    console.log(`New client created with ID: ${clientId}`);
+    
+    // Create a RDV for the new client (dated today)
+    const { data: newRdv, error: rdvError } = await supabase
+      .from("rdv")
+      .insert({
+        user_id: userId,
+        client_id: clientId,
+        date_heure: new Date().toISOString(),
+        status: "positif",
+        type_rdv: "R1",
+        type_projet: "pv",
+        source: "whatsapp_agent",
+        regie_id: data.regieId || null,
+      })
+      .select("id")
+      .single();
+    
+    if (rdvError) {
+      console.error("Error creating RDV for new client:", rdvError);
+      // Continue anyway - RDV is optional for the vente
+    } else {
+      rdvId = newRdv?.id;
+      console.log(`New RDV created with ID: ${rdvId}`);
+    }
   }
   
-  const puissance = data.puissanceKwc || 3;
-  const prixTTC = data.prixTTC || 0;
+  if (!clientId) {
+    return { success: false, error: "Données client manquantes" };
+  }
+  
+  const puissance = data?.puissanceKwc || 3;
+  const prixTTC = data?.prixTTC || 0;
   const tauxTVA = puissance <= 3 ? 1.10 : 1.20;
   const prixHT = prixTTC / tauxTVA;
   
-  // Create or update vente
+  // Create the vente
   const { data: vente, error } = await supabase
     .from("ventes")
     .insert({
       user_id: userId,
-      client_id: data.clientId,
-      rdv_id: data.rdvId,
-      regie_id: data.regieId,
+      client_id: clientId,
+      rdv_id: rdvId || null,
+      regie_id: data?.regieId,
       puissance_kwc: puissance,
       montant_ttc: prixTTC,
       montant_ht: prixHT,
@@ -3083,13 +3291,15 @@ async function createSignedVente(
     return { success: false, error: error.message };
   }
   
-  // Update RDV status
-  await supabase
-    .from("rdv")
-    .update({ status: "positif" })
-    .eq("id", data.rdvId);
+  // Update RDV status if we have one
+  if (rdvId) {
+    await supabase
+      .from("rdv")
+      .update({ status: "positif" })
+      .eq("id", rdvId);
+  }
   
-  return { success: true, venteId: vente?.id };
+  return { success: true, venteId: vente?.id, clientId };
 }
 
 // Generate confirmateur WhatsApp message
@@ -4227,35 +4437,86 @@ async function executeAction(
     case "mark_signe": {
       // Start the signing workflow - collect required data
       const clientName = entities.client_name as string;
+      const isNewClient = entities.is_new_client as boolean;
+      const venteType = entities.vente_type as string; // "interne" or "externe"
       
       let matchedClient: ClientMatch | null = null;
       let rdv: { id: string; client_id: string; regie_id: string | null } | null = null;
       
+      // If user confirmed this is a new client, skip search
+      if (isNewClient && clientName) {
+        // Will be handled below - matchedClient stays null, will create new client
+        console.log(`New client confirmed: ${clientName}, type: ${venteType || "interne"}`);
+      }
       // First, find the client using fuzzy search
-      if (clientName) {
+      else if (clientName) {
         const searchResult = await findClientByName(supabase, userId, clientName);
         
+        // Check if no results at all
         if (searchResult.notFound) {
-          return { 
-            actionTaken: "client_not_found",
-            customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+          // No clients found - ask if it's a new sale (internal or external)
+          const pendingAction: PendingAction = {
+            intent: "mark_signe",
+            entities: { ...entities, is_new_client: true },
+            workflowState: "awaiting_new_sale_type",
+            collectedData: {
+              clientName: clientName,
+              isNewClient: true,
+              puissanceKwc: entities.puissance_kwc as number || undefined,
+              prixTTC: entities.amount as number || undefined,
+            },
+            createdAt: new Date().toISOString(),
+          };
+          
+          return {
+            actionTaken: "needs_new_sale_type",
+            entityType: "workflow",
+            newPendingAction: pendingAction,
+            customResponse: `🆕 Client "${clientName}" non trouvé.\n\n*Est-ce une nouvelle vente ?*\n\n1️⃣ Vente *interne* (avec RDV, puissance, prix TTC)\n2️⃣ Vente *externe* (installation tierce, commission uniquement)\n\n👆 *Réponds 1 ou 2* (ou "annule")`,
           };
         }
         
+        // Check if we have suggestions but no exact match
         if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
-          // Generate a choice poll for the user to select the right client
-          const poll = generateChoicePoll(
-            searchResult.suggestions,
-            clientName,
-            "mark_signe",
-            entities
-          );
+          // Check if the best suggestion has a reasonable score (>= 0.6)
+          const bestScore = searchResult.suggestions[0]?.score || 0;
           
-          return {
-            actionTaken: "client_ambiguous",
-            newPendingAction: poll.pendingAction,
-            customResponse: poll.responseMessage,
-          };
+          if (bestScore >= 0.6) {
+            // Suggestions are relevant - generate a choice poll WITH a "nouveau client" option
+            const poll = generateChoicePollWithNewClient(
+              searchResult.suggestions,
+              clientName,
+              "mark_signe",
+              entities
+            );
+            
+            return {
+              actionTaken: "client_ambiguous",
+              newPendingAction: poll.pendingAction,
+              customResponse: poll.responseMessage,
+            };
+          } else {
+            // Suggestions are too weak (low match score) - ask if it's a new client
+            const pendingAction: PendingAction = {
+              intent: "mark_signe",
+              entities: { ...entities, is_new_client: true },
+              workflowState: "awaiting_new_sale_type",
+              collectedData: {
+                clientName: clientName,
+                isNewClient: true,
+                puissanceKwc: entities.puissance_kwc as number || undefined,
+                prixTTC: entities.amount as number || undefined,
+              },
+              createdAt: new Date().toISOString(),
+            };
+            
+            return {
+              actionTaken: "needs_new_sale_type",
+              entityType: "workflow",
+              newPendingAction: pendingAction,
+              customResponse: `🆕 Aucun client correspondant à "${clientName}".\n\n*Est-ce une nouvelle vente ?*\n\n1️⃣ Vente *interne* (avec RDV, puissance, prix TTC)\n2️⃣ Vente *externe* (installation tierce, commission uniquement)\n\n👆 *Réponds 1 ou 2* (ou "annule")`,
+            };
+          }
         }
         
         matchedClient = searchResult.exactMatch || searchResult.clients[0];
