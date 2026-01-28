@@ -1,7 +1,9 @@
 export { OnboardingDialog } from "./OnboardingDialog";
 export { WelcomeStep } from "./steps/WelcomeStep";
 export { FeaturesStep } from "./steps/FeaturesStep";
-export { AgentDemoStep } from "./steps/AgentDemoStep";
+export { SettingsStep } from "./steps/SettingsStep";
+export { AgentInstructionsStep } from "./steps/AgentInstructionsStep";
+export { HejjaModeStep } from "./steps/HejjaModeStep";
 export { WhatsAppStep } from "./steps/WhatsAppStep";
 export { GoogleStep } from "./steps/GoogleStep";
 export { DataConfigStep } from "./steps/DataConfigStep";
