@@ -486,13 +486,13 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         </Card>
       )}
 
-      {/* Ventes à facturer */}
+      {/* Ventes en attente de paiement */}
       <Card className="shadow-card border-amber-200 bg-amber-50/50">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between text-base">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-amber-600" />
-              <span className="text-amber-800">À facturer</span>
+              <span className="text-amber-800">En attente de paiement</span>
             </div>
             <Badge variant="secondary" className="bg-amber-100 text-amber-800">
               {ventes.length} dossier{ventes.length > 1 ? "s" : ""}
@@ -500,9 +500,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Total à facturer */}
+          {/* Total en attente de paiement */}
           <div className="p-4 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-            <p className="text-sm opacity-90">Total à facturer</p>
+            <p className="text-sm opacity-90">Total en attente de paiement</p>
             <p className="text-3xl font-bold">{formatCurrency(totalBillable)} €</p>
             <p className="text-xs opacity-75 mt-1">Commissions HT nettes</p>
           </div>
