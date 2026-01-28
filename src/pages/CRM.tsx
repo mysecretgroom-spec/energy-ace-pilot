@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { BlurOverlay } from "@/components/layout/BlurOverlay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -530,6 +531,7 @@ const CRM = () => {
 
   return (
     <MobileLayout title="CRM">
+      <BlurOverlay storageKey="crm">
       <div className="p-4 space-y-4 pb-24 max-w-5xl mx-auto">
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1143,6 +1145,7 @@ const CRM = () => {
           </TabsContent>
         </Tabs>
       </div>
+      </BlurOverlay>
     </MobileLayout>
   );
 };
