@@ -325,9 +325,9 @@ export const RGECardDialog = () => {
               <div className="bg-white/15 backdrop-blur-md w-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-visible flex flex-col rounded-xl sm:rounded-2xl">
                 {/* Photo and info - always horizontal layout */}
                 <div className="flex flex-row items-center justify-between gap-3 sm:gap-8 lg:gap-12 p-2 sm:p-6 lg:p-8">
-                  {/* Photo - fixed height on mobile for reliable rendering */}
+                  {/* Photo - height matches QR (48px) + gap (8px) + agrément (48px) = 104px on mobile */}
                   <div className="relative shrink-0 flex items-center">
-                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-20 aspect-[3/4] sm:h-40 sm:w-32 lg:h-52 lg:w-40">
+                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-[104px] aspect-[3/4] sm:h-40 sm:w-32 lg:h-52 lg:w-40">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
