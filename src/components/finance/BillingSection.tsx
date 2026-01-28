@@ -23,7 +23,9 @@ import {
   ChevronDown,
   ChevronUp,
   MoreVertical,
-  Pencil
+  Pencil,
+  Trash2,
+  MinusCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,6 +33,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -81,6 +93,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const [addableVentes, setAddableVentes] = useState<BillableVente[]>([]);
   const [selectedAddIds, setSelectedAddIds] = useState<Set<string>>(new Set());
   const [addingToFacture, setAddingToFacture] = useState(false);
+  const [deletingFacture, setDeletingFacture] = useState<Facture | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [removingVenteId, setRemovingVenteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -669,6 +684,106 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     }
   };
 
+  // Delete entire facture
+  const handleDeleteFacture = async () => {
+    if (!deletingFacture || !user) return;
+
+    setIsDeleting(true);
+    try {
+      // 1. Revert ventes to "installe" status (make them billable again)
+      const { error: ventesError } = await supabase
+        .from("ventes")
+        .update({ status: "installe" })
+        .in("id", deletingFacture.vente_ids);
+
+      if (ventesError) throw ventesError;
+
+      // 2. Delete the facture
+      const { error: factureError } = await supabase
+        .from("factures")
+        .delete()
+        .eq("id", deletingFacture.id);
+
+      if (factureError) throw factureError;
+
+      toast.success(`Facture ${deletingFacture.numero_facture} supprimée`);
+      setDeletingFacture(null);
+      fetchBillableVentes();
+      fetchPendingFactures();
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error deleting facture:", error);
+      toast.error("Erreur lors de la suppression");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Remove a single vente from facture
+  const handleRemoveVenteFromFacture = async (venteId: string) => {
+    if (!editingFacture || !user) return;
+
+    // Check if it's the last vente - if so, delete the entire facture
+    if (editingFacture.vente_ids.length === 1) {
+      setDeletingFacture(editingFacture);
+      setEditingFacture(null);
+      return;
+    }
+
+    setRemovingVenteId(venteId);
+    try {
+      const venteToRemove = factureVentes.find(v => v.id === venteId);
+      const newVenteIds = editingFacture.vente_ids.filter(id => id !== venteId);
+      const removedCommission = venteToRemove?.commission || 0;
+      const newTotal = Math.max(0, Number(editingFacture.montant_total_ht) - removedCommission);
+
+      // 1. Update facture
+      const { error: factureError } = await supabase
+        .from("factures")
+        .update({
+          vente_ids: newVenteIds,
+          montant_total_ht: newTotal,
+        })
+        .eq("id", editingFacture.id);
+
+      if (factureError) throw factureError;
+
+      // 2. Revert vente status to "installe" (billable again)
+      const { error: venteError } = await supabase
+        .from("ventes")
+        .update({ status: "installe" })
+        .eq("id", venteId);
+
+      if (venteError) throw venteError;
+
+      toast.success("Vente retirée de la facture");
+
+      // Update local state
+      const updatedFacture = {
+        ...editingFacture,
+        vente_ids: newVenteIds,
+        montant_total_ht: newTotal,
+      };
+      setEditingFacture(updatedFacture);
+      setFactureVentes(prev => prev.filter(v => v.id !== venteId));
+      
+      // Add to addable ventes
+      if (venteToRemove) {
+        setAddableVentes(prev => [...prev, venteToRemove]);
+      }
+
+      // Refresh global data
+      fetchBillableVentes();
+      fetchPendingFactures();
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error removing vente from facture:", error);
+      toast.error("Erreur lors du retrait de la vente");
+    } finally {
+      setRemovingVenteId(null);
+    }
+  };
+
   const totalPendingInvoices = factures.reduce((sum, f) => sum + Number(f.montant_total_ht), 0);
 
   if (loading) {
@@ -750,6 +865,13 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                             <Copy className="h-4 w-4 mr-2" />
                           )}
                           {copiedFactureId === facture.id ? "Copié !" : "Copier pour Qonto"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setDeletingFacture(facture)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -945,19 +1067,22 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                       <TableHead>Client</TableHead>
                       <TableHead className="text-right">kWc</TableHead>
                       <TableHead className="text-right">Commission HT</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {factureVentes.map((vente) => (
                       <TableRow 
                         key={vente.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => {
-                          setEditingFacture(null);
-                          navigate(`/ventes/${vente.id}`);
-                        }}
+                        className="hover:bg-muted/50"
                       >
-                        <TableCell className="font-medium">
+                        <TableCell 
+                          className="font-medium cursor-pointer"
+                          onClick={() => {
+                            setEditingFacture(null);
+                            navigate(`/ventes/${vente.id}`);
+                          }}
+                        >
                           {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
                         </TableCell>
                         <TableCell className="text-right">{vente.puissance_kwc || "-"}</TableCell>
@@ -968,6 +1093,21 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                               -{formatCurrency(vente.decom_montant)} € décom
                             </span>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveVenteFromFacture(vente.id)}
+                            disabled={removingVenteId === vente.id}
+                          >
+                            {removingVenteId === vente.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <MinusCircle className="h-4 w-4" />
+                            )}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1063,6 +1203,38 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Facture Confirmation Dialog */}
+      <AlertDialog open={!!deletingFacture} onOpenChange={(open) => { if (!open) setDeletingFacture(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette facture ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La facture {deletingFacture?.numero_facture} sera supprimée et les {deletingFacture?.vente_ids.length || 0} vente(s) associée(s) redeviendront facturables.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteFacture();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
