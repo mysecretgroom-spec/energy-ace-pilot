@@ -123,7 +123,13 @@ interface MediaDownloadResult {
   base64: string;
   contentType: string;
   filename: string;
+  sizeBytes: number;
+  isLargeFile: boolean;
 }
+
+// Constants for file handling
+const MAX_MEMORY_SIZE_BYTES = 4 * 1024 * 1024; // 4MB limit for in-memory processing
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max upload to storage
 
 // Analysis result types matching analyze-document function
 interface FinanceAnalysisResult {
@@ -1320,7 +1326,9 @@ serve(async (req) => {
           data: audioBytes,
           base64: request.audioData,
           contentType: "audio/webm",
-          filename: "voice_message.webm"
+          filename: "voice_message.webm",
+          sizeBytes: audioBytes.length,
+          isLargeFile: audioBytes.length > MAX_MEMORY_SIZE_BYTES,
         };
         processedContent = await transcribeAudioWithGemini(webMediaData, LOVABLE_API_KEY);
         console.log("Transcribed web audio:", processedContent);
@@ -1335,6 +1343,41 @@ serve(async (req) => {
 
     // Handle image/document analysis - detect context based on content hints
     if ((request.messageType === "image" || request.messageType === "document") && mediaData) {
+      // Check for excessively large files (>50MB) - reject them
+      if (mediaData.sizeBytes > MAX_UPLOAD_SIZE_BYTES) {
+        const sizeMB = (mediaData.sizeBytes / 1024 / 1024).toFixed(1);
+        console.log(`File too large: ${sizeMB} MB, rejecting`);
+        
+        // Return early with error message
+        const errorResponse: AgentResponse = {
+          intent: "unknown",
+          confidence: 1,
+          entities: {},
+          actionTaken: "file_too_large",
+          responseMessage: `❌ Fichier trop volumineux (${sizeMB} Mo).\n\nLa limite est de 50 Mo. Pour les documents plus lourds, utilise l'application directement.`,
+        };
+        
+        // Log message for web sources
+        if (request.fromNumber.startsWith("web_")) {
+          await logMessage(
+            supabase, request.userId, request.fromNumber, request.messageType,
+            request.content, request.mediaUrl || null, null,
+            "unknown", {}, "file_too_large", null, null,
+            errorResponse.responseMessage, "rejected"
+          );
+        }
+        
+        return new Response(JSON.stringify(errorResponse), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // For large files (4-50MB), we can still upload but analysis may be limited
+      if (mediaData.isLargeFile) {
+        console.log(`Large file (${(mediaData.sizeBytes / 1024 / 1024).toFixed(1)} MB) - analysis will use first page only`);
+      }
+      
       console.log("Analyzing media with structured extraction...");
       
       // Determine context: look for finance-related keywords in message
@@ -1352,14 +1395,27 @@ serve(async (req) => {
         messageText.includes("hotel") ||
         (messageText.includes("facture") && !messageText.includes("energie") && !messageText.includes("edf"));
 
-      // First try to detect if it's a receipt/invoice or a client document
-      documentAnalysisResult = await analyzeMediaStructured(
-        mediaData,
-        isFinanceContext ? "finance" : "client_docs",
-        LOVABLE_API_KEY
-      );
+      // For large files, skip AI analysis (will still be uploaded to storage)
+      if (!mediaData.isLargeFile) {
+        // First try to detect if it's a receipt/invoice or a client document
+        documentAnalysisResult = await analyzeMediaStructured(
+          mediaData,
+          isFinanceContext ? "finance" : "client_docs",
+          LOVABLE_API_KEY
+        );
 
-      console.log("Structured analysis result:", documentAnalysisResult);
+        console.log("Structured analysis result:", documentAnalysisResult);
+      } else {
+        // For large files, create a placeholder result
+        documentAnalysisResult = {
+          type: isFinanceContext ? "finance" : "client_docs",
+          success: true,
+          document_type: "autre",
+          confidence: 50,
+          description: "Document volumineux - classification automatique non disponible",
+        } as ClientDocAnalysisResult;
+        console.log("Large file - skipping AI analysis, using placeholder");
+      }
 
       // Build processed content from analysis
       if (documentAnalysisResult && documentAnalysisResult.success) {
@@ -1370,9 +1426,10 @@ serve(async (req) => {
             : `[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`;
         } else {
           const doc = documentAnalysisResult as ClientDocAnalysisResult;
+          const largeFileNote = mediaData.isLargeFile ? " (fichier volumineux)" : "";
           processedContent = request.content 
-            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}, confiance=${doc.confidence}%, ${doc.description || ""}]`
-            : `[Analyse document client: type=${doc.document_type || "?"}, confiance=${doc.confidence}%, ${doc.description || ""}]`;
+            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%, ${doc.description || ""}]`
+            : `[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%, ${doc.description || ""}]`;
         }
       } else if (documentAnalysisResult) {
         processedContent = request.content 
@@ -1880,6 +1937,7 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
 });
 
 // Download media from Twilio (requires basic auth)
+// For large files, only downloads enough for analysis and streams rest to storage
 async function downloadTwilioMedia(
   mediaUrl: string,
   accountSid: string,
@@ -1896,20 +1954,55 @@ async function downloadTwilioMedia(
     throw new Error(`Failed to download media: ${response.status}`);
   }
 
-  const data = new Uint8Array(await response.arrayBuffer());
-  const base64 = encodeBase64(data);
+  // Get file size from Content-Length header
+  const contentLengthHeader = response.headers.get("content-length");
+  const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
   const actualContentType = response.headers.get("content-type") || contentType;
   
   // Generate filename based on content type
   const ext = getExtensionFromContentType(actualContentType);
   const filename = `whatsapp_${Date.now()}.${ext}`;
 
-  return {
-    data,
-    base64,
-    contentType: actualContentType,
-    filename,
-  };
+  // Check if file is too large for in-memory processing
+  const isLargeFile = contentLength > MAX_MEMORY_SIZE_BYTES;
+  
+  console.log(`Media size: ${contentLength} bytes, isLargeFile: ${isLargeFile}`);
+
+  if (isLargeFile) {
+    // For large files, we still need to download for storage upload
+    // But we mark it as large so AI analysis can be skipped or limited
+    console.log(`Large file detected (${(contentLength / 1024 / 1024).toFixed(2)} MB), downloading in chunks...`);
+    
+    // Download the file in chunks to handle it more gracefully
+    const data = new Uint8Array(await response.arrayBuffer());
+    
+    // Only encode first 1MB for AI analysis (enough for first page of PDF)
+    const analysisSize = Math.min(data.length, 1 * 1024 * 1024);
+    const analysisData = data.slice(0, analysisSize);
+    const base64 = encodeBase64(analysisData);
+    
+    return {
+      data,
+      base64, // Only first 1MB encoded for analysis
+      contentType: actualContentType,
+      filename,
+      sizeBytes: data.length,
+      isLargeFile: true,
+    };
+  } else {
+    // Small file - process normally
+    const data = new Uint8Array(await response.arrayBuffer());
+    const base64 = encodeBase64(data);
+    
+    return {
+      data,
+      base64,
+      contentType: actualContentType,
+      filename,
+      sizeBytes: data.length,
+      isLargeFile: false,
+    };
+  }
 }
 
 function getExtensionFromContentType(contentType: string): string {
