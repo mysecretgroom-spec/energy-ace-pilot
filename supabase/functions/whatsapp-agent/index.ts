@@ -110,6 +110,8 @@ interface PendingAction {
     factureDescription?: string;    // Description
     factureCategorie?: string;      // Catégorie
     factureStorageUrl?: string;     // URL du fichier uploadé
+    selectedClientId?: string | null;     // Client sélectionné pour le frais
+    selectedClientName?: string | null;   // Nom du client sélectionné
   };
   createdAt: string;
 }
@@ -3677,6 +3679,69 @@ async function handlePendingWorkflow(
         };
       }
       
+      // Get client suggestions from pending action
+      const clientSuggestions = collectedData.clientSuggestions as Array<{ id: string; fullName: string; score: number }> | undefined;
+      
+      // Check if user is selecting a client (1, 2, 3, or 4)
+      if (clientSuggestions && clientSuggestions.length > 0) {
+        const numMatch = messageLower.match(/^[1-4]$/);
+        const emojiMatch = messageLower.match(/^[1️⃣2️⃣3️⃣4️⃣]$/);
+        
+        let selectedIndex = -1;
+        if (numMatch) {
+          selectedIndex = parseInt(numMatch[0]) - 1;
+        } else if (emojiMatch) {
+          const emojiMap: Record<string, number> = { "1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3 };
+          selectedIndex = emojiMap[emojiMatch[0]] ?? -1;
+        }
+        
+        if (selectedIndex >= 0) {
+          // User selected an option
+          let selectedClientId: string | null = null;
+          let selectedClientName: string | null = null;
+          
+          if (selectedIndex < clientSuggestions.length) {
+            // Selected a client from suggestions
+            selectedClientId = clientSuggestions[selectedIndex].id;
+            selectedClientName = clientSuggestions[selectedIndex].fullName;
+          }
+          // If selectedIndex is 3 (option 4), it means "no client" - leave as null
+          
+          // Update collected data and proceed to confirmation
+          const updatedPendingAction: PendingAction = {
+            ...pendingAction,
+            collectedData: {
+              ...collectedData,
+              selectedClientId,
+              selectedClientName,
+              clientSuggestions: undefined, // Clear suggestions after selection
+            },
+          };
+          
+          let montant = collectedData.factureMontant || 0;
+          let dateStr = collectedData.factureDate || new Date().toISOString().split("T")[0];
+          let fournisseur = collectedData.factureFournisseur || "";
+          let categorie = collectedData.factureCategorie || "autre";
+          
+          let responseMsg = `📝 *Récapitulatif:*\n\n`;
+          responseMsg += `💰 Montant: *${montant.toLocaleString("fr-FR")}€*\n`;
+          responseMsg += `📅 Date: ${dateStr}\n`;
+          if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
+          responseMsg += `📂 Catégorie: ${categorie}\n`;
+          responseMsg += selectedClientName 
+            ? `👤 Client: *${selectedClientName}*\n`
+            : `👤 *Frais personnel*\n`;
+          responseMsg += `\n*Confirmes-tu ?* (Oui/Non)`;
+          
+          return {
+            intent: "import_facture",
+            actionTaken: "client_selected",
+            newPendingAction: updatedPendingAction,
+            responseMessage: responseMsg,
+          };
+        }
+      }
+      
       // Check for confirmation
       const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon", "d'accord", "correct", "parfait"];
       const isConfirming = confirmPatterns.some(p => messageLower.includes(p));
@@ -3746,6 +3811,24 @@ async function handlePendingWorkflow(
           intent: "import_facture",
           actionTaken: "facture_data_updated",
           newPendingAction: updatedPendingAction,
+          responseMessage: responseMsg,
+        };
+      }
+      
+      // If client suggestions exist and user hasn't selected yet, prompt again
+      if (clientSuggestions && clientSuggestions.length > 0 && !isConfirming) {
+        let responseMsg = `🤔 *Choisis un client:*\n\n`;
+        for (let i = 0; i < clientSuggestions.length; i++) {
+          const suggestion = clientSuggestions[i];
+          responseMsg += `${i + 1}️⃣ ${suggestion.fullName} (${suggestion.score}%)\n`;
+        }
+        responseMsg += `4️⃣ 🚫 *Frais personnel* (pas de client)\n\n`;
+        responseMsg += `_Réponds 1, 2, 3 ou 4_`;
+        
+        return {
+          intent: "import_facture",
+          actionTaken: "awaiting_client_selection",
+          newPendingAction: pendingAction,
           responseMessage: responseMsg,
         };
       }
@@ -6264,6 +6347,16 @@ async function executeAction(
         return { actionTaken: "error" };
       }
 
+      // Search for potential client matches based on supplier name
+      let clientSuggestions: Array<{ id: string; fullName: string; score: number }> = [];
+      
+      if (fournisseur && fournisseur.length >= 2) {
+        const searchResult = await findClientByName(supabase, userId, fournisseur);
+        if (searchResult.suggestions && searchResult.suggestions.length > 0) {
+          clientSuggestions = searchResult.suggestions.slice(0, 3);
+        }
+      }
+
       // Build confirmation message with extracted data
       let responseMsg = `🧾 *Note de frais reçue !*\n\n`;
       responseMsg += `📄 ${originalFilename}\n\n`;
@@ -6273,11 +6366,23 @@ async function executeAction(
       if (tva) responseMsg += `📋 TVA: ${tva.toLocaleString("fr-FR")}€\n`;
       responseMsg += `📅 Date: ${dateStr}\n`;
       if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
-      responseMsg += `📂 Catégorie: ${categorie}\n`;
-      responseMsg += `\n*Ces informations sont-elles correctes ?*\n`;
-      responseMsg += `✅ *Oui* pour confirmer\n`;
-      responseMsg += `❌ *Non* pour annuler\n`;
-      responseMsg += `_Ou donne-moi les corrections (ex: "montant 45€" ou "catégorie carburant")_`;
+      responseMsg += `📂 Catégorie: ${categorie}\n\n`;
+      
+      // If client suggestions found, ask user to select
+      if (clientSuggestions.length > 0) {
+        responseMsg += `👤 *Lier à un client ?*\n`;
+        for (let i = 0; i < clientSuggestions.length; i++) {
+          const suggestion = clientSuggestions[i];
+          responseMsg += `${i + 1}️⃣ ${suggestion.fullName} (${suggestion.score}%)\n`;
+        }
+        responseMsg += `4️⃣ 🚫 *Frais personnel* (pas de client)\n\n`;
+        responseMsg += `_Réponds 1, 2, 3 ou 4_`;
+      } else {
+        responseMsg += `*Ces informations sont-elles correctes ?*\n`;
+        responseMsg += `✅ *Oui* pour confirmer\n`;
+        responseMsg += `❌ *Non* pour annuler\n`;
+        responseMsg += `_Ou donne-moi les corrections (ex: "montant 45€" ou "catégorie carburant")_`;
+      }
 
       // Create pending action for facture confirmation
       const newPendingAction: PendingAction = {
@@ -6297,6 +6402,7 @@ async function executeAction(
           factureFournisseur: fournisseur || undefined,
           factureDescription: description,
           factureCategorie: categorie,
+          clientSuggestions: clientSuggestions.length > 0 ? clientSuggestions : undefined,
         },
         createdAt: new Date().toISOString(),
       };
