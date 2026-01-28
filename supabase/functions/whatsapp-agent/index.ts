@@ -1442,8 +1442,11 @@ serve(async (req) => {
             handled.responseMessage = "✅ Action exécutée avec succès !";
           }
           
-          // Clear the pending action
-          actionResult.newPendingAction = null;
+          // Only clear the pending action if the executeAction didn't return a new one
+          // (e.g., if action needs regie selection, we keep that pending action)
+          if (actionResult.newPendingAction === undefined) {
+            actionResult.newPendingAction = null;
+          }
         } else {
           actionResult = handled;
         }
