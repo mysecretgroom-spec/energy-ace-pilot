@@ -152,6 +152,9 @@ interface ClientDocAnalysisResult {
   document_type: string | null;
   confidence: number;
   description: string | null;
+  // New: client info extracted from document content
+  extracted_client_name?: string | null;
+  extracted_client_confidence?: number;
   error_message?: string;
 }
 
@@ -1406,13 +1409,15 @@ serve(async (req) => {
 
         console.log("Structured analysis result:", documentAnalysisResult);
       } else {
-        // For large files, create a placeholder result
+        // For large files, create a placeholder result (no AI analysis = no client extraction)
         documentAnalysisResult = {
           type: isFinanceContext ? "finance" : "client_docs",
           success: true,
           document_type: "autre",
           confidence: 50,
           description: "Document volumineux - classification automatique non disponible",
+          extracted_client_name: null,
+          extracted_client_confidence: 0,
         } as ClientDocAnalysisResult;
         console.log("Large file - skipping AI analysis, using placeholder");
       }
@@ -1427,9 +1432,13 @@ serve(async (req) => {
         } else {
           const doc = documentAnalysisResult as ClientDocAnalysisResult;
           const largeFileNote = mediaData.isLargeFile ? " (fichier volumineux)" : "";
+          const clientConfidence = doc.extracted_client_confidence ?? 0;
+          const clientNote = doc.extracted_client_name && clientConfidence >= 60
+            ? `, client_detecte="${doc.extracted_client_name}" (confiance=${clientConfidence}%)`
+            : "";
           processedContent = request.content 
-            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%, ${doc.description || ""}]`
-            : `[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%, ${doc.description || ""}]`;
+            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%${clientNote}, ${doc.description || ""}]`
+            : `[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%${clientNote}, ${doc.description || ""}]`;
         }
       } else if (documentAnalysisResult) {
         processedContent = request.content 
@@ -2112,9 +2121,11 @@ Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple succès:
 Exemple échec:
 {"success": false, "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue, impossible de lire le texte"}`;
   } else {
-    prompt = `Analyse cette image de document client et détermine son type.
+    prompt = `Analyse cette image de document client et détermine son type ET identifie le client concerné.
 
 IMPORTANT: Si l'image est floue, illisible, ou si tu n'arrives pas à identifier le type de document, retourne success: false.
+
+OBJECTIF PRINCIPAL: Identifier le NOM du client mentionné dans ce document (sur une CNI, un avis d'impôts, un RIB, une facture, etc.)
 
 Types de documents possibles:
 - Photos techniques: "photo_tableau" (tableau électrique), "photo_compteur" (compteur électrique), "photo_toiture" (toit), "photo_chantier" (chantier)
@@ -2129,13 +2140,18 @@ Retourne un JSON avec:
 - document_type: le type de document parmi la liste ci-dessus
 - confidence: niveau de confiance de 0 à 100
 - description: courte description de ce que tu vois
+- extracted_client_name: le NOM et PRÉNOM de la personne visible sur le document (ex: "DUPONT Jean-Pierre") ou null si non visible
+- extracted_client_confidence: confiance de 0 à 100 sur le nom extrait
 - error_message: si success=false, explique pourquoi
 
-Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple:
-{"success": true, "document_type": "photo_compteur", "confidence": 95, "description": "Photo d'un compteur Linky"}
+Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple avec client:
+{"success": true, "document_type": "cni_monsieur_recto", "confidence": 95, "description": "CNI de M. DUPONT", "extracted_client_name": "DUPONT Jean-Pierre", "extracted_client_confidence": 90}
+
+Exemple sans nom visible:
+{"success": true, "document_type": "photo_compteur", "confidence": 95, "description": "Photo d'un compteur Linky", "extracted_client_name": null, "extracted_client_confidence": 0}
 
 Exemple échec:
-{"success": false, "document_type": null, "confidence": 0, "description": null, "error_message": "Image floue, impossible d'identifier le document"}`;
+{"success": false, "document_type": null, "confidence": 0, "description": null, "extracted_client_name": null, "extracted_client_confidence": 0, "error_message": "Image floue, impossible d'identifier le document"}`;
   }
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -2217,6 +2233,8 @@ Exemple échec:
         document_type: parsed.document_type ?? null,
         confidence: parsed.confidence ?? 0,
         description: parsed.description ?? null,
+        extracted_client_name: parsed.extracted_client_name ?? null,
+        extracted_client_confidence: parsed.extracted_client_confidence ?? 0,
         error_message: parsed.error_message,
       };
     }
@@ -2243,6 +2261,8 @@ Exemple échec:
         document_type: null,
         confidence: 0,
         description: null,
+        extracted_client_name: null,
+        extracted_client_confidence: 0,
         error_message: "Impossible de traiter la réponse de l'IA",
       };
     }
@@ -5369,46 +5389,68 @@ async function executeAction(
 
       // Get document type from analysis result if available
       let documentType = entities.document_type as string || "autre";
+      let extractedClientName: string | null = null;
+      let extractedClientConfidence = 0;
+      
       if (analysisResult && analysisResult.type === "client_docs" && analysisResult.success) {
         documentType = analysisResult.document_type || documentType;
+        // Extract client name from document if available
+        extractedClientName = analysisResult.extracted_client_name || null;
+        extractedClientConfidence = analysisResult.extracted_client_confidence || 0;
+        console.log(`AI extracted client name: "${extractedClientName}" (confidence: ${extractedClientConfidence}%)`);
       }
       
-      const clientName = entities.client_name as string;
+      // Priority: 1) User-provided name, 2) AI-extracted from document
+      let clientName = entities.client_name as string;
+      const clientNameSource = clientName ? "user" : (extractedClientName ? "ai" : null);
       
-      // If no client name provided, ask for it
+      if (!clientName && extractedClientName && extractedClientConfidence >= 60) {
+        clientName = extractedClientName;
+        console.log(`Using AI-extracted client name: "${clientName}"`);
+      }
+      
+      // If still no client name, ask the user for it
       if (!clientName) {
+        const typeLabel = documentType !== "autre" ? ` (${documentType})` : "";
         return { 
           actionTaken: "needs_client_name",
-          customResponse: `📄 J'ai bien reçu ton document (${documentType}).\n\n👤 *Pour quel client ?*\nIndique-moi le nom du client pour l'associer à son dossier.`
+          customResponse: `📄 J'ai bien reçu ton document${typeLabel}.\n\n👤 *Pour quel client ?*\nJe n'ai pas pu identifier le nom sur le document. Indique-moi le nom du client.`
         };
       }
       
       // Try to find the client using fuzzy search
       let clientId: string | null = null;
-      let fuzzyMatchInfo: string | null = null;
+      let matchedClientName: string | null = null;
       
       const searchResult = await findClientByName(supabase, userId, clientName);
       
       if (searchResult.exactMatch) {
         clientId = searchResult.exactMatch.id;
+        matchedClientName = searchResult.exactMatch.fullName;
       } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
         // Use best fuzzy match if score is high enough
         clientId = searchResult.clients[0].id;
-        fuzzyMatchInfo = searchResult.clients[0].fullName;
-        console.log(`Fuzzy matched "${clientName}" to "${fuzzyMatchInfo}"`);
+        matchedClientName = searchResult.clients[0].fullName;
+        console.log(`Fuzzy matched "${clientName}" to "${matchedClientName}"`);
       } else if (searchResult.clients.length > 0) {
         // Multiple possible matches with low score - ask user to clarify
         const suggestions = searchResult.clients.slice(0, 3).map(c => `• ${c.fullName}`).join("\n");
+        const sourceNote = clientNameSource === "ai" 
+          ? `\n\n💡 _J'ai lu "${clientName}" sur le document mais pas de correspondance exacte._`
+          : "";
         return {
           actionTaken: "client_ambiguous",
-          customResponse: `📄 Document reçu !\n\n🔍 Je n'ai pas trouvé de client "*${clientName}*".\n\nClients similaires :\n${suggestions}\n\nPeux-tu préciser le nom exact ?`
+          customResponse: `📄 Document reçu !\n\n🔍 Je n'ai pas trouvé de client "*${clientName}*".\n\nClients similaires :\n${suggestions}\n\nPeux-tu préciser le nom exact ?${sourceNote}`
         };
       }
 
       if (!clientId) {
+        const sourceNote = clientNameSource === "ai" 
+          ? `\n\n💡 _J'ai lu "${clientName}" sur le document._`
+          : "";
         return { 
           actionTaken: "client_not_found",
-          customResponse: `📄 Document reçu !\n\n❌ Aucun client "*${clientName}*" trouvé dans ta base.\n\nVérifie l'orthographe ou crée d'abord le client dans l'application.`
+          customResponse: `📄 Document reçu !\n\n❌ Aucun client "*${clientName}*" trouvé dans ta base.\n\nVérifie l'orthographe ou crée d'abord le client dans l'application.${sourceNote}`
         };
       }
 
@@ -5441,6 +5483,9 @@ async function executeAction(
         metadata.ai_document_type = analysisResult.document_type;
         metadata.ai_confidence = analysisResult.confidence;
         metadata.ai_description = analysisResult.description;
+        metadata.ai_extracted_client = extractedClientName;
+        metadata.ai_extracted_client_confidence = extractedClientConfidence;
+        metadata.client_match_source = clientNameSource;
       }
 
       // Create document record
@@ -5464,10 +5509,16 @@ async function executeAction(
         return { actionTaken: "error" };
       }
 
+      // Build success message with context
+      const matchNote = clientNameSource === "ai" && matchedClientName
+        ? `\n\n🤖 _Identifié automatiquement sur le document_`
+        : "";
+        
       return {
         actionTaken: "document_imported",
         entityId: doc?.id,
         entityType: "document",
+        customResponse: `✅ Document *${documentType}* ajouté au dossier de *${matchedClientName}* !${matchNote}`,
       };
     }
 
