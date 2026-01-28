@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import {
@@ -55,6 +56,7 @@ interface Regie {
   id: string;
   nom: string;
   couleur: string | null;
+  is_hejja: boolean;
 }
 
 type ViewMode = "jour" | "semaine" | "mois";
@@ -99,6 +101,7 @@ const projectTypeLabels: Record<string, string> = {
 
 const Planning = () => {
   const { user } = useAuth();
+  const { isActive: modeHejjaActive } = useHejjaMode();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<ViewMode>("semaine");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -128,11 +131,11 @@ const Planning = () => {
       if (!user) return;
       const { data } = await supabase
         .from("regies")
-        .select("id, nom, couleur")
+        .select("id, nom, couleur, is_hejja")
         .eq("user_id", user.id)
         .eq("actif", true)
         .order("nom");
-      if (data) setRegies(data);
+      if (data) setRegies(data.map(r => ({ ...r, is_hejja: r.is_hejja ?? false })));
     };
     fetchRegies();
   }, [user]);
@@ -355,9 +358,23 @@ const Planning = () => {
     }
   }, [user, currentDate, viewMode, selectedRegieId]);
 
+  // Filter regies for display (hide hejja regies outside of hejja mode)
+  const filteredRegies = modeHejjaActive 
+    ? regies 
+    : regies.filter(r => !r.is_hejja);
+
+  // Filter RDVs to hide hejja regie RDVs outside of hejja mode
+  const filteredRdvList = modeHejjaActive
+    ? rdvList
+    : rdvList.filter(rdv => {
+        if (!rdv.regieId) return true;
+        const regie = regies.find(r => r.id === rdv.regieId);
+        return !regie?.is_hejja;
+      });
+
   // Merge route data with rdvList for day view
   const rdvListWithRoutes: RdvData[] = viewMode === "jour" && routeRdvs.length > 0
-    ? rdvList.map((rdv) => {
+    ? filteredRdvList.map((rdv) => {
         const routeRdv = routeRdvs.find((r) => r.id === rdv.id);
         if (routeRdv) {
           return {
@@ -369,7 +386,7 @@ const Planning = () => {
         }
         return rdv;
       })
-    : rdvList;
+    : filteredRdvList;
 
   useEffect(() => {
     fetchRdvs();
@@ -432,7 +449,7 @@ const Planning = () => {
           {/* Actions regroupées - responsive wrap */}
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* Filtre Régie */}
-            {regies.length > 0 && (
+            {filteredRegies.length > 0 && (
               <Select
                 value={selectedRegieId || "all"}
                 onValueChange={(value) => setSelectedRegieId(value === "all" ? null : value)}
@@ -445,7 +462,7 @@ const Planning = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
-                  {regies.map((regie) => (
+                  {filteredRegies.map((regie) => (
                     <SelectItem key={regie.id} value={regie.id}>
                       <div className="flex items-center gap-2">
                         {regie.couleur && (
