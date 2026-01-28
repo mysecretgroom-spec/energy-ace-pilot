@@ -244,7 +244,7 @@ export const RGECardDialog = () => {
 
         {/* RGE Card - Floating business card style with drag gesture */}
         <div 
-          className="origin-center rotate-90 w-[100vh] h-[100vw] max-w-[100vh] max-h-[100vw] flex items-center justify-center p-4 transition-transform duration-200"
+          className="origin-center w-[100vh] h-[100vw] flex items-center justify-center p-2 transition-transform duration-200"
           style={{ 
             transform: `rotate(90deg) translateX(${dragY}px)`,
             opacity: Math.max(0.3, 1 - dragY / 300)
@@ -253,36 +253,36 @@ export const RGECardDialog = () => {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
-            {/* Header with Ministère and France Rénov logos - larger and more spaced */}
-            <div className="bg-white py-8 px-12 flex items-center justify-between rounded-t-3xl">
+          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-full h-full flex flex-col rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
+            {/* Header with Ministère and France Rénov logos */}
+            <div className="bg-white py-4 px-6 flex items-center justify-between rounded-t-2xl shrink-0">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-28 object-contain"
+                className="h-16 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-28 object-contain"
+                className="h-16 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-2 px-6 text-center shrink-0 shadow-sm">
-              <h3 className="text-sm font-bold tracking-widest uppercase drop-shadow-sm">
+            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-1.5 px-4 text-center shrink-0 shadow-sm">
+              <h3 className="text-xs font-bold tracking-widest uppercase drop-shadow-sm">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
-            {/* Main content - floating inner card matching footer width */}
-            <div className="flex-1 flex items-center justify-center p-2 pb-1">
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl w-full max-w-3xl h-full max-h-[85%] border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
-                {/* Photo and info - centered layout */}
-                <div className="flex-1 flex items-center justify-center gap-10 p-10">
-                  {/* Photo - height matches the two stacked elements */}
+            {/* Main content */}
+            <div className="flex-1 flex items-center justify-center p-3 min-h-0">
+              <div className="bg-white/15 backdrop-blur-md rounded-xl w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
+                {/* Photo and info - responsive layout */}
+                <div className="flex-1 flex items-center justify-center gap-4 p-4 min-h-0">
+                  {/* Photo */}
                   <div className="relative shrink-0">
-                    <div className="h-52 w-36 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-2 ring-offset-transparent">
+                    <div className="h-32 w-24 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -290,117 +290,117 @@ export const RGECardDialog = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white text-3xl font-bold">
+                        <div className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
                           ?
                         </div>
                       )}
                     </div>
                     {!profile?.avatar_url && (
-                      <div className="absolute -bottom-1 -right-1 bg-amber-500 text-[8px] px-1 rounded text-white whitespace-nowrap">
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 text-[6px] px-1 rounded text-white whitespace-nowrap">
                         Photo manquante
                       </div>
                     )}
                   </div>
 
-                  {/* Technician info - centered */}
-                  <div className="text-center">
+                  {/* Technician info */}
+                  <div className="text-center flex-1 min-w-0">
                     {fullName ? (
-                      <h4 className="text-3xl font-bold mb-1">{fullName}</h4>
+                      <h4 className="text-lg font-bold mb-0.5 truncate">{fullName}</h4>
                     ) : (
-                      <div className="mb-1">
-                        <p className="text-xl text-white/50 italic">Nom Prénom</p>
-                        <p className="text-[10px] text-amber-400">À renseigner dans le profil</p>
+                      <div className="mb-0.5">
+                        <p className="text-base text-white/50 italic">Nom Prénom</p>
+                        <p className="text-[8px] text-amber-400">À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 text-base mb-1">Technicien agréé</p>
+                    <p className="text-white/80 text-xs mb-1">Technicien agréé</p>
                     {siretSearchComplete && companyInfo && (
-                      <div className="mb-2">
-                        <p className="text-lg font-semibold text-white/90">
+                      <div className="mb-1">
+                        <p className="text-sm font-semibold text-white/90 truncate">
                           {companyInfo.nom}
                         </p>
-                        <p className="text-sm text-white/70 font-mono">
+                        <p className="text-xs text-white/70 font-mono">
                           SIRET: {companyInfo.siret}
                         </p>
                       </div>
                     )}
                     {profile?.telephone_pro ? (
-                      <div className={`flex items-center justify-center gap-3 text-xl ${!companyInfo ? 'mt-2' : ''}`}>
-                        <Phone className="h-7 w-7" />
+                      <div className={`flex items-center justify-center gap-2 text-sm ${!companyInfo ? 'mt-1' : ''}`}>
+                        <Phone className="h-4 w-4" />
                         <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className={`flex items-center justify-center gap-3 text-xl ${!companyInfo ? 'mt-2' : ''}`}>
-                        <Phone className="h-7 w-7 text-white/50" />
-                        <span className="text-white/50 italic">Tél. pro manquant</span>
+                      <div className={`flex items-center justify-center gap-2 text-sm ${!companyInfo ? 'mt-1' : ''}`}>
+                        <Phone className="h-4 w-4 text-white/50" />
+                        <span className="text-white/50 italic text-xs">Tél. pro manquant</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Agrément number + QR Code stacked vertically */}
-                  <div className="shrink-0 flex flex-col items-center gap-4 w-40">
+                  {/* Agrément number + QR Code */}
+                  <div className="shrink-0 flex flex-col items-center gap-2 w-28">
                     {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg p-5 text-center w-full">
-                      <p className="text-[10px] text-white/70 uppercase tracking-wider mb-1">
+                    <div className="bg-white/15 rounded-lg p-2 text-center w-full">
+                      <p className="text-[8px] text-white/70 uppercase tracking-wider mb-0.5">
                         N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
-                        <p className="text-2xl font-mono font-bold">
+                        <p className="text-base font-mono font-bold leading-tight">
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-sm text-white/50 italic">Non renseigné</p>
+                        <p className="text-xs text-white/50 italic">Non renseigné</p>
                       )}
                     </div>
 
-                    {/* QR Code - same width */}
-                    <div className="text-center flex flex-col items-center gap-2 w-full">
+                    {/* QR Code */}
+                    <div className="text-center flex flex-col items-center gap-1 w-full">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white p-3 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md w-full flex justify-center"
+                        className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={70}
+                          size={50}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-[9px] text-white/70">Vérifier sur France Rénov'</p>
+                      <p className="text-[7px] text-white/70">Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Certifications band inside the central card */}
-                <div className="bg-white py-4 px-6 rounded-b-xl mx-auto max-w-3xl w-full">
+                {/* Certifications band */}
+                <div className="bg-white py-2 px-4 rounded-b-lg shrink-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+                    <p className="text-[8px] text-gray-500 uppercase tracking-wider font-medium">
                       Certifications
                     </p>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <img 
                         src={logoRgeEcoArtisan} 
                         alt="RGE Eco Artisan" 
-                        className="h-10 object-contain"
+                        className="h-6 object-contain"
                       />
                       <img 
                         src={logoQualipac} 
                         alt="QualiPAC" 
-                        className="h-10 object-contain"
+                        className="h-6 object-contain"
                       />
                       <img 
                         src={logoQualipv} 
                         alt="QualiPV" 
-                        className="h-10 object-contain"
+                        className="h-6 object-contain"
                       />
                       <img 
                         src={logoQualitenr} 
                         alt="QualiT'EnR" 
-                        className="h-10 object-contain"
+                        className="h-6 object-contain"
                       />
                     </div>
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      Reconnu Garant de l'Environnement
+                    <p className="text-[8px] text-gray-500 font-medium">
+                      RGE
                     </p>
                   </div>
                 </div>
