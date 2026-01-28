@@ -762,7 +762,7 @@ const Finance = () => {
                           <p className="text-xs text-orange-600/80">Non posé (signé → installation)</p>
                         </div>
                       </div>
-                      <p className="text-base font-bold text-orange-700">
+                      <p className="text-base font-bold text-orange-700 whitespace-nowrap">
                         {venteStats.comEnCours.toLocaleString("fr-FR")} €
                       </p>
                     </div>
@@ -779,7 +779,7 @@ const Finance = () => {
                           <p className="text-xs text-blue-600/80">Posé &lt; 2 semaines</p>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-blue-700">
+                      <p className="text-lg font-bold text-blue-700 whitespace-nowrap">
                         {venteStats.comAttenteFacturation.toLocaleString("fr-FR")} €
                       </p>
                     </div>
@@ -796,7 +796,7 @@ const Finance = () => {
                           <p className="text-xs text-green-600/80">Posé ≥ 2 semaines</p>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-green-700">
+                      <p className="text-lg font-bold text-green-700 whitespace-nowrap">
                         {venteStats.comAFacturer.toLocaleString("fr-FR")} €
                       </p>
                     </div>
@@ -813,7 +813,7 @@ const Finance = () => {
                           <p className="text-xs text-emerald-600/80">Commissions encaissées</p>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-emerald-700">
+                      <p className="text-lg font-bold text-emerald-700 whitespace-nowrap">
                         {venteStats.comPayees.toLocaleString("fr-FR")} €
                       </p>
                     </div>
@@ -825,7 +825,7 @@ const Finance = () => {
                           <Euro className="h-4 w-4 text-amber-700" />
                           <p className="text-xs font-bold text-amber-800">TOTAL POTENTIEL HT</p>
                         </div>
-                        <p className="text-base font-bold text-amber-800">
+                        <p className="text-base font-bold text-amber-800 whitespace-nowrap">
                           {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
                         </p>
                       </div>
