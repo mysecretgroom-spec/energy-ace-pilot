@@ -391,9 +391,9 @@ export const RGECardDialog = () => {
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-20 sm:w-36 lg:w-44">
-                    {/* Agrément number - ratio 5:3 */}
-                    <div className="bg-white/15 rounded-lg text-center w-full aspect-[5/3] flex flex-col justify-center p-1.5 sm:p-3 lg:p-4">
+                  <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-[120px] sm:w-36 lg:w-44">
+                    {/* Agrément number - ratio 6:3 (2:1) */}
+                    <div className="bg-white/15 rounded-lg text-center w-full aspect-[2/1] flex flex-col justify-center p-1.5 sm:p-3 lg:p-4">
                       <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
                         N° d'Agrément
                       </p>
@@ -406,8 +406,8 @@ export const RGECardDialog = () => {
                       )}
                     </div>
 
-                    {/* QR Code - ratio 5:3 container */}
-                    <div className="text-center flex flex-col items-center justify-center gap-1 w-full aspect-[5/3]">
+                    {/* QR Code - ratio 6:3 (2:1) container */}
+                    <div className="text-center flex flex-col items-center justify-center gap-1 w-full aspect-[2/1]">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
                         className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1 sm:p-3"
@@ -415,7 +415,7 @@ export const RGECardDialog = () => {
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 32 : 70}
+                          size={isMobile ? 40 : 70}
                           level="M"
                           includeMargin={false}
                         />
