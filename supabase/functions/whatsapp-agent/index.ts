@@ -5282,39 +5282,41 @@ async function executeAction(
       
       const clientName = entities.client_name as string;
       
-      // Try to find the client if name was mentioned using fuzzy search
+      // If no client name provided, ask for it
+      if (!clientName) {
+        return { 
+          actionTaken: "needs_client_name",
+          customResponse: `📄 J'ai bien reçu ton document (${documentType}).\n\n👤 *Pour quel client ?*\nIndique-moi le nom du client pour l'associer à son dossier.`
+        };
+      }
+      
+      // Try to find the client using fuzzy search
       let clientId: string | null = null;
       let fuzzyMatchInfo: string | null = null;
       
-      if (clientName) {
-        const searchResult = await findClientByName(supabase, userId, clientName);
-        
-        if (searchResult.exactMatch) {
-          clientId = searchResult.exactMatch.id;
-        } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
-          // Use best fuzzy match if score is high enough
-          clientId = searchResult.clients[0].id;
-          fuzzyMatchInfo = searchResult.clients[0].fullName;
-          console.log(`Fuzzy matched "${clientName}" to "${fuzzyMatchInfo}"`);
-        }
-      }
-
-      // If no client found, get the most recent one with active RDV
-      if (!clientId) {
-        const { data: recentRdv } = await supabase
-          .from("rdv")
-          .select("client_id")
-          .eq("user_id", userId)
-          .order("date_heure", { ascending: false })
-          .limit(1);
-        
-        if (recentRdv && recentRdv.length > 0) {
-          clientId = recentRdv[0].client_id;
-        }
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.exactMatch) {
+        clientId = searchResult.exactMatch.id;
+      } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
+        // Use best fuzzy match if score is high enough
+        clientId = searchResult.clients[0].id;
+        fuzzyMatchInfo = searchResult.clients[0].fullName;
+        console.log(`Fuzzy matched "${clientName}" to "${fuzzyMatchInfo}"`);
+      } else if (searchResult.clients.length > 0) {
+        // Multiple possible matches with low score - ask user to clarify
+        const suggestions = searchResult.clients.slice(0, 3).map(c => `• ${c.fullName}`).join("\n");
+        return {
+          actionTaken: "client_ambiguous",
+          customResponse: `📄 Document reçu !\n\n🔍 Je n'ai pas trouvé de client "*${clientName}*".\n\nClients similaires :\n${suggestions}\n\nPeux-tu préciser le nom exact ?`
+        };
       }
 
       if (!clientId) {
-        return { actionTaken: "no_client_found" };
+        return { 
+          actionTaken: "client_not_found",
+          customResponse: `📄 Document reçu !\n\n❌ Aucun client "*${clientName}*" trouvé dans ta base.\n\nVérifie l'orthographe ou crée d'abord le client dans l'application.`
+        };
       }
 
       // Map document type to enum - extended with all types from analyze-document
