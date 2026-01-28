@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
+import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { ProductType } from "@/lib/productTypes";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -955,21 +956,24 @@ const EtudeForm = () => {
     const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
 
-    // === MENSUALITÉ ===
-    // Si mensualité manuelle, l'utiliser, sinon calculer
+    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
+    // Financement basé sur le montant TTC total hors aides
     let mensualite = 0;
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
     const dureeMois = dureeMoisManuelle || 120;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
-    const tauxMensuel = tauxEffectif / 100 / 12;
     
     if (mensualiteManuelle) {
       mensualite = Number(mensualiteManuelle);
-    } else if (tauxMensuel === 0) {
-      mensualite = totalAidesDeduites / dureeMois;
     } else {
-      // Formule de mensualité avec intérêts
-      mensualite = (totalAidesDeduites * tauxMensuel) / (1 - Math.pow(1 + tauxMensuel, -dureeMois));
+      // Calcul avec report de 6 mois sur le montant TTC hors aides
+      const resultatFinancement = calculerMensualiteAvecReport({
+        montantTTC: prixTotalHorsAides, // Montant TTC complet
+        tauxEffectifAnnuel: tauxEffectif,
+        dureeMois: dureeMois,
+        dureeReportMois: 6,
+      });
+      mensualite = resultatFinancement.mensualiteAmortissement;
     }
 
     // === RENTABILITÉ FINANCIÈRE ===

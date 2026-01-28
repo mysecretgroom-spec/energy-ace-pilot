@@ -4,7 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Euro, PiggyBank, CreditCard, TrendingUp, Flame, Zap, Thermometer, AlertCircle, TrendingDown } from "lucide-react";
+import { Euro, PiggyBank, CreditCard, TrendingUp, Zap, AlertCircle, TrendingDown, Clock } from "lucide-react";
+import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 
 interface AidesPAC {
   maPrimeRenov: number;
@@ -71,28 +72,26 @@ export const FinancialSectionPAC = ({
   economiesCalculees,
 }: FinancialSectionPACProps) => {
   const prixFinal = prixInstallationManuel || prixInstallation;
-  const prixTotal = Number(prixFinal) + autreSurcout;
-  
-  // TVA réduite 5.5% si résidence > 2 ans (économie ~ 14.5% vs TVA 20%)
-  const ecoTvaCalculee = prixTotal * 0.145;
+  // Montant TTC total hors aides (base de financement)
+  const prixTotalTTC = Number(prixFinal) + autreSurcout;
   
   const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale;
-  const prixAidesDéduites = prixTotal - totalAides;
+  const prixAidesDéduites = prixTotalTTC - totalAides;
   
-  // Calcul mensualité
+  // Calcul mensualité avec report 6 mois
   const selectedFinancement = financements.find(f => f.id === financementId);
-  const tauxMensuel = selectedFinancement ? (selectedFinancement.taux_effectif / 100) / 12 : 0.05 / 12;
+  const tauxEffectif = selectedFinancement?.taux_effectif || 0;
   const nbMois = Number(dureeMois) || 120;
   
-  let mensualiteCalculee = 0;
-  if (tauxMensuel > 0 && nbMois > 0) {
-    mensualiteCalculee = (prixAidesDéduites * tauxMensuel * Math.pow(1 + tauxMensuel, nbMois)) / 
-                         (Math.pow(1 + tauxMensuel, nbMois) - 1);
-  } else {
-    mensualiteCalculee = prixAidesDéduites / nbMois;
-  }
+  // Calcul avec report de 6 mois sur le montant TTC hors aides
+  const resultatFinancement = calculerMensualiteAvecReport({
+    montantTTC: prixTotalTTC,
+    tauxEffectifAnnuel: tauxEffectif,
+    dureeMois: nbMois,
+    dureeReportMois: 6,
+  });
   
-  const mensualite = mensualiteManuelle || mensualiteCalculee;
+  const mensualite = mensualiteManuelle || resultatFinancement.mensualiteAmortissement;
   
   // Utiliser les économies calculées depuis PACFields si disponibles
   const economieMensuelle = economiesCalculees?.economieNetteMessage ?? 0;
@@ -153,7 +152,7 @@ export const FinancialSectionPAC = ({
             <Separator className="my-1" />
             <div className="flex justify-between font-bold">
               <span>TOTAL Hors Aides</span>
-              <span>{prixTotal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+              <span>{prixTotalTTC.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
             </div>
             <div className="flex justify-between text-green-600">
               <span>TOTAL Aides</span>
@@ -316,15 +315,37 @@ export const FinancialSectionPAC = ({
                 step="0.01"
                 value={mensualiteManuelle}
                 onChange={(e) => onMensualiteChange(e.target.value ? Number(e.target.value) : "")}
-                placeholder={`${mensualiteCalculee.toFixed(2)}€`}
+                placeholder={`${resultatFinancement.mensualiteAmortissement.toFixed(2)}€`}
                 className="h-8 text-xs"
               />
             </div>
           </div>
           
+          {/* Info report 6 mois */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs">
+            <div className="flex items-center gap-2 text-amber-700 font-medium mb-1">
+              <Clock className="h-3 w-3" />
+              Report 6 mois inclus
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Pendant le report :</span>
+                <span className="font-medium">{resultatFinancement.mensualiteReport.toFixed(0)}€/mois</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Intérêts intercalaires :</span>
+                <span className="font-medium">{resultatFinancement.interetsIntercalaires.toFixed(0)}€</span>
+              </div>
+            </div>
+          </div>
+          
           <div className="flex justify-between font-bold bg-blue-100 rounded p-2">
-            <span>Mensualité finale</span>
+            <span>Mensualité après report</span>
             <span className="text-blue-700">{Number(mensualite).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€/mois</span>
+          </div>
+          
+          <div className="text-[10px] text-muted-foreground text-center">
+            Durée totale : {resultatFinancement.dureeTotaleMois} mois ({(resultatFinancement.dureeTotaleMois / 12).toFixed(1)} ans)
           </div>
         </CardContent>
       </Card>
