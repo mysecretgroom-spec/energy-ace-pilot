@@ -284,8 +284,8 @@ export const RGECardDialog = () => {
             transform: isMobile 
               ? `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
               : undefined,
-            width: isMobile ? '95vh' : '100%',
-            height: isMobile ? '85vw' : '100%',
+            width: isMobile ? '98vh' : '100%',
+            height: isMobile ? '92vw' : '100%',
             maxWidth: isMobile ? undefined : '100%',
             padding: isMobile ? '0.5rem' : '2rem',
           }}
