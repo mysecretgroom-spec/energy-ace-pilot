@@ -278,44 +278,45 @@ export const RGECardDialog = () => {
         <div 
           className={`flex items-center justify-center transition-all ${
             isDragging ? 'duration-0' : 'duration-200'
-          } w-full h-full p-4 sm:p-8 lg:p-12`}
+          } w-full h-full p-2 sm:p-8 lg:p-12`}
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
             transform: isMobile ? `scale(${Math.max(0.9, 1 - dragDistance / 500)})` : undefined
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none w-full max-w-5xl aspect-[16/9] rounded-2xl sm:rounded-3xl"
+            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none w-full max-w-5xl rounded-2xl sm:rounded-3xl"
+            style={{ aspectRatio: isMobile ? '4/3' : '16/9' }}
           >
             {/* Header with Ministère and France Rénov logos */}
-            <div className="bg-white flex items-center justify-between shrink-0 py-2 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
+            <div className="bg-white flex items-center justify-between shrink-0 py-3 px-4 sm:py-4 sm:px-8 lg:py-8 lg:px-16 rounded-t-2xl sm:rounded-t-3xl">
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-8 sm:h-14 lg:h-28 object-contain"
+                className="h-10 sm:h-14 lg:h-28 object-contain"
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-8 sm:h-14 lg:h-28 object-contain"
+                className="h-10 sm:h-14 lg:h-28 object-contain"
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] text-center shrink-0 shadow-sm py-1 px-4 sm:py-2 sm:px-6">
-              <h3 className="font-bold tracking-widest uppercase drop-shadow-sm text-[10px] sm:text-sm lg:text-base">
+            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] text-center shrink-0 shadow-sm py-1.5 px-4 sm:py-2 sm:px-6">
+              <h3 className="font-bold tracking-widest uppercase drop-shadow-sm text-xs sm:text-sm lg:text-base">
                 Carte Professionnelle RGE
               </h3>
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex items-center justify-center min-h-0 p-2 sm:p-4 lg:p-6">
+            <div className="flex-1 flex items-center justify-center min-h-0 p-3 sm:p-4 lg:p-6">
               <div className="bg-white/15 backdrop-blur-md w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col rounded-xl sm:rounded-2xl">
                 {/* Photo and info - responsive layout */}
-                <div className="flex-1 flex items-center justify-center min-h-0 gap-2 sm:gap-8 lg:gap-12 p-2 sm:p-6 lg:p-8">
+                <div className="flex-1 flex flex-col sm:flex-row items-center justify-center min-h-0 gap-3 sm:gap-8 lg:gap-12 p-3 sm:p-6 lg:p-8">
                   {/* Photo */}
                   <div className="relative shrink-0">
-                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-16 w-12 sm:h-40 sm:w-32 lg:h-52 lg:w-40">
+                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-24 w-20 sm:h-40 sm:w-32 lg:h-52 lg:w-40">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -323,125 +324,128 @@ export const RGECardDialog = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg sm:text-3xl lg:text-4xl">
+                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-2xl sm:text-3xl lg:text-4xl">
                           ?
                         </div>
                       )}
                     </div>
                     {!profile?.avatar_url && (
-                      <div className="absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap text-[5px] sm:text-[8px] lg:text-xs">
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap text-[7px] sm:text-[8px] lg:text-xs">
                         Photo manquante
                       </div>
                     )}
                   </div>
 
-                  {/* Technician info */}
-                  <div className="text-center flex-1 min-w-0">
-                    {fullName ? (
-                      <h4 className="font-bold mb-0.5 truncate text-sm sm:text-2xl lg:text-3xl">{fullName}</h4>
-                    ) : (
-                      <div className="mb-0.5">
-                        <p className="text-white/50 italic text-xs sm:text-xl lg:text-2xl">Nom Prénom</p>
-                        <p className="text-amber-400 text-[6px] sm:text-xs">À renseigner dans le profil</p>
-                      </div>
-                    )}
-                    <p className="text-white/80 mb-0.5 sm:mb-1 text-[8px] sm:text-sm lg:text-base">Technicien agréé</p>
-                    {siretSearchComplete && companyInfo && (
-                      <div className="mb-0.5 sm:mb-1">
-                        <p className="font-semibold text-white/90 truncate text-[10px] sm:text-base lg:text-lg">
-                          {companyInfo.nom}
-                        </p>
-                        <button
-                          onClick={handleCopySiret}
-                          className="inline-flex items-center gap-1 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-[8px] sm:text-sm"
-                          title="Cliquer pour copier le SIRET"
-                        >
-                          SIRET: {companyInfo.siret}
-                          {siretCopied ? (
-                            <Check className="h-2 w-2 sm:h-4 sm:w-4" />
-                          ) : (
-                            <Copy className="h-2 w-2 sm:h-4 sm:w-4" />
-                          )}
-                        </button>
-                      </div>
-                    )}
-                    {profile?.telephone_pro ? (
-                      <div className={`flex items-center justify-center gap-1 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-[10px] sm:text-lg lg:text-xl`}>
-                        <Phone className="h-2.5 w-2.5 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
-                        <span className="font-medium">{profile.telephone_pro}</span>
-                      </div>
-                    ) : (
-                      <div className={`flex items-center justify-center gap-1 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-[10px] sm:text-base`}>
-                        <Phone className="text-white/50 h-2.5 w-2.5 sm:h-5 sm:w-5" />
-                        <span className="text-white/50 italic text-[8px] sm:text-sm">Tél. pro manquant</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-1 sm:gap-2 w-16 sm:w-36 lg:w-44">
-                    {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg text-center w-full p-1 sm:p-3 lg:p-4">
-                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[6px] sm:text-xs">
-                        N° d'Agrément
-                      </p>
-                      {profile?.numero_agrement ? (
-                        <p className="font-mono font-bold leading-tight text-[10px] sm:text-xl lg:text-2xl">
-                          {profile.numero_agrement}
-                        </p>
+                  {/* Technician info + Agrément/QR on mobile */}
+                  <div className="flex flex-row sm:contents items-start gap-4 w-full sm:w-auto">
+                    {/* Technician info */}
+                    <div className="text-center flex-1 min-w-0">
+                      {fullName ? (
+                        <h4 className="font-bold mb-0.5 truncate text-base sm:text-2xl lg:text-3xl">{fullName}</h4>
                       ) : (
-                        <p className="text-white/50 italic text-[8px] sm:text-sm">Non renseigné</p>
+                        <div className="mb-0.5">
+                          <p className="text-white/50 italic text-sm sm:text-xl lg:text-2xl">Nom Prénom</p>
+                          <p className="text-amber-400 text-[8px] sm:text-xs">À renseigner dans le profil</p>
+                        </div>
+                      )}
+                      <p className="text-white/80 mb-0.5 sm:mb-1 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
+                      {siretSearchComplete && companyInfo && (
+                        <div className="mb-0.5 sm:mb-1">
+                          <p className="font-semibold text-white/90 truncate text-sm sm:text-base lg:text-lg">
+                            {companyInfo.nom}
+                          </p>
+                          <button
+                            onClick={handleCopySiret}
+                            className="inline-flex items-center gap-1 font-mono text-white/70 hover:text-white transition-colors cursor-pointer active:scale-95 text-xs sm:text-sm"
+                            title="Cliquer pour copier le SIRET"
+                          >
+                            SIRET: {companyInfo.siret}
+                            {siretCopied ? (
+                              <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                            ) : (
+                              <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                      {profile?.telephone_pro ? (
+                        <div className={`flex items-center justify-center gap-1.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-sm sm:text-lg lg:text-xl`}>
+                          <Phone className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
+                          <span className="font-medium">{profile.telephone_pro}</span>
+                        </div>
+                      ) : (
+                        <div className={`flex items-center justify-center gap-1.5 sm:gap-2 ${!companyInfo ? 'mt-0.5 sm:mt-1' : ''} text-sm sm:text-base`}>
+                          <Phone className="text-white/50 h-4 w-4 sm:h-5 sm:w-5" />
+                          <span className="text-white/50 italic text-xs sm:text-sm">Tél. pro manquant</span>
+                        </div>
                       )}
                     </div>
 
-                    {/* QR Code */}
-                    <div className="text-center flex flex-col items-center gap-0.5 sm:gap-1 w-full">
-                      <button
-                        onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-1 sm:p-3"
-                        title="Vérifier sur France Rénov'"
-                      >
-                        <QRCodeSVG 
-                          value={FRANCE_RENOV_URL} 
-                          size={isMobile ? 30 : 70}
-                          level="M"
-                          includeMargin={false}
-                        />
-                      </button>
-                      <p className="text-white/70 text-[5px] sm:text-xs">Vérifier sur France Rénov'</p>
+                    {/* Agrément number + QR Code */}
+                    <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-24 sm:w-36 lg:w-44">
+                      {/* Agrément number */}
+                      <div className="bg-white/15 rounded-lg text-center w-full p-2 sm:p-3 lg:p-4">
+                        <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
+                          N° d'Agrément
+                        </p>
+                        {profile?.numero_agrement ? (
+                          <p className="font-mono font-bold leading-tight text-sm sm:text-xl lg:text-2xl">
+                            {profile.numero_agrement}
+                          </p>
+                        ) : (
+                          <p className="text-white/50 italic text-xs sm:text-sm">Non renseigné</p>
+                        )}
+                    </div>
+
+                      {/* QR Code */}
+                      <div className="text-center flex flex-col items-center gap-1 w-full">
+                        <button
+                          onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
+                          className="bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md p-2 sm:p-3"
+                          title="Vérifier sur France Rénov'"
+                        >
+                          <QRCodeSVG 
+                            value={FRANCE_RENOV_URL} 
+                            size={isMobile ? 45 : 70}
+                            level="M"
+                            includeMargin={false}
+                          />
+                        </button>
+                        <p className="text-white/70 text-[8px] sm:text-xs">Vérifier sur France Rénov'</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Certifications band */}
-                <div className="bg-white shrink-0 py-1 px-2 sm:py-3 sm:px-6 lg:py-4 lg:px-8 rounded-b-lg sm:rounded-b-xl">
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-500 uppercase tracking-wider font-medium text-[5px] sm:text-xs hidden sm:block">
+                <div className="bg-white shrink-0 py-2 px-3 sm:py-3 sm:px-6 lg:py-4 lg:px-8 rounded-b-lg sm:rounded-b-xl">
+                  <div className="flex items-center justify-center sm:justify-between gap-2">
+                    <p className="text-gray-500 uppercase tracking-wider font-medium text-xs hidden sm:block">
                       Certifications
                     </p>
-                    <div className="flex items-center gap-1 sm:gap-4 flex-1 sm:flex-none justify-center sm:justify-start">
+                    <div className="flex items-center gap-2 sm:gap-4">
                       <img 
                         src={logoRgeEcoArtisan} 
                         alt="RGE Eco Artisan" 
-                        className="h-4 sm:h-8 lg:h-10 object-contain"
+                        className="h-6 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualipac} 
                         alt="QualiPAC" 
-                        className="h-4 sm:h-8 lg:h-10 object-contain"
+                        className="h-6 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualipv} 
                         alt="QualiPV" 
-                        className="h-4 sm:h-8 lg:h-10 object-contain"
+                        className="h-6 sm:h-8 lg:h-10 object-contain"
                       />
                       <img 
                         src={logoQualitenr} 
                         alt="QualiT'EnR" 
-                        className="h-4 sm:h-8 lg:h-10 object-contain"
+                        className="h-6 sm:h-8 lg:h-10 object-contain"
                       />
                     </div>
-                    <p className="text-gray-500 font-medium text-[5px] sm:text-xs lg:text-sm hidden sm:block">
+                    <p className="text-gray-500 font-medium text-xs lg:text-sm hidden sm:block">
                       Reconnu Garant de l'Environnement
                     </p>
                   </div>
