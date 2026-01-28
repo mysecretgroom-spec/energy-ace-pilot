@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,11 +13,15 @@ import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
 import { 
   FileText, 
   Euro, 
-  ChevronRight, 
   Loader2,
   Copy,
   CheckCircle,
-  X
+  X,
+  Receipt,
+  CreditCard,
+  Clock,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,6 +39,16 @@ interface BillableVente {
   decom_montant: number;
 }
 
+interface Facture {
+  id: string;
+  numero_facture: string;
+  date_emission: string;
+  montant_total_ht: number;
+  statut: "emise" | "payee";
+  date_paiement: string | null;
+  vente_ids: string[];
+}
+
 interface BillingSectionProps {
   onRefresh?: () => void;
 }
@@ -44,16 +58,39 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [ventes, setVentes] = useState<BillableVente[]>([]);
+  const [factures, setFactures] = useState<Facture[]>([]);
   const [totalBillable, setTotalBillable] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [showPendingInvoices, setShowPendingInvoices] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchBillableVentes();
+      fetchPendingFactures();
     }
   }, [user]);
+
+  const fetchPendingFactures = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("factures")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("statut", "emise")
+        .order("date_emission", { ascending: false });
+
+      if (error) throw error;
+      setFactures((data || []) as Facture[]);
+    } catch (error) {
+      console.error("Error fetching factures:", error);
+    }
+  };
 
   const fetchBillableVentes = async () => {
     if (!user) return;
@@ -94,16 +131,28 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         return new Date(v.date_installation_reelle) <= twoWeeksAgo;
       });
 
-      // If no ventes billable, just set empty and return
-      if (billableData.length === 0) {
+      // Also fetch pending factures to exclude already invoiced ventes
+      const { data: pendingFactures } = await supabase
+        .from("factures")
+        .select("vente_ids")
+        .eq("user_id", user.id)
+        .eq("statut", "emise");
+
+      const invoicedVenteIds = new Set(
+        (pendingFactures || []).flatMap((f: any) => f.vente_ids || [])
+      );
+
+      // Exclude already invoiced ventes
+      const notInvoicedData = billableData.filter((v: any) => !invoicedVenteIds.has(v.id));
+
+      if (notInvoicedData.length === 0) {
         setVentes([]);
         setTotalBillable(0);
         setLoading(false);
         return;
       }
       
-      // Use filtered data for the rest
-      const filteredVentesData = billableData;
+      const filteredVentesData = notInvoicedData;
 
       // Fetch bouquets (global and per-regie), regie configs, and etude surcharges
       const regieIds = [...new Set(filteredVentesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
@@ -124,10 +173,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const regies = regiesRes.data || [];
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
       
-      // Separate global bouquets (regie_ids is null) from regie-specific ones
       const globalBouquets = allBouquets.filter((b: any) => !b.regie_ids || b.regie_ids.length === 0);
       
-      // Create maps for quick lookup
       const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
       const regieBouquetsMap = new Map<string, any[]>();
       allBouquets.forEach((b: any) => {
@@ -140,10 +187,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         }
       });
       
-      // Create etude surcharges map
       const etudeSurcoutsMap = new Map((etudesRes.data || []).map((e: any) => [e.id, e]));
 
-      // Helper to find or interpolate bouquet
       const findBouquet = (bouquets: any[], puissance: number) => {
         const exact = bouquets.find(b => b.puissance_kwc === puissance);
         if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
@@ -160,11 +205,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         return { prixRecommande: puissance * 4500, commissionFixe: 0 };
       };
 
-      // Calculate commissions using new bouquet logic
       const billableVentes: BillableVente[] = filteredVentesData.map((v: any) => {
         const decomMontant = v.decom_montant || 0;
         
-        // CAS POSE EXTERNE: Commission = montant HT - décom
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
           return {
@@ -180,7 +223,6 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           };
         }
         
-        // CAS STANDARD: Commission bouquet + survente
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
         const bouquetsToUse = v.regie_id && regieBouquetsMap.has(v.regie_id)
           ? regieBouquetsMap.get(v.regie_id)!
@@ -190,13 +232,11 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         const bouquet = findBouquet(bouquetsToUse, v.puissance_kwc || 3);
         const baseCommission = bouquet.commissionFixe;
         
-        // Calcul survente (doit soustraire les surcoûts techniques)
         let bonusSurvente = 0;
         const puissance = v.puissance_kwc || 3;
         const tauxTVA = getTauxTVAByPuissance(puissance);
         const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
         
-        // Récupérer les surcoûts techniques de l'étude
         const etudeSurcouts = v.etude_id ? etudeSurcoutsMap.get(v.etude_id) : null;
         const totalSurcoutsTTC = etudeSurcouts 
           ? (Number(etudeSurcouts.surcout_support) || 0) + 
@@ -204,7 +244,6 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             (Number(etudeSurcouts.autre_surcout) || 0)
           : 0;
         
-        // Montant TTC sans surcoûts pour calcul survente
         const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
         
         if (bouquet.prixRecommande > 0 && montantTTCSansSurcouts > bouquet.prixRecommande) {
@@ -270,6 +309,84 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const selectedTotal = selectedVentes.reduce((sum, v) => sum + v.commission, 0);
   const selectedDecom = selectedVentes.reduce((sum, v) => sum + v.decom_montant, 0);
 
+  // Generate unique invoice number
+  const generateInvoiceNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `FAC-${year}${month}-${random}`;
+  };
+
+  // Create invoice
+  const handleCreateInvoice = async () => {
+    if (selectedVentes.length === 0 || !user) return;
+
+    setCreating(true);
+    try {
+      const invoiceNumber = generateInvoiceNumber();
+      const { error } = await supabase
+        .from("factures")
+        .insert({
+          user_id: user.id,
+          numero_facture: invoiceNumber,
+          montant_total_ht: selectedTotal,
+          vente_ids: selectedVentes.map(v => v.id),
+          statut: "emise",
+        });
+
+      if (error) throw error;
+
+      toast.success(`Facture ${invoiceNumber} créée`);
+      clearSelection();
+      fetchBillableVentes();
+      fetchPendingFactures();
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      toast.error("Erreur lors de la création de la facture");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Mark invoice as paid
+  const handleMarkAsPaid = async (facture: Facture) => {
+    if (!user) return;
+
+    setMarkingPaid(facture.id);
+    try {
+      // 1. Update facture status
+      const { error: factureError } = await supabase
+        .from("factures")
+        .update({
+          statut: "payee",
+          date_paiement: new Date().toISOString(),
+        })
+        .eq("id", facture.id);
+
+      if (factureError) throw factureError;
+
+      // 2. Update all ventes in this facture to "paye"
+      const { error: ventesError } = await supabase
+        .from("ventes")
+        .update({ status: "paye" })
+        .in("id", facture.vente_ids);
+
+      if (ventesError) throw ventesError;
+
+      toast.success(`Facture ${facture.numero_facture} marquée comme payée`);
+      fetchBillableVentes();
+      fetchPendingFactures();
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error marking invoice as paid:", error);
+      toast.error("Erreur lors de la mise à jour");
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
+
   const handleCopySelected = () => {
     if (selectedVentes.length === 0) return;
 
@@ -292,6 +409,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const totalPendingInvoices = factures.reduce((sum, f) => sum + Number(f.montant_total_ht), 0);
+
   if (loading) {
     return (
       <Card className="shadow-card">
@@ -304,12 +423,76 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
 
   return (
     <>
+      {/* Factures en attente de paiement */}
+      {factures.length > 0 && (
+        <Card className="shadow-card border-purple-200 bg-purple-50/50 mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle 
+              className="flex items-center justify-between text-base cursor-pointer"
+              onClick={() => setShowPendingInvoices(!showPendingInvoices)}
+            >
+              <div className="flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-purple-600" />
+                <span className="text-purple-800">Factures émises</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  {formatCurrency(totalPendingInvoices)} €
+                </Badge>
+                {showPendingInvoices ? (
+                  <ChevronUp className="h-4 w-4 text-purple-600" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-purple-600" />
+                )}
+              </div>
+            </CardTitle>
+          </CardHeader>
+          {showPendingInvoices && (
+            <CardContent className="space-y-2">
+              {factures.map((facture) => (
+                <div
+                  key={facture.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white border border-purple-100"
+                >
+                  <div>
+                    <p className="font-medium text-sm">{facture.numero_facture}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{format(new Date(facture.date_emission), "dd MMM yyyy", { locale: fr })}</span>
+                      <span>•</span>
+                      <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="font-bold text-purple-700">{formatCurrency(Number(facture.montant_total_ht))} €</p>
+                    <Button
+                      size="sm"
+                      onClick={() => handleMarkAsPaid(facture)}
+                      disabled={markingPaid === facture.id}
+                      className="gap-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {markingPaid === facture.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CreditCard className="h-4 w-4" />
+                      )}
+                      Payée
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Ventes à facturer */}
       <Card className="shadow-card border-amber-200 bg-amber-50/50">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between text-base">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-amber-600" />
-              <span className="text-amber-800">Facturation</span>
+              <span className="text-amber-800">À facturer</span>
             </div>
             <Badge variant="secondary" className="bg-amber-100 text-amber-800">
               {ventes.length} dossier{ventes.length > 1 ? "s" : ""}
@@ -327,7 +510,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           {/* Liste des dossiers avec sélection */}
           {ventes.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-4">
-              Aucun dossier en attente de paiement
+              Aucun dossier en attente de facturation
             </p>
           ) : (
             <>
@@ -418,21 +601,25 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setInvoiceDialogOpen(true)}
-                    className="gap-1 bg-white text-amber-700 hover:bg-amber-50"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Voir
-                  </Button>
-                  <Button
                     size="sm"
                     onClick={handleCopySelected}
                     className="gap-1 bg-amber-800 hover:bg-amber-900"
                   >
                     {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "Copié !" : "Copier"}
+                    {copied ? "Copié" : "Copier"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateInvoice}
+                    disabled={creating}
+                    className="gap-1 bg-green-600 hover:bg-green-700"
+                  >
+                    {creating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Receipt className="h-4 w-4" />
+                    )}
+                    Facturer
                   </Button>
                 </div>
               </div>
@@ -440,89 +627,6 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           </Card>
         </div>
       )}
-
-      {/* Invoice Dialog */}
-      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-amber-600" />
-              Facture Commissions
-            </DialogTitle>
-          </DialogHeader>
-
-          <p className="text-sm text-muted-foreground">
-            {selectedIds.size} dossier{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""} - Copiez ces lignes pour Qonto
-          </p>
-
-          {/* Table */}
-          <div className="flex-1 overflow-y-auto border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead className="text-right">kWc</TableHead>
-                  <TableHead className="text-right">Décom</TableHead>
-                  <TableHead className="text-right">Commission HT</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedVentes.map((vente) => (
-                  <TableRow key={vente.id}>
-                    <TableCell className="font-medium">
-                      {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
-                    </TableCell>
-                    <TableCell className="text-right">{vente.puissance_kwc || "-"}</TableCell>
-                    <TableCell className="text-right text-destructive">
-                      {vente.decom_montant > 0 ? `-${formatCurrency(vente.decom_montant)} €` : "-"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-amber-700">
-                      {formatCurrency(vente.commission)} €
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <Separator />
-
-          {/* Total */}
-          <Card className="bg-amber-50 border-amber-200">
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <span className="font-medium text-amber-800">TOTAL HT</span>
-                {selectedDecom > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    (Dont décom: -{formatCurrency(selectedDecom)} €)
-                  </p>
-                )}
-              </div>
-              <span className="text-xl font-bold text-amber-700">
-                {formatCurrency(selectedTotal)} €
-              </span>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={() => setInvoiceDialogOpen(false)}>
-              Fermer
-            </Button>
-            <Button 
-              className="flex-1 bg-amber-600 hover:bg-amber-700" 
-              onClick={handleCopySelected}
-            >
-              {copied ? (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              ) : (
-                <Copy className="h-4 w-4 mr-2" />
-              )}
-              {copied ? "Copié !" : "Copier tout"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

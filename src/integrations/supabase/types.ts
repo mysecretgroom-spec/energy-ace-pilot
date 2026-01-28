@@ -1575,6 +1575,48 @@ export type Database = {
           },
         ]
       }
+      factures: {
+        Row: {
+          created_at: string
+          date_emission: string
+          date_paiement: string | null
+          id: string
+          montant_total_ht: number
+          notes: string | null
+          numero_facture: string
+          statut: string
+          updated_at: string
+          user_id: string
+          vente_ids: string[]
+        }
+        Insert: {
+          created_at?: string
+          date_emission?: string
+          date_paiement?: string | null
+          id?: string
+          montant_total_ht?: number
+          notes?: string | null
+          numero_facture: string
+          statut?: string
+          updated_at?: string
+          user_id: string
+          vente_ids?: string[]
+        }
+        Update: {
+          created_at?: string
+          date_emission?: string
+          date_paiement?: string | null
+          id?: string
+          montant_total_ht?: number
+          notes?: string | null
+          numero_facture?: string
+          statut?: string
+          updated_at?: string
+          user_id?: string
+          vente_ids?: string[]
+        }
+        Relationships: []
+      }
       frais: {
         Row: {
           categorie: Database["public"]["Enums"]["frais_categorie"]
