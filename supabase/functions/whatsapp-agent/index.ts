@@ -50,6 +50,7 @@ type WorkflowState =
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
   | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
+  | "awaiting_document_client_selection" // En attente de validation du client pour un document
   | null;
 
 // Choice option for disambiguation polls
@@ -91,6 +92,14 @@ interface PendingAction {
     isNewClient?: boolean;          // Indique qu'on crée un nouveau client
     commission?: number;            // Commission HT pour vente externe
     datePose?: string;              // Date de pose pour vente externe
+    // Pour l'import de documents
+    pendingDocumentId?: string;     // ID du document en attente
+    documentStorageUrl?: string;    // URL du fichier uploadé
+    documentFilename?: string;      // Nom du fichier
+    documentType?: string;          // Type de document détecté
+    documentMimeType?: string;      // Type MIME
+    documentSizeBytes?: number;     // Taille du fichier
+    clientSuggestions?: Array<{ id: string; fullName: string; score: number }>; // Suggestions de clients
   };
   createdAt: string;
 }
@@ -2895,6 +2904,160 @@ async function handlePendingWorkflow(
           };
         }
         
+        // Handle import_document with new client creation
+        if (pendingAction.intent === "import_document" && pendingAction.collectedData?.isNewClient) {
+          // User provided new client name - this message IS the client name
+          const newClientName = userMessage.trim();
+          const pendingDocId = pendingAction.collectedData.pendingDocumentId;
+          const documentFilename = pendingAction.collectedData.documentFilename || "document";
+          const documentType = pendingAction.collectedData.documentType || "autre";
+          const storagePath = pendingAction.collectedData.documentStorageUrl?.split('/').slice(-2).join('/');
+          
+          if (!newClientName || newClientName.length < 2) {
+            return {
+              intent: "import_document",
+              actionTaken: "invalid_client_name",
+              newPendingAction: pendingAction,
+              responseMessage: "❌ Nom de client invalide. Veuillez entrer un nom valide (minimum 2 caractères).",
+            };
+          }
+          
+          if (!pendingDocId || !storagePath) {
+            return {
+              intent: "import_document",
+              actionTaken: "error",
+              newPendingAction: null,
+              responseMessage: "❌ Erreur: document non trouvé. Veuillez renvoyer le document.",
+            };
+          }
+          
+          try {
+            // Create the new client
+            const { data: newClient, error: clientError } = await supabase
+              .from("clients")
+              .insert({
+                user_id: userId,
+                nom: newClientName,
+                source: "whatsapp_agent",
+              })
+              .select("id")
+              .single();
+            
+            if (clientError) {
+              console.error("Error creating client:", clientError);
+              throw new Error("Client creation failed");
+            }
+            
+            const clientId = newClient.id;
+            console.log(`Created new client "${newClientName}" with ID: ${clientId}`);
+            
+            // Download file from pending-documents bucket
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from("pending-documents")
+              .download(storagePath);
+            
+            if (downloadError || !fileData) {
+              console.error("Error downloading from pending:", downloadError);
+              throw new Error("Download failed");
+            }
+            
+            // Upload to documents bucket under client's folder
+            const newPath = `${clientId}/${Date.now()}_${documentFilename}`;
+            const fileBytes = await fileData.arrayBuffer();
+            
+            const { error: uploadError } = await supabase.storage
+              .from("documents")
+              .upload(newPath, new Uint8Array(fileBytes), {
+                contentType: pendingAction.collectedData?.documentMimeType || "application/octet-stream",
+              });
+            
+            if (uploadError) {
+              console.error("Error uploading to documents:", uploadError);
+              throw new Error("Upload failed");
+            }
+            
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from("documents")
+              .getPublicUrl(newPath);
+            
+            // Create document record
+            const { data: docRecord, error: docError } = await supabase
+              .from("documents")
+              .insert({
+                client_id: clientId,
+                user_id: userId,
+                nom: documentFilename,
+                type_document: documentType,
+                url: urlData?.publicUrl || "",
+                mime_type: pendingAction.collectedData?.documentMimeType,
+                taille_bytes: pendingAction.collectedData?.documentSizeBytes,
+                context_source: "whatsapp",
+                metadata: {
+                  assigned_via: "whatsapp_new_client",
+                  original_pending_id: pendingDocId,
+                },
+              })
+              .select("id")
+              .single();
+            
+            if (docError) {
+              console.error("Error creating document record:", docError);
+              throw new Error("Document record creation failed");
+            }
+            
+            // Update pending document status
+            await supabase
+              .from("pending_documents")
+              .update({
+                status: "assigned",
+                assigned_client_id: clientId,
+                assigned_document_type: documentType,
+                assigned_at: new Date().toISOString(),
+                processed_at: new Date().toISOString(),
+                final_document_id: docRecord?.id,
+              })
+              .eq("id", pendingDocId);
+            
+            // Delete from pending storage
+            await supabase.storage
+              .from("pending-documents")
+              .remove([storagePath]);
+            
+            // Log action
+            await logAgentAction(
+              supabase,
+              userId,
+              null,
+              "import_document",
+              "documents",
+              docRecord?.id,
+              { client_id: clientId, client_name: newClientName, document_type: documentType, filename: documentFilename, new_client: true },
+              null,
+              `Document ${documentFilename} attribué au nouveau client ${newClientName}`
+            );
+            
+            return {
+              intent: "import_document",
+              actionTaken: "document_assigned_new_client",
+              entityId: docRecord?.id,
+              entityType: "document",
+              newPendingAction: null,
+              responseMessage: `✅ *Document attribué !*\n\n📄 ${documentFilename}\n👤 Nouveau client: *${newClientName}*\n📋 Type: ${documentType}`,
+            };
+            
+          } catch (err) {
+            console.error("Error processing document with new client:", err);
+            
+            return {
+              intent: "import_document",
+              actionTaken: "error",
+              newPendingAction: null,
+              responseMessage: `❌ Erreur lors du traitement. Veuillez réessayer.`,
+            };
+          }
+        }
+        
         // For other pending actions - execute the stored action
         // Return a signal to the main flow to execute the pending action
         return {
@@ -3215,6 +3378,261 @@ async function handlePendingWorkflow(
         },
         responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.\n\n*Confirmes-tu cette action ?* (Oui/Non)`,
       };
+    }
+    
+    case "awaiting_document_client_selection": {
+      // User is selecting a client for a document
+      const choices = pendingAction.collectedData?.choices || [];
+      const pendingDocId = pendingAction.collectedData?.pendingDocumentId;
+      const documentFilename = pendingAction.collectedData?.documentFilename || "document";
+      const documentType = pendingAction.collectedData?.documentType || "autre";
+      const documentStorageUrl = pendingAction.collectedData?.documentStorageUrl;
+      
+      if (!pendingDocId) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: document non trouvé. Veuillez renvoyer le document.",
+        };
+      }
+      
+      // Check for cancel
+      const cancelPatterns = ["annule", "cancel", "abandonne", "stop", "non"];
+      if (cancelPatterns.some(p => messageLower.includes(p))) {
+        // Mark document as rejected
+        await supabase
+          .from("pending_documents")
+          .update({ status: "rejected", rejection_reason: "user_cancelled" })
+          .eq("id", pendingDocId);
+        
+        return {
+          intent: "cancel_action",
+          actionTaken: "document_cancelled",
+          newPendingAction: null,
+          responseMessage: "❌ Import annulé. Le document n'a pas été attribué.",
+        };
+      }
+      
+      // Check for "nouveau client" intent
+      const newClientPatterns = [
+        "nouveau client", "new client", "c'est un nouveau", "nouveau", "nouvelle",
+        "creer", "créer", "pas dans la liste", "aucun", "autre"
+      ];
+      const wantsNewClient = newClientPatterns.some(p => messageLower.includes(p));
+      
+      let selectedChoice: ChoiceOption | null = null;
+      
+      if (wantsNewClient) {
+        selectedChoice = choices.find(c => c.id === "NEW_CLIENT") || null;
+      }
+      
+      // Try number selection
+      if (!selectedChoice) {
+        const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
+        if (numberMatch) {
+          const choiceIndex = parseInt(numberMatch[1], 10) - 1;
+          if (choiceIndex >= 0 && choiceIndex < choices.length) {
+            selectedChoice = choices[choiceIndex];
+          }
+        }
+      }
+      
+      // Try emoji numbers
+      if (!selectedChoice) {
+        const emojiNumbers: Record<string, number> = {
+          "1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4,
+          "①": 0, "②": 1, "③": 2, "④": 3, "⑤": 4,
+        };
+        for (const [emoji, index] of Object.entries(emojiNumbers)) {
+          if (userMessage.includes(emoji) && index < choices.length) {
+            selectedChoice = choices[index];
+            break;
+          }
+        }
+      }
+      
+      // Try text match by label
+      if (!selectedChoice) {
+        const normalizedMessage = messageLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        for (const choice of choices) {
+          if (choice.id === "NEW_CLIENT") continue; // Skip new client for text match
+          const normalizedLabel = choice.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const labelWords = normalizedLabel.split(/\s+/);
+          const messageWords = normalizedMessage.split(/\s+/);
+          
+          // Check if any word from the message matches any word from the label
+          const matchCount = labelWords.filter(lw => 
+            messageWords.some(mw => mw.includes(lw) || lw.includes(mw))
+          ).length;
+          
+          if (matchCount >= 1 && labelWords.length > 0) {
+            selectedChoice = choice;
+            break;
+          }
+        }
+      }
+      
+      if (!selectedChoice) {
+        // Couldn't parse - ask again
+        const choiceList = choices.map((c, i) => {
+          if (c.id === "NEW_CLIENT") {
+            return `${i + 1}️⃣ 🆕 Nouveau client`;
+          }
+          const suggestion = pendingAction.collectedData?.clientSuggestions?.find(s => s.id === c.id);
+          const scoreStr = suggestion ? ` (${suggestion.score}%)` : "";
+          return `${i + 1}️⃣ ${c.label}${scoreStr}`;
+        }).join("\n");
+        
+        return {
+          intent: "import_document",
+          actionTaken: "invalid_selection",
+          newPendingAction: pendingAction,
+          responseMessage: `🤔 Je n'ai pas compris ton choix.\n\n📄 *${documentFilename}*\n\n${choiceList}\n\n_Réponds avec le numéro ou le nom du client_`,
+        };
+      }
+      
+      console.log(`User selected client for document: ${selectedChoice.label} (${selectedChoice.id})`);
+      
+      // Handle "Nouveau client" selection
+      if (selectedChoice.id === "NEW_CLIENT") {
+        return {
+          intent: "import_document",
+          actionTaken: "awaiting_new_client_name",
+          newPendingAction: {
+            ...pendingAction,
+            workflowState: "awaiting_confirmation",
+            collectedData: {
+              ...pendingAction.collectedData,
+              isNewClient: true,
+            },
+          },
+          responseMessage: `🆕 Nouveau client !\n\n📝 Quel est le *nom* du client pour ce document ?`,
+        };
+      }
+      
+      // Client selected - move document to client's folder
+      const selectedClientId = selectedChoice.id;
+      const selectedClientName = selectedChoice.label;
+      
+      // Download file from pending-documents bucket
+      const storagePath = pendingAction.collectedData?.documentStorageUrl?.split('/').slice(-2).join('/');
+      
+      if (!storagePath) {
+        return {
+          intent: "import_document",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: chemin du fichier non trouvé.",
+        };
+      }
+      
+      try {
+        // Get file from pending-documents bucket
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("pending-documents")
+          .download(storagePath);
+        
+        if (downloadError || !fileData) {
+          console.error("Error downloading from pending:", downloadError);
+          throw new Error("Download failed");
+        }
+        
+        // Upload to documents bucket under client's folder
+        const newPath = `${selectedClientId}/${Date.now()}_${documentFilename}`;
+        const fileBytes = await fileData.arrayBuffer();
+        
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(newPath, new Uint8Array(fileBytes), {
+            contentType: pendingAction.collectedData?.documentMimeType || "application/octet-stream",
+          });
+        
+        if (uploadError) {
+          console.error("Error uploading to documents:", uploadError);
+          throw new Error("Upload failed");
+        }
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("documents")
+          .getPublicUrl(newPath);
+        
+        // Create document record
+        const { data: docRecord, error: docError } = await supabase
+          .from("documents")
+          .insert({
+            client_id: selectedClientId,
+            user_id: userId,
+            nom: documentFilename,
+            type_document: documentType,
+            url: urlData?.publicUrl || "",
+            mime_type: pendingAction.collectedData?.documentMimeType,
+            taille_bytes: pendingAction.collectedData?.documentSizeBytes,
+            context_source: "whatsapp",
+            metadata: {
+              assigned_via: "whatsapp_user_selection",
+              original_pending_id: pendingDocId,
+            },
+          })
+          .select("id")
+          .single();
+        
+        if (docError) {
+          console.error("Error creating document record:", docError);
+          throw new Error("Document record creation failed");
+        }
+        
+        // Update pending document status
+        await supabase
+          .from("pending_documents")
+          .update({
+            status: "assigned",
+            assigned_client_id: selectedClientId,
+            assigned_document_type: documentType,
+            assigned_at: new Date().toISOString(),
+            processed_at: new Date().toISOString(),
+            final_document_id: docRecord?.id,
+          })
+          .eq("id", pendingDocId);
+        
+        // Delete from pending storage
+        await supabase.storage
+          .from("pending-documents")
+          .remove([storagePath]);
+        
+        // Log action
+        await logAgentAction(
+          supabase,
+          userId,
+          null,
+          "import_document",
+          "documents",
+          docRecord?.id,
+          { client_id: selectedClientId, document_type: documentType, filename: documentFilename },
+          null,
+          `Document ${documentFilename} attribué à ${selectedClientName}`
+        );
+        
+        return {
+          intent: "import_document",
+          actionTaken: "document_assigned",
+          entityId: docRecord?.id,
+          entityType: "document",
+          newPendingAction: null,
+          responseMessage: `✅ *Document attribué !*\n\n📄 ${documentFilename}\n👤 Client: *${selectedClientName}*\n📋 Type: ${documentType}`,
+        };
+        
+      } catch (err) {
+        console.error("Error processing document:", err);
+        
+        return {
+          intent: "import_document",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: `❌ Erreur lors du traitement du document. Veuillez réessayer.`,
+        };
+      }
     }
     
     case "collecting_external_vente_data": {
@@ -5426,51 +5844,47 @@ async function executeAction(
       
       // Priority: 1) User-provided name, 2) AI-extracted from document
       let clientName = entities.client_name as string;
-      const clientNameSource = clientName ? "user" : (extractedClientName ? "ai" : null);
       
       if (!clientName && extractedClientName && extractedClientConfidence >= 60) {
         clientName = extractedClientName;
         console.log(`Using AI-extracted client name: "${clientName}"`);
       }
       
-      // Try to find the client using fuzzy search
-      let matchedClient: { id: string; fullName: string } | null = null;
-      let aiConfidence = extractedClientConfidence;
-      
-      if (clientName) {
-        const searchResult = await findClientByName(supabase, userId, clientName);
-        if (searchResult.exactMatch) {
-          matchedClient = { id: searchResult.exactMatch.id, fullName: searchResult.exactMatch.fullName };
-          aiConfidence = Math.max(aiConfidence, 85); // Boost confidence for exact match
-        } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
-          matchedClient = { id: searchResult.clients[0].id, fullName: searchResult.clients[0].fullName };
-          aiConfidence = Math.round(searchResult.clients[0].score * 100);
-        }
-      }
-
       // Get original filename from mediaData
       const originalFilename = mediaData?.filename || `document_${Date.now()}`;
       
-      // Calculate auto-assign time (24h from now)
-      const autoAssignAfter = new Date();
-      autoAssignAfter.setHours(autoAssignAfter.getHours() + 24);
-
-      // Create pending document record
+      // Search for matching clients with scores
+      let clientSuggestions: Array<{ id: string; fullName: string; score: number }> = [];
+      
+      if (clientName) {
+        const searchResult = await findClientByName(supabase, userId, clientName);
+        // Get top 3 clients with their scores
+        clientSuggestions = searchResult.clients.slice(0, 3).map(c => ({
+          id: c.id,
+          fullName: c.fullName,
+          score: Math.round(c.score * 100)
+        }));
+      }
+      
+      // Store document in pending storage
+      const storagePath = uploadedDocumentUrl.split('/').slice(-2).join('/');
+      
+      // Create pending document record with status 'awaiting_confirmation'
       const { data: pendingDoc, error: pendingError } = await supabase
         .from("pending_documents")
         .insert({
           user_id: userId,
           original_filename: originalFilename,
-          storage_path: uploadedDocumentUrl.split('/').slice(-2).join('/'), // Extract relative path
+          storage_path: storagePath,
           mime_type: mediaData?.contentType || "application/octet-stream",
           file_size_bytes: mediaData?.sizeBytes || null,
           source: "whatsapp",
           ai_detected_client_name: extractedClientName || clientName || null,
-          ai_detected_client_id: matchedClient?.id || null,
+          ai_detected_client_id: clientSuggestions[0]?.id || null,
           ai_detected_document_type: documentType,
-          ai_confidence: aiConfidence,
+          ai_confidence: extractedClientConfidence,
           ai_analysis_summary: analysisResult?.type === "client_docs" ? analysisResult.description : null,
-          auto_assign_after: autoAssignAfter.toISOString(),
+          status: "awaiting_confirmation",
         })
         .select("id")
         .single();
@@ -5479,31 +5893,70 @@ async function executeAction(
         console.error("Error creating pending document:", pendingError);
         return { actionTaken: "error" };
       }
-
-      // Build response message
+      
+      // Build response message with client suggestions
       let responseMsg = `📥 *Document reçu !*\n\n`;
       responseMsg += `📄 ${originalFilename}\n`;
-      
-      if (matchedClient) {
-        responseMsg += `👤 Client détecté: *${matchedClient.fullName}* (${aiConfidence}%)\n`;
-      } else if (clientName) {
-        responseMsg += `🔍 Client recherché: "${clientName}" (non trouvé)\n`;
-      }
       
       if (documentType !== "autre") {
         responseMsg += `📋 Type: ${documentType}\n`;
       }
       
-      responseMsg += `\n📬 *En attente de validation admin*`;
+      responseMsg += `\n👤 *À quel client attribuer ce document ?*\n\n`;
       
-      if (aiConfidence >= 80 && matchedClient) {
-        responseMsg += `\n\n⏰ _Attribution auto dans 24h si pas de correction_`;
+      // Build choices for the poll
+      const choices: ChoiceOption[] = [];
+      
+      if (clientSuggestions.length > 0) {
+        for (let i = 0; i < clientSuggestions.length; i++) {
+          const suggestion = clientSuggestions[i];
+          responseMsg += `${i + 1}️⃣ *${suggestion.fullName}* (${suggestion.score}%)\n`;
+          choices.push({
+            id: suggestion.id,
+            label: suggestion.fullName,
+            entityType: "client",
+            data: { clientId: suggestion.id, score: suggestion.score }
+          });
+        }
+      } else {
+        responseMsg += `_Aucun client correspondant trouvé_\n`;
       }
+      
+      // Add "Nouveau client" option
+      const newClientIndex = choices.length + 1;
+      responseMsg += `\n${newClientIndex}️⃣ 🆕 *Nouveau client*\n`;
+      choices.push({
+        id: "NEW_CLIENT",
+        label: "Nouveau client",
+        entityType: "client",
+        data: { is_new_client: true }
+      });
+      
+      responseMsg += `\n_Réponds avec le numéro ou le nom du client_`;
+      
+      // Create pending action for document client selection
+      const newPendingAction: PendingAction = {
+        intent: "import_document",
+        entities,
+        workflowState: "awaiting_document_client_selection",
+        collectedData: {
+          pendingDocumentId: pendingDoc.id,
+          documentStorageUrl: uploadedDocumentUrl,
+          documentFilename: originalFilename,
+          documentType: documentType,
+          documentMimeType: mediaData?.contentType,
+          documentSizeBytes: mediaData?.sizeBytes,
+          choices: choices,
+          clientSuggestions: clientSuggestions,
+        },
+        createdAt: new Date().toISOString(),
+      };
         
       return {
-        actionTaken: "document_pending",
+        actionTaken: "awaiting_document_client",
         entityId: pendingDoc?.id,
         entityType: "pending_document",
+        newPendingAction,
         customResponse: responseMsg,
       };
     }
