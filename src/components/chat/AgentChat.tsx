@@ -386,7 +386,7 @@ export function AgentChat() {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] right-4 z-40 sm:bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] sm:right-[180px]"
+            className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+4rem)] right-4 z-40 sm:bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] sm:right-auto sm:left-4"
           >
             <Button
               onClick={() => setIsOpen(true)}
