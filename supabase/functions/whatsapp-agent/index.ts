@@ -1404,60 +1404,90 @@ serve(async (req) => {
 
     // Handle pending workflow states
     if (pendingAction?.workflowState) {
-      const handled = await handlePendingWorkflow(
-        supabase,
-        request.userId,
-        request.userName,
-        processedContent,
-        pendingAction,
-        TWILIO_ACCOUNT_SID!,
-        TWILIO_AUTH_TOKEN!
-      );
-      
-      if (handled) {
-        skipAiAnalysis = true;
+      try {
+        const handled = await handlePendingWorkflow(
+          supabase,
+          request.userId,
+          request.userName,
+          processedContent,
+          pendingAction,
+          TWILIO_ACCOUNT_SID || "",
+          TWILIO_AUTH_TOKEN || ""
+        );
         
-        // Check if this is a confirmed action that needs execution
-        if (handled.actionTaken === "confirmed_execute" && pendingAction) {
-          console.log(`Executing confirmed action: ${pendingAction.intent}`);
-          // Execute the original pending action
-          actionResult = await executeAction(
-            supabase,
-            request.userId,
-            request.userName,
-            request.messageId,
-            pendingAction.intent,
-            pendingAction.entities,
-            pendingAction.collectedData?.commentaire || null, // stored document URL
-            null, // mediaData not needed for confirmed action
-            null, // analysisResult not needed
-            TWILIO_ACCOUNT_SID!,
-            TWILIO_AUTH_TOKEN!
-          );
+        if (handled) {
+          skipAiAnalysis = true;
           
-          // Override the response if action was successful
-          if (actionResult.customResponse) {
-            handled.responseMessage = actionResult.customResponse;
-          } else if (actionResult.actionTaken && !actionResult.actionTaken.includes("error")) {
-            handled.responseMessage = "✅ Action exécutée avec succès !";
+          // Check if this is a confirmed action that needs execution
+          if (handled.actionTaken === "confirmed_execute" && pendingAction) {
+            console.log(`Executing confirmed action: ${pendingAction.intent}`);
+            try {
+              // Execute the original pending action
+              actionResult = await executeAction(
+                supabase,
+                request.userId,
+                request.userName,
+                request.messageId,
+                pendingAction.intent,
+                pendingAction.entities,
+                pendingAction.collectedData?.commentaire || null, // stored document URL
+                null, // mediaData not needed for confirmed action
+                null, // analysisResult not needed
+                TWILIO_ACCOUNT_SID || "",
+                TWILIO_AUTH_TOKEN || ""
+              );
+              
+              // Override the response if action was successful
+              if (actionResult.customResponse) {
+                handled.responseMessage = actionResult.customResponse;
+              } else if (actionResult.actionTaken && !actionResult.actionTaken.includes("error")) {
+                handled.responseMessage = "✅ Action exécutée avec succès !";
+              } else if (actionResult.actionTaken === "error" && !actionResult.customResponse) {
+                handled.responseMessage = "❌ Une erreur s'est produite lors de l'exécution. Réessaie.";
+              }
+              
+              // Only clear the pending action if the executeAction didn't return a new one
+              // (e.g., if action needs regie selection, we keep that pending action)
+              if (actionResult.newPendingAction === undefined) {
+                actionResult.newPendingAction = null;
+              }
+            } catch (execError) {
+              console.error("Error executing confirmed action:", execError);
+              actionResult = {
+                actionTaken: "error",
+                newPendingAction: null,
+                customResponse: "❌ Une erreur s'est produite. Réessaie ou reformule ta demande.",
+              };
+              handled.responseMessage = actionResult.customResponse || "❌ Erreur lors de l'exécution.";
+            }
+          } else {
+            actionResult = handled;
           }
           
-          // Only clear the pending action if the executeAction didn't return a new one
-          // (e.g., if action needs regie selection, we keep that pending action)
-          if (actionResult.newPendingAction === undefined) {
-            actionResult.newPendingAction = null;
-          }
-        } else {
-          actionResult = handled;
+          aiResponse = {
+            intent: handled.intent || "conversation",
+            confidence: 100,
+            entities: pendingAction?.entities || {},
+            requiresConfirmation: false,
+            responseMessage: handled.responseMessage || "✅ Traité.",
+          };
         }
-        
-        aiResponse = {
-          intent: handled.intent || "conversation",
-          confidence: 100,
-          entities: pendingAction?.entities || {},
-          requiresConfirmation: false,
-          responseMessage: handled.responseMessage,
+      } catch (workflowError) {
+        console.error("Error handling pending workflow:", workflowError);
+        // Clear the pending action to avoid being stuck
+        actionResult = {
+          actionTaken: "error",
+          newPendingAction: null,
+          customResponse: "⚠️ Un problème est survenu. Recommençons. Comment puis-je t'aider ?",
         };
+        aiResponse = {
+          intent: "conversation",
+          confidence: 100,
+          entities: {},
+          requiresConfirmation: false,
+          responseMessage: actionResult.customResponse!,
+        };
+        skipAiAnalysis = true;
       }
     }
 
@@ -2287,9 +2317,35 @@ async function handlePendingWorkflow(
 ): Promise<{ intent?: Intent; actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; responseMessage: string; customResponse?: string } | null> {
   const messageLower = userMessage.toLowerCase().trim();
   
-  // Check for cancellation
-  const cancelPatterns = ["non", "annule", "annuler", "stop", "arrête", "arreter", "laisse tomber", "oublie"];
-  if (cancelPatterns.some(p => messageLower.includes(p))) {
+  // Vérification de sécurité: si le pendingAction est trop ancien (>1h), le nettoyer
+  if (pendingAction.createdAt) {
+    const createdAt = new Date(pendingAction.createdAt);
+    const now = new Date();
+    const ageInMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    if (ageInMinutes > 60) {
+      console.log(`Pending action too old (${Math.round(ageInMinutes)}min), clearing...`);
+      return {
+        intent: "cancel_action",
+        actionTaken: "expired",
+        newPendingAction: null,
+        responseMessage: "⏰ La session précédente a expiré. Comment puis-je t'aider ?",
+      };
+    }
+  }
+  
+  // Check for cancellation - IMPORTANT: vérifier que ce n'est pas juste le mot "non" dans un contexte différent
+  const cancelPatterns = ["non merci", "annule", "annuler", "stop", "arrête", "arreter", "laisse tomber", "oublie", "pas maintenant", "plus tard"];
+  const strictCancelPatterns = ["non", "nope", "nan", "nn"];
+  
+  // "non" seul ou avec des marqueurs de négation forte = annulation
+  const isCancellation = cancelPatterns.some(p => messageLower.includes(p)) ||
+    (strictCancelPatterns.includes(messageLower) || 
+     strictCancelPatterns.some(p => messageLower.startsWith(p + " ") || messageLower === p));
+  
+  // Mais "non" dans une phrase avec des données n'est PAS une annulation (ex: "non c'est 8kwc")
+  const hasData = /\d/.test(userMessage) || messageLower.includes("oui") || messageLower.includes("ok");
+  
+  if (isCancellation && !hasData) {
     return {
       intent: "cancel_action",
       actionTaken: "cancelled",
@@ -2303,34 +2359,87 @@ async function handlePendingWorkflow(
       // Parse the user's response for signing data
       const collectedData = pendingAction.collectedData || {};
       
-      // Try to extract numbers from message
+      // Try to extract numbers from message - improved parsing
       const numbers = userMessage.match(/(\d+(?:[.,]\d+)?)/g);
       
-      if (!collectedData.puissanceKwc && numbers && numbers.length >= 1) {
-        // First ask for power
-        const puissance = parseFloat(numbers[0].replace(",", "."));
-        if (puissance > 0 && puissance <= 100) {
-          collectedData.puissanceKwc = puissance;
-        }
-      }
+      // Check if message contains explicit labels for disambiguation
+      const msgLower = userMessage.toLowerCase();
+      const hasPuissanceKeyword = /kwc|kw|puissance|kilo/i.test(userMessage);
+      const hasPrixKeyword = /€|euro|prix|ttc|ht/i.test(userMessage);
       
-      if (collectedData.puissanceKwc && !collectedData.prixTTC && numbers && numbers.length >= 1) {
-        // Then price - look for larger numbers
-        for (const num of numbers) {
-          const prix = parseFloat(num.replace(",", "."));
-          if (prix > 1000) {
-            collectedData.prixTTC = prix;
-            break;
+      // Parse puissance - prioritize if keyword is present
+      if (!collectedData.puissanceKwc && numbers && numbers.length >= 1) {
+        // If there's a puissance keyword, find the number near it
+        if (hasPuissanceKeyword) {
+          const puissanceMatch = userMessage.match(/(\d+(?:[.,]\d+)?)\s*(?:kwc|kw|kilo)/i) ||
+                                 userMessage.match(/(?:puissance|kwc|kw)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
+          if (puissanceMatch) {
+            const puissance = parseFloat(puissanceMatch[1].replace(",", "."));
+            if (puissance > 0 && puissance <= 100) {
+              collectedData.puissanceKwc = puissance;
+            }
+          }
+        }
+        
+        // Fallback: look for reasonable puissance values (0.5 to 30 kWc)
+        if (!collectedData.puissanceKwc) {
+          for (const num of numbers) {
+            const val = parseFloat(num.replace(",", "."));
+            // Puissance is typically between 0.5 and 30
+            if (val >= 0.5 && val <= 30) {
+              collectedData.puissanceKwc = val;
+              break;
+            }
           }
         }
       }
       
-      // Check for time pattern (HH:MM)
+      // Parse prix - look for larger numbers or numbers with € sign
+      if (collectedData.puissanceKwc && !collectedData.prixTTC && numbers && numbers.length >= 1) {
+        // If there's a prix keyword, find the number near it
+        if (hasPrixKeyword) {
+          const prixMatch = userMessage.match(/(\d+(?:[.,]\d+)?)\s*€/i) ||
+                           userMessage.match(/(?:prix|ttc|ht|euro)\s*[:=]?\s*(\d+(?:[.,]\d+)?)/i);
+          if (prixMatch) {
+            const prix = parseFloat(prixMatch[1].replace(",", "."));
+            if (prix >= 500) {
+              collectedData.prixTTC = prix;
+            }
+          }
+        }
+        
+        // Fallback: look for numbers > 1000 (typical price range)
+        if (!collectedData.prixTTC) {
+          for (const num of numbers) {
+            const prix = parseFloat(num.replace(",", "."));
+            if (prix > 1000) {
+              collectedData.prixTTC = prix;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Special case: both puissance and prix provided in same message (e.g., "8kwc 19000€")
+      if (numbers && numbers.length >= 2 && !collectedData.puissanceKwc && !collectedData.prixTTC) {
+        const values = numbers.map(n => parseFloat(n.replace(",", ".")));
+        // Sort to find small (puissance) and large (prix) values
+        const smallValue = values.find(v => v >= 0.5 && v <= 30);
+        const largeValue = values.find(v => v > 1000);
+        
+        if (smallValue) collectedData.puissanceKwc = smallValue;
+        if (largeValue) collectedData.prixTTC = largeValue;
+      }
+      
+      // Check for time pattern (HH:MM ou HHh ou HHhMM)
       const timeMatch = userMessage.match(/(\d{1,2})[h:](\d{2})?/i);
       if (timeMatch) {
-        const hours = timeMatch[1].padStart(2, "0");
-        const mins = timeMatch[2] || "00";
-        collectedData.cqTime = `${hours}:${mins}`;
+        const hours = parseInt(timeMatch[1]);
+        if (hours >= 6 && hours <= 22) { // Reasonable CQ hours
+          const hoursStr = timeMatch[1].padStart(2, "0");
+          const mins = timeMatch[2] || "00";
+          collectedData.cqTime = `${hoursStr}:${mins}`;
+        }
       }
       
       // Check for "ok" / "oui" / "confirme" to validate
@@ -2397,15 +2506,37 @@ async function handlePendingWorkflow(
         }
       }
       
-      // Need more data
+      // Need more data OR got new data that wasn't asked for yet
+      // If user provided BOTH puissance and prix in one message, go straight to confirmation
       let nextQuestion = "";
+      const gotBothDataNow = collectedData.puissanceKwc && collectedData.prixTTC;
+      
       if (!collectedData.puissanceKwc) {
         nextQuestion = "📊 Quelle est la *puissance* installée (en kWc) ?";
       } else if (!collectedData.prixTTC) {
         nextQuestion = "💰 Quel est le *prix TTC* de la vente ?";
       } else if (!collectedData.cqTime) {
         collectedData.cqTime = "10:00"; // Default
-        nextQuestion = `⏰ Heure du CQ demain ? (par défaut 10h)\n\nRécap:\n• Puissance: ${collectedData.puissanceKwc}kWc\n• Prix: ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n• CQ: ${collectedData.cqTime}\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      // If we have both required fields, show recap with confirmation
+      if (gotBothDataNow) {
+        const recap = `📋 *Récap vente ${collectedData.clientName || ""}*\n\n` +
+          `📊 Puissance: *${collectedData.puissanceKwc}kWc*\n` +
+          `💰 Prix: *${collectedData.prixTTC?.toLocaleString("fr-FR")}€ TTC*\n` +
+          `⏰ CQ: *${collectedData.cqTime || "10:00"}*\n` +
+          (collectedData.regieName ? `🏢 Régie: *${collectedData.regieName}*\n` : "") +
+          `\n*Confirmes-tu ?* (Oui/Non)`;
+        
+        return {
+          intent: "mark_signe",
+          actionTaken: "data_collected_awaiting_confirm",
+          newPendingAction: {
+            ...pendingAction,
+            collectedData,
+          },
+          responseMessage: recap,
+        };
       }
       
       return {
@@ -3480,6 +3611,64 @@ async function sendTwilioWhatsApp(
   console.log(`WhatsApp sent to ${toNumber}`);
 }
 
+// Generate default response message based on intent when AI returns empty response
+function getDefaultResponseForIntent(intent: Intent, entities: Record<string, unknown>): string {
+  const clientName = entities.client_name as string || "";
+  
+  switch (intent) {
+    case "create_rdv":
+      return clientName 
+        ? `📅 Je vais créer un RDV pour ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📅 Je vais créer un RDV. Confirmes-tu ? (Oui/Non)";
+    case "update_rdv":
+      return clientName
+        ? `📝 Je vais modifier le RDV de ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📝 Je vais modifier le RDV. Confirmes-tu ? (Oui/Non)";
+    case "mark_signe":
+      return clientName
+        ? `✍️ Je vais enregistrer une vente pour ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "✍️ Je vais enregistrer une vente. Confirmes-tu ? (Oui/Non)";
+    case "update_vente_status":
+    case "update_vente_pipeline":
+      return clientName
+        ? `📊 Je vais mettre à jour le statut de ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📊 Je vais mettre à jour le statut. Confirmes-tu ? (Oui/Non)";
+    case "update_vente_data":
+      return clientName
+        ? `📝 Je vais modifier les données de la vente ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📝 Je vais modifier les données de la vente. Confirmes-tu ? (Oui/Non)";
+    case "create_external_vente":
+      return clientName
+        ? `📦 Je vais créer une vente externe pour ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📦 Je vais créer une vente externe. Confirmes-tu ? (Oui/Non)";
+    case "query_commissions":
+      return "💰 Je récupère tes commissions...";
+    case "query_stats":
+      return "📈 Je récupère tes statistiques...";
+    case "query_rdv_planning":
+      return "📅 Je consulte ton planning...";
+    case "query_ventes":
+      return "🏆 Je récupère tes ventes...";
+    case "query_client_info":
+      return "👤 Je recherche les informations...";
+    case "query_frais":
+    case "query_frais_detail":
+      return "💳 Je récupère tes frais...";
+    case "import_document":
+      return "📄 Je traite ton document...";
+    case "import_facture":
+      return "🧾 Je traite ta note de frais...";
+    case "user_feedback":
+      return "✅ C'est noté !";
+    case "conversation":
+      return "👋 Comment puis-je t'aider ?";
+    case "query_hejja":
+      return "⚠️ Cette fonctionnalité HEJJA n'est disponible que dans l'application. Ouvre l'app pour y accéder.";
+    default:
+      return "🤔 Je traite ta demande...";
+  }
+}
+
 // Analyze intent with AI
 async function analyzeIntent(
   content: string,
@@ -3731,19 +3920,98 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
   if (!response.ok) {
     const error = await response.text();
     console.error("AI API error:", error);
-    throw new Error("Failed to analyze intent");
+    // Au lieu de throw, retourner une réponse gracieuse pour éviter de bloquer le workflow
+    return {
+      intent: "unknown" as Intent,
+      confidence: 0,
+      entities: {},
+      requiresConfirmation: false,
+      responseMessage: "⚠️ Une erreur technique s'est produite. Peux-tu reformuler ta demande ? 🤔"
+    };
   }
 
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch (parseError) {
+    console.error("Failed to parse AI response:", parseError);
+    return {
+      intent: "unknown" as Intent,
+      confidence: 0,
+      entities: {},
+      requiresConfirmation: false,
+      responseMessage: "⚠️ Erreur de communication avec l'IA. Réessaie dans un instant. 🔄"
+    };
+  }
+
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
   
   if (toolCall?.function?.arguments) {
-    return JSON.parse(toolCall.function.arguments);
+    try {
+      const parsed = JSON.parse(toolCall.function.arguments);
+      
+      // Validation des champs obligatoires
+      if (!parsed.intent || typeof parsed.confidence !== "number") {
+        console.error("AI returned incomplete response:", parsed);
+        return {
+          intent: "unknown" as Intent,
+          confidence: 0,
+          entities: {},
+          requiresConfirmation: false,
+          responseMessage: "🤔 Je n'ai pas bien compris. Peux-tu reformuler ?"
+        };
+      }
+      
+      // Assurer que responseMessage n'est jamais vide
+      if (!parsed.responseMessage || parsed.responseMessage.trim() === "") {
+        parsed.responseMessage = getDefaultResponseForIntent(parsed.intent, parsed.entities);
+      }
+      
+      return parsed;
+    } catch (jsonError) {
+      console.error("Failed to parse tool call arguments:", jsonError, toolCall.function.arguments);
+      return {
+        intent: "unknown" as Intent,
+        confidence: 0,
+        entities: {},
+        requiresConfirmation: false,
+        responseMessage: "⚠️ Erreur de traitement. Réessaie en reformulant ta demande. 🔄"
+      };
+    }
+  }
+
+  // Vérifier si l'IA a renvoyé une réponse texte directe (fallback)
+  const directContent = result.choices?.[0]?.message?.content;
+  if (directContent && typeof directContent === "string" && directContent.trim()) {
+    console.log("AI returned direct content instead of tool call, attempting to parse...");
+    try {
+      // Essayer de parser comme JSON
+      const cleanContent = directContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const parsed = JSON.parse(cleanContent);
+      if (parsed.intent) {
+        return {
+          intent: parsed.intent as Intent,
+          confidence: parsed.confidence || 50,
+          entities: parsed.entities || {},
+          requiresConfirmation: parsed.requiresConfirmation || false,
+          responseMessage: parsed.responseMessage || getDefaultResponseForIntent(parsed.intent, parsed.entities || {})
+        };
+      }
+    } catch {
+      // Ce n'est pas du JSON, traiter comme une réponse conversationnelle
+      return {
+        intent: "conversation" as Intent,
+        confidence: 80,
+        entities: {},
+        requiresConfirmation: false,
+        responseMessage: directContent
+      };
+    }
   }
 
   // Fallback response
   return {
-    intent: "unknown",
+    intent: "unknown" as Intent,
     confidence: 0,
     entities: {},
     requiresConfirmation: false,
