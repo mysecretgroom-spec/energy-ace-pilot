@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format, differenceInDays, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
+import PendingDocumentsWidget from "@/components/admin/PendingDocumentsWidget";
 
 interface AccessState {
   user_id: string;
@@ -227,8 +228,10 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Secondary Stats + Quick Actions */}
+        {/* Secondary Stats + Quick Actions + Pending Documents */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Pending Documents Widget */}
+          <PendingDocumentsWidget />
           {/* Funnel Overview */}
           <Card className="lg:col-span-2">
             <CardHeader>

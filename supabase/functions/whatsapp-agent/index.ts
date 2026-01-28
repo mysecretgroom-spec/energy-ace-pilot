@@ -1655,11 +1655,13 @@ serve(async (req) => {
         // For import intents, we need to upload the media first
         if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
           console.log("Uploading media to storage...");
+          // Documents go to pending-documents, receipts go to receipts
+          const targetBucket = aiResponse!.intent === "import_facture" ? "frais" : "pending";
           uploadedDocumentUrl = await uploadMediaToStorage(
             supabase,
             mediaData,
             request.userId,
-            aiResponse!.intent === "import_facture" ? "frais" : "documents"
+            targetBucket
           );
           console.log("Uploaded to:", uploadedDocumentUrl);
         }
@@ -2289,9 +2291,17 @@ async function uploadMediaToStorage(
   const timestamp = Date.now();
   const filePath = `whatsapp/${userId}/${timestamp}_${media.filename}`;
 
+  // Map bucket types to actual bucket names
+  const bucketMap: Record<string, string> = {
+    "frais": "receipts",
+    "documents": "documents",
+    "pending": "pending-documents",
+  };
+  const actualBucket = bucketMap[bucket] || bucket;
+
   // Upload to storage
   const { error: uploadError } = await supabase.storage
-    .from(bucket === "frais" ? "receipts" : "documents")
+    .from(actualBucket)
     .upload(filePath, media.data, {
       contentType: media.contentType,
       upsert: false,
@@ -2304,7 +2314,7 @@ async function uploadMediaToStorage(
 
   // Get signed URL (1 year validity)
   const { data: urlData } = await supabase.storage
-    .from(bucket === "frais" ? "receipts" : "documents")
+    .from(actualBucket)
     .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
   if (!urlData?.signedUrl) {
@@ -5409,7 +5419,6 @@ async function executeAction(
       
       if (analysisResult && analysisResult.type === "client_docs" && analysisResult.success) {
         documentType = analysisResult.document_type || documentType;
-        // Extract client name from document if available
         extractedClientName = analysisResult.extracted_client_name || null;
         extractedClientConfidence = analysisResult.extracted_client_confidence || 0;
         console.log(`AI extracted client name: "${extractedClientName}" (confidence: ${extractedClientConfidence}%)`);
@@ -5424,116 +5433,78 @@ async function executeAction(
         console.log(`Using AI-extracted client name: "${clientName}"`);
       }
       
-      // If still no client name, ask the user for it
-      if (!clientName) {
-        const typeLabel = documentType !== "autre" ? ` (${documentType})` : "";
-        return { 
-          actionTaken: "needs_client_name",
-          customResponse: `📄 J'ai bien reçu ton document${typeLabel}.\n\n👤 *Pour quel client ?*\nJe n'ai pas pu identifier le nom sur le document. Indique-moi le nom du client.`
-        };
-      }
-      
       // Try to find the client using fuzzy search
-      let clientId: string | null = null;
-      let matchedClientName: string | null = null;
+      let matchedClient: { id: string; fullName: string } | null = null;
+      let aiConfidence = extractedClientConfidence;
       
-      const searchResult = await findClientByName(supabase, userId, clientName);
+      if (clientName) {
+        const searchResult = await findClientByName(supabase, userId, clientName);
+        if (searchResult.exactMatch) {
+          matchedClient = { id: searchResult.exactMatch.id, fullName: searchResult.exactMatch.fullName };
+          aiConfidence = Math.max(aiConfidence, 85); // Boost confidence for exact match
+        } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
+          matchedClient = { id: searchResult.clients[0].id, fullName: searchResult.clients[0].fullName };
+          aiConfidence = Math.round(searchResult.clients[0].score * 100);
+        }
+      }
+
+      // Get original filename from mediaData
+      const originalFilename = mediaData?.filename || `document_${Date.now()}`;
       
-      if (searchResult.exactMatch) {
-        clientId = searchResult.exactMatch.id;
-        matchedClientName = searchResult.exactMatch.fullName;
-      } else if (searchResult.clients.length > 0 && searchResult.clients[0].score >= 0.7) {
-        // Use best fuzzy match if score is high enough
-        clientId = searchResult.clients[0].id;
-        matchedClientName = searchResult.clients[0].fullName;
-        console.log(`Fuzzy matched "${clientName}" to "${matchedClientName}"`);
-      } else if (searchResult.clients.length > 0) {
-        // Multiple possible matches with low score - ask user to clarify
-        const suggestions = searchResult.clients.slice(0, 3).map(c => `• ${c.fullName}`).join("\n");
-        const sourceNote = clientNameSource === "ai" 
-          ? `\n\n💡 _J'ai lu "${clientName}" sur le document mais pas de correspondance exacte._`
-          : "";
-        return {
-          actionTaken: "client_ambiguous",
-          customResponse: `📄 Document reçu !\n\n🔍 Je n'ai pas trouvé de client "*${clientName}*".\n\nClients similaires :\n${suggestions}\n\nPeux-tu préciser le nom exact ?${sourceNote}`
-        };
-      }
+      // Calculate auto-assign time (24h from now)
+      const autoAssignAfter = new Date();
+      autoAssignAfter.setHours(autoAssignAfter.getHours() + 24);
 
-      if (!clientId) {
-        const sourceNote = clientNameSource === "ai" 
-          ? `\n\n💡 _J'ai lu "${clientName}" sur le document._`
-          : "";
-        return { 
-          actionTaken: "client_not_found",
-          customResponse: `📄 Document reçu !\n\n❌ Aucun client "*${clientName}*" trouvé dans ta base.\n\nVérifie l'orthographe ou crée d'abord le client dans l'application.${sourceNote}`
-        };
-      }
-
-      // Map document type to enum - extended with all types from analyze-document
-      const docTypeMap: Record<string, string> = {
-        cni: "cni",
-        cni_monsieur_recto: "cni",
-        cni_monsieur_verso: "cni",
-        cni_madame_recto: "cni",
-        cni_madame_verso: "cni",
-        rib: "rib",
-        facture_energie: "facture_energie",
-        avis_impots: "avis_imposition",
-        avis_imposition: "avis_imposition",
-        photo_compteur: "photo_compteur",
-        photo_tableau: "photo_tableau",
-        photo_toiture: "photo_toiture",
-        photo_chantier: "photo_chantier",
-        justificatif_domicile: "justificatif_domicile",
-        taxe_fonciere: "taxe_fonciere",
-        bon_commande: "bon_commande",
-        devis: "devis",
-        contrat: "contrat",
-        autre: "autre",
-      };
-
-      // Build metadata from analysis result
-      const metadata: Record<string, unknown> = {};
-      if (analysisResult && analysisResult.type === "client_docs") {
-        metadata.ai_document_type = analysisResult.document_type;
-        metadata.ai_confidence = analysisResult.confidence;
-        metadata.ai_description = analysisResult.description;
-        metadata.ai_extracted_client = extractedClientName;
-        metadata.ai_extracted_client_confidence = extractedClientConfidence;
-        metadata.client_match_source = clientNameSource;
-      }
-
-      // Create document record
-      const { data: doc, error: docError } = await supabase
-        .from("documents")
+      // Create pending document record
+      const { data: pendingDoc, error: pendingError } = await supabase
+        .from("pending_documents")
         .insert({
           user_id: userId,
-          client_id: clientId,
-          nom: `${documentType}_whatsapp_${Date.now()}`,
-          type_document: docTypeMap[documentType] || "autre",
-          url: uploadedDocumentUrl,
+          original_filename: originalFilename,
+          storage_path: uploadedDocumentUrl.split('/').slice(-2).join('/'), // Extract relative path
           mime_type: mediaData?.contentType || "application/octet-stream",
-          context_source: "whatsapp",
-          metadata,
+          file_size_bytes: mediaData?.sizeBytes || null,
+          source: "whatsapp",
+          ai_detected_client_name: extractedClientName || clientName || null,
+          ai_detected_client_id: matchedClient?.id || null,
+          ai_detected_document_type: documentType,
+          ai_confidence: aiConfidence,
+          ai_analysis_summary: analysisResult?.type === "client_docs" ? analysisResult.description : null,
+          auto_assign_after: autoAssignAfter.toISOString(),
         })
         .select("id")
         .single();
 
-      if (docError) {
-        console.error("Error creating document:", docError);
+      if (pendingError) {
+        console.error("Error creating pending document:", pendingError);
         return { actionTaken: "error" };
       }
 
-      // Build success message with context
-      const matchNote = clientNameSource === "ai" && matchedClientName
-        ? `\n\n🤖 _Identifié automatiquement sur le document_`
-        : "";
+      // Build response message
+      let responseMsg = `📥 *Document reçu !*\n\n`;
+      responseMsg += `📄 ${originalFilename}\n`;
+      
+      if (matchedClient) {
+        responseMsg += `👤 Client détecté: *${matchedClient.fullName}* (${aiConfidence}%)\n`;
+      } else if (clientName) {
+        responseMsg += `🔍 Client recherché: "${clientName}" (non trouvé)\n`;
+      }
+      
+      if (documentType !== "autre") {
+        responseMsg += `📋 Type: ${documentType}\n`;
+      }
+      
+      responseMsg += `\n📬 *En attente de validation admin*`;
+      
+      if (aiConfidence >= 80 && matchedClient) {
+        responseMsg += `\n\n⏰ _Attribution auto dans 24h si pas de correction_`;
+      }
         
       return {
-        actionTaken: "document_imported",
-        entityId: doc?.id,
-        entityType: "document",
-        customResponse: `✅ Document *${documentType}* ajouté au dossier de *${matchedClientName}* !${matchNote}`,
+        actionTaken: "document_pending",
+        entityId: pendingDoc?.id,
+        entityType: "pending_document",
+        customResponse: responseMsg,
       };
     }
 

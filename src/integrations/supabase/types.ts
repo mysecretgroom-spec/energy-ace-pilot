@@ -1957,6 +1957,103 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_documents: {
+        Row: {
+          admin_notified_at: string | null
+          ai_analysis_summary: string | null
+          ai_confidence: number | null
+          ai_detected_client_id: string | null
+          ai_detected_client_name: string | null
+          ai_detected_document_type: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_client_id: string | null
+          assigned_document_type: string | null
+          auto_assign_after: string | null
+          created_at: string
+          file_size_bytes: number | null
+          final_document_id: string | null
+          id: string
+          mime_type: string | null
+          original_filename: string
+          processed_at: string | null
+          source: string
+          status: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          admin_notified_at?: string | null
+          ai_analysis_summary?: string | null
+          ai_confidence?: number | null
+          ai_detected_client_id?: string | null
+          ai_detected_client_name?: string | null
+          ai_detected_document_type?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_client_id?: string | null
+          assigned_document_type?: string | null
+          auto_assign_after?: string | null
+          created_at?: string
+          file_size_bytes?: number | null
+          final_document_id?: string | null
+          id?: string
+          mime_type?: string | null
+          original_filename: string
+          processed_at?: string | null
+          source?: string
+          status?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          admin_notified_at?: string | null
+          ai_analysis_summary?: string | null
+          ai_confidence?: number | null
+          ai_detected_client_id?: string | null
+          ai_detected_client_name?: string | null
+          ai_detected_document_type?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_client_id?: string | null
+          assigned_document_type?: string | null
+          auto_assign_after?: string | null
+          created_at?: string
+          file_size_bytes?: number | null
+          final_document_id?: string | null
+          id?: string
+          mime_type?: string | null
+          original_filename?: string
+          processed_at?: string | null
+          source?: string
+          status?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_documents_ai_detected_client_id_fkey"
+            columns: ["ai_detected_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_documents_assigned_client_id_fkey"
+            columns: ["assigned_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_documents_final_document_id_fkey"
+            columns: ["final_document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plaid_items: {
         Row: {
           access_token: string
