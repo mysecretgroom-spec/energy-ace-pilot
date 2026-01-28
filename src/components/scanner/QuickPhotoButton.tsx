@@ -66,8 +66,9 @@ export function QuickPhotoButton({
       }
 
       // Online: upload PDF directly
+      // Le chemin doit commencer par user.id pour respecter la politique RLS
       const timestamp = Date.now();
-      const fileName = `${clientId}/${category}_${timestamp}.pdf`;
+      const fileName = `${user.id}/${clientId}/${category}_${timestamp}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
