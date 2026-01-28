@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Wrench, Euro, AlertCircle } from "lucide-react";
+import { Loader2, Wrench, Euro, AlertCircle, Building2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Regie {
+  id: string;
+  nom: string;
+  couleur: string | null;
+}
 
 interface ExternalVenteDialogProps {
   open: boolean;
@@ -39,15 +52,54 @@ export function ExternalVenteDialog({
   const { user } = useAuth();
   const [commission, setCommission] = useState("");
   const [datePose, setDatePose] = useState(rdvDate || new Date().toISOString().split("T")[0]);
+  const [selectedRegieId, setSelectedRegieId] = useState<string | null>(regieId || null);
+  const [regies, setRegies] = useState<Regie[]>([]);
+  const [loadingRegies, setLoadingRegies] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Update date when rdvDate changes
-  useState(() => {
+  // Fetch regies on open
+  useEffect(() => {
+    if (open && user) {
+      fetchRegies();
+    }
+  }, [open, user]);
+
+  // Update date and regie when props change
+  useEffect(() => {
     if (rdvDate) setDatePose(rdvDate);
-  });
+  }, [rdvDate]);
+
+  useEffect(() => {
+    if (regieId) setSelectedRegieId(regieId);
+  }, [regieId]);
+
+  const fetchRegies = async () => {
+    if (!user) return;
+    setLoadingRegies(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("regies")
+        .select("id, nom, couleur")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .order("nom");
+
+      if (error) throw error;
+      setRegies(data || []);
+    } catch (err) {
+      console.error("Error fetching regies:", err);
+    } finally {
+      setLoadingRegies(false);
+    }
+  };
 
   const handleConfirm = async () => {
     const commissionNum = parseFloat(commission);
+
+    if (!selectedRegieId) {
+      toast.error("Veuillez sélectionner une régie");
+      return;
+    }
 
     if (isNaN(commissionNum) || commissionNum <= 0) {
       toast.error("Veuillez saisir une commission valide");
@@ -75,7 +127,7 @@ export function ExternalVenteDialog({
           status: 'installe', // Starts as "posé", will auto-transition to "attente_paiement"
           date_signature: datePose, // Date de pose
           date_installation_reelle: datePose,
-          regie_id: regieId || null,
+          regie_id: selectedRegieId,
         })
         .select()
         .single();
@@ -105,6 +157,7 @@ export function ExternalVenteDialog({
   const handleClose = () => {
     onOpenChange(false);
     setCommission("");
+    setSelectedRegieId(regieId || null);
     setDatePose(rdvDate || new Date().toISOString().split("T")[0]);
   };
 
@@ -113,7 +166,8 @@ export function ExternalVenteDialog({
   };
 
   const commissionNum = parseFloat(commission);
-  const isValid = !isNaN(commissionNum) && commissionNum > 0;
+  const isValid = !isNaN(commissionNum) && commissionNum > 0 && !!selectedRegieId;
+  const selectedRegie = regies.find(r => r.id === selectedRegieId);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -133,6 +187,39 @@ export function ExternalVenteDialog({
           <div className="p-3 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground">Client</p>
             <p className="font-medium">{clientName}</p>
+          </div>
+
+          {/* Régie selector (required) */}
+          <div className="space-y-2">
+            <Label htmlFor="external-regie" className="flex items-center gap-1">
+              <Building2 className="h-4 w-4" />
+              Régie <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={selectedRegieId || ""}
+              onValueChange={(value) => setSelectedRegieId(value)}
+              disabled={loadingRegies}
+            >
+              <SelectTrigger id="external-regie">
+                <SelectValue placeholder={loadingRegies ? "Chargement..." : "Sélectionner une régie"} />
+              </SelectTrigger>
+              <SelectContent>
+                {regies.map((regie) => (
+                  <SelectItem key={regie.id} value={regie.id}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: regie.couleur || "#888" }} 
+                      />
+                      {regie.nom}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {regies.length === 0 && !loadingRegies && (
+              <p className="text-xs text-destructive">Aucune régie configurée</p>
+            )}
           </div>
 
           {/* Date de pose */}
