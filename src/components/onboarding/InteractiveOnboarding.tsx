@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -12,7 +11,6 @@ import {
   Shield, 
   CheckCircle,
   Sparkles,
-  ArrowRight,
   Sun,
   Calendar,
   FileText,
@@ -23,6 +21,10 @@ import {
   SkipForward,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProfileConfigStep } from "./steps/ProfileConfigStep";
+import { RegieConfigStep } from "./steps/RegieConfigStep";
+import { GoogleConfigStep } from "./steps/GoogleConfigStep";
+import { SecurityConfigStep } from "./steps/SecurityConfigStep";
 
 // Step definitions
 export interface OnboardingStep {
@@ -30,11 +32,10 @@ export interface OnboardingStep {
   title: string;
   description: string;
   icon: React.ElementType;
-  type: "presentation" | "config"; // presentation = skippable, config = mandatory
-  targetRoute?: string;
-  targetSelector?: string;
-  content?: ReactNode; // For presentation steps
-  completionCheck?: () => Promise<boolean>; // Only for config steps
+  type: "presentation" | "config";
+  content?: ReactNode;
+  configComponent?: React.ComponentType<{ onComplete: () => void }>;
+  completionCheck?: () => Promise<boolean>;
 }
 
 interface OnboardingContextType {
@@ -147,8 +148,6 @@ function HejjaContent() {
 
 export function InteractiveOnboardingProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
   
   const [isActive, setIsActive] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -190,20 +189,19 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       type: "presentation",
       content: <HejjaContent />,
     },
-    // === CONFIG STEPS (mandatory) ===
+    // === CONFIG STEPS (with inline forms) ===
     {
       id: "profile",
       title: "Votre Profil",
       description: "Complétez vos informations personnelles",
       icon: User,
       type: "config",
-      targetRoute: "/profil",
-      targetSelector: "[data-onboarding='profile-form']",
+      configComponent: ProfileConfigStep,
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
           .from("profiles")
-          .select("first_name, last_name, phone")
+          .select("first_name, phone")
           .eq("user_id", user.id)
           .maybeSingle();
         return !!(data?.first_name && data?.phone);
@@ -215,8 +213,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       description: "Créez votre agence partenaire principale",
       icon: Building2,
       type: "config",
-      targetRoute: "/parametres/regies",
-      targetSelector: "[data-onboarding='regie-list']",
+      configComponent: RegieConfigStep,
       completionCheck: async () => {
         if (!user) return false;
         const { count } = await supabase
@@ -239,8 +236,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
         </svg>
       ),
       type: "config",
-      targetRoute: "/parametres",
-      targetSelector: "[data-onboarding='google-connect']",
+      configComponent: GoogleConfigStep,
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
@@ -257,8 +253,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       description: "Configurez votre code PIN",
       icon: Shield,
       type: "config",
-      targetRoute: "/parametres/securite",
-      targetSelector: "[data-onboarding='security-settings']",
+      configComponent: SecurityConfigStep,
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
@@ -291,7 +286,6 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
           .maybeSingle();
 
         if (data && !data.onboarding_completed) {
-          // Check which config steps are already completed
           await refreshCompletionStatus();
           setIsActive(true);
         }
@@ -328,42 +322,24 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
   const next = useCallback(async () => {
     if (currentStepIndex < steps.length - 1) {
       const nextIndex = currentStepIndex + 1;
-      const nextStep = steps[nextIndex];
       setCurrentStepIndex(nextIndex);
-      
-      // Navigate only for config steps
-      if (nextStep.type === "config" && nextStep.targetRoute) {
-        navigate(nextStep.targetRoute);
-      }
     } else {
-      // All steps done
       complete();
     }
-  }, [currentStepIndex, steps, navigate]);
+  }, [currentStepIndex, steps.length]);
 
   const previous = useCallback(() => {
     if (currentStepIndex > 0) {
-      const prevIndex = currentStepIndex - 1;
-      const prevStep = steps[prevIndex];
-      setCurrentStepIndex(prevIndex);
-      
-      if (prevStep.type === "config" && prevStep.targetRoute) {
-        navigate(prevStep.targetRoute);
-      }
+      setCurrentStepIndex(currentStepIndex - 1);
     }
-  }, [currentStepIndex, steps, navigate]);
+  }, [currentStepIndex]);
 
-  // Skip all presentation steps and go to first config step
   const skipPresentation = useCallback(() => {
     const firstConfigIndex = steps.findIndex(s => s.type === "config");
     if (firstConfigIndex !== -1) {
-      const firstConfig = steps[firstConfigIndex];
       setCurrentStepIndex(firstConfigIndex);
-      if (firstConfig.targetRoute) {
-        navigate(firstConfig.targetRoute);
-      }
     }
-  }, [steps, navigate]);
+  }, [steps]);
 
   const complete = useCallback(async () => {
     if (!user) return;
@@ -386,13 +362,6 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       return [...prev, stepId];
     });
   }, []);
-
-  // Navigate to current step's route when it's a config step
-  useEffect(() => {
-    if (isActive && currentStep?.type === "config" && currentStep.targetRoute && location.pathname !== currentStep.targetRoute) {
-      navigate(currentStep.targetRoute);
-    }
-  }, [isActive, currentStep, navigate, location.pathname]);
 
   const contextValue: OnboardingContextType = {
     isActive,
@@ -417,7 +386,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
   );
 }
 
-// The overlay component that shows spotlight and tooltip
+// The overlay component
 function OnboardingOverlay() {
   const {
     currentStep,
@@ -428,77 +397,29 @@ function OnboardingOverlay() {
     previous,
     skipPresentation,
     complete,
-    refreshCompletionStatus,
   } = useInteractiveOnboarding();
-
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [isStepComplete, setIsStepComplete] = useState(false);
 
   const isPresentation = currentStep?.type === "presentation";
   const presentationSteps = steps.filter(s => s.type === "presentation");
   const configSteps = steps.filter(s => s.type === "config");
   
-  // Calculate progress based on step type
   const configCompletedCount = completedSteps.filter(id => 
     configSteps.some(s => s.id === id)
   ).length;
   const progress = isPresentation 
-    ? ((currentStepIndex + 1) / presentationSteps.length) * 50 // First half for presentation
-    : 50 + (configCompletedCount / configSteps.length) * 50; // Second half for config
-
-  // Find and highlight target element (only for config steps)
-  useEffect(() => {
-    if (!currentStep?.targetSelector || isPresentation) {
-      setTargetRect(null);
-      return;
-    }
-
-    const findTarget = () => {
-      const el = document.querySelector(currentStep.targetSelector!);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        setTargetRect(rect);
-      } else {
-        setTargetRect(null);
-      }
-    };
-
-    findTarget();
-    const interval = setInterval(findTarget, 500);
-    window.addEventListener("resize", findTarget);
-    window.addEventListener("scroll", findTarget, true);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("resize", findTarget);
-      window.removeEventListener("scroll", findTarget, true);
-    };
-  }, [currentStep?.targetSelector, isPresentation]);
-
-  // Check if current config step is complete
-  useEffect(() => {
-    if (!currentStep || isPresentation) {
-      setIsStepComplete(false);
-      return;
-    }
-
-    const checkComplete = async () => {
-      if (currentStep.completionCheck) {
-        const done = await currentStep.completionCheck();
-        setIsStepComplete(done);
-      }
-    };
-
-    checkComplete();
-    const interval = setInterval(checkComplete, 2000);
-    return () => clearInterval(interval);
-  }, [currentStep, isPresentation]);
+    ? ((currentStepIndex + 1) / presentationSteps.length) * 50
+    : 50 + (configCompletedCount / configSteps.length) * 50;
 
   if (!currentStep) return null;
 
   const StepIcon = currentStep.icon;
   const isLastStep = currentStepIndex === steps.length - 1;
   const allConfigComplete = configSteps.every(s => completedSteps.includes(s.id));
+  const ConfigComponent = currentStep.configComponent;
+
+  const handleConfigComplete = () => {
+    next();
+  };
 
   return (
     <AnimatePresence mode="wait">
@@ -508,41 +429,10 @@ function OnboardingOverlay() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 pointer-events-auto"
-          style={{
-            background: isPresentation
-              ? "rgba(0,0,0,0.85)"
-              : targetRect
-                ? `radial-gradient(ellipse 400px 300px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 0%, rgba(0,0,0,0.75) 100%)`
-                : "rgba(0,0,0,0.75)",
-          }}
+          className="absolute inset-0 pointer-events-auto bg-black/85"
         />
 
-        {/* Spotlight ring around target (config steps only) */}
-        {targetRect && !isPresentation && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute pointer-events-none"
-            style={{
-              top: targetRect.top - 8,
-              left: targetRect.left - 8,
-              width: targetRect.width + 16,
-              height: targetRect.height + 16,
-              borderRadius: 12,
-              border: "2px solid hsl(var(--primary))",
-              boxShadow: "0 0 0 4px hsl(var(--primary) / 0.2), 0 0 30px hsl(var(--primary) / 0.3)",
-            }}
-          >
-            <motion.div
-              animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0.2, 0.5] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute inset-0 rounded-xl border-2 border-primary"
-            />
-          </motion.div>
-        )}
-
-        {/* Main card */}
+        {/* Main card - centered */}
         <motion.div
           key={currentStep.id}
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -551,23 +441,13 @@ function OnboardingOverlay() {
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className={cn(
             "pointer-events-auto bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-            isPresentation
-              ? "fixed inset-x-4 top-1/2 -translate-y-1/2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-96 sm:max-w-md"
-              : "fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-80 sm:max-w-sm"
+            "fixed inset-x-4 top-1/2 -translate-y-1/2",
+            "sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] sm:max-w-[90vw]",
+            "max-h-[85vh] overflow-y-auto"
           )}
-          style={!isPresentation ? {
-            ...(targetRect 
-              ? targetRect.top > window.innerHeight / 2
-                ? { top: Math.max(16, targetRect.top - 220) }
-                : { top: Math.min(window.innerHeight - 270, targetRect.bottom + 16) }
-              : { bottom: 100 }
-            ),
-          } : undefined}
         >
-          {/* Header with gradient for presentation */}
-          {isPresentation && (
-            <div className="h-1.5 bg-gradient-to-r from-primary via-primary/60 to-primary" />
-          )}
+          {/* Header gradient */}
+          <div className="h-1.5 bg-gradient-to-r from-primary via-primary/60 to-primary" />
 
           <div className="p-4 sm:p-5">
             {/* Progress bar */}
@@ -592,14 +472,14 @@ function OnboardingOverlay() {
                 animate={{ scale: 1 }}
                 className={cn(
                   "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
-                  isStepComplete && !isPresentation
-                    ? "bg-green-500/10 text-green-600" 
-                    : isPresentation
-                      ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
+                  isPresentation
+                    ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
+                    : completedSteps.includes(currentStep.id)
+                      ? "bg-green-500/10 text-green-600"
                       : "bg-primary/10 text-primary"
                 )}
               >
-                {isStepComplete && !isPresentation ? (
+                {completedSteps.includes(currentStep.id) && !isPresentation ? (
                   <CheckCircle className="h-5 w-5" />
                 ) : (
                   <StepIcon className="h-5 w-5" />
@@ -608,14 +488,14 @@ function OnboardingOverlay() {
               <div className="flex-1">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   {currentStep.title}
-                  {isStepComplete && !isPresentation && (
-                    <span className="text-[10px] font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded">
-                      ✓ Fait
-                    </span>
-                  )}
                   {isPresentation && (
                     <span className="text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
                       Intro
+                    </span>
+                  )}
+                  {!isPresentation && completedSteps.includes(currentStep.id) && (
+                    <span className="text-[10px] font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded">
+                      ✓ Fait
                     </span>
                   )}
                 </h3>
@@ -625,21 +505,21 @@ function OnboardingOverlay() {
               </div>
             </div>
 
-            {/* Presentation content */}
-            {isPresentation && currentStep.content && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="mb-4"
-              >
-                {currentStep.content}
-              </motion.div>
-            )}
+            {/* Content: Presentation or Config form */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mb-4"
+            >
+              {isPresentation && currentStep.content}
+              {!isPresentation && ConfigComponent && (
+                <ConfigComponent onComplete={handleConfigComplete} />
+              )}
+            </motion.div>
 
             {/* Step indicators */}
             <div className="flex justify-center gap-1 mb-4">
-              {/* Presentation dots */}
               {presentationSteps.map((step, i) => (
                 <div
                   key={step.id}
@@ -653,9 +533,7 @@ function OnboardingOverlay() {
                   )}
                 />
               ))}
-              {/* Separator */}
               <div className="w-1" />
-              {/* Config dots */}
               {configSteps.map((step, i) => {
                 const configIndex = presentationSteps.length + i;
                 return (
@@ -674,25 +552,24 @@ function OnboardingOverlay() {
               })}
             </div>
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                {currentStepIndex > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={previous}
-                    className="h-9 px-3 touch-manipulation"
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Retour
-                  </Button>
-                )}
-              </div>
+            {/* Navigation - Only for presentation steps */}
+            {isPresentation && (
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  {currentStepIndex > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={previous}
+                      className="h-9 px-3 touch-manipulation"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Retour
+                    </Button>
+                  )}
+                </div>
 
-              <div className="flex gap-2">
-                {/* Skip presentation button */}
-                {isPresentation && (
+                <div className="flex gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -702,45 +579,33 @@ function OnboardingOverlay() {
                     <SkipForward className="h-3.5 w-3.5" />
                     Passer l'intro
                   </Button>
-                )}
 
-                {/* Config step: show verify/next based on completion */}
-                {!isPresentation && !isStepComplete && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={() => refreshCompletionStatus()}
-                    className="h-9 px-4 gap-1 touch-manipulation"
+                    onClick={next}
+                    className="h-9 px-4 gap-1 touch-manipulation active:scale-95 transition-transform"
                   >
-                    <ArrowRight className="h-4 w-4" />
-                    Vérifier
+                    Continuer
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
-                )}
-
-                {/* Next/Complete button */}
-                {(isPresentation || isStepComplete) && (
-                  isLastStep && allConfigComplete ? (
-                    <Button
-                      size="sm"
-                      onClick={complete}
-                      className="h-9 px-4 gap-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 touch-manipulation active:scale-95"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Terminer
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={next}
-                      className="h-9 px-4 gap-1 touch-manipulation active:scale-95 transition-transform"
-                    >
-                      {isPresentation ? "Continuer" : "Suivant"}
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  )
-                )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Back button for config steps */}
+            {!isPresentation && currentStepIndex > 0 && (
+              <div className="flex justify-start">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={previous}
+                  className="h-9 px-3 touch-manipulation text-muted-foreground"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Retour
+                </Button>
+              </div>
+            )}
           </div>
         </motion.div>
 
