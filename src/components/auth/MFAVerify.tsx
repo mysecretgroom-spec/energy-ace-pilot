@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Shield } from "lucide-react";
+import { Loader2, Shield, Clock, AlertCircle } from "lucide-react";
 import {
   InputOTP,
   InputOTPGroup,
@@ -20,9 +20,18 @@ export function MFAVerify({ onSuccess, onCancel }: MFAVerifyProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [factorId, setFactorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   useEffect(() => {
     getFactorId();
+    
+    // Update time every second to show sync
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const getFactorId = async () => {
@@ -63,6 +72,7 @@ export function MFAVerify({ onSuccess, onCancel }: MFAVerifyProps) {
       onSuccess();
     } catch (error: any) {
       console.error("MFA verify error:", error);
+      setFailedAttempts(prev => prev + 1);
       toast.error(error.message || "Code invalide");
       setCode("");
     } finally {
@@ -76,6 +86,19 @@ export function MFAVerify({ onSuccess, onCancel }: MFAVerifyProps) {
       handleVerify();
     }
   }, [code]);
+
+  // Format time for display (HH:MM:SS)
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('fr-FR', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit',
+      hour12: false 
+    });
+  };
+
+  // Calculate seconds remaining in current TOTP window (30s cycles)
+  const secondsRemaining = 30 - (Math.floor(currentTime.getTime() / 1000) % 30);
 
   if (isLoading) {
     return (
@@ -101,6 +124,16 @@ export function MFAVerify({ onSuccess, onCancel }: MFAVerifyProps) {
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Time sync indicator */}
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg py-2 px-3">
+            <Clock className="h-4 w-4" />
+            <span>Heure : {formatTime(currentTime)}</span>
+            <span className="text-xs">•</span>
+            <span className={secondsRemaining <= 5 ? "text-orange-500 font-medium" : ""}>
+              {secondsRemaining}s
+            </span>
+          </div>
+
           <div className="flex justify-center">
             <InputOTP
               maxLength={6}
@@ -118,6 +151,21 @@ export function MFAVerify({ onSuccess, onCancel }: MFAVerifyProps) {
               </InputOTPGroup>
             </InputOTP>
           </div>
+
+          {/* Show sync help after failed attempts */}
+          {failedAttempts >= 2 && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-sm">
+              <AlertCircle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
+              <div className="text-muted-foreground">
+                <p className="font-medium text-foreground">Problème de synchronisation ?</p>
+                <ul className="mt-1 space-y-1 text-xs">
+                  <li>• Vérifiez que l'heure de votre téléphone est automatique</li>
+                  <li>• Dans Google Authenticator : ⋮ → Paramètres → Correction horaire pour les codes</li>
+                  <li>• Attendez que le compteur repasse à 30s avant d'entrer le code</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           <Button
             className="w-full"
