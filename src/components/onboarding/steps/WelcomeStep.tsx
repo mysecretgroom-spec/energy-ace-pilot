@@ -12,37 +12,37 @@ import { motion } from "framer-motion";
 
 export function WelcomeStep() {
   return (
-    <div className="text-center space-y-6">
-      {/* Animated Logo */}
+    <div className="text-center space-y-4 sm:space-y-6">
+      {/* Animated Logo - smaller on mobile */}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", damping: 15, stiffness: 200 }}
-        className="mx-auto w-24 h-24 rounded-3xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center shadow-lg"
+        className="mx-auto w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center shadow-lg"
       >
-        <Sun className="h-12 w-12 text-primary-foreground" />
+        <Sun className="h-8 w-8 sm:h-12 sm:w-12 text-primary-foreground" />
       </motion.div>
 
-      {/* Title */}
+      {/* Title - responsive text */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           Bienvenue sur DébalePro
         </h2>
-        <p className="text-muted-foreground mt-2 max-w-xs mx-auto">
-          L'application tout-en-un pour les commerciaux de l'énergie solaire
+        <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2 max-w-xs mx-auto">
+          L'app tout-en-un pour les commerciaux ENR
         </p>
       </motion.div>
 
-      {/* Features grid */}
+      {/* Features grid - compact on mobile */}
       <motion.div 
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="grid grid-cols-2 gap-3"
+        className="grid grid-cols-2 gap-2 sm:gap-3"
       >
         <FeatureCard
           icon={Calendar}
@@ -53,40 +53,40 @@ export function WelcomeStep() {
         <FeatureCard
           icon={FileText}
           title="Études"
-          description="Devis automatisés"
+          description="Devis auto"
           color="from-amber-500 to-orange-500"
         />
         <FeatureCard
           icon={Bot}
           title="Assistant IA"
-          description="24h/24 à vos côtés"
+          description="24h/24"
           color="from-green-500 to-emerald-500"
         />
         <FeatureCard
           icon={BarChart3}
           title="CRM"
-          description="Suivez vos ventes"
+          description="Suivi ventes"
           color="from-purple-500 to-violet-500"
         />
       </motion.div>
 
-      {/* Badges */}
+      {/* Badges - smaller on mobile */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="flex items-center justify-center gap-4 text-xs text-muted-foreground"
+        className="flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground"
       >
-        <div className="flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5 text-primary" />
+        <div className="flex items-center gap-1">
+          <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
           <span>Rapide</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Shield className="h-3.5 w-3.5 text-green-600" />
+        <div className="flex items-center gap-1">
+          <Shield className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-green-600" />
           <span>Sécurisé</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+        <div className="flex items-center gap-1">
+          <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500" />
           <span>Intelligent</span>
         </div>
       </motion.div>
@@ -96,9 +96,9 @@ export function WelcomeStep() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="text-sm text-muted-foreground"
+        className="text-xs sm:text-sm text-muted-foreground"
       >
-        Découvrons ensemble toutes les fonctionnalités 🚀
+        Découvrons ensemble les fonctionnalités 🚀
       </motion.p>
     </div>
   );
@@ -116,12 +116,12 @@ function FeatureCard({
   color: string;
 }) {
   return (
-    <div className="p-3 rounded-xl bg-muted/50 text-left group hover:bg-muted/70 transition-colors">
-      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center mb-2`}>
-        <Icon className="h-5 w-5 text-white" />
+    <div className="p-2 sm:p-3 rounded-lg sm:rounded-xl bg-muted/50 text-left">
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-md sm:rounded-lg bg-gradient-to-br ${color} flex items-center justify-center mb-1.5 sm:mb-2`}>
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
       </div>
-      <h3 className="font-semibold text-sm">{title}</h3>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <h3 className="font-semibold text-xs sm:text-sm">{title}</h3>
+      <p className="text-[10px] sm:text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }
