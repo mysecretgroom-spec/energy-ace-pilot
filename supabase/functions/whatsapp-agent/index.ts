@@ -3414,7 +3414,7 @@ async function createSignedVente(
       puissance_kwc: puissance,
       montant_ttc: prixTTC,
       montant_ht: prixHT,
-      status: "positif",
+      status: "signe",
       date_signature: new Date().toISOString().split("T")[0],
     })
     .select("id")
