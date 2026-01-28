@@ -51,6 +51,7 @@ type WorkflowState =
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
   | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
   | "awaiting_document_client_selection" // En attente de validation du client pour un document
+  | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
   | null;
 
 // Choice option for disambiguation polls
@@ -100,6 +101,15 @@ interface PendingAction {
     documentMimeType?: string;      // Type MIME
     documentSizeBytes?: number;     // Taille du fichier
     clientSuggestions?: Array<{ id: string; fullName: string; score: number }>; // Suggestions de clients
+    // Pour les factures/frais
+    factureMontant?: number;        // Montant TTC extrait
+    factureMontantHT?: number;      // Montant HT extrait
+    factureTVA?: number;            // TVA extraite
+    factureDate?: string;           // Date de la facture
+    factureFournisseur?: string;    // Fournisseur
+    factureDescription?: string;    // Description
+    factureCategorie?: string;      // Catégorie
+    factureStorageUrl?: string;     // URL du fichier uploadé
   };
   createdAt: string;
 }
@@ -1664,8 +1674,8 @@ serve(async (req) => {
         // For import intents, we need to upload the media first
         if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
           console.log("Uploading media to storage...");
-          // Documents go to pending-documents, receipts go to receipts
-          const targetBucket = aiResponse!.intent === "import_facture" ? "frais" : "pending";
+          // Both documents and receipts go to pending-documents for validation
+          const targetBucket = "pending-documents";
           uploadedDocumentUrl = await uploadMediaToStorage(
             supabase,
             mediaData,
@@ -3631,6 +3641,244 @@ async function handlePendingWorkflow(
           actionTaken: "error",
           newPendingAction: null,
           responseMessage: `❌ Erreur lors du traitement du document. Veuillez réessayer.`,
+        };
+      }
+    }
+    
+    case "awaiting_facture_confirmation": {
+      // User is confirming or correcting facture data before saving
+      const collectedData = pendingAction.collectedData || {};
+      const pendingDocId = collectedData.pendingDocumentId;
+      const documentFilename = collectedData.documentFilename || "facture";
+      
+      if (!pendingDocId) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: facture non trouvée. Veuillez renvoyer le document.",
+        };
+      }
+      
+      // Check for cancel
+      const cancelPatterns = ["annule", "cancel", "abandonne", "stop"];
+      if (cancelPatterns.some(p => messageLower.includes(p)) && !messageLower.match(/\d/)) {
+        // Mark document as rejected
+        await supabase
+          .from("pending_documents")
+          .update({ status: "rejected", rejection_reason: "user_cancelled" })
+          .eq("id", pendingDocId);
+        
+        return {
+          intent: "cancel_action",
+          actionTaken: "facture_cancelled",
+          newPendingAction: null,
+          responseMessage: "❌ Import annulé. La note de frais n'a pas été enregistrée.",
+        };
+      }
+      
+      // Check for confirmation
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "c'est bon", "d'accord", "correct", "parfait"];
+      const isConfirming = confirmPatterns.some(p => messageLower.includes(p));
+      
+      // Parse corrections from user message
+      let montant = collectedData.factureMontant || 0;
+      let dateStr = collectedData.factureDate || new Date().toISOString().split("T")[0];
+      let fournisseur = collectedData.factureFournisseur || "";
+      let categorie = collectedData.factureCategorie || "autre";
+      let description = collectedData.factureDescription || "Import WhatsApp";
+      let hasCorrections = false;
+      
+      // Check for amount correction
+      const amountMatch = userMessage.match(/(?:montant|total|prix|ttc)\s*[:=]?\s*(\d+(?:[.,]\d{1,2})?)\s*€?/i);
+      if (amountMatch) {
+        montant = parseFloat(amountMatch[1].replace(",", "."));
+        hasCorrections = true;
+      }
+      
+      // Check for date correction
+      const dateMatch = userMessage.match(/(?:date)\s*[:=]?\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/i);
+      if (dateMatch) {
+        const day = dateMatch[1].padStart(2, "0");
+        const month = dateMatch[2].padStart(2, "0");
+        let year = dateMatch[3];
+        if (year.length === 2) year = "20" + year;
+        dateStr = `${year}-${month}-${day}`;
+        hasCorrections = true;
+      }
+      
+      // Check for category correction
+      const categoryMatch = userMessage.match(/(?:catégorie|categorie|type)\s*[:=]?\s*(carburant|péage|peage|repas|hotel|hôtel|parking|autre)/i);
+      if (categoryMatch) {
+        categorie = categoryMatch[1].toLowerCase().replace("é", "e").replace("ô", "o");
+        hasCorrections = true;
+      }
+      
+      // Check for supplier correction
+      const supplierMatch = userMessage.match(/(?:fournisseur|enseigne|magasin)\s*[:=]?\s*(.+)/i);
+      if (supplierMatch && supplierMatch[1].length < 50) {
+        fournisseur = supplierMatch[1].trim();
+        hasCorrections = true;
+      }
+      
+      // If corrections were made, update and ask for confirmation again
+      if (hasCorrections && !isConfirming) {
+        const updatedPendingAction: PendingAction = {
+          ...pendingAction,
+          collectedData: {
+            ...collectedData,
+            factureMontant: montant,
+            factureDate: dateStr,
+            factureFournisseur: fournisseur,
+            factureCategorie: categorie,
+            factureDescription: description,
+          },
+        };
+        
+        let responseMsg = `📝 *Données mises à jour:*\n\n`;
+        responseMsg += `💰 Montant TTC: *${montant.toLocaleString("fr-FR")}€*\n`;
+        responseMsg += `📅 Date: ${dateStr}\n`;
+        if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
+        responseMsg += `📂 Catégorie: ${categorie}\n`;
+        responseMsg += `\n*Confirmes-tu ?* (Oui/Non)`;
+        
+        return {
+          intent: "import_facture",
+          actionTaken: "facture_data_updated",
+          newPendingAction: updatedPendingAction,
+          responseMessage: responseMsg,
+        };
+      }
+      
+      // If not confirming and no corrections, ask again
+      if (!isConfirming && !hasCorrections) {
+        let responseMsg = `🤔 Je n'ai pas compris.\n\n`;
+        responseMsg += `📄 *${documentFilename}*\n`;
+        responseMsg += `💰 Montant: ${montant.toLocaleString("fr-FR")}€\n`;
+        responseMsg += `📅 Date: ${dateStr}\n`;
+        responseMsg += `📂 Catégorie: ${categorie}\n\n`;
+        responseMsg += `✅ *Oui* pour confirmer | ❌ *Non* pour annuler\n`;
+        responseMsg += `_Ou donne-moi les corrections_`;
+        
+        return {
+          intent: "import_facture",
+          actionTaken: "awaiting_confirmation",
+          newPendingAction: pendingAction,
+          responseMessage: responseMsg,
+        };
+      }
+      
+      // User confirmed - create the frais record
+      const storagePath = collectedData.factureStorageUrl?.split('/').slice(-2).join('/');
+      
+      try {
+        // Download from pending-documents and upload to receipts bucket
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from("pending-documents")
+          .download(storagePath!);
+        
+        if (downloadError || !fileData) {
+          console.error("Error downloading facture from pending:", downloadError);
+          throw new Error("Download failed");
+        }
+        
+        // Upload to receipts bucket
+        const newPath = `${userId}/${Date.now()}_${documentFilename}`;
+        const fileBytes = await fileData.arrayBuffer();
+        
+        const { error: uploadError } = await supabase.storage
+          .from("receipts")
+          .upload(newPath, new Uint8Array(fileBytes), {
+            contentType: collectedData.documentMimeType || "application/octet-stream",
+          });
+        
+        if (uploadError) {
+          console.error("Error uploading to receipts:", uploadError);
+          throw new Error("Upload failed");
+        }
+        
+        // Get URL for the uploaded file
+        const { data: urlData } = supabase.storage
+          .from("receipts")
+          .getPublicUrl(newPath);
+        
+        // Build OCR data
+        const ocrData: Record<string, unknown> = {
+          montant_ttc: montant,
+          montant_ht: collectedData.factureMontantHT,
+          tva: collectedData.factureTVA,
+          fournisseur: fournisseur,
+          date: dateStr,
+          categorie: categorie,
+          description: description,
+        };
+        
+        // Create frais record
+        const { data: frais, error: fraisError } = await supabase
+          .from("frais")
+          .insert({
+            user_id: userId,
+            categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "autre",
+            montant: montant,
+            date_frais: dateStr,
+            description: description,
+            justificatif_url: urlData?.publicUrl || collectedData.factureStorageUrl,
+            ocr_data: ocrData,
+          })
+          .select("id")
+          .single();
+        
+        if (fraisError) {
+          console.error("Error creating frais:", fraisError);
+          throw new Error("Frais creation failed");
+        }
+        
+        // Update pending document status
+        await supabase
+          .from("pending_documents")
+          .update({
+            status: "processed",
+            assigned_document_type: "facture_frais",
+            processed_at: new Date().toISOString(),
+            final_document_id: frais?.id,
+          })
+          .eq("id", pendingDocId);
+        
+        // Delete from pending storage
+        await supabase.storage
+          .from("pending-documents")
+          .remove([storagePath!]);
+        
+        // Log the action
+        await logAgentAction(
+          supabase,
+          userId,
+          null,
+          "create_frais",
+          "frais",
+          frais?.id,
+          { montant, categorie, date_frais: dateStr, fournisseur },
+          null,
+          `Note de frais ${fournisseur || "importée"}: ${montant}€ (${categorie})`
+        );
+        
+        return {
+          intent: "import_facture",
+          actionTaken: "frais_imported",
+          entityId: frais?.id,
+          entityType: "frais",
+          newPendingAction: null,
+          responseMessage: `✅ *Note de frais enregistrée !*\n\n💰 Montant: *${montant.toLocaleString("fr-FR")}€*\n📅 Date: ${dateStr}\n${fournisseur ? `🏢 ${fournisseur}\n` : ""}📂 ${categorie}`,
+        };
+        
+      } catch (err) {
+        console.error("Error processing facture:", err);
+        
+        return {
+          intent: "import_facture",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: `❌ Erreur lors de l'enregistrement de la note de frais. Veuillez réessayer.`,
         };
       }
     }
@@ -5968,6 +6216,8 @@ async function executeAction(
 
       // Use structured analysis result for finance data
       let montant = 0;
+      let montantHT: number | null = null;
+      let tva: number | null = null;
       let dateStr = new Date().toISOString().split("T")[0];
       let fournisseur = "";
       let description = "Import WhatsApp";
@@ -5976,6 +6226,8 @@ async function executeAction(
       if (analysisResult && analysisResult.type === "finance" && analysisResult.success) {
         const fin = analysisResult as FinanceAnalysisResult;
         montant = fin.montant_ttc || 0;
+        montantHT = fin.montant_ht;
+        tva = fin.tva;
         dateStr = fin.date || dateStr;
         fournisseur = fin.fournisseur || "";
         description = fin.description || `${fournisseur} - Import WhatsApp`;
@@ -5985,57 +6237,76 @@ async function executeAction(
         montant = entities.amount as number || 0;
       }
 
-      // Build OCR data from analysis
-      const ocrData: Record<string, unknown> = {};
-      if (analysisResult && analysisResult.type === "finance") {
-        const fin = analysisResult as FinanceAnalysisResult;
-        ocrData.montant_ttc = fin.montant_ttc;
-        ocrData.montant_ht = fin.montant_ht;
-        ocrData.tva = fin.tva;
-        ocrData.taux_tva = fin.taux_tva;
-        ocrData.fournisseur = fin.fournisseur;
-        ocrData.date = fin.date;
-        ocrData.categorie = fin.categorie;
-        ocrData.description = fin.description;
-      }
+      // Get original filename from mediaData
+      const originalFilename = mediaData?.filename || `facture_${Date.now()}`;
+      const storagePath = uploadedDocumentUrl.split('/').slice(-2).join('/');
 
-      // Create frais record
-      const { data: frais, error: fraisError } = await supabase
-        .from("frais")
+      // Create pending document record for facture
+      const { data: pendingDoc, error: pendingError } = await supabase
+        .from("pending_documents")
         .insert({
           user_id: userId,
-          categorie: categorie,
-          montant: montant,
-          date_frais: dateStr,
-          description: description,
-          justificatif_url: uploadedDocumentUrl,
-          ocr_data: ocrData,
+          original_filename: originalFilename,
+          storage_path: storagePath,
+          mime_type: mediaData?.contentType || "application/octet-stream",
+          file_size_bytes: mediaData?.sizeBytes || null,
+          source: "whatsapp_facture",
+          ai_detected_document_type: "facture_frais",
+          ai_confidence: analysisResult?.type === "finance" && analysisResult.success ? 85 : 50,
+          ai_analysis_summary: fournisseur ? `Facture ${fournisseur}: ${montant}€` : `Facture: ${montant}€`,
+          status: "awaiting_confirmation",
         })
         .select("id")
         .single();
 
-      if (fraisError) {
-        console.error("Error creating frais:", fraisError);
+      if (pendingError) {
+        console.error("Error creating pending facture:", pendingError);
         return { actionTaken: "error" };
       }
 
-      // Log the action
-      await logAgentAction(
-        supabase,
-        userId,
-        messageId,
-        "create_frais",
-        "frais",
-        frais?.id,
-        { montant, categorie, date_frais: dateStr, fournisseur },
-        null, // No previous data for creation
-        `Note de frais ${fournisseur || "importée"}: ${montant}€ (${categorie})`
-      );
+      // Build confirmation message with extracted data
+      let responseMsg = `🧾 *Note de frais reçue !*\n\n`;
+      responseMsg += `📄 ${originalFilename}\n\n`;
+      responseMsg += `📊 *Données extraites:*\n`;
+      responseMsg += `💰 Montant TTC: *${montant.toLocaleString("fr-FR")}€*\n`;
+      if (montantHT) responseMsg += `💵 Montant HT: ${montantHT.toLocaleString("fr-FR")}€\n`;
+      if (tva) responseMsg += `📋 TVA: ${tva.toLocaleString("fr-FR")}€\n`;
+      responseMsg += `📅 Date: ${dateStr}\n`;
+      if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
+      responseMsg += `📂 Catégorie: ${categorie}\n`;
+      responseMsg += `\n*Ces informations sont-elles correctes ?*\n`;
+      responseMsg += `✅ *Oui* pour confirmer\n`;
+      responseMsg += `❌ *Non* pour annuler\n`;
+      responseMsg += `_Ou donne-moi les corrections (ex: "montant 45€" ou "catégorie carburant")_`;
+
+      // Create pending action for facture confirmation
+      const newPendingAction: PendingAction = {
+        intent: "import_facture",
+        entities,
+        workflowState: "awaiting_facture_confirmation",
+        collectedData: {
+          pendingDocumentId: pendingDoc.id,
+          factureStorageUrl: uploadedDocumentUrl,
+          documentFilename: originalFilename,
+          documentMimeType: mediaData?.contentType,
+          documentSizeBytes: mediaData?.sizeBytes,
+          factureMontant: montant,
+          factureMontantHT: montantHT || undefined,
+          factureTVA: tva || undefined,
+          factureDate: dateStr,
+          factureFournisseur: fournisseur || undefined,
+          factureDescription: description,
+          factureCategorie: categorie,
+        },
+        createdAt: new Date().toISOString(),
+      };
 
       return {
-        actionTaken: "frais_imported",
-        entityId: frais?.id,
-        entityType: "frais",
+        actionTaken: "awaiting_facture_confirmation",
+        entityId: pendingDoc?.id,
+        entityType: "pending_document",
+        newPendingAction,
+        customResponse: responseMsg,
       };
     }
 
