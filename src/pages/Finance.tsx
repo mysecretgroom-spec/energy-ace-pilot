@@ -307,21 +307,25 @@ const Finance = () => {
       return date >= startOfPrevMonth && date <= endOfPrevMonth;
     });
 
-    const signedThisMonth = ventesThisMonth.filter(v => 
+    // Pour le CA: exclure les installations externes
+    const signedThisMonthForCA = ventesThisMonth.filter(v => 
       !["en_negociation", "annule"].includes(v.status) &&
       v.type_vente !== 'external_installation' // Exclure les installations externes du CA
     );
     
-    const signedPrevMonth = ventesPrevMonth.filter(v => 
+    const signedPrevMonthForCA = ventesPrevMonth.filter(v => 
       !["en_negociation", "annule"].includes(v.status) &&
       v.type_vente !== 'external_installation' // Exclure les installations externes du CA
     );
 
-    const caMonth = signedThisMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
-    const caPrevMonth = signedPrevMonth.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+    const caMonth = signedThisMonthForCA.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
+    const caPrevMonth = signedPrevMonthForCA.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);
 
-    // Commissions this month (using hook)
-    const commissionsMonth = signedThisMonth.reduce((sum, v) => {
+    // Pour les commissions: INCLURE les installations externes (elles génèrent des commissions)
+    const signedThisMonthForComm = ventesThisMonth.filter(v => 
+      !["en_negociation", "annule"].includes(v.status)
+    );
+    const commissionsMonth = signedThisMonthForComm.reduce((sum, v) => {
       const comm = getCommission(v.id);
       return sum + (comm?.commissionNette || 0);
     }, 0);
@@ -373,7 +377,7 @@ const Finance = () => {
     // Total potentiel = en cours + attente facturation + à facturer
     const comPotentielleTotale = comEnCours + comAttenteFacturation + comAFacturer;
 
-    const signedCount = signedThisMonth.length;
+    const signedCount = signedThisMonthForCA.length;
     const avgDeal = signedCount > 0 ? caMonth / signedCount : 0;
 
     const ventesEnCoursCount = ventes.filter(v => 
