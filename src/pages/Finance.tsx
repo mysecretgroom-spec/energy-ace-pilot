@@ -98,6 +98,17 @@ const categoryLabels: Record<string, string> = {
   autre: "Autre",
 };
 
+const categoryColors: Record<string, { bg: string; text: string; icon: string }> = {
+  carburant: { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", icon: "text-amber-600 dark:text-amber-400" },
+  repas: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-400", icon: "text-orange-600 dark:text-orange-400" },
+  hotel: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", icon: "text-blue-600 dark:text-blue-400" },
+  peage: { bg: "bg-slate-100 dark:bg-slate-800/50", text: "text-slate-700 dark:text-slate-400", icon: "text-slate-600 dark:text-slate-400" },
+  parking: { bg: "bg-indigo-100 dark:bg-indigo-900/30", text: "text-indigo-700 dark:text-indigo-400", icon: "text-indigo-600 dark:text-indigo-400" },
+  train: { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-400", icon: "text-emerald-600 dark:text-emerald-400" },
+  location_vehicule: { bg: "bg-violet-100 dark:bg-violet-900/30", text: "text-violet-700 dark:text-violet-400", icon: "text-violet-600 dark:text-violet-400" },
+  autre: { bg: "bg-gray-100 dark:bg-gray-800/50", text: "text-gray-700 dark:text-gray-400", icon: "text-gray-500 dark:text-gray-400" },
+};
+
 interface FraisItem {
   id: string;
   montant: number;
@@ -1050,17 +1061,18 @@ const Finance = () => {
                           <div className="border-t divide-y">
                             {monthGroup.frais.map((frais) => {
                               const Icon = categoryIcons[frais.categorie] || HelpCircle;
+                              const colors = categoryColors[frais.categorie] || categoryColors.autre;
                               return (
                                 <div key={frais.id} className="p-3 flex items-center gap-3">
-                                  <div className="p-2 rounded-lg bg-muted">
-                                    <Icon className="h-4 w-4 text-muted-foreground" />
+                                  <div className={`p-2 rounded-lg ${colors.bg}`}>
+                                    <Icon className={`h-4 w-4 ${colors.icon}`} />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-foreground truncate">
                                       {frais.description || categoryLabels[frais.categorie]}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                      {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • {categoryLabels[frais.categorie]}
+                                      {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
                                     </p>
                                     {frais.categorie === "location_vehicule" && frais.date_debut && frais.date_fin && (
                                       <p className="text-xs text-primary mt-0.5">
@@ -1138,9 +1150,18 @@ const Finance = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(categoryLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
+                        {Object.entries(categoryLabels).map(([key, label]) => {
+                          const Icon = categoryIcons[key] || HelpCircle;
+                          const colors = categoryColors[key] || categoryColors.autre;
+                          return (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-2">
+                                <Icon className={`h-4 w-4 ${colors.icon}`} />
+                                <span>{label}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1212,9 +1233,18 @@ const Finance = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(categoryLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
-                        ))}
+                        {Object.entries(categoryLabels).map(([key, label]) => {
+                          const Icon = categoryIcons[key] || HelpCircle;
+                          const colors = categoryColors[key] || categoryColors.autre;
+                          return (
+                            <SelectItem key={key} value={key}>
+                              <div className="flex items-center gap-2">
+                                <Icon className={`h-4 w-4 ${colors.icon}`} />
+                                <span>{label}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

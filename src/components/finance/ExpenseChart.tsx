@@ -23,14 +23,14 @@ const categoryLabels: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
-  carburant: "hsl(var(--chart-1))",
-  repas: "hsl(var(--chart-2))",
-  hotel: "hsl(var(--chart-3))",
-  peage: "hsl(var(--chart-4))",
-  parking: "hsl(var(--chart-5))",
-  train: "hsl(210, 70%, 50%)",
-  location_vehicule: "hsl(280, 60%, 55%)",
-  autre: "hsl(var(--muted-foreground))",
+  carburant: "hsl(45, 93%, 47%)",    // Amber
+  repas: "hsl(25, 95%, 53%)",        // Orange
+  hotel: "hsl(217, 91%, 60%)",       // Blue
+  peage: "hsl(215, 14%, 45%)",       // Slate
+  parking: "hsl(239, 84%, 67%)",     // Indigo
+  train: "hsl(160, 84%, 39%)",       // Emerald
+  location_vehicule: "hsl(263, 70%, 58%)", // Violet
+  autre: "hsl(220, 9%, 46%)",        // Gray
 };
 
 export function ExpenseChart({ frais }: ExpenseChartProps) {
