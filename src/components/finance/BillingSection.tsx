@@ -21,8 +21,16 @@ import {
   CreditCard,
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  MoreVertical,
+  Pencil
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -66,6 +74,10 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const [creating, setCreating] = useState(false);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [showPendingInvoices, setShowPendingInvoices] = useState(true);
+  const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
+  const [factureVentes, setFactureVentes] = useState<BillableVente[]>([]);
+  const [loadingFactureVentes, setLoadingFactureVentes] = useState(false);
+  const [copiedFactureId, setCopiedFactureId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -419,6 +431,179 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Fetch ventes for a specific facture (for copy/edit)
+  const fetchFactureVentes = async (facture: Facture): Promise<BillableVente[]> => {
+    if (!user || facture.vente_ids.length === 0) return [];
+
+    try {
+      const { data: ventesData, error: ventesError } = await supabase
+        .from("ventes")
+        .select(`
+          id,
+          montant_ht,
+          montant_ttc,
+          puissance_kwc,
+          date_installation_reelle,
+          decom_montant,
+          regie_id,
+          etude_id,
+          type_vente,
+          clients (nom, prenom)
+        `)
+        .in("id", facture.vente_ids);
+
+      if (ventesError) throw ventesError;
+      if (!ventesData || ventesData.length === 0) return [];
+
+      // Fetch bouquets and regie configs for commission calculation
+      const regieIds = [...new Set(ventesData.map((v: any) => v.regie_id).filter(Boolean))] as string[];
+      const etudeIds = [...new Set(ventesData.map((v: any) => v.etude_id).filter(Boolean))] as string[];
+
+      const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
+        regieIds.length > 0
+          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
+        etudeIds.length > 0
+          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const allBouquets = bouquetsRes.data || [];
+      const regies = regiesRes.data || [];
+      const globalSurventePct = configRes.data?.part_survente_pct || 50;
+      const globalBouquets = allBouquets.filter((b: any) => !b.regie_ids || b.regie_ids.length === 0);
+      const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
+      const regieBouquetsMap = new Map<string, any[]>();
+      
+      allBouquets.forEach((b: any) => {
+        if (b.regie_ids && b.regie_ids.length > 0) {
+          b.regie_ids.forEach((regieId: string) => {
+            const existing = regieBouquetsMap.get(regieId) || [];
+            existing.push(b);
+            regieBouquetsMap.set(regieId, existing);
+          });
+        }
+      });
+
+      const etudeSurcoutsMap = new Map((etudesRes.data || []).map((e: any) => [e.id, e]));
+
+      const findBouquet = (bouquets: any[], puissance: number) => {
+        const exact = bouquets.find(b => b.puissance_kwc === puissance);
+        if (exact) return { prixRecommande: exact.prix_recommande, commissionFixe: exact.commission_fixe || 0 };
+        const sorted = [...bouquets].sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+        const lower = sorted.filter(b => b.puissance_kwc < puissance).pop();
+        if (lower) {
+          return { prixRecommande: lower.prix_recommande + (puissance - lower.puissance_kwc) * 1000, commissionFixe: lower.commission_fixe || 0 };
+        }
+        const upper = sorted.find(b => b.puissance_kwc > puissance);
+        if (upper) {
+          return { prixRecommande: upper.prix_recommande - (upper.puissance_kwc - puissance) * 1000, commissionFixe: upper.commission_fixe || 0 };
+        }
+        return { prixRecommande: puissance * 4500, commissionFixe: 0 };
+      };
+
+      return ventesData.map((v: any) => {
+        const decomMontant = v.decom_montant || 0;
+        
+        if (v.type_vente === "external_installation") {
+          const commission = Math.max(0, v.montant_ht - decomMontant);
+          return {
+            id: v.id,
+            client_nom: v.clients?.nom || "Client inconnu",
+            client_prenom: v.clients?.prenom || null,
+            puissance_kwc: v.puissance_kwc,
+            montant_ht: v.montant_ht,
+            montant_ttc: v.montant_ttc,
+            date_installation_reelle: v.date_installation_reelle,
+            commission,
+            decom_montant: decomMontant,
+          };
+        }
+        
+        const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
+        const bouquetsToUse = v.regie_id && regieBouquetsMap.has(v.regie_id)
+          ? regieBouquetsMap.get(v.regie_id)!
+          : globalBouquets;
+        const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
+        
+        const bouquet = findBouquet(bouquetsToUse, v.puissance_kwc || 3);
+        const baseCommission = bouquet.commissionFixe;
+        
+        let bonusSurvente = 0;
+        const puissance = v.puissance_kwc || 3;
+        const tauxTVA = getTauxTVAByPuissance(puissance);
+        const montantTTC = v.montant_ttc || (v.montant_ht * (1 + tauxTVA / 100));
+        
+        const etudeSurcouts = v.etude_id ? etudeSurcoutsMap.get(v.etude_id) : null;
+        const totalSurcoutsTTC = etudeSurcouts 
+          ? (Number(etudeSurcouts.surcout_support) || 0) + (Number(etudeSurcouts.surcout_compteur) || 0) + (Number(etudeSurcouts.autre_surcout) || 0)
+          : 0;
+        
+        const montantTTCSansSurcouts = montantTTC - totalSurcoutsTTC;
+        
+        if (bouquet.prixRecommande > 0 && montantTTCSansSurcouts > bouquet.prixRecommande) {
+          const surventeTTC = montantTTCSansSurcouts - bouquet.prixRecommande;
+          const surventeHT = ttcToHT(surventeTTC, tauxTVA);
+          bonusSurvente = surventeHT * (partSurventePct / 100);
+        }
+        
+        const commission = Math.max(0, baseCommission + bonusSurvente - decomMontant);
+
+        return {
+          id: v.id,
+          client_nom: v.clients?.nom || "Client inconnu",
+          client_prenom: v.clients?.prenom || null,
+          puissance_kwc: v.puissance_kwc,
+          montant_ht: v.montant_ht,
+          montant_ttc: v.montant_ttc,
+          date_installation_reelle: v.date_installation_reelle,
+          commission,
+          decom_montant: decomMontant,
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching facture ventes:", error);
+      return [];
+    }
+  };
+
+  // Copy facture ventes for Qonto (one by one format)
+  const handleCopyFactureForQonto = async (facture: Facture) => {
+    const factureVentesData = await fetchFactureVentes(facture);
+    
+    if (factureVentesData.length === 0) {
+      toast.error("Aucune vente trouvée pour cette facture");
+      return;
+    }
+
+    const lines = factureVentesData.map(v => {
+      const clientName = v.client_prenom 
+        ? `${v.client_prenom} ${v.client_nom}`
+        : v.client_nom;
+      const puissanceStr = v.puissance_kwc ? `${v.puissance_kwc} kWc` : "";
+      return `Commission Installation(s): ${puissanceStr} - ${clientName}\t${formatCurrency(v.commission)} €`;
+    });
+
+    const totalCommission = factureVentesData.reduce((sum, v) => sum + v.commission, 0);
+    const fullText = lines.join("\n") + `\n\nTOTAL HT: ${formatCurrency(totalCommission)} €`;
+    
+    navigator.clipboard.writeText(fullText);
+    setCopiedFactureId(facture.id);
+    toast.success("Lignes copiées pour Qonto");
+    setTimeout(() => setCopiedFactureId(null), 2000);
+  };
+
+  // Open edit dialog for facture
+  const handleEditFacture = async (facture: Facture) => {
+    setEditingFacture(facture);
+    setLoadingFactureVentes(true);
+    const ventesData = await fetchFactureVentes(facture);
+    setFactureVentes(ventesData);
+    setLoadingFactureVentes(false);
+  };
+
   const totalPendingInvoices = factures.reduce((sum, f) => sum + Number(f.montant_total_ht), 0);
 
   if (loading) {
@@ -473,8 +658,32 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                       <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <p className="font-bold text-purple-700">{formatCurrency(Number(facture.montant_total_ht))} €</p>
+                    
+                    {/* Dropdown menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4 text-purple-600" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditFacture(facture)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyFactureForQonto(facture)}>
+                          {copiedFactureId === facture.id ? (
+                            <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4 mr-2" />
+                          )}
+                          {copiedFactureId === facture.id ? "Copié !" : "Copier pour Qonto"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
                     <Button
                       size="sm"
                       onClick={() => handleMarkAsPaid(facture)}
@@ -637,6 +846,86 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           </Card>
         </div>
       )}
+
+      {/* Edit Facture Dialog */}
+      <Dialog open={!!editingFacture} onOpenChange={(open) => !open && setEditingFacture(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5" />
+              Modifier {editingFacture?.numero_facture}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingFactureVentes ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4 overflow-y-auto">
+              <p className="text-sm text-muted-foreground">
+                Ventes incluses dans cette facture :
+              </p>
+              
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client</TableHead>
+                      <TableHead className="text-right">kWc</TableHead>
+                      <TableHead className="text-right">Commission HT</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {factureVentes.map((vente) => (
+                      <TableRow 
+                        key={vente.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => {
+                          setEditingFacture(null);
+                          navigate(`/ventes/${vente.id}`);
+                        }}
+                      >
+                        <TableCell className="font-medium">
+                          {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
+                        </TableCell>
+                        <TableCell className="text-right">{vente.puissance_kwc || "-"}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">
+                          {formatCurrency(vente.commission)} €
+                          {vente.decom_montant > 0 && (
+                            <span className="text-xs text-destructive block">
+                              -{formatCurrency(vente.decom_montant)} € décom
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              <Separator />
+              
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                <span className="font-medium">TOTAL HT</span>
+                <span className="text-lg font-bold text-purple-700">
+                  {formatCurrency(factureVentes.reduce((sum, v) => sum + v.commission, 0))} €
+                </span>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                💡 Cliquez sur une vente pour la modifier (ajouter décom, etc.)
+              </p>
+            </div>
+          )}
+          
+          <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={() => setEditingFacture(null)}>
+              Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
