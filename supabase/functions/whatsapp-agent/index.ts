@@ -2468,23 +2468,18 @@ async function handlePendingWorkflow(
           const confirmateurPhone = await getConfirmateurPhone(supabase, userId, collectedData.regieId);
           
           if (confirmateurPhone) {
+            // Generate WhatsApp click-to-chat link instead of sending via Twilio
+            const cleanPhone = confirmateurPhone.replace(/[^+\d]/g, "").replace("whatsapp:", "");
+            const encodedMessage = encodeURIComponent(whatsappMsg);
+            const whatsappLink = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+            
             return {
               intent: "mark_signe",
-              actionTaken: "awaiting_whatsapp_approval",
+              actionTaken: "vente_created_whatsapp_link",
               entityId: venteResult.venteId,
               entityType: "vente",
-              newPendingAction: {
-                intent: "approve_whatsapp",
-                entities: {},
-                workflowState: "awaiting_whatsapp_approval",
-                collectedData: {
-                  ...collectedData,
-                  whatsappMessage: whatsappMsg,
-                  confirmateurPhone,
-                },
-                createdAt: new Date().toISOString(),
-              },
-              responseMessage: `✅ *Vente créée !*\n\n📱 Voici le message qui sera envoyé au confirmateur:\n\n---\n${whatsappMsg}\n---\n\n*Confirmes-tu l'envoi ?* (Oui/Non)`,
+              newPendingAction: null,
+              responseMessage: `✅ *Vente créée !* 🎉\n\n📱 *Clique sur ce lien pour envoyer le message au confirmateur:*\n\n👉 ${whatsappLink}\n\n---\n_Aperçu du message:_\n${whatsappMsg}\n---`,
             };
           } else {
             return {
@@ -2493,7 +2488,7 @@ async function handlePendingWorkflow(
               entityId: venteResult.venteId,
               entityType: "vente",
               newPendingAction: null,
-              responseMessage: `✅ *Vente créée !* ${collectedData.clientName} - ${collectedData.puissanceKwc}kWc - ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n\n⚠️ Aucun confirmateur configuré pour envoyer le message WhatsApp.`,
+              responseMessage: `✅ *Vente créée !* ${collectedData.clientName} - ${collectedData.puissanceKwc}kWc - ${collectedData.prixTTC?.toLocaleString("fr-FR")}€\n\n⚠️ Aucun confirmateur configuré pour générer le lien WhatsApp.`,
             };
           }
         } else {
