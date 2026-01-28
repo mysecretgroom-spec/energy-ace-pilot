@@ -278,23 +278,23 @@ export const RGECardDialog = () => {
         <div 
           className={`flex items-center justify-center transition-all ${
             isDragging ? 'duration-0' : 'duration-200'
-          }`}
+          } ${isMobile ? 'absolute inset-0' : 'w-full h-full p-8'}`}
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
-            transform: isMobile 
-              ? `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})` 
-              : undefined,
-            // On mobile: card width = screen height minus padding, card height = screen width minus safe areas
-            width: isMobile ? 'calc(100dvh - 6rem)' : '100%',
-            height: isMobile ? 'calc(100vw - 2rem)' : '100%',
-            padding: isMobile ? undefined : '2rem',
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl w-full h-full"
-            style={{ 
-              maxWidth: isMobile ? undefined : '64rem',
-              minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
+            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 select-none rounded-2xl sm:rounded-3xl"
+            style={isMobile ? { 
+              transform: `rotate(90deg) scale(${Math.max(0.9, 1 - dragDistance / 500)})`,
+              transformOrigin: 'center center',
+              width: 'calc(100dvh - 8rem)',
+              height: 'calc(100vw - 4rem)',
+              maxHeight: '100%',
+            } : {
+              width: '100%',
+              maxWidth: '64rem',
+              minHeight: 'min(80vh, 36rem)',
             }}
           >
             {/* Header with Ministère and France Rénov logos */}
