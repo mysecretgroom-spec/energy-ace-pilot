@@ -282,21 +282,18 @@ export const RGECardDialog = () => {
           style={{ 
             opacity: isMobile ? Math.max(0.3, 1 - dragDistance / 150) : 1,
             transform: isMobile 
-              ? `rotate(90deg) scale(${Math.max(0.8, 1 - dragDistance / 500)})` 
+              ? `rotate(90deg) scale(${Math.max(0.75, 1 - dragDistance / 500)})` 
               : undefined,
-            // Use 100dvh for dynamic viewport height (excludes browser chrome)
-            width: isMobile ? '100dvh' : '100%',
-            height: isMobile ? '100vw' : '100%',
-            padding: isMobile ? '2rem' : '2rem',
+            // Dimensions réduites pour éviter le clipping sur les vrais mobiles
+            width: isMobile ? 'calc(100dvh - 120px)' : '100%',
+            height: isMobile ? 'calc(100vw - 60px)' : '100%',
+            padding: isMobile ? '0' : '2rem',
           }}
         >
           <div 
-            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl"
+            className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none rounded-2xl sm:rounded-3xl w-full h-full"
             style={{ 
-              aspectRatio: isMobile ? '16/9' : undefined,
-              width: isMobile ? 'auto' : '100%',
-              height: isMobile ? 'calc(100vw - 5rem)' : 'auto',
-              maxWidth: isMobile ? 'calc(100dvh - 5rem)' : '64rem',
+              maxWidth: isMobile ? undefined : '64rem',
               minHeight: isMobile ? undefined : 'min(80vh, 36rem)',
             }}
           >
