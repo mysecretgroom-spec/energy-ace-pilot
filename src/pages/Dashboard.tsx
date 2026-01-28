@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { BlurOverlay } from "@/components/layout/BlurOverlay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -586,7 +587,8 @@ const Dashboard = () => {
           </Button>
         </div>
 
-        {/* KPIs principaux */}
+        {/* KPIs principaux - avec floutage opaque */}
+        <BlurOverlay storageKey="dashboard_stats" blurAmount={12} opaque>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card 
             className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 cursor-pointer hover:shadow-md transition-shadow"
@@ -726,6 +728,7 @@ const Dashboard = () => {
             </MFAProtectedContent>
           )}
         </div>
+        </BlurOverlay>
 
         {/* Prochains RDV */}
         <Card>

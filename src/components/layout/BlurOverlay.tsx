@@ -5,9 +5,18 @@ interface BlurOverlayProps {
   children: ReactNode;
   /** Storage key for persistence - if set, blur won't show again once dismissed */
   storageKey?: string;
+  /** Blur intensity (default: 8) */
+  blurAmount?: number;
+  /** Show a darker/more opaque overlay */
+  opaque?: boolean;
 }
 
-export function BlurOverlay({ children, storageKey }: BlurOverlayProps) {
+export function BlurOverlay({ 
+  children, 
+  storageKey, 
+  blurAmount = 8,
+  opaque = false 
+}: BlurOverlayProps) {
   const [isBlurred, setIsBlurred] = useState(true);
 
   // Check if already dismissed (persisted)
@@ -61,8 +70,13 @@ export function BlurOverlay({ children, storageKey }: BlurOverlayProps) {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center"
-            style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}
+            className={`absolute inset-0 z-20 pointer-events-none flex items-center justify-center rounded-xl ${
+              opaque ? "bg-background/60" : ""
+            }`}
+            style={{ 
+              backdropFilter: `blur(${blurAmount + 4}px)`, 
+              WebkitBackdropFilter: `blur(${blurAmount + 4}px)` 
+            }}
           >
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -71,7 +85,9 @@ export function BlurOverlay({ children, storageKey }: BlurOverlayProps) {
               transition={{ delay: 0.2 }}
               className="text-center pointer-events-auto"
             >
-              <div className="bg-card/90 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg border border-border">
+              <div className={`rounded-2xl px-6 py-4 shadow-lg border border-border ${
+                opaque ? "bg-card" : "bg-card/90 backdrop-blur-sm"
+              }`}>
                 <p className="text-sm text-muted-foreground">
                   Touchez ou scrollez pour afficher
                 </p>
@@ -83,7 +99,7 @@ export function BlurOverlay({ children, storageKey }: BlurOverlayProps) {
 
       {/* Content with conditional blur */}
       <motion.div
-        animate={{ filter: isBlurred ? "blur(8px)" : "blur(0px)" }}
+        animate={{ filter: isBlurred ? `blur(${blurAmount}px)` : "blur(0px)" }}
         transition={{ duration: 0.4, ease: "easeOut" }}
       >
         {children}
