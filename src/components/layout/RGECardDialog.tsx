@@ -204,6 +204,7 @@ export const RGECardDialog = () => {
     if (!isDragging) return;
     const currentY = e.touches[0].clientY;
     const diff = currentY - startYRef.current;
+    // On mobile with 90deg rotation, Y movement maps to visual "down" which should close
     if (diff > 0) {
       setDragY(diff);
     }
@@ -211,7 +212,7 @@ export const RGECardDialog = () => {
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    if (dragY > 100) {
+    if (dragY > 80) {
       setOpen(false);
     }
     setDragY(0);
@@ -268,14 +269,17 @@ export const RGECardDialog = () => {
 
         {/* RGE Card - Responsive layout */}
         <div 
-          className={`flex items-center justify-center transition-transform duration-200 ${
+          className={`flex items-center justify-center transition-transform ${
+            isDragging ? 'duration-0' : 'duration-200'
+          } ${
             isMobile 
               ? "origin-center w-[100vh] h-[100vw]" 
               : "w-full h-full p-8 lg:p-12"
           }`}
           style={isMobile ? { 
-            transform: `rotate(90deg) translateX(${dragY}px)`,
-            opacity: Math.max(0.3, 1 - dragY / 300)
+            transform: `rotate(90deg) translateY(${dragY}px)`,
+            opacity: Math.max(0.3, 1 - dragY / 200),
+            touchAction: 'none'
           } : undefined}
           onTouchStart={isMobile ? handleTouchStart : undefined}
           onTouchMove={isMobile ? handleTouchMove : undefined}
@@ -283,7 +287,7 @@ export const RGECardDialog = () => {
         >
           <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden select-none ${
             isMobile 
-              ? "w-[98%] h-[75%] rounded-2xl" 
+              ? "w-full h-[75%] rounded-2xl" 
               : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
           }`}>
             {/* Header with Ministère and France Rénov logos */}
