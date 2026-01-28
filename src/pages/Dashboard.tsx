@@ -562,7 +562,7 @@ const Dashboard = () => {
 
   return (
     <MobileLayout title="Dashboard" showBackButton={false}>
-      <div className="p-4 space-y-4 pb-24">
+      <div className="p-4 space-y-4 pb-24 max-w-4xl mx-auto">
         {/* Header avec salutation */}
         <div className="flex items-center justify-between">
           <div>
@@ -587,7 +587,7 @@ const Dashboard = () => {
         </div>
 
         {/* KPIs principaux */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card 
             className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => openStatDialog('ca')}
