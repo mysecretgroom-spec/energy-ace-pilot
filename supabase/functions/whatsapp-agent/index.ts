@@ -3602,6 +3602,16 @@ RÈGLES CRITIQUES:
 - Si l'utilisateur dit "c'est un nouveau client" après une recherche échouée → mets is_new_client: true dans les entities
 - Exemple: "vente externe Massenat 700€ posé le 20/01" → create_external_vente avec entities: {"client_name":"Massenat","commission":700,"date_pose":"2026-01-20","is_new_client":true}
 
+🚫 RÈGLE CRITIQUE - GESTION DES CLIENTS INCONNUS:
+- Tu ne DOIS JAMAIS générer un message "❌ Aucun client trouvé" dans responseMessage
+- Quand un nom de client est mentionné pour une action (mark_signe, create_rdv, update_vente_pipeline, etc.):
+  1. TOUJOURS extraire client_name dans les entities
+  2. Mettre is_new_client: true si l'utilisateur indique explicitement que c'est un nouveau client
+  3. Le BACKEND gère la recherche et proposera automatiquement de créer le client si non trouvé
+- Pour mark_signe ou create_rdv: retourne juste l'intent avec client_name, le backend fera la recherche fuzzy
+- INTERDIT de bloquer avec un message d'erreur sur le client - laisse le backend gérer
+- Exemple: "signé chez Poirier 4kwc 19900€" → mark_signe avec entities: {"client_name":"Poirier","puissance_kwc":4,"amount":19900} - PAS de message d'erreur!
+
 ⚠️ CONFIRMATION OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données (create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente), tu DOIS:
   1. REFORMULER ce que tu as compris de manière claire et précise
