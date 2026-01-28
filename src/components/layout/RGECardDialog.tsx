@@ -7,10 +7,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { IdCard, Phone, ChevronDown } from "lucide-react";
+import { IdCard, Phone, ChevronDown, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Import logos
 import logoFranceRenov from "@/assets/logos/france-renov.png";
@@ -39,6 +40,7 @@ interface CompanyInfo {
 
 export const RGECardDialog = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [open, setOpen] = useState(false);
@@ -103,16 +105,13 @@ export const RGECardDialog = () => {
     const now = new Date();
     const nowIso = now.toISOString();
 
-    // Helper function to try to get SIRET from a regie
     const tryGetSiret = async (regie: { nom: string; siret: string | null }): Promise<CompanyInfo | null> => {
       if (regie.siret) {
         return { nom: regie.nom, siret: regie.siret };
       }
-      // Try API search
       return await fetchCompanySiret(regie.nom);
     };
 
-    // First, try to find current RDV (date_heure <= now, ordered by most recent)
     const { data: currentRdv } = await supabase
       .from("rdv")
       .select(`
@@ -143,7 +142,6 @@ export const RGECardDialog = () => {
       }
     }
 
-    // If no SIRET found from current RDV, try next RDV
     if (!foundSiret) {
       const { data: nextRdv } = await supabase
         .from("rdv")
@@ -168,7 +166,6 @@ export const RGECardDialog = () => {
       }
     }
 
-    // If still no SIRET, search through all non-HEJJA regies
     if (!foundSiret) {
       const { data: allRegies } = await (supabase as any)
         .from("regies")
@@ -202,7 +199,6 @@ export const RGECardDialog = () => {
     if (!isDragging) return;
     const currentY = e.touches[0].clientY;
     const diff = currentY - startYRef.current;
-    // Only allow dragging down
     if (diff > 0) {
       setDragY(diff);
     }
@@ -210,14 +206,12 @@ export const RGECardDialog = () => {
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    // If dragged more than 100px, close the dialog
     if (dragY > 100) {
       setOpen(false);
     }
     setDragY(0);
   };
 
-  // Use stage name if available, otherwise fallback to real name
   const displayFirstName = profile?.prenom_scene || profile?.first_name;
   const displayLastName = profile?.nom_scene || profile?.last_name;
   const fullName = displayFirstName || displayLastName
@@ -236,53 +230,89 @@ export const RGECardDialog = () => {
           <DialogTitle>Carte RGE Professionnelle</DialogTitle>
         </DialogHeader>
         
-        {/* Swipe indicator */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60 z-10">
-          <ChevronDown className="h-6 w-6 animate-bounce" />
-          <span className="text-xs">Glisser pour fermer</span>
-        </div>
+        {/* Close button for desktop/tablet */}
+        {!isMobile && (
+          <button
+            onClick={() => setOpen(false)}
+            className="absolute top-4 right-4 z-20 bg-white/20 hover:bg-white/30 rounded-full p-2 text-white transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        )}
 
-        {/* RGE Card - Floating business card style with drag gesture */}
+        {/* Swipe indicator - mobile only */}
+        {isMobile && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/60 z-10">
+            <ChevronDown className="h-6 w-6 animate-bounce" />
+            <span className="text-xs">Glisser pour fermer</span>
+          </div>
+        )}
+
+        {/* RGE Card - Responsive layout */}
         <div 
-          className="origin-center w-[100vh] h-[100vw] flex items-center justify-center transition-transform duration-200"
-          style={{ 
+          className={`flex items-center justify-center transition-transform duration-200 ${
+            isMobile 
+              ? "origin-center w-[100vh] h-[100vw]" 
+              : "w-full h-full p-8 lg:p-12"
+          }`}
+          style={isMobile ? { 
             transform: `rotate(90deg) translateX(${dragY}px)`,
             opacity: Math.max(0.3, 1 - dragY / 300)
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          } : undefined}
+          onTouchStart={isMobile ? handleTouchStart : undefined}
+          onTouchMove={isMobile ? handleTouchMove : undefined}
+          onTouchEnd={isMobile ? handleTouchEnd : undefined}
         >
-          <div className="bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white w-[98%] h-[96%] flex flex-col rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden">
+          <div className={`bg-gradient-to-br from-[#1a5276] to-[#2e86ab] text-white flex flex-col shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.1)] border border-white/20 overflow-hidden ${
+            isMobile 
+              ? "w-[98%] h-[96%] rounded-2xl" 
+              : "w-full max-w-5xl h-auto aspect-[16/9] rounded-3xl"
+          }`}>
             {/* Header with Ministère and France Rénov logos */}
-            <div className="bg-white py-4 px-6 flex items-center justify-between rounded-t-2xl shrink-0">
+            <div className={`bg-white flex items-center justify-between shrink-0 ${
+              isMobile 
+                ? "py-4 px-6 rounded-t-2xl" 
+                : "py-6 px-10 lg:py-8 lg:px-16 rounded-t-3xl"
+            }`}>
               <img 
                 src={logoMinistere} 
                 alt="Ministère de la Transition Énergétique" 
-                className="h-16 object-contain"
+                className={isMobile ? "h-16 object-contain" : "h-20 lg:h-28 object-contain"}
               />
               <img 
                 src={logoFranceRenov} 
                 alt="France Rénov'" 
-                className="h-16 object-contain"
+                className={isMobile ? "h-16 object-contain" : "h-20 lg:h-28 object-contain"}
               />
             </div>
 
             {/* Title band */}
-            <div className="bg-gradient-to-r from-[#27ae60] to-[#2ecc71] py-1.5 px-4 text-center shrink-0 shadow-sm">
-              <h3 className="text-xs font-bold tracking-widest uppercase drop-shadow-sm">
+            <div className={`bg-gradient-to-r from-[#27ae60] to-[#2ecc71] text-center shrink-0 shadow-sm ${
+              isMobile ? "py-1.5 px-4" : "py-2 px-6"
+            }`}>
+              <h3 className={`font-bold tracking-widest uppercase drop-shadow-sm ${
+                isMobile ? "text-xs" : "text-sm lg:text-base"
+              }`}>
                 Carte Professionnelle RGE
               </h3>
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex items-center justify-center p-3 min-h-0">
-              <div className="bg-white/15 backdrop-blur-md rounded-xl w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
+            <div className={`flex-1 flex items-center justify-center min-h-0 ${
+              isMobile ? "p-3" : "p-4 lg:p-6"
+            }`}>
+              <div className={`bg-white/15 backdrop-blur-md w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col ${
+                isMobile ? "rounded-xl" : "rounded-2xl"
+              }`}>
                 {/* Photo and info - responsive layout */}
-                <div className="flex-1 flex items-center justify-center gap-4 p-4 min-h-0">
+                <div className={`flex-1 flex items-center justify-center min-h-0 ${
+                  isMobile ? "gap-4 p-4" : "gap-8 lg:gap-12 p-6 lg:p-8"
+                }`}>
                   {/* Photo */}
                   <div className="relative shrink-0">
-                    <div className="h-32 w-24 border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent">
+                    <div className={`border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent ${
+                      isMobile ? "h-32 w-24" : "h-40 w-32 lg:h-52 lg:w-40"
+                    }`}>
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -290,13 +320,17 @@ export const RGECardDialog = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-white text-2xl font-bold">
+                        <div className={`w-full h-full flex items-center justify-center text-white font-bold ${
+                          isMobile ? "text-2xl" : "text-3xl lg:text-4xl"
+                        }`}>
                           ?
                         </div>
                       )}
                     </div>
                     {!profile?.avatar_url && (
-                      <div className="absolute -bottom-1 -right-1 bg-amber-500 text-[6px] px-1 rounded text-white whitespace-nowrap">
+                      <div className={`absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap ${
+                        isMobile ? "text-[6px]" : "text-[8px] lg:text-xs"
+                      }`}>
                         Photo manquante
                       </div>
                     )}
@@ -305,50 +339,76 @@ export const RGECardDialog = () => {
                   {/* Technician info */}
                   <div className="text-center flex-1 min-w-0">
                     {fullName ? (
-                      <h4 className="text-lg font-bold mb-0.5 truncate">{fullName}</h4>
+                      <h4 className={`font-bold mb-0.5 truncate ${
+                        isMobile ? "text-lg" : "text-2xl lg:text-3xl"
+                      }`}>{fullName}</h4>
                     ) : (
                       <div className="mb-0.5">
-                        <p className="text-base text-white/50 italic">Nom Prénom</p>
-                        <p className="text-[8px] text-amber-400">À renseigner dans le profil</p>
+                        <p className={`text-white/50 italic ${
+                          isMobile ? "text-base" : "text-xl lg:text-2xl"
+                        }`}>Nom Prénom</p>
+                        <p className={`text-amber-400 ${
+                          isMobile ? "text-[8px]" : "text-xs"
+                        }`}>À renseigner dans le profil</p>
                       </div>
                     )}
-                    <p className="text-white/80 text-xs mb-1">Technicien agréé</p>
+                    <p className={`text-white/80 mb-1 ${
+                      isMobile ? "text-xs" : "text-sm lg:text-base"
+                    }`}>Technicien agréé</p>
                     {siretSearchComplete && companyInfo && (
                       <div className="mb-1">
-                        <p className="text-sm font-semibold text-white/90 truncate">
+                        <p className={`font-semibold text-white/90 truncate ${
+                          isMobile ? "text-sm" : "text-base lg:text-lg"
+                        }`}>
                           {companyInfo.nom}
                         </p>
-                        <p className="text-xs text-white/70 font-mono">
+                        <p className={`text-white/70 font-mono ${
+                          isMobile ? "text-xs" : "text-sm"
+                        }`}>
                           SIRET: {companyInfo.siret}
                         </p>
                       </div>
                     )}
                     {profile?.telephone_pro ? (
-                      <div className={`flex items-center justify-center gap-2 text-sm ${!companyInfo ? 'mt-1' : ''}`}>
-                        <Phone className="h-4 w-4" />
+                      <div className={`flex items-center justify-center gap-2 ${!companyInfo ? 'mt-1' : ''} ${
+                        isMobile ? "text-sm" : "text-lg lg:text-xl"
+                      }`}>
+                        <Phone className={isMobile ? "h-4 w-4" : "h-5 w-5 lg:h-6 lg:w-6"} />
                         <span className="font-medium">{profile.telephone_pro}</span>
                       </div>
                     ) : (
-                      <div className={`flex items-center justify-center gap-2 text-sm ${!companyInfo ? 'mt-1' : ''}`}>
-                        <Phone className="h-4 w-4 text-white/50" />
-                        <span className="text-white/50 italic text-xs">Tél. pro manquant</span>
+                      <div className={`flex items-center justify-center gap-2 ${!companyInfo ? 'mt-1' : ''} ${
+                        isMobile ? "text-sm" : "text-base"
+                      }`}>
+                        <Phone className={`text-white/50 ${isMobile ? "h-4 w-4" : "h-5 w-5"}`} />
+                        <span className={`text-white/50 italic ${isMobile ? "text-xs" : "text-sm"}`}>Tél. pro manquant</span>
                       </div>
                     )}
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-2 w-28">
+                  <div className={`shrink-0 flex flex-col items-center gap-2 ${
+                    isMobile ? "w-28" : "w-36 lg:w-44"
+                  }`}>
                     {/* Agrément number */}
-                    <div className="bg-white/15 rounded-lg p-2 text-center w-full">
-                      <p className="text-[8px] text-white/70 uppercase tracking-wider mb-0.5">
+                    <div className={`bg-white/15 rounded-lg text-center w-full ${
+                      isMobile ? "p-2" : "p-3 lg:p-4"
+                    }`}>
+                      <p className={`text-white/70 uppercase tracking-wider mb-0.5 ${
+                        isMobile ? "text-[8px]" : "text-xs"
+                      }`}>
                         N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
-                        <p className="text-base font-mono font-bold leading-tight">
+                        <p className={`font-mono font-bold leading-tight ${
+                          isMobile ? "text-base" : "text-xl lg:text-2xl"
+                        }`}>
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-xs text-white/50 italic">Non renseigné</p>
+                        <p className={`text-white/50 italic ${
+                          isMobile ? "text-xs" : "text-sm"
+                        }`}>Non renseigné</p>
                       )}
                     </div>
 
@@ -356,51 +416,61 @@ export const RGECardDialog = () => {
                     <div className="text-center flex flex-col items-center gap-1 w-full">
                       <button
                         onClick={() => window.open(FRANCE_RENOV_URL, '_blank')}
-                        className="bg-white p-2 rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md"
+                        className={`bg-white rounded-lg hover:scale-105 transition-transform cursor-pointer shadow-md ${
+                          isMobile ? "p-2" : "p-3"
+                        }`}
                         title="Vérifier sur France Rénov'"
                       >
                         <QRCodeSVG 
                           value={FRANCE_RENOV_URL} 
-                          size={50}
+                          size={isMobile ? 50 : 70}
                           level="M"
                           includeMargin={false}
                         />
                       </button>
-                      <p className="text-[7px] text-white/70">Vérifier sur France Rénov'</p>
+                      <p className={`text-white/70 ${
+                        isMobile ? "text-[7px]" : "text-xs"
+                      }`}>Vérifier sur France Rénov'</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Certifications band */}
-                <div className="bg-white py-2 px-4 rounded-b-lg shrink-0">
+                <div className={`bg-white shrink-0 ${
+                  isMobile ? "py-2 px-4 rounded-b-lg" : "py-3 px-6 lg:py-4 lg:px-8 rounded-b-xl"
+                }`}>
                   <div className="flex items-center justify-between">
-                    <p className="text-[8px] text-gray-500 uppercase tracking-wider font-medium">
+                    <p className={`text-gray-500 uppercase tracking-wider font-medium ${
+                      isMobile ? "text-[8px]" : "text-xs"
+                    }`}>
                       Certifications
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className={`flex items-center ${isMobile ? "gap-2" : "gap-4"}`}>
                       <img 
                         src={logoRgeEcoArtisan} 
                         alt="RGE Eco Artisan" 
-                        className="h-6 object-contain"
+                        className={isMobile ? "h-6 object-contain" : "h-8 lg:h-10 object-contain"}
                       />
                       <img 
                         src={logoQualipac} 
                         alt="QualiPAC" 
-                        className="h-6 object-contain"
+                        className={isMobile ? "h-6 object-contain" : "h-8 lg:h-10 object-contain"}
                       />
                       <img 
                         src={logoQualipv} 
                         alt="QualiPV" 
-                        className="h-6 object-contain"
+                        className={isMobile ? "h-6 object-contain" : "h-8 lg:h-10 object-contain"}
                       />
                       <img 
                         src={logoQualitenr} 
                         alt="QualiT'EnR" 
-                        className="h-6 object-contain"
+                        className={isMobile ? "h-6 object-contain" : "h-8 lg:h-10 object-contain"}
                       />
                     </div>
-                    <p className="text-[8px] text-gray-500 font-medium">
-                      RGE
+                    <p className={`text-gray-500 font-medium ${
+                      isMobile ? "text-[8px]" : "text-xs lg:text-sm"
+                    }`}>
+                      Reconnu Garant de l'Environnement
                     </p>
                   </div>
                 </div>
