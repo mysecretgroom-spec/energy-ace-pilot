@@ -216,7 +216,7 @@ const Parametres = () => {
         </Card>
 
         {/* Google Account Section */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-onboarding="google-connect">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
             Intégrations
           </h3>
