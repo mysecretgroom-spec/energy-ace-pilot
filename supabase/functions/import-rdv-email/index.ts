@@ -11,13 +11,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Zod schemas for input validation
+// Zod schemas for input validation - more tolerant for AI extraction
 const ContactSchema = z.object({
-  nom: z.string().min(1).max(100).regex(/^[\p{L}\s\-'.]+$/u, "Invalid name format"),
-  prenom: z.string().max(100).regex(/^[\p{L}\s\-'.]*$/u, "Invalid first name format").optional(),
+  nom: z.string().min(1).max(100).transform(v => v.replace(/[^\p{L}\s\-'.]/gu, "").trim()),
+  prenom: z.string().max(100).optional().transform(v => v?.replace(/[^\p{L}\s\-'.]/gu, "").trim() || undefined),
   telephone: z.string().optional(),
   telephone_secondaire: z.string().optional(),
-  email: z.string().email().max(255).optional().or(z.literal('')).transform(v => v || undefined),
+  // More tolerant email validation - accept empty, omit invalid
+  email: z.string().optional().transform(v => {
+    if (!v || v.trim() === '') return undefined;
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(v) ? v.toLowerCase() : undefined;
+  }),
 });
 
 const AdresseSchema = z.object({
@@ -85,56 +91,97 @@ interface ExtractedLead {
 }
 
 async function extractLeadWithAI(emailBody: string, subject: string): Promise<ExtractedLead | null> {
-  const systemPrompt = `Tu es un assistant spécialisé dans l'extraction de données de leads pour des entreprises de panneaux solaires.
-Extrait les informations du mail en JSON structuré.
+  const systemPrompt = `Tu es un expert en extraction de données structurées depuis des emails de leads pour entreprises d'énergie renouvelable (panneaux solaires, PAC, isolation).
 
-IMPORTANT: Retourne UNIQUEMENT le JSON, sans commentaires ni texte additionnel.
+MISSION: Analyse cet email de régie/agence et extrait TOUTES les informations en JSON.
 
-ATTENTION - INVERSION NOM/PRÉNOM:
-Certains emails (notamment Groupe Vent Vert) ont les champs inversés dans leur template :
-- "Nom:" contient en fait le PRÉNOM (ex: "Nom: Sandrine")
-- "Prénom:" contient en fait le NOM DE FAMILLE (ex: "Prénom: Vincent")
-Détecte cette inversion et corrige-la ! Le nom de famille est généralement plus court et typiquement français (Dupont, Martin, Vincent...).
-En cas de doute, mets la valeur la plus susceptible d'être un nom de famille dans "nom".
+## FORMATS D'EMAIL COURANTS À RECONNAÎTRE:
 
-Structure attendue:
+### Format 1 - Clé:Valeur (le plus courant)
+\`\`\`
+Nom:Bernier
+Prénom:Eric
+Adresse:25 RUE DES 3 FLEURS
+Code postal:28150
+Ville:MOUTIERS
+Date du RDV:29/01/2026
+Heure du RDV:10:00
+\`\`\`
+
+### Format 2 - Tableau HTML (après conversion texte)
+\`\`\`
+Statut call RDV Confirmé Nom Bernier Prénom Eric ...
+\`\`\`
+
+### Format 3 - Email narratif
+\`\`\`
+Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
+\`\`\`
+
+## RÈGLES D'EXTRACTION CRITIQUES:
+
+1. **DATES** - Convertis TOUS les formats en YYYY-MM-DD:
+   - "29/01/2026" → "2026-01-29"
+   - "29 janvier 2026" → "2026-01-29"
+   - "29-01-2026" → "2026-01-29"
+
+2. **HEURES** - Convertis en HH:MM:
+   - "10:00" → "10:00"
+   - "10h00" → "10:00"
+   - "10h" → "10:00"
+
+3. **TÉLÉPHONES** - Extrait les 10 chiffres français:
+   - "06 12 34 56 78" → "0612345678"
+   - "+33612345678" → "0612345678"
+
+4. **INVERSION NOM/PRÉNOM** - ATTENTION aux templates mal configurés:
+   - Si "Nom:" contient un prénom typique (Jean, Marie, Eric) et "Prénom:" un nom de famille → INVERSE
+   - Le nom de famille est souvent en majuscules ou plus court
+
+5. **TYPE DE PROJET** - Utilise UNIQUEMENT ces valeurs:
+   - "photovoltaique" (pour solaire, PV, panneaux)
+   - "pompe_chaleur" (pour PAC, chauffage, pompe)
+   - "isolation" (pour ITE, isolation)
+   - "ballon_thermo" (pour ECS, ballon, chauffe-eau)
+   - "autre" (si aucun match)
+
+6. **EMAIL** - Si absent ou invalide, OMETS le champ (ne mets pas de valeur vide ou invalide)
+
+7. **COMMENTAIRES** - Inclus les infos importantes du contexte:
+   - Historique client (déjà reçu des devis, mauvaise expérience...)
+   - Instructions spéciales
+   - Motivation/hésitations
+
+## STRUCTURE JSON ATTENDUE:
+
 {
   "CONTACT": {
-    "nom": "NOM DE FAMILLE (obligatoire) - PAS le prénom !",
-    "prenom": "Prénom si disponible",
-    "telephone": "Téléphone principal (format français)",
-    "telephone_secondaire": "Second téléphone si disponible",
-    "email": "Email du contact"
+    "nom": "NOM DE FAMILLE EN MAJUSCULES",
+    "prenom": "Prénom",
+    "telephone": "0612345678",
+    "telephone_secondaire": "0698765432"
   },
   "ADRESSE": {
-    "adresse": "Numéro et rue",
-    "code_postal": "Code postal 5 chiffres",
-    "ville": "Ville"
+    "adresse": "25 RUE DES 3 FLEURS",
+    "code_postal": "28150",
+    "ville": "MOUTIERS"
   },
   "RDV": {
-    "date": "Date au format YYYY-MM-DD",
-    "heure": "Heure au format HH:MM",
+    "date": "2026-01-29",
+    "heure": "10:00",
     "duree_minutes": 90,
-    "type_projet": "photovoltaique|pompe_chaleur|isolation|ballon_thermo|autre",
-    "commentaire": "Notes importantes"
+    "type_projet": "photovoltaique",
+    "commentaire": "A déjà reçu 3 devis entre 25k-30k pour 6kWc. Mauvaise expérience PAC. Faire étude technique approfondie."
   },
   "PROJET": {
-    "type_chauffage": "electrique|gaz|fioul|bois|autre",
-    "type_toiture": "tuiles|ardoises|bac_acier|autre",
-    "orientation_toiture": "sud|sud-est|sud-ouest|est|ouest|autre",
-    "facture_energie": 0,
-    "motivation": "Raison du projet",
-    "budget_estime": 0,
-    "urgence": "imminent|court_terme|moyen_terme|informatif"
+    "type_chauffage": "electrique",
+    "facture_energie": 2500,
+    "motivation": "Réduction facture énergétique",
+    "urgence": "court_terme"
   }
 }
 
-Règles:
-- Le nom DE FAMILLE est OBLIGATOIRE, met "INCONNU" si vraiment absent
-- VÉRIFIE toujours l'inversion Nom/Prénom dans les emails de régies
-- Formate les téléphones en 10 chiffres français (ex: 0612345678)
-- Normalise les dates en YYYY-MM-DD
-- Si une info n'est pas trouvée, omet le champ (ne met pas null)`;
+RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
