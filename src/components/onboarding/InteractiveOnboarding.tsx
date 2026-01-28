@@ -550,14 +550,12 @@ function OnboardingOverlay() {
           exit={{ opacity: 0, y: -20, scale: 0.95 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className={cn(
-            "absolute pointer-events-auto bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
+            "pointer-events-auto bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
             isPresentation
-              ? "w-[calc(100%-2rem)] sm:w-96 max-w-md left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-              : "w-[calc(100%-2rem)] sm:w-80 max-w-sm"
+              ? "fixed inset-x-4 top-1/2 -translate-y-1/2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-96 sm:max-w-md"
+              : "fixed inset-x-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-80 sm:max-w-sm"
           )}
           style={!isPresentation ? {
-            left: "50%",
-            transform: "translateX(-50%)",
             ...(targetRect 
               ? targetRect.top > window.innerHeight / 2
                 ? { top: Math.max(16, targetRect.top - 220) }
