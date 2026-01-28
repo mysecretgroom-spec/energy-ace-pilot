@@ -3094,7 +3094,7 @@ async function handlePendingWorkflow(
       const isConfirming = confirmPatterns.some(p => messageLower.includes(p));
       
       // If we have all data and user confirms, execute
-      if (isConfirming && collectedData.clientName && collectedData.commission && collectedData.datePose) {
+      if (isConfirming && collectedData.clientName && collectedData.commission && collectedData.datePose && collectedData.regieId) {
         // Create client if new
         let clientId = collectedData.clientId;
         
@@ -3228,9 +3228,47 @@ async function handlePendingWorkflow(
         nextQuestion = "💰 Quel est le montant de la commission (en € HT) ?";
       } else if (!collectedData.datePose) {
         nextQuestion = "📅 Quelle est la date de pose ? (ex: 20/01/2026)";
-      } else {
+      } else if (!collectedData.regieId) {
+        // Need to ask for regie selection
+        const regiePoll = await generateRegiePoll(
+          supabase,
+          userId,
+          "create_external_vente",
+          pendingAction.entities,
+          collectedData
+        );
+        
+        if (regiePoll.error) {
+          return {
+            intent: "create_external_vente",
+            actionTaken: "error",
+            newPendingAction: null,
+            responseMessage: regiePoll.responseMessage || "⚠️ Aucune régie configurée.",
+          };
+        }
+        
+        if (regiePoll.needsSelection) {
+          return {
+            intent: "create_external_vente",
+            actionTaken: "needs_regie_selection",
+            newPendingAction: regiePoll.pendingAction,
+            responseMessage: `📦 *Vente externe ${collectedData.clientName}*\n\n${regiePoll.responseMessage}`,
+          };
+        }
+        
+        // Single régie - use it automatically
+        collectedData.regieId = regiePoll.defaultRegieId;
+      }
+      
+      if (collectedData.clientName && collectedData.commission && collectedData.datePose && collectedData.regieId) {
         // All data collected - show summary
-        nextQuestion = `📝 *Récapitulatif vente externe:*\n\n👤 Client: ${collectedData.clientName}${collectedData.isNewClient ? " (nouveau)" : ""}\n📅 Date de pose: ${new Date(collectedData.datePose).toLocaleDateString("fr-FR")}\n💰 Commission: ${collectedData.commission?.toLocaleString("fr-FR")}€ HT\n\n*Confirmes-tu ?* (Oui/Non)`;
+        const regieName = collectedData.regieName || "Régie sélectionnée";
+        nextQuestion = `📝 *Récapitulatif vente externe:*\n\n👤 Client: ${collectedData.clientName}${collectedData.isNewClient ? " (nouveau)" : ""}\n📅 Date de pose: ${new Date(collectedData.datePose).toLocaleDateString("fr-FR")}\n💰 Commission: ${collectedData.commission?.toLocaleString("fr-FR")}€ HT\n🏢 Régie: ${regieName}\n\n*Confirmes-tu ?* (Oui/Non)`;
+      }
+      
+      if (!nextQuestion) {
+        // Fallback - shouldn't happen
+        nextQuestion = "❌ Erreur de workflow. Réessaie.";
       }
       
       return {
@@ -3503,13 +3541,14 @@ async function generateRegiePoll(
   originalIntent: Intent,
   entities: Record<string, unknown>,
   collectedData: PendingAction["collectedData"]
-): Promise<{ needsSelection: boolean; pendingAction?: PendingAction; responseMessage?: string; defaultRegieId?: string }> {
+): Promise<{ needsSelection: boolean; pendingAction?: PendingAction; responseMessage?: string; defaultRegieId?: string; error?: boolean }> {
   const regies = await fetchUserRegies(supabase, userId);
   
   if (regies.length === 0) {
     return { 
       needsSelection: false, 
-      responseMessage: "⚠️ Aucune régie configurée. Configurez-en une dans l'application." 
+      error: true,
+      responseMessage: "⚠️ Aucune régie configurée. Tu dois d'abord créer une régie dans l'application (Paramètres > Régies)." 
     };
   }
   
@@ -4188,6 +4227,14 @@ async function executeAction(
         }
       );
       
+      // Error if no régie configured
+      if (regiePoll.error) {
+        return {
+          actionTaken: "error",
+          customResponse: regiePoll.responseMessage,
+        };
+      }
+      
       if (regiePoll.needsSelection) {
         // Enhance the pending action with client info
         const pendingAction = regiePoll.pendingAction!;
@@ -4204,8 +4251,8 @@ async function executeAction(
         };
       }
       
-      // Use default or single regie
-      const regieId = regiePoll.defaultRegieId || null;
+      // Use default or single regie (guaranteed to exist at this point)
+      const regieId = regiePoll.defaultRegieId!;
 
       // Create RDV
       const { data: rdv, error: rdvError } = await supabase
@@ -4843,6 +4890,14 @@ async function executeAction(
           }
         );
         
+        // Error if no régie configured
+        if (regiePoll.error) {
+          return {
+            actionTaken: "error",
+            customResponse: regiePoll.responseMessage,
+          };
+        }
+        
         if (regiePoll.needsSelection) {
           return {
             actionTaken: "needs_regie_selection",
@@ -4858,7 +4913,7 @@ async function executeAction(
           };
         }
         
-        const regieId = regiePoll.defaultRegieId || entities.regie_id as string || null;
+        const regieId = regiePoll.defaultRegieId!; // Guaranteed to exist at this point
         
         // Create the new client
         const { data: newClient, error: clientError } = await supabase
@@ -5053,6 +5108,14 @@ async function executeAction(
             prixTTC: amount || undefined,
           }
         );
+        
+        // Error if no régie configured
+        if (regiePoll.error) {
+          return {
+            actionTaken: "error",
+            customResponse: regiePoll.responseMessage,
+          };
+        }
         
         if (regiePoll.needsSelection) {
           return {
