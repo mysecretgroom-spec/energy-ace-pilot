@@ -446,7 +446,7 @@ const Finance = () => {
         return { title: "En attente de facturation", subtitle: "Posé < 2 semaines", items: mapToItems(attente), total: venteStats?.comAttenteFacturation };
       case 'aFacturer':
         const aFact = filterByType(["installe", "attente_paiement"], 'old');
-        return { title: "À facturer", subtitle: "Posé ≥ 2 semaines", items: mapToItems(aFact), total: venteStats?.comAFacturer };
+        return { title: "Attente de paiement", subtitle: "Posé ≥ 2 semaines", items: mapToItems(aFact), total: venteStats?.comAFacturer };
       case 'payees':
         const payees = filterByType(["paye"]);
         return { title: "Payées", subtitle: "Commissions encaissées", items: mapToItems(payees), total: venteStats?.comPayees };
@@ -784,7 +784,7 @@ const Finance = () => {
                       </p>
                     </div>
                     
-                    {/* À facturer (posé >= 2 semaines) */}
+                    {/* Attente de paiement (posé >= 2 semaines, non facturé payé) */}
                     <div 
                       className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-200 cursor-pointer hover:bg-green-500/20 transition-colors"
                       onClick={() => openFinanceStatDialog('aFacturer')}
@@ -792,7 +792,7 @@ const Finance = () => {
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5 text-green-600" />
                         <div>
-                          <p className="text-sm font-medium text-green-700">À facturer</p>
+                          <p className="text-sm font-medium text-green-700">Attente de paiement</p>
                           <p className="text-xs text-green-600/80">Posé ≥ 2 semaines</p>
                         </div>
                       </div>
