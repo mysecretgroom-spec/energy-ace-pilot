@@ -359,7 +359,7 @@ export const RGECardDialog = () => {
                     )}
                     <p className="text-white/80 mb-0.5 sm:mb-1 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
                     {siretSearchComplete && companyInfo && (
-                      <div className="mb-0.5 sm:mb-1">
+                      <div>
                         <p className="font-semibold text-white/90 truncate text-sm sm:text-base lg:text-lg">
                           {companyInfo.nom}
                         </p>
