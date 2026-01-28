@@ -321,13 +321,13 @@ export const RGECardDialog = () => {
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex items-center justify-center min-h-0 p-2 sm:p-4 lg:p-6">
-              <div className="bg-white/15 backdrop-blur-md w-full h-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col rounded-xl sm:rounded-2xl">
+            <div className="flex-1 flex items-center justify-center p-2 sm:p-4 lg:p-6">
+              <div className="bg-white/15 backdrop-blur-md w-full border border-white/30 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_10px_30px_-10px_rgba(0,0,0,0.3)] overflow-visible flex flex-col rounded-xl sm:rounded-2xl">
                 {/* Photo and info - always horizontal layout */}
-                <div className="flex-1 flex flex-row items-center justify-between min-h-0 gap-3 sm:gap-8 lg:gap-12 p-2 sm:p-6 lg:p-8">
-                  {/* Photo - 80% of central rectangle height, matches agrément+gap+QR on mobile */}
-                  <div className="relative shrink-0 self-stretch flex items-center">
-                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-[80%] aspect-[3/4] sm:h-40 sm:w-32 lg:h-52 lg:w-40">
+                <div className="flex flex-row items-center justify-between gap-3 sm:gap-8 lg:gap-12 p-2 sm:p-6 lg:p-8">
+                  {/* Photo - fixed height on mobile for reliable rendering */}
+                  <div className="relative shrink-0 flex items-center">
+                    <div className="border-2 border-white/50 shadow-lg rounded-lg overflow-hidden bg-white/20 ring-2 ring-white/20 ring-offset-1 ring-offset-transparent h-20 aspect-[3/4] sm:h-40 sm:w-32 lg:h-52 lg:w-40">
                       {profile?.avatar_url ? (
                         <img 
                           src={profile.avatar_url} 
@@ -391,7 +391,7 @@ export const RGECardDialog = () => {
                   </div>
 
                   {/* Agrément number + QR Code */}
-                  <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-[120px] sm:w-36 lg:w-44">
+                  <div className="shrink-0 flex flex-col items-center gap-2 sm:gap-2 w-24 sm:w-36 lg:w-44">
                     {/* Agrément number - ratio 6:3 (2:1) */}
                     <div className="bg-white/15 rounded-lg text-center w-full aspect-[2/1] flex flex-col justify-center p-1.5 sm:p-3 lg:p-4">
                       <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
