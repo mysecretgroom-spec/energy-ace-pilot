@@ -19,6 +19,7 @@ import {
   Zap,
   Flame,
   SkipForward,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProfileConfigStep } from "./steps/ProfileConfigStep";
@@ -36,6 +37,7 @@ export interface OnboardingStep {
   content?: ReactNode;
   configComponent?: React.ComponentType<{ onComplete: () => void }>;
   completionCheck?: () => Promise<boolean>;
+  estimatedTime?: string; // e.g. "30 sec", "1 min"
 }
 
 interface OnboardingContextType {
@@ -197,6 +199,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       icon: User,
       type: "config",
       configComponent: ProfileConfigStep,
+      estimatedTime: "30 sec",
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
@@ -214,6 +217,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       icon: Building2,
       type: "config",
       configComponent: RegieConfigStep,
+      estimatedTime: "1 min",
       completionCheck: async () => {
         if (!user) return false;
         const { count } = await supabase
@@ -237,6 +241,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       ),
       type: "config",
       configComponent: GoogleConfigStep,
+      estimatedTime: "1 min",
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
@@ -254,6 +259,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       icon: Shield,
       type: "config",
       configComponent: SecurityConfigStep,
+      estimatedTime: "20 sec",
       completionCheck: async () => {
         if (!user) return false;
         const { data } = await supabase
@@ -513,6 +519,14 @@ function OnboardingOverlay() {
                 <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                   {currentStep.description}
                 </p>
+                {currentStep.estimatedTime && !completedSteps.includes(currentStep.id) && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock className="h-3 w-3 text-muted-foreground/70" />
+                    <span className="text-[10px] text-muted-foreground/70">
+                      ~{currentStep.estimatedTime}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
