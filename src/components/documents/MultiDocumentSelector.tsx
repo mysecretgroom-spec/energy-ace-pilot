@@ -8,12 +8,16 @@ import {
   FileArchive,
   Eye,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PDFDocument } from "pdf-lib";
+import { supabase } from "@/integrations/supabase/client";
 import { DocumentPreview } from "./DocumentPreview";
 import { DocumentCard } from "./DocumentCard";
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
+import { generatePdfFromFile } from "@/components/scanner/services/pdfGenerator";
 
 interface DocumentItem {
   id: string;
@@ -41,6 +45,10 @@ export function MultiDocumentSelector({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<string | null>(null);
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -211,6 +219,146 @@ export function MultiDocumentSelector({
     }
   }, [selectedIds, documents, clientName]);
 
+  // Delete a single document
+  const handleDeleteDocument = useCallback(async (docId: string) => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Document supprimé",
+        description: "Le document a été supprimé avec succès",
+      });
+      
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(docId);
+        return next;
+      });
+      onDocumentsChange?.();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setDocToDelete(null);
+    }
+  }, [onDocumentsChange]);
+
+  // Delete selected documents
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .in("id", Array.from(selectedIds));
+
+      if (error) throw error;
+
+      toast({
+        title: "Documents supprimés",
+        description: `${selectedIds.size} document(s) supprimé(s)`,
+      });
+      
+      setSelectedIds(new Set());
+      onDocumentsChange?.();
+    } catch (error) {
+      console.error("Error deleting documents:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer les documents",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedIds, onDocumentsChange]);
+
+  // Replace a document
+  const handleReplaceDocument = useCallback(async (docId: string, file: File) => {
+    const doc = documents.find((d) => d.id === docId);
+    if (!doc || !clientId) return;
+
+    setIsReplacing(true);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+
+      // Convert file to PDF if it's an image
+      let pdfBlob: Blob;
+      
+      if (file.type.startsWith("image/")) {
+        const result = await generatePdfFromFile(file);
+        pdfBlob = result.blob;
+      } else if (file.type === "application/pdf") {
+        pdfBlob = file;
+      } else {
+        throw new Error("Format de fichier non supporté");
+      }
+
+      // Upload new file
+      const timestamp = Date.now();
+      const fileName = `${user.id}/${clientId}/${doc.type_document}_${timestamp}.pdf`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("receipts")
+        .upload(fileName, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get signed URL
+      const { data: urlData } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+
+      if (!urlData?.signedUrl) throw new Error("Impossible de générer l'URL");
+
+      // Update document record
+      const { error: updateError } = await supabase
+        .from("documents")
+        .update({
+          url: urlData.signedUrl,
+          nom: file.name.replace(/\.[^/.]+$/, ".pdf"),
+        })
+        .eq("id", docId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Document remplacé",
+        description: "Le document a été remplacé avec succès",
+      });
+      
+      onDocumentsChange?.();
+    } catch (error) {
+      console.error("Error replacing document:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de remplacer le document",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReplacing(false);
+    }
+  }, [documents, clientId, onDocumentsChange]);
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
       day: "numeric",
@@ -238,43 +386,58 @@ export function MultiDocumentSelector({
               ) : (
                 <Square className="h-4 w-4" />
               )}
-              {isAllSelected ? "Désélectionner" : "Tout sélectionner"}
+              {isAllSelected ? "Désélect." : "Tout"}
             </Button>
 
             {selectedIds.size > 0 && (
-              <div className="flex gap-2 ml-auto">
+              <div className="flex flex-wrap gap-1.5 ml-auto">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={openSelectedPreview}
-                  className="gap-2"
+                  className="gap-1 h-8 px-2"
                 >
-                  <Eye className="h-4 w-4" />
-                  Prévisualiser ({selectedIds.size})
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Voir</span> ({selectedIds.size})
                 </Button>
                 
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setTransferDialogOpen(true)}
-                  className="gap-2"
+                  className="gap-1 h-8 px-2"
                 >
-                  <ArrowRight className="h-4 w-4" />
-                  Transférer
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Transf.</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  disabled={isDeleting}
+                  className="gap-1 h-8 px-2 text-destructive hover:bg-destructive/10"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">Suppr.</span>
                 </Button>
                 
                 <Button
                   size="sm"
                   onClick={generateCombinedPdf}
                   disabled={isGenerating}
-                  className="gap-2"
+                  className="gap-1 h-8 px-2"
                 >
                   {isGenerating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <FileArchive className="h-4 w-4" />
+                    <FileArchive className="h-3.5 w-3.5" />
                   )}
-                  PDF combiné
+                  PDF
                 </Button>
               </div>
             )}
@@ -294,6 +457,11 @@ export function MultiDocumentSelector({
               fileType={fileType}
               onToggleSelection={() => toggleSelection(doc.id)}
               onOpenPreview={() => openSinglePreview(doc)}
+              onDelete={() => {
+                setDocToDelete(doc.id);
+                setDeleteDialogOpen(true);
+              }}
+              onReplace={(file) => handleReplaceDocument(doc.id, file)}
               formatDate={formatDate}
             />
           );
@@ -324,6 +492,19 @@ export function MultiDocumentSelector({
           setSelectedIds(new Set());
           onDocumentsChange?.();
         }}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setDocToDelete(null);
+        }}
+        onConfirm={() => docToDelete && handleDeleteDocument(docToDelete)}
+        title="Supprimer ce document ?"
+        description="Cette action est irréversible. Le document sera définitivement supprimé."
+        isLoading={isDeleting}
       />
     </>
   );

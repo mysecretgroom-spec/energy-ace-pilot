@@ -634,6 +634,27 @@ const ClientDetail = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={async () => {
+                            if (confirm("Supprimer cette étude ?")) {
+                              const { error } = await supabase
+                                .from("etudes")
+                                .delete()
+                                .eq("id", etude.id);
+                              if (!error) {
+                                toast({ title: "Étude supprimée" });
+                                fetchClientData();
+                              } else {
+                                toast({ title: "Erreur", variant: "destructive" });
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
