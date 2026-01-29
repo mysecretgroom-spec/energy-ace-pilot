@@ -445,14 +445,20 @@ export function AgentChat() {
     // Upload function for a single file
     const uploadSingle = async (pending: PendingFile): Promise<{ type: "image" | "document"; name: string; url: string } | null> => {
       try {
-        if (!user?.id) {
-          throw new Error("Utilisateur non connecté");
+        // Verify session is valid before upload - this ensures auth.uid() works in RLS
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.error("[AgentChat] Session error:", sessionError);
+          throw new Error("Session expirée, veuillez vous reconnecter");
         }
+
+        const currentUserId = session.user.id;
+        console.log(`[AgentChat] Session verified, user.id=${currentUserId}`);
 
         const fileExt = pending.file.name.split(".").pop()?.toLowerCase() || "bin";
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
-        const filePath = `${user.id}/agent-uploads/${fileName}`;
+        const filePath = `${currentUserId}/agent-uploads/${fileName}`;
 
         // Normalize content type - browser sometimes sends wrong MIME for uppercase extensions
         let contentType = pending.file.type;
@@ -469,7 +475,7 @@ export function AgentChat() {
           contentType = mimeMap[fileExt] || "application/octet-stream";
         }
 
-        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, user.id=${user.id}, contentType=${contentType}`);
+        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, contentType=${contentType}`);
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("documents")
