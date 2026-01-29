@@ -10,6 +10,7 @@ interface EtudeData {
   clientAdresse: string;
   clientVille: string;
   clientCodePostal: string;
+  clientTelephone?: string;
   departement: string;
   dateEtude: string;
   
@@ -456,24 +457,32 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   }
   
   // === PIED DE PAGE OFFICIEL ===
-  const footerY = pageHeight - 20;
+  const footerY = pageHeight - 25;
   
   // Ligne de séparation
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.3);
   doc.line(14, footerY, pageWidth - 14, footerY);
   
-  // Texte de pied de page
+  // Infos client en pied de page
   doc.setTextColor(...grisTexte);
   doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("Bénéficiaire :", 14, footerY + 4);
   doc.setFont("helvetica", "normal");
-  doc.text("Ce document est une étude préliminaire de faisabilité et ne constitue pas un engagement contractuel.", pageWidth / 2, footerY + 5, { align: "center" });
-  doc.text("Les estimations sont basées sur les données disponibles et peuvent varier selon les conditions réelles d'installation.", pageWidth / 2, footerY + 9, { align: "center" });
+  const clientFullName = `${data.clientPrenom} ${data.clientNom}`;
+  const clientFullAddress = `${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`;
+  const clientPhone = data.clientTelephone ? ` - Tél: ${data.clientTelephone}` : "";
+  doc.text(`${clientFullName}${clientPhone}`, 35, footerY + 4);
+  doc.text(clientFullAddress, 35, footerY + 8);
+  
+  // Mentions légales
+  doc.setFontSize(6);
+  doc.text("Ce document est une étude préliminaire de faisabilité et ne constitue pas un engagement contractuel.", pageWidth / 2, footerY + 13, { align: "center" });
   
   // Logo Ministère et mentions légales
-  doc.setFontSize(6);
-  doc.text("France Rénov' - Le service public pour mieux rénover mon habitat", 14, footerY + 14);
-  doc.text("Ministère de la Transition Énergétique", 14, footerY + 17);
+  doc.text("France Rénov' - Le service public pour mieux rénover mon habitat", 14, footerY + 18);
+  doc.text("Ministère de la Transition Énergétique", 14, footerY + 21);
   
   // Date et numéro de page
   const today = new Date().toLocaleDateString("fr-FR", {
@@ -481,8 +490,8 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     month: "long",
     year: "numeric",
   });
-  doc.text(`Document généré le ${today}`, pageWidth - 14, footerY + 14, { align: "right" });
-  doc.text("Page 1/1", pageWidth - 14, footerY + 17, { align: "right" });
+  doc.text(`Document généré le ${today}`, pageWidth - 14, footerY + 18, { align: "right" });
+  doc.text("Page 1/1", pageWidth - 14, footerY + 21, { align: "right" });
   
   // Bande tricolore en bas
   doc.setFillColor(...bleuMarianne);

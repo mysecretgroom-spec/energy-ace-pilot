@@ -185,6 +185,7 @@ const EtudeForm = () => {
   const [clientAdresse, setClientAdresse] = useState("");
   const [clientVille, setClientVille] = useState("");
   const [clientCodePostal, setClientCodePostal] = useState("");
+  const [clientTelephone, setClientTelephone] = useState("");
   const [departement, setDepartement] = useState("");
   
   // Régie associée au RDV
@@ -596,7 +597,7 @@ const EtudeForm = () => {
 
     const { data } = await supabase
       .from("clients")
-      .select("nom, prenom, adresse, ville, code_postal")
+      .select("nom, prenom, adresse, ville, code_postal, telephone")
       .eq("id", clientId)
       .maybeSingle();
 
@@ -608,6 +609,7 @@ const EtudeForm = () => {
       setClientAdresse(data.adresse || "");
       setClientVille(data.ville || "");
       setClientCodePostal(data.code_postal || "");
+      setClientTelephone(data.telephone || "");
       if (data.code_postal) {
         const deptCode = data.code_postal.substring(0, 2);
         console.log("[DEBUG] Code postal:", data.code_postal, "=> Département extrait:", deptCode);
@@ -1374,6 +1376,19 @@ const EtudeForm = () => {
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       notes: classificationComment || null,
+      classification: classification || null,
+      classification_comment: classificationComment || null,
+      surcout_support: surcoutSupport,
+      surcout_compteur: surcoutCompteur,
+      prime_autoconsommation: productType === "PV" ? calculatedResults?.primeAutoconsommation : null,
+      eco_tva: productType === "PV" ? calculatedResults?.ecoTva : null,
+      total_aides: productType === "PV" ? calculatedResults?.totalAides : null,
+      total_aides_deduites: productType === "PV" ? calculatedResults?.totalAidesDeduites : null,
+      mensualite_estimee: productType === "PV" ? calculatedResults?.mensualite : null,
+      economie_autoconso_mensuelle: productType === "PV" ? calculatedResults?.autoconsommationEuros : null,
+      revente_mensuelle_estimee: productType === "PV" ? calculatedResults?.reventeMensuelleEstimee : null,
+      resultat_transfert_charge: productType === "PV" ? calculatedResults?.resultatTransfertCharge : null,
+      verdict: productType === "PV" ? calculatedResults?.verdict : null,
     };
   }, [
     clientId, user, productType, calculatedResults, consoAnnuelle, factureMensuelle,
@@ -1383,7 +1398,7 @@ const EtudeForm = () => {
     surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
     selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
-    classificationComment, rdvId
+    classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur
   ]);
 
   // Perform auto-save
@@ -1476,7 +1491,9 @@ const EtudeForm = () => {
     typeRevente, supportInstallation, selectedSurcouts, autreSurcout,
     ombreToiture, surfaceToiture, typeToiture, etatToiture,
     amperageDisjoncteur, potentielFaisabilite, pacSurfaceChauffee,
-    pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId
+    pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId,
+    classification, classificationComment, typeRaccordement, typeCompteurElectrique,
+    numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation
   ]);
 
   // Callback pour confirmer l'envoi WhatsApp
@@ -1637,6 +1654,7 @@ const EtudeForm = () => {
       clientAdresse: clientAdresse,
       clientVille: clientVille,
       clientCodePostal: clientCodePostal,
+      clientTelephone: clientTelephone || undefined,
       departement: departement,
       dateEtude: new Date().toLocaleDateString("fr-FR"),
       ombreToiture: ombreToiture,
@@ -1946,8 +1964,14 @@ _Envoyé depuis DébalePro_`;
                 </p>
               )}
             </div>
-            {/* HEJJA Mode Switch - discrete toggle */}
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Auto-save indicator and HEJJA Mode Switch */}
+            <div className="flex items-center gap-2 shrink-0">
+              <AutoSaveIndicator
+                isSaving={autoSaveStatus.isSaving}
+                lastSaved={autoSaveStatus.lastSaved}
+                hasUnsavedChanges={autoSaveStatus.hasUnsavedChanges}
+                isOnline={isOnline}
+              />
               <Switch
                 checked={modeHejjaActive}
                 onCheckedChange={(checked) => {
