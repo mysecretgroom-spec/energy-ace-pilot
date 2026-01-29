@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.svg";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -45,6 +45,7 @@ import {
   Clock,
   Camera,
   ShieldOff,
+  Cloud,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
@@ -63,6 +64,9 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
+import { AutoSaveIndicator } from "@/components/ui/auto-save-indicator";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useOfflineData } from "@/hooks/useOfflineData";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -161,6 +165,14 @@ const EtudeForm = () => {
   const [saving, setSaving] = useState(false);
   const [currentEtudeId, setCurrentEtudeId] = useState<string | null>(etudeId);
   const [originalClassification, setOriginalClassification] = useState<string>("");
+  const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
+  
+  // Offline data support
+  const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
+  
+  // Track if form has been initialized (to avoid auto-save on first load)
+  const isInitializedRef = useRef(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // PRODUCT TYPE STATE - PV / PAC / ITE
@@ -1308,9 +1320,191 @@ const EtudeForm = () => {
     }
   };
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-SAVE LOGIC
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [autoSaveStatus, setAutoSaveStatus] = useState<{
+    isSaving: boolean;
+    lastSaved: Date | null;
+    hasUnsavedChanges: boolean;
+  }>({ isSaving: false, lastSaved: null, hasUnsavedChanges: false });
+
+  // Build étude data for auto-save (reuse from handleSave)
+  const buildEtudeData = useCallback(() => {
+    if (!clientId || !user) return null;
+    
+    // For PV, require calculated results
+    if (productType === "PV" && !calculatedResults) return null;
+    
+    return {
+      user_id: user.id,
+      client_id: clientId,
+      rdv_id: rdvId || null,
+      product_type: productType,
+      consommation_annuelle_kwh: consoAnnuelle || null,
+      facture_annuelle_euros: Number(factureMensuelle || 0) * 12,
+      ombre_toiture: productType === "PV" ? ombreToiture : null,
+      surface_toiture: productType === "PV" ? surfaceToiture : null,
+      type_toiture: productType === "PV" ? typeToiture : null,
+      etat_toiture: productType === "PV" ? etatToiture : null,
+      type_compteur_electrique: productType === "PV" ? typeCompteurElectrique : null,
+      numero_pdl: productType === "PV" ? (numeroPdl || null) : null,
+      type_raccordement: productType === "PV" ? typeRaccordement : null,
+      amperage_disjoncteur: productType === "PV" && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      emplacement_boitier: productType === "PV" ? (emplacementBoitier || null) : null,
+      potentiel_faisabilite: potentielFaisabilite || null,
+      puissance_kwc: productType === "PV" && puissanceKwc ? Number(puissanceKwc) : null,
+      type_revente: productType === "PV" ? (typeRevente || null) : null,
+      support: productType === "PV" ? (supportInstallation || null) : null,
+      orientation: productType === "PV" ? (orientation || null) : null,
+      inclinaison: productType === "PV" && inclinaison ? Number(inclinaison) : null,
+      surface_installation_m2: productType === "PV" && surfaceInstallation ? Number(surfaceInstallation) : null,
+      rendement_productivite: productType === "PV" && rendementProductivite ? Number(rendementProductivite) : null,
+      production_annuelle_kwh: productType === "PV" ? calculatedResults?.productionAnnuelle : null,
+      autoconsommation_pct: productType === "PV" ? calculatedResults?.autoconsoPct : null,
+      surplus_production_kwh: productType === "PV" ? calculatedResults?.surplusProduction : null,
+      pac_subtype: productType === "PAC" ? pacSubtype : null,
+      pac_surface_chauffee: productType === "PAC" && pacSurfaceChauffee ? Number(pacSurfaceChauffee) : null,
+      pac_niveau_isolation: productType === "PAC" ? pacNiveauIsolation : null,
+      ite_surface_isoler: productType === "ITE" && iteSurfaceIsoler ? Number(iteSurfaceIsoler) : null,
+      ite_type_facade: productType === "ITE" ? iteTypeFacade : null,
+      prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
+      surcouts: selectedSurcouts,
+      autre_surcout: autreSurcout,
+      mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
+      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
+      notes: classificationComment || null,
+    };
+  }, [
+    clientId, user, productType, calculatedResults, consoAnnuelle, factureMensuelle,
+    ombreToiture, surfaceToiture, typeToiture, etatToiture, typeCompteurElectrique,
+    numeroPdl, typeRaccordement, amperageDisjoncteur, emplacementBoitier, potentielFaisabilite,
+    puissanceKwc, typeRevente, supportInstallation, orientation, inclinaison,
+    surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
+    pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
+    selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
+    classificationComment, rdvId
+  ]);
+
+  // Perform auto-save
+  const performAutoSave = useCallback(async () => {
+    const etudeData = buildEtudeData();
+    if (!etudeData) return;
+
+    setAutoSaveStatus(prev => ({ ...prev, isSaving: true }));
+
+    try {
+      if (isOnline) {
+        // Online: save directly to Supabase
+        if (currentEtudeId) {
+          await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
+        } else {
+          const { data } = await supabase.from("etudes").insert(etudeData).select().single();
+          if (data) {
+            setCurrentEtudeId(data.id);
+          }
+        }
+      } else {
+        // Offline: save to IndexedDB
+        const newLocalId = await saveEtudeOffline(clientId!, etudeData, localEtudeId || undefined);
+        if (!localEtudeId) {
+          setLocalEtudeId(newLocalId);
+        }
+      }
+
+      setAutoSaveStatus({
+        isSaving: false,
+        lastSaved: new Date(),
+        hasUnsavedChanges: false,
+      });
+    } catch (error) {
+      console.error("Auto-save error:", error);
+      setAutoSaveStatus(prev => ({ ...prev, isSaving: false }));
+    }
+  }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline]);
+
+  // Debounced auto-save trigger
+  const triggerAutoSave = useCallback(() => {
+    if (!isInitializedRef.current) return;
+    
+    setAutoSaveStatus(prev => ({ ...prev, hasUnsavedChanges: true }));
+    
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performAutoSave();
+    }, 2000); // 2 seconds debounce
+  }, [performAutoSave]);
+
+  // Immediate save for important actions (photo upload, status change)
+  const triggerImmediateSave = useCallback(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    performAutoSave();
+  }, [performAutoSave]);
+
+  // Mark form as initialized after first data load
+  useEffect(() => {
+    if (clientName && !loading) {
+      // Wait a bit to ensure all initial data is loaded
+      const timer = setTimeout(() => {
+        isInitializedRef.current = true;
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [clientName, loading]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-save on key field changes
+  useEffect(() => {
+    if (isInitializedRef.current) {
+      triggerAutoSave();
+    }
+  }, [
+    consoAnnuelle, factureMensuelle, puissanceKwc, orientation, inclinaison,
+    typeRevente, supportInstallation, selectedSurcouts, autreSurcout,
+    ombreToiture, surfaceToiture, typeToiture, etatToiture,
+    amperageDisjoncteur, potentielFaisabilite, pacSurfaceChauffee,
+    pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId
+  ]);
+
   // Callback pour confirmer l'envoi WhatsApp
   const handleWhatsAppConfirm = async () => {
     if (!pendingWhatsAppData || !user) return;
+    
+    // If offline, queue the message
+    if (!isOnline) {
+      // Get confirmateur phone from settings/regie
+      const { data: confirmateur } = await supabase
+        .from("confirmateurs")
+        .select("telephone")
+        .eq("user_id", user.id)
+        .eq("actif", true)
+        .order("ordre_priorite", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      
+      if (confirmateur?.telephone) {
+        await queueWhatsAppMessage(
+          confirmateur.telephone,
+          `${pendingWhatsAppData.clientPrenom} ${pendingWhatsAppData.clientName} - ${pendingWhatsAppData.classification}`,
+          pendingWhatsAppData.classification
+        );
+      }
+      setPendingWhatsAppData(null);
+      return;
+    }
     
     await sendWhatsAppNotification({
       clientName: pendingWhatsAppData.clientName,
@@ -1911,6 +2105,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_toiture"
                   label="Photo"
+                  onPhotoSaved={triggerImmediateSave}
                 />
               )}
             </div>
@@ -2023,6 +2218,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_compteur"
                   label="Photo"
+                  onPhotoSaved={triggerImmediateSave}
                 />
               )}
             </div>
@@ -2088,6 +2284,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_tableau"
                   label="Photo"
+                  onPhotoSaved={triggerImmediateSave}
                 />
               )}
             </div>
