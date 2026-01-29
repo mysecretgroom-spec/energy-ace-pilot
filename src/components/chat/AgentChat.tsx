@@ -62,8 +62,8 @@ interface PendingFile {
 
 // Constants for multi-file upload
 const MAX_FILES = 10;
-const MAX_TOTAL_SIZE_MB = 30;
-const MAX_SINGLE_FILE_MB = 10;
+const MAX_TOTAL_SIZE_MB = 100;
+const MAX_CONCURRENT_UPLOADS = 10;
 
 const SUGGESTIONS = [
   "📅 Mon planning de demain",
@@ -353,7 +353,7 @@ export function AgentChat() {
     }
   };
 
-  // Multi-file import
+  // Multi-file import - no per-file limit, only total limit
   const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0 || !user) return;
@@ -365,21 +365,14 @@ export function AgentChat() {
       return;
     }
 
-    // Check individual and total size
+    // Check only total size (no per-file limit)
     let totalSize = pendingFiles.reduce((acc, f) => acc + f.file.size, 0);
     const validFiles: PendingFile[] = [];
 
     for (const file of selectedFiles) {
-      const fileSizeMB = file.size / (1024 * 1024);
-      
-      if (fileSizeMB > MAX_SINGLE_FILE_MB) {
-        toast.error(`${file.name} trop volumineux (max ${MAX_SINGLE_FILE_MB}MB)`);
-        continue;
-      }
-
       totalSize += file.size;
       if (totalSize / (1024 * 1024) > MAX_TOTAL_SIZE_MB) {
-        toast.error(`Limite de ${MAX_TOTAL_SIZE_MB}MB dépassée`);
+        toast.error(`Limite de ${MAX_TOTAL_SIZE_MB}MB totale dépassée`);
         break;
       }
 
@@ -416,6 +409,7 @@ export function AgentChat() {
     setPendingFiles([]);
   };
 
+  // Parallel upload with concurrency limit
   const uploadPendingFiles = async (): Promise<Array<{ type: "image" | "document"; name: string; url: string }>> => {
     if (!user || pendingFiles.length === 0) return [];
 
@@ -425,11 +419,13 @@ export function AgentChat() {
     const total = pendingFiles.length;
     let completed = 0;
 
-    for (const pending of pendingFiles) {
+    // Upload function for a single file
+    const uploadSingle = async (pending: PendingFile): Promise<{ type: "image" | "document"; name: string; url: string } | null> => {
       try {
         const fileExt = pending.file.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `agent-uploads/${user.id}/${fileName}`;
+        // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+        const filePath = `${user.id}/agent-uploads/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("documents")
@@ -437,29 +433,47 @@ export function AgentChat() {
 
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage
+        // Get signed URL since bucket is not public
+        const { data: urlData } = await supabase.storage
           .from("documents")
-          .getPublicUrl(filePath);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
+
+        if (!urlData?.signedUrl) throw new Error("Failed to get signed URL");
 
         const isImage = pending.file.type.startsWith("image/");
-        uploadedFiles.push({
+        
+        setPendingFiles(prev => 
+          prev.map(f => f.id === pending.id ? { ...f, status: "uploaded", url: urlData.signedUrl } : f)
+        );
+
+        completed++;
+        setUploadProgress(Math.round((completed / total) * 100));
+
+        return {
           type: isImage ? "image" : "document",
           name: pending.file.name,
-          url: urlData.publicUrl,
-        });
-
-        setPendingFiles(prev => 
-          prev.map(f => f.id === pending.id ? { ...f, status: "uploaded", url: urlData.publicUrl } : f)
-        );
+          url: urlData.signedUrl,
+        };
       } catch (error) {
         console.error(`Upload error for ${pending.file.name}:`, error);
         setPendingFiles(prev => 
           prev.map(f => f.id === pending.id ? { ...f, status: "error", error: "Échec upload" } : f)
         );
+        completed++;
+        setUploadProgress(Math.round((completed / total) * 100));
+        return null;
       }
+    };
 
-      completed++;
-      setUploadProgress(Math.round((completed / total) * 100));
+    // Process in parallel with concurrency limit
+    const chunks: PendingFile[][] = [];
+    for (let i = 0; i < pendingFiles.length; i += MAX_CONCURRENT_UPLOADS) {
+      chunks.push(pendingFiles.slice(i, i + MAX_CONCURRENT_UPLOADS));
+    }
+
+    for (const chunk of chunks) {
+      const results = await Promise.all(chunk.map(uploadSingle));
+      results.forEach(r => { if (r) uploadedFiles.push(r); });
     }
 
     setIsUploading(false);
