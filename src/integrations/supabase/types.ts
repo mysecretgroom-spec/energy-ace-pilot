@@ -2028,17 +2028,21 @@ export type Database = {
           assigned_client_id: string | null
           assigned_document_type: string | null
           auto_assign_after: string | null
+          confirmed_type: string | null
           created_at: string
           file_size_bytes: number | null
+          final_bucket: string | null
           final_document_id: string | null
           id: string
           mime_type: string | null
           original_filename: string
           processed_at: string | null
           source: string
+          staging_storage_path: string | null
           status: string
           storage_path: string
           user_id: string
+          workflow_type: string | null
         }
         Insert: {
           admin_notified_at?: string | null
@@ -2052,17 +2056,21 @@ export type Database = {
           assigned_client_id?: string | null
           assigned_document_type?: string | null
           auto_assign_after?: string | null
+          confirmed_type?: string | null
           created_at?: string
           file_size_bytes?: number | null
+          final_bucket?: string | null
           final_document_id?: string | null
           id?: string
           mime_type?: string | null
           original_filename: string
           processed_at?: string | null
           source?: string
+          staging_storage_path?: string | null
           status?: string
           storage_path: string
           user_id: string
+          workflow_type?: string | null
         }
         Update: {
           admin_notified_at?: string | null
@@ -2076,17 +2084,21 @@ export type Database = {
           assigned_client_id?: string | null
           assigned_document_type?: string | null
           auto_assign_after?: string | null
+          confirmed_type?: string | null
           created_at?: string
           file_size_bytes?: number | null
+          final_bucket?: string | null
           final_document_id?: string | null
           id?: string
           mime_type?: string | null
           original_filename?: string
           processed_at?: string | null
           source?: string
+          staging_storage_path?: string | null
           status?: string
           storage_path?: string
           user_id?: string
+          workflow_type?: string | null
         }
         Relationships: [
           {
