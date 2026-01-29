@@ -454,19 +454,34 @@ export function AgentChat() {
         // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
         const filePath = `${user.id}/agent-uploads/${fileName}`;
 
-        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, user.id=${user.id}`);
+        // Normalize content type - browser sometimes sends wrong MIME for uppercase extensions
+        let contentType = pending.file.type;
+        if (!contentType || contentType === "application/octet-stream") {
+          // Infer from extension
+          const mimeMap: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            webp: "image/webp",
+            gif: "image/gif",
+            pdf: "application/pdf",
+          };
+          contentType = mimeMap[fileExt] || "application/octet-stream";
+        }
+
+        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, user.id=${user.id}, contentType=${contentType}`);
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("documents")
           .upload(filePath, pending.file, {
-            contentType: pending.file.type || "application/octet-stream",
+            contentType,
             cacheControl: "3600",
             upsert: false,
           });
 
         if (uploadError) {
           console.error(`[AgentChat] Upload failed for ${pending.file.name}:`, uploadError);
-          throw uploadError;
+          throw new Error(`Upload error: ${uploadError.message}`);
         }
 
         console.log(`[AgentChat] Upload successful for ${pending.file.name}:`, uploadData);
