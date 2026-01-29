@@ -170,9 +170,20 @@ const MAX_MEMORY_SIZE_BYTES = 4 * 1024 * 1024; // 4MB limit for in-memory proces
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max upload to storage
 
 // Analysis result types matching analyze-document function
+interface FinanceLineItem {
+  montant_ttc: number | null;
+  montant_ht: number | null;
+  tva: number | null;
+  taux_tva: number | null;
+  categorie: string | null;
+  description: string | null;
+}
+
 interface FinanceAnalysisResult {
   type: "finance";
   success: boolean;
+  is_multi_category: boolean;
+  items: FinanceLineItem[];
   montant_ttc: number | null;
   montant_ht: number | null;
   tva: number | null;
@@ -2292,25 +2303,35 @@ async function analyzeMediaStructured(
   if (context === "finance") {
     prompt = `Analyse cette image de facture/ticket de caisse et extrais les informations en JSON.
 
-IMPORTANT: Si l'image est floue, illisible, ou n'est pas une facture/ticket, retourne success: false avec une explication.
+IMPORTANT: 
+- Si l'image est floue, illisible, ou n'est pas une facture/ticket, retourne success: false avec une explication.
+- Si le ticket contient PLUSIEURS TYPES de dépenses (ex: carburant + sandwich), tu DOIS les séparer dans le champ "items".
 
 Champs à extraire:
 - success: true si tu as pu lire et comprendre le document, false sinon
+- is_multi_category: true si le ticket contient plusieurs catégories de dépenses différentes
+- items: tableau des lignes de dépenses si multi-catégorie, chaque item contient:
+  - montant_ttc, montant_ht, tva, taux_tva, categorie, description
 - montant_ttc: le montant TOTAL TTC en euros (nombre décimal)
-- montant_ht: le montant HT si visible (nombre décimal ou null)
-- tva: le montant de TVA en euros si visible (nombre ou null)
-- taux_tva: le taux de TVA en % si visible (ex: 20 pour 20%)
+- montant_ht: le montant HT total si visible (nombre décimal ou null)
+- tva: le montant de TVA total en euros si visible (nombre ou null)
+- taux_tva: le taux de TVA principal en % si visible (ex: 20 pour 20%)
 - date: la date au format YYYY-MM-DD
 - fournisseur: le nom du commerce/enseigne
-- description: courte description de la dépense
-- categorie: une des catégories: "carburant", "peage", "repas", "hotel", "parking", "train", "location_vehicule", "autre"
+- description: courte description de la dépense principale ou "Achats multiples" si multi-catégorie
+- categorie: catégorie principale si mono-catégorie, sinon "autre"
 - error_message: si success=false, explique pourquoi
 
-Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple succès:
-{"success": true, "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+Catégories valides: "carburant", "peage", "repas", "hotel", "parking", "train", "location_vehicule", "autre"
+
+Exemple MONO-CATÉGORIE:
+{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+
+Exemple MULTI-CATÉGORIE (station essence avec sandwich):
+{"success": true, "is_multi_category": true, "items": [{"montant_ttc": 45.00, "montant_ht": 37.50, "tva": 7.50, "taux_tva": 20, "categorie": "carburant", "description": "Gazole"}, {"montant_ttc": 8.50, "montant_ht": 8.10, "tva": 0.40, "taux_tva": 5.5, "categorie": "repas", "description": "Sandwich + boisson"}], "montant_ttc": 53.50, "date": "2026-01-21", "fournisseur": "Total Access", "description": "Achats multiples", "categorie": "autre"}
 
 Exemple échec:
-{"success": false, "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue, impossible de lire le texte"}`;
+{"success": false, "is_multi_category": false, "items": [], "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue"}`;
   } else {
     prompt = `Analyse cette image de document client et détermine son type ET identifie le client concerné.
 
@@ -2374,6 +2395,8 @@ Exemple échec:
       return {
         type: "finance",
         success: false,
+        is_multi_category: false,
+        items: [],
         montant_ttc: null,
         montant_ht: null,
         tva: null,
@@ -2407,6 +2430,8 @@ Exemple échec:
       return {
         type: "finance",
         success: parsed.success ?? false,
+        is_multi_category: parsed.is_multi_category ?? false,
+        items: parsed.items ?? [],
         montant_ttc: parsed.montant_ttc ?? null,
         montant_ht: parsed.montant_ht ?? null,
         tva: parsed.tva ?? null,
@@ -2435,6 +2460,8 @@ Exemple échec:
       return {
         type: "finance",
         success: false,
+        is_multi_category: false,
+        items: [],
         montant_ttc: null,
         montant_ht: null,
         tva: null,
