@@ -99,6 +99,7 @@ type WorkflowState =
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
   | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
+  | "awaiting_document_type_confirmation" // NOUVEAU: En attente de confirmation du type de document (facture vs doc client)
   | "awaiting_document_client_selection" // En attente de validation du client pour un document
   | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
@@ -2335,18 +2336,28 @@ serve(async (req) => {
           customResponse: confirmationMessage,
         };
       } else if (delegateConfirmationToAction || !needsConfirmation) {
-        // For import intents, we need to upload the media first
+        // For import intents, use the staging workflow for type validation
         if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
-          console.log("Uploading media to storage...");
-          // Both documents and receipts go to pending-documents for validation
-          const targetBucket = "pending-documents";
-          uploadedDocumentUrl = await uploadMediaToStorage(
+          console.log("Initiating staging workflow for document...");
+          
+          // Upload to staging bucket first (not final destination)
+          const { stagingPath, signedUrl } = await uploadToStagingBucket(
             supabase,
             mediaData,
-            request.userId,
-            targetBucket
+            request.userId
           );
-          console.log("Uploaded to:", uploadedDocumentUrl);
+          console.log("Uploaded to staging:", stagingPath);
+          
+          // Store staging info for later use
+          uploadedDocumentUrl = signedUrl;
+          
+          // The executeAction will handle the type confirmation workflow
+          // Pass staging path through entities
+          aiResponse!.entities = {
+            ...aiResponse!.entities,
+            staging_path: stagingPath,
+            staging_url: signedUrl,
+          };
         }
 
         actionResult = await executeAction(
@@ -3077,13 +3088,14 @@ async function uploadMediaToStorage(
   bucket: string
 ): Promise<string> {
   const timestamp = Date.now();
-  const filePath = `whatsapp/${userId}/${timestamp}_${media.filename}`;
+  const filePath = `${userId}/${timestamp}_${media.filename}`;
 
   // Map bucket types to actual bucket names
   const bucketMap: Record<string, string> = {
     "frais": "receipts",
     "documents": "documents",
     "pending": "pending-documents",
+    "staging": "staging-uploads",
   };
   const actualBucket = bucketMap[bucket] || bucket;
 
@@ -3100,16 +3112,123 @@ async function uploadMediaToStorage(
     throw new Error(`Failed to upload: ${uploadError.message}`);
   }
 
-  // Get signed URL (1 year validity)
-  const { data: urlData } = await supabase.storage
-    .from(actualBucket)
-    .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+  // For staging bucket, use signed URL (private bucket)
+  // For other buckets, check if they're public
+  if (actualBucket === "staging-uploads" || actualBucket === "documents") {
+    // Private buckets - use signed URL
+    const { data: urlData } = await supabase.storage
+      .from(actualBucket)
+      .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
-  if (!urlData?.signedUrl) {
-    throw new Error("Failed to generate signed URL");
+    if (!urlData?.signedUrl) {
+      throw new Error("Failed to generate signed URL");
+    }
+    return urlData.signedUrl;
+  } else {
+    // Public buckets (receipts, pending-documents) - use public URL
+    const { data: urlData } = supabase.storage
+      .from(actualBucket)
+      .getPublicUrl(filePath);
+
+    if (!urlData?.publicUrl) {
+      throw new Error("Failed to generate public URL");
+    }
+    return urlData.publicUrl;
+  }
+}
+
+// Upload to staging bucket for the two-step validation workflow
+// deno-lint-ignore no-explicit-any
+async function uploadToStagingBucket(
+  supabase: any,
+  media: MediaDownloadResult,
+  userId: string
+): Promise<{ stagingPath: string; signedUrl: string }> {
+  const timestamp = Date.now();
+  const stagingPath = `${userId}/staging/${timestamp}_${media.filename}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("staging-uploads")
+    .upload(stagingPath, media.data, {
+      contentType: media.contentType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("Staging upload error:", uploadError);
+    throw new Error(`Failed to upload to staging: ${uploadError.message}`);
   }
 
-  return urlData.signedUrl;
+  // Get signed URL for preview
+  const { data: urlData } = await supabase.storage
+    .from("staging-uploads")
+    .createSignedUrl(stagingPath, 60 * 60 * 24); // 24 hour validity for validation
+
+  if (!urlData?.signedUrl) {
+    throw new Error("Failed to generate staging signed URL");
+  }
+
+  return { stagingPath, signedUrl: urlData.signedUrl };
+}
+
+// Move file from staging to final destination after validation
+// deno-lint-ignore no-explicit-any
+async function moveFromStagingToFinal(
+  supabase: any,
+  stagingPath: string,
+  userId: string,
+  targetBucket: "documents" | "receipts",
+  targetSubfolder: string, // clientId for documents, context for receipts
+  filename: string,
+  mimeType: string
+): Promise<string> {
+  // Download from staging
+  const { data: fileData, error: downloadError } = await supabase.storage
+    .from("staging-uploads")
+    .download(stagingPath);
+
+  if (downloadError || !fileData) {
+    console.error("Error downloading from staging:", downloadError);
+    throw new Error("Failed to download from staging");
+  }
+
+  // Prepare final path
+  const timestamp = Date.now();
+  const finalPath = `${userId}/${targetSubfolder}/${timestamp}_${filename}`;
+  const fileBytes = await fileData.arrayBuffer();
+
+  // Upload to final destination
+  const { error: uploadError } = await supabase.storage
+    .from(targetBucket)
+    .upload(finalPath, new Uint8Array(fileBytes), {
+      contentType: mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("Error uploading to final bucket:", uploadError);
+    throw new Error(`Failed to upload to ${targetBucket}`);
+  }
+
+  // Delete from staging
+  await supabase.storage
+    .from("staging-uploads")
+    .remove([stagingPath]);
+
+  // Get URL based on bucket type
+  if (targetBucket === "documents") {
+    // Private bucket - signed URL
+    const { data: urlData } = await supabase.storage
+      .from(targetBucket)
+      .createSignedUrl(finalPath, 60 * 60 * 24 * 365);
+    return urlData?.signedUrl || "";
+  } else {
+    // Public bucket - public URL
+    const { data: urlData } = supabase.storage
+      .from(targetBucket)
+      .getPublicUrl(finalPath);
+    return urlData?.publicUrl || "";
+  }
 }
 
 // Format query response into readable WhatsApp message
@@ -7206,7 +7325,11 @@ async function executeAction(
     }
 
     case "import_document": {
-      if (!uploadedDocumentUrl) {
+      // Récupérer staging path depuis entities ou URL
+      const stagingPath = entities.staging_path as string;
+      const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
+      
+      if (!stagingUrl && !uploadedDocumentUrl) {
         return { actionTaken: "no_media" };
       }
 
@@ -7253,25 +7376,25 @@ async function executeAction(
         }
       }
       
-      // Store document in pending storage
-      const storagePath = extractStoragePathFromUrl(uploadedDocumentUrl, "pending-documents");
-      
-      // Create pending document record with status 'awaiting_confirmation'
+      // Create pending document record in staging with workflow_type
       const { data: pendingDoc, error: pendingError } = await supabase
         .from("pending_documents")
         .insert({
           user_id: userId,
           original_filename: originalFilename,
-          storage_path: storagePath,
+          staging_storage_path: stagingPath,
+          storage_path: stagingPath, // Will be updated after validation
           mime_type: mediaData?.contentType || "application/octet-stream",
           file_size_bytes: mediaData?.sizeBytes || null,
           source: "whatsapp",
+          workflow_type: "document_client",
           ai_detected_client_name: extractedClientName || clientName || null,
           ai_detected_client_id: clientSuggestions[0]?.id || null,
           ai_detected_document_type: documentType,
           ai_confidence: extractedClientConfidence,
           ai_analysis_summary: analysisResult?.type === "client_docs" ? analysisResult.description : null,
           status: "awaiting_confirmation",
+          final_bucket: "documents",
         })
         .select("id")
         .single();
@@ -7287,7 +7410,7 @@ async function executeAction(
       
       // CASE 1: High confidence match (≥80%) - Ask for direct confirmation
       if (highConfidenceMatch) {
-        const responseMsg = `📥 *Document reçu !*\n\n` +
+        const responseMsg = `📥 *Document client reçu !*\n\n` +
           `📄 ${originalFilename}\n` +
           (documentType !== "autre" ? `📋 Type: ${documentType}\n` : "") +
           `\n👤 Client identifié: *${highConfidenceMatch.fullName}* (${highConfidenceMatch.score}%)\n\n` +
@@ -7301,7 +7424,7 @@ async function executeAction(
           workflowState: "awaiting_document_client_selection",
           collectedData: {
             pendingDocumentId: pendingDoc.id,
-            documentStorageUrl: uploadedDocumentUrl,
+            documentStorageUrl: stagingUrl || undefined,
             documentFilename: originalFilename,
             documentType: documentType,
             documentMimeType: mediaData?.contentType,
@@ -7321,7 +7444,7 @@ async function executeAction(
               }
             ],
             clientSuggestions: [highConfidenceMatch],
-            highConfidenceMode: true, // Flag to indicate high-confidence mode
+            highConfidenceMode: true,
           },
           createdAt: new Date().toISOString(),
         };
@@ -7336,7 +7459,7 @@ async function executeAction(
       }
       
       // CASE 2: Low confidence or no match - Ask for client name or show top 3 suggestions
-      let responseMsg = `📥 *Document reçu !*\n\n`;
+      let responseMsg = `📥 *Document client reçu !*\n\n`;
       responseMsg += `📄 ${originalFilename}\n`;
       
       if (documentType !== "autre") {
@@ -7385,14 +7508,14 @@ async function executeAction(
         workflowState: "awaiting_document_client_selection",
         collectedData: {
           pendingDocumentId: pendingDoc.id,
-          documentStorageUrl: uploadedDocumentUrl,
+          documentStorageUrl: stagingUrl || undefined,
           documentFilename: originalFilename,
           documentType: documentType,
           documentMimeType: mediaData?.contentType,
           documentSizeBytes: mediaData?.sizeBytes,
           choices: choices,
           clientSuggestions: clientSuggestions,
-          highConfidenceMode: false, // Low-confidence mode
+          highConfidenceMode: false,
         },
         createdAt: new Date().toISOString(),
       };
@@ -7407,7 +7530,11 @@ async function executeAction(
     }
 
     case "import_facture": {
-      if (!uploadedDocumentUrl) {
+      // Récupérer staging path depuis entities ou URL
+      const stagingPath = entities.staging_path as string;
+      const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
+      
+      if (!stagingUrl && !uploadedDocumentUrl) {
         return { actionTaken: "no_media" };
       }
 
@@ -7436,22 +7563,24 @@ async function executeAction(
 
       // Get original filename from mediaData
       const originalFilename = mediaData?.filename || `facture_${Date.now()}`;
-      const storagePath = extractStoragePathFromUrl(uploadedDocumentUrl, "pending-documents");
 
-      // Create pending document record for facture
+      // Create pending document record for facture with staging info
       const { data: pendingDoc, error: pendingError } = await supabase
         .from("pending_documents")
         .insert({
           user_id: userId,
           original_filename: originalFilename,
-          storage_path: storagePath,
+          staging_storage_path: stagingPath,
+          storage_path: stagingPath, // Will be updated after validation
           mime_type: mediaData?.contentType || "application/octet-stream",
           file_size_bytes: mediaData?.sizeBytes || null,
           source: "whatsapp_facture",
+          workflow_type: "facture",
           ai_detected_document_type: "facture_frais",
           ai_confidence: analysisResult?.type === "finance" && analysisResult.success ? 85 : 50,
           ai_analysis_summary: fournisseur ? `Facture ${fournisseur}: ${montant}€` : `Facture: ${montant}€`,
           status: "awaiting_confirmation",
+          final_bucket: "receipts",
         })
         .select("id")
         .single();
@@ -7505,7 +7634,7 @@ async function executeAction(
         workflowState: "awaiting_facture_confirmation",
         collectedData: {
           pendingDocumentId: pendingDoc.id,
-          factureStorageUrl: uploadedDocumentUrl,
+          factureStorageUrl: stagingUrl || undefined,
           documentFilename: originalFilename,
           documentMimeType: mediaData?.contentType,
           documentSizeBytes: mediaData?.sizeBytes,
