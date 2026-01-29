@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { 
   X, 
   Send, 
@@ -19,7 +21,9 @@ import {
   FileText,
   MessageCircle,
   History,
-  Plus
+  Plus,
+  Trash2,
+  Upload
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,7 +44,26 @@ interface Message {
     name: string;
     url?: string;
   };
+  attachments?: Array<{
+    type: "image" | "document";
+    name: string;
+    url?: string;
+  }>;
 }
+
+interface PendingFile {
+  id: string;
+  file: File;
+  preview?: string;
+  status: "pending" | "uploading" | "uploaded" | "error";
+  url?: string;
+  error?: string;
+}
+
+// Constants for multi-file upload
+const MAX_FILES = 10;
+const MAX_TOTAL_SIZE_MB = 30;
+const MAX_SINGLE_FILE_MB = 10;
 
 const SUGGESTIONS = [
   "📅 Mon planning de demain",
@@ -60,6 +83,9 @@ export function AgentChat() {
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [userName, setUserName] = useState<string>("");
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -327,51 +353,218 @@ export function AgentChat() {
     }
   };
 
-  // File import
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  // Multi-file import
+  const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0 || !user) return;
 
-    const isImage = file.type.startsWith("image/");
-    const maxSize = 10 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      toast.error("Fichier trop volumineux (max 10MB)");
+    // Check file count limit
+    const totalFiles = pendingFiles.length + selectedFiles.length;
+    if (totalFiles > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} fichiers à la fois`);
       return;
     }
 
-    try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `agent-uploads/${user.id}/${fileName}`;
+    // Check individual and total size
+    let totalSize = pendingFiles.reduce((acc, f) => acc + f.file.size, 0);
+    const validFiles: PendingFile[] = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(filePath, file);
+    for (const file of selectedFiles) {
+      const fileSizeMB = file.size / (1024 * 1024);
+      
+      if (fileSizeMB > MAX_SINGLE_FILE_MB) {
+        toast.error(`${file.name} trop volumineux (max ${MAX_SINGLE_FILE_MB}MB)`);
+        continue;
+      }
 
-      if (uploadError) throw uploadError;
+      totalSize += file.size;
+      if (totalSize / (1024 * 1024) > MAX_TOTAL_SIZE_MB) {
+        toast.error(`Limite de ${MAX_TOTAL_SIZE_MB}MB dépassée`);
+        break;
+      }
 
-      const { data: urlData } = supabase.storage
-        .from("documents")
-        .getPublicUrl(filePath);
-
-      sendMessage(
-        input || `J'ai envoyé ${isImage ? "une image" : "un document"}: ${file.name}`,
-        {
-          type: isImage ? "image" : "document",
-          name: file.name,
-          url: urlData.publicUrl,
-        }
-      );
-
-      toast.success(`${isImage ? "Image" : "Document"} envoyé`);
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("Erreur lors de l'envoi du fichier");
+      const isImage = file.type.startsWith("image/");
+      validFiles.push({
+        id: crypto.randomUUID(),
+        file,
+        preview: isImage ? URL.createObjectURL(file) : undefined,
+        status: "pending",
+      });
     }
+
+    setPendingFiles(prev => [...prev, ...validFiles]);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const removePendingFile = (id: string) => {
+    setPendingFiles(prev => {
+      const file = prev.find(f => f.id === id);
+      if (file?.preview) {
+        URL.revokeObjectURL(file.preview);
+      }
+      return prev.filter(f => f.id !== id);
+    });
+  };
+
+  const clearPendingFiles = () => {
+    pendingFiles.forEach(f => {
+      if (f.preview) URL.revokeObjectURL(f.preview);
+    });
+    setPendingFiles([]);
+  };
+
+  const uploadPendingFiles = async (): Promise<Array<{ type: "image" | "document"; name: string; url: string }>> => {
+    if (!user || pendingFiles.length === 0) return [];
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    const uploadedFiles: Array<{ type: "image" | "document"; name: string; url: string }> = [];
+    const total = pendingFiles.length;
+    let completed = 0;
+
+    for (const pending of pendingFiles) {
+      try {
+        const fileExt = pending.file.name.split(".").pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `agent-uploads/${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(filePath, pending.file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("documents")
+          .getPublicUrl(filePath);
+
+        const isImage = pending.file.type.startsWith("image/");
+        uploadedFiles.push({
+          type: isImage ? "image" : "document",
+          name: pending.file.name,
+          url: urlData.publicUrl,
+        });
+
+        setPendingFiles(prev => 
+          prev.map(f => f.id === pending.id ? { ...f, status: "uploaded", url: urlData.publicUrl } : f)
+        );
+      } catch (error) {
+        console.error(`Upload error for ${pending.file.name}:`, error);
+        setPendingFiles(prev => 
+          prev.map(f => f.id === pending.id ? { ...f, status: "error", error: "Échec upload" } : f)
+        );
+      }
+
+      completed++;
+      setUploadProgress(Math.round((completed / total) * 100));
+    }
+
+    setIsUploading(false);
+    return uploadedFiles;
+  };
+
+  const sendMultiFileMessage = async () => {
+    if (!user || (pendingFiles.length === 0 && !input.trim())) return;
+
+    setIsLoading(true);
+
+    try {
+      // Upload all pending files first
+      const uploadedFiles = await uploadPendingFiles();
+
+      if (uploadedFiles.length === 0 && pendingFiles.length > 0) {
+        toast.error("Échec de l'upload des fichiers");
+        setIsLoading(false);
+        return;
+      }
+
+      // Create user message with attachments info
+      const attachmentNames = uploadedFiles.map(f => f.name).join(", ");
+      const messageContent = input.trim() 
+        ? input.trim() 
+        : uploadedFiles.length === 1 
+          ? `J'ai envoyé ${uploadedFiles[0].type === "image" ? "une image" : "un document"}: ${uploadedFiles[0].name}`
+          : `J'ai envoyé ${uploadedFiles.length} fichiers: ${attachmentNames}`;
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: messageContent,
+        timestamp: new Date(),
+        attachments: uploadedFiles,
+        attachment: uploadedFiles.length === 1 ? uploadedFiles[0] : undefined,
+      };
+
+      setLocalMessages(prev => [...prev, userMessage]);
+      setInput("");
+      clearPendingFiles();
+
+      // Save user message to DB
+      await addMessage(
+        "user",
+        messageContent,
+        uploadedFiles.length > 0 ? { 
+          type: uploadedFiles.length === 1 ? uploadedFiles[0].type : "document", 
+          name: uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} fichiers`,
+          url: uploadedFiles.length === 1 ? uploadedFiles[0].url : undefined,
+        } : undefined
+      );
+
+      // Build request for batch processing
+      const agentRequest = {
+        messageId: crypto.randomUUID(),
+        userId: user.id,
+        userName: userName || "Utilisateur",
+        fromNumber: "web_chat",
+        messageType: uploadedFiles.length > 0 
+          ? (uploadedFiles.length === 1 && uploadedFiles[0].type === "image" ? "image" : "document") 
+          : "text",
+        content: messageContent,
+        // Multi-file support
+        mediaFiles: uploadedFiles.length > 0 ? uploadedFiles.map(f => ({
+          url: f.url,
+          name: f.name,
+          contentType: f.type === "image" ? "image/jpeg" : "application/pdf",
+        })) : undefined,
+        // Single file fallback for backward compat
+        mediaUrl: uploadedFiles.length === 1 ? uploadedFiles[0].url : undefined,
+        mediaContentType: uploadedFiles.length === 1 
+          ? (uploadedFiles[0].type === "image" ? "image/jpeg" : "application/pdf") 
+          : undefined,
+      };
+
+      const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
+        body: agentRequest,
+      });
+
+      if (error) throw error;
+
+      const responseContent = data?.responseMessage || data?.response || "Je n'ai pas pu traiter votre demande.";
+
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: responseContent,
+        timestamp: new Date(),
+      };
+
+      setLocalMessages(prev => [...prev, assistantMessage]);
+      await addMessage("assistant", responseContent);
+
+    } catch (error) {
+      console.error("Agent error:", error);
+      const errorMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "❌ Une erreur est survenue. Veuillez réessayer.",
+        timestamp: new Date(),
+      };
+      setLocalMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -404,13 +597,14 @@ export function AgentChat() {
         )}
       </AnimatePresence>
 
-      {/* Hidden file input */}
+      {/* Hidden file input - multiple enabled */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*,.pdf,.doc,.docx"
         className="hidden"
-        onChange={handleFileSelect}
+        multiple
+        onChange={handleFilesSelect}
       />
 
       {/* Chat Window - positioned above BottomNav, responsive sizing */}
@@ -612,27 +806,103 @@ export function AgentChat() {
               )}
             </ScrollArea>
 
+            {/* Pending Files Preview */}
+            {pendingFiles.length > 0 && (
+              <div className="px-4 py-2 border-t bg-muted/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground">
+                    {pendingFiles.length} fichier{pendingFiles.length > 1 ? "s" : ""} sélectionné{pendingFiles.length > 1 ? "s" : ""}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={clearPendingFiles}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Tout retirer
+                  </Button>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {pendingFiles.map(pending => (
+                    <div
+                      key={pending.id}
+                      className="relative shrink-0 w-14 h-14 rounded-lg bg-muted border overflow-hidden group"
+                    >
+                      {pending.preview ? (
+                        <img
+                          src={pending.preview}
+                          alt={pending.file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => removePendingFile(pending.id)}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      >
+                        <X className="h-4 w-4 text-white" />
+                      </button>
+                      {pending.status === "error" && (
+                        <div className="absolute inset-0 bg-destructive/80 flex items-center justify-center">
+                          <X className="h-4 w-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {isUploading && (
+                  <Progress value={uploadProgress} className="h-1 mt-2" />
+                )}
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="p-4 border-t bg-muted/30">
-              <form onSubmit={handleSubmit} className="flex gap-2">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (pendingFiles.length > 0) {
+                  sendMultiFileMessage();
+                } else {
+                  sendMessage(input);
+                }
+              }} className="flex gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 h-10 w-10"
+                  className={cn(
+                    "shrink-0 h-10 w-10",
+                    pendingFiles.length > 0 && "text-primary"
+                  )}
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading || isRecording}
+                  disabled={isLoading || isRecording || isUploading}
                 >
-                  <Paperclip className="h-4 w-4" />
+                  {pendingFiles.length > 0 ? (
+                    <Badge variant="secondary" className="h-6 w-6 p-0 justify-center text-xs">
+                      {pendingFiles.length}
+                    </Badge>
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
                 </Button>
 
                 <Input
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={isRecording ? "Enregistrement..." : "Tapez votre message..."}
+                  placeholder={
+                    isRecording 
+                      ? "Enregistrement..." 
+                      : pendingFiles.length > 0 
+                        ? "Message (optionnel)..." 
+                        : "Tapez votre message..."
+                  }
                   className="flex-1"
-                  disabled={isLoading || isRecording}
+                  disabled={isLoading || isRecording || isUploading}
                 />
 
                 <Button
@@ -644,7 +914,7 @@ export function AgentChat() {
                     isRecording && "animate-pulse"
                   )}
                   onClick={toggleRecording}
-                  disabled={isLoading}
+                  disabled={isLoading || isUploading}
                 >
                   {isRecording ? (
                     <MicOff className="h-4 w-4" />
@@ -656,11 +926,13 @@ export function AgentChat() {
                 <Button
                   type="submit"
                   size="icon"
-                  disabled={!input.trim() || isLoading || isRecording}
+                  disabled={(!input.trim() && pendingFiles.length === 0) || isLoading || isRecording || isUploading}
                   className="shrink-0 h-10 w-10"
                 >
-                  {isLoading ? (
+                  {isLoading || isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : pendingFiles.length > 0 ? (
+                    <Upload className="h-4 w-4" />
                   ) : (
                     <Send className="h-4 w-4" />
                   )}

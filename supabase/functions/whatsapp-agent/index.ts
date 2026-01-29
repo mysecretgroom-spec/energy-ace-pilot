@@ -134,6 +134,13 @@ interface PendingAction {
   createdAt: string;
 }
 
+// Single media file info (for batch processing from web chat)
+interface MediaFileInfo {
+  url: string;
+  name: string;
+  contentType: string;
+}
+
 interface AgentRequest {
   messageId: string;
   userId: string;
@@ -145,6 +152,8 @@ interface AgentRequest {
   mediaContentType?: string;
   // For web chat: audio data sent directly as base64 (no Twilio)
   audioData?: string;
+  // For web chat: multiple files in a single message
+  mediaFiles?: MediaFileInfo[];
 }
 
 interface AgentResponse {
@@ -166,9 +175,20 @@ interface MediaDownloadResult {
   isLargeFile: boolean;
 }
 
+// Batch processing result for multiple files
+interface BatchFileResult {
+  filename: string;
+  success: boolean;
+  type: "finance" | "client_docs";
+  analysisResult?: DocumentAnalysisResult;
+  uploadedUrl?: string;
+  error?: string;
+}
+
 // Constants for file handling
 const MAX_MEMORY_SIZE_BYTES = 4 * 1024 * 1024; // 4MB limit for in-memory processing
 const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max upload to storage
+const MAX_BATCH_TOTAL_SIZE_BYTES = 30 * 1024 * 1024; // 30MB total for batch processing
 
 // Analysis result types matching analyze-document function
 interface FinanceLineItem {
@@ -1464,9 +1484,184 @@ serve(async (req) => {
     let mediaData: MediaDownloadResult | null = null;
     let uploadedDocumentUrl: string | null = null;
     let documentAnalysisResult: DocumentAnalysisResult | null = null;
+    let batchResults: BatchFileResult[] = [];
+    let isBatchMode = false;
 
-    // Download media from Twilio if present (WhatsApp source)
-    if (request.mediaUrl && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+    // =================================================================
+    // MULTI-FILE BATCH PROCESSING (Web Chat)
+    // =================================================================
+    if (request.mediaFiles && request.mediaFiles.length > 1) {
+      isBatchMode = true;
+      console.log(`Batch mode: processing ${request.mediaFiles.length} files`);
+      
+      const batchStartTime = Date.now();
+      const messageText = (request.content || "").toLowerCase();
+      
+      // Determine if user indicates these are finance docs or client docs
+      const hasExplicitFinanceKeyword = 
+        messageText.includes("frais") ||
+        messageText.includes("facture") ||
+        messageText.includes("ticket") ||
+        messageText.includes("note de frais") ||
+        messageText.includes("essence") ||
+        messageText.includes("carburant") ||
+        messageText.includes("péage") ||
+        messageText.includes("parking") ||
+        messageText.includes("hotel");
+      
+      const hasExplicitClientDocKeyword = 
+        messageText.includes("cni") ||
+        messageText.includes("document") ||
+        messageText.includes("identité") ||
+        messageText.includes("avis d'impot") ||
+        messageText.includes("rib") ||
+        messageText.includes("taxe");
+      
+      // Default to finance if explicit keywords found, otherwise use AI detection
+      const forcedContext: "finance" | "client_docs" | null = 
+        hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword ? "finance" :
+        hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword ? "client_docs" : null;
+      
+      // Process each file in parallel (max 5 concurrent to avoid overload)
+      const BATCH_CONCURRENCY = 5;
+      const filesToProcess = request.mediaFiles.slice(0, 10); // Max 10 files
+      
+      for (let i = 0; i < filesToProcess.length; i += BATCH_CONCURRENCY) {
+        const chunk = filesToProcess.slice(i, i + BATCH_CONCURRENCY);
+        const chunkPromises = chunk.map(async (fileInfo): Promise<BatchFileResult> => {
+          try {
+            console.log(`Processing batch file: ${fileInfo.name}`);
+            
+            // Download from public URL
+            const fileResponse = await fetch(fileInfo.url);
+            if (!fileResponse.ok) {
+              throw new Error(`Failed to download: ${fileResponse.status}`);
+            }
+            
+            const fileBuffer = await fileResponse.arrayBuffer();
+            const fileBytes = new Uint8Array(fileBuffer);
+            
+            // Check size
+            if (fileBytes.length > MAX_UPLOAD_SIZE_BYTES) {
+              return {
+                filename: fileInfo.name,
+                success: false,
+                type: "client_docs",
+                error: `Fichier trop volumineux (${(fileBytes.length / 1024 / 1024).toFixed(1)} Mo)`,
+              };
+            }
+            
+            // Create media data object
+            const fileMediaData: MediaDownloadResult = {
+              data: fileBytes,
+              base64: encodeBase64(fileBytes),
+              contentType: fileInfo.contentType,
+              filename: fileInfo.name,
+              sizeBytes: fileBytes.length,
+              isLargeFile: fileBytes.length > MAX_MEMORY_SIZE_BYTES,
+            };
+            
+            // Detect document type if not forced
+            let isReceipt = forcedContext === "finance";
+            if (!forcedContext && !fileMediaData.isLargeFile) {
+              const typeDetection = await detectDocumentType(fileMediaData, LOVABLE_API_KEY);
+              isReceipt = typeDetection.isReceipt;
+            }
+            
+            // Run analysis
+            const analysisContext: "finance" | "client_docs" = isReceipt ? "finance" : "client_docs";
+            let analysisResult: DocumentAnalysisResult | null = null;
+            
+            if (!fileMediaData.isLargeFile) {
+              analysisResult = await analyzeMediaStructured(
+                fileMediaData,
+                analysisContext,
+                LOVABLE_API_KEY
+              );
+            }
+            
+            // Upload to pending-documents bucket
+            const uploadPath = `${request.userId}/${Date.now()}_${fileInfo.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from("pending-documents")
+              .upload(uploadPath, fileBytes, {
+                contentType: fileInfo.contentType,
+              });
+            
+            if (uploadError) {
+              console.error(`Upload error for ${fileInfo.name}:`, uploadError);
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+            
+            const { data: urlData } = supabase.storage
+              .from("pending-documents")
+              .getPublicUrl(uploadPath);
+            
+            return {
+              filename: fileInfo.name,
+              success: true,
+              type: analysisContext,
+              analysisResult: analysisResult || undefined,
+              uploadedUrl: urlData?.publicUrl,
+            };
+          } catch (err) {
+            console.error(`Error processing ${fileInfo.name}:`, err);
+            return {
+              filename: fileInfo.name,
+              success: false,
+              type: "client_docs",
+              error: err instanceof Error ? err.message : "Unknown error",
+            };
+          }
+        });
+        
+        const chunkResults = await Promise.all(chunkPromises);
+        batchResults.push(...chunkResults);
+      }
+      
+      const batchDuration = Date.now() - batchStartTime;
+      console.log(`Batch processing completed in ${batchDuration}ms: ${batchResults.filter(r => r.success).length}/${batchResults.length} successful`);
+      
+      // Build summary for AI context
+      const successCount = batchResults.filter(r => r.success).length;
+      const financeCount = batchResults.filter(r => r.success && r.type === "finance").length;
+      const docCount = batchResults.filter(r => r.success && r.type === "client_docs").length;
+      
+      if (successCount > 0) {
+        let batchSummary = `[Lot de ${successCount} fichiers analysés: `;
+        
+        if (financeCount > 0) {
+          const financeDetails = batchResults
+            .filter(r => r.success && r.type === "finance" && r.analysisResult)
+            .map(r => {
+              const fin = r.analysisResult as FinanceAnalysisResult;
+              return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
+            })
+            .slice(0, 5)
+            .join(", ");
+          batchSummary += `${financeCount} factures/tickets${financeDetails ? ` - ${financeDetails}` : ""}`;
+        }
+        
+        if (docCount > 0) {
+          if (financeCount > 0) batchSummary += "; ";
+          const docDetails = batchResults
+            .filter(r => r.success && r.type === "client_docs" && r.analysisResult)
+            .map(r => {
+              const doc = r.analysisResult as ClientDocAnalysisResult;
+              return `${r.filename}: ${doc.document_type || "?"}`;
+            })
+            .slice(0, 5)
+            .join(", ");
+          batchSummary += `${docCount} documents${docDetails ? ` - ${docDetails}` : ""}`;
+        }
+        
+        batchSummary += "]";
+        processedContent = request.content ? `${request.content}\n\n${batchSummary}` : batchSummary;
+      }
+    }
+
+    // Download media from Twilio if present (WhatsApp source) - SINGLE FILE
+    if (!isBatchMode && request.mediaUrl && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
       console.log("Downloading media from Twilio...");
       mediaData = await downloadTwilioMedia(
         request.mediaUrl,
@@ -1475,6 +1670,31 @@ serve(async (req) => {
         request.mediaContentType || ""
       );
       console.log(`Downloaded ${mediaData.contentType}, size: ${mediaData.data.length} bytes`);
+    }
+    
+    // Handle single file from web chat (backwards compatibility)
+    if (!isBatchMode && request.mediaFiles && request.mediaFiles.length === 1 && !mediaData) {
+      const singleFile = request.mediaFiles[0];
+      console.log(`Single file mode from web: ${singleFile.name}`);
+      
+      try {
+        const fileResponse = await fetch(singleFile.url);
+        if (fileResponse.ok) {
+          const fileBuffer = await fileResponse.arrayBuffer();
+          const fileBytes = new Uint8Array(fileBuffer);
+          
+          mediaData = {
+            data: fileBytes,
+            base64: encodeBase64(fileBytes),
+            contentType: singleFile.contentType,
+            filename: singleFile.name,
+            sizeBytes: fileBytes.length,
+            isLargeFile: fileBytes.length > MAX_MEMORY_SIZE_BYTES,
+          };
+        }
+      } catch (err) {
+        console.error("Error downloading single file:", err);
+      }
     }
 
     // Handle audio transcription with Gemini
