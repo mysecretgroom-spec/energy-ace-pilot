@@ -67,6 +67,7 @@ import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfir
 import { AutoSaveIndicator } from "@/components/ui/auto-save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { useEtudePdfAutoSave } from "@/hooks/useEtudePdfAutoSave";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -1253,8 +1254,13 @@ const EtudeForm = () => {
       
       // Proposer notification WhatsApp au confirmateur si classification définie
       if (classification && classificationChanged) {
-        // Construire les données PDF pour r2_prestudy
-        const pdfDataForWhatsApp = classification === "r2_prestudy" ? buildPdfData() : undefined;
+        // Pour r2_prestudy, générer et stocker le PDF avant l'envoi WhatsApp
+        let pdfDataForWhatsApp: EtudeData | undefined = undefined;
+        if (classification === "r2_prestudy") {
+          pdfDataForWhatsApp = buildPdfData() || undefined;
+          // Stocker le PDF dans le cloud pour accès futur
+          await generateAndStorePdf();
+        }
         
         // Stocker les données et afficher le dialog de confirmation
         setPendingWhatsAppData({
@@ -1264,7 +1270,7 @@ const EtudeForm = () => {
           comment: classificationComment,
           r2DateTime: r2DateTime,
           cqTime: cqTime,
-          pdfData: pdfDataForWhatsApp || undefined,
+          pdfData: pdfDataForWhatsApp,
         });
         setShowWhatsAppDialog(true);
       }
@@ -1542,108 +1548,8 @@ const EtudeForm = () => {
     setPendingWhatsAppData(null);
   };
 
-  const handleExportPdf = () => {
-    if (!calculatedResults) return;
-    
-    setExporting(true);
-    
-    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    
-    const pdfData: EtudeData = {
-      // Client
-      clientNom: clientName,
-      clientPrenom: clientPrenom,
-      clientAdresse: clientAdresse,
-      clientVille: clientVille,
-      clientCodePostal: clientCodePostal,
-      departement: departement,
-      dateEtude: new Date().toLocaleDateString("fr-FR"),
-      
-      // Visite technique
-      ombreToiture: ombreToiture,
-      surfaceToiture: surfaceToiture,
-      typeToiture: typeToiture,
-      etatToiture: etatToiture,
-      orientation: orientation || "Non défini",
-      inclinaison: Number(inclinaison) || 0,
-      
-      // Compteur
-      typeCompteurElectrique: typeCompteurElectrique || "Non défini",
-      numeroPdl: numeroPdl,
-      typeRaccordement: typeRaccordement || "Non défini",
-      amperageDisjoncteur: Number(amperageDisjoncteur) || 0,
-      emplacementBoitier: emplacementBoitier || "Non défini",
-      potentielFaisabilite: potentielFaisabilite || "Non défini",
-      
-      // Consommation
-      consoAnnuelle: Number(consoAnnuelle) || 0,
-      factureMensuelle: Number(factureMensuelle) || 0,
-      
-      // Préconisation
-      bouquetNom: `${puissanceKwc} kWc`,
-      puissanceKwc: Number(puissanceKwc) || 0,
-      typeRevente: typeRevente || "Non défini",
-      supportInstallation: supportInstallation || "Non défini",
-      
-      // Données techniques
-      surfaceInstallation: Number(surfaceInstallation) || 0,
-      heuresEnsoleillement: heuresEnsoleillement,
-      rendementProductivite: Number(rendementProductivite) || 100,
-      
-      // Résultats calculs
-      productionAnnuelle: calculatedResults.productionAnnuelle,
-      surplusProduction: calculatedResults.surplusProduction,
-      autoconsoPct: calculatedResults.autoconsoPct,
-      
-      // Prix
-      prixInstallation: calculatedResults.prixInstallation,
-      surcoutSupport: surcoutSupport,
-      surcoutCompteur: surcoutCompteur,
-      autreSurcout: autreSurcout,
-      prixTotalHorsAides: calculatedResults.prixTotalHorsAides,
-      
-      // Aides
-      primeAutoconsommation: calculatedResults.primeAutoconsommation,
-      ecoTva: calculatedResults.ecoTva,
-      totalAides: calculatedResults.totalAides,
-      totalAidesDeduites: calculatedResults.totalAidesDeduites,
-      
-      // Financement
-      financementNom: selectedFinancement?.nom || "Non défini",
-      tauxFinancement: selectedFinancement?.taux_effectif || 0,
-      dureeMois: dureeMoisManuelle || 120,
-      mensualite: calculatedResults.mensualite,
-      
-      // Rentabilité
-      autoconsommationEuros: calculatedResults.autoconsommationEuros,
-      reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
-      resultatTransfertCharge: calculatedResults.resultatTransfertCharge,
-      verdict: calculatedResults.verdict || "invalide",
-      
-      // Classification
-      classification: classification || undefined,
-      classificationComment: classificationComment || undefined,
-    };
-    
-    try {
-      exportEtudePdf(pdfData);
-      toast({
-        title: "PDF exporté",
-        description: "L'étude a été téléchargée",
-      });
-    } catch (error) {
-      console.error("Erreur export PDF:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible d'exporter le PDF",
-      });
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const buildPdfData = (): EtudeData | null => {
+  // Build PDF data (must be defined before hooks that use it)
+  const buildPdfData = useCallback((): EtudeData | null => {
     if (!calculatedResults) return null;
     
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
@@ -1701,6 +1607,56 @@ const EtudeForm = () => {
       classification: classification || undefined,
       classificationComment: classificationComment || undefined,
     };
+  }, [
+    calculatedResults, clientName, clientPrenom, clientAdresse, clientVille,
+    clientCodePostal, clientTelephone, departement, ombreToiture, surfaceToiture,
+    typeToiture, etatToiture, orientation, inclinaison, typeCompteurElectrique,
+    numeroPdl, typeRaccordement, amperageDisjoncteur, emplacementBoitier,
+    potentielFaisabilite, consoAnnuelle, factureMensuelle, puissanceKwc,
+    typeRevente, supportInstallation, surfaceInstallation, heuresEnsoleillement,
+    rendementProductivite, surcoutSupport, surcoutCompteur, autreSurcout,
+    dataFinancements, financementId, dureeMoisManuelle, classification, classificationComment
+  ]);
+
+  // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
+  const { generateAndStorePdf } = useEtudePdfAutoSave({
+    etudeId: currentEtudeId,
+    clientName,
+    clientPrenom,
+    userId: user?.id || null,
+    isInitialized: isInitializedRef.current,
+    buildPdfData,
+  });
+
+  const handleExportPdf = async () => {
+    if (!calculatedResults) return;
+    
+    setExporting(true);
+    
+    try {
+      const pdfData = buildPdfData();
+      if (!pdfData) throw new Error("Données PDF manquantes");
+      
+      // Export and download
+      await exportEtudePdf(pdfData);
+      
+      // Also store in cloud for future access
+      await generateAndStorePdf();
+      
+      toast({
+        title: "PDF exporté",
+        description: "L'étude a été téléchargée et sauvegardée",
+      });
+    } catch (error) {
+      console.error("Erreur export PDF:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "Impossible d'exporter le PDF",
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handlePreview = async () => {
