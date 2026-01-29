@@ -422,16 +422,27 @@ export function AgentChat() {
     // Upload function for a single file
     const uploadSingle = async (pending: PendingFile): Promise<{ type: "image" | "document"; name: string; url: string } | null> => {
       try {
-        const fileExt = pending.file.name.split(".").pop();
+        const fileExt = pending.file.name.split(".").pop()?.toLowerCase() || "bin";
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
         const filePath = `${user.id}/agent-uploads/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(filePath, pending.file);
+        console.log(`[AgentChat] Uploading ${pending.file.name} to ${filePath}`);
 
-        if (uploadError) throw uploadError;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("documents")
+          .upload(filePath, pending.file, {
+            contentType: pending.file.type || "application/octet-stream",
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(`[AgentChat] Upload failed for ${pending.file.name}:`, uploadError);
+          throw uploadError;
+        }
+
+        console.log(`[AgentChat] Upload successful for ${pending.file.name}:`, uploadData);
 
         // Get signed URL since bucket is not public
         const { data: urlData } = await supabase.storage
@@ -454,10 +465,12 @@ export function AgentChat() {
           name: pending.file.name,
           url: urlData.signedUrl,
         };
-      } catch (error) {
-        console.error(`Upload error for ${pending.file.name}:`, error);
+      } catch (error: any) {
+        const errorMessage = error?.message || error?.error || "Erreur inconnue";
+        console.error(`[AgentChat] Upload error for ${pending.file.name}:`, error);
+        toast.error(`Échec upload ${pending.file.name}: ${errorMessage}`);
         setPendingFiles(prev => 
-          prev.map(f => f.id === pending.id ? { ...f, status: "error", error: "Échec upload" } : f)
+          prev.map(f => f.id === pending.id ? { ...f, status: "error", error: errorMessage } : f)
         );
         completed++;
         setUploadProgress(Math.round((completed / total) * 100));
