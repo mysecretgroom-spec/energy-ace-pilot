@@ -79,7 +79,7 @@ Champs à extraire:
 - date: la date au format YYYY-MM-DD
 - fournisseur: le nom du commerce/enseigne
 - description: courte description de la dépense
-- categorie: une des catégories: "carburant", "peage", "repas", "hotel", "parking", "autre"
+- categorie: une des catégories: "carburant", "peage", "repas", "hotel", "parking", "train", "location_vehicule", "autre"
 - error_message: si success=false, explique pourquoi
 
 Réponds UNIQUEMENT avec le JSON, sans markdown. Exemple succès:

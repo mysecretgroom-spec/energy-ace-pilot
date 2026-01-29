@@ -407,7 +407,7 @@ export function MultiImportFlow({
             user_id: user.id,
             montant: importedFile.montant_ttc!,
             date_frais: importedFile.date || new Date().toISOString().split("T")[0],
-            categorie: (importedFile.categorie || "autre") as "carburant" | "peage" | "repas" | "hotel" | "parking" | "autre",
+            categorie: (importedFile.categorie || "autre") as "carburant" | "peage" | "repas" | "hotel" | "parking" | "train" | "location_vehicule" | "autre",
             description: importedFile.description || importedFile.fournisseur,
             justificatif_url: signedUrl,
             ocr_data: {

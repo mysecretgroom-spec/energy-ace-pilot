@@ -530,7 +530,7 @@ const Finance = () => {
       const { error } = await supabase.from("frais").insert({
         user_id: user.id,
         montant: parseFloat(newFrais.montant),
-        categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "autre",
+        categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
         description: newFrais.description || null,
         date_frais: newFrais.date_frais,
       });
@@ -576,7 +576,7 @@ const Finance = () => {
         .from("frais")
         .update({
           montant: parseFloat(editForm.montant),
-          categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "autre",
+          categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
           description: editForm.description || null,
           date_frais: editForm.date_frais,
         })
