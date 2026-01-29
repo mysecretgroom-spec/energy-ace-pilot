@@ -55,12 +55,16 @@ export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> 
 
     const filePath = decodeURIComponent(pathMatch[1].split("?")[0]);
 
-  const { error } = await supabase.storage
-    .from("receipts")
-    .remove([filePath]);
+    const { error } = await supabase.storage
+      .from("receipts")
+      .remove([filePath]);
 
-  if (error) {
-    console.error("Delete error:", error);
-    throw new Error(`Failed to delete document: ${error.message}`);
+    if (error) {
+      console.error("Delete error:", error);
+      throw new Error(`Failed to delete document: ${error.message}`);
+    }
+  } catch (err) {
+    console.error("Error parsing URL for deletion:", err);
+    throw err;
   }
 }
