@@ -6,10 +6,23 @@ export async function uploadDocumentToStorage(
   userId: string,
   context: DocumentContext
 ): Promise<string> {
+  // Verify session is valid before upload - this ensures auth.uid() works in RLS
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session) {
+    console.error("[uploadService] Session error:", sessionError);
+    throw new Error("Session expirée, veuillez vous reconnecter");
+  }
+
+  // Use session user ID to ensure consistency with RLS
+  const currentUserId = session.user.id;
+  if (currentUserId !== userId) {
+    console.warn(`[uploadService] userId mismatch: passed=${userId}, session=${currentUserId}`);
+  }
+
   const timestamp = Date.now();
   // Path format: {userId}/{context}/{timestamp}.pdf
   // This ensures RLS policy (auth.uid() = foldername[1]) is satisfied
-  const fileName = `${userId}/${context}/${timestamp}.pdf`;
+  const fileName = `${currentUserId}/${context}/${timestamp}.pdf`;
 
   console.log(`[uploadService] Uploading to receipts/${fileName}`);
 
@@ -21,36 +34,23 @@ export async function uploadDocumentToStorage(
     });
 
   if (error) {
-    console.error("Upload error:", error);
+    console.error("[uploadService] Upload error:", error);
     throw new Error(`Failed to upload document: ${error.message}`);
   }
 
-  // Get signed URL with retry logic (sometimes there's propagation delay)
-  let signedUrl: string | null = null;
-  
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      console.log(`[uploadService] Retrying signed URL (attempt ${attempt + 1}/3)...`);
-      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-    }
-    
-    const { data: urlData, error } = await supabase.storage
-      .from("receipts")
-      .createSignedUrl(data.path, 60 * 60 * 24 * 365); // Use returned path
-    
-    if (!error && urlData?.signedUrl) {
-      signedUrl = urlData.signedUrl;
-      break;
-    }
-    
-    console.warn(`[uploadService] Signed URL attempt ${attempt + 1} failed:`, error);
-  }
-  
-  if (!signedUrl) {
-    throw new Error("Failed to generate document URL after retries");
+  console.log("[uploadService] Upload successful, path:", data.path);
+
+  // Get public URL (bucket is now public for reading)
+  const { data: urlData } = supabase.storage
+    .from("receipts")
+    .getPublicUrl(data.path);
+
+  if (!urlData?.publicUrl) {
+    throw new Error("Failed to generate document URL");
   }
 
-  return signedUrl;
+  console.log("[uploadService] Public URL generated:", urlData.publicUrl);
+  return urlData.publicUrl;
 }
 
 export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> {

@@ -41,26 +41,16 @@ async function uploadReceiptToStorage(
     throw new Error(`Failed to upload receipt: ${error.message}`);
   }
 
-  // Retry logic for signed URL (handles propagation delays)
-  let signedUrl: string | null = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-    }
-    const { data: urlData } = await supabase.storage
-      .from("receipts")
-      .createSignedUrl(data.path, 60 * 60 * 24 * 365);
-    if (urlData?.signedUrl) {
-      signedUrl = urlData.signedUrl;
-      break;
-    }
+  // Get public URL (bucket is now public for reading)
+  const { data: urlData } = supabase.storage
+    .from("receipts")
+    .getPublicUrl(data.path);
+
+  if (!urlData?.publicUrl) {
+    throw new Error("Failed to generate receipt URL");
   }
 
-  if (!signedUrl) {
-    throw new Error("Failed to generate receipt URL after retries");
-  }
-
-  return signedUrl;
+  return urlData.publicUrl;
 }
 
 interface OCRResult {
