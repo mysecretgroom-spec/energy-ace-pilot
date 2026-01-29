@@ -118,6 +118,7 @@ interface PendingAction {
     documentMimeType?: string;      // Type MIME
     documentSizeBytes?: number;     // Taille du fichier
     clientSuggestions?: Array<{ id: string; fullName: string; score: number }>; // Suggestions de clients
+    highConfidenceMode?: boolean;         // Mode haute confiance pour import document (≥80% match)
     // Pour les factures/frais
     factureMontant?: number;        // Montant TTC extrait
     factureMontantHT?: number;      // Montant HT extrait
@@ -1538,37 +1539,82 @@ serve(async (req) => {
         console.log(`Large file (${(mediaData.sizeBytes / 1024 / 1024).toFixed(1)} MB) - analysis will use first page only`);
       }
       
-      console.log("Analyzing media with structured extraction...");
+      console.log("Analyzing media with 2-phase structured extraction...");
       
-      // Determine context: look for finance-related keywords in message
+      // =================================================================
+      // PHASE 1: DETECT DOCUMENT TYPE (receipt/invoice vs client document)
+      // This is the PRIORITY - identify type BEFORE detailed analysis
+      // =================================================================
+      
+      let isReceiptDocument = false;
+      let typeDetectionConfidence = 0;
+      
+      // Check for explicit keywords in user message that override AI detection
       const messageText = (request.content || "").toLowerCase();
-      const isFinanceContext = 
+      const hasExplicitFinanceKeyword = 
         messageText.includes("frais") ||
         messageText.includes("ticket") ||
-        messageText.includes("note") ||
+        messageText.includes("note de frais") ||
         messageText.includes("essence") ||
         messageText.includes("carburant") ||
         messageText.includes("péage") ||
-        messageText.includes("repas") ||
-        messageText.includes("restaurant") ||
+        messageText.includes("peage") ||
         messageText.includes("parking") ||
         messageText.includes("hotel") ||
-        (messageText.includes("facture") && !messageText.includes("energie") && !messageText.includes("edf"));
-
-      // For large files, skip AI analysis (will still be uploaded to storage)
+        messageText.includes("hôtel");
+      
+      const hasExplicitClientDocKeyword = 
+        messageText.includes("cni") ||
+        messageText.includes("carte d'identité") ||
+        messageText.includes("identité") ||
+        messageText.includes("avis d'impot") ||
+        messageText.includes("impots") ||
+        messageText.includes("rib") ||
+        messageText.includes("taxe fonciere") ||
+        messageText.includes("facture energie") ||
+        messageText.includes("facture edf") ||
+        messageText.includes("compteur") ||
+        messageText.includes("tableau électrique");
+      
       if (!mediaData.isLargeFile) {
-        // First try to detect if it's a receipt/invoice or a client document
+        // If user explicitly says it's a finance document, trust them
+        if (hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword) {
+          isReceiptDocument = true;
+          typeDetectionConfidence = 95;
+          console.log("User explicitly indicated this is a finance document");
+        } 
+        // If user explicitly says it's a client document, trust them  
+        else if (hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword) {
+          isReceiptDocument = false;
+          typeDetectionConfidence = 95;
+          console.log("User explicitly indicated this is a client document");
+        }
+        // Otherwise, use AI to detect document type
+        else {
+          console.log("Running Phase 1: Document type detection...");
+          const typeDetection = await detectDocumentType(mediaData, LOVABLE_API_KEY);
+          isReceiptDocument = typeDetection.isReceipt;
+          typeDetectionConfidence = typeDetection.confidence;
+          console.log(`Phase 1 result: isReceipt=${isReceiptDocument}, confidence=${typeDetectionConfidence}%, reason="${typeDetection.reasoning}"`);
+        }
+        
+        // =================================================================
+        // PHASE 2: RUN APPROPRIATE DETAILED ANALYSIS BASED ON TYPE
+        // =================================================================
+        console.log(`Running Phase 2: ${isReceiptDocument ? "Finance" : "Client document"} detailed analysis...`);
+        
         documentAnalysisResult = await analyzeMediaStructured(
           mediaData,
-          isFinanceContext ? "finance" : "client_docs",
+          isReceiptDocument ? "finance" : "client_docs",
           LOVABLE_API_KEY
         );
 
-        console.log("Structured analysis result:", documentAnalysisResult);
+        console.log("Phase 2 structured analysis result:", documentAnalysisResult);
       } else {
-        // For large files, create a placeholder result (no AI analysis = no client extraction)
+        // For large files, create a placeholder result (no AI analysis)
+        isReceiptDocument = hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword;
         documentAnalysisResult = {
-          type: isFinanceContext ? "finance" : "client_docs",
+          type: isReceiptDocument ? "finance" : "client_docs",
           success: true,
           document_type: "autre",
           confidence: 50,
@@ -2290,7 +2336,96 @@ Retourne uniquement la transcription, sans commentaires.`
   return result.choices?.[0]?.message?.content || "[Transcription non disponible]";
 }
 
-// Analyze media with structured output (same logic as analyze-document function)
+// PHASE 1: Detect document type (facture/receipt vs client document)
+// This is called FIRST before any detailed analysis
+interface DocumentTypeDetection {
+  isReceipt: boolean;      // true = facture/note de frais, false = document client
+  confidence: number;      // 0-100
+  reasoning: string;       // brief explanation
+}
+
+async function detectDocumentType(
+  media: MediaDownloadResult,
+  apiKey: string
+): Promise<DocumentTypeDetection> {
+  const imageUrl = `data:${media.contentType};base64,${media.base64}`;
+
+  const prompt = `Tu es un assistant qui classifie les documents. Analyse cette image et détermine si c'est:
+
+1. Une FACTURE ou NOTE DE FRAIS (ticket de caisse, reçu carburant, péage, restaurant, hôtel, parking, etc.)
+2. Un DOCUMENT CLIENT (pièce d'identité, avis d'impôts, RIB, facture d'énergie, justificatif domicile, photo technique, etc.)
+
+RÈGLES DE CLASSIFICATION:
+- Ticket de caisse, reçu → FACTURE
+- Ticket péage, autoroute → FACTURE  
+- Ticket parking → FACTURE
+- Ticket restaurant, café → FACTURE
+- Reçu carburant, station essence → FACTURE
+- Facture hôtel → FACTURE
+- Note de frais professionnels → FACTURE
+- CNI, passeport → DOCUMENT CLIENT
+- Avis d'imposition → DOCUMENT CLIENT
+- RIB bancaire → DOCUMENT CLIENT
+- Facture EDF/électricité/gaz → DOCUMENT CLIENT (c'est un justificatif pour le client)
+- Photo compteur, tableau électrique → DOCUMENT CLIENT
+- Taxe foncière → DOCUMENT CLIENT
+- Contrat, devis → DOCUMENT CLIENT
+- Plan, schéma → DOCUMENT CLIENT
+
+Réponds UNIQUEMENT avec un JSON (sans markdown):
+{"isReceipt": true/false, "confidence": 0-100, "reasoning": "explication courte"}
+
+Exemple facture:
+{"isReceipt": true, "confidence": 95, "reasoning": "Ticket de station essence avec montant carburant"}
+
+Exemple document client:
+{"isReceipt": false, "confidence": 90, "reasoning": "Carte nationale d'identité française"}`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+        max_tokens: 300,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Document type detection failed:", await response.text());
+      return { isReceipt: false, confidence: 0, reasoning: "Erreur API" };
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices?.[0]?.message?.content || "";
+    
+    const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(cleanContent);
+    
+    return {
+      isReceipt: parsed.isReceipt === true,
+      confidence: parsed.confidence ?? 50,
+      reasoning: parsed.reasoning ?? "Classification automatique",
+    };
+  } catch (err) {
+    console.error("Document type detection error:", err);
+    return { isReceipt: false, confidence: 0, reasoning: "Erreur de classification" };
+  }
+}
+
+// PHASE 2: Analyze media with structured output based on detected type
 async function analyzeMediaStructured(
   media: MediaDownloadResult,
   context: "finance" | "client_docs",
@@ -6638,6 +6773,7 @@ async function executeAction(
       
       // Search for matching clients with scores
       let clientSuggestions: Array<{ id: string; fullName: string; score: number }> = [];
+      let highConfidenceMatch: { id: string; fullName: string; score: number } | null = null;
       
       if (clientName) {
         const searchResult = await findClientByName(supabase, userId, clientName);
@@ -6647,6 +6783,12 @@ async function executeAction(
           fullName: c.fullName,
           score: Math.round(c.score * 100)
         }));
+        
+        // Check for high confidence match (≥80%)
+        if (clientSuggestions.length > 0 && clientSuggestions[0].score >= 80) {
+          highConfidenceMatch = clientSuggestions[0];
+          console.log(`Found high-confidence match: ${highConfidenceMatch.fullName} (${highConfidenceMatch.score}%)`);
+        }
       }
       
       // Store document in pending storage
@@ -6677,7 +6819,61 @@ async function executeAction(
         return { actionTaken: "error" };
       }
       
-      // Build response message with client suggestions
+      // ========================================================================
+      // WORKFLOW DECISION: HIGH CONFIDENCE MATCH vs LOW CONFIDENCE / NO MATCH
+      // ========================================================================
+      
+      // CASE 1: High confidence match (≥80%) - Ask for direct confirmation
+      if (highConfidenceMatch) {
+        const responseMsg = `📥 *Document reçu !*\n\n` +
+          `📄 ${originalFilename}\n` +
+          (documentType !== "autre" ? `📋 Type: ${documentType}\n` : "") +
+          `\n👤 Client identifié: *${highConfidenceMatch.fullName}* (${highConfidenceMatch.score}%)\n\n` +
+          `✅ *Confirmes-tu ?* (Oui/Non)\n` +
+          `_Ou tape le nom du bon client si ce n'est pas le bon_`;
+        
+        // Create pending action for high-confidence confirmation
+        const newPendingAction: PendingAction = {
+          intent: "import_document",
+          entities,
+          workflowState: "awaiting_document_client_selection",
+          collectedData: {
+            pendingDocumentId: pendingDoc.id,
+            documentStorageUrl: uploadedDocumentUrl,
+            documentFilename: originalFilename,
+            documentType: documentType,
+            documentMimeType: mediaData?.contentType,
+            documentSizeBytes: mediaData?.sizeBytes,
+            choices: [
+              {
+                id: highConfidenceMatch.id,
+                label: highConfidenceMatch.fullName,
+                entityType: "client" as const,
+                data: { clientId: highConfidenceMatch.id, score: highConfidenceMatch.score }
+              },
+              {
+                id: "NEW_CLIENT",
+                label: "Nouveau client",
+                entityType: "client" as const,
+                data: { is_new_client: true }
+              }
+            ],
+            clientSuggestions: [highConfidenceMatch],
+            highConfidenceMode: true, // Flag to indicate high-confidence mode
+          },
+          createdAt: new Date().toISOString(),
+        };
+          
+        return {
+          actionTaken: "awaiting_document_client_high_confidence",
+          entityId: pendingDoc?.id,
+          entityType: "pending_document",
+          newPendingAction,
+          customResponse: responseMsg,
+        };
+      }
+      
+      // CASE 2: Low confidence or no match - Ask for client name or show top 3 suggestions
       let responseMsg = `📥 *Document reçu !*\n\n`;
       responseMsg += `📄 ${originalFilename}\n`;
       
@@ -6691,9 +6887,11 @@ async function executeAction(
       const choices: ChoiceOption[] = [];
       
       if (clientSuggestions.length > 0) {
+        // Show top 3 suggestions with < 80% confidence
+        responseMsg += `🔍 _Suggestions (correspondance faible):_\n`;
         for (let i = 0; i < clientSuggestions.length; i++) {
           const suggestion = clientSuggestions[i];
-          responseMsg += `${i + 1}️⃣ *${suggestion.fullName}* (${suggestion.score}%)\n`;
+          responseMsg += `${i + 1}️⃣ ${suggestion.fullName} (${suggestion.score}%)\n`;
           choices.push({
             id: suggestion.id,
             label: suggestion.fullName,
@@ -6702,6 +6900,7 @@ async function executeAction(
           });
         }
       } else {
+        // No matches found - ask for client name directly
         responseMsg += `_Aucun client correspondant trouvé_\n`;
       }
       
@@ -6715,7 +6914,7 @@ async function executeAction(
         data: { is_new_client: true }
       });
       
-      responseMsg += `\n_Réponds avec le numéro ou le nom du client_`;
+      responseMsg += `\n_Réponds avec le numéro, le nom du client, ou "nouveau" pour créer_`;
       
       // Create pending action for document client selection
       const newPendingAction: PendingAction = {
@@ -6731,6 +6930,7 @@ async function executeAction(
           documentSizeBytes: mediaData?.sizeBytes,
           choices: choices,
           clientSuggestions: clientSuggestions,
+          highConfidenceMode: false, // Low-confidence mode
         },
         createdAt: new Date().toISOString(),
       };
