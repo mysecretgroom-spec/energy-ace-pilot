@@ -7,7 +7,11 @@ export async function uploadDocumentToStorage(
   context: DocumentContext
 ): Promise<string> {
   const timestamp = Date.now();
-  const fileName = `${context}/${userId}/${timestamp}.pdf`;
+  // Path format: {userId}/{context}/{timestamp}.pdf
+  // This ensures RLS policy (auth.uid() = foldername[1]) is satisfied
+  const fileName = `${userId}/${context}/${timestamp}.pdf`;
+
+  console.log(`[uploadService] Uploading to receipts/${fileName}`);
 
   const { data, error } = await supabase.storage
     .from("receipts")
@@ -34,16 +38,22 @@ export async function uploadDocumentToStorage(
 }
 
 export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> {
-  // Extract the path from the URL
-  const url = new URL(fileUrl);
-  const pathMatch = url.pathname.match(/\/storage\/v1\/object\/sign\/receipts\/(.+)/);
-  
-  if (!pathMatch) {
-    console.warn("Could not extract path from URL:", fileUrl);
-    return;
-  }
+  // Extract the path from the URL - handles both signed and public URLs
+  try {
+    const url = new URL(fileUrl);
+    // Try signed URL format first
+    let pathMatch = url.pathname.match(/\/storage\/v1\/object\/sign\/receipts\/(.+)/);
+    // Fallback to public URL format
+    if (!pathMatch) {
+      pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/receipts\/(.+)/);
+    }
+    
+    if (!pathMatch) {
+      console.warn("Could not extract path from URL:", fileUrl);
+      return;
+    }
 
-  const filePath = decodeURIComponent(pathMatch[1].split("?")[0]);
+    const filePath = decodeURIComponent(pathMatch[1].split("?")[0]);
 
   const { error } = await supabase.storage
     .from("receipts")
