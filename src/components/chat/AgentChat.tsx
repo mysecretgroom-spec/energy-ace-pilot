@@ -445,12 +445,16 @@ export function AgentChat() {
     // Upload function for a single file
     const uploadSingle = async (pending: PendingFile): Promise<{ type: "image" | "document"; name: string; url: string } | null> => {
       try {
+        if (!user?.id) {
+          throw new Error("Utilisateur non connecté");
+        }
+
         const fileExt = pending.file.name.split(".").pop()?.toLowerCase() || "bin";
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
         const filePath = `${user.id}/agent-uploads/${fileName}`;
 
-        console.log(`[AgentChat] Uploading ${pending.file.name} to ${filePath}`);
+        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, user.id=${user.id}`);
 
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("documents")
@@ -468,11 +472,19 @@ export function AgentChat() {
         console.log(`[AgentChat] Upload successful for ${pending.file.name}:`, uploadData);
 
         // Get signed URL since bucket is not public
-        const { data: urlData } = await supabase.storage
+        const { data: urlData, error: signedUrlError } = await supabase.storage
           .from("documents")
           .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
 
-        if (!urlData?.signedUrl) throw new Error("Failed to get signed URL");
+        if (signedUrlError) {
+          console.error(`[AgentChat] Signed URL error for ${pending.file.name}:`, signedUrlError);
+          throw new Error(`Signed URL error: ${signedUrlError.message}`);
+        }
+
+        if (!urlData?.signedUrl) {
+          console.error(`[AgentChat] No signed URL returned for ${pending.file.name}`);
+          throw new Error("Failed to get signed URL - no URL returned");
+        }
 
         const isImage = pending.file.type.startsWith("image/");
         
