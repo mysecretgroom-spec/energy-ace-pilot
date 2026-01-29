@@ -492,25 +492,38 @@ export function AgentChat() {
 
         console.log(`[AgentChat] Upload successful for ${pending.file.name}:`, uploadData);
 
-        // Get signed URL since bucket is not public
-        const { data: urlData, error: signedUrlError } = await supabase.storage
-          .from("documents")
-          .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year
-
-        if (signedUrlError) {
-          console.error(`[AgentChat] Signed URL error for ${pending.file.name}:`, signedUrlError);
-          throw new Error(`Signed URL error: ${signedUrlError.message}`);
+        // Get signed URL with retry logic (sometimes there's propagation delay)
+        let signedUrl: string | null = null;
+        let lastError: Error | null = null;
+        
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) {
+            console.log(`[AgentChat] Retrying signed URL (attempt ${attempt + 1}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt)); // Exponential backoff
+          }
+          
+          const { data: urlData, error: signedUrlError } = await supabase.storage
+            .from("documents")
+            .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365); // 1 year - use returned path
+          
+          if (!signedUrlError && urlData?.signedUrl) {
+            signedUrl = urlData.signedUrl;
+            break;
+          }
+          
+          lastError = new Error(signedUrlError?.message || "No signed URL returned");
+          console.warn(`[AgentChat] Signed URL attempt ${attempt + 1} failed:`, signedUrlError);
         }
-
-        if (!urlData?.signedUrl) {
-          console.error(`[AgentChat] No signed URL returned for ${pending.file.name}`);
-          throw new Error("Failed to get signed URL - no URL returned");
+        
+        if (!signedUrl) {
+          console.error(`[AgentChat] All signed URL attempts failed for ${pending.file.name}`);
+          throw lastError || new Error("Failed to get signed URL after retries");
         }
 
         const isImage = pending.file.type.startsWith("image/");
         
         setPendingFiles(prev => 
-          prev.map(f => f.id === pending.id ? { ...f, status: "uploaded", url: urlData.signedUrl } : f)
+          prev.map(f => f.id === pending.id ? { ...f, status: "uploaded", url: signedUrl } : f)
         );
 
         completed++;
@@ -519,7 +532,7 @@ export function AgentChat() {
         return {
           type: isImage ? "image" : "document",
           name: pending.file.name,
-          url: urlData.signedUrl,
+          url: signedUrl,
         };
       } catch (error: any) {
         const errorMessage = error?.message || error?.error || "Erreur inconnue";
