@@ -25,8 +25,10 @@ const classificationLabels: Record<string, string> = {
   r2: "R2 - Second RDV 🔄",
   r2_prestudy: "R2 Pré-étude 📋",
   attente: "En attente ⏳",
+  reporte: "Reporté 📅",
+  nouveau: "Nouveau 🆕",
   annule: "Annulé 🚫",
-  // Vente-specific (mapped to "positif" internally but can be displayed differently)
+  // Vente-specific
   installe: "Installation terminée ✅",
   paye: "Paiement reçu 💰",
 };
