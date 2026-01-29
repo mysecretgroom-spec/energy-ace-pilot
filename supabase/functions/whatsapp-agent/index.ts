@@ -146,7 +146,7 @@ interface AgentRequest {
   userId: string;
   userName: string;
   fromNumber: string;
-  messageType: "text" | "image" | "audio" | "document";
+  messageType: "text" | "image" | "audio" | "document" | "multi_image" | "multi_document" | "multi_media" | "media";
   content: string;
   mediaUrl?: string;
   mediaContentType?: string;
@@ -154,6 +154,13 @@ interface AgentRequest {
   audioData?: string;
   // For web chat: multiple files in a single message
   mediaFiles?: MediaFileInfo[];
+  // For WhatsApp: multiple media URLs from Twilio webhook
+  mediaUrls?: string[];
+  mediaContentTypes?: string[];
+  // Reply-to-message context (for validation responses)
+  isReplyToMessage?: boolean;
+  replyToMessageId?: string | null;
+  replyToMessageContent?: string | null;
 }
 
 interface AgentResponse {
@@ -1671,6 +1678,173 @@ serve(async (req) => {
       );
       console.log(`Downloaded ${mediaData.contentType}, size: ${mediaData.data.length} bytes`);
     }
+
+    // =================================================================
+    // MULTI-FILE BATCH PROCESSING (WhatsApp) - using mediaUrls array
+    // =================================================================
+    if (!isBatchMode && request.mediaUrls && request.mediaUrls.length > 1 && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+      isBatchMode = true;
+      console.log(`WhatsApp batch mode: processing ${request.mediaUrls.length} files`);
+      
+      const batchStartTime = Date.now();
+      const messageText = (request.content || "").toLowerCase();
+      
+      // Determine if user indicates these are finance docs or client docs
+      const hasExplicitFinanceKeyword = 
+        messageText.includes("frais") ||
+        messageText.includes("facture") ||
+        messageText.includes("ticket") ||
+        messageText.includes("note de frais") ||
+        messageText.includes("essence") ||
+        messageText.includes("carburant") ||
+        messageText.includes("péage") ||
+        messageText.includes("parking") ||
+        messageText.includes("hotel");
+      
+      const hasExplicitClientDocKeyword = 
+        messageText.includes("cni") ||
+        messageText.includes("document") ||
+        messageText.includes("identité") ||
+        messageText.includes("avis d'impot") ||
+        messageText.includes("rib") ||
+        messageText.includes("taxe");
+      
+      // Default to finance if explicit keywords found, otherwise use AI detection
+      const forcedContext: "finance" | "client_docs" | null = 
+        hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword ? "finance" :
+        hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword ? "client_docs" : null;
+      
+      // Process each file in parallel (max 5 concurrent to avoid overload)
+      const BATCH_CONCURRENCY = 5;
+      const mediaUrlsToProcess = request.mediaUrls.slice(0, 10); // Max 10 files
+      const mediaTypesToProcess = request.mediaContentTypes || [];
+      
+      for (let i = 0; i < mediaUrlsToProcess.length; i += BATCH_CONCURRENCY) {
+        const chunkUrls = mediaUrlsToProcess.slice(i, i + BATCH_CONCURRENCY);
+        const chunkPromises = chunkUrls.map(async (mediaUrl, idx): Promise<BatchFileResult> => {
+          const actualIdx = i + idx;
+          const contentType = mediaTypesToProcess[actualIdx] || "application/octet-stream";
+          const filename = `file_${actualIdx + 1}.${contentType.split("/")[1] || "bin"}`;
+          
+          try {
+            console.log(`Processing WhatsApp batch file ${actualIdx + 1}: ${mediaUrl.substring(0, 50)}...`);
+            
+            // Download from Twilio
+            const fileMediaData = await downloadTwilioMedia(
+              mediaUrl,
+              TWILIO_ACCOUNT_SID,
+              TWILIO_AUTH_TOKEN,
+              contentType
+            );
+            
+            // Check size
+            if (fileMediaData.sizeBytes > MAX_UPLOAD_SIZE_BYTES) {
+              return {
+                filename: fileMediaData.filename,
+                success: false,
+                type: "client_docs",
+                error: `Fichier trop volumineux (${(fileMediaData.sizeBytes / 1024 / 1024).toFixed(1)} Mo)`,
+              };
+            }
+            
+            // Detect document type if not forced
+            let isReceipt = forcedContext === "finance";
+            if (!forcedContext && !fileMediaData.isLargeFile) {
+              const typeDetection = await detectDocumentType(fileMediaData, LOVABLE_API_KEY);
+              isReceipt = typeDetection.isReceipt;
+            }
+            
+            // Run analysis
+            const analysisContext: "finance" | "client_docs" = isReceipt ? "finance" : "client_docs";
+            let analysisResult: DocumentAnalysisResult | null = null;
+            
+            if (!fileMediaData.isLargeFile) {
+              analysisResult = await analyzeMediaStructured(
+                fileMediaData,
+                analysisContext,
+                LOVABLE_API_KEY
+              );
+            }
+            
+            // Upload to pending-documents bucket
+            const uploadPath = `${request.userId}/${Date.now()}_${fileMediaData.filename}`;
+            const { error: uploadError } = await supabase.storage
+              .from("pending-documents")
+              .upload(uploadPath, fileMediaData.data, {
+                contentType: fileMediaData.contentType,
+              });
+            
+            if (uploadError) {
+              console.error(`Upload error for ${fileMediaData.filename}:`, uploadError);
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+            
+            const { data: urlData } = supabase.storage
+              .from("pending-documents")
+              .getPublicUrl(uploadPath);
+            
+            return {
+              filename: fileMediaData.filename,
+              success: true,
+              type: analysisContext,
+              analysisResult: analysisResult || undefined,
+              uploadedUrl: urlData?.publicUrl,
+            };
+          } catch (err) {
+            console.error(`Error processing WhatsApp file ${actualIdx + 1}:`, err);
+            return {
+              filename,
+              success: false,
+              type: "client_docs",
+              error: err instanceof Error ? err.message : "Unknown error",
+            };
+          }
+        });
+        
+        const chunkResults = await Promise.all(chunkPromises);
+        batchResults.push(...chunkResults);
+      }
+      
+      const batchDuration = Date.now() - batchStartTime;
+      console.log(`WhatsApp batch processing completed in ${batchDuration}ms: ${batchResults.filter(r => r.success).length}/${batchResults.length} successful`);
+      
+      // Build summary for AI context
+      const successCount = batchResults.filter(r => r.success).length;
+      const financeCount = batchResults.filter(r => r.success && r.type === "finance").length;
+      const docCount = batchResults.filter(r => r.success && r.type === "client_docs").length;
+      
+      if (successCount > 0) {
+        let batchSummary = `[Lot de ${successCount} fichiers analysés: `;
+        
+        if (financeCount > 0) {
+          const financeDetails = batchResults
+            .filter(r => r.success && r.type === "finance" && r.analysisResult)
+            .map(r => {
+              const fin = r.analysisResult as FinanceAnalysisResult;
+              return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
+            })
+            .slice(0, 5)
+            .join(", ");
+          batchSummary += `${financeCount} factures/tickets${financeDetails ? ` - ${financeDetails}` : ""}`;
+        }
+        
+        if (docCount > 0) {
+          if (financeCount > 0) batchSummary += "; ";
+          const docDetails = batchResults
+            .filter(r => r.success && r.type === "client_docs" && r.analysisResult)
+            .map(r => {
+              const doc = r.analysisResult as ClientDocAnalysisResult;
+              return `${r.filename}: ${doc.document_type || "?"}`;
+            })
+            .slice(0, 5)
+            .join(", ");
+          batchSummary += `${docCount} documents${docDetails ? ` - ${docDetails}` : ""}`;
+        }
+        
+        batchSummary += "]";
+        processedContent = request.content ? `${request.content}\n\n${batchSummary}` : batchSummary;
+      }
+    }
     
     // Handle single file from web chat (backwards compatibility)
     if (!isBatchMode && request.mediaFiles && request.mediaFiles.length === 1 && !mediaData) {
@@ -1989,7 +2163,11 @@ serve(async (req) => {
         pendingAction,
         userMemories,
         userPrompts,
-        LOVABLE_API_KEY
+        LOVABLE_API_KEY,
+        {
+          isReply: !!request.isReplyToMessage,
+          replyToContent: request.replyToMessageContent || null
+        }
       );
     }
 
@@ -5325,7 +5503,8 @@ async function analyzeIntent(
   pendingAction: unknown,
   userMemories: AgentMemory[],
   userPrompts: AgentPrompt[],
-  apiKey: string
+  apiKey: string,
+  replyContext?: { isReply: boolean; replyToContent: string | null }
 ): Promise<{
   intent: Intent;
   confidence: number;
@@ -5350,6 +5529,15 @@ async function analyzeIntent(
 MÉMOIRE UTILISATEUR:
 ${memoriesSection}
 ${customPromptsSection}
+
+📩 CONTEXTE DE RÉPONSE WHATSAPP:
+Si le message de l'utilisateur commence par "[RÉPONSE À MON MESSAGE: ...]", cela signifie qu'il RÉPOND DIRECTEMENT à un message spécifique que tu lui as envoyé.
+- Cela indique généralement une CONFIRMATION ou ANNULATION d'une action en attente
+- Le contenu entre guillemets est le message auquel il répond (ton message de validation)
+- Un "oui", "ok", "confirme" en réponse = confirm_action
+- Un "non", "annule" en réponse = cancel_action
+- Une correction comme "2" ou "le premier" = select_choice (sélection d'option)
+- Des données additionnelles (ex: "9kWc 18500€") = continuation de la collecte de données
 
 ⚠️ CLASSIFICATION PRIORITAIRE - AVANT TOUTE CHOSE, DÉTERMINE:
 Est-ce une ACTION (créer/modifier des données) ou une REMARQUE/CORRECTION (feedback sur mon comportement)?
@@ -5576,13 +5764,19 @@ Pour requêtes (query_*): responseMessage très court ("📊"), les données son
 Contexte: ${userName} | Date: ${today}
 ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
 
+  // Build user message with reply context if applicable
+  let userMessage = content;
+  if (replyContext?.isReply && replyContext.replyToContent) {
+    userMessage = `[RÉPONSE À MON MESSAGE: "${replyContext.replyToContent.substring(0, 200)}..."]\n\n${content}`;
+  }
+
   const messages = [
     { role: "system", content: systemPrompt },
     ...conversationContext.slice(-4).map(m => ({
       role: m.role as "user" | "assistant",
       content: m.content
     })),
-    { role: "user", content }
+    { role: "user", content: userMessage }
   ];
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

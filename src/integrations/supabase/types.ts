@@ -3050,14 +3050,18 @@ export type Database = {
           error_message: string | null
           from_number: string
           id: string
+          media_types: string[] | null
           media_url: string | null
+          media_urls: string[] | null
           message_type: string
           processed_at: string | null
           raw_content: string | null
           rejection_reason: string | null
+          reply_to_message_id: string | null
           response_sent: string | null
           status: string | null
           transcribed_content: string | null
+          twilio_message_sid: string | null
           user_id: string | null
         }
         Insert: {
@@ -3070,14 +3074,18 @@ export type Database = {
           error_message?: string | null
           from_number: string
           id?: string
+          media_types?: string[] | null
           media_url?: string | null
+          media_urls?: string[] | null
           message_type: string
           processed_at?: string | null
           raw_content?: string | null
           rejection_reason?: string | null
+          reply_to_message_id?: string | null
           response_sent?: string | null
           status?: string | null
           transcribed_content?: string | null
+          twilio_message_sid?: string | null
           user_id?: string | null
         }
         Update: {
@@ -3090,17 +3098,28 @@ export type Database = {
           error_message?: string | null
           from_number?: string
           id?: string
+          media_types?: string[] | null
           media_url?: string | null
+          media_urls?: string[] | null
           message_type?: string
           processed_at?: string | null
           raw_content?: string | null
           rejection_reason?: string | null
+          reply_to_message_id?: string | null
           response_sent?: string | null
           status?: string | null
           transcribed_content?: string | null
+          twilio_message_sid?: string | null
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_messages_user_id_fkey"
             columns: ["user_id"]
