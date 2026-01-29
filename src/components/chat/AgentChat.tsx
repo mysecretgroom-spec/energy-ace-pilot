@@ -23,7 +23,9 @@ import {
   History,
   Plus,
   Trash2,
-  Upload
+  Upload,
+  Reply,
+  CornerUpLeft
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,6 +41,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  replyToMessageId?: string | null;
   attachment?: {
     type: "image" | "document";
     name: string;
@@ -86,6 +89,7 @@ export function AgentChat() {
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,6 +114,7 @@ export function AgentChat() {
         role: m.role as "user" | "assistant",
         content: m.content,
         timestamp: new Date(m.created_at),
+        replyToMessageId: m.reply_to_message_id || null,
         attachment: m.attachment_type ? {
           type: m.attachment_type as "image" | "document",
           name: m.attachment_name || "",
@@ -171,25 +176,39 @@ export function AgentChat() {
   const sendMessage = async (text: string, attachment?: Message["attachment"]) => {
     if ((!text.trim() && !attachment) || !user) return;
 
+    const replyContext = replyingTo;
+    const replyToId = replyContext?.id || null;
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: text.trim(),
       timestamp: new Date(),
+      replyToMessageId: replyToId,
       attachment,
     };
 
     setLocalMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setReplyingTo(null);
     setIsLoading(true);
 
     try {
-      // Save user message to DB
+      // Save user message to DB with reply reference
       await addMessage(
         "user",
         text.trim(),
-        attachment ? { type: attachment.type, name: attachment.name, url: attachment.url } : undefined
+        attachment ? { type: attachment.type, name: attachment.name, url: attachment.url } : undefined,
+        replyToId
       );
+
+      // Build content with reply context for the agent
+      let contentForAgent = text.trim();
+      if (replyContext) {
+        // Include the replied message context so agent understands this is a response
+        const replyPreview = replyContext.content.substring(0, 200);
+        contentForAgent = `[En réponse à: "${replyPreview}${replyContext.content.length > 200 ? '...' : ''}"]\n\n${text.trim()}`;
+      }
 
       // Build request matching AgentRequest interface
       const agentRequest = {
@@ -199,10 +218,14 @@ export function AgentChat() {
         fromNumber: "web_chat",
         messageType: attachment?.type === "image" ? "image" : attachment?.type === "document" ? "document" : "text",
         content: attachment 
-          ? `[${attachment.type === "image" ? "Image" : "Document"}: ${attachment.name}] ${text.trim()}`
-          : text.trim(),
+          ? `[${attachment.type === "image" ? "Image" : "Document"}: ${attachment.name}] ${contentForAgent}`
+          : contentForAgent,
         mediaUrl: attachment?.url,
         mediaContentType: attachment?.type === "image" ? "image/jpeg" : "application/pdf",
+        // Flag to indicate this is a reply to a validation/confirmation request
+        isReplyToMessage: !!replyContext,
+        repliedMessageRole: replyContext?.role,
+        repliedMessageContent: replyContext?.content,
       };
 
       const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
@@ -496,6 +519,9 @@ export function AgentChat() {
   const sendMultiFileMessage = async () => {
     if (!user || (pendingFiles.length === 0 && !input.trim())) return;
 
+    const replyContext = replyingTo;
+    const replyToId = replyContext?.id || null;
+
     setIsLoading(true);
 
     try {
@@ -521,15 +547,17 @@ export function AgentChat() {
         role: "user",
         content: messageContent,
         timestamp: new Date(),
+        replyToMessageId: replyToId,
         attachments: uploadedFiles,
         attachment: uploadedFiles.length === 1 ? uploadedFiles[0] : undefined,
       };
 
       setLocalMessages(prev => [...prev, userMessage]);
       setInput("");
+      setReplyingTo(null);
       clearPendingFiles();
 
-      // Save user message to DB
+      // Save user message to DB with reply reference
       await addMessage(
         "user",
         messageContent,
@@ -537,8 +565,16 @@ export function AgentChat() {
           type: uploadedFiles.length === 1 ? uploadedFiles[0].type : "document", 
           name: uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} fichiers`,
           url: uploadedFiles.length === 1 ? uploadedFiles[0].url : undefined,
-        } : undefined
+        } : undefined,
+        replyToId
       );
+
+      // Build content with reply context for the agent
+      let contentForAgent = messageContent;
+      if (replyContext) {
+        const replyPreview = replyContext.content.substring(0, 200);
+        contentForAgent = `[En réponse à: "${replyPreview}${replyContext.content.length > 200 ? '...' : ''}"]\n\n${messageContent}`;
+      }
 
       // Build request for batch processing
       const agentRequest = {
@@ -549,7 +585,7 @@ export function AgentChat() {
         messageType: uploadedFiles.length > 0 
           ? (uploadedFiles.length === 1 && uploadedFiles[0].type === "image" ? "image" : "document") 
           : "text",
-        content: messageContent,
+        content: contentForAgent,
         // Multi-file support
         mediaFiles: uploadedFiles.length > 0 ? uploadedFiles.map(f => ({
           url: f.url,
@@ -561,6 +597,10 @@ export function AgentChat() {
         mediaContentType: uploadedFiles.length === 1 
           ? (uploadedFiles[0].type === "image" ? "image/jpeg" : "application/pdf") 
           : undefined,
+        // Reply context for agent
+        isReplyToMessage: !!replyContext,
+        repliedMessageRole: replyContext?.role,
+        repliedMessageContent: replyContext?.content,
       };
 
       const { data, error } = await supabase.functions.invoke("whatsapp-agent", {
@@ -757,58 +797,108 @@ export function AgentChat() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {localMessages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={cn(
-                        "flex gap-3",
-                        message.role === "user" ? "justify-end" : "justify-start"
-                      )}
-                    >
-                      {message.role === "assistant" && (
-                        <Avatar className="h-8 w-8 shrink-0">
-                          <div className="h-full w-full rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-                            <Bot className="h-4 w-4 text-primary-foreground" />
-                          </div>
-                        </Avatar>
-                      )}
-                      <div
+                  {localMessages.map((message) => {
+                    // Find the replied message if any
+                    const repliedMessage = message.replyToMessageId 
+                      ? localMessages.find(m => m.id === message.replyToMessageId)
+                      : null;
+
+                    return (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
                         className={cn(
-                          "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
-                          message.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-muted rounded-bl-md"
+                          "flex gap-3 group",
+                          message.role === "user" ? "justify-end" : "justify-start"
                         )}
                       >
-                        {message.attachment && (
-                          <div className="flex items-center gap-2 mb-1 text-xs opacity-80">
-                            {message.attachment.type === "image" ? (
-                              <ImageIcon className="h-3 w-3" />
-                            ) : (
-                              <FileText className="h-3 w-3" />
+                        {message.role === "assistant" && (
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <div className="h-full w-full rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+                              <Bot className="h-4 w-4 text-primary-foreground" />
+                            </div>
+                          </Avatar>
+                        )}
+                        <div className="flex flex-col gap-1 max-w-[80%]">
+                          {/* Reply context display */}
+                          {repliedMessage && (
+                            <div className={cn(
+                              "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border-l-2",
+                              message.role === "user"
+                                ? "bg-primary/20 border-primary-foreground/40 text-primary-foreground/80"
+                                : "bg-muted/60 border-primary/40 text-muted-foreground"
+                            )}>
+                              <CornerUpLeft className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                {repliedMessage.content.substring(0, 60)}
+                                {repliedMessage.content.length > 60 ? "..." : ""}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-end gap-1">
+                            {/* Reply button - left side for assistant messages */}
+                            {message.role === "assistant" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                onClick={() => setReplyingTo(message)}
+                                title="Répondre"
+                              >
+                                <Reply className="h-3 w-3" />
+                              </Button>
                             )}
-                            {message.attachment.name}
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-2.5 text-sm",
+                                message.role === "user"
+                                  ? "bg-primary text-primary-foreground rounded-br-md"
+                                  : "bg-muted rounded-bl-md"
+                              )}
+                            >
+                              {message.attachment && (
+                                <div className="flex items-center gap-2 mb-1 text-xs opacity-80">
+                                  {message.attachment.type === "image" ? (
+                                    <ImageIcon className="h-3 w-3" />
+                                  ) : (
+                                    <FileText className="h-3 w-3" />
+                                  )}
+                                  {message.attachment.name}
+                                </div>
+                              )}
+                              {message.role === "assistant" ? (
+                                <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                                </div>
+                              ) : (
+                                message.content
+                              )}
+                            </div>
+                            {/* Reply button - right side for user messages */}
+                            {message.role === "user" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                onClick={() => setReplyingTo(message)}
+                                title="Répondre"
+                              >
+                                <Reply className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
+                        </div>
+                        {message.role === "user" && (
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <div className="h-full w-full rounded-full bg-secondary flex items-center justify-center">
+                              <User className="h-4 w-4 text-secondary-foreground" />
+                            </div>
+                          </Avatar>
                         )}
-                        {message.role === "assistant" ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                            <ReactMarkdown>{message.content}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          message.content
-                        )}
-                      </div>
-                      {message.role === "user" && (
-                        <Avatar className="h-8 w-8 shrink-0">
-                          <div className="h-full w-full rounded-full bg-secondary flex items-center justify-center">
-                            <User className="h-4 w-4 text-secondary-foreground" />
-                          </div>
-                        </Avatar>
-                      )}
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                   {isLoading && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -887,6 +977,30 @@ export function AgentChat() {
               </div>
             )}
 
+            {/* Reply Context Bar */}
+            {replyingTo && (
+              <div className="px-4 py-2 border-t bg-primary/5 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-0.5">
+                    <Reply className="h-3 w-3" />
+                    <span>Répondre à {replyingTo.role === "assistant" ? "l'assistant" : "vous"}</span>
+                  </div>
+                  <p className="text-sm truncate">
+                    {replyingTo.content.substring(0, 80)}
+                    {replyingTo.content.length > 80 ? "..." : ""}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setReplyingTo(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="p-4 border-t bg-muted/30">
               <form onSubmit={(e) => {
@@ -924,9 +1038,11 @@ export function AgentChat() {
                   placeholder={
                     isRecording 
                       ? "Enregistrement..." 
-                      : pendingFiles.length > 0 
-                        ? "Message (optionnel)..." 
-                        : "Tapez votre message..."
+                      : replyingTo
+                        ? "Répondez au message..."
+                        : pendingFiles.length > 0 
+                          ? "Message (optionnel)..." 
+                          : "Tapez votre message..."
                   }
                   className="flex-1"
                   disabled={isLoading || isRecording || isUploading}
