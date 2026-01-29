@@ -25,16 +25,32 @@ export async function uploadDocumentToStorage(
     throw new Error(`Failed to upload document: ${error.message}`);
   }
 
-  // Get the public URL or signed URL
-  const { data: urlData } = await supabase.storage
-    .from("receipts")
-    .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year validity
-
-  if (!urlData?.signedUrl) {
-    throw new Error("Failed to generate document URL");
+  // Get signed URL with retry logic (sometimes there's propagation delay)
+  let signedUrl: string | null = null;
+  
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      console.log(`[uploadService] Retrying signed URL (attempt ${attempt + 1}/3)...`);
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+    
+    const { data: urlData, error } = await supabase.storage
+      .from("receipts")
+      .createSignedUrl(data.path, 60 * 60 * 24 * 365); // Use returned path
+    
+    if (!error && urlData?.signedUrl) {
+      signedUrl = urlData.signedUrl;
+      break;
+    }
+    
+    console.warn(`[uploadService] Signed URL attempt ${attempt + 1} failed:`, error);
+  }
+  
+  if (!signedUrl) {
+    throw new Error("Failed to generate document URL after retries");
   }
 
-  return urlData.signedUrl;
+  return signedUrl;
 }
 
 export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> {
