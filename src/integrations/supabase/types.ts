@@ -23,6 +23,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           id: string
+          reply_to_message_id: string | null
           role: string
           user_id: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           id?: string
+          reply_to_message_id?: string | null
           role: string
           user_id: string
         }
@@ -45,6 +47,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           id?: string
+          reply_to_message_id?: string | null
           role?: string
           user_id?: string
         }
@@ -54,6 +57,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "agent_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_conversation_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "agent_conversation_messages"
             referencedColumns: ["id"]
           },
         ]

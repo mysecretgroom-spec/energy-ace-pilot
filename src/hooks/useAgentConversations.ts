@@ -20,6 +20,7 @@ export interface AgentMessage {
   attachment_type?: string | null;
   attachment_name?: string | null;
   attachment_url?: string | null;
+  reply_to_message_id?: string | null;
   created_at: string;
 }
 
@@ -96,6 +97,7 @@ export function useAgentConversations() {
       role,
       content,
       attachment,
+      replyToMessageId,
     }: {
       conversationId: string;
       role: "user" | "assistant";
@@ -105,6 +107,7 @@ export function useAgentConversations() {
         name: string;
         url?: string;
       };
+      replyToMessageId?: string | null;
     }) => {
       if (!user) throw new Error("Not authenticated");
       
@@ -118,6 +121,7 @@ export function useAgentConversations() {
           attachment_type: attachment?.type,
           attachment_name: attachment?.name,
           attachment_url: attachment?.url,
+          reply_to_message_id: replyToMessageId || null,
         })
         .select()
         .single();
@@ -164,7 +168,8 @@ export function useAgentConversations() {
   const addMessage = useCallback(async (
     role: "user" | "assistant",
     content: string,
-    attachment?: { type: string; name: string; url?: string }
+    attachment?: { type: string; name: string; url?: string },
+    replyToMessageId?: string | null
   ) => {
     let convId = currentConversationId;
     
@@ -179,6 +184,7 @@ export function useAgentConversations() {
       role,
       content,
       attachment,
+      replyToMessageId,
     });
   }, [currentConversationId, startNewConversation, addMessageMutation]);
 
