@@ -106,7 +106,8 @@ const PendingDocumentsWidget = () => {
 
       if (downloadError) throw downloadError;
 
-      const newPath = `${clientId}/${Date.now()}_${pendingDoc.original_filename}`;
+      // Path MUST start with user_id to satisfy RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+      const newPath = `${pendingDoc.user_id}/${clientId}/${Date.now()}_${pendingDoc.original_filename}`;
       const { error: uploadError } = await supabase.storage
         .from("documents")
         .upload(newPath, fileData, { contentType: pendingDoc.mime_type || "application/octet-stream" });
