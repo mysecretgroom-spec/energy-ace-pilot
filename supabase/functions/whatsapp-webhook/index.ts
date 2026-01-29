@@ -9,6 +9,9 @@ const corsHeaders = {
 // App URL for invitation messages
 const APP_URL = "https://energy-ace-pilot.lovable.app";
 
+// Maximum number of media files to process per message
+const MAX_MEDIA_COUNT = 10;
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -40,20 +43,43 @@ serve(async (req) => {
     const fromNumber = formData.get("From") as string; // whatsapp:+33649070391
     const body = formData.get("Body") as string || "";
     const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
-    const mediaUrl0 = formData.get("MediaUrl0") as string | null;
-    const mediaContentType0 = formData.get("MediaContentType0") as string | null;
+    const messageSid = formData.get("MessageSid") as string | null;
+    
+    // Extract the original message context from Twilio (for quoted replies)
+    const originalMessageContext = formData.get("OriginalRepliedMessageSid") as string | null;
+    const quotedBody = formData.get("OriginalRepliedMessageBody") as string | null;
+    
+    // Collect all media URLs and types (up to MAX_MEDIA_COUNT)
+    const mediaUrls: string[] = [];
+    const mediaTypes: string[] = [];
+    const actualMediaCount = Math.min(numMedia, MAX_MEDIA_COUNT);
+    
+    for (let i = 0; i < actualMediaCount; i++) {
+      const mediaUrl = formData.get(`MediaUrl${i}`) as string | null;
+      const mediaType = formData.get(`MediaContentType${i}`) as string | null;
+      if (mediaUrl) {
+        mediaUrls.push(mediaUrl);
+        mediaTypes.push(mediaType || "application/octet-stream");
+      }
+    }
 
-    console.log(`Received WhatsApp message from ${fromNumber}: ${body.substring(0, 50)}...`);
+    console.log(`Received WhatsApp from ${fromNumber}: "${body.substring(0, 50)}..." with ${mediaUrls.length} media(s)`);
+    if (originalMessageContext) {
+      console.log(`Reply to message SID: ${originalMessageContext}`);
+    }
 
     // Determine message type
     let messageType = "text";
-    if (numMedia > 0 && mediaContentType0) {
-      if (mediaContentType0.startsWith("image/")) {
-        messageType = "image";
-      } else if (mediaContentType0.startsWith("audio/")) {
+    if (mediaUrls.length > 0) {
+      const firstType = mediaTypes[0] || "";
+      if (firstType.startsWith("image/")) {
+        messageType = mediaUrls.length > 1 ? "multi_image" : "image";
+      } else if (firstType.startsWith("audio/")) {
         messageType = "audio";
-      } else if (mediaContentType0.includes("pdf") || mediaContentType0.includes("document")) {
-        messageType = "document";
+      } else if (firstType.includes("pdf") || firstType.includes("document")) {
+        messageType = mediaUrls.length > 1 ? "multi_document" : "document";
+      } else {
+        messageType = mediaUrls.length > 1 ? "multi_media" : "media";
       }
     }
 
@@ -76,7 +102,10 @@ serve(async (req) => {
         from_number: fromNumber,
         message_type: messageType,
         raw_content: body,
-        media_url: mediaUrl0,
+        media_url: mediaUrls[0] || null,
+        media_urls: mediaUrls,
+        media_types: mediaTypes,
+        twilio_message_sid: messageSid,
         status: "rejected",
         rejection_reason: "not_registered",
       });
@@ -115,7 +144,10 @@ serve(async (req) => {
         from_number: fromNumber,
         message_type: messageType,
         raw_content: body,
-        media_url: mediaUrl0,
+        media_url: mediaUrls[0] || null,
+        media_urls: mediaUrls,
+        media_types: mediaTypes,
+        twilio_message_sid: messageSid,
         status: "rejected",
         rejection_reason: user.app_access === "blocked" ? "access_blocked" : "trial_expired",
       });
@@ -152,7 +184,32 @@ serve(async (req) => {
       );
     }
 
-    // 4. User has valid access (trial or active) - process the message
+    // 4. Find the original message if this is a reply
+    let replyToMessageId: string | null = null;
+    let replyToMessageContent: string | null = null;
+    
+    if (originalMessageContext) {
+      // Look up the original message by Twilio SID
+      const { data: originalMessage } = await supabase
+        .from("whatsapp_messages")
+        .select("id, response_sent, detected_intent")
+        .eq("twilio_message_sid", originalMessageContext)
+        .eq("user_id", user.user_id)
+        .maybeSingle();
+      
+      if (originalMessage) {
+        replyToMessageId = originalMessage.id;
+        replyToMessageContent = originalMessage.response_sent || quotedBody;
+        console.log(`Found reply-to message: ${replyToMessageId} (intent: ${originalMessage.detected_intent})`);
+      } else if (quotedBody) {
+        // Fallback: try to find by content match if SID not found
+        // This helps with quoted text that Twilio provides
+        replyToMessageContent = quotedBody;
+        console.log(`Original message SID not found, using quoted body: "${quotedBody.substring(0, 50)}..."`);
+      }
+    }
+
+    // 5. User has valid access (trial or active) - process the message
     // Create message record
     const { data: messageRecord, error: insertError } = await supabase
       .from("whatsapp_messages")
@@ -161,7 +218,11 @@ serve(async (req) => {
         from_number: fromNumber,
         message_type: messageType,
         raw_content: body,
-        media_url: mediaUrl0,
+        media_url: mediaUrls[0] || null,
+        media_urls: mediaUrls,
+        media_types: mediaTypes,
+        twilio_message_sid: messageSid,
+        reply_to_message_id: replyToMessageId,
         status: "processing",
       })
       .select()
@@ -172,32 +233,43 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // 5. Call the agent function for AI processing
+    // 6. Call the agent function for AI processing
     try {
+      const agentPayload: Record<string, unknown> = {
+        messageId: messageRecord.id,
+        userId: user.user_id,
+        userName: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+        fromNumber,
+        messageType,
+        content: body,
+        // Single media (backward compatible)
+        mediaUrl: mediaUrls[0] || null,
+        mediaContentType: mediaTypes[0] || null,
+        // Multi-media support
+        mediaUrls: mediaUrls,
+        mediaContentTypes: mediaTypes,
+        // Reply context
+        isReplyToMessage: !!replyToMessageId || !!replyToMessageContent,
+        replyToMessageId: replyToMessageId,
+        replyToMessageContent: replyToMessageContent,
+      };
+
       const agentResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-agent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${supabaseServiceKey}`,
         },
-        body: JSON.stringify({
-          messageId: messageRecord.id,
-          userId: user.user_id,
-          userName: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
-          fromNumber,
-          messageType,
-          content: body,
-          mediaUrl: mediaUrl0,
-          mediaContentType: mediaContentType0,
-        }),
+        body: JSON.stringify(agentPayload),
       });
 
       const agentResult = await agentResponse.json();
       console.log("Agent response:", agentResult);
 
-      // Send the response message if available
+      // Send the response message if available and capture the SID
+      let responseTwilioSid: string | null = null;
       if (agentResult.responseMessage) {
-        await sendWhatsAppMessage(
+        responseTwilioSid = await sendWhatsAppMessage(
           TWILIO_ACCOUNT_SID,
           TWILIO_AUTH_TOKEN,
           TWILIO_WHATSAPP_NUMBER,
@@ -220,6 +292,22 @@ serve(async (req) => {
           processed_at: new Date().toISOString(),
         })
         .eq("id", messageRecord.id);
+
+      // If we got a response SID, create a record for the bot's response 
+      // (so it can be referenced if user replies to it)
+      if (responseTwilioSid && agentResult.responseMessage) {
+        await supabase.from("whatsapp_messages").insert({
+          user_id: user.user_id,
+          from_number: TWILIO_WHATSAPP_NUMBER,
+          message_type: "text",
+          raw_content: agentResult.responseMessage,
+          twilio_message_sid: responseTwilioSid,
+          reply_to_message_id: messageRecord.id,
+          detected_intent: agentResult.intent,
+          status: "sent",
+          processed_at: new Date().toISOString(),
+        });
+      }
 
       return new Response(
         JSON.stringify({ status: "processed", result: agentResult }),
@@ -269,13 +357,14 @@ serve(async (req) => {
 
 // Helper function to send WhatsApp message via Twilio
 // Supports long messages by splitting into chunks (WhatsApp limit ~1600 chars)
+// Returns the Twilio message SID of the last sent chunk
 async function sendWhatsAppMessage(
   accountSid: string,
   authToken: string,
   fromNumber: string,
   toNumber: string,
   message: string
-): Promise<void> {
+): Promise<string | null> {
   const MAX_CHARS = 1500; // Safe limit below WhatsApp's 1600
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
@@ -310,6 +399,7 @@ async function sendWhatsAppMessage(
   }
 
   // Send each chunk sequentially
+  let lastMessageSid: string | null = null;
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const chunkLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
@@ -333,6 +423,14 @@ async function sendWhatsAppMessage(
       throw new Error(`Failed to send WhatsApp message: ${response.status}`);
     }
 
+    // Parse response to get message SID
+    try {
+      const responseData = await response.json();
+      lastMessageSid = responseData.sid || null;
+    } catch {
+      // If we can't parse the response, just continue
+    }
+
     console.log(`WhatsApp message sent to ${toNumber}${chunkLabel} (${chunk.length} chars)`);
     
     // Small delay between chunks to ensure order
@@ -340,4 +438,6 @@ async function sendWhatsAppMessage(
       await new Promise(r => setTimeout(r, 300));
     }
   }
+
+  return lastMessageSid;
 }
