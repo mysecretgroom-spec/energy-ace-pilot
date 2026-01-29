@@ -346,18 +346,18 @@ export function MultiDocumentSelector({
 
       if (uploadError) throw uploadError;
 
-      // Get signed URL
-      const { data: urlData } = await supabase.storage
+      // Get public URL (receipts bucket is now public for reading)
+      const { data: urlData } = supabase.storage
         .from("receipts")
-        .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+        .getPublicUrl(fileName);
 
-      if (!urlData?.signedUrl) throw new Error("Impossible de générer l'URL");
+      if (!urlData?.publicUrl) throw new Error("Impossible de générer l'URL");
 
       // Update document record
       const { error: updateError } = await supabase
         .from("documents")
         .update({
-          url: urlData.signedUrl,
+          url: urlData.publicUrl,
           nom: file.name.replace(/\.[^/.]+$/, ".pdf"),
         })
         .eq("id", docId);
