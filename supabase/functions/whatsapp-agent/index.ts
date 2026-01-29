@@ -7,6 +7,54 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Extract storage path from a Supabase storage URL.
+ * Handles both public URLs and signed URLs for any bucket.
+ * Examples:
+ * - ".../pending-documents/whatsapp/user123/file.jpg" -> "whatsapp/user123/file.jpg"
+ * - ".../pending-documents/user123/file.jpg" -> "user123/file.jpg"
+ * - ".../documents/user123/client456/file.pdf" -> "user123/client456/file.pdf"
+ */
+function extractStoragePathFromUrl(url: string, bucketName: string): string | null {
+  if (!url) return null;
+  
+  try {
+    // Try to find the bucket name in the URL and extract everything after it
+    const bucketPattern = new RegExp(`/${bucketName}/(.+?)(?:\\?|$)`);
+    const match = url.match(bucketPattern);
+    
+    if (match && match[1]) {
+      // Remove any query parameters and decode
+      return decodeURIComponent(match[1].split('?')[0]);
+    }
+    
+    // Fallback: try the old method for backwards compatibility
+    // This handles cases where the URL structure is different
+    const segments = url.split('/');
+    const bucketIndex = segments.findIndex(s => s === bucketName);
+    
+    if (bucketIndex !== -1 && bucketIndex < segments.length - 1) {
+      // Join everything after the bucket name
+      return segments.slice(bucketIndex + 1).join('/').split('?')[0];
+    }
+    
+    // Last resort: take last 3 segments (for whatsapp/userId/filename pattern)
+    // or last 2 segments (for userId/filename pattern)
+    const lastThree = segments.slice(-3).join('/').split('?')[0];
+    const lastTwo = segments.slice(-2).join('/').split('?')[0];
+    
+    // Return the longer one if it looks like a valid path
+    if (lastThree.includes('/') && lastThree.split('/').length >= 2) {
+      return lastThree;
+    }
+    return lastTwo;
+    
+  } catch (err) {
+    console.error("Error extracting storage path:", err);
+    return null;
+  }
+}
+
 // Intent types
 type Intent = 
   | "create_rdv" 
@@ -3642,7 +3690,7 @@ async function handlePendingWorkflow(
           const pendingDocId = pendingAction.collectedData.pendingDocumentId;
           const documentFilename = pendingAction.collectedData.documentFilename || "document";
           const documentType = pendingAction.collectedData.documentType || "autre";
-          const storagePath = pendingAction.collectedData.documentStorageUrl?.split('/').slice(-2).join('/');
+          const storagePath = extractStoragePathFromUrl(pendingAction.collectedData.documentStorageUrl || "", "pending-documents");
           
           if (!newClientName || newClientName.length < 2) {
             return {
@@ -3692,8 +3740,8 @@ async function handlePendingWorkflow(
               throw new Error("Download failed");
             }
             
-            // Upload to documents bucket under client's folder
-            const newPath = `${clientId}/${Date.now()}_${documentFilename}`;
+            // Upload to documents bucket - path must start with userId to satisfy RLS
+            const newPath = `${userId}/${clientId}/${Date.now()}_${documentFilename}`;
             const fileBytes = await fileData.arrayBuffer();
             
             const { error: uploadError } = await supabase.storage
@@ -4250,7 +4298,7 @@ async function handlePendingWorkflow(
       const selectedClientName = selectedChoice.label;
       
       // Download file from pending-documents bucket
-      const storagePath = pendingAction.collectedData?.documentStorageUrl?.split('/').slice(-2).join('/');
+      const storagePath = extractStoragePathFromUrl(pendingAction.collectedData?.documentStorageUrl || "", "pending-documents");
       
       if (!storagePath) {
         return {
@@ -4272,8 +4320,8 @@ async function handlePendingWorkflow(
           throw new Error("Download failed");
         }
         
-        // Upload to documents bucket under client's folder
-        const newPath = `${selectedClientId}/${Date.now()}_${documentFilename}`;
+        // Upload to documents bucket - path must start with userId to satisfy RLS
+        const newPath = `${userId}/${selectedClientId}/${Date.now()}_${documentFilename}`;
         const fileBytes = await fileData.arrayBuffer();
         
         const { error: uploadError } = await supabase.storage
@@ -4594,7 +4642,7 @@ async function handlePendingWorkflow(
       }
       
       // User confirmed - create the frais record
-      const storagePath = collectedData.factureStorageUrl?.split('/').slice(-2).join('/');
+      const storagePath = extractStoragePathFromUrl(collectedData.factureStorageUrl || "", "pending-documents");
       
       try {
         // Download from pending-documents and upload to receipts bucket
@@ -7206,7 +7254,7 @@ async function executeAction(
       }
       
       // Store document in pending storage
-      const storagePath = uploadedDocumentUrl.split('/').slice(-2).join('/');
+      const storagePath = extractStoragePathFromUrl(uploadedDocumentUrl, "pending-documents");
       
       // Create pending document record with status 'awaiting_confirmation'
       const { data: pendingDoc, error: pendingError } = await supabase
@@ -7388,7 +7436,7 @@ async function executeAction(
 
       // Get original filename from mediaData
       const originalFilename = mediaData?.filename || `facture_${Date.now()}`;
-      const storagePath = uploadedDocumentUrl.split('/').slice(-2).join('/');
+      const storagePath = extractStoragePathFromUrl(uploadedDocumentUrl, "pending-documents");
 
       // Create pending document record for facture
       const { data: pendingDoc, error: pendingError } = await supabase
