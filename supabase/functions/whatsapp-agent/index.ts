@@ -3595,9 +3595,12 @@ async function handlePendingWorkflow(
         };
       }
       
-      // Check for cancel
-      const cancelPatterns = ["annule", "cancel", "abandonne", "stop", "non"];
-      if (cancelPatterns.some(p => messageLower.includes(p))) {
+      // Check for cancel - be strict to avoid false positives with "non" in a client name
+      const cancelPatterns = ["annule", "cancel", "abandonne", "stop"];
+      const isPlainNo = messageLower.trim() === "non" || messageLower.trim() === "no";
+      const isExplicitCancel = cancelPatterns.some(p => messageLower.trim() === p);
+      
+      if (isPlainNo || isExplicitCancel) {
         // Mark document as rejected
         await supabase
           .from("pending_documents")
@@ -3848,9 +3851,15 @@ async function handlePendingWorkflow(
         };
       }
       
-      // Check for cancel
-      const cancelPatterns = ["annule", "cancel", "abandonne", "stop"];
-      if (cancelPatterns.some(p => messageLower.includes(p)) && !messageLower.match(/\d/)) {
+      // Check for cancel - but NOT if the message contains corrections
+      // A message like "non 45€" means correction, not cancellation
+      const cancelPatterns = ["annule", "cancel", "abandonne", "stop", "non"];
+      const strictCancelCheck = cancelPatterns.some(p => messageLower === p || messageLower.startsWith(p + " ") && !messageLower.match(/\d/));
+      
+      // Also check if message is ONLY "non" without any other content
+      const isPlainNo = messageLower.trim() === "non" || messageLower.trim() === "no" || messageLower.trim() === "annule";
+      
+      if ((strictCancelCheck || isPlainNo) && !messageLower.match(/(?:montant|total|prix|date|catégorie|categorie|fournisseur)\s*[:=]?\s*\S/i)) {
         // Mark document as rejected
         await supabase
           .from("pending_documents")
@@ -3973,7 +3982,8 @@ async function handlePendingWorkflow(
       }
       
       // If corrections were made, update and ask for confirmation again
-      if (hasCorrections && !isConfirming) {
+      // But if user also said "oui" or "ok", treat it as confirmation WITH corrections
+      if (hasCorrections) {
         const updatedPendingAction: PendingAction = {
           ...pendingAction,
           collectedData: {
@@ -3986,19 +3996,32 @@ async function handlePendingWorkflow(
           },
         };
         
-        let responseMsg = `📝 *Données mises à jour:*\n\n`;
-        responseMsg += `💰 Montant TTC: *${montant.toLocaleString("fr-FR")}€*\n`;
-        responseMsg += `📅 Date: ${dateStr}\n`;
-        if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
-        responseMsg += `📂 Catégorie: ${categorie}\n`;
-        responseMsg += `\n*Confirmes-tu ?* (Oui/Non)`;
-        
-        return {
-          intent: "import_facture",
-          actionTaken: "facture_data_updated",
-          newPendingAction: updatedPendingAction,
-          responseMessage: responseMsg,
-        };
+        // If user is also confirming (e.g., "oui montant 45€"), treat as confirmation with corrections
+        if (isConfirming) {
+          // Update pendingAction but continue to confirmation flow below
+          Object.assign(collectedData, {
+            factureMontant: montant,
+            factureDate: dateStr,
+            factureFournisseur: fournisseur,
+            factureCategorie: categorie,
+            factureDescription: description,
+          });
+        } else {
+          // Just corrections, ask for confirmation
+          let responseMsg = `📝 *Données mises à jour:*\n\n`;
+          responseMsg += `💰 Montant TTC: *${montant.toLocaleString("fr-FR")}€*\n`;
+          responseMsg += `📅 Date: ${dateStr}\n`;
+          if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
+          responseMsg += `📂 Catégorie: ${categorie}\n`;
+          responseMsg += `\n*Confirmes-tu ?* (Oui/Non)`;
+          
+          return {
+            intent: "import_facture",
+            actionTaken: "facture_data_updated",
+            newPendingAction: updatedPendingAction,
+            responseMessage: responseMsg,
+          };
+        }
       }
       
       // If client suggestions exist and user hasn't selected yet, prompt again
