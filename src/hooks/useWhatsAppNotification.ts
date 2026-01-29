@@ -103,6 +103,32 @@ Le dossier est en attente de décision du client.
 ---
 _Envoyé depuis DébalePro_`,
 
+  reporte: `*MISE À JOUR DOSSIER*
+
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: Reporté 📅
+
+Le rendez-vous a été reporté à une date ultérieure.
+
+{{comment}}
+
+---
+_Envoyé depuis DébalePro_`,
+
+  nouveau: `*NOUVEAU DOSSIER*
+
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: Nouveau 🆕
+
+Un nouveau rendez-vous a été créé.
+
+{{comment}}
+
+---
+_Envoyé depuis DébalePro_`,
+
   annule: `*MISE À JOUR DOSSIER*
 
 Client: *{{client_name}}*

@@ -61,10 +61,10 @@ const allStatusOptions: { value: RdvStatus; label: string; color: string; requir
   { value: "negatif", label: "Négatif", color: "bg-red-500", requiresPastDate: true },
 ];
 
-// Map RDV status to WhatsApp classification
+// Map RDV status to WhatsApp classification (1:1 mapping for clarity)
 const statusToClassification: Record<RdvStatus, string> = {
-  nouveau: "attente",
-  reporte: "attente",
+  nouveau: "nouveau",
+  reporte: "reporte",
   r2: "r2",
   r2_prestudy: "r2_prestudy",
   signe: "positif",
