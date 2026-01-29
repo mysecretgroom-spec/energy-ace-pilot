@@ -22,7 +22,8 @@ async function uploadReceiptToStorage(
   const timestamp = Date.now();
   const extension = isPdf ? "pdf" : "jpg";
   const contentType = isPdf ? "application/pdf" : "image/jpeg";
-  const fileName = `frais/${userId}/${timestamp}.${extension}`;
+  // RLS requires userId as first path segment
+  const fileName = `${userId}/frais/${timestamp}.${extension}`;
 
   // Convert base64 to blob
   const base64Response = await fetch(base64Data);
@@ -40,16 +41,26 @@ async function uploadReceiptToStorage(
     throw new Error(`Failed to upload receipt: ${error.message}`);
   }
 
-  // Get signed URL (1 year validity)
-  const { data: urlData } = await supabase.storage
-    .from("receipts")
-    .createSignedUrl(fileName, 60 * 60 * 24 * 365);
-
-  if (!urlData?.signedUrl) {
-    throw new Error("Failed to generate receipt URL");
+  // Retry logic for signed URL (handles propagation delays)
+  let signedUrl: string | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+    const { data: urlData } = await supabase.storage
+      .from("receipts")
+      .createSignedUrl(data.path, 60 * 60 * 24 * 365);
+    if (urlData?.signedUrl) {
+      signedUrl = urlData.signedUrl;
+      break;
+    }
   }
 
-  return urlData.signedUrl;
+  if (!signedUrl) {
+    throw new Error("Failed to generate receipt URL after retries");
+  }
+
+  return signedUrl;
 }
 
 interface OCRResult {
