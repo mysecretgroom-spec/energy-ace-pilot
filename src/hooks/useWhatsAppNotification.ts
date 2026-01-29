@@ -141,6 +141,32 @@ Le rendez-vous a été annulé.
 
 ---
 _Envoyé depuis DébalePro_`,
+
+  installe: `*MISE À JOUR DOSSIER*
+
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: Installation terminée ✅
+
+L'installation a été finalisée avec succès.
+
+{{comment}}
+
+---
+_Envoyé depuis DébalePro_`,
+
+  paye: `*MISE À JOUR DOSSIER*
+
+Client: *{{client_name}}*
+Date: {{date}}
+Statut: Paiement reçu 💰
+
+Le paiement a été reçu pour ce dossier.
+
+{{comment}}
+
+---
+_Envoyé depuis DébalePro_`,
 };
 
 export const useWhatsAppNotification = () => {

@@ -41,9 +41,9 @@ const venteStatusToClassification: Record<VenteStatus, string | null> = {
   attente_financement: null,
   envoi_pose: null,
   en_installation: null,
-  installe: "positif", // Installation terminée
+  installe: "installe", // Installation terminée - template spécifique
   attente_paiement: null,
-  paye: "positif", // Paiement reçu
+  paye: "paye", // Paiement reçu - template spécifique
   annule: "annule",
 };
 
