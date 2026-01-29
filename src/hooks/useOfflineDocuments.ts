@@ -199,7 +199,8 @@ export function useOfflineDocuments() {
           // Generate filename
           const timestamp = Date.now();
           const extension = doc.mimeType.split("/")[1] || "jpg";
-          const fileName = `${doc.clientId}/${doc.contextSource || "doc"}_${timestamp}.${extension}`;
+          // Path MUST start with user_id to satisfy RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+          const fileName = `${doc.userId}/${doc.clientId}/${doc.contextSource || "doc"}_${timestamp}.${extension}`;
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage

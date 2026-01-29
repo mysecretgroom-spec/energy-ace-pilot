@@ -81,7 +81,8 @@ serve(async (req) => {
         }
 
         // 2. Upload to documents bucket
-        const newPath = `${doc.ai_detected_client_id}/${Date.now()}_${doc.original_filename}`;
+        // Path MUST start with user_id to satisfy RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+        const newPath = `${doc.user_id}/${doc.ai_detected_client_id}/${Date.now()}_${doc.original_filename}`;
         const { error: uploadError } = await supabase.storage
           .from("documents")
           .upload(newPath, fileData, { 
