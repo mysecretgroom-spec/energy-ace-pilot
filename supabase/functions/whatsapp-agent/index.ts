@@ -38,6 +38,7 @@ type Intent =
   | "decline_whatsapp"     // Refuser l'envoi d'un message WhatsApp
   | "select_choice"        // Réponse à un sondage de choix (numéro ou texte)
   | "select_regie"         // Réponse à un sondage de sélection de régie
+  | "multi_request"        // Message contenant plusieurs demandes distinctes
   | "conversation"
   | "unknown";
 
@@ -52,6 +53,7 @@ type WorkflowState =
   | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
   | "awaiting_document_client_selection" // En attente de validation du client pour un document
   | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
+  | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
   | null;
 
 // Choice option for disambiguation polls
@@ -62,10 +64,25 @@ interface ChoiceOption {
   data: Record<string, unknown>;
 }
 
+// Single request within a multi-request action
+interface SingleRequest {
+  id: string;                           // Unique ID for this request (e.g., "req_1", "req_2")
+  intent: Intent;
+  entities: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected" | "modified" | "executed" | "error";
+  summary: string;                      // Human-readable summary of the request
+  modifiedEntities?: Record<string, unknown>; // Modified entities if user corrects something
+  errorMessage?: string;                // Error message if execution failed
+}
+
 interface PendingAction {
   intent: Intent;
   entities: Record<string, unknown>;
   workflowState: WorkflowState;
+  // Multi-request support
+  isMultiRequest?: boolean;              // True if this contains multiple requests
+  requests?: SingleRequest[];            // Individual requests when isMultiRequest is true
+  awaitingMultiApproval?: boolean;       // True when waiting for multi-request approval
   collectedData?: {
     clientId?: string;
     clientName?: string;
@@ -1701,8 +1718,42 @@ serve(async (req) => {
 
     console.log("AI analysis result:", aiResponse!);
 
+    // Handle multi-request intent (multiple distinct requests in one message)
+    // deno-lint-ignore no-explicit-any
+    const aiResponseWithMulti = aiResponse! as any;
+    if (!skipAiAnalysis && aiResponseWithMulti?.is_multi_request && aiResponseWithMulti?.requests?.length > 1) {
+      console.log(`Multi-request detected: ${aiResponseWithMulti.requests.length} requests`);
+      
+      // Create pending action for multi-request approval
+      const requests: SingleRequest[] = aiResponseWithMulti.requests.map((r: { id: string; intent: string; entities: Record<string, unknown>; summary: string }, index: number) => ({
+        id: r.id || `req_${index + 1}`,
+        intent: r.intent as Intent,
+        entities: r.entities || {},
+        status: "pending" as const,
+        summary: r.summary || `Requête ${index + 1}`,
+      }));
+      
+      const pendingMultiAction: PendingAction = {
+        intent: "multi_request",
+        entities: {},
+        workflowState: "awaiting_multi_request_approval",
+        isMultiRequest: true,
+        requests,
+        awaitingMultiApproval: true,
+        createdAt: new Date().toISOString(),
+      };
+      
+      actionResult = {
+        newPendingAction: pendingMultiAction,
+        customResponse: aiResponse!.responseMessage,
+      };
+      
+      aiResponse!.responseMessage = actionResult.customResponse || aiResponse!.responseMessage;
+      skipAiAnalysis = true; // Skip further processing
+    }
+
     // Execute action based on intent (only if not already handled by workflow)
-    if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.confidence >= 70) {
+    if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.intent !== "multi_request" && aiResponse!.confidence >= 70) {
       // Actions that require MANDATORY confirmation before execution - ALWAYS enforce this
       const actionIntents: Intent[] = [
         "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
@@ -4340,6 +4391,152 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "awaiting_multi_request_approval": {
+      // Handle multi-request approval with granular control
+      const requests = pendingAction.requests || [];
+      
+      if (requests.length === 0) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "error",
+          newPendingAction: null,
+          responseMessage: "❌ Erreur: aucune requête en attente. Comment puis-je t'aider ?",
+        };
+      }
+      
+      // Parse user response for approval patterns
+      const confirmAllPatterns = ["oui", "ok", "confirme", "valide", "go", "yes", "tout", "toutes", "tous", "all"];
+      const cancelAllPatterns = ["non", "annule", "annuler", "stop", "rien"];
+      
+      // Check for "all" confirmation
+      const isConfirmingAll = confirmAllPatterns.some(p => messageLower === p || messageLower === p + " tout");
+      const isCancellingAll = cancelAllPatterns.some(p => messageLower === p);
+      
+      // Parse specific selections (e.g., "1", "1,2", "1 et 3", "sauf 2")
+      let selectedIndices: number[] = [];
+      let excludedIndices: number[] = [];
+      let hasSpecificSelection = false;
+      
+      // Check for "except/sauf" pattern
+      const exceptMatch = messageLower.match(/sauf\s*([\d,\s]+)|except\s*([\d,\s]+)/);
+      if (exceptMatch) {
+        const exceptNums = (exceptMatch[1] || exceptMatch[2]).match(/\d+/g);
+        if (exceptNums) {
+          excludedIndices = exceptNums.map(n => parseInt(n) - 1);
+          selectedIndices = requests.map((_, i) => i).filter(i => !excludedIndices.includes(i));
+          hasSpecificSelection = true;
+        }
+      }
+      
+      // Check for specific number selection
+      if (!hasSpecificSelection) {
+        const numMatches = userMessage.match(/\d+/g);
+        if (numMatches && numMatches.length > 0) {
+          selectedIndices = numMatches.map(n => parseInt(n) - 1).filter(i => i >= 0 && i < requests.length);
+          hasSpecificSelection = selectedIndices.length > 0;
+        }
+      }
+      
+      // Parse modification in response (e.g., "1 ok mais 2 → negatif")
+      const modificationMatch = userMessage.match(/(\d+)\s*(?:→|->|:)\s*(\w+)/g);
+      const modifications: Record<number, string> = {};
+      if (modificationMatch) {
+        for (const mod of modificationMatch) {
+          const match = mod.match(/(\d+)\s*(?:→|->|:)\s*(\w+)/);
+          if (match) {
+            const idx = parseInt(match[1]) - 1;
+            const newValue = match[2];
+            if (idx >= 0 && idx < requests.length) {
+              modifications[idx] = newValue;
+            }
+          }
+        }
+      }
+      
+      // Handle cancellation
+      if (isCancellingAll) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "multi_request_cancelled",
+          newPendingAction: null,
+          responseMessage: "❌ Toutes les actions annulées. Comment puis-je t'aider ?",
+        };
+      }
+      
+      // Determine which requests to execute
+      let requestsToExecute: SingleRequest[] = [];
+      let requestsSkipped: SingleRequest[] = [];
+      
+      if (isConfirmingAll && !hasSpecificSelection) {
+        // Execute all
+        requestsToExecute = [...requests];
+      } else if (hasSpecificSelection) {
+        // Execute only selected
+        requestsToExecute = selectedIndices.map(i => requests[i]).filter(Boolean);
+        requestsSkipped = requests.filter((_, i) => !selectedIndices.includes(i));
+      } else if (Object.keys(modifications).length > 0) {
+        // Apply modifications and execute all
+        requestsToExecute = requests.map((req, i) => {
+          if (modifications[i]) {
+            // Apply modification based on intent type
+            const modValue = modifications[i];
+            const updatedEntities = { ...req.entities };
+            
+            // Try to map modification to appropriate entity field
+            if (["positif", "negatif", "absent", "r2", "reporte", "annule"].includes(modValue)) {
+              updatedEntities.status = modValue;
+            } else if (["installe", "paye", "cq_fait", "attente_financement", "envoi_pose"].includes(modValue)) {
+              updatedEntities.pipeline_status = modValue;
+            }
+            
+            return {
+              ...req,
+              status: "modified" as const,
+              modifiedEntities: updatedEntities,
+              summary: `${req.summary} (modifié → ${modValue})`,
+            };
+          }
+          return req;
+        });
+      } else {
+        // Invalid response - ask again
+        const requestList = requests.map((r, i) => `${i + 1}️⃣ ${r.summary}`).join("\n");
+        return {
+          intent: "multi_request" as Intent,
+          actionTaken: "invalid_selection",
+          newPendingAction: pendingAction,
+          responseMessage: `🤔 Je n'ai pas compris ta réponse.\n\n📋 *ACTIONS EN ATTENTE*\n${requestList}\n\n*Réponds:*\n• \"oui\" → tout confirmer\n• \"1\" ou \"1,3\" → confirmer seulement certaines\n• \"sauf 2\" → tout sauf #2\n• \"non\" → tout annuler`,
+        };
+      }
+      
+      if (requestsToExecute.length === 0) {
+        return {
+          intent: "cancel_action",
+          actionTaken: "no_requests_selected",
+          newPendingAction: null,
+          responseMessage: "❌ Aucune action sélectionnée. Comment puis-je t'aider ?",
+        };
+      }
+      
+      // Return for execution with the selected requests
+      // Mark the pending action with selected requests for executeAction to process
+      return {
+        intent: "multi_request" as Intent,
+        actionTaken: "confirmed_execute",
+        newPendingAction: {
+          ...pendingAction,
+          workflowState: null, // Clear workflow state to allow execution
+          requests: requestsToExecute.map(r => ({
+            ...r,
+            status: (r.status === "modified" ? "modified" : "approved") as SingleRequest["status"],
+          })),
+        },
+        responseMessage: requestsSkipped.length > 0
+          ? `✅ ${requestsToExecute.length} action(s) confirmée(s), ${requestsSkipped.length} ignorée(s)...`
+          : `✅ ${requestsToExecute.length} action(s) confirmée(s)...`,
+      };
+    }
+    
     default:
       return null;
   }
@@ -4929,8 +5126,46 @@ EXEMPLES DE CLASSIFICATION:
 - Utilise des PARTIES numérotées si nécessaire: "[1/2]", "[2/2]"
 - Ne JAMAIS dire "je vais résumer" ou "voici les principaux" - donne TOUT
 
+🔄 DÉTECTION MULTI-REQUÊTES:
+Tu DOIS détecter si le message contient PLUSIEURS demandes distinctes qui nécessitent des actions séparées.
+
+SIGNAUX DE MULTI-REQUÊTES:
+- Conjonctions de coordination: "et", "puis", "aussi", "également", "ensuite"
+- Listes implicites: "Martin positif, Dupont négatif, Leblanc r2"
+- Virgules/points-virgules séparant des actions: "annule rdv Dupont, crée rdv Martin demain"
+- Numérotation: "1) créer rdv 2) marquer signé"
+
+EXEMPLES MULTI-REQUÊTES:
+- "Martin positif et Dupont négatif" → 2 requêtes update_vente_status
+- "Crée rdv Leblanc demain 14h et annule rdv Martin" → 2 requêtes (create_rdv + update_rdv)
+- "Dupont posé, Martin payé" → 2 requêtes update_vente_pipeline
+- "Mes rdv de demain et mes stats du mois" → 2 requêtes query
+
+RÈGLE: Si tu détectes plusieurs demandes distinctes:
+1. Mets is_multi_request: true
+2. Retourne un tableau "requests" avec chaque demande séparée
+3. Chaque request doit avoir: id, intent, entities, summary (description courte)
+4. Le responseMessage doit lister TOUTES les demandes pour approbation granulaire
+
+FORMAT MULTI-REQUÊTE:
+{
+  "intent": "multi_request",
+  "is_multi_request": true,
+  "confidence": 90,
+  "requests": [
+    {"id": "req_1", "intent": "update_vente_status", "entities": {"client_name": "Martin", "status": "positif"}, "summary": "Martin → Positif"},
+    {"id": "req_2", "intent": "update_vente_status", "entities": {"client_name": "Dupont", "status": "negatif"}, "summary": "Dupont → Négatif"}
+  ],
+  "requiresConfirmation": true,
+  "responseMessage": "📋 *2 ACTIONS DÉTECTÉES*\n\n1️⃣ Martin → Positif\n2️⃣ Dupont → Négatif\n\n*Confirmer:* \"oui\" (tout) | \"1\" (seulement #1) | \"1,2\" (spécifiques) | \"non\" (annuler)"
+}
+
+IMPORTANT: Ne PAS transformer en multi-requête si:
+- C'est une seule action avec plusieurs attributs (ex: "rdv Martin demain 14h rue de la Paix" = 1 seule action)
+- C'est une question/requête simple (ex: "mes rdv de la semaine" = 1 requête)
+
 Format réponse JSON:
-{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"..."}
+{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"...","is_multi_request":false,"requests":[]}
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
 Contexte: ${userName} | Date: ${today}
@@ -4966,7 +5201,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -5002,7 +5237,22 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
-                responseMessage: { type: "string" }
+                responseMessage: { type: "string" },
+                is_multi_request: { type: "boolean", description: "True if message contains multiple distinct requests" },
+                requests: {
+                  type: "array",
+                  description: "Array of individual requests when is_multi_request is true",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string", description: "Unique request ID like req_1, req_2" },
+                      intent: { type: "string" },
+                      entities: { type: "object" },
+                      summary: { type: "string", description: "Short human-readable summary of the request" }
+                    },
+                    required: ["id", "intent", "entities", "summary"]
+                  }
+                }
               },
               required: ["intent", "confidence", "entities", "requiresConfirmation", "responseMessage"]
             }
