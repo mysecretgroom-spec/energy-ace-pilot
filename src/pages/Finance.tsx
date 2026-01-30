@@ -175,6 +175,10 @@ const Finance = () => {
     annee: 0,
   });
   
+  // Refresh key to force re-fetch of all data
+  const [refreshKey, setRefreshKey] = useState(0);
+  const triggerRefresh = () => setRefreshKey(k => k + 1);
+  
   // Form state for manual expense
   const [newFrais, setNewFrais] = useState({
     montant: "",
@@ -294,7 +298,7 @@ const Finance = () => {
     };
 
     fetchVenteData();
-  }, [user]);
+  }, [user, refreshKey]);
 
   // Calculate stats using commission hook results
   const venteStatsComputed = useMemo(() => {
@@ -517,7 +521,7 @@ const Finance = () => {
     };
 
     fetchFrais();
-  }, [user, addFraisOpen]);
+  }, [user, addFraisOpen, refreshKey]);
 
   const handleAddFrais = async () => {
     if (!user || !newFrais.montant) {
@@ -588,9 +592,8 @@ const Finance = () => {
       setEditDialogOpen(false);
       setEditingFrais(null);
       
-      // Refresh data
-      setAddFraisOpen(prev => !prev);
-      setTimeout(() => setAddFraisOpen(false), 0);
+      // Refresh all data
+      triggerRefresh();
     } catch (err) {
       console.error("Error editing frais:", err);
       toast.error("Erreur lors de la modification");
@@ -620,9 +623,8 @@ const Finance = () => {
       setDeleteDialogOpen(false);
       setFraisToDelete(null);
       
-      // Refresh data
-      setAddFraisOpen(prev => !prev);
-      setTimeout(() => setAddFraisOpen(false), 0);
+      // Refresh all data
+      triggerRefresh();
     } catch (err) {
       console.error("Error deleting frais:", err);
       toast.error("Erreur lors de la suppression");
@@ -1305,18 +1307,8 @@ const Finance = () => {
           context="finance"
           onSuccess={() => {
             setMultiImportOpen(false);
-            // Refresh data
-            if (user) {
-              supabase
-                .from("frais")
-                .select("*")
-                .eq("user_id", user.id)
-                .order("date_frais", { ascending: false })
-                .limit(10)
-                .then(({ data }) => {
-                  if (data) setFraisData(data as FraisItem[]);
-                });
-            }
+            // Trigger full refresh of all data
+            triggerRefresh();
           }}
           onClose={() => setMultiImportOpen(false)}
         />
