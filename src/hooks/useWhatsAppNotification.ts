@@ -146,7 +146,7 @@ _Envoyé depuis DébalePro_`,
 
 Client: *{{client_name}}*
 Date: {{date}}
-Statut: Installation terminée ✅
+Statut: Installation terminée
 
 L'installation a été finalisée avec succès.
 
@@ -159,7 +159,7 @@ _Envoyé depuis DébalePro_`,
 
 Client: *{{client_name}}*
 Date: {{date}}
-Statut: Paiement reçu 💰
+Statut: Paiement reçu
 
 Le paiement a été reçu pour ce dossier.
 

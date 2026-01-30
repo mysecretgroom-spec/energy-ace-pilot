@@ -87,7 +87,7 @@ export function HejjaModeStep() {
             Mode restreint
           </p>
           <p className="text-[9px] sm:text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-0.5">
-            Bouton 🔥 en bas à gauche
+            Bouton HEJJA en bas à gauche
           </p>
         </div>
       </motion.div>

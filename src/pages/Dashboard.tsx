@@ -566,8 +566,8 @@ const Dashboard = () => {
         {/* Header avec salutation */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Bonjour 👋</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg font-bold text-foreground">Bonjour</h1>
+            <p className="text-xs text-muted-foreground">
               {format(new Date(), "EEEE d MMMM", { locale: fr })}
             </p>
           </div>

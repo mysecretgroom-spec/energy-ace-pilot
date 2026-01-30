@@ -137,7 +137,7 @@ const WorkingDaysSettings = () => {
         </Card>
 
         <p className="text-xs text-muted-foreground text-center px-4">
-          💡 La vue semaine n'affichera que les jours travaillés. La vue mois grisera les jours non travaillés.
+          La vue semaine n'affichera que les jours travaillés. La vue mois grisera les jours non travaillés.
         </p>
       </div>
 
