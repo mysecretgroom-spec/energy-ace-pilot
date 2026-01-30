@@ -6,13 +6,35 @@ import {
   X, 
   Wrench,
   Calendar,
-  Calculator
+  Calculator,
+  Phone,
+  MessageCircle,
+  Navigation,
+  Map,
+  MapPin,
+  FolderOpen,
+  Euro,
+  Trash2,
+  Loader2,
+  Car,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RdvStatus } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { RdvStatus, StatusBadge } from "@/components/ui/status-badge";
 import { RdvStatusSelector } from "./RdvStatusSelector";
+import { RegieSelector } from "./RegieSelector";
+import { ExternalVenteDialog } from "./ExternalVenteDialog";
+import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
+import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface RdvContextMenuProps {
   rdv: {
@@ -26,6 +48,15 @@ interface RdvContextMenuProps {
     typeRdv: "standard" | "external_installation";
     etudeId?: string | null;
     regieId?: string | null;
+    regieNom?: string | null;
+    regieCouleur?: string | null;
+    phone?: string | null;
+    address?: string;
+    city?: string;
+    postalCode?: string;
+    distance?: string;
+    travelTime?: string;
+    alert?: boolean;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -44,9 +75,29 @@ export function RdvContextMenu({
 }: RdvContextMenuProps) {
   const navigate = useNavigate();
   const [canClose, setCanClose] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
+  const [regieId, setRegieId] = useState(rdv.regieId);
+  const [regieNom, setRegieNom] = useState(rdv.regieNom);
+  const [regieCouleur, setRegieCouleur] = useState(rdv.regieCouleur);
+
+  // Delete functionality
+  const {
+    isDeleteDialogOpen,
+    isDeleting,
+    openDeleteDialog,
+    confirmDelete,
+    cancelDelete,
+  } = useDeleteEntity({
+    tableName: "rdv",
+    entityName: "RDV",
+    onSuccess: () => {
+      onRefresh?.();
+      onClose();
+    },
+  });
 
   // Prevent immediate close from touch release that opened the menu
-  // 500ms delay provides good balance between accidental close prevention and responsiveness
   useEffect(() => {
     if (isOpen) {
       setCanClose(false);
@@ -67,13 +118,48 @@ export function RdvContextMenu({
     onClose();
   };
 
+  const handleOpenClient = () => {
+    navigate(`/clients/${rdv.clientId}`);
+    onClose();
+  };
+
   const handleNewEtude = () => {
     navigate(`/etude/new?clientId=${rdv.clientId}&rdvId=${rdv.id}`);
     onClose();
   };
 
+  const handleCall = () => {
+    if (rdv.phone) {
+      window.open(`tel:${rdv.phone}`, "_self");
+    }
+  };
+
+  const handleWhatsApp = () => {
+    if (rdv.phone) {
+      const cleanPhone = rdv.phone.replace(/\D/g, "");
+      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
+      window.open(`https://wa.me/${frPhone}`, "_blank");
+    }
+  };
+
+  const fullAddress = [rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(",");
+  const encodedAddress = encodeURIComponent(fullAddress);
+
+  const openWaze = () => {
+    window.open(`https://waze.com/ul?q=${encodedAddress}&navigate=yes`, "_blank");
+  };
+
+  const openGoogleMaps = () => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, "_blank");
+  };
+
+  const openAppleMaps = () => {
+    window.open(`https://maps.apple.com/?q=${encodedAddress}`, "_blank");
+  };
+
   const handleExternalToggle = async () => {
     const newType = rdv.typeRdv === "external_installation" ? "standard" : "external_installation";
+    setSwitching(true);
     
     try {
       const { error } = await supabase
@@ -89,10 +175,11 @@ export function RdvContextMenu({
           : "RDV remis en standard"
       );
       onRefresh?.();
-      onClose();
     } catch (error) {
       console.error("Error updating RDV type:", error);
       toast.error("Erreur lors de la modification");
+    } finally {
+      setSwitching(false);
     }
   };
 
@@ -102,12 +189,25 @@ export function RdvContextMenu({
   };
 
   const handleStatusChange = (newStatus: RdvStatus) => {
-    // Don't close the menu here - let the WhatsApp dialog show first
-    // The menu will stay open to allow the WhatsApp confirmation
     onStatusChange?.(rdv.id, newStatus);
-    // Note: We don't call onClose() here to keep the context menu open
-    // so the WhatsAppConfirmDialog inside RdvStatusSelector can display
   };
+
+  const handleRegieChange = (newRegieId: string | null, newRegieNom: string | null, newRegieCouleur: string | null) => {
+    setRegieId(newRegieId);
+    setRegieNom(newRegieNom);
+    setRegieCouleur(newRegieCouleur);
+    onRefresh?.();
+  };
+
+  const handleCreateVente = () => {
+    setExternalVenteDialogOpen(true);
+  };
+
+  const handleDelete = () => {
+    openDeleteDialog(rdv.id);
+  };
+
+  const isExternalInstallation = rdv.typeRdv === "external_installation";
 
   return (
     <AnimatePresence>
@@ -130,97 +230,259 @@ export function RdvContextMenu({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed z-[100] bg-background rounded-t-2xl sm:rounded-2xl border-t sm:border shadow-2xl overflow-y-auto overscroll-contain safe-bottom
-              inset-x-0 bottom-0 max-h-[80vh]
-              sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md sm:w-full sm:max-h-[70vh]"
+            className="fixed z-[101] bg-background rounded-t-2xl sm:rounded-2xl border-t sm:border shadow-2xl overflow-y-auto overscroll-contain safe-bottom
+              inset-x-0 bottom-0 max-h-[85vh]
+              sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-lg sm:w-full sm:max-h-[80vh]"
           >
             {/* Handle - only on mobile */}
             <div className="flex justify-center pt-3 pb-2 sm:hidden">
               <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
             </div>
 
-            {/* Header */}
-            <div className="px-4 pb-3 pt-2 sm:pt-4 border-b flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-foreground truncate">{rdv.client}</h3>
-                <p className="text-sm text-muted-foreground">{rdv.time}</p>
+            {/* Header with client info */}
+            <div className="px-4 pb-3 pt-2 sm:pt-4 border-b">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Badge Régie */}
+                    {regieNom && (
+                      <Badge 
+                        className="text-xs px-2 py-0.5 flex items-center gap-1 rounded-full"
+                        style={{ 
+                          backgroundColor: regieCouleur ? `${regieCouleur}20` : undefined,
+                          color: regieCouleur || undefined,
+                          borderColor: regieCouleur ? `${regieCouleur}50` : undefined,
+                          borderWidth: '1px',
+                        }}
+                      >
+                        <Building2 className="h-3 w-3" />
+                        {regieNom}
+                      </Badge>
+                    )}
+                    {isExternalInstallation && (
+                      <Badge className="bg-amber-500 text-white text-xs px-2 py-0.5 flex items-center gap-1 rounded-full">
+                        <Wrench className="h-3 w-3" />
+                        Externe
+                      </Badge>
+                    )}
+                    <StatusBadge status={rdv.status} />
+                  </div>
+                  <h3 className="font-bold text-lg text-foreground truncate">{rdv.client}</h3>
+                  <p className="text-sm text-muted-foreground">{rdv.time}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="h-10 w-10 min-h-[44px] min-w-[44px] flex-shrink-0 touch-target-lg"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onClose}
-                className="h-10 w-10 min-h-[44px] min-w-[44px] flex-shrink-0 touch-target-lg"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+
+              {/* Address */}
+              {rdv.address && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg p-2.5 mt-3">
+                  <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary/70" />
+                  <span className="leading-relaxed">
+                    {[rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(", ")}
+                  </span>
+                </div>
+              )}
+
+              {/* Distance/Travel time info */}
+              {rdv.travelTime && rdv.distance && (
+                <div className={`flex items-center justify-center gap-4 py-2.5 mt-3 rounded-xl border border-dashed transition-all ${
+                  rdv.alert 
+                    ? "border-secondary bg-secondary/10" 
+                    : "border-muted-foreground/20 bg-muted/20"
+                }`}>
+                  <Car className={`h-4 w-4 ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`} />
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${rdv.alert ? "text-secondary" : "text-foreground"}`}>
+                      {rdv.travelTime}
+                    </span>
+                    <span className="text-muted-foreground/50">•</span>
+                    <span className={`text-sm font-medium ${rdv.alert ? "text-secondary" : "text-muted-foreground"}`}>
+                      {rdv.distance}
+                    </span>
+                  </div>
+                  {rdv.alert && <span className="text-secondary text-sm animate-pulse">⚠️</span>}
+                </div>
+              )}
             </div>
 
             {/* Actions */}
-            <div className="p-4 space-y-3">
-              {/* Status Selector */}
+            <div className="p-4 space-y-4">
+              {/* Quick actions row - Call, WhatsApp, GPS, Dossier */}
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  variant="outline"
+                  className="h-14 flex-col gap-1 touch-target-lg"
+                  onClick={handleCall}
+                  disabled={!rdv.phone}
+                >
+                  <Phone className="h-5 w-5" />
+                  <span className="text-xs">Appeler</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-14 flex-col gap-1 touch-target-lg"
+                  onClick={handleWhatsApp}
+                  disabled={!rdv.phone}
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="text-xs">WhatsApp</span>
+                </Button>
+
+                {/* GPS Navigation Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="default"
+                      className="h-14 flex-col gap-1 touch-target-lg bg-gradient-hero"
+                      disabled={!rdv.address}
+                    >
+                      <Navigation className="h-5 w-5" />
+                      <span className="text-xs">GPS</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-48 z-[200]">
+                    <DropdownMenuItem onClick={openWaze} className="gap-2 cursor-pointer">
+                      <Navigation className="h-4 w-4 text-[#33ccff]" />
+                      Waze
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openGoogleMaps} className="gap-2 cursor-pointer">
+                      <Map className="h-4 w-4 text-[#4285f4]" />
+                      Google Maps
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openAppleMaps} className="gap-2 cursor-pointer">
+                      <MapPin className="h-4 w-4 text-[#007aff]" />
+                      Plans (Apple)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  variant="outline"
+                  className="h-14 flex-col gap-1 touch-target-lg"
+                  onClick={handleOpenClient}
+                >
+                  <FolderOpen className="h-5 w-5" />
+                  <span className="text-xs">Dossier</span>
+                </Button>
+              </div>
+
+              {/* Status Selector - with higher z-index for dialogs */}
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Modifier le statut
                 </p>
-                <RdvStatusSelector
-                  rdvId={rdv.id}
-                  currentStatus={rdv.status}
-                  clientName={rdv.client}
-                  clientPrenom={rdv.clientPrenom}
-                  clientId={rdv.clientId}
-                  etudeId={rdv.etudeId}
-                  regieId={rdv.regieId}
-                  rdvDate={rdv.date}
-                  onStatusChange={handleStatusChange}
-                  onWhatsAppComplete={onClose}
-                />
+                <div className="[&_[data-radix-popper-content-wrapper]]:!z-[200] [&_.fixed]:!z-[200]">
+                  <RdvStatusSelector
+                    rdvId={rdv.id}
+                    currentStatus={rdv.status}
+                    clientName={rdv.client}
+                    clientPrenom={rdv.clientPrenom}
+                    clientId={rdv.clientId}
+                    etudeId={rdv.etudeId}
+                    regieId={regieId}
+                    rdvDate={rdv.date}
+                    onStatusChange={handleStatusChange}
+                    onWhatsAppComplete={onClose}
+                  />
+                </div>
               </div>
 
-              {/* Action Buttons - responsive grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+              {/* Régie Selector */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Régie
+                </p>
+                <div className="[&_[data-radix-popper-content-wrapper]]:!z-[200]">
+                  <RegieSelector
+                    rdvId={rdv.id}
+                    currentRegieId={regieId}
+                    currentRegieNom={regieNom}
+                    currentRegieCouleur={regieCouleur}
+                    onRegieChange={handleRegieChange}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons Grid */}
+              <div className="grid grid-cols-2 gap-2 pt-2">
                 <Button
                   variant="outline"
-                  className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
+                  className="h-12 flex-row gap-2 touch-target-lg"
                   onClick={handleDocuments}
                 >
-                  <FileText className="h-5 w-5 sm:h-4 sm:w-4" />
-                  <span className="text-xs">Documents</span>
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm">Documents</span>
                 </Button>
 
                 {/* Nouvelle étude - only for standard RDV */}
                 {rdv.typeRdv === "standard" && (
                   <Button
                     variant="outline"
-                    className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
+                    className="h-12 flex-row gap-2 touch-target-lg"
                     onClick={handleNewEtude}
                   >
-                    <Calculator className="h-5 w-5 sm:h-4 sm:w-4" />
-                    <span className="text-xs">Nouvelle étude</span>
+                    <Calculator className="h-4 w-4" />
+                    <span className="text-sm">Nouvelle étude</span>
                   </Button>
                 )}
 
                 <Button
                   variant="outline"
-                  className={`h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg ${
-                    rdv.typeRdv === "external_installation" 
+                  className={`h-12 flex-row gap-2 touch-target-lg ${
+                    isExternalInstallation 
                       ? "border-amber-500 bg-amber-500/10 text-amber-600" 
                       : ""
                   }`}
                   onClick={handleExternalToggle}
+                  disabled={switching}
                 >
-                  <Wrench className="h-5 w-5 sm:h-4 sm:w-4" />
-                  <span className="text-xs">
-                    {rdv.typeRdv === "external_installation" ? "Retirer externe" : "RDV Externe"}
+                  {switching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wrench className="h-4 w-4" />
+                  )}
+                  <span className="text-sm">
+                    {isExternalInstallation ? "Retirer externe" : "RDV Externe"}
                   </span>
                 </Button>
 
                 <Button
                   variant="outline"
-                  className="h-14 sm:h-12 flex-col sm:flex-row gap-1 sm:gap-2 touch-target-lg"
+                  className="h-12 flex-row gap-2 touch-target-lg"
                   onClick={handleMove}
                 >
-                  <Calendar className="h-5 w-5 sm:h-4 sm:w-4" />
-                  <span className="text-xs">Déplacer le RDV</span>
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-sm">Déplacer</span>
+                </Button>
+
+                {/* Créer vente - for external installation */}
+                {isExternalInstallation && (
+                  <Button
+                    variant="default"
+                    className="h-12 flex-row gap-2 touch-target-lg bg-amber-500 hover:bg-amber-600"
+                    onClick={handleCreateVente}
+                  >
+                    <Euro className="h-4 w-4" />
+                    <span className="text-sm">Créer la vente</span>
+                  </Button>
+                )}
+
+                {/* Delete button */}
+                <Button
+                  variant="outline"
+                  className="h-12 flex-row gap-2 touch-target-lg text-destructive hover:bg-destructive/10"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="text-sm">Supprimer</span>
                 </Button>
               </div>
             </div>
@@ -228,6 +490,35 @@ export function RdvContextMenu({
             {/* Safe area padding for iOS */}
             <div className="h-6" />
           </motion.div>
+
+          {/* External Vente Dialog - higher z-index */}
+          <div className="[&_.fixed]:!z-[200]">
+            <ExternalVenteDialog
+              open={externalVenteDialogOpen}
+              onOpenChange={setExternalVenteDialogOpen}
+              clientId={rdv.clientId}
+              clientName={rdv.client}
+              rdvId={rdv.id}
+              rdvDate={rdv.date.toISOString().split("T")[0]}
+              regieId={regieId}
+              onSuccess={() => {
+                onRefresh?.();
+                onClose();
+              }}
+            />
+          </div>
+
+          {/* Delete Confirmation Dialog - higher z-index */}
+          <div className="[&_.fixed]:!z-[200]">
+            <DeleteConfirmDialog
+              open={isDeleteDialogOpen}
+              onOpenChange={cancelDelete}
+              onConfirm={confirmDelete}
+              title="Supprimer ce RDV ?"
+              description={`Le rendez-vous avec ${rdv.client} sera supprimé définitivement.`}
+              isLoading={isDeleting}
+            />
+          </div>
         </>
       )}
     </AnimatePresence>

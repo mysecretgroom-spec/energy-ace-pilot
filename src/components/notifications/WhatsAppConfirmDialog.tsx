@@ -53,7 +53,7 @@ export function WhatsAppConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="z-[200]" overlayClassName="z-[199]">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-green-500" />
