@@ -381,9 +381,9 @@ export function RdvStatusSelector({
         </SelectContent>
       </Select>
 
-      {/* R2 Date/Time Dialog */}
+      {/* R2 Date/Time Dialog - higher z-index for context menu overlay */}
       <Dialog open={showR2Dialog} onOpenChange={setShowR2Dialog}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] z-[200]">
           <DialogHeader>
             <DialogTitle>
               Planifier le RDV {pendingR2Status === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
@@ -406,7 +406,7 @@ export function RdvStatusSelector({
                     {r2Date ? format(r2Date, "PPP", { locale: fr }) : "Sélectionner une date"}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-[250]" align="start">
                   <Calendar
                     mode="single"
                     selected={r2Date}
