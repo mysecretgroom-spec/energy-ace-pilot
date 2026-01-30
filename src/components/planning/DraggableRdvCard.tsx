@@ -24,7 +24,7 @@ interface DraggableRdvCardProps {
 }
 
 export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps>(
-  function DraggableRdvCard(
+  function DraggableRdvCardInner(
     {
       id,
       time,
@@ -213,3 +213,5 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
     );
   }
 );
+
+DraggableRdvCard.displayName = "DraggableRdvCard";
