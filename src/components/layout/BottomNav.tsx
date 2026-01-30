@@ -17,12 +17,12 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
     const location = useLocation();
 
     return (
-      <nav ref={ref} className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border safe-bottom" {...props}>
+      <nav ref={ref} className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border/60 safe-bottom" {...props}>
         {/* Background jobs indicator - fixed top right of nav */}
         <div className="absolute -top-10 right-2">
           <BackgroundJobsIndicator />
         </div>
-        <div className="flex items-center justify-around h-[72px] max-w-lg mx-auto px-1">
+        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
           {navItems.map(({ icon: Icon, label, path }) => {
             const isActive = location.pathname === path;
             return (
@@ -30,27 +30,27 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                 key={path}
                 to={path}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 flex-1 py-3 px-2 rounded-xl transition-all duration-200 active:scale-90 touch-action-manipulation",
+                  "relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 px-1 rounded-lg transition-all duration-150 active:scale-95 touch-action-manipulation",
                   isActive
                     ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground active:text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <div className={cn(
-                  "flex items-center justify-center w-12 h-8 rounded-full transition-all duration-200",
+                  "flex items-center justify-center w-10 h-7 rounded-md transition-all duration-150",
                   isActive && "bg-primary/10"
                 )}>
                   <Icon
                     className={cn(
-                      "h-6 w-6 transition-transform duration-200",
+                      "h-5 w-5 transition-transform duration-150",
                       isActive && "scale-105"
                     )}
-                    strokeWidth={isActive ? 2.5 : 1.8}
+                    strokeWidth={isActive ? 2.25 : 1.75}
                   />
                 </div>
                 <span
                   className={cn(
-                    "text-[11px] font-medium transition-all duration-200",
+                    "text-[10px] font-medium tracking-tight transition-all duration-150",
                     isActive && "font-semibold text-primary"
                   )}
                 >

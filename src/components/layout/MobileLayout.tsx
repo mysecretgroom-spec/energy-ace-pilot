@@ -35,19 +35,19 @@ export const MobileLayout = ({
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       {title && (
-        <header className="sticky top-0 z-40 glass border-b border-border safe-top">
-          <div className="flex items-center h-16 px-4">
+        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border/60 safe-top">
+          <div className="flex items-center h-14 px-4">
             {showBackButton && (
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="mr-2 h-12 w-12 min-h-[48px] min-w-[48px]"
+                className="mr-2 h-10 w-10 min-h-[40px] min-w-[40px] rounded-lg"
                 onClick={() => navigate(-1)}
               >
-                <ArrowLeft className="h-6 w-6" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
             )}
-            <h1 className={`text-lg font-display font-semibold text-foreground ${!showBackButton ? 'flex-1 text-center' : 'flex-1'}`}>
+            <h1 className={`font-display text-base font-semibold text-foreground tracking-tight ${!showBackButton ? 'flex-1 text-center' : 'flex-1'}`}>
               {title}
             </h1>
             {shouldShowRGECard ? (

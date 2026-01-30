@@ -1,14 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* DébalePro Design System - Premium Mobile CRM for ENR Sales */
+/* DébalePro Design System - Corporate Professional */
 @layer base {
   :root {
-    /* Fond clair premium */
-    --background: 210 20% 98%;
+    /* Fond clair professionnel */
+    --background: 220 14% 97%;
     --foreground: 222 47% 11%;
 
     /* Surfaces */
@@ -25,24 +25,24 @@
     --secondary: 40 90% 50%;
     --secondary-foreground: 30 60% 15%;
 
-    /* Gris neutres */
-    --muted: 210 15% 95%;
-    --muted-foreground: 215 16% 47%;
+    /* Gris neutres - plus subtils */
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;
 
     /* Accent slate */
-    --accent: 215 20% 93%;
+    --accent: 220 14% 93%;
     --accent-foreground: 222 47% 11%;
 
     /* États */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Bordures */
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
+    /* Bordures - plus légères et professionnelles */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 152 60% 40%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
     /* Statuts RDV */
     --status-new: 210 100% 50%;
@@ -51,27 +51,28 @@
     --status-r2-prestudy: 175 70% 40%;
     --status-signed: 142 76% 36%;
     --status-negative: 0 72% 51%;
-    --status-cancelled: 215 16% 47%;
+    --status-cancelled: 220 9% 46%;
 
     /* Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(152 60% 40%) 0%, hsl(175 70% 40%) 100%);
     --gradient-premium: linear-gradient(135deg, hsl(40 90% 50%) 0%, hsl(30 90% 45%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(215 28% 17%) 100%);
 
-    /* Ombres */
-    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
-    --shadow-card: 0 2px 8px -2px hsl(222 47% 11% / 0.08), 0 4px 16px -4px hsl(222 47% 11% / 0.12);
+    /* Ombres - plus subtiles et professionnelles */
+    --shadow-xs: 0 1px 2px 0 hsl(222 47% 11% / 0.03);
+    --shadow-sm: 0 1px 3px 0 hsl(222 47% 11% / 0.04), 0 1px 2px -1px hsl(222 47% 11% / 0.02);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.06), 0 2px 4px -2px hsl(222 47% 11% / 0.04);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.06), 0 4px 6px -4px hsl(222 47% 11% / 0.04);
+    --shadow-card: 0 1px 3px 0 hsl(222 47% 11% / 0.04), 0 1px 2px -1px hsl(222 47% 11% / 0.02);
 
     /* Sidebar (pour compatibilité) */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 152 60% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 15% 95%;
+    --sidebar-accent: 220 14% 95%;
     --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 20% 90%;
+    --sidebar-border: 220 13% 91%;
     --sidebar-ring: 152 60% 40%;
   }
 
@@ -139,9 +140,35 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'DM Sans', system-ui, sans-serif;
-    font-size: 16px;
-    line-height: 1.5;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    letter-spacing: -0.011em;
+  }
+
+  /* Professional typography hierarchy */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  h1 {
+    @apply text-2xl sm:text-3xl font-bold;
+    letter-spacing: -0.025em;
+  }
+
+  h2 {
+    @apply text-xl sm:text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply text-lg sm:text-xl font-semibold;
+  }
+
+  h4 {
+    @apply text-base sm:text-lg font-medium;
   }
 
   /* Mobile optimizations */
@@ -218,9 +245,9 @@
     @apply bg-[hsl(var(--status-cancelled))] text-white;
   }
 
-  /* Glass effect */
+  /* Glass effect - more subtle for professional look */
   .glass {
-    @apply bg-card/80 backdrop-blur-md;
+    @apply bg-background/95 backdrop-blur-sm;
   }
 
   /* Gradient backgrounds */
@@ -238,21 +265,38 @@
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
+  
+  .shadow-xs {
+    box-shadow: var(--shadow-xs);
+  }
 
   /* Touch-friendly */
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
   }
 
-  /* Animation utilities */
+  /* Professional typography utilities */
+  .text-label {
+    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+  }
+  
+  .text-value {
+    @apply text-lg font-semibold tracking-tight text-foreground;
+  }
+  
+  .text-caption {
+    @apply text-sm text-muted-foreground leading-relaxed;
+  }
+
+  /* Animation utilities - faster for professional feel */
   .animate-slide-up {
-    animation: slideUp 0.3s ease-out;
+    animation: slideUp 0.2s ease-out;
   }
 
   @keyframes slideUp {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -261,7 +305,7 @@
   }
 
   .animate-fade-in {
-    animation: fadeIn 0.2s ease-out;
+    animation: fadeIn 0.15s ease-out;
   }
 
   @keyframes fadeIn {
