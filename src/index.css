@@ -141,13 +141,13 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 1.5;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-    letter-spacing: -0.011em;
+    letter-spacing: -0.006em;
   }
 
-  /* Professional typography hierarchy */
+  /* Compact professional typography hierarchy */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
     letter-spacing: -0.02em;
@@ -155,20 +155,20 @@
   }
 
   h1 {
-    @apply text-2xl sm:text-3xl font-bold;
+    @apply text-lg sm:text-xl font-bold;
     letter-spacing: -0.025em;
   }
 
   h2 {
-    @apply text-xl sm:text-2xl font-semibold;
+    @apply text-base sm:text-lg font-semibold;
   }
 
   h3 {
-    @apply text-lg sm:text-xl font-semibold;
+    @apply text-sm sm:text-base font-semibold;
   }
 
   h4 {
-    @apply text-base sm:text-lg font-medium;
+    @apply text-sm font-medium;
   }
 
   /* Mobile optimizations */
@@ -198,16 +198,16 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  /* Better touch targets - only for primary interactive elements */
+  /* Compact touch targets for professional UI */
   button:not(.touch-compact), 
   [role="button"]:not(.touch-compact) {
-    min-height: 44px;
-    min-width: 44px;
+    min-height: 36px;
+    min-width: 36px;
   }
 
   /* Touch-optimized interactive elements */
   .touch-target-lg {
-    @apply min-h-[48px] min-w-[48px];
+    @apply min-h-[44px] min-w-[44px];
   }
 
   /* Prevent accidental double-tap zoom */
@@ -272,23 +272,32 @@
 
   /* Touch-friendly */
   .touch-target {
-    @apply min-h-[44px] min-w-[44px];
+    @apply min-h-[40px] min-w-[40px];
   }
 
   /* Professional typography utilities */
   .text-label {
-    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+    @apply text-[10px] font-medium uppercase tracking-wider text-muted-foreground;
   }
   
   .text-value {
-    @apply text-lg font-semibold tracking-tight text-foreground;
+    @apply text-sm font-semibold tracking-tight text-foreground;
   }
   
   .text-caption {
-    @apply text-sm text-muted-foreground leading-relaxed;
+    @apply text-xs text-muted-foreground leading-relaxed;
   }
 
-  /* Animation utilities - faster for professional feel */
+  /* Compact section headers like EtudeForm */
+  .section-header {
+    @apply flex items-center gap-1.5 text-xs font-semibold;
+  }
+
+  .section-header-icon {
+    @apply h-3.5 w-3.5;
+  }
+
+  /* Animation utilities */
   .animate-slide-up {
     animation: slideUp 0.2s ease-out;
   }
