@@ -102,6 +102,7 @@ type WorkflowState =
   | "awaiting_document_type_confirmation" // NOUVEAU: En attente de confirmation du type de document (facture vs doc client)
   | "awaiting_document_client_selection" // En attente de validation du client pour un document
   | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
+  | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
   | null;
 
@@ -180,6 +181,8 @@ interface PendingAction {
     factureStorageUrl?: string;     // URL du fichier uploadé
     selectedClientId?: string | null;     // Client sélectionné pour le frais
     selectedClientName?: string | null;   // Nom du client sélectionné
+    // Pour les doublons
+    forceDuplicate?: boolean;       // Force l'import malgré un doublon détecté
   };
   createdAt: string;
 }
@@ -4818,17 +4821,22 @@ async function handlePendingWorkflow(
           return descMatch;
         });
         
-        if (isDuplicate) {
-          // Delete from staging storage since we're not processing it
-          await supabase.storage
-            .from("staging-uploads")
-            .remove([storagePath!]);
-          
+        if (isDuplicate && !collectedData.forceDuplicate) {
+          // Ask for confirmation instead of canceling
           return {
             intent: "import_facture",
-            actionTaken: "duplicate_detected",
-            newPendingAction: null,
-            responseMessage: `⚠️ *Doublon détecté !*\n\nUne note de frais similaire existe déjà:\n💰 ${montant}€\n📅 ${dateStr}\n🏢 ${fournisseur || "N/A"}\n\nL'import a été annulé.`,
+            actionTaken: "awaiting_duplicate_confirmation",
+            newPendingAction: {
+              intent: "import_facture",
+              entities: {},
+              collectedData: {
+                ...collectedData,
+                forceDuplicate: true, // Will force import when user confirms
+              },
+              workflowState: "awaiting_duplicate_confirmation",
+              createdAt: new Date().toISOString(),
+            },
+            responseMessage: `⚠️ *Doublon potentiel détecté !*\n\nUne note de frais similaire existe déjà:\n💰 ${montant}€\n📅 ${dateStr}\n🏢 ${fournisseur || "N/A"}\n\n*Veux-tu quand même l'enregistrer ?* (Oui/Non)`,
           };
         }
         
@@ -5107,6 +5115,57 @@ async function handlePendingWorkflow(
           collectedData,
         },
         responseMessage: nextQuestion,
+      };
+    }
+    
+    case "awaiting_duplicate_confirmation": {
+      // User is confirming whether to import a detected duplicate
+      const collectedData = pendingAction.collectedData || {};
+      
+      // Check for confirmation
+      const confirmPatterns = ["oui", "ok", "confirme", "valide", "yes", "c'est bon", "d'accord", "go"];
+      const cancelPatterns = ["non", "annule", "cancel", "stop", "abandonne"];
+      
+      const isConfirmed = confirmPatterns.some(p => messageLower.includes(p));
+      const isCancelled = cancelPatterns.some(p => messageLower === p || messageLower.startsWith(p + " "));
+      
+      if (isCancelled && !isConfirmed) {
+        // User cancelled - delete from staging
+        const storagePath = collectedData.stagingPath;
+        if (storagePath) {
+          await supabase.storage
+            .from("staging-uploads")
+            .remove([storagePath]);
+        }
+        
+        return {
+          intent: "cancel_action",
+          actionTaken: "duplicate_import_cancelled",
+          newPendingAction: null,
+          responseMessage: "❌ Import annulé. La note de frais n'a pas été enregistrée.",
+        };
+      }
+      
+      if (isConfirmed) {
+        // User confirmed - redirect to facture confirmation workflow
+        // The collectedData already has forceDuplicate: true set
+        return {
+          intent: "import_facture",
+          actionTaken: "duplicate_confirmed",
+          newPendingAction: {
+            ...pendingAction,
+            workflowState: "awaiting_facture_confirmation",
+          },
+          responseMessage: "✅ Entendu, je procède à l'enregistrement...",
+        };
+      }
+      
+      // Unclear response - ask again
+      return {
+        intent: "import_facture",
+        actionTaken: "awaiting_duplicate_confirmation",
+        newPendingAction: pendingAction,
+        responseMessage: "Je n'ai pas compris. *Veux-tu enregistrer cette note de frais malgré le doublon ?* (Oui/Non)",
       };
     }
     
