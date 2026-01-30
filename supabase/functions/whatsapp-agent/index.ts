@@ -243,6 +243,80 @@ interface BatchFileResult {
   analysisResult?: DocumentAnalysisResult;
   uploadedUrl?: string;
   error?: string;
+  // Error fallback info
+  fallbackUrl?: string;       // Deep link to app function
+  errorType?: "upload" | "analysis" | "download" | "size" | "unknown";
+}
+
+// App deep link base URL (published app)
+const APP_BASE_URL = "https://energy-ace-pilot.lovable.app";
+
+// Generate deep link to specific app function
+function generateAppDeepLink(
+  page: "finance" | "client-documents" | "scanner",
+  params?: Record<string, string>
+): string {
+  let path = "";
+  switch (page) {
+    case "finance":
+      path = "/finance?tab=frais";
+      break;
+    case "client-documents":
+      // Redirect to client detail with documents tab if clientId provided
+      if (params?.clientId) {
+        path = `/client/${params.clientId}?tab=documents`;
+      } else {
+        // Generic scanner page for document import
+        path = "/";
+      }
+      break;
+    case "scanner":
+      path = "/";
+      break;
+    default:
+      path = "/";
+  }
+  return `${APP_BASE_URL}${path}`;
+}
+
+// Format upload error with fallback link
+function formatUploadErrorWithFallback(
+  filename: string,
+  errorType: "upload" | "analysis" | "download" | "size" | "unknown",
+  documentType: "finance" | "client_docs",
+  errorMessage?: string
+): { message: string; fallbackUrl: string } {
+  const fallbackUrl = generateAppDeepLink(documentType === "finance" ? "finance" : "scanner");
+  
+  let message = "";
+  switch (errorType) {
+    case "upload":
+      message = `Échec de l'upload de "${filename}". `;
+      break;
+    case "download":
+      message = `Impossible de télécharger "${filename}". `;
+      break;
+    case "size":
+      message = `Fichier "${filename}" trop volumineux. `;
+      break;
+    case "analysis":
+      message = `Échec de l'analyse de "${filename}". `;
+      break;
+    default:
+      message = `Erreur lors du traitement de "${filename}". `;
+  }
+  
+  if (errorMessage) {
+    message += `(${errorMessage}) `;
+  }
+  
+  const actionLabel = documentType === "finance" 
+    ? "ajouter le frais manuellement" 
+    : "importer le document manuellement";
+  
+  message += `Tu peux ${actionLabel} directement dans l'app : ${fallbackUrl}`;
+  
+  return { message, fallbackUrl };
 }
 
 // Constants for file handling
@@ -1847,11 +1921,35 @@ serve(async (req) => {
             };
           } catch (err) {
             console.error(`Error processing WhatsApp file ${actualIdx + 1}:`, err);
+            const errMessage = err instanceof Error ? err.message : "Unknown error";
+            
+            // Determine error type for better fallback message
+            let errorType: "upload" | "analysis" | "download" | "size" | "unknown" = "unknown";
+            if (errMessage.toLowerCase().includes("upload")) {
+              errorType = "upload";
+            } else if (errMessage.toLowerCase().includes("download") || errMessage.toLowerCase().includes("fetch")) {
+              errorType = "download";
+            } else if (errMessage.toLowerCase().includes("size") || errMessage.toLowerCase().includes("volumineux")) {
+              errorType = "size";
+            } else if (errMessage.toLowerCase().includes("analysis") || errMessage.toLowerCase().includes("analyse")) {
+              errorType = "analysis";
+            }
+            
+            // Generate fallback URL based on detected type (default to client_docs)
+            const fallback = formatUploadErrorWithFallback(
+              filename,
+              errorType,
+              "client_docs", // Will be updated if we know better
+              errMessage
+            );
+            
             return {
               filename,
               success: false,
               type: "client_docs",
-              error: err instanceof Error ? err.message : "Unknown error",
+              error: errMessage,
+              errorType,
+              fallbackUrl: fallback.fallbackUrl,
             };
           }
         });
@@ -1865,11 +1963,14 @@ serve(async (req) => {
       
       // Build summary for AI context
       const successCount = batchResults.filter(r => r.success).length;
+      const failedCount = batchResults.filter(r => !r.success).length;
       const financeCount = batchResults.filter(r => r.success && r.type === "finance").length;
       const docCount = batchResults.filter(r => r.success && r.type === "client_docs").length;
       
+      let batchSummary = "";
+      
       if (successCount > 0) {
-        let batchSummary = `[Lot de ${successCount} fichiers analysés: `;
+        batchSummary = `[Lot de ${successCount} fichiers analysés: `;
         
         if (financeCount > 0) {
           const financeDetails = batchResults
@@ -1897,6 +1998,28 @@ serve(async (req) => {
         }
         
         batchSummary += "]";
+      }
+      
+      // Add error summary with fallback links if any failed
+      if (failedCount > 0) {
+        const failedFiles = batchResults.filter(r => !r.success);
+        const errorSummary = failedFiles
+          .map(f => {
+            const fallback = formatUploadErrorWithFallback(
+              f.filename,
+              f.errorType || "unknown",
+              f.type,
+              f.error
+            );
+            return `- ${f.filename}: ${fallback.message}`;
+          })
+          .join("\n");
+        
+        batchSummary += batchSummary ? "\n\n" : "";
+        batchSummary += `[ÉCHEC pour ${failedCount} fichier(s) - import manuel requis:\n${errorSummary}]`;
+      }
+      
+      if (batchSummary) {
         processedContent = request.content ? `${request.content}\n\n${batchSummary}` : batchSummary;
       }
     }
