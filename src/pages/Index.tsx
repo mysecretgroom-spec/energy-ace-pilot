@@ -81,8 +81,8 @@ const Index = () => {
             <p className="text-sm text-muted-foreground capitalize">
               {currentDate}
             </p>
-            <h1 className="text-2xl font-display font-bold text-foreground">
-              Bonjour 👋
+            <h1 className="text-xl font-display font-bold text-foreground">
+              Bonjour
             </h1>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-hero">

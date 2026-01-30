@@ -1123,7 +1123,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
               </div>
               
               <p className="text-xs text-muted-foreground">
-                💡 Cliquez sur une vente pour la modifier (ajouter décom, etc.)
+                Cliquez sur une vente pour la modifier (ajouter décom, etc.)
               </p>
 
               {/* Addable ventes section */}

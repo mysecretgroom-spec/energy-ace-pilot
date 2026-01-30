@@ -20,17 +20,17 @@ interface WhatsAppConfirmDialogProps {
 }
 
 const classificationLabels: Record<string, string> = {
-  positif: "Positif ✅",
-  negatif: "Négatif ❌",
-  r2: "R2 - Second RDV 🔄",
-  r2_prestudy: "R2 Pré-étude 📋",
-  attente: "En attente ⏳",
-  reporte: "Reporté 📅",
-  nouveau: "Nouveau 🆕",
-  annule: "Annulé 🚫",
+  positif: "Positif",
+  negatif: "Négatif",
+  r2: "R2 - Second RDV",
+  r2_prestudy: "R2 Pré-étude",
+  attente: "En attente",
+  reporte: "Reporté",
+  nouveau: "Nouveau",
+  annule: "Annulé",
   // Vente-specific
-  installe: "Installation terminée ✅",
-  paye: "Paiement reçu 💰",
+  installe: "Installation terminée",
+  paye: "Paiement reçu",
 };
 
 export function WhatsAppConfirmDialog({

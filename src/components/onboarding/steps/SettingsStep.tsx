@@ -106,7 +106,7 @@ export function SettingsStep() {
       {/* Tip - compact on mobile */}
       <div className="p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-amber-500/10 border border-amber-500/20">
         <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-          💡 Configurez vos régies pour attribuer les RDV et suivre vos commissions.
+          Configurez vos régies pour attribuer les RDV et suivre vos commissions.
         </p>
       </div>
     </div>

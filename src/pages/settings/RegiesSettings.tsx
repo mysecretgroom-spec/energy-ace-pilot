@@ -1386,7 +1386,7 @@ const RegiesSettings = () => {
                     <Card className="bg-muted/50 border-dashed">
                       <CardContent className="p-3">
                         <p className="text-xs text-muted-foreground text-center">
-                          💡 Le contact <strong>Principal</strong> recevra les messages WhatsApp automatiques lors des changements de statut.
+                          Le contact <strong>Principal</strong> recevra les messages WhatsApp automatiques lors des changements de statut.
                         </p>
                       </CardContent>
                     </Card>

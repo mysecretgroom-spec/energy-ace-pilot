@@ -408,7 +408,7 @@ export function ProductSurcoutsSection({
       <Card className="bg-muted/50 border-dashed">
         <CardContent className="p-3">
           <p className="text-xs text-muted-foreground text-center">
-            💡 Les surcoûts sont proposés automatiquement lors de la création des études selon le type de produit sélectionné.
+            Les surcoûts sont proposés automatiquement lors de la création des études selon le type de produit sélectionné.
           </p>
         </CardContent>
       </Card>
