@@ -162,6 +162,7 @@ interface PendingAction {
     // Pour l'import de documents
     pendingDocumentId?: string;     // ID du document en attente
     documentStorageUrl?: string;    // URL du fichier uploadé
+    stagingPath?: string;           // Chemin dans le bucket staging-uploads
     documentFilename?: string;      // Nom du fichier
     documentType?: string;          // Type de document détecté
     documentMimeType?: string;      // Type MIME
@@ -3811,7 +3812,9 @@ async function handlePendingWorkflow(
           const pendingDocId = pendingAction.collectedData.pendingDocumentId;
           const documentFilename = pendingAction.collectedData.documentFilename || "document";
           const documentType = pendingAction.collectedData.documentType || "autre";
-          const storagePath = extractStoragePathFromUrl(pendingAction.collectedData.documentStorageUrl || "", "pending-documents");
+          // Use stagingPath directly from collectedData, or extract from URL
+          const storagePath = pendingAction.collectedData.stagingPath || 
+            extractStoragePathFromUrl(pendingAction.collectedData.documentStorageUrl || "", "staging-uploads");
           
           if (!newClientName || newClientName.length < 2) {
             return {
@@ -3851,13 +3854,13 @@ async function handlePendingWorkflow(
             const clientId = newClient.id;
             console.log(`Created new client "${newClientName}" with ID: ${clientId}`);
             
-            // Download file from pending-documents bucket
+            // Download file from staging-uploads bucket (NOT pending-documents)
             const { data: fileData, error: downloadError } = await supabase.storage
-              .from("pending-documents")
+              .from("staging-uploads")
               .download(storagePath);
             
             if (downloadError || !fileData) {
-              console.error("Error downloading from pending:", downloadError);
+              console.error("Error downloading from staging:", downloadError);
               throw new Error("Download failed");
             }
             
@@ -3919,9 +3922,9 @@ async function handlePendingWorkflow(
               })
               .eq("id", pendingDocId);
             
-            // Delete from pending storage
+            // Delete from staging storage
             await supabase.storage
-              .from("pending-documents")
+              .from("staging-uploads")
               .remove([storagePath]);
             
             // Log action
@@ -4418,8 +4421,10 @@ async function handlePendingWorkflow(
       const selectedClientId = selectedChoice.id;
       const selectedClientName = selectedChoice.label;
       
-      // Download file from pending-documents bucket
-      const storagePath = extractStoragePathFromUrl(pendingAction.collectedData?.documentStorageUrl || "", "pending-documents");
+      // Download file from staging-uploads bucket (files are uploaded there via uploadToStagingBucket)
+      // The staging_storage_path in pending_documents points to staging-uploads, NOT pending-documents
+      const storagePath = pendingAction.collectedData?.stagingPath || 
+        extractStoragePathFromUrl(pendingAction.collectedData?.documentStorageUrl || "", "staging-uploads");
       
       if (!storagePath) {
         return {
@@ -4431,13 +4436,13 @@ async function handlePendingWorkflow(
       }
       
       try {
-        // Get file from pending-documents bucket
+        // Get file from staging-uploads bucket (NOT pending-documents)
         const { data: fileData, error: downloadError } = await supabase.storage
-          .from("pending-documents")
+          .from("staging-uploads")
           .download(storagePath);
         
         if (downloadError || !fileData) {
-          console.error("Error downloading from pending:", downloadError);
+          console.error("Error downloading from staging:", downloadError);
           throw new Error("Download failed");
         }
         
@@ -4499,9 +4504,9 @@ async function handlePendingWorkflow(
           })
           .eq("id", pendingDocId);
         
-        // Delete from pending storage
+        // Delete from staging storage
         await supabase.storage
-          .from("pending-documents")
+          .from("staging-uploads")
           .remove([storagePath]);
         
         // Log action
@@ -4763,16 +4768,18 @@ async function handlePendingWorkflow(
       }
       
       // User confirmed - create the frais record
-      const storagePath = extractStoragePathFromUrl(collectedData.factureStorageUrl || "", "pending-documents");
+      // Files are stored in staging-uploads, NOT pending-documents
+      const storagePath = collectedData.stagingPath || 
+        extractStoragePathFromUrl(collectedData.factureStorageUrl || "", "staging-uploads");
       
       try {
-        // Download from pending-documents and upload to receipts bucket
+        // Download from staging-uploads and upload to receipts bucket
         const { data: fileData, error: downloadError } = await supabase.storage
-          .from("pending-documents")
+          .from("staging-uploads")
           .download(storagePath!);
         
         if (downloadError || !fileData) {
-          console.error("Error downloading facture from pending:", downloadError);
+          console.error("Error downloading facture from staging:", downloadError);
           throw new Error("Download failed");
         }
         
@@ -4838,9 +4845,9 @@ async function handlePendingWorkflow(
           })
           .eq("id", pendingDocId);
         
-        // Delete from pending storage
+        // Delete from staging storage
         await supabase.storage
-          .from("pending-documents")
+          .from("staging-uploads")
           .remove([storagePath!]);
         
         // Log the action
@@ -7427,6 +7434,7 @@ async function executeAction(
           collectedData: {
             pendingDocumentId: pendingDoc.id,
             documentStorageUrl: stagingUrl || undefined,
+            stagingPath: stagingPath,  // Store the staging path for download later
             documentFilename: originalFilename,
             documentType: documentType,
             documentMimeType: mediaData?.contentType,
@@ -7511,6 +7519,7 @@ async function executeAction(
         collectedData: {
           pendingDocumentId: pendingDoc.id,
           documentStorageUrl: stagingUrl || undefined,
+          stagingPath: stagingPath,  // Store the staging path for download later
           documentFilename: originalFilename,
           documentType: documentType,
           documentMimeType: mediaData?.contentType,
@@ -7637,6 +7646,7 @@ async function executeAction(
         collectedData: {
           pendingDocumentId: pendingDoc.id,
           factureStorageUrl: stagingUrl || undefined,
+          stagingPath: stagingPath,  // Store the staging path for download later
           documentFilename: originalFilename,
           documentMimeType: mediaData?.contentType,
           documentSizeBytes: mediaData?.sizeBytes,
