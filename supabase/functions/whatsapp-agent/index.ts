@@ -1636,7 +1636,7 @@ serve(async (req) => {
               );
             }
             
-            // Upload to pending-documents bucket
+            // Upload to pending-documents bucket (private bucket - use signed URLs)
             const uploadPath = `${request.userId}/${Date.now()}_${fileInfo.name}`;
             const { error: uploadError } = await supabase.storage
               .from("pending-documents")
@@ -1649,16 +1649,17 @@ serve(async (req) => {
               throw new Error(`Upload failed: ${uploadError.message}`);
             }
             
-            const { data: urlData } = supabase.storage
+            // pending-documents is a PRIVATE bucket - use signed URL instead of public URL
+            const { data: urlData } = await supabase.storage
               .from("pending-documents")
-              .getPublicUrl(uploadPath);
+              .createSignedUrl(uploadPath, 60 * 60 * 24); // 24h validity
             
             return {
               filename: fileInfo.name,
               success: true,
               type: analysisContext,
               analysisResult: analysisResult || undefined,
-              uploadedUrl: urlData?.publicUrl,
+              uploadedUrl: urlData?.signedUrl || uploadPath, // Fallback to path
             };
           } catch (err) {
             console.error(`Error processing ${fileInfo.name}:`, err);
@@ -1815,7 +1816,7 @@ serve(async (req) => {
               );
             }
             
-            // Upload to pending-documents bucket
+            // Upload to pending-documents bucket (private bucket - use signed URLs)
             const uploadPath = `${request.userId}/${Date.now()}_${fileMediaData.filename}`;
             const { error: uploadError } = await supabase.storage
               .from("pending-documents")
@@ -1828,16 +1829,17 @@ serve(async (req) => {
               throw new Error(`Upload failed: ${uploadError.message}`);
             }
             
-            const { data: urlData } = supabase.storage
+            // pending-documents is a PRIVATE bucket - use signed URL instead of public URL
+            const { data: urlData } = await supabase.storage
               .from("pending-documents")
-              .getPublicUrl(uploadPath);
+              .createSignedUrl(uploadPath, 60 * 60 * 24); // 24h validity
             
             return {
               filename: fileMediaData.filename,
               success: true,
               type: analysisContext,
               analysisResult: analysisResult || undefined,
-              uploadedUrl: urlData?.publicUrl,
+              uploadedUrl: urlData?.signedUrl || uploadPath, // Fallback to path
             };
           } catch (err) {
             console.error(`Error processing WhatsApp file ${actualIdx + 1}:`, err);
@@ -3112,9 +3114,9 @@ async function uploadMediaToStorage(
     throw new Error(`Failed to upload: ${uploadError.message}`);
   }
 
-  // For staging bucket, use signed URL (private bucket)
-  // For other buckets, check if they're public
-  if (actualBucket === "staging-uploads" || actualBucket === "documents") {
+  // For private buckets, use signed URL
+  // Only 'receipts' is public - all other buckets are private
+  if (actualBucket === "staging-uploads" || actualBucket === "documents" || actualBucket === "pending-documents") {
     // Private buckets - use signed URL
     const { data: urlData } = await supabase.storage
       .from(actualBucket)
@@ -3125,7 +3127,7 @@ async function uploadMediaToStorage(
     }
     return urlData.signedUrl;
   } else {
-    // Public buckets (receipts, pending-documents) - use public URL
+    // Public buckets (receipts only) - use public URL
     const { data: urlData } = supabase.storage
       .from(actualBucket)
       .getPublicUrl(filePath);
