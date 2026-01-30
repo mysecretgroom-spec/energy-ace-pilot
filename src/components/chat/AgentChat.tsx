@@ -458,6 +458,7 @@ export function AgentChat() {
         const fileExt = pending.file.name.split(".").pop()?.toLowerCase() || "bin";
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         // Path must be user_id/... to match RLS policy: (auth.uid())::text = (storage.foldername(name))[1]
+        // Use staging-uploads bucket for agent uploads - it's designed for temporary staging
         const filePath = `${currentUserId}/agent-uploads/${fileName}`;
 
         // Normalize content type - browser sometimes sends wrong MIME for uppercase extensions
@@ -475,10 +476,10 @@ export function AgentChat() {
           contentType = mimeMap[fileExt] || "application/octet-stream";
         }
 
-        console.log(`[AgentChat] Uploading ${pending.file.name} to documents/${filePath}, contentType=${contentType}`);
+        console.log(`[AgentChat] Uploading ${pending.file.name} to staging-uploads/${filePath}, contentType=${contentType}`);
 
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("documents")
+          .from("staging-uploads")
           .upload(filePath, pending.file, {
             contentType,
             cacheControl: "3600",
@@ -493,17 +494,18 @@ export function AgentChat() {
         console.log(`[AgentChat] Upload successful for ${pending.file.name}:`, uploadData);
 
         // Get signed URL with retry logic (sometimes there's propagation delay)
+        // Note: staging-uploads is private, so we need signed URLs
         let signedUrl: string | null = null;
         let lastError: Error | null = null;
         
         for (let attempt = 0; attempt < 3; attempt++) {
           if (attempt > 0) {
             console.log(`[AgentChat] Retrying signed URL (attempt ${attempt + 1}/3)...`);
-            await new Promise(resolve => setTimeout(resolve, 500 * attempt)); // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Exponential backoff - start with 500ms
           }
           
           const { data: urlData, error: signedUrlError } = await supabase.storage
-            .from("documents")
+            .from("staging-uploads")
             .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365); // 1 year - use returned path
           
           if (!signedUrlError && urlData?.signedUrl) {
