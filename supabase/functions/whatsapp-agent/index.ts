@@ -4803,6 +4803,35 @@ async function handlePendingWorkflow(
           .from("receipts")
           .getPublicUrl(newPath);
         
+        // Check for duplicates based on amount, supplier, and date
+        const { data: existingFrais } = await supabase
+          .from("frais")
+          .select("id, montant, description, date_frais")
+          .eq("user_id", userId)
+          .eq("montant", montant)
+          .eq("date_frais", dateStr)
+          .limit(5);
+        
+        // Check if any existing frais matches the supplier in description or ocr_data
+        const isDuplicate = existingFrais?.some((f: { description?: string | null }) => {
+          const descMatch = fournisseur && f.description?.toLowerCase().includes(fournisseur.toLowerCase());
+          return descMatch;
+        });
+        
+        if (isDuplicate) {
+          // Delete from staging storage since we're not processing it
+          await supabase.storage
+            .from("staging-uploads")
+            .remove([storagePath!]);
+          
+          return {
+            intent: "import_facture",
+            actionTaken: "duplicate_detected",
+            newPendingAction: null,
+            responseMessage: `⚠️ *Doublon détecté !*\n\nUne note de frais similaire existe déjà:\n💰 ${montant}€\n📅 ${dateStr}\n🏢 ${fournisseur || "N/A"}\n\nL'import a été annulé.`,
+          };
+        }
+        
         // Build OCR data
         const ocrData: Record<string, unknown> = {
           montant_ttc: montant,
