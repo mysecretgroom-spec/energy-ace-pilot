@@ -68,6 +68,28 @@ const MAX_FILES = 10;
 const MAX_TOTAL_SIZE_MB = 100;
 const MAX_CONCURRENT_UPLOADS = 10;
 
+// App routes for fallback links
+const APP_FALLBACK_ROUTES = {
+  finance: "/finance?tab=frais",
+  scanner: "/",
+  clientDocs: (clientId?: string) => clientId ? `/client/${clientId}?tab=documents` : "/",
+};
+
+// Generate fallback message with link
+const getUploadErrorFallbackMessage = (
+  failedCount: number,
+  documentType: "finance" | "document"
+): string => {
+  const route = documentType === "finance" ? APP_FALLBACK_ROUTES.finance : APP_FALLBACK_ROUTES.scanner;
+  const actionLabel = documentType === "finance" 
+    ? "Ajouter un frais manuellement" 
+    : "Importer un document manuellement";
+  
+  return `❌ Échec de l'upload pour ${failedCount} fichier(s).\n\n` +
+    `Tu peux ${actionLabel.toLowerCase()} directement dans l'app.\n\n` +
+    `[${actionLabel}](${route})`;
+};
+
 const SUGGESTIONS = [
   "📅 Mon planning de demain",
   "📊 Mes ventes ce mois",
@@ -575,11 +597,44 @@ export function AgentChat() {
     try {
       // Upload all pending files first
       const uploadedFiles = await uploadPendingFiles();
+      const failedUploads = pendingFiles.filter(pf => pf.status === "error");
 
+      // If ALL uploads failed, show fallback with app link
       if (uploadedFiles.length === 0 && pendingFiles.length > 0) {
-        toast.error("Échec de l'upload des fichiers");
+        // Determine type based on file extensions
+        const hasReceiptLikeFiles = pendingFiles.some(f => 
+          f.file.name.toLowerCase().includes("ticket") || 
+          f.file.name.toLowerCase().includes("facture") ||
+          f.file.name.toLowerCase().includes("frais")
+        );
+        
+        const fallbackMessage = getUploadErrorFallbackMessage(
+          pendingFiles.length,
+          hasReceiptLikeFiles ? "finance" : "document"
+        );
+        
+        const errorMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: fallbackMessage,
+          timestamp: new Date(),
+        };
+        setLocalMessages(prev => [...prev, errorMessage]);
+        toast.error("Échec de l'upload - utilisez l'import manuel");
         setIsLoading(false);
         return;
+      }
+      
+      // If some uploads failed but not all, continue with successful ones
+      // and notify about failures
+      let partialFailureNote = "";
+      if (failedUploads.length > 0 && uploadedFiles.length > 0) {
+        const hasReceiptLikeFiles = failedUploads.some(f => 
+          f.file.name.toLowerCase().includes("ticket") || 
+          f.file.name.toLowerCase().includes("facture")
+        );
+        const route = hasReceiptLikeFiles ? APP_FALLBACK_ROUTES.finance : APP_FALLBACK_ROUTES.scanner;
+        partialFailureNote = `\n\n(${failedUploads.length} fichier(s) en échec - [import manuel](${route}))`;
       }
 
       // Create user message with attachments info
@@ -658,16 +713,21 @@ export function AgentChat() {
       if (error) throw error;
 
       const responseContent = data?.responseMessage || data?.response || "Je n'ai pas pu traiter votre demande.";
+      
+      // Append partial failure note if any uploads failed
+      const finalResponse = partialFailureNote 
+        ? `${responseContent}${partialFailureNote}` 
+        : responseContent;
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: responseContent,
+        content: finalResponse,
         timestamp: new Date(),
       };
 
       setLocalMessages(prev => [...prev, assistantMessage]);
-      await addMessage("assistant", responseContent);
+      await addMessage("assistant", finalResponse);
 
     } catch (error) {
       console.error("Agent error:", error);
