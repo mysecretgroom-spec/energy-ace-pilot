@@ -172,8 +172,8 @@ const Finance = () => {
     jour: 0,
     semaine: 0,
     mois: 0,
-    annee: 0,
   });
+  const [objectifFrais, setObjectifFrais] = useState<number>(500);
   
   // Refresh key to force re-fetch of all data
   const [refreshKey, setRefreshKey] = useState(0);
@@ -487,13 +487,25 @@ const Finance = () => {
       startOfWeek.setHours(0, 0, 0, 0);
       
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+      // Fetch objectif frais for current month
+      const { data: objectifData } = await supabase
+        .from("objectifs")
+        .select("objectif_frais")
+        .eq("user_id", user.id)
+        .eq("mois", now.getMonth() + 1)
+        .eq("annee", now.getFullYear())
+        .maybeSingle();
+      
+      if (objectifData?.objectif_frais) {
+        setObjectifFrais(objectifData.objectif_frais);
+      }
 
       const { data: allFrais } = await supabase
         .from("frais")
         .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
-        .gte("date_frais", startOfYear.toISOString().split("T")[0])
+        .gte("date_frais", startOfMonth.toISOString().split("T")[0])
         .order("date_frais", { ascending: false });
 
       if (allFrais) {
@@ -509,13 +521,11 @@ const Finance = () => {
         const moisTotal = allFrais
           .filter(f => f.date_frais >= startOfMonth.toISOString().split("T")[0])
           .reduce((sum, f) => sum + Number(f.montant), 0);
-        const anneeTotal = allFrais.reduce((sum, f) => sum + Number(f.montant), 0);
 
         setTotaux({
           jour: jourTotal,
           semaine: semaineTotal,
           mois: moisTotal,
-          annee: anneeTotal,
         });
       }
     };
@@ -874,12 +884,43 @@ const Finance = () => {
 
           {/* Tab Frais */}
           <TabsContent value="frais" className="space-y-4 mt-4">
-            {/* Totaux */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Objectif mensuel & totaux */}
+            <Card className="shadow-card border-primary/20">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Objectif Dépenses Mensuelles</p>
+                    <p className="text-xs text-muted-foreground">
+                      {totaux.mois.toFixed(0)}€ / {objectifFrais}€
+                    </p>
+                  </div>
+                  <div className={`text-2xl font-bold ${
+                    (totaux.mois / objectifFrais) * 100 <= 80 ? 'text-green-600' :
+                    (totaux.mois / objectifFrais) * 100 <= 100 ? 'text-amber-600' :
+                    'text-red-600'
+                  }`}>
+                    {Math.round((totaux.mois / objectifFrais) * 100)}%
+                  </div>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2.5">
+                  <div 
+                    className={`h-2.5 rounded-full transition-all ${
+                      (totaux.mois / objectifFrais) * 100 <= 80 ? 'bg-green-500' :
+                      (totaux.mois / objectifFrais) * 100 <= 100 ? 'bg-amber-500' :
+                      'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.min((totaux.mois / objectifFrais) * 100, 100)}%` }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Totaux jour/semaine/mois */}
+            <div className="grid grid-cols-3 gap-3">
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totaux.jour.toFixed(2)} €
+                    {totaux.jour.toFixed(0)} €
                   </p>
                   <p className="text-xs text-muted-foreground">Aujourd'hui</p>
                 </CardContent>
@@ -887,25 +928,17 @@ const Finance = () => {
               <Card className="shadow-card">
                 <CardContent className="p-3 text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {totaux.semaine.toFixed(2)} €
+                    {totaux.semaine.toFixed(0)} €
                   </p>
-                  <p className="text-xs text-muted-foreground">Cette semaine</p>
+                  <p className="text-xs text-muted-foreground">Semaine</p>
                 </CardContent>
               </Card>
-              <Card className="shadow-card">
+              <Card className="shadow-card bg-primary/5 border-primary/20">
                 <CardContent className="p-3 text-center">
-                  <p className="text-lg font-bold text-foreground">
-                    {totaux.mois.toFixed(2)} €
+                  <p className="text-lg font-bold text-primary">
+                    {totaux.mois.toFixed(0)} €
                   </p>
                   <p className="text-xs text-muted-foreground">Ce mois</p>
-                </CardContent>
-              </Card>
-              <Card className="shadow-card">
-                <CardContent className="p-3 text-center">
-                  <p className="text-lg font-bold text-foreground">
-                    {totaux.annee.toLocaleString("fr-FR")} €
-                  </p>
-                  <p className="text-xs text-muted-foreground">Cette année</p>
                 </CardContent>
               </Card>
             </div>

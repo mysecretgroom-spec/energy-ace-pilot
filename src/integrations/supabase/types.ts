@@ -2115,6 +2115,7 @@ export type Database = {
           id: string
           mois: number
           objectif_ca: number | null
+          objectif_frais: number | null
           objectif_rdv: number | null
           objectif_ventes: number | null
           realise_ca: number | null
@@ -2129,6 +2130,7 @@ export type Database = {
           id?: string
           mois: number
           objectif_ca?: number | null
+          objectif_frais?: number | null
           objectif_rdv?: number | null
           objectif_ventes?: number | null
           realise_ca?: number | null
@@ -2143,6 +2145,7 @@ export type Database = {
           id?: string
           mois?: number
           objectif_ca?: number | null
+          objectif_frais?: number | null
           objectif_rdv?: number | null
           objectif_ventes?: number | null
           realise_ca?: number | null
