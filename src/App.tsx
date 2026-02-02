@@ -71,6 +71,7 @@ import AdminSupport from "./pages/admin/AdminSupport";
 import AdminFeatures from "./pages/admin/AdminFeatures";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import AdminPlans from "./pages/admin/AdminPlans";
+import AdminAIWorkflows from "./pages/admin/AdminAIWorkflows";
 import React, { useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 
@@ -166,6 +167,7 @@ const App = () => {
                     <Route path="/admin/notifications" element={<AdminNotifications />} />
                     <Route path="/admin/support" element={<AdminSupport />} />
                     <Route path="/admin/features" element={<AdminFeatures />} />
+                    <Route path="/admin/ai-workflows" element={<AdminAIWorkflows />} />
                     <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

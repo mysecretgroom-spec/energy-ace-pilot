@@ -14,7 +14,8 @@ import {
   Loader2,
   Shield,
   BarChart3,
-  ScrollText
+  ScrollText,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const navItems = [
   { path: "/admin/clients", label: "Clients", icon: Users },
   { path: "/admin/plans", label: "Offres", icon: CreditCard },
   { path: "/admin/subscriptions", label: "Abonnements", icon: CreditCard },
+  { path: "/admin/ai-workflows", label: "Workflows IA", icon: Bot },
   { path: "/admin/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/support", label: "Support", icon: MessageSquare },
   { path: "/admin/features", label: "Améliorations", icon: Lightbulb },
