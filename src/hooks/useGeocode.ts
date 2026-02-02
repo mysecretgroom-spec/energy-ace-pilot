@@ -4,16 +4,23 @@ interface GeocodeResult {
   latitude: number;
   longitude: number;
   formatted_address?: string;
+  approximate?: boolean; // true if geocoded by city/postal code only
+  corrected?: boolean;
+  correction_applied?: string;
 }
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+export async function geocodeAddress(
+  address: string,
+  city?: string,
+  postalCode?: string
+): Promise<GeocodeResult | null> {
   if (!address || address.trim().length < 5) {
     return null;
   }
 
   try {
     const response = await supabase.functions.invoke("geocode-address", {
-      body: { address },
+      body: { address, city, postal_code: postalCode },
     });
 
     if (response.error || !response.data) {
@@ -25,6 +32,9 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
       latitude: response.data.latitude,
       longitude: response.data.longitude,
       formatted_address: response.data.formatted_address,
+      approximate: response.data.approximate || false,
+      corrected: response.data.corrected || false,
+      correction_applied: response.data.correction_applied,
     };
   } catch (err) {
     console.error("Geocoding error:", err);

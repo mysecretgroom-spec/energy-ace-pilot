@@ -157,6 +157,19 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
    - NE JAMAIS mettre "INCONNU", "N/A", "null", "" ou des valeurs vides
    - Omets simplement le champ s'il n'y a pas de donnée
 
+9. **ADRESSE - EXTRACTION DÉTAILLÉE** (TRÈS IMPORTANT):
+   - Sépare TOUJOURS les composants de l'adresse:
+     - "adresse": Le numéro et nom de rue (ex: "25 RUE DES 3 FLEURS")
+     - "code_postal": Exactement 5 chiffres (ex: "28150")
+     - "ville": Le nom de la ville en majuscules (ex: "MOUTIERS")
+   - Si l'adresse est sur une seule ligne comme "25 rue des fleurs 28150 MOUTIERS":
+     - Extrait le code postal (5 chiffres)
+     - La partie après le code postal = ville
+     - La partie avant le code postal = adresse
+   - Si l'adresse contient des abréviations: RUE, AV (Avenue), BD (Boulevard), IMPASSE, ALLÉE, PL (Place)
+   - Gère les noms composés: "SAINT-MARTIN", "VILLENEUVE-D'ASCQ"
+   - Le code postal doit TOUJOURS être 5 chiffres exactement
+
 ## STRUCTURE JSON ATTENDUE:
 
 {
@@ -568,12 +581,76 @@ serve(async (req) => {
 
     console.log(`Created RDV: ${newRdv.id} with regie_id: ${regie_id}`);
 
+    // Geocode address automatically if we have address components
+    let geocodeInfo: { approximate?: boolean; corrected?: boolean } = {};
+    if (validated.ADRESSE?.adresse || (validated.ADRESSE?.ville && validated.ADRESSE?.code_postal)) {
+      try {
+        const fullAddress = [
+          validated.ADRESSE?.adresse,
+          validated.ADRESSE?.code_postal,
+          validated.ADRESSE?.ville
+        ].filter(Boolean).join(" ");
+
+        console.log(`[Geocode] Auto-geocoding address: "${fullAddress}"`);
+        
+        const geocodeResponse = await fetch(
+          `${SUPABASE_URL}/functions/v1/geocode-address`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              address: fullAddress,
+              city: validated.ADRESSE?.ville,
+              postal_code: validated.ADRESSE?.code_postal,
+            }),
+          }
+        );
+
+        if (geocodeResponse.ok) {
+          const geocodeData = await geocodeResponse.json();
+          console.log(`[Geocode] Result: lat=${geocodeData.latitude}, lon=${geocodeData.longitude}, approximate=${geocodeData.approximate}`);
+          
+          geocodeInfo = {
+            approximate: geocodeData.approximate || false,
+            corrected: geocodeData.corrected || false,
+          };
+
+          // Update client with coordinates
+          await supabase.from("clients").update({
+            latitude: geocodeData.latitude,
+            longitude: geocodeData.longitude,
+          }).eq("id", clientId);
+
+          // Update RDV with coordinates
+          await supabase.from("rdv").update({
+            latitude: geocodeData.latitude,
+            longitude: geocodeData.longitude,
+            metadata: {
+              ...rdvData.metadata,
+              geocode_approximate: geocodeData.approximate,
+              geocode_formatted_address: geocodeData.formatted_address,
+            },
+          }).eq("id", newRdv.id);
+
+          console.log(`[Geocode] Updated client and RDV with coordinates`);
+        } else {
+          console.log(`[Geocode] Failed to geocode address`);
+        }
+      } catch (geocodeError) {
+        console.error("[Geocode] Error during geocoding:", geocodeError);
+        // Continue without geocoding - it's not critical
+      }
+    }
+
     // Log action in historique
     await supabase.from("historique_actions").insert({
       user_id,
       client_id: clientId,
       action_type: "rdv_import",
-      description: `RDV importé depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}`,
+      description: `RDV importé depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}${geocodeInfo.approximate ? " (géoloc. approx.)" : ""}`,
     });
 
     return new Response(
@@ -583,6 +660,8 @@ serve(async (req) => {
         client_id: clientId,
         rdv_id: newRdv.id,
         regie_id: regie_id || null,
+        geocoded: !!geocodeInfo.corrected || !!geocodeInfo.approximate,
+        geocode_approximate: geocodeInfo.approximate || false,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
