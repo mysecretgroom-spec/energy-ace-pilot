@@ -33,7 +33,10 @@ import {
   X,
   Workflow,
   ArrowLeft,
+  Plus,
+  Sparkles,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { WorkflowCanvas, AIWorkflow, WorkflowNode, WorkflowEdge } from "@/components/admin/workflow-editor";
 
 const categoryConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -61,6 +64,12 @@ export default function AdminAIWorkflows() {
   const [editorWorkflow, setEditorWorkflow] = useState<AIWorkflow | null>(null);
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
   const [workflowEdges, setWorkflowEdges] = useState<WorkflowEdge[]>([]);
+  
+  // Create workflow dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newWorkflowName, setNewWorkflowName] = useState("");
+  const [newWorkflowCategory, setNewWorkflowCategory] = useState("documents");
+  const [creatingWorkflow, setCreatingWorkflow] = useState(false);
 
   useEffect(() => {
     fetchWorkflows();
@@ -96,6 +105,51 @@ export default function AdminAIWorkflows() {
     setWorkflowNodes((nodesRes.data || []) as WorkflowNode[]);
     setWorkflowEdges((edgesRes.data || []) as WorkflowEdge[]);
     setEditorWorkflow(workflow);
+  };
+
+  const createNewWorkflow = async () => {
+    if (!newWorkflowName.trim()) {
+      toast.error("Veuillez entrer un nom pour le workflow");
+      return;
+    }
+    
+    setCreatingWorkflow(true);
+    
+    // Generate a unique code from the name
+    const code = newWorkflowName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "") + "_" + Date.now().toString(36);
+    
+    const { data, error } = await supabase
+      .from("ai_workflows")
+      .insert({
+        nom: newWorkflowName.trim(),
+        code,
+        categorie: newWorkflowCategory,
+        description: "",
+        actif: false,
+        canaux: ["app"],
+        config: {},
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      toast.error("Erreur lors de la création du workflow");
+      console.error(error);
+    } else {
+      const newWorkflow = data as AIWorkflow;
+      setWorkflows(prev => [...prev, newWorkflow]);
+      setCreateDialogOpen(false);
+      setNewWorkflowName("");
+      setNewWorkflowCategory("documents");
+      toast.success("Workflow créé ! Ouvrez l'éditeur visuel pour le configurer.");
+      // Open the visual editor directly
+      fetchWorkflowDetails(newWorkflow);
+    }
+    
+    setCreatingWorkflow(false);
   };
 
   const toggleWorkflow = async (workflow: AIWorkflow) => {
@@ -292,11 +346,17 @@ export default function AdminAIWorkflows() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Workflows IA</h1>
-          <p className="text-muted-foreground mt-1">
-            Gérez les actions disponibles pour les agents IA (App et WhatsApp)
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Workflows IA</h1>
+            <p className="text-muted-foreground mt-1">
+              Gérez les actions disponibles pour les agents IA (App et WhatsApp)
+            </p>
+          </div>
+          <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Créer un workflow
+          </Button>
         </div>
 
         {loading ? (
@@ -459,6 +519,75 @@ export default function AdminAIWorkflows() {
                   <Save className="h-4 w-4 mr-2" />
                 )}
                 Sauvegarder
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Workflow Dialog */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Créer un nouveau workflow
+              </DialogTitle>
+              <DialogDescription>
+                Donnez un nom à votre workflow, puis utilisez l'éditeur visuel ou l'assistant IA pour le configurer.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Nom du workflow</Label>
+                <Input
+                  value={newWorkflowName}
+                  onChange={e => setNewWorkflowName(e.target.value)}
+                  placeholder="Ex: Notification rappel RDV"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Catégorie</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(categoryConfig).map(([key, config]) => {
+                    const Icon = config.icon;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setNewWorkflowCategory(key)}
+                        className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${
+                          newWorkflowCategory === key 
+                            ? "border-primary bg-primary/10 text-primary" 
+                            : "border-border hover:bg-muted"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span className="text-sm font-medium">{config.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+                disabled={creatingWorkflow}
+              >
+                Annuler
+              </Button>
+              <Button onClick={createNewWorkflow} disabled={creatingWorkflow || !newWorkflowName.trim()}>
+                {creatingWorkflow ? (
+                  <RotateCcw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
+                Créer et ouvrir l'éditeur
               </Button>
             </DialogFooter>
           </DialogContent>
