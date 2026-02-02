@@ -98,6 +98,99 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_workflow_edges: {
+        Row: {
+          condition_config: Json | null
+          condition_type: string | null
+          created_at: string
+          id: string
+          source_node_id: string
+          target_node_id: string
+          workflow_id: string
+        }
+        Insert: {
+          condition_config?: Json | null
+          condition_type?: string | null
+          created_at?: string
+          id?: string
+          source_node_id: string
+          target_node_id: string
+          workflow_id: string
+        }
+        Update: {
+          condition_config?: Json | null
+          condition_type?: string | null
+          created_at?: string
+          id?: string
+          source_node_id?: string
+          target_node_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflow_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_workflow_edges_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_workflow_nodes: {
+        Row: {
+          config: Json | null
+          created_at: string
+          id: string
+          label: string
+          position_x: number
+          position_y: number
+          type: string
+          workflow_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          label: string
+          position_x?: number
+          position_y?: number
+          type: string
+          workflow_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          id?: string
+          label?: string
+          position_x?: number
+          position_y?: number
+          type?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_workflow_nodes_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_workflows: {
         Row: {
           actif: boolean
