@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-const DB_NAME = "debalepro_offline_v2";
-const DB_VERSION = 2;
+const DB_NAME = "debalepro_offline_v3";
+const DB_VERSION = 3;
 
 // Store names
 const STORES = {
@@ -12,6 +12,8 @@ const STORES = {
   RDV: "cached_rdv",
   CLIENTS: "cached_clients",
   WHATSAPP_QUEUE: "whatsapp_queue",
+  PROFILE: "cached_profile",
+  REGIES: "cached_regies",
 } as const;
 
 export interface PendingEtude {
@@ -50,6 +52,33 @@ export interface WhatsAppQueueItem {
   status: "pending" | "sending" | "sent" | "failed";
   retryCount: number;
   error?: string;
+}
+
+export interface CachedProfile {
+  userId: string;
+  data: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+    numero_agrement: string | null;
+    telephone_pro: string | null;
+    nom_scene: string | null;
+    prenom_scene: string | null;
+  };
+  cachedAt: string;
+}
+
+export interface CachedRegie {
+  id: string;
+  userId: string;
+  data: {
+    id: string;
+    nom: string;
+    siret: string | null;
+    couleur: string | null;
+    is_hejja: boolean;
+  };
+  cachedAt: string;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -93,6 +122,17 @@ function openDatabase(): Promise<IDBDatabase> {
           const whatsappStore = db.createObjectStore(STORES.WHATSAPP_QUEUE, { keyPath: "id" });
           whatsappStore.createIndex("userId", "userId", { unique: false });
           whatsappStore.createIndex("status", "status", { unique: false });
+        }
+
+        // Profile cache store
+        if (!db.objectStoreNames.contains(STORES.PROFILE)) {
+          db.createObjectStore(STORES.PROFILE, { keyPath: "userId" });
+        }
+
+        // Regies cache store
+        if (!db.objectStoreNames.contains(STORES.REGIES)) {
+          const regiesStore = db.createObjectStore(STORES.REGIES, { keyPath: "id" });
+          regiesStore.createIndex("userId", "userId", { unique: false });
         }
       };
     } catch (error) {
@@ -291,6 +331,200 @@ export function useOfflineData() {
   }, [user]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // CLIENTS CACHE (for études offline)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const cacheClientsList = useCallback(
+    async (clientsList: Record<string, unknown>[]) => {
+      if (!user) return;
+
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(STORES.CLIENTS, "readwrite");
+        const store = tx.objectStore(STORES.CLIENTS);
+
+        // Clear old cache
+        await new Promise<void>((resolve) => {
+          const clearRequest = store.clear();
+          clearRequest.onsuccess = () => resolve();
+          clearRequest.onerror = () => resolve();
+        });
+
+        // Add new entries
+        const now = new Date().toISOString();
+        for (const client of clientsList) {
+          const cachedClient: CachedClient = {
+            id: client.id as string,
+            userId: user.id,
+            data: client,
+            cachedAt: now,
+          };
+          store.put(cachedClient);
+        }
+      } catch (error) {
+        console.error("Error caching clients:", error);
+      }
+    },
+    [user]
+  );
+
+  const getCachedClientsList = useCallback(async (): Promise<Record<string, unknown>[]> => {
+    if (!user) return [];
+
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(STORES.CLIENTS, "readonly");
+      const store = tx.objectStore(STORES.CLIENTS);
+      const index = store.index("userId");
+
+      return new Promise((resolve, reject) => {
+        const request = index.getAll(IDBKeyRange.only(user.id));
+        request.onsuccess = () => {
+          const results = request.result as CachedClient[];
+          resolve(results.map((r) => r.data));
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Error getting cached clients:", error);
+      return [];
+    }
+  }, [user]);
+
+  const getCachedClient = useCallback(async (clientId: string): Promise<Record<string, unknown> | null> => {
+    if (!user) return null;
+
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(STORES.CLIENTS, "readonly");
+      const store = tx.objectStore(STORES.CLIENTS);
+
+      return new Promise((resolve, reject) => {
+        const request = store.get(clientId);
+        request.onsuccess = () => {
+          const result = request.result as CachedClient | undefined;
+          resolve(result?.data || null);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Error getting cached client:", error);
+      return null;
+    }
+  }, [user]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROFILE CACHE (for RGE Card offline)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const cacheProfile = useCallback(
+    async (profileData: CachedProfile["data"]) => {
+      if (!user) return;
+
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(STORES.PROFILE, "readwrite");
+        const store = tx.objectStore(STORES.PROFILE);
+
+        const cachedProfile: CachedProfile = {
+          userId: user.id,
+          data: profileData,
+          cachedAt: new Date().toISOString(),
+        };
+
+        await new Promise<void>((resolve, reject) => {
+          const request = store.put(cachedProfile);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      } catch (error) {
+        console.error("Error caching profile:", error);
+      }
+    },
+    [user]
+  );
+
+  const getCachedProfile = useCallback(async (): Promise<CachedProfile["data"] | null> => {
+    if (!user) return null;
+
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(STORES.PROFILE, "readonly");
+      const store = tx.objectStore(STORES.PROFILE);
+
+      return new Promise((resolve, reject) => {
+        const request = store.get(user.id);
+        request.onsuccess = () => {
+          const result = request.result as CachedProfile | undefined;
+          resolve(result?.data || null);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Error getting cached profile:", error);
+      return null;
+    }
+  }, [user]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REGIES CACHE (for RGE Card offline)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const cacheRegiesList = useCallback(
+    async (regiesList: CachedRegie["data"][]) => {
+      if (!user) return;
+
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(STORES.REGIES, "readwrite");
+        const store = tx.objectStore(STORES.REGIES);
+
+        // Clear old cache
+        await new Promise<void>((resolve) => {
+          const clearRequest = store.clear();
+          clearRequest.onsuccess = () => resolve();
+          clearRequest.onerror = () => resolve();
+        });
+
+        // Add new entries
+        const now = new Date().toISOString();
+        for (const regie of regiesList) {
+          const cachedRegie: CachedRegie = {
+            id: regie.id,
+            userId: user.id,
+            data: regie,
+            cachedAt: now,
+          };
+          store.put(cachedRegie);
+        }
+      } catch (error) {
+        console.error("Error caching regies:", error);
+      }
+    },
+    [user]
+  );
+
+  const getCachedRegiesList = useCallback(async (): Promise<CachedRegie["data"][]> => {
+    if (!user) return [];
+
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(STORES.REGIES, "readonly");
+      const store = tx.objectStore(STORES.REGIES);
+      const index = store.index("userId");
+
+      return new Promise((resolve, reject) => {
+        const request = index.getAll(IDBKeyRange.only(user.id));
+        request.onsuccess = () => {
+          const results = request.result as CachedRegie[];
+          resolve(results.map((r) => r.data));
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Error getting cached regies:", error);
+      return [];
+    }
+  }, [user]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // WHATSAPP QUEUE (for offline status changes)
   // ═══════════════════════════════════════════════════════════════════════════
   const queueWhatsAppMessage = useCallback(
@@ -444,6 +678,99 @@ export function useOfflineData() {
     }
   }, [user, isOnline, isSyncing, toast]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REFRESH CACHE (when coming online)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const refreshCache = useCallback(async () => {
+    if (!user || !isOnline) return;
+
+    try {
+      // Refresh RDVs (next 30 days)
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 30);
+
+      const { data: rdvs } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          duree_minutes,
+          adresse,
+          status,
+          type_projet,
+          type_rdv,
+          client_id,
+          is_r2,
+          r2_type,
+          etude_id,
+          latitude,
+          longitude,
+          regie_id,
+          regies(id, nom, couleur),
+          clients!inner(id, nom, prenom, telephone, adresse, code_postal, ville, latitude, longitude)
+        `)
+        .eq("user_id", user.id)
+        .gte("date_heure", startDate.toISOString())
+        .lte("date_heure", endDate.toISOString())
+        .order("date_heure", { ascending: true });
+
+      if (rdvs) {
+        await cacheRdvList(rdvs);
+        console.log(`[Offline] Cached ${rdvs.length} RDVs`);
+      }
+
+      // Refresh clients
+      const { data: clients } = await supabase
+        .from("clients")
+        .select("id, nom, prenom, telephone, adresse, code_postal, ville, email, latitude, longitude")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(200);
+
+      if (clients) {
+        await cacheClientsList(clients);
+        console.log(`[Offline] Cached ${clients.length} clients`);
+      }
+
+      // Refresh profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name, avatar_url, numero_agrement, telephone_pro, nom_scene, prenom_scene")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profile) {
+        await cacheProfile(profile);
+        console.log("[Offline] Cached profile");
+      }
+
+      // Refresh regies
+      const { data: regies } = await supabase
+        .from("regies")
+        .select("id, nom, siret, couleur, is_hejja")
+        .eq("user_id", user.id)
+        .eq("actif", true)
+        .order("nom");
+
+      if (regies) {
+        await cacheRegiesList(regies.map(r => ({ ...r, is_hejja: r.is_hejja ?? false })));
+        console.log(`[Offline] Cached ${regies.length} regies`);
+      }
+
+    } catch (error) {
+      console.error("[Offline] Cache refresh error:", error);
+    }
+  }, [user, isOnline, cacheRdvList, cacheClientsList, cacheProfile, cacheRegiesList]);
+
+  // Refresh cache when coming online or on mount
+  useEffect(() => {
+    if (isOnline && user) {
+      refreshCache();
+    }
+  }, [isOnline, user, refreshCache]);
+
   return {
     isOnline,
     isSyncing,
@@ -453,7 +780,15 @@ export function useOfflineData() {
     getOfflineEtude,
     cacheRdvList,
     getCachedRdvList,
+    cacheClientsList,
+    getCachedClientsList,
+    getCachedClient,
+    cacheProfile,
+    getCachedProfile,
+    cacheRegiesList,
+    getCachedRegiesList,
     queueWhatsAppMessage,
     syncAll,
+    refreshCache,
   };
 }
