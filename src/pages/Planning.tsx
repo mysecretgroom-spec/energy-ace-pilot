@@ -204,8 +204,8 @@ const Planning = () => {
     setCurrentDate(newDate);
   };
 
-  // Parse address to extract street, postal code and city
-  const parseAddress = (fullAddress: string | null) => {
+  // Parse address to extract street, postal code and city - memoized to avoid re-renders
+  const parseAddress = useCallback((fullAddress: string | null) => {
     if (!fullAddress) return { address: "", postalCode: "", city: "" };
     
     // Try to match pattern: "street, postalCode city" or "street postalCode city"
@@ -219,7 +219,7 @@ const Planning = () => {
     }
     
     return { address: fullAddress, postalCode: "", city: "" };
-  };
+  }, []);
 
   const fetchRdvs = useCallback(async () => {
     if (!user) return;
@@ -530,6 +530,14 @@ const Planning = () => {
             <ChevronRight className="h-6 w-6 sm:h-5 sm:w-5" />
           </Button>
         </div>
+
+        {/* Indicateur mode hors-ligne */}
+        {isOfflineMode && (
+          <div className="flex items-center justify-center gap-2 py-2 px-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-700 dark:text-amber-400">
+            <WifiOff className="h-4 w-4" />
+            <span className="text-sm font-medium">Mode hors-ligne - données en cache</span>
+          </div>
+        )}
 
         {/* Header stats et filtre régie - responsive layout */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
