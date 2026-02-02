@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -16,11 +15,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,8 +24,6 @@ import {
   TrendingUp,
   Bell,
   Settings,
-  ChevronDown,
-  ChevronRight,
   Smartphone,
   MessageSquare,
   Save,
@@ -39,20 +31,10 @@ import {
   Pencil,
   Check,
   X,
+  Workflow,
+  ArrowLeft,
 } from "lucide-react";
-
-interface AIWorkflow {
-  id: string;
-  code: string;
-  nom: string;
-  description: string | null;
-  categorie: string;
-  actif: boolean;
-  config: Record<string, unknown>;
-  prompt_personnalise: string | null;
-  canaux: string[];
-  ordre: number;
-}
+import { WorkflowCanvas, AIWorkflow, WorkflowNode, WorkflowEdge } from "@/components/admin/workflow-editor";
 
 const categoryConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   documents: { label: "Documents", icon: FileText, color: "bg-blue-500" },
@@ -72,9 +54,13 @@ export default function AdminAIWorkflows() {
   const [saving, setSaving] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<AIWorkflow | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [openCategories, setOpenCategories] = useState<string[]>(["documents", "planning", "crm", "notifications"]);
   const [editedPrompt, setEditedPrompt] = useState("");
   const [editedConfig, setEditedConfig] = useState("");
+  
+  // Visual editor state
+  const [editorWorkflow, setEditorWorkflow] = useState<AIWorkflow | null>(null);
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([]);
+  const [workflowEdges, setWorkflowEdges] = useState<WorkflowEdge[]>([]);
 
   useEffect(() => {
     fetchWorkflows();
@@ -94,6 +80,22 @@ export default function AdminAIWorkflows() {
       setWorkflows((data || []) as AIWorkflow[]);
     }
     setLoading(false);
+  };
+
+  const fetchWorkflowDetails = async (workflow: AIWorkflow) => {
+    const [nodesRes, edgesRes] = await Promise.all([
+      supabase.from("ai_workflow_nodes").select("*").eq("workflow_id", workflow.id),
+      supabase.from("ai_workflow_edges").select("*").eq("workflow_id", workflow.id),
+    ]);
+
+    if (nodesRes.error || edgesRes.error) {
+      toast.error("Erreur lors du chargement du workflow");
+      return;
+    }
+
+    setWorkflowNodes((nodesRes.data || []) as WorkflowNode[]);
+    setWorkflowEdges((edgesRes.data || []) as WorkflowEdge[]);
+    setEditorWorkflow(workflow);
   };
 
   const toggleWorkflow = async (workflow: AIWorkflow) => {
@@ -177,12 +179,6 @@ export default function AdminAIWorkflows() {
     setSaving(false);
   };
 
-  const toggleCategory = (cat: string) => {
-    setOpenCategories(prev =>
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
-  };
-
   const groupedWorkflows = workflows.reduce((acc, workflow) => {
     if (!acc[workflow.categorie]) {
       acc[workflow.categorie] = [];
@@ -192,6 +188,106 @@ export default function AdminAIWorkflows() {
   }, {} as Record<string, AIWorkflow[]>);
 
   const categories = Object.keys(categoryConfig);
+
+  // If viewing a specific workflow in the visual editor
+  if (editorWorkflow) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditorWorkflow(null)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Workflow className="h-6 w-6" />
+                {editorWorkflow.nom}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Éditeur visuel de workflow - Glissez-déposez les éléments pour construire le flux
+              </p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Badge variant={editorWorkflow.actif ? "default" : "secondary"}>
+                {editorWorkflow.actif ? "Actif" : "Inactif"}
+              </Badge>
+              <Button variant="outline" onClick={() => openEditDialog(editorWorkflow)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Paramètres
+              </Button>
+            </div>
+          </div>
+
+          <WorkflowCanvas
+            workflow={editorWorkflow}
+            nodes={workflowNodes}
+            edges={workflowEdges}
+            onNodesChange={setWorkflowNodes}
+            onEdgesChange={setWorkflowEdges}
+          />
+        </div>
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5" />
+                Paramètres : {selectedWorkflow?.nom}
+              </DialogTitle>
+              <DialogDescription>
+                Personnalisez le comportement et les instructions de ce workflow
+              </DialogDescription>
+            </DialogHeader>
+
+            <Tabs defaultValue="prompt" className="mt-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="prompt">Prompt IA</TabsTrigger>
+                <TabsTrigger value="config">Configuration</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="prompt" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Instructions personnalisées</Label>
+                  <Textarea
+                    value={editedPrompt}
+                    onChange={e => setEditedPrompt(e.target.value)}
+                    placeholder="Ajoutez des instructions spécifiques pour ce workflow..."
+                    className="min-h-[200px] font-mono text-sm"
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="config" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label>Configuration JSON</Label>
+                  <Textarea
+                    value={editedConfig}
+                    onChange={e => setEditedConfig(e.target.value)}
+                    className="min-h-[200px] font-mono text-sm"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            <DialogFooter className="gap-2 mt-6">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={saving}>
+                Annuler
+              </Button>
+              <Button onClick={saveWorkflowChanges} disabled={saving}>
+                {saving ? <RotateCcw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                Sauvegarder
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -210,106 +306,90 @@ export default function AdminAIWorkflows() {
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {categories.map(cat => {
               const config = categoryConfig[cat];
               const catWorkflows = groupedWorkflows[cat] || [];
-              const isOpen = openCategories.includes(cat);
               const Icon = config.icon;
               const activeCount = catWorkflows.filter(w => w.actif).length;
 
               return (
-                <Collapsible key={cat} open={isOpen} onOpenChange={() => toggleCategory(cat)}>
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${config.color} text-white`}>
-                              <Icon className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-base">{config.label}</CardTitle>
-                              <CardDescription>
-                                {activeCount}/{catWorkflows.length} workflows actifs
-                              </CardDescription>
-                            </div>
+                <Card key={cat}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${config.color} text-white`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base">{config.label}</CardTitle>
+                        <CardDescription>
+                          {activeCount}/{catWorkflows.length} workflows actifs
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {catWorkflows.map(workflow => (
+                      <div
+                        key={workflow.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-background hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">{workflow.nom}</span>
+                            {workflow.prompt_personnalise && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                Personnalisé
+                              </Badge>
+                            )}
                           </div>
-                          {isOpen ? (
-                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                          )}
+                          <div className="flex items-center gap-2 mt-1.5">
+                            {["app", "whatsapp"].map(channel => {
+                              const ChannelIcon = channelIcons[channel];
+                              const isActive = workflow.canaux.includes(channel);
+                              return (
+                                <button
+                                  key={channel}
+                                  onClick={() => toggleChannel(workflow, channel)}
+                                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                                    isActive
+                                      ? "bg-primary/10 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}
+                                >
+                                  <ChannelIcon className="h-3 w-3" />
+                                  {isActive ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="pt-0 space-y-3">
-                        {catWorkflows.map(workflow => (
-                          <div
-                            key={workflow.id}
-                            className="flex items-center justify-between p-3 rounded-lg border bg-background hover:bg-muted/30 transition-colors"
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => fetchWorkflowDetails(workflow)}
                           >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">{workflow.nom}</span>
-                                <Badge variant="outline" className="text-xs font-mono">
-                                  {workflow.code}
-                                </Badge>
-                                {workflow.prompt_personnalise && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Prompt personnalisé
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {workflow.description}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                {["app", "whatsapp"].map(channel => {
-                                  const ChannelIcon = channelIcons[channel];
-                                  const isActive = workflow.canaux.includes(channel);
-                                  return (
-                                    <button
-                                      key={channel}
-                                      onClick={() => toggleChannel(workflow, channel)}
-                                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
-                                        isActive
-                                          ? "bg-primary/10 text-primary"
-                                          : "bg-muted text-muted-foreground"
-                                      }`}
-                                    >
-                                      <ChannelIcon className="h-3 w-3" />
-                                      {channel === "app" ? "App" : "WhatsApp"}
-                                      {isActive ? (
-                                        <Check className="h-3 w-3" />
-                                      ) : (
-                                        <X className="h-3 w-3" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditDialog(workflow)}
-                              >
-                                <Settings className="h-4 w-4" />
-                              </Button>
-                              <Switch
-                                checked={workflow.actif}
-                                onCheckedChange={() => toggleWorkflow(workflow)}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
+                            <Workflow className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openEditDialog(workflow)}
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                          <Switch
+                            checked={workflow.actif}
+                            onCheckedChange={() => toggleWorkflow(workflow)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
