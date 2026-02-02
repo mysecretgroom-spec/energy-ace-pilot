@@ -132,7 +132,7 @@ export const FinancialSectionPAC = ({
                 step="0.01"
                 value={prixInstallationManuel || ""}
                 onChange={(e) => onPrixChange(e.target.value ? Number(e.target.value) : "")}
-                placeholder={`Base: ${prixInstallation.toFixed(0)}€`}
+                placeholder={modeHejja ? "Entrez le prix" : `Base: ${prixInstallation.toFixed(0)}€`}
                 className="h-7 text-xs font-medium"
               />
             </div>

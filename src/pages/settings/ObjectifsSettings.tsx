@@ -14,7 +14,8 @@ import {
   Loader2, 
   ChevronLeft,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  Receipt,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +27,7 @@ interface Objectifs {
   objectif_ca: number;
   objectif_ventes: number;
   objectif_rdv: number;
+  objectif_frais: number;
   realise_ca?: number;
   realise_ventes?: number;
   realise_rdv?: number;
@@ -50,11 +52,13 @@ const ObjectifsSettings = () => {
     objectif_ca: 50000,
     objectif_ventes: 10,
     objectif_rdv: 30,
+    objectif_frais: 500,
   });
   const [originalObjectifs, setOriginalObjectifs] = useState<Objectifs>({
     objectif_ca: 50000,
     objectif_ventes: 10,
     objectif_rdv: 30,
+    objectif_frais: 500,
   });
   
   // Realized values (for display)
@@ -89,6 +93,7 @@ const ObjectifsSettings = () => {
         objectif_ca: data.objectif_ca || 50000,
         objectif_ventes: data.objectif_ventes || 10,
         objectif_rdv: data.objectif_rdv || 30,
+        objectif_frais: data.objectif_frais || 500,
       };
       setObjectifs(loaded);
       setOriginalObjectifs(loaded);
@@ -98,6 +103,7 @@ const ObjectifsSettings = () => {
         objectif_ca: 50000,
         objectif_ventes: 10,
         objectif_rdv: 30,
+        objectif_frais: 500,
       };
       setObjectifs(defaults);
       setOriginalObjectifs(defaults);
@@ -151,6 +157,7 @@ const ObjectifsSettings = () => {
       objectif_ca: objectifs.objectif_ca,
       objectif_ventes: objectifs.objectif_ventes,
       objectif_rdv: objectifs.objectif_rdv,
+      objectif_frais: objectifs.objectif_frais,
     };
 
     const { error } = await supabase.from("objectifs").upsert(payload, {
@@ -190,7 +197,8 @@ const ObjectifsSettings = () => {
   const hasChanges = 
     objectifs.objectif_ca !== originalObjectifs.objectif_ca ||
     objectifs.objectif_ventes !== originalObjectifs.objectif_ventes ||
-    objectifs.objectif_rdv !== originalObjectifs.objectif_rdv;
+    objectifs.objectif_rdv !== originalObjectifs.objectif_rdv ||
+    objectifs.objectif_frais !== originalObjectifs.objectif_frais;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
@@ -372,6 +380,36 @@ const ObjectifsSettings = () => {
                   </Badge>
                 </div>
               )}
+            </div>
+
+            {/* Objectif Frais */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-red-500" />
+                <Label htmlFor="objectif_frais" className="font-medium">
+                  Objectif Dépenses Mensuelles (plafond)
+                </Label>
+              </div>
+              <div className="relative">
+                <Input
+                  id="objectif_frais"
+                  type="number"
+                  value={objectifs.objectif_frais}
+                  onChange={(e) =>
+                    setObjectifs((o) => ({
+                      ...o,
+                      objectif_frais: Number(e.target.value),
+                    }))
+                  }
+                  className="pl-8"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  €
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Maximum de dépenses professionnelles ciblé par mois
+              </p>
             </div>
 
           </CardContent>
