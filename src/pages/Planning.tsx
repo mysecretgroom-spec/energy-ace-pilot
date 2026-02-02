@@ -281,8 +281,39 @@ const Planning = () => {
         return;
       }
 
+      // Filter out cancelled RDVs and handle postponed RDVs
+      // For postponed RDVs: hide them if a follow-up RDV exists for the same client
+      const postponedClientIds = data
+        .filter(rdv => rdv.status === "reporte")
+        .map(rdv => (rdv.clients as { id: string }).id);
+
+      // Check if there are follow-up RDVs for postponed clients (non-reporte, non-annule status)
+      const clientsWithFollowUp = new Set<string>();
+      data.forEach(rdv => {
+        const clientId = (rdv.clients as { id: string }).id;
+        if (postponedClientIds.includes(clientId) && 
+            rdv.status !== "reporte" && 
+            rdv.status !== "annule") {
+          clientsWithFollowUp.add(clientId);
+        }
+      });
+
+      // Filter: exclude annule, and exclude reporte if a follow-up exists
+      const filteredData = data.filter(rdv => {
+        // Always exclude cancelled RDVs
+        if (rdv.status === "annule") return false;
+        
+        // For postponed RDVs: hide if a follow-up RDV exists for this client
+        if (rdv.status === "reporte") {
+          const clientId = (rdv.clients as { id: string }).id;
+          return !clientsWithFollowUp.has(clientId);
+        }
+        
+        return true;
+      });
+
       // Transform data
-      const transformedRdvs: RdvData[] = data.map((rdv) => {
+      const transformedRdvs: RdvData[] = filteredData.map((rdv) => {
         const dateHeure = new Date(rdv.date_heure);
         const clientData = rdv.clients as {
           id: string;

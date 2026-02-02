@@ -82,12 +82,36 @@ export function usePlanningRoutes(date: Date) {
         return;
       }
 
+      // Filter out cancelled RDVs and handle postponed RDVs
+      const postponedClientIds = rdvData
+        .filter(rdv => rdv.status === "reporte")
+        .map(rdv => rdv.client_id);
+
+      // Check if there are follow-up RDVs for postponed clients
+      const clientsWithFollowUp = new Set<string>();
+      rdvData.forEach(rdv => {
+        if (postponedClientIds.includes(rdv.client_id) && 
+            rdv.status !== "reporte" && 
+            rdv.status !== "annule") {
+          clientsWithFollowUp.add(rdv.client_id);
+        }
+      });
+
+      // Filter: exclude annule, and exclude reporte if a follow-up exists
+      const filteredRdvData = rdvData.filter(rdv => {
+        if (rdv.status === "annule") return false;
+        if (rdv.status === "reporte") {
+          return !clientsWithFollowUp.has(rdv.client_id);
+        }
+        return true;
+      });
+
       // Process RDVs and calculate routes between consecutive appointments
       const processedRdvs: RdvWithRoute[] = [];
       let totalDist = 0;
 
-      for (let i = 0; i < rdvData.length; i++) {
-        const rdv = rdvData[i];
+      for (let i = 0; i < filteredRdvData.length; i++) {
+        const rdv = filteredRdvData[i];
         const dateHeure = new Date(rdv.date_heure);
         const clientData = rdv.clients as { nom: string; prenom?: string };
 
@@ -95,7 +119,7 @@ export function usePlanningRoutes(date: Date) {
 
         // If we have coordinates for both current and previous RDV, calculate route
         if (i > 0 && rdv.latitude && rdv.longitude) {
-          const prevRdv = rdvData[i - 1];
+          const prevRdv = filteredRdvData[i - 1];
           if (prevRdv.latitude && prevRdv.longitude) {
             try {
               const response = await supabase.functions.invoke("calculate-route", {
