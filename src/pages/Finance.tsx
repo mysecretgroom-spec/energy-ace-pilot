@@ -55,8 +55,10 @@ import {
   Files,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Train,
   CarFront,
+  RotateCcw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -175,9 +177,60 @@ const Finance = () => {
   });
   const [objectifFrais, setObjectifFrais] = useState<number>(500);
   
+  // Navigation temporelle pour les frais
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    return monday;
+  });
+  
   // Refresh key to force re-fetch of all data
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey(k => k + 1);
+  
+  // Navigation helpers
+  const navigateMonth = (direction: number) => {
+    setSelectedDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + direction);
+      return newDate;
+    });
+  };
+  
+  const navigateWeek = (direction: number) => {
+    setSelectedWeekStart(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(prev.getDate() + (direction * 7));
+      return newDate;
+    });
+  };
+  
+  const navigateDay = (direction: number) => {
+    setSelectedDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setDate(prev.getDate() + direction);
+      return newDate;
+    });
+  };
+  
+  const isCurrentMonth = selectedDate.getMonth() === new Date().getMonth() && 
+                         selectedDate.getFullYear() === new Date().getFullYear();
+  const isCurrentWeek = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const currentMonday = new Date(now);
+    currentMonday.setDate(now.getDate() - diffToMonday);
+    currentMonday.setHours(0, 0, 0, 0);
+    const selectedMondayCopy = new Date(selectedWeekStart);
+    selectedMondayCopy.setHours(0, 0, 0, 0);
+    return currentMonday.getTime() === selectedMondayCopy.getTime();
+  })();
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
   
   // Form state for manual expense
   const [newFrais, setNewFrais] = useState({
@@ -475,57 +528,69 @@ const Finance = () => {
     if (!user) return;
 
     const fetchFrais = async () => {
-      const now = new Date();
+      // Mois sélectionné
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+      const monthStartStr = monthStart.toISOString().split("T")[0];
+      const monthEndStr = monthEnd.toISOString().split("T")[0];
       
-      // Date du jour au format YYYY-MM-DD (pour comparaison exacte)
-      const todayStr = now.toISOString().split("T")[0];
+      // Jour sélectionné
+      const selectedDayStr = selectedDate.toISOString().split("T")[0];
       
-      // Début de semaine (lundi) au format YYYY-MM-DD
-      const startOfWeek = new Date(now);
-      const dayOfWeek = now.getDay();
-      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      startOfWeek.setDate(now.getDate() - diffToMonday);
-      const weekStartStr = startOfWeek.toISOString().split("T")[0];
-      
-      // Début du mois au format YYYY-MM-DD
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthStartStr = startOfMonth.toISOString().split("T")[0];
+      // Semaine sélectionnée (lundi au dimanche)
+      const weekStart = new Date(selectedWeekStart);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      const weekStartStr = weekStart.toISOString().split("T")[0];
+      const weekEndStr = weekEnd.toISOString().split("T")[0];
 
-      // Fetch objectif frais for current month
+      // Fetch objectif frais for selected month
       const { data: objectifData } = await supabase
         .from("objectifs")
         .select("objectif_frais")
         .eq("user_id", user.id)
-        .eq("mois", now.getMonth() + 1)
-        .eq("annee", now.getFullYear())
+        .eq("mois", selectedDate.getMonth() + 1)
+        .eq("annee", selectedDate.getFullYear())
         .maybeSingle();
       
       if (objectifData?.objectif_frais) {
         setObjectifFrais(objectifData.objectif_frais);
+      } else {
+        setObjectifFrais(500); // Reset to default if no objective set
       }
 
+      // Fetch all frais for the selected month
       const { data: allFrais } = await supabase
         .from("frais")
         .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .gte("date_frais", monthStartStr)
+        .lte("date_frais", monthEndStr)
         .order("date_frais", { ascending: false });
+
+      // Fetch frais for the selected week (may span different months)
+      const { data: weekFrais } = await supabase
+        .from("frais")
+        .select("id, montant, date_frais")
+        .eq("user_id", user.id)
+        .gte("date_frais", weekStartStr)
+        .lte("date_frais", weekEndStr);
 
       if (allFrais) {
         setAllFraisData(allFrais);
         setFraisData(allFrais.slice(0, 10));
 
-        // Jour: seulement les frais avec date_frais = aujourd'hui (comparaison exacte)
+        // Jour: frais du jour sélectionné
         const jourTotal = allFrais
-          .filter(f => f.date_frais === todayStr)
+          .filter(f => f.date_frais === selectedDayStr)
           .reduce((sum, f) => sum + Number(f.montant), 0);
         
-        // Semaine: frais du lundi jusqu'à aujourd'hui inclus
-        const semaineTotal = allFrais
-          .filter(f => f.date_frais >= weekStartStr && f.date_frais <= todayStr)
+        // Semaine: frais de la semaine sélectionnée
+        const semaineTotal = (weekFrais || [])
           .reduce((sum, f) => sum + Number(f.montant), 0);
         
-        // Mois: tous les frais du mois en cours
+        // Mois: tous les frais du mois sélectionné
         const moisTotal = allFrais
           .reduce((sum, f) => sum + Number(f.montant), 0);
 
@@ -538,7 +603,7 @@ const Finance = () => {
     };
 
     fetchFrais();
-  }, [user, addFraisOpen, refreshKey]);
+  }, [user, addFraisOpen, refreshKey, selectedDate, selectedWeekStart]);
 
   const handleAddFrais = async () => {
     if (!user || !newFrais.montant) {
@@ -891,12 +956,49 @@ const Finance = () => {
 
           {/* Tab Frais */}
           <TabsContent value="frais" className="space-y-4 mt-4">
-            {/* Objectif mensuel & totaux */}
+            {/* Navigation mois avec objectif */}
             <Card className="shadow-card border-primary/20">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigateMonth(-1)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center flex-1">
+                    <p className="text-sm font-medium text-foreground capitalize">
+                      {selectedDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+                    </p>
+                    {!isCurrentMonth && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setSelectedDate(new Date())}
+                        className="h-5 p-0 text-xs text-muted-foreground"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Aujourd'hui
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigateMonth(1)}
+                    className="h-8 w-8 p-0"
+                    disabled={isCurrentMonth}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {/* Objectif mensuel */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-foreground">Objectif Dépenses Mensuelles</p>
+                    <p className="text-sm font-medium text-foreground">Objectif Dépenses</p>
                     <p className="text-xs text-muted-foreground">
                       {totaux.mois.toFixed(0)}€ / {objectifFrais}€
                     </p>
@@ -922,30 +1024,79 @@ const Finance = () => {
               </CardContent>
             </Card>
 
-            {/* Totaux jour/semaine/mois */}
+            {/* Totaux jour/semaine/mois avec navigation */}
             <div className="grid grid-cols-3 gap-3">
+              {/* Jour avec navigation */}
               <Card className="shadow-card">
-                <CardContent className="p-3 text-center">
-                  <p className="text-lg font-bold text-foreground">
-                    {totaux.jour.toFixed(0)} €
+                <CardContent className="p-2 text-center space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateDay(-1)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <p className="text-lg font-bold text-foreground">
+                      {totaux.jour.toFixed(0)} €
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateDay(1)}
+                      className="h-6 w-6 p-0"
+                      disabled={isToday}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {isToday ? "Aujourd'hui" : selectedDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
                   </p>
-                  <p className="text-xs text-muted-foreground">Aujourd'hui</p>
                 </CardContent>
               </Card>
+              
+              {/* Semaine avec navigation */}
               <Card className="shadow-card">
-                <CardContent className="p-3 text-center">
-                  <p className="text-lg font-bold text-foreground">
-                    {totaux.semaine.toFixed(0)} €
+                <CardContent className="p-2 text-center space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateWeek(-1)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <p className="text-lg font-bold text-foreground">
+                      {totaux.semaine.toFixed(0)} €
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigateWeek(1)}
+                      className="h-6 w-6 p-0"
+                      disabled={isCurrentWeek}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {isCurrentWeek ? "Cette semaine" : `${selectedWeekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(selectedWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
                   </p>
-                  <p className="text-xs text-muted-foreground">Semaine</p>
                 </CardContent>
               </Card>
+              
+              {/* Mois (total du mois sélectionné) */}
               <Card className="shadow-card bg-primary/5 border-primary/20">
-                <CardContent className="p-3 text-center">
-                  <p className="text-lg font-bold text-primary">
+                <CardContent className="p-2 text-center space-y-1">
+                  <p className="text-lg font-bold text-primary pt-1">
                     {totaux.mois.toFixed(0)} €
                   </p>
-                  <p className="text-xs text-muted-foreground">Ce mois</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight capitalize">
+                    {isCurrentMonth ? "Ce mois" : selectedDate.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })}
+                  </p>
                 </CardContent>
               </Card>
             </div>
