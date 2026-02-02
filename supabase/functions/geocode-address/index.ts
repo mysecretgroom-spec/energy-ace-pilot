@@ -14,6 +14,7 @@ interface GeocodeResponse {
   longitude: number;
   formatted_address?: string;
   corrected?: boolean;
+  approximate?: boolean; // true if geocoded by city/postal code only, not exact address
   original_address?: string;
   correction_applied?: string;
 }
@@ -127,13 +128,39 @@ Retourne UNIQUEMENT le JSON, sans markdown ni explication.`,
   }
 }
 
+// Build a simplified address with just city and postal code for fallback
+function buildCityFallbackAddress(address: string): string | null {
+  // Extract postal code (5 digits)
+  const postalCodeMatch = address.match(/\b(\d{5})\b/);
+  if (!postalCodeMatch) return null;
+  
+  const postalCode = postalCodeMatch[1];
+  
+  // Try to extract city name (usually after postal code or as last capitalized word group)
+  const parts = address.split(/[,\n]+/).map(p => p.trim()).filter(Boolean);
+  
+  // Look for the part containing the postal code and extract city
+  for (const part of parts) {
+    if (part.includes(postalCode)) {
+      // Extract city name after postal code
+      const afterPostal = part.split(postalCode)[1]?.trim();
+      if (afterPostal && afterPostal.length > 2) {
+        return `${postalCode} ${afterPostal}, France`;
+      }
+    }
+  }
+  
+  // Fallback: just use postal code
+  return `${postalCode}, France`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { address }: GeocodeRequest = await req.json();
+    const { address, city, postal_code }: { address: string; city?: string; postal_code?: string } = await req.json();
 
     if (!address) {
       return new Response(JSON.stringify({ error: "Address is required" }), {
@@ -154,6 +181,7 @@ serve(async (req) => {
         longitude: geocodeResult.lon,
         formatted_address: geocodeResult.display_name,
         corrected: false,
+        approximate: false,
       };
 
       return new Response(JSON.stringify(result), {
@@ -180,6 +208,7 @@ serve(async (req) => {
           longitude: geocodeResult.lon,
           formatted_address: geocodeResult.display_name,
           corrected: true,
+          approximate: false,
           original_address: address,
           correction_applied: aiCorrection.correction,
         };
@@ -207,8 +236,42 @@ serve(async (req) => {
           longitude: geocodeResult.lon,
           formatted_address: geocodeResult.display_name,
           corrected: true,
+          approximate: true, // Mark as approximate since we removed house number
           original_address: address,
           correction_applied: "Recherche simplifiée sans numéro de rue",
+        };
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+      }
+    }
+
+    // Fourth attempt: Try city + postal code only (most approximate)
+    // Build from explicit params or extract from address
+    let cityFallback: string | null = null;
+    
+    if (city && postal_code) {
+      cityFallback = `${postal_code} ${city}, France`;
+    } else {
+      cityFallback = buildCityFallbackAddress(address);
+    }
+    
+    if (cityFallback) {
+      console.log(`[Geocode] Trying city fallback: "${cityFallback}"`);
+      geocodeResult = await geocodeWithNominatim(cityFallback);
+      
+      if (geocodeResult) {
+        console.log(`[Geocode] Success with city fallback`);
+        const result: GeocodeResponse = {
+          latitude: geocodeResult.lat,
+          longitude: geocodeResult.lon,
+          formatted_address: geocodeResult.display_name,
+          corrected: true,
+          approximate: true, // This is an approximate location (city center)
+          original_address: address,
+          correction_applied: "Géolocalisation approximative par ville/code postal",
         };
 
         return new Response(JSON.stringify(result), {
