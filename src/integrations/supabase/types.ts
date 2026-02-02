@@ -98,6 +98,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_workflows: {
+        Row: {
+          actif: boolean
+          canaux: string[] | null
+          categorie: string
+          code: string
+          config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          nom: string
+          ordre: number | null
+          prompt_personnalise: string | null
+          updated_at: string
+        }
+        Insert: {
+          actif?: boolean
+          canaux?: string[] | null
+          categorie: string
+          code: string
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom: string
+          ordre?: number | null
+          prompt_personnalise?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actif?: boolean
+          canaux?: string[] | null
+          categorie?: string
+          code?: string
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          nom?: string
+          ordre?: number | null
+          prompt_personnalise?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       background_jobs: {
         Row: {
           attempts: number | null
