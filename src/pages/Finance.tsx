@@ -476,17 +476,20 @@ const Finance = () => {
 
     const fetchFrais = async () => {
       const now = new Date();
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
       
+      // Date du jour au format YYYY-MM-DD (pour comparaison exacte)
+      const todayStr = now.toISOString().split("T")[0];
+      
+      // Début de semaine (lundi) au format YYYY-MM-DD
       const startOfWeek = new Date(now);
-      // Get Monday as start of week (French format)
       const dayOfWeek = now.getDay();
-      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 6 days back, else day - 1
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       startOfWeek.setDate(now.getDate() - diffToMonday);
-      startOfWeek.setHours(0, 0, 0, 0);
+      const weekStartStr = startOfWeek.toISOString().split("T")[0];
       
+      // Début du mois au format YYYY-MM-DD
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthStartStr = startOfMonth.toISOString().split("T")[0];
 
       // Fetch objectif frais for current month
       const { data: objectifData } = await supabase
@@ -505,21 +508,25 @@ const Finance = () => {
         .from("frais")
         .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
-        .gte("date_frais", startOfMonth.toISOString().split("T")[0])
+        .gte("date_frais", monthStartStr)
         .order("date_frais", { ascending: false });
 
       if (allFrais) {
         setAllFraisData(allFrais);
         setFraisData(allFrais.slice(0, 10));
 
+        // Jour: seulement les frais avec date_frais = aujourd'hui (comparaison exacte)
         const jourTotal = allFrais
-          .filter(f => f.date_frais >= startOfDay.toISOString().split("T")[0])
+          .filter(f => f.date_frais === todayStr)
           .reduce((sum, f) => sum + Number(f.montant), 0);
+        
+        // Semaine: frais du lundi jusqu'à aujourd'hui inclus
         const semaineTotal = allFrais
-          .filter(f => f.date_frais >= startOfWeek.toISOString().split("T")[0])
+          .filter(f => f.date_frais >= weekStartStr && f.date_frais <= todayStr)
           .reduce((sum, f) => sum + Number(f.montant), 0);
+        
+        // Mois: tous les frais du mois en cours
         const moisTotal = allFrais
-          .filter(f => f.date_frais >= startOfMonth.toISOString().split("T")[0])
           .reduce((sum, f) => sum + Number(f.montant), 0);
 
         setTotaux({
