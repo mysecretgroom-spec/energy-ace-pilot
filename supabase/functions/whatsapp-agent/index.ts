@@ -5453,9 +5453,11 @@ async function handlePendingWorkflow(
             const updatedEntities = { ...req.entities };
             
             // Try to map modification to appropriate entity field
-            if (["positif", "negatif", "absent", "r2", "reporte", "annule"].includes(modValue)) {
+            // Valid rdv_status values: nouveau, reporte, r2, r2_prestudy, signe, negatif, annule
+            // "positif" and "absent" are user-friendly aliases mapped in executeAction
+            if (["positif", "negatif", "absent", "r2", "reporte", "annule", "signe"].includes(modValue)) {
               updatedEntities.status = modValue;
-            } else if (["installe", "paye", "cq_fait", "attente_financement", "envoi_pose"].includes(modValue)) {
+            } else if (["installe", "paye", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "attente_paiement"].includes(modValue)) {
               updatedEntities.pipeline_status = modValue;
             }
             
@@ -5580,7 +5582,7 @@ async function createSignedVente(
         user_id: userId,
         client_id: clientId,
         date_heure: new Date().toISOString(),
-        status: "positif",
+        status: "signe",  // Valid rdv_status enum value
         type_rdv: "R1",
         type_projet: "pv",
         source: "whatsapp_agent",
@@ -5628,11 +5630,11 @@ async function createSignedVente(
     return { success: false, error: error.message };
   }
   
-  // Update RDV status if we have one
+  // Update RDV status if we have one - use "signe" (valid enum value, not "positif")
   if (rdvId) {
     await supabase
       .from("rdv")
-      .update({ status: "positif" })
+      .update({ status: "signe" })
       .eq("id", rdvId);
   }
   
@@ -5947,8 +5949,9 @@ INTENTIONS DISPONIBLES:
 - create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
 - update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés", "supprime les rdv de vendredi et samedi dernier")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
-- update_vente_status: Statut RDV (négatif, absent, r2, reporté) - NE PAS utiliser pour signé/positif
-- update_vente_pipeline: Pipeline vente existante (posé, payé, CQ fait, annulé)
+- update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe
+  Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
+- update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
 - import_document: Document client (CNI, RIB, facture énergie)
 - import_facture: Note de frais (ticket, carburant, péage)
 - query_commissions: "mes coms", "combien je gagne" → Vue globale commissions (totaux uniquement)
@@ -5971,8 +5974,11 @@ INTENTIONS DISPONIBLES:
 
 CATÉGORIES FRAIS: carburant, repas, hotel, peage, parking, train, location_vehicule, autre
 
-STATUTS RDV: nouveau, positif, negatif, absent, reporte, r2, annule
-STATUTS PIPELINE VENTE: cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
+STATUTS RDV (rdv_status enum): nouveau, reporte, r2, r2_prestudy, signe, negatif, annule
+  - L'utilisateur peut dire "positif" → mapper vers "signe"
+  - L'utilisateur peut dire "absent" → mapper vers "negatif"
+  - L'utilisateur peut dire "a_rappeler" → mapper vers "reporte"
+STATUTS VENTE (vente_status enum): en_negociation, signe, cq_a_faire, cq_fait, attente_financement, envoi_pose, en_installation, installe, attente_paiement, paye, annule
 
 ⚠️ PARSING DATES RELATIVES - CRITIQUE:
 Tu as accès à la date actuelle (${currentDay}, ${today}). CALCULE toi-même les dates relatives:
@@ -6951,13 +6957,23 @@ async function executeAction(
 
       const rdv = rdvs[0];
 
-      // Map status to enum value
+      // Map user status to valid rdv_status enum values
+      // Valid rdv_status: nouveau, reporte, r2, r2_prestudy, signe, negatif, annule
       const statusMap: Record<string, string> = {
-        positif: "positif",
+        // User says "positif" = rdv was positive → status should be "signe" (they signed or will sign)
+        positif: "signe",
+        // User says "negatif" = rdv was negative
         negatif: "negatif",
-        absent: "absent",
+        // User says "absent" = client was absent → treat as negatif for now
+        absent: "negatif",
+        // User says "reporte" = reschedule
         reporte: "reporte",
-        a_rappeler: "a_rappeler",
+        // User says "r2" = second meeting needed
+        r2: "r2",
+        // User says "annule" = cancelled
+        annule: "annule",
+        // User says "a_rappeler" = need to call back → treat as reporte
+        a_rappeler: "reporte",
       };
 
       const mappedStatus = statusMap[status] || status;
@@ -7055,7 +7071,8 @@ async function executeAction(
           status,
           montant_ttc,
           puissance_kwc,
-          date_installation,
+          date_installation_prevue,
+          date_installation_reelle,
           clients!inner(id, nom, prenom)
         `)
         .eq("user_id", userId)
@@ -7086,14 +7103,14 @@ async function executeAction(
       // deno-lint-ignore no-explicit-any
       const updateData: any = { status: pipelineStatus };
       
-      // If "installe" status, set installation date
-      if (pipelineStatus === "installe" && !vente.date_installation) {
-        updateData.date_installation = new Date().toISOString().split("T")[0];
+      // If "installe" status, set actual installation date
+      if (pipelineStatus === "installe") {
+        updateData.date_installation_reelle = new Date().toISOString().split("T")[0];
       }
       
       // If installation date mentioned (e.g., "installation demain")
       if (installDate && (pipelineStatus === "envoi_pose" || pipelineStatus === "en_installation")) {
-        updateData.date_installation = installDate;
+        updateData.date_installation_prevue = installDate;
       }
       
       const { error: updateError } = await supabase
@@ -7135,7 +7152,7 @@ async function executeAction(
         actionTaken: "vente_pipeline_updated",
         entityId: vente.id,
         entityType: "vente",
-        customResponse: `✅ Vente ${clientFullName} mise à jour: ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation ? ` (${updateData.date_installation})` : ""}`,
+        customResponse: `✅ Vente ${clientFullName} mise à jour: ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation_reelle ? ` (posé le ${updateData.date_installation_reelle})` : ""}${updateData.date_installation_prevue ? ` (prévu le ${updateData.date_installation_prevue})` : ""}`,
       };
     }
 
@@ -7228,7 +7245,7 @@ async function executeAction(
             user_id: userId,
             client_id: matchedClient.id,
             date_heure: new Date().toISOString(),
-            status: "positif",
+            status: "signe",  // Valid rdv_status enum value
             type_rdv: "R1",
             type_projet: "pv",
             source: "whatsapp_agent",
