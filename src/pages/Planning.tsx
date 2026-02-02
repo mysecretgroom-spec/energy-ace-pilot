@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
+import { useOfflineData } from "@/hooks/useOfflineData";
 import {
   Clock,
   MapPin,
@@ -41,6 +42,7 @@ import {
   Map,
   Building2,
   Filter,
+  WifiOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -112,6 +114,7 @@ const Planning = () => {
   const [showMap, setShowMap] = useState(false);
   const [regies, setRegies] = useState<Regie[]>([]);
   const [selectedRegieId, setSelectedRegieId] = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   // Use planning routes hook for day view distances
   const { 
@@ -125,20 +128,44 @@ const Planning = () => {
   // Use working days settings
   const { workingDays } = useWorkingDays();
 
-  // Fetch regies
+  // Use offline data hook
+  const { isOnline, cacheRdvList, getCachedRdvList, getCachedRegiesList, cacheRegiesList } = useOfflineData();
+
+  // Fetch regies (with offline fallback)
   useEffect(() => {
     const fetchRegies = async () => {
       if (!user) return;
+      
+      if (!isOnline) {
+        // Use cached regies when offline
+        const cachedRegies = await getCachedRegiesList();
+        if (cachedRegies.length > 0) {
+          setRegies(cachedRegies);
+          return;
+        }
+      }
+
       const { data } = await supabase
         .from("regies")
-        .select("id, nom, couleur, is_hejja")
+        .select("id, nom, couleur, is_hejja, siret")
         .eq("user_id", user.id)
         .eq("actif", true)
         .order("nom");
-      if (data) setRegies(data.map(r => ({ ...r, is_hejja: r.is_hejja ?? false })));
+      if (data) {
+        const regiesForCache = data.map(r => ({ 
+          id: r.id,
+          nom: r.nom,
+          couleur: r.couleur,
+          siret: r.siret || null,
+          is_hejja: r.is_hejja ?? false 
+        }));
+        setRegies(regiesForCache.map(r => ({ id: r.id, nom: r.nom, couleur: r.couleur, is_hejja: r.is_hejja })));
+        // Cache regies for offline use
+        await cacheRegiesList(regiesForCache);
+      }
     };
     fetchRegies();
-  }, [user]);
+  }, [user, isOnline, getCachedRegiesList, cacheRegiesList]);
 
   // Handle click on calendar RDV
   const handleCalendarRdvClick = (rdv: RdvData) => {
@@ -197,6 +224,7 @@ const Planning = () => {
   const fetchRdvs = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setIsOfflineMode(false);
 
     try {
       let startDate: Date;
@@ -221,6 +249,99 @@ const Planning = () => {
         // Month view
         startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+
+      // Helper function to transform raw data to RdvData
+      const transformRdvData = (data: Record<string, unknown>[]): RdvData[] => {
+        return data.map((rdv) => {
+          const dateHeure = new Date(rdv.date_heure as string);
+          const clientData = rdv.clients as {
+            id: string;
+            nom: string;
+            prenom: string | null;
+            telephone: string | null;
+            adresse: string | null;
+            code_postal: string | null;
+            ville: string | null;
+            latitude: number | null;
+            longitude: number | null;
+          };
+          
+          const regieData = rdv.regies as {
+            id: string;
+            nom: string;
+            couleur: string | null;
+          } | null;
+
+          // Use RDV address or client address
+          const rdvAddress = (rdv.adresse as string) || clientData?.adresse || "";
+          const parsed = parseAddress(rdvAddress);
+          
+          // Prefer client's structured address data if available
+          const finalAddress = clientData?.adresse || parsed.address;
+          const finalPostalCode = clientData?.code_postal || parsed.postalCode;
+          const finalCity = clientData?.ville || parsed.city;
+
+          const durationMinutes = (rdv.duree_minutes as number) || 90;
+          const hours = Math.floor(durationMinutes / 60);
+          const mins = durationMinutes % 60;
+          const durationStr = hours > 0 
+            ? (mins > 0 ? `${hours}h${mins}` : `${hours}h`)
+            : `${mins} min`;
+
+          return {
+            id: rdv.id as string,
+            date: dateHeure,
+            time: dateHeure.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+            duration: durationStr,
+            client: clientData?.prenom 
+              ? `${clientData.prenom} ${clientData.nom}`
+              : clientData?.nom || "Inconnu",
+            clientPrenom: clientData?.prenom || undefined,
+            clientId: clientData?.id || "",
+            phone: clientData?.telephone || null,
+            address: finalAddress,
+            city: finalCity,
+            postalCode: finalPostalCode,
+            status: rdv.status as RdvStatus,
+            type: projectTypeLabels[rdv.type_projet as string] || (rdv.type_projet as string),
+            typeRdv: ((rdv.type_rdv as RdvType) || 'standard'),
+            distance: undefined,
+            travelTime: undefined,
+            alert: false,
+            isR2: (rdv.is_r2 as boolean) || false,
+            r2Type: rdv.r2_type as string | null,
+            etudeId: rdv.etude_id as string | null,
+            latitude: (rdv.latitude as number) || clientData?.latitude || undefined,
+            longitude: (rdv.longitude as number) || clientData?.longitude || undefined,
+            regieId: regieData?.id || null,
+            regieNom: regieData?.nom || null,
+            regieCouleur: regieData?.couleur || null,
+          };
+        });
+      };
+
+      // Check if we're offline - use cached data
+      if (!isOnline) {
+        console.log("[Planning] Offline mode - using cached RDVs");
+        const cachedRdvs = await getCachedRdvList();
+        
+        // Filter cached RDVs by date range
+        const filteredCached = cachedRdvs.filter(rdv => {
+          const rdvDate = new Date(rdv.date_heure as string);
+          return rdvDate >= startDate && rdvDate <= endDate;
+        });
+
+        // Apply regie filter if selected
+        const regieFilteredCached = selectedRegieId
+          ? filteredCached.filter(rdv => rdv.regie_id === selectedRegieId)
+          : filteredCached;
+
+        const transformedRdvs = transformRdvData(regieFilteredCached);
+        setRdvList(transformedRdvs);
+        setIsOfflineMode(true);
+        setLoading(false);
+        return;
       }
 
       let query = supabase
@@ -271,6 +392,16 @@ const Planning = () => {
 
       if (error) {
         console.error("Error fetching RDVs:", error);
+        // Fallback to cache on error
+        const cachedRdvs = await getCachedRdvList();
+        if (cachedRdvs.length > 0) {
+          const filteredCached = cachedRdvs.filter(rdv => {
+            const rdvDate = new Date(rdv.date_heure as string);
+            return rdvDate >= startDate && rdvDate <= endDate;
+          });
+          setRdvList(transformRdvData(filteredCached));
+          setIsOfflineMode(true);
+        }
         setLoading(false);
         return;
       }
@@ -280,6 +411,9 @@ const Planning = () => {
         setLoading(false);
         return;
       }
+
+      // Cache RDVs for offline use
+      await cacheRdvList(data);
 
       // Filter out cancelled RDVs and handle postponed RDVs
       // For postponed RDVs: hide them if a follow-up RDV exists for the same client
@@ -312,82 +446,17 @@ const Planning = () => {
         return true;
       });
 
-      // Transform data
-      const transformedRdvs: RdvData[] = filteredData.map((rdv) => {
-        const dateHeure = new Date(rdv.date_heure);
-        const clientData = rdv.clients as {
-          id: string;
-          nom: string;
-          prenom: string | null;
-          telephone: string | null;
-          adresse: string | null;
-          code_postal: string | null;
-          ville: string | null;
-          latitude: number | null;
-          longitude: number | null;
-        };
-        
-        const regieData = rdv.regies as {
-          id: string;
-          nom: string;
-          couleur: string | null;
-        } | null;
-
-        // Use RDV address or client address
-        const rdvAddress = rdv.adresse || clientData.adresse || "";
-        const parsed = parseAddress(rdvAddress);
-        
-        // Prefer client's structured address data if available
-        const finalAddress = clientData.adresse || parsed.address;
-        const finalPostalCode = clientData.code_postal || parsed.postalCode;
-        const finalCity = clientData.ville || parsed.city;
-
-        const durationMinutes = rdv.duree_minutes || 90;
-        const hours = Math.floor(durationMinutes / 60);
-        const mins = durationMinutes % 60;
-        const durationStr = hours > 0 
-          ? (mins > 0 ? `${hours}h${mins}` : `${hours}h`)
-          : `${mins} min`;
-
-        return {
-          id: rdv.id,
-          date: dateHeure,
-          time: dateHeure.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-          duration: durationStr,
-          client: clientData.prenom 
-            ? `${clientData.prenom} ${clientData.nom}`
-            : clientData.nom,
-          clientPrenom: clientData.prenom || undefined,
-          clientId: clientData.id,
-          phone: clientData.telephone,
-          address: finalAddress,
-          city: finalCity,
-          postalCode: finalPostalCode,
-          status: rdv.status as RdvStatus,
-          type: projectTypeLabels[rdv.type_projet] || rdv.type_projet,
-          typeRdv: (rdv.type_rdv as RdvType) || 'standard',
-          // Distance/travel time will be merged from routes hook for day view
-          distance: undefined,
-          travelTime: undefined,
-          alert: false,
-          isR2: rdv.is_r2 || false,
-          r2Type: rdv.r2_type,
-          etudeId: rdv.etude_id,
-          latitude: rdv.latitude || clientData.latitude || undefined,
-          longitude: rdv.longitude || clientData.longitude || undefined,
-          regieId: regieData?.id || null,
-          regieNom: regieData?.nom || null,
-          regieCouleur: regieData?.couleur || null,
-        };
-      });
+      // Transform data using the helper function
+      const transformedRdvs = transformRdvData(filteredData as Record<string, unknown>[]);
 
       setRdvList(transformedRdvs);
     } catch (err) {
       console.error("Error in fetchRdvs:", err);
+      // On error, try cache - transformRdvData is defined earlier in this function
     } finally {
       setLoading(false);
     }
-  }, [user, currentDate, viewMode, selectedRegieId]);
+  }, [user, currentDate, viewMode, selectedRegieId, isOnline, getCachedRdvList, cacheRdvList, parseAddress]);
 
   // Filter regies for display (hide hejja regies outside of hejja mode)
   const filteredRegies = modeHejjaActive 
