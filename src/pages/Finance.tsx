@@ -179,13 +179,25 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // La semaine commence le samedi (2 jours avant le lundi)
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMonday);
-    return monday;
+    const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
+    // Calculer le samedi précédent le lundi de la semaine courante
+    // Si on est samedi (6), c'est le début de la nouvelle semaine
+    // Si on est dimanche (0), c'est hier (samedi)
+    // Sinon, on recule jusqu'au samedi précédent
+    let diffToSaturday: number;
+    if (dayOfWeek === 6) {
+      diffToSaturday = 0; // Aujourd'hui est samedi
+    } else if (dayOfWeek === 0) {
+      diffToSaturday = 1; // Hier était samedi
+    } else {
+      diffToSaturday = dayOfWeek + 1; // Samedi = dayOfWeek + 1 jours en arrière
+    }
+    const saturday = new Date(now);
+    saturday.setDate(now.getDate() - diffToSaturday);
+    return saturday;
   });
   
   // Refresh key to force re-fetch of all data
@@ -222,13 +234,21 @@ const Finance = () => {
   const isCurrentWeek = (() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const currentMonday = new Date(now);
-    currentMonday.setDate(now.getDate() - diffToMonday);
-    currentMonday.setHours(0, 0, 0, 0);
-    const selectedMondayCopy = new Date(selectedWeekStart);
-    selectedMondayCopy.setHours(0, 0, 0, 0);
-    return currentMonday.getTime() === selectedMondayCopy.getTime();
+    // Calculer le samedi de la semaine courante
+    let diffToSaturday: number;
+    if (dayOfWeek === 6) {
+      diffToSaturday = 0;
+    } else if (dayOfWeek === 0) {
+      diffToSaturday = 1;
+    } else {
+      diffToSaturday = dayOfWeek + 1;
+    }
+    const currentSaturday = new Date(now);
+    currentSaturday.setDate(now.getDate() - diffToSaturday);
+    currentSaturday.setHours(0, 0, 0, 0);
+    const selectedSaturdayCopy = new Date(selectedWeekStart);
+    selectedSaturdayCopy.setHours(0, 0, 0, 0);
+    return currentSaturday.getTime() === selectedSaturdayCopy.getTime();
   })();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
@@ -537,11 +557,11 @@ const Finance = () => {
       // Jour sélectionné
       const selectedDayStr = selectedDate.toISOString().split("T")[0];
       
-      // Semaine sélectionnée (lundi au dimanche)
+      // Semaine sélectionnée (samedi au vendredi suivant = 7 jours)
       const weekStart = new Date(selectedWeekStart);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setDate(weekStart.getDate() + 6); // Samedi + 6 jours = Vendredi
       const weekStartStr = weekStart.toISOString().split("T")[0];
       const weekEndStr = weekEnd.toISOString().split("T")[0];
 
