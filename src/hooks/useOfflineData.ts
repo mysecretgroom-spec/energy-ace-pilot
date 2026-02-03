@@ -764,27 +764,24 @@ export function useOfflineData() {
     }
   }, [user, isOnline, cacheRdvList, cacheClientsList, cacheProfile, cacheRegiesList]);
 
-  // Refresh cache when coming online (not on every mount to avoid interference with page loads)
-  // Use a ref to track if we've refreshed this session to avoid duplicate calls
+  // Track if cache has been refreshed this session
   const hasRefreshedRef = useRef(false);
   
-  useEffect(() => {
-    // Only refresh once per online session, not on every mount
+  // Manual refresh function exposed to consumers - does NOT auto-refresh on mount
+  // Pages should call this explicitly after their initial data load is complete
+  const triggerCacheRefresh = useCallback(async () => {
     if (isOnline && user && !hasRefreshedRef.current) {
-      // Delay to avoid interfering with initial page loads
-      const timer = setTimeout(() => {
-        hasRefreshedRef.current = true;
-        refreshCache();
-      }, 3000); // Wait 3 seconds after mount before refreshing cache
-      
-      return () => clearTimeout(timer);
+      hasRefreshedRef.current = true;
+      await refreshCache();
     }
-    
-    // Reset when going offline so we refresh again when back online
+  }, [isOnline, user, refreshCache]);
+  
+  // Reset when going offline so we can refresh again when back online
+  useEffect(() => {
     if (!isOnline) {
       hasRefreshedRef.current = false;
     }
-  }, [isOnline, user, refreshCache]);
+  }, [isOnline]);
 
   return {
     isOnline,
@@ -805,5 +802,6 @@ export function useOfflineData() {
     queueWhatsAppMessage,
     syncAll,
     refreshCache,
+    triggerCacheRefresh,
   };
 }
