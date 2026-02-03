@@ -138,7 +138,7 @@ Si tu ne peux pas lire certaines informations, mets null pour ces champs. Si le 
             ],
           },
         ],
-        max_tokens: 500,
+        max_tokens: 350,
       }),
     });
 

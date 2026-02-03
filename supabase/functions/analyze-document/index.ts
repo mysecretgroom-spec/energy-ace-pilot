@@ -153,7 +153,7 @@ Exemple échec:
             ],
           },
         ],
-        max_tokens: 500,
+        max_tokens: 350,
       }),
     });
 
