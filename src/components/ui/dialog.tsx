@@ -27,14 +27,25 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
+interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  /** If true, dialog won't close when clicking outside or pressing Escape */
+  preventAutoClose?: boolean;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(({ className, children, preventAutoClose = false, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // Prevent closing on outside click and escape key when preventAutoClose is true
+      onPointerDownOutside={preventAutoClose ? (e) => e.preventDefault() : undefined}
+      onInteractOutside={preventAutoClose ? (e) => e.preventDefault() : undefined}
+      onEscapeKeyDown={preventAutoClose ? (e) => e.preventDefault() : undefined}
+      // Prevent closing when app loses focus (user switches apps)
+      onFocusOutside={preventAutoClose ? (e) => e.preventDefault() : undefined}
       className={cn(
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         // Mobile optimizations: full width on small screens, scroll support
