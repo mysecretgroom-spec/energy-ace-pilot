@@ -2877,7 +2877,7 @@ async function transcribeAudioWithGemini(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages: [
         {
           role: "system",
@@ -6179,9 +6179,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-flash-lite",
       messages,
-      max_tokens: 1500,
+      max_tokens: 1000,
       tools: [
         {
           type: "function",
