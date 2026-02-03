@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -384,12 +385,16 @@ interface AgentPrompt {
   priority: number;
 }
 
-// Load user's custom prompt tokens
+// Load user's custom prompt tokens (with cache)
 // deno-lint-ignore no-explicit-any
 async function loadUserPrompts(
   supabase: any,
   userId: string
 ): Promise<AgentPrompt[]> {
+  const cacheKey = CACHE_KEYS.USER_PROMPTS(userId);
+  const cached = cache.get<AgentPrompt[]>(cacheKey);
+  if (cached) return cached;
+
   try {
     const { data, error } = await supabase
       .from("whatsapp_agent_prompts")
@@ -403,7 +408,9 @@ async function loadUserPrompts(
       console.error("Error loading user prompts:", error);
       return [];
     }
-    return data || [];
+    const prompts = data || [];
+    cache.set(cacheKey, prompts, CACHE_TTL.PROMPTS);
+    return prompts;
   } catch {
     return [];
   }
@@ -448,12 +455,16 @@ function formatPromptsForSystem(prompts: AgentPrompt[]): string {
   return result;
 }
 
-// Load user's agent memories
+// Load user's agent memories (with cache)
 // deno-lint-ignore no-explicit-any
 async function loadUserMemories(
   supabase: any,
   userId: string
 ): Promise<AgentMemory[]> {
+  const cacheKey = CACHE_KEYS.USER_MEMORIES(userId);
+  const cached = cache.get<AgentMemory[]>(cacheKey);
+  if (cached) return cached;
+
   try {
     const { data, error } = await supabase
       .from("whatsapp_agent_memory")
@@ -466,7 +477,9 @@ async function loadUserMemories(
       console.error("Error loading memories:", error);
       return [];
     }
-    return data || [];
+    const memories = data || [];
+    cache.set(cacheKey, memories, CACHE_TTL.MEMORIES);
+    return memories;
   } catch {
     return [];
   }
@@ -483,6 +496,9 @@ async function saveMemory(
   confidence: number = 0.8
 ): Promise<void> {
   try {
+    // Invalidate cache for this user's memories
+    cache.delete(CACHE_KEYS.USER_MEMORIES(userId));
+    
     // Upsert memory - if exists, increment usage_count and update
     const { error } = await supabase
       .from("whatsapp_agent_memory")
@@ -998,13 +1014,22 @@ function calculateCommission(params: {
 }
 
 /**
- * Load all bouquets and build lookup maps
+ * Load all bouquets and build lookup maps (with cache)
  */
-// deno-lint-ignore no-explicit-any
-async function loadBouquetsForCommissions(supabase: any): Promise<{
+interface CachedBouquetsData {
   globalBouquets: BouquetData[];
   regieBouquetsMap: Map<string, BouquetData[]>;
-}> {
+}
+
+// deno-lint-ignore no-explicit-any
+async function loadBouquetsForCommissions(supabase: any): Promise<CachedBouquetsData> {
+  // Check cache first
+  const cached = cache.get<CachedBouquetsData>(CACHE_KEYS.BOUQUETS_GLOBAL);
+  if (cached) {
+    console.log("Using cached bouquets data");
+    return cached;
+  }
+
   const { data: allBouquets, error } = await supabase
     .from("bouquets")
     .select("puissance_kwc, prix_recommande, commission_fixe, regie_ids")
@@ -1043,7 +1068,11 @@ async function loadBouquetsForCommissions(supabase: any): Promise<{
     }
   });
 
-  return { globalBouquets, regieBouquetsMap };
+  const result = { globalBouquets, regieBouquetsMap };
+  cache.set(CACHE_KEYS.BOUQUETS_GLOBAL, result, CACHE_TTL.BOUQUETS);
+  console.log(`Cached ${globalBouquets.length} global bouquets, ${regieBouquetsMap.size} regies`);
+  
+  return result;
 }
 
 // ==================== FUZZY CLIENT SEARCH ====================
