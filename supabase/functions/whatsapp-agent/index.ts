@@ -2524,7 +2524,8 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
+              model: "google/gemini-2.5-flash-lite",
+              max_tokens: 1000,
               messages: [
                 { 
                   role: "system", 
@@ -2562,7 +2563,6 @@ FORMAT ATTENDU:
                 })),
                 { role: "user", content: processedContent }
               ],
-              max_tokens: 2000,
             }),
           });
           
@@ -2595,7 +2595,7 @@ FORMAT ATTENDU:
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
-                    model: "google/gemini-3-flash-preview",
+                    model: "google/gemini-2.5-flash-lite",
                     messages: [
                       { 
                         role: "system", 
@@ -6179,9 +6179,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "google/gemini-2.5-flash",
       messages,
-      max_tokens: 4000,
+      max_tokens: 2000,
       tools: [
         {
           type: "function",
