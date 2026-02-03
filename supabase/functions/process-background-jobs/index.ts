@@ -231,6 +231,60 @@ Retourne uniquement les données trouvées avec certitude.`
   return ocrData;
 }
 
+async function processGeocodeRdv(payload: any, supabase: any) {
+  const { rdvId, address, city, postalCode } = payload;
+
+  if (!rdvId || !address) {
+    throw new Error("Missing rdvId or address");
+  }
+
+  console.log(`[Geocode Job] Processing RDV ${rdvId}: ${address}`);
+
+  // Call the geocode-address edge function
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/geocode-address`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ address, city, postal_code: postalCode }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Geocode failed: ${errorText}`);
+  }
+
+  const geocodeResult = await response.json();
+
+  if (!geocodeResult.latitude || !geocodeResult.longitude) {
+    throw new Error("No coordinates returned");
+  }
+
+  // Update the RDV with coordinates
+  const { error: updateError } = await supabase
+    .from("rdv")
+    .update({
+      latitude: geocodeResult.latitude,
+      longitude: geocodeResult.longitude,
+    })
+    .eq("id", rdvId);
+
+  if (updateError) {
+    throw new Error(`Update failed: ${updateError.message}`);
+  }
+
+  console.log(`[Geocode Job] ✓ RDV ${rdvId} updated: ${geocodeResult.latitude}, ${geocodeResult.longitude}`);
+
+  return {
+    rdvId,
+    latitude: geocodeResult.latitude,
+    longitude: geocodeResult.longitude,
+    approximate: geocodeResult.approximate,
+    corrected: geocodeResult.corrected,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -283,6 +337,9 @@ serve(async (req) => {
             break;
           case "receipt_ocr":
             result = await processReceiptOcr(job.payload, supabase);
+            break;
+          case "geocode_rdv":
+            result = await processGeocodeRdv(job.payload, supabase);
             break;
           default:
             throw new Error(`Unknown job type: ${job.job_type}`);
