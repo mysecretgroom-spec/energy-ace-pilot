@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2 } from "lucide-react";
+import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2, FileText } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
 import { RegieSelector } from "./RegieSelector";
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
+import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,6 +65,7 @@ export function RdvActions({
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
   const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
+  const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
 
   // Delete functionality
   const {
@@ -132,6 +134,35 @@ export function RdvActions({
   const handleCreateVente = () => {
     // Open the external vente dialog directly
     setExternalVenteDialogOpen(true);
+  };
+
+  const handleSendDossier = async () => {
+    if (!regieId) {
+      toast.error("Aucune régie associée à ce RDV");
+      return;
+    }
+
+    // Fetch confirmateur for this regie
+    const { data: confirmateur, error } = await supabase
+      .from("confirmateurs")
+      .select("telephone, nom")
+      .eq("regie_id", regieId)
+      .eq("actif", true)
+      .order("ordre_priorite", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error || !confirmateur) {
+      toast.error("Aucun confirmateur actif trouvé pour cette régie");
+      return;
+    }
+
+    await sendPdfDoc({
+      clientId,
+      phoneNumber: confirmateur.telephone,
+      message: `📄 Dossier complet pour ${clientName}`,
+      includeEtude: true,
+    });
   };
 
   const handleStatusChangeInternal = (newStatus: RdvStatus) => {
@@ -266,6 +297,22 @@ export function RdvActions({
           <Euro className="h-4 w-4" />
         </Button>
       )}
+
+      {/* Envoyer dossier au confirmateur */}
+      <Button
+        size="icon"
+        variant="outline"
+        className="h-9 w-9 rounded-full text-primary"
+        onClick={handleSendDossier}
+        disabled={isSendingDoc || !regieId}
+        title="Envoyer dossier au confirmateur"
+      >
+        {isSendingDoc ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <FileText className="h-4 w-4" />
+        )}
+      </Button>
 
       {/* Supprimer RDV */}
       <Button
