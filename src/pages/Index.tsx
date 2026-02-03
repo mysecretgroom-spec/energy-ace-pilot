@@ -14,63 +14,187 @@ import {
   AlertCircle,
   ChevronRight,
   Sun,
+  Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-// Données de démonstration
-const todayRdv = [
-  {
-    id: "1",
-    time: "09:00",
-    client: "M. Dupont",
-    address: "12 rue de la Paix, Lyon",
-    status: "nouveau" as RdvStatus,
-    type: "Photovoltaïque",
-  },
-  {
-    id: "2",
-    time: "11:30",
-    client: "Mme Martin",
-    address: "45 avenue Victor Hugo, Villeurbanne",
-    status: "r2" as RdvStatus,
-    type: "Pompe à chaleur",
-  },
-  {
-    id: "3",
-    time: "14:00",
-    client: "M. Bernard",
-    address: "8 place Bellecour, Lyon",
-    status: "r2_prestudy" as RdvStatus,
-    type: "Photovoltaïque",
-  },
-];
-
-const stats = {
-  rdvToday: 3,
-  rdvWeek: 12,
-  signedMonth: 4,
-  pendingStudies: 2,
-};
-
-const alerts = [
-  {
-    id: "1",
-    type: "warning",
-    message: "RDV de 14h éloigné de 45km - prévoir temps de trajet",
-  },
-  {
-    id: "2",
-    type: "info",
-    message: "R2 à confirmer pour Mme Martin demain",
-  },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Index = () => {
+  const { user } = useAuth();
+  
   const currentDate = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
+
+  // Fetch today's RDVs
+  const { data: todayRdvs = [], isLoading: loadingTodayRdvs } = useQuery({
+    queryKey: ["today-rdvs", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const { data, error } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          date_heure,
+          adresse,
+          status,
+          type_projet,
+          latitude,
+          longitude,
+          clients!inner(nom, prenom, ville, code_postal)
+        `)
+        .eq("user_id", user.id)
+        .gte("date_heure", today.toISOString())
+        .lt("date_heure", tomorrow.toISOString())
+        .order("date_heure", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  // Fetch tomorrow's first RDV for hotel search
+  const { data: tomorrowFirstRdv } = useQuery({
+    queryKey: ["tomorrow-first-rdv", user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      const dayAfter = new Date(tomorrow);
+      dayAfter.setDate(dayAfter.getDate() + 1);
+
+      const { data, error } = await supabase
+        .from("rdv")
+        .select(`
+          id,
+          adresse,
+          latitude,
+          longitude,
+          clients!inner(ville, code_postal)
+        `)
+        .eq("user_id", user.id)
+        .gte("date_heure", tomorrow.toISOString())
+        .lt("date_heure", dayAfter.toISOString())
+        .order("date_heure", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Get the best location for hotel search (last RDV today OR first RDV tomorrow)
+  const getHotelSearchLocation = (): { city: string; lat?: number; lon?: number } => {
+    // Priority 1: First RDV tomorrow
+    if (tomorrowFirstRdv) {
+      const client = tomorrowFirstRdv.clients as { ville?: string; code_postal?: string };
+      if (client?.ville) {
+        return {
+          city: client.ville,
+          lat: tomorrowFirstRdv.latitude || undefined,
+          lon: tomorrowFirstRdv.longitude || undefined,
+        };
+      }
+      // Extract city from address
+      if (tomorrowFirstRdv.adresse) {
+        const cityMatch = tomorrowFirstRdv.adresse.match(/\d{5}\s+([^,]+)/);
+        if (cityMatch) {
+          return {
+            city: cityMatch[1].trim(),
+            lat: tomorrowFirstRdv.latitude || undefined,
+            lon: tomorrowFirstRdv.longitude || undefined,
+          };
+        }
+      }
+    }
+
+    // Priority 2: Last RDV today
+    if (todayRdvs.length > 0) {
+      const lastRdv = todayRdvs[todayRdvs.length - 1];
+      const client = lastRdv.clients as { ville?: string; code_postal?: string };
+      if (client?.ville) {
+        return {
+          city: client.ville,
+          lat: lastRdv.latitude || undefined,
+          lon: lastRdv.longitude || undefined,
+        };
+      }
+      // Extract city from address
+      if (lastRdv.adresse) {
+        const cityMatch = lastRdv.adresse.match(/\d{5}\s+([^,]+)/);
+        if (cityMatch) {
+          return {
+            city: cityMatch[1].trim(),
+            lat: lastRdv.latitude || undefined,
+            lon: lastRdv.longitude || undefined,
+          };
+        }
+      }
+    }
+
+    // Default fallback
+    return { city: "France" };
+  };
+
+  const openHotelSearch = () => {
+    const location = getHotelSearchLocation();
+    const checkIn = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const checkOut = tomorrow.toISOString().split("T")[0];
+
+    // Use coordinates if available for more precise results
+    let bookingUrl = `https://www.booking.com/searchresults.fr.html?ss=${encodeURIComponent(location.city)}&checkin=${checkIn}&checkout=${checkOut}&group_adults=1&no_rooms=1`;
+    
+    if (location.lat && location.lon) {
+      // Add coordinates for more precise search
+      bookingUrl = `https://www.booking.com/searchresults.fr.html?ss=${encodeURIComponent(location.city)}&checkin=${checkIn}&checkout=${checkOut}&group_adults=1&no_rooms=1&latitude=${location.lat}&longitude=${location.lon}&radius=10`;
+    }
+
+    window.open(bookingUrl, "_blank");
+  };
+
+  // Format RDVs for display
+  const formattedRdvs = todayRdvs.map((rdv) => {
+    const dateHeure = new Date(rdv.date_heure);
+    const client = rdv.clients as { nom: string; prenom?: string };
+    return {
+      id: rdv.id,
+      time: dateHeure.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      client: client.prenom ? `${client.prenom} ${client.nom}` : client.nom,
+      address: rdv.adresse || "Adresse non renseignée",
+      status: rdv.status as RdvStatus,
+      type: rdv.type_projet || "Projet",
+    };
+  });
+
+  // Calculate stats
+  const stats = {
+    rdvToday: todayRdvs.length,
+    rdvWeek: 0, // Could add another query for this
+    signedMonth: 0,
+    pendingStudies: 0,
+  };
+
+  const alerts: { id: string; type: string; message: string }[] = [];
+
+  // Get location info for hotel button
+  const hotelLocation = getHotelSearchLocation();
 
   return (
     <MobileLayout>
@@ -103,7 +227,7 @@ const Index = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {stats.rdvToday}
+                    {loadingTodayRdvs ? "-" : stats.rdvToday}
                   </p>
                   <p className="text-xs text-muted-foreground">RDV aujourd'hui</p>
                 </div>
@@ -195,80 +319,83 @@ const Index = () => {
             </Link>
           </div>
 
-          <div className="space-y-3">
-            {todayRdv.map((rdv, index) => (
-              <Card
-                key={rdv.id}
-                className="shadow-card overflow-hidden animate-slide-up"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1.5 text-primary font-medium">
-                          <Clock className="h-4 w-4" />
-                          <span>{rdv.time}</span>
+          {loadingTodayRdvs ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : formattedRdvs.length === 0 ? (
+            <Card className="shadow-card">
+              <CardContent className="p-6 text-center">
+                <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Aucun RDV aujourd'hui</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {formattedRdvs.map((rdv, index) => (
+                <Card
+                  key={rdv.id}
+                  className="shadow-card overflow-hidden animate-slide-up"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-primary font-medium">
+                            <Clock className="h-4 w-4" />
+                            <span>{rdv.time}</span>
+                          </div>
+                          <StatusBadge status={rdv.status} />
                         </div>
-                        <StatusBadge status={rdv.status} />
+
+                        <div>
+                          <h3 className="font-semibold text-foreground">
+                            {rdv.client}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {rdv.type}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                          <span className="truncate">{rdv.address}</span>
+                        </div>
                       </div>
 
-                      <div>
-                        <h3 className="font-semibold text-foreground">
-                          {rdv.client}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {rdv.type}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate">{rdv.address}</span>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="h-9 w-9 rounded-full"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          className="h-9 w-9 rounded-full bg-gradient-hero"
+                        >
+                          <Navigation className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-9 w-9 rounded-full"
-                      >
-                        <Phone className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        className="h-9 w-9 rounded-full bg-gradient-hero"
-                      >
-                        <Navigation className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bouton Hôtel */}
+        {/* Bouton Hôtel - Now with real location */}
         <Card className="shadow-card bg-gradient-dark text-primary-foreground">
           <CardContent className="p-4">
             <Button
               variant="secondary"
               className="w-full font-semibold"
-              onClick={() => {
-                // Redirection Booking.com avec ville du 1er RDV J+1
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const checkIn = new Date().toISOString().split("T")[0];
-                const checkOut = tomorrow.toISOString().split("T")[0];
-                window.open(
-                  `https://www.booking.com/searchresults.fr.html?ss=Lyon&checkin=${checkIn}&checkout=${checkOut}`,
-                  "_blank"
-                );
-              }}
+              onClick={openHotelSearch}
             >
-              🏨 Trouver un hôtel pour ce soir
+              🏨 Trouver un hôtel près de {hotelLocation.city !== "France" ? hotelLocation.city : "votre prochain RDV"}
             </Button>
           </CardContent>
         </Card>
