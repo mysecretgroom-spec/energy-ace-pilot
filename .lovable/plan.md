@@ -1,81 +1,138 @@
 
-# Correction du chemin d'upload dans ReceiptScanner.tsx
+# Plan d'optimisation de la latence IA
 
-## Probleme identifie
+## Analyse de la situation actuelle
 
-Le fichier `ReceiptScanner.tsx` utilise un format de chemin incompatible avec les politiques RLS du bucket `receipts` :
+Ton projet utilise Lovable AI Gateway pour plusieurs fonctions :
 
-**Ligne 25 actuelle :**
+| Fonction | Modèle actuel | Cas d'usage |
+|----------|---------------|-------------|
+| `whatsapp-agent` | `gemini-3-flash-preview` | Agent conversationnel principal |
+| `workflow-assistant` | `gemini-3-flash-preview` | Création de workflows |
+| `analyze-document` | `gemini-2.5-flash-lite` | Classification documents |
+| `ocr-receipt` | `gemini-2.5-flash-lite` | OCR tickets de caisse |
+| `extract-bouquets` | `gemini-2.5-flash` | Extraction données bouquets |
+| `import-rdv-email` | `gemini-2.5-flash` | Import emails |
+| `geocode-address` | `gemini-2.5-flash` | Normalisation adresses |
+
+---
+
+## Optimisations proposées
+
+### 1. Utiliser des modèles plus rapides
+
+| Fonction | Modèle actuel | Modèle optimisé | Gain estimé |
+|----------|---------------|-----------------|-------------|
+| `whatsapp-agent` (intent) | `gemini-3-flash-preview` | `gemini-2.5-flash-lite` | -50% latence |
+| `whatsapp-agent` (réponse) | `gemini-3-flash-preview` | `gemini-2.5-flash` | -30% latence |
+| `extract-bouquets` | `gemini-2.5-flash` | `gemini-2.5-flash-lite` | -40% latence |
+| `geocode-address` | `gemini-2.5-flash` | `gemini-2.5-flash-lite` | -40% latence |
+
+**Hiérarchie des modèles (du plus rapide au plus lent) :**
+1. `gemini-2.5-flash-lite` — Ultra-rapide, parfait pour classification/OCR
+2. `gemini-2.5-flash` — Équilibré, bon pour raisonnement modéré
+3. `gemini-3-flash-preview` — Plus intelligent mais plus lent
+4. `gemini-2.5-pro` / `gpt-5` — Très puissants mais lents
+
+### 2. Réduire `max_tokens`
+
+Actuellement `max_tokens: 4000` sur l'agent principal. Pour les requêtes courtes :
+- Intent detection → `max_tokens: 500`
+- Réponses simples → `max_tokens: 1000`
+- Réponses complexes → `max_tokens: 2000`
+
+### 3. Optimiser les prompts système
+
+Le prompt système de `whatsapp-agent` fait ~6000 caractères. Options :
+- Créer un prompt court pour l'intent detection (~1000 chars)
+- Utiliser le prompt complet uniquement pour les réponses complexes
+
+### 4. Paralléliser les appels indépendants
+
+Dans `whatsapp-agent`, certains appels peuvent être parallélisés :
+- Chargement mémoires + prompts utilisateur → en parallèle
+- Detection type document + contexte conversation → en parallèle
+
+### 5. Cache des résultats fréquents
+
+Mettre en cache (15-30 min) :
+- Bouquets et tarifs
+- Mémoires utilisateur
+- Profil utilisateur
+
+---
+
+## Détail technique des changements
+
+### A. Fonction `whatsapp-agent` (impact majeur)
+
+**Intent detection rapide :**
 ```typescript
-const fileName = `frais/${userId}/${timestamp}.${extension}`;
-```
+// Étape 1: Classification rapide avec modèle léger
+const intentResponse = await fetch(GATEWAY, {
+  body: JSON.stringify({
+    model: "google/gemini-2.5-flash-lite", // ← Plus rapide
+    max_tokens: 500, // ← Réduit
+    messages: [{ role: "system", content: SHORT_INTENT_PROMPT }, ...]
+  })
+});
 
-**Format requis par RLS :**
-```typescript
-const fileName = `${userId}/frais/${timestamp}.${extension}`;
-```
-
-Les politiques RLS exigent que le **premier segment** du chemin soit l'ID de l'utilisateur : `(storage.foldername(name))[1] = (auth.uid())::text`
-
-## Correction a effectuer
-
-### Fichier : `src/components/finance/ReceiptScanner.tsx`
-
-Modifier la fonction `uploadReceiptToStorage` (ligne 25) :
-
-```typescript
-// AVANT (ligne 25)
-const fileName = `frais/${userId}/${timestamp}.${extension}`;
-
-// APRES
-const fileName = `${userId}/frais/${timestamp}.${extension}`;
-```
-
-### Amelioration supplementaire
-
-Ajouter une logique de retry pour la signature d'URL (comme dans `uploadService.ts`) afin de gerer les delais de propagation :
-
-```typescript
-// Utiliser le path retourne par Supabase plutot que le path local
-const { data, error } = await supabase.storage
-  .from("receipts")
-  .upload(fileName, blob, { contentType, upsert: false });
-
-// Retry logic pour signed URL
-let signedUrl: string | null = null;
-for (let attempt = 0; attempt < 3; attempt++) {
-  if (attempt > 0) {
-    await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-  }
-  const { data: urlData } = await supabase.storage
-    .from("receipts")
-    .createSignedUrl(data.path, 60 * 60 * 24 * 365);
-  if (urlData?.signedUrl) {
-    signedUrl = urlData.signedUrl;
-    break;
-  }
+// Étape 2: Réponse détaillée seulement si nécessaire
+if (needsDetailedResponse) {
+  const fullResponse = await fetch(GATEWAY, {
+    model: "google/gemini-2.5-flash", // Modèle équilibré
+    max_tokens: 1500
+  });
 }
 ```
 
-## Resume des modifications
+### B. Parallélisation du chargement contexte
 
-| Ligne | Avant | Apres |
-|-------|-------|-------|
-| 25 | `frais/${userId}/${timestamp}` | `${userId}/frais/${timestamp}` |
-| 44-52 | Appel direct sans retry | Logique de retry avec 3 tentatives |
+```typescript
+// AVANT (séquentiel)
+const memories = await loadUserMemories(...);
+const prompts = await loadUserPrompts(...);
+const context = await getConversationContext(...);
 
-## Section technique
-
-### Pourquoi ce changement ?
-
-La politique RLS du bucket `receipts` verifie :
-```sql
-(storage.foldername(name))[1] = (auth.uid())::text
+// APRÈS (parallèle)
+const [memories, prompts, context] = await Promise.all([
+  loadUserMemories(...),
+  loadUserPrompts(...),
+  getConversationContext(...)
+]);
 ```
 
-Cela signifie que le **premier dossier** du chemin doit etre l'ID de l'utilisateur connecte. Avec `frais/userId/...`, le premier segment est `frais`, ce qui echoue la verification RLS.
+### C. Fonctions secondaires
 
-### Impact
+| Fonction | Changement |
+|----------|------------|
+| `extract-bouquets` | `flash` → `flash-lite`, `max_tokens: 300` |
+| `geocode-address` | `flash` → `flash-lite`, `max_tokens: 200` |
+| `import-rdv-email` | `flash` → `flash-lite`, `max_tokens: 400` |
 
-- Les nouveaux uploads de factures respecteront les politiques RLS
-- Les fichiers existants avec l'ancien format (`frais/userId/...`) resteront inaccessibles via l'API (mais toujours en base)
+---
+
+## Impact estimé
+
+| Métrique | Avant | Après | Amélioration |
+|----------|-------|-------|--------------|
+| Latence intent detection | ~2-3s | ~0.8-1.2s | **-60%** |
+| Latence réponse complète | ~4-6s | ~2-3s | **-50%** |
+| Latence OCR/classification | ~1.5s | ~0.8s | **-45%** |
+
+---
+
+## Fichiers à modifier
+
+1. `supabase/functions/whatsapp-agent/index.ts` — Optimisation majeure
+2. `supabase/functions/extract-bouquets/index.ts` — Modèle plus léger
+3. `supabase/functions/geocode-address/index.ts` — Modèle plus léger
+4. `supabase/functions/import-rdv-email/index.ts` — Modèle plus léger
+
+---
+
+## Risques et compromis
+
+- **Qualité légèrement réduite** : Les modèles `flash-lite` sont moins précis sur les cas complexes
+- **Mitigation** : Utiliser `flash` pour les réponses finales, `flash-lite` uniquement pour classification
+- **Rollback facile** : Changer juste le nom du modèle si problèmes détectés
