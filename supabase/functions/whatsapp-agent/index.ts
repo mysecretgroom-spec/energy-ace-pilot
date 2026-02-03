@@ -2525,7 +2525,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "google/gemini-2.5-flash-lite",
-              max_tokens: 1000,
+              max_tokens: 800,
               messages: [
                 { 
                   role: "system", 
@@ -2607,7 +2607,7 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
                       },
                       { role: "user", content: `Dernière question/demande: ${processedContent}\n\nRéponds différemment en appliquant: ${correctionValue}` }
                     ],
-                    max_tokens: 1500,
+                    max_tokens: 1000,
                     temperature: 0.8, // Higher temperature for more variety
                   }),
                 });
@@ -2985,7 +2985,7 @@ Exemple document client:
             ],
           },
         ],
-        max_tokens: 300,
+        max_tokens: 200,
       }),
     });
 
@@ -3104,7 +3104,7 @@ Exemple échec:
           ],
         },
       ],
-      max_tokens: 2000,
+      max_tokens: 1200,
     }),
   });
 
@@ -6181,7 +6181,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages,
-      max_tokens: 2000,
+      max_tokens: 1500,
       tools: [
         {
           type: "function",
