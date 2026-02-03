@@ -279,14 +279,17 @@ const Finance = () => {
   const [financeStatDialogOpen, setFinanceStatDialogOpen] = useState(false);
   const [financeStatDialogType, setFinanceStatDialogType] = useState<FinanceStatDialogType>(null);
 
-  // Group frais by month
+  // Group frais by month - format: "Janvier 2026", "Février 2026", etc.
   const fraisGroupedByMonth = useMemo(() => {
     const groups: Map<string, { label: string; total: number; frais: FraisItem[] }> = new Map();
     
     allFraisData.forEach((frais) => {
       const date = new Date(frais.date_frais);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = date.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+      // Format: "Janvier 2026" avec majuscule
+      const monthName = date.toLocaleDateString("fr-FR", { month: "long" });
+      const year = date.getFullYear();
+      const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`;
       
       if (!groups.has(monthKey)) {
         groups.set(monthKey, { label: monthLabel, total: 0, frais: [] });
