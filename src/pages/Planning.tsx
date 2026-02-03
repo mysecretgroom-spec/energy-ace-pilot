@@ -128,8 +128,8 @@ const Planning = () => {
   // Use working days settings
   const { workingDays } = useWorkingDays();
 
-  // Use offline data hook
-  const { isOnline, cacheRdvList, getCachedRdvList, getCachedRegiesList, cacheRegiesList } = useOfflineData();
+  // Use offline data hook - triggerCacheRefresh is called manually after initial load
+  const { isOnline, cacheRdvList, getCachedRdvList, getCachedRegiesList, cacheRegiesList, triggerCacheRefresh } = useOfflineData();
 
   // Fetch regies (with offline fallback)
   useEffect(() => {
@@ -455,8 +455,11 @@ const Planning = () => {
       // On error, try cache - transformRdvData is defined earlier in this function
     } finally {
       setLoading(false);
+      // Trigger background cache refresh after initial load completes
+      // This won't interfere with display since data is already loaded
+      triggerCacheRefresh();
     }
-  }, [user, currentDate, viewMode, selectedRegieId, isOnline, getCachedRdvList, cacheRdvList, parseAddress]);
+  }, [user, currentDate, viewMode, selectedRegieId, isOnline, getCachedRdvList, cacheRdvList, parseAddress, triggerCacheRefresh]);
 
   // Filter regies for display (hide hejja regies outside of hejja mode)
   const filteredRegies = modeHejjaActive 
