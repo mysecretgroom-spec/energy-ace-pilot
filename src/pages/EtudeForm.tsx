@@ -68,6 +68,7 @@ import { AutoSaveIndicator } from "@/components/ui/auto-save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useOfflineData } from "@/hooks/useOfflineData";
 import { useEtudePdfAutoSave } from "@/hooks/useEtudePdfAutoSave";
+import { useEtudeFormPersistence } from "@/hooks/useEtudeFormPersistence";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -171,9 +172,18 @@ const EtudeForm = () => {
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
   
+  // Form persistence (sessionStorage + beforeunload protection)
+  const { saveDraft, loadDraft, clearDraft, markRestorationComplete, isRestoring, setHasUnsavedChanges } = useEtudeFormPersistence({
+    clientId,
+    rdvId,
+    etudeId,
+    enabled: true,
+  });
+  
   // Track if form has been initialized (to avoid auto-save on first load)
   const isInitializedRef = useRef(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRestoredDraftRef = useRef(false);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // PRODUCT TYPE STATE - PV / PAC / ITE
@@ -428,9 +438,103 @@ const EtudeForm = () => {
       if (etudeId) {
         await loadExistingEtude(financements);
       }
+      
+      // Try to restore draft from sessionStorage (only if not editing existing etude)
+      if (!etudeId && !hasRestoredDraftRef.current) {
+        const draft = loadDraft();
+        if (draft) {
+          hasRestoredDraftRef.current = true;
+          restoreFormFromDraft(draft);
+        }
+      }
     };
     init();
   }, [clientId, etudeId, rdvId]);
+
+  // Restore form from sessionStorage draft
+  const restoreFormFromDraft = (draft: Record<string, any>) => {
+    console.log("[EtudeForm] Restoring draft from sessionStorage");
+    
+    // Product type
+    if (draft.productType) setProductType(draft.productType);
+    
+    // Common fields
+    if (draft.consoAnnuelle !== undefined) setConsoAnnuelle(draft.consoAnnuelle);
+    if (draft.factureMensuelle !== undefined) setFactureMensuelle(draft.factureMensuelle);
+    if (draft.potentielFaisabilite) setPotentielFaisabilite(draft.potentielFaisabilite);
+    if (draft.financementId) setFinancementId(draft.financementId);
+    if (draft.dureeMoisManuelle !== undefined) setDureeMoisManuelle(draft.dureeMoisManuelle);
+    if (draft.mensualiteManuelle !== undefined) setMensualiteManuelle(draft.mensualiteManuelle);
+    if (draft.selectedSurcouts) setSelectedSurcouts(draft.selectedSurcouts);
+    if (draft.autreSurcout !== undefined) setAutreSurcout(draft.autreSurcout);
+    if (draft.classification) setClassification(draft.classification);
+    if (draft.classificationComment) setClassificationComment(draft.classificationComment);
+    if (draft.r2DateHeure) setR2DateHeure(new Date(draft.r2DateHeure));
+    if (draft.r2Time) setR2Time(draft.r2Time);
+    if (draft.aidesManuelles) setAidesManuelles(draft.aidesManuelles);
+    
+    // PV fields
+    if (draft.ombreToiture) setOmbreToiture(draft.ombreToiture);
+    if (draft.surfaceToiture) setSurfaceToiture(draft.surfaceToiture);
+    if (draft.typeToiture) setTypeToiture(draft.typeToiture);
+    if (draft.etatToiture) setEtatToiture(draft.etatToiture);
+    if (draft.typeCompteurElectrique) setTypeCompteurElectrique(draft.typeCompteurElectrique);
+    if (draft.numeroPdl) setNumeroPdl(draft.numeroPdl);
+    if (draft.typeRaccordement) setTypeRaccordement(draft.typeRaccordement);
+    if (draft.amperageDisjoncteur !== undefined) setAmperageDisjoncteur(draft.amperageDisjoncteur);
+    if (draft.emplacementBoitier) setEmplacementBoitier(draft.emplacementBoitier);
+    if (draft.puissanceKwc !== undefined) setPuissanceKwc(draft.puissanceKwc);
+    if (draft.bouquetId) setBouquetId(draft.bouquetId);
+    if (draft.typeRevente) setTypeRevente(draft.typeRevente);
+    if (draft.supportInstallation) setSupportInstallation(draft.supportInstallation);
+    if (draft.orientation) setOrientation(draft.orientation);
+    if (draft.inclinaison !== undefined) setInclinaison(draft.inclinaison);
+    if (draft.surfaceInstallation !== undefined) setSurfaceInstallation(draft.surfaceInstallation);
+    if (draft.rendementProductivite !== undefined) setRendementProductivite(draft.rendementProductivite);
+    if (draft.prixInstallationManuel !== undefined) setPrixInstallationManuel(draft.prixInstallationManuel);
+    
+    // PAC fields
+    if (draft.pacSubtype) setPacSubtype(draft.pacSubtype);
+    if (draft.pacSurfaceChauffee !== undefined) setPacSurfaceChauffee(draft.pacSurfaceChauffee);
+    if (draft.pacTypeEmetteurs) setPacTypeEmetteurs(draft.pacTypeEmetteurs);
+    if (draft.pacNombreUnitesInt !== undefined) setPacNombreUnitesInt(draft.pacNombreUnitesInt);
+    if (draft.pacPuissanceCalorifique !== undefined) setPacPuissanceCalorifique(draft.pacPuissanceCalorifique);
+    if (draft.pacCop !== undefined) setPacCop(draft.pacCop);
+    if (draft.pacEcsIntegre !== undefined) setPacEcsIntegre(draft.pacEcsIntegre);
+    if (draft.pacVolumeBallon !== undefined) setPacVolumeBallon(draft.pacVolumeBallon);
+    if (draft.pacEnergieActuelle) setPacEnergieActuelle(draft.pacEnergieActuelle);
+    if (draft.pacConsoChaufffageKwh !== undefined) setPacConsoChaufffageKwh(draft.pacConsoChaufffageKwh);
+    if (draft.pacEconomieEstimee !== undefined) setPacEconomieEstimee(draft.pacEconomieEstimee);
+    if (draft.pacFactureChauffageEuros !== undefined) setPacFactureChauffageEuros(draft.pacFactureChauffageEuros);
+    if (draft.pacFactureElecEuros !== undefined) setPacFactureElecEuros(draft.pacFactureElecEuros);
+    if (draft.pacNiveauIsolation) setPacNiveauIsolation(draft.pacNiveauIsolation);
+    if (draft.pacPrixKwhElec !== undefined) setPacPrixKwhElec(draft.pacPrixKwhElec);
+    if (draft.pacPrixManuel !== undefined) setPacPrixManuel(draft.pacPrixManuel);
+    if (draft.aidesPAC) setAidesPAC(draft.aidesPAC);
+    
+    // ITE fields
+    if (draft.iteSurfaceIsoler !== undefined) setIteSurfaceIsoler(draft.iteSurfaceIsoler);
+    if (draft.iteTypeFacade) setIteTypeFacade(draft.iteTypeFacade);
+    if (draft.iteEpaisseurIsolant !== undefined) setIteEpaisseurIsolant(draft.iteEpaisseurIsolant);
+    if (draft.iteTypeIsolant) setIteTypeIsolant(draft.iteTypeIsolant);
+    if (draft.iteRActuel !== undefined) setIteRActuel(draft.iteRActuel);
+    if (draft.iteRCible !== undefined) setIteRCible(draft.iteRCible);
+    if (draft.iteNombreFacades !== undefined) setIteNombreFacades(draft.iteNombreFacades);
+    if (draft.iteSurfaceOuvertures !== undefined) setIteSurfaceOuvertures(draft.iteSurfaceOuvertures);
+    if (draft.iteFinition) setIteFinition(draft.iteFinition);
+    if (draft.iteEconomieChauffagePct !== undefined) setIteEconomieChauffagePct(draft.iteEconomieChauffagePct);
+    if (draft.iteFactureChaufActuelle !== undefined) setIteFactureChaufActuelle(draft.iteFactureChaufActuelle);
+    if (draft.itePrixManuel !== undefined) setItePrixManuel(draft.itePrixManuel);
+    if (draft.aidesITE) setAidesITE(draft.aidesITE);
+    
+    // Mark restoration complete after a delay
+    markRestorationComplete();
+    
+    toast({
+      title: "Brouillon restauré",
+      description: "Vos données précédentes ont été récupérées",
+    });
+  };
 
   // Load default CQ time from settings
   const loadDefaultCqTime = async () => {
@@ -1309,6 +1413,10 @@ const EtudeForm = () => {
         }
       }
       
+      // Clear draft from sessionStorage after successful save
+      clearDraft();
+      setHasUnsavedChanges(false);
+      
       // Afficher l'animation de succès
       setShowSuccess(true);
       setSaving(false);
@@ -1438,17 +1546,28 @@ const EtudeForm = () => {
         lastSaved: new Date(),
         hasUnsavedChanges: false,
       });
+      
+      // Clear sessionStorage draft after successful DB save
+      clearDraft();
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Auto-save error:", error);
       setAutoSaveStatus(prev => ({ ...prev, isSaving: false }));
     }
-  }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline]);
+  }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline, clearDraft, setHasUnsavedChanges]);
 
   // Debounced auto-save trigger
   const triggerAutoSave = useCallback(() => {
-    if (!isInitializedRef.current) return;
+    if (!isInitializedRef.current || isRestoring()) return;
     
     setAutoSaveStatus(prev => ({ ...prev, hasUnsavedChanges: true }));
+    setHasUnsavedChanges(true);
+    
+    // Save to sessionStorage immediately for persistence
+    const formData = buildFormDataForDraft();
+    if (formData) {
+      saveDraft(formData);
+    }
     
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
@@ -1457,7 +1576,90 @@ const EtudeForm = () => {
     autoSaveTimeoutRef.current = setTimeout(() => {
       performAutoSave();
     }, 2000); // 2 seconds debounce
-  }, [performAutoSave]);
+  }, [performAutoSave, isRestoring, setHasUnsavedChanges, saveDraft]);
+
+  // Build form data for sessionStorage draft
+  const buildFormDataForDraft = useCallback(() => {
+    return {
+      productType,
+      consoAnnuelle,
+      factureMensuelle,
+      ombreToiture,
+      surfaceToiture,
+      typeToiture,
+      etatToiture,
+      typeCompteurElectrique,
+      numeroPdl,
+      typeRaccordement,
+      amperageDisjoncteur,
+      emplacementBoitier,
+      potentielFaisabilite,
+      puissanceKwc,
+      bouquetId,
+      typeRevente,
+      supportInstallation,
+      orientation,
+      inclinaison,
+      surfaceInstallation,
+      rendementProductivite,
+      financementId,
+      dureeMoisManuelle,
+      mensualiteManuelle,
+      prixInstallationManuel,
+      selectedSurcouts,
+      autreSurcout,
+      pacSubtype,
+      pacSurfaceChauffee,
+      pacTypeEmetteurs,
+      pacNombreUnitesInt,
+      pacPuissanceCalorifique,
+      pacCop,
+      pacEcsIntegre,
+      pacVolumeBallon,
+      pacEnergieActuelle,
+      pacConsoChaufffageKwh,
+      pacEconomieEstimee,
+      pacFactureChauffageEuros,
+      pacFactureElecEuros,
+      pacNiveauIsolation,
+      pacPrixKwhElec,
+      pacPrixManuel,
+      iteSurfaceIsoler,
+      iteTypeFacade,
+      iteEpaisseurIsolant,
+      iteTypeIsolant,
+      iteRActuel,
+      iteRCible,
+      iteNombreFacades,
+      iteSurfaceOuvertures,
+      iteFinition,
+      iteEconomieChauffagePct,
+      iteFactureChaufActuelle,
+      itePrixManuel,
+      aidesPAC,
+      aidesITE,
+      aidesManuelles,
+      classification,
+      classificationComment,
+      r2DateHeure: r2DateHeure?.toISOString(),
+      r2Time,
+    };
+  }, [
+    productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
+    typeToiture, etatToiture, typeCompteurElectrique, numeroPdl, typeRaccordement,
+    amperageDisjoncteur, emplacementBoitier, potentielFaisabilite, puissanceKwc,
+    bouquetId, typeRevente, supportInstallation, orientation, inclinaison,
+    surfaceInstallation, rendementProductivite, financementId, dureeMoisManuelle,
+    mensualiteManuelle, prixInstallationManuel, selectedSurcouts, autreSurcout,
+    pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacNombreUnitesInt,
+    pacPuissanceCalorifique, pacCop, pacEcsIntegre, pacVolumeBallon, pacEnergieActuelle,
+    pacConsoChaufffageKwh, pacEconomieEstimee, pacFactureChauffageEuros, pacFactureElecEuros,
+    pacNiveauIsolation, pacPrixKwhElec, pacPrixManuel, iteSurfaceIsoler, iteTypeFacade,
+    iteEpaisseurIsolant, iteTypeIsolant, iteRActuel, iteRCible, iteNombreFacades,
+    iteSurfaceOuvertures, iteFinition, iteEconomieChauffagePct, iteFactureChaufActuelle,
+    itePrixManuel, aidesPAC, aidesITE, aidesManuelles, classification, classificationComment,
+    r2DateHeure, r2Time,
+  ]);
 
   // Immediate save for important actions (photo upload, status change)
   const triggerImmediateSave = useCallback(() => {
