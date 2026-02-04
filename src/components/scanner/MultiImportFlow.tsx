@@ -126,6 +126,17 @@ export function MultiImportFlow({
   };
 
   const analyzeFile = async (importedFile: ImportedFile): Promise<ImportedFile> => {
+    // For client docs, skip AI analysis - user will select document type manually
+    // The automatic cropping is handled in CropEditor via OpenCV
+    if (context === "client_docs") {
+      return {
+        ...importedFile,
+        status: "manual",
+        // Pre-fill with filename as description
+        description: importedFile.file.name.replace(/\.[^/.]+$/, ""),
+      };
+    }
+
     try {
       let base64: string;
       
@@ -290,7 +301,10 @@ export function MultiImportFlow({
     const successCount = results.filter((r) => r.status === "success").length;
     const manualCount = results.filter((r) => r.status === "manual").length;
 
-    if (manualCount > 0) {
+    if (context === "client_docs") {
+      // For client docs, all files go to manual mode for type selection
+      toast.info(`${results.length} document(s) prêt(s) - sélectionnez le type pour chacun`);
+    } else if (manualCount > 0) {
       toast.info(`${successCount} analysés avec succès, ${manualCount} nécessitent une saisie manuelle`);
     } else {
       toast.success(`${successCount} documents analysés avec succès`);
@@ -541,7 +555,9 @@ export function MultiImportFlow({
               <Badge className="bg-green-100 text-green-700">{successCount} analysés</Badge>
             )}
             {manualCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700">{manualCount} à compléter</Badge>
+              <Badge className="bg-amber-100 text-amber-700">
+                {context === "client_docs" ? `${manualCount} à typer` : `${manualCount} à compléter`}
+              </Badge>
             )}
           </div>
         )}
@@ -581,7 +597,7 @@ export function MultiImportFlow({
                             {f.status === "analyzing" && (
                               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                Analyse en cours...
+                                {context === "client_docs" ? "Préparation..." : "Analyse en cours..."}
                               </div>
                             )}
                             {f.status === "success" && (
@@ -593,7 +609,9 @@ export function MultiImportFlow({
                             {f.status === "manual" && (
                               <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
                                 <AlertCircle className="h-3 w-3" />
-                                {f.error_message || "Saisie manuelle requise"}
+                                {context === "client_docs" 
+                                  ? "Sélectionnez le type de document"
+                                  : (f.error_message || "Saisie manuelle requise")}
                               </div>
                             )}
                           </div>
@@ -714,8 +732,10 @@ export function MultiImportFlow({
               {isAnalyzing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyse...
+                  {context === "client_docs" ? "Préparation..." : "Analyse..."}
                 </>
+              ) : context === "client_docs" ? (
+                <>Préparer ({pendingCount})</>
               ) : (
                 <>Analyser ({pendingCount})</>
               )}
