@@ -64,7 +64,7 @@ const Index = () => {
     enabled: !!user,
   });
 
-  // Fetch tomorrow's first RDV for hotel search
+  // Fetch tomorrow's first RDV for hotel search (excluding cancelled)
   const { data: tomorrowFirstRdv } = useQuery({
     queryKey: ["tomorrow-first-rdv", user?.id],
     queryFn: async () => {
@@ -88,6 +88,7 @@ const Index = () => {
         .eq("user_id", user.id)
         .gte("date_heure", tomorrow.toISOString())
         .lt("date_heure", dayAfter.toISOString())
+        .not("status", "eq", "annule")
         .order("date_heure", { ascending: true })
         .limit(1)
         .maybeSingle();
