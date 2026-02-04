@@ -64,7 +64,6 @@ interface PendingFile {
 }
 
 // Constants for multi-file upload
-const MAX_FILES = 10;
 const MAX_TOTAL_SIZE_MB = 100;
 const MAX_CONCURRENT_UPLOADS = 10;
 
@@ -398,19 +397,12 @@ export function AgentChat() {
     }
   };
 
-  // Multi-file import - no per-file limit, only total limit
+  // Multi-file import - no file count limit, only total size limit
   const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0 || !user) return;
 
-    // Check file count limit
-    const totalFiles = pendingFiles.length + selectedFiles.length;
-    if (totalFiles > MAX_FILES) {
-      toast.error(`Maximum ${MAX_FILES} fichiers à la fois`);
-      return;
-    }
-
-    // Check only total size (no per-file limit)
+    // Check only total size (no file count limit)
     let totalSize = pendingFiles.reduce((acc, f) => acc + f.file.size, 0);
     const validFiles: PendingFile[] = [];
 
