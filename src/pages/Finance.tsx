@@ -166,7 +166,8 @@ const Finance = () => {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
-  const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]);
+  const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]); // For current month stats/chart
+  const [allFraisHistory, setAllFraisHistory] = useState<FraisItem[]>([]); // For history (all months)
   const [venteStatsState, setVenteStats] = useState<VenteStats | null>(null);
   const [loadingVentes, setLoadingVentes] = useState(true);
   const [savingFrais, setSavingFrais] = useState(false);
@@ -280,10 +281,11 @@ const Finance = () => {
   const [financeStatDialogType, setFinanceStatDialogType] = useState<FinanceStatDialogType>(null);
 
   // Group frais by month - format: "Janvier 2026", "Février 2026", etc.
+  // Uses allFraisHistory to show ALL months, not just the selected one
   const fraisGroupedByMonth = useMemo(() => {
     const groups: Map<string, { label: string; total: number; frais: FraisItem[] }> = new Map();
     
-    allFraisData.forEach((frais) => {
+    allFraisHistory.forEach((frais) => {
       const date = new Date(frais.date_frais);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       // Format: "Janvier 2026" avec majuscule
@@ -304,7 +306,7 @@ const Finance = () => {
     return Array.from(groups.entries())
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([key, data]) => ({ key, ...data }));
-  }, [allFraisData]);
+  }, [allFraisHistory]);
 
   // All months are collapsed by default - no initialization needed
 
@@ -583,13 +585,20 @@ const Finance = () => {
         setObjectifFrais(500); // Reset to default if no objective set
       }
 
-      // Fetch all frais for the selected month
-      const { data: allFrais } = await supabase
+      // Fetch all frais for the selected month (for stats and chart)
+      const { data: monthFrais } = await supabase
         .from("frais")
         .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .gte("date_frais", monthStartStr)
         .lte("date_frais", monthEndStr)
+        .order("date_frais", { ascending: false });
+
+      // Fetch ALL frais for history (no date filter)
+      const { data: allHistoryFrais } = await supabase
+        .from("frais")
+        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
+        .eq("user_id", user.id)
         .order("date_frais", { ascending: false });
 
       // Fetch frais for the selected week (may span different months)
@@ -600,12 +609,17 @@ const Finance = () => {
         .gte("date_frais", weekStartStr)
         .lte("date_frais", weekEndStr);
 
-      if (allFrais) {
-        setAllFraisData(allFrais);
-        setFraisData(allFrais.slice(0, 10));
+      // Update all frais history for the collapsible list
+      if (allHistoryFrais) {
+        setAllFraisHistory(allHistoryFrais);
+      }
+
+      if (monthFrais) {
+        setAllFraisData(monthFrais);
+        setFraisData(monthFrais.slice(0, 10));
 
         // Jour: frais du jour sélectionné
-        const jourTotal = allFrais
+        const jourTotal = monthFrais
           .filter(f => f.date_frais === selectedDayStr)
           .reduce((sum, f) => sum + Number(f.montant), 0);
         
@@ -614,7 +628,7 @@ const Finance = () => {
           .reduce((sum, f) => sum + Number(f.montant), 0);
         
         // Mois: tous les frais du mois sélectionné
-        const moisTotal = allFrais
+        const moisTotal = monthFrais
           .reduce((sum, f) => sum + Number(f.montant), 0);
 
         setTotaux({
