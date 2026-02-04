@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
+import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
 import {
   Calendar,
   Euro,
@@ -44,6 +45,24 @@ interface VenteForCommission {
   status: string;
 }
 
+interface VenteDetail {
+  id: string;
+  montant_ttc: number;
+  status: string;
+  date_signature: string | null;
+  client_nom: string;
+  client_prenom: string | null;
+}
+
+interface RdvDetail {
+  id: string;
+  date_heure: string;
+  status: string;
+  client_id: string;
+  client_nom: string;
+  client_prenom: string | null;
+}
+
 interface RegieStats {
   // Totaux
   rdvTotal: number;
@@ -63,6 +82,14 @@ interface RegieStats {
   panierMoyen: number;
 }
 
+type StatDialogType = 
+  | "rdvTotal" | "rdvMois" 
+  | "ventesTotal" | "ventesMois" 
+  | "caTotal" | "caMois"
+  | "signes" | "poses" | "payes" | "annules"
+  | "commEnAttente" | "commAVenir" | "commDuSur" | "commPayees"
+  | null;
+
 const RegieDashboard = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,6 +98,15 @@ const RegieDashboard = () => {
   const [regie, setRegie] = useState<RegieData | null>(null);
   const [stats, setStats] = useState<RegieStats | null>(null);
   const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
+  
+  // Detail data
+  const [allVentes, setAllVentes] = useState<VenteDetail[]>([]);
+  const [allRdvs, setAllRdvs] = useState<RdvDetail[]>([]);
+  const [rdvsMois, setRdvsMois] = useState<RdvDetail[]>([]);
+  const [ventesMoisDetail, setVentesMoisDetail] = useState<VenteDetail[]>([]);
+  
+  // Dialog state
+  const [openDialog, setOpenDialog] = useState<StatDialogType>(null);
 
   // Calculate commissions using the hook
   const { commissions, getCommission } = useVenteCommissions(ventesForCommission);
@@ -101,17 +137,74 @@ const RegieDashboard = () => {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [rdvResult, rdvMoisResult, ventesResult, ventesMoisResult] = await Promise.all([
-        supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", id),
-        supabase.from("rdv").select("id", { count: "exact" }).eq("regie_id", id).gte("date_heure", startOfMonth),
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente").eq("regie_id", id),
-        supabase.from("ventes").select("id, montant_ttc").eq("regie_id", id).gte("date_signature", startOfMonth.split("T")[0]),
+      // Fetch detailed data for dialogs
+      const [rdvAllResult, rdvMoisResult, ventesResult, ventesMoisResult] = await Promise.all([
+        supabase
+          .from("rdv")
+          .select("id, date_heure, status, client_id, clients(nom, prenom)")
+          .eq("regie_id", id)
+          .order("date_heure", { ascending: false }),
+        supabase
+          .from("rdv")
+          .select("id, date_heure, status, client_id, clients(nom, prenom)")
+          .eq("regie_id", id)
+          .gte("date_heure", startOfMonth)
+          .order("date_heure", { ascending: false }),
+        supabase
+          .from("ventes")
+          .select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, clients(nom, prenom)")
+          .eq("regie_id", id)
+          .order("date_signature", { ascending: false }),
+        supabase
+          .from("ventes")
+          .select("id, montant_ttc, status, date_signature, clients(nom, prenom)")
+          .eq("regie_id", id)
+          .gte("date_signature", startOfMonth.split("T")[0])
+          .order("date_signature", { ascending: false }),
       ]);
 
+      const rdvAll = rdvAllResult.data || [];
+      const rdvMoisData = rdvMoisResult.data || [];
       const ventes = ventesResult.data || [];
-      const ventesMois = ventesMoisResult.data || [];
-      const rdvTotal = rdvResult.count || 0;
-      const rdvMois = rdvMoisResult.count || 0;
+      const ventesMoisData = ventesMoisResult.data || [];
+
+      // Store detailed RDV data
+      setAllRdvs(rdvAll.map(r => ({
+        id: r.id,
+        date_heure: r.date_heure,
+        status: r.status,
+        client_id: r.client_id,
+        client_nom: (r.clients as any)?.nom || "N/A",
+        client_prenom: (r.clients as any)?.prenom || null,
+      })));
+
+      setRdvsMois(rdvMoisData.map(r => ({
+        id: r.id,
+        date_heure: r.date_heure,
+        status: r.status,
+        client_id: r.client_id,
+        client_nom: (r.clients as any)?.nom || "N/A",
+        client_prenom: (r.clients as any)?.prenom || null,
+      })));
+
+      // Store detailed ventes data
+      setAllVentes(ventes.map(v => ({
+        id: v.id,
+        montant_ttc: v.montant_ttc,
+        status: v.status,
+        date_signature: v.date_signature,
+        client_nom: (v.clients as any)?.nom || "N/A",
+        client_prenom: (v.clients as any)?.prenom || null,
+      })));
+
+      setVentesMoisDetail(ventesMoisData.map(v => ({
+        id: v.id,
+        montant_ttc: v.montant_ttc,
+        status: v.status,
+        date_signature: v.date_signature,
+        client_nom: (v.clients as any)?.nom || "N/A",
+        client_prenom: (v.clients as any)?.prenom || null,
+      })));
 
       // Store ventes for commission calculation (exclude annulées)
       setVentesForCommission(ventes.filter(v => v.status !== 'annule').map(v => ({
@@ -138,9 +231,11 @@ const RegieDashboard = () => {
 
       const ventesActives = ventes.filter(v => v.status !== "annule");
       const caTotal = ventesActives.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
-      const caMois = ventesMois.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
+      const caMois = ventesMoisData.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
 
       // Conversion rate: ventes / rdv
+      const rdvTotal = rdvAll.length;
+      const rdvMois = rdvMoisData.length;
       const tauxConversion = rdvTotal > 0 ? Math.round((ventesActives.length / rdvTotal) * 100) : 0;
       const panierMoyen = ventesActives.length > 0 ? caTotal / ventesActives.length : 0;
 
@@ -149,7 +244,7 @@ const RegieDashboard = () => {
         ventesTotal: ventesActives.length,
         caTotal,
         rdvMois,
-        ventesMois: ventesMois.length,
+        ventesMois: ventesMoisData.length,
         caMois,
         signes,
         poses,
@@ -202,6 +297,126 @@ const RegieDashboard = () => {
     }).format(amount);
   };
 
+  // Helper to get status label
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      nouveau: "Nouveau",
+      confirme: "Confirmé",
+      reporte: "Reporté",
+      positif: "Positif",
+      negatif: "Négatif",
+      r2: "R2",
+      r2_prestudy: "R2 Pré-étude",
+      attente: "En attente",
+      signe: "Signé",
+      attente_financement: "Attente financement",
+      cq_a_faire: "CQ à faire",
+      cq_fait: "CQ fait",
+      envoi_pose: "Envoi pose",
+      en_installation: "Installation",
+      installe: "Installé",
+      attente_paiement: "Attente paiement",
+      paye: "Payé",
+      annule: "Annulé",
+    };
+    return labels[status] || status;
+  };
+
+  // Generate dialog items based on dialog type
+  const getDialogItems = (): StatDetailItem[] => {
+    const formatRdvItem = (rdv: RdvDetail): StatDetailItem => ({
+      id: rdv.id,
+      label: `${rdv.client_prenom || ""} ${rdv.client_nom}`.trim(),
+      date: rdv.date_heure,
+      status: getStatusLabel(rdv.status),
+      navigateTo: `/clients/${rdv.client_id}`,
+    });
+
+    const formatVenteItem = (vente: VenteDetail): StatDetailItem => ({
+      id: vente.id,
+      label: `${vente.client_prenom || ""} ${vente.client_nom}`.trim(),
+      value: vente.montant_ttc,
+      date: vente.date_signature || undefined,
+      status: getStatusLabel(vente.status),
+      navigateTo: `/ventes/${vente.id}`,
+    });
+
+    const formatVenteWithCommission = (vente: VenteDetail): StatDetailItem => {
+      const comm = getCommission(vente.id);
+      return {
+        id: vente.id,
+        label: `${vente.client_prenom || ""} ${vente.client_nom}`.trim(),
+        value: comm?.commissionNette || 0,
+        date: vente.date_signature || undefined,
+        status: getStatusLabel(vente.status),
+        navigateTo: `/ventes/${vente.id}`,
+      };
+    };
+
+    switch (openDialog) {
+      case "rdvTotal":
+        return allRdvs.map(formatRdvItem);
+      case "rdvMois":
+        return rdvsMois.map(formatRdvItem);
+      case "ventesTotal":
+        return allVentes.filter(v => v.status !== "annule").map(formatVenteItem);
+      case "ventesMois":
+        return ventesMoisDetail.map(formatVenteItem);
+      case "caTotal":
+        return allVentes.filter(v => v.status !== "annule").map(formatVenteItem);
+      case "caMois":
+        return ventesMoisDetail.map(formatVenteItem);
+      case "signes":
+        return allVentes
+          .filter(v => ["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(v.status))
+          .map(formatVenteItem);
+      case "poses":
+        return allVentes
+          .filter(v => ["en_installation", "envoi_pose", "installe", "attente_paiement"].includes(v.status))
+          .map(formatVenteItem);
+      case "payes":
+        return allVentes.filter(v => v.status === "paye").map(formatVenteItem);
+      case "annules":
+        return allVentes.filter(v => v.status === "annule").map(formatVenteItem);
+      case "commEnAttente":
+        return allVentes
+          .filter(v => ["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(v.status))
+          .map(formatVenteWithCommission);
+      case "commAVenir":
+        return allVentes
+          .filter(v => ["envoi_pose", "en_installation"].includes(v.status))
+          .map(formatVenteWithCommission);
+      case "commDuSur":
+        return allVentes
+          .filter(v => ["installe", "attente_paiement"].includes(v.status))
+          .map(formatVenteWithCommission);
+      case "commPayees":
+        return allVentes.filter(v => v.status === "paye").map(formatVenteWithCommission);
+      default:
+        return [];
+    }
+  };
+
+  const getDialogConfig = () => {
+    const configs: Record<string, { title: string; subtitle?: string; total?: number; showValue?: boolean }> = {
+      rdvTotal: { title: "Tous les RDV", subtitle: `${stats?.rdvTotal || 0} RDV au total` },
+      rdvMois: { title: "RDV ce mois", subtitle: `${stats?.rdvMois || 0} RDV` },
+      ventesTotal: { title: "Toutes les ventes", total: stats?.caTotal, showValue: true },
+      ventesMois: { title: "Ventes ce mois", total: stats?.caMois, showValue: true },
+      caTotal: { title: "CA Total", total: stats?.caTotal, showValue: true },
+      caMois: { title: "CA ce mois", total: stats?.caMois, showValue: true },
+      signes: { title: "Ventes signées", subtitle: `${stats?.signes || 0} ventes` },
+      poses: { title: "Ventes posées", subtitle: `${stats?.poses || 0} ventes` },
+      payes: { title: "Ventes payées", subtitle: `${stats?.payes || 0} ventes` },
+      annules: { title: "Ventes annulées", subtitle: `${stats?.annules || 0} ventes` },
+      commEnAttente: { title: "Commissions en attente", total: commissionStats.enAttente, showValue: true },
+      commAVenir: { title: "Commissions à venir", total: commissionStats.aVenir, showValue: true },
+      commDuSur: { title: "Commissions acquises", total: commissionStats.duSur, showValue: true },
+      commPayees: { title: "Commissions payées", total: commissionStats.payees, showValue: true },
+    };
+    return configs[openDialog || ""] || { title: "" };
+  };
+
   if (loading) {
     return (
       <MobileLayout title="Dashboard Régie" showBackButton>
@@ -245,40 +460,58 @@ const RegieDashboard = () => {
 
         {/* KPIs principaux */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
+          <Card 
+            className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setOpenDialog("rdvTotal")}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Calendar className="h-4 w-4 text-blue-600" />
                 <p className="text-xs text-muted-foreground">RDV Total</p>
               </div>
               <p className="text-2xl font-bold">{stats.rdvTotal}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p 
+                className="text-xs text-muted-foreground mt-1 hover:underline"
+                onClick={(e) => { e.stopPropagation(); setOpenDialog("rdvMois"); }}
+              >
                 Ce mois: <span className="font-medium text-foreground">{stats.rdvMois}</span>
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5">
+          <Card 
+            className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setOpenDialog("ventesTotal")}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <ShoppingBag className="h-4 w-4 text-emerald-600" />
                 <p className="text-xs text-muted-foreground">Ventes</p>
               </div>
               <p className="text-2xl font-bold">{stats.ventesTotal}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p 
+                className="text-xs text-muted-foreground mt-1 hover:underline"
+                onClick={(e) => { e.stopPropagation(); setOpenDialog("ventesMois"); }}
+              >
                 Ce mois: <span className="font-medium text-foreground">{stats.ventesMois}</span>
               </p>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+          <Card 
+            className="bg-gradient-to-br from-primary/10 to-primary/5 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setOpenDialog("caTotal")}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Euro className="h-4 w-4 text-primary" />
                 <p className="text-xs text-muted-foreground">CA Total</p>
               </div>
               <p className="text-xl font-bold">{formatCurrency(stats.caTotal)}</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p 
+                className="text-xs text-muted-foreground mt-1 hover:underline"
+                onClick={(e) => { e.stopPropagation(); setOpenDialog("caMois"); }}
+              >
                 Ce mois: <span className="font-medium text-foreground">{formatCurrency(stats.caMois)}</span>
               </p>
             </CardContent>
@@ -307,7 +540,10 @@ const RegieDashboard = () => {
           <CardContent className="space-y-4">
             {/* Signé → Posé → Payé */}
             <div className="space-y-3">
-              <div className="space-y-1">
+              <div 
+                className="space-y-1 cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors"
+                onClick={() => setOpenDialog("signes")}
+              >
                 <div className="flex justify-between text-sm">
                   <span className="text-blue-600 font-medium">Signées</span>
                   <span>{stats.signes}</span>
@@ -322,7 +558,10 @@ const RegieDashboard = () => {
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
 
-              <div className="space-y-1">
+              <div 
+                className="space-y-1 cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors"
+                onClick={() => setOpenDialog("poses")}
+              >
                 <div className="flex justify-between text-sm">
                   <span className="text-emerald-600 font-medium">Posées</span>
                   <span>{stats.poses}</span>
@@ -337,7 +576,10 @@ const RegieDashboard = () => {
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
 
-              <div className="space-y-1">
+              <div 
+                className="space-y-1 cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors"
+                onClick={() => setOpenDialog("payes")}
+              >
                 <div className="flex justify-between text-sm">
                   <span className="text-green-600 font-medium">Payées</span>
                   <span>{stats.payes}</span>
@@ -351,7 +593,10 @@ const RegieDashboard = () => {
 
             {/* Annulées */}
             {stats.annules > 0 && (
-              <div className="pt-2 border-t">
+              <div 
+                className="pt-2 border-t cursor-pointer hover:bg-accent/50 rounded-lg p-2 -mx-2 transition-colors"
+                onClick={() => setOpenDialog("annules")}
+              >
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Annulées</span>
                   <span className="text-red-500">{stats.annules}</span>
@@ -372,7 +617,10 @@ const RegieDashboard = () => {
           <CardContent className="space-y-4">
             {/* Commission categories */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3">
+              <div 
+                className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                onClick={() => setOpenDialog("commEnAttente")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <Clock className="h-4 w-4 text-amber-600" />
                   <span className="text-xs text-muted-foreground">En attente</span>
@@ -380,7 +628,10 @@ const RegieDashboard = () => {
                 <p className="text-lg font-bold text-amber-700">{formatCurrency(commissionStats.enAttente)}</p>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
+              <div 
+                className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+                onClick={() => setOpenDialog("commAVenir")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <Truck className="h-4 w-4 text-blue-600" />
                   <span className="text-xs text-muted-foreground">À venir</span>
@@ -388,7 +639,10 @@ const RegieDashboard = () => {
                 <p className="text-lg font-bold text-blue-700">{formatCurrency(commissionStats.aVenir)}</p>
               </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3">
+              <div 
+                className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-950/50 transition-colors"
+                onClick={() => setOpenDialog("commDuSur")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                   <span className="text-xs text-muted-foreground">Du Sûr</span>
@@ -396,7 +650,10 @@ const RegieDashboard = () => {
                 <p className="text-lg font-bold text-emerald-700">{formatCurrency(commissionStats.duSur)}</p>
               </div>
 
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3">
+              <div 
+                className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 cursor-pointer hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
+                onClick={() => setOpenDialog("commPayees")}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <Euro className="h-4 w-4 text-green-600" />
                   <span className="text-xs text-muted-foreground">Payées</span>
@@ -474,6 +731,18 @@ const RegieDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Dialog for stat details */}
+      <StatDetailDialog
+        open={openDialog !== null}
+        onOpenChange={(open) => !open && setOpenDialog(null)}
+        title={getDialogConfig().title}
+        subtitle={getDialogConfig().subtitle}
+        items={getDialogItems()}
+        total={getDialogConfig().total}
+        emptyMessage="Aucun élément"
+        formatValue={formatCurrency}
+      />
     </MobileLayout>
   );
 };
