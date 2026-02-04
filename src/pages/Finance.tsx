@@ -275,37 +275,54 @@ const Finance = () => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(() => {
+    // Current year is expanded by default
+    return new Set([new Date().getFullYear()]);
+  });
   
   // Stat dialog state
   const [financeStatDialogOpen, setFinanceStatDialogOpen] = useState(false);
   const [financeStatDialogType, setFinanceStatDialogType] = useState<FinanceStatDialogType>(null);
 
-  // Group frais by month - format: "Janvier 2026", "Février 2026", etc.
-  // Uses allFraisHistory to show ALL months, not just the selected one
-  const fraisGroupedByMonth = useMemo(() => {
-    const groups: Map<string, { label: string; total: number; frais: FraisItem[] }> = new Map();
+  // Group frais by year then by month
+  // Structure: { year: number, total: number, months: { key, label, total, frais }[] }
+  const fraisGroupedByYear = useMemo(() => {
+    // First group by month
+    const monthGroups: Map<string, { label: string; total: number; frais: FraisItem[]; year: number; month: number }> = new Map();
     
     allFraisHistory.forEach((frais) => {
       const date = new Date(frais.date_frais);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      // Format: "Janvier 2026" avec majuscule
-      const monthName = date.toLocaleDateString("fr-FR", { month: "long" });
       const year = date.getFullYear();
-      const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`;
+      const month = date.getMonth();
+      const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleDateString("fr-FR", { month: "long" });
+      const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`;
       
-      if (!groups.has(monthKey)) {
-        groups.set(monthKey, { label: monthLabel, total: 0, frais: [] });
+      if (!monthGroups.has(monthKey)) {
+        monthGroups.set(monthKey, { label: monthLabel, total: 0, frais: [], year, month });
       }
       
-      const group = groups.get(monthKey)!;
+      const group = monthGroups.get(monthKey)!;
       group.frais.push(frais);
       group.total += Number(frais.montant);
     });
     
-    // Sort by month key descending (most recent first)
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([key, data]) => ({ key, ...data }));
+    // Now group by year
+    const yearGroups: Map<number, { year: number; total: number; months: { key: string; label: string; total: number; frais: FraisItem[] }[] }> = new Map();
+    
+    Array.from(monthGroups.entries())
+      .sort(([a], [b]) => b.localeCompare(a)) // Sort months descending
+      .forEach(([key, data]) => {
+        if (!yearGroups.has(data.year)) {
+          yearGroups.set(data.year, { year: data.year, total: 0, months: [] });
+        }
+        const yearGroup = yearGroups.get(data.year)!;
+        yearGroup.months.push({ key, label: data.label, total: data.total, frais: data.frais });
+        yearGroup.total += data.total;
+      });
+    
+    // Sort years descending (most recent first)
+    return Array.from(yearGroups.values()).sort((a, b) => b.year - a.year);
   }, [allFraisHistory]);
 
   // All months are collapsed by default - no initialization needed
@@ -317,6 +334,18 @@ const Finance = () => {
         next.delete(monthKey);
       } else {
         next.add(monthKey);
+      }
+      return next;
+    });
+  };
+
+  const toggleYear = (year: number) => {
+    setExpandedYears((prev) => {
+      const next = new Set(prev);
+      if (next.has(year)) {
+        next.delete(year);
+      } else {
+        next.add(year);
       }
       return next;
     });
@@ -1225,96 +1254,133 @@ const Finance = () => {
               />
             </div>
 
-            {/* Liste des frais groupés par mois */}
+            {/* Liste des frais groupés par année puis par mois */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-foreground">
                 Historique des frais
               </h3>
-              {fraisGroupedByMonth.length === 0 ? (
+              {fraisGroupedByYear.length === 0 ? (
                 <Card className="shadow-card">
                   <CardContent className="p-6 text-center text-muted-foreground">
                     Aucun frais enregistré
                   </CardContent>
                 </Card>
               ) : (
-                fraisGroupedByMonth.map((monthGroup) => {
-                  const isExpanded = expandedMonths.has(monthGroup.key);
+                fraisGroupedByYear.map((yearGroup) => {
+                  const isYearExpanded = expandedYears.has(yearGroup.year);
                   return (
                     <Collapsible
-                      key={monthGroup.key}
-                      open={isExpanded}
-                      onOpenChange={() => toggleMonth(monthGroup.key)}
+                      key={yearGroup.year}
+                      open={isYearExpanded}
+                      onOpenChange={() => toggleYear(yearGroup.year)}
                     >
                       <Card className="shadow-card overflow-hidden">
                         <CollapsibleTrigger asChild>
-                          <button className="w-full p-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                          <button className="w-full p-3 flex items-center justify-between hover:bg-muted/50 transition-colors bg-muted/30">
                             <div className="flex items-center gap-3">
-                              {isExpanded ? (
+                              {isYearExpanded ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
                               ) : (
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               )}
                               <div className="text-left">
-                                <p className="text-sm font-semibold capitalize">
-                                  {monthGroup.label}
+                                <p className="text-base font-bold text-foreground">
+                                  {yearGroup.year}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {monthGroup.frais.length} frais
+                                  {yearGroup.months.length} mois • {yearGroup.months.reduce((sum, m) => sum + m.frais.length, 0)} frais
                                 </p>
                               </div>
                             </div>
-                            <p className="font-semibold text-destructive">
-                              -{monthGroup.total.toFixed(2)} €
+                            <p className="font-bold text-destructive text-base">
+                              -{yearGroup.total.toFixed(2)} €
                             </p>
                           </button>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                          <div className="border-t divide-y">
-                            {monthGroup.frais.map((frais) => {
-                              const Icon = categoryIcons[frais.categorie] || HelpCircle;
-                              const colors = categoryColors[frais.categorie] || categoryColors.autre;
+                          <div className="border-t">
+                            {yearGroup.months.map((monthGroup) => {
+                              const isMonthExpanded = expandedMonths.has(monthGroup.key);
                               return (
-                                <div key={frais.id} className="p-3 flex items-center gap-3">
-                                  <div className={`p-2 rounded-lg ${colors.bg}`}>
-                                    <Icon className={`h-4 w-4 ${colors.icon}`} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-foreground truncate">
-                                      {frais.description || categoryLabels[frais.categorie]}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
-                                    </p>
-                                    {frais.categorie === "location_vehicule" && frais.date_debut && frais.date_fin && (
-                                      <p className="text-xs text-primary mt-0.5">
-                                        📅 Du {new Date(frais.date_debut).toLocaleDateString("fr-FR")} au {new Date(frais.date_fin).toLocaleDateString("fr-FR")} ({Math.ceil((new Date(frais.date_fin).getTime() - new Date(frais.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1}j)
+                                <Collapsible
+                                  key={monthGroup.key}
+                                  open={isMonthExpanded}
+                                  onOpenChange={() => toggleMonth(monthGroup.key)}
+                                >
+                                  <CollapsibleTrigger asChild>
+                                    <button className="w-full p-3 pl-8 flex items-center justify-between hover:bg-muted/50 transition-colors border-b last:border-b-0">
+                                      <div className="flex items-center gap-3">
+                                        {isMonthExpanded ? (
+                                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                        ) : (
+                                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                        )}
+                                        <div className="text-left">
+                                          <p className="text-sm font-semibold capitalize">
+                                            {monthGroup.label}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {monthGroup.frais.length} frais
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <p className="font-semibold text-destructive">
+                                        -{monthGroup.total.toFixed(2)} €
                                       </p>
-                                    )}
-                                  </div>
-                                  <p className="font-semibold text-destructive whitespace-nowrap">
-                                    -{Number(frais.montant).toFixed(2)} €
-                                  </p>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openEditDialog(frais)}>
-                                        <Pencil className="h-4 w-4 mr-2" />
-                                        Modifier
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={() => openDeleteDialog(frais.id)}
-                                        className="text-destructive focus:text-destructive"
-                                      >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Supprimer
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
+                                    </button>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <div className="bg-muted/20 divide-y">
+                                      {monthGroup.frais.map((frais) => {
+                                        const Icon = categoryIcons[frais.categorie] || HelpCircle;
+                                        const colors = categoryColors[frais.categorie] || categoryColors.autre;
+                                        return (
+                                          <div key={frais.id} className="p-3 pl-12 flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${colors.bg}`}>
+                                              <Icon className={`h-4 w-4 ${colors.icon}`} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-sm font-medium text-foreground truncate">
+                                                {frais.description || categoryLabels[frais.categorie]}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
+                                              </p>
+                                              {frais.categorie === "location_vehicule" && frais.date_debut && frais.date_fin && (
+                                                <p className="text-xs text-primary mt-0.5">
+                                                  📅 Du {new Date(frais.date_debut).toLocaleDateString("fr-FR")} au {new Date(frais.date_fin).toLocaleDateString("fr-FR")} ({Math.ceil((new Date(frais.date_fin).getTime() - new Date(frais.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1}j)
+                                                </p>
+                                              )}
+                                            </div>
+                                            <p className="font-semibold text-destructive whitespace-nowrap">
+                                              -{Number(frais.montant).toFixed(2)} €
+                                            </p>
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                                  <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openEditDialog(frais)}>
+                                                  <Pencil className="h-4 w-4 mr-2" />
+                                                  Modifier
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem 
+                                                  onClick={() => openDeleteDialog(frais.id)}
+                                                  className="text-destructive focus:text-destructive"
+                                                >
+                                                  <Trash2 className="h-4 w-4 mr-2" />
+                                                  Supprimer
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
                               );
                             })}
                           </div>
