@@ -244,12 +244,13 @@ const Dashboard = () => {
           .gte("date_heure", now.toISOString())
           .order("date_heure", { ascending: true })
           .limit(3),
-        // Premier RDV de demain pour recherche hôtel
+        // Premier RDV de demain pour recherche hôtel (exclure annulés)
         supabase.from("rdv")
           .select("id, date_heure, clients(ville)")
           .eq("user_id", user.id)
           .gte("date_heure", debutDemain)
           .lte("date_heure", finDemain)
+          .not("status", "eq", "annule")
           .order("date_heure", { ascending: true })
           .limit(1)
       ]);
