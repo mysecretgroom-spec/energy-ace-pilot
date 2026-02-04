@@ -1,6 +1,20 @@
 import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   Loader2,
   CheckSquare,
@@ -9,12 +23,14 @@ import {
   Eye,
   ArrowRight,
   Trash2,
+  GripVertical,
+  Check,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PDFDocument } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
 import { DocumentPreview } from "./DocumentPreview";
-import { DocumentCard } from "./DocumentCard";
+import { SortableDocumentCard } from "./SortableDocumentCard";
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { generatePdfFromFile } from "@/components/scanner/services/pdfGenerator";
@@ -43,17 +59,48 @@ export function MultiDocumentSelector({
 }: MultiDocumentSelectorProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReplacing, setIsReplacing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
+  const [isDragMode, setIsDragMode] = useState(false);
+  const [orderedDocs, setOrderedDocs] = useState<DocumentItem[]>(documents);
+  
+  // Sync orderedDocs with documents prop
+  React.useEffect(() => {
+    setOrderedDocs(documents);
+  }, [documents]);
+  
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   
   // Preview state
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDocuments, setPreviewDocuments] = useState<DocumentItem[]>([]);
   const [previewInitialIndex, setPreviewInitialIndex] = useState(0);
+  
+  // Handle drag end
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setOrderedDocs((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }, []);
 
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -68,12 +115,12 @@ export function MultiDocumentSelector({
   }, []);
 
   const selectAll = useCallback(() => {
-    if (selectedIds.size === documents.length) {
+    if (selectedIds.size === orderedDocs.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(documents.map((d) => d.id)));
+      setSelectedIds(new Set(orderedDocs.map((d) => d.id)));
     }
-  }, [documents, selectedIds.size]);
+  }, [orderedDocs, selectedIds.size]);
 
   const getFileType = (url: string): "pdf" | "image" | "unknown" => {
     const lower = url.toLowerCase();
@@ -89,7 +136,6 @@ export function MultiDocumentSelector({
   };
 
   const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
-    // Handle base64 data URLs
     if (url.startsWith("data:")) {
       const base64 = url.split(",")[1];
       const binaryString = atob(base64);
@@ -100,7 +146,6 @@ export function MultiDocumentSelector({
       return bytes.buffer;
     }
 
-    // Try fetching with no-cors mode fallback
     try {
       const response = await fetch(url, { mode: 'cors' });
       if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
@@ -108,7 +153,6 @@ export function MultiDocumentSelector({
     } catch (corsError) {
       console.warn("CORS issue, trying with proxy approach...", corsError);
       
-      // Fallback: try to download using XMLHttpRequest which may handle CORS differently
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
@@ -128,14 +172,12 @@ export function MultiDocumentSelector({
     }
   };
 
-  // Open preview for a single document
   const openSinglePreview = useCallback((doc: DocumentItem) => {
     setPreviewDocuments([doc]);
     setPreviewInitialIndex(0);
     setPreviewOpen(true);
   }, []);
 
-  // Open preview for selected documents
   const openSelectedPreview = useCallback(() => {
     if (selectedIds.size === 0) {
       toast({
@@ -146,11 +188,11 @@ export function MultiDocumentSelector({
       return;
     }
     
-    const selectedDocs = documents.filter((d) => selectedIds.has(d.id));
+    const selectedDocs = orderedDocs.filter((d) => selectedIds.has(d.id));
     setPreviewDocuments(selectedDocs);
     setPreviewInitialIndex(0);
     setPreviewOpen(true);
-  }, [selectedIds, documents]);
+  }, [selectedIds, orderedDocs]);
 
   const generateCombinedPdf = useCallback(async () => {
     if (selectedIds.size === 0) {
@@ -166,7 +208,8 @@ export function MultiDocumentSelector({
 
     try {
       const mergedPdf = await PDFDocument.create();
-      const selectedDocs = documents.filter((d) => selectedIds.has(d.id));
+      // Use ordered docs to maintain order
+      const selectedDocs = orderedDocs.filter((d) => selectedIds.has(d.id));
 
       for (const doc of selectedDocs) {
         const fileType = getFileType(doc.url);
@@ -179,7 +222,6 @@ export function MultiDocumentSelector({
             const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
             pages.forEach((page) => mergedPdf.addPage(page));
           } else if (fileType === "image") {
-            // Embed image as a new page
             let image;
             const url = doc.url.toLowerCase();
             
@@ -215,7 +257,6 @@ export function MultiDocumentSelector({
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
 
-      // Download the file
       const link = document.createElement("a");
       link.href = url;
       link.download = `Dossier_${clientName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
@@ -240,9 +281,8 @@ export function MultiDocumentSelector({
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedIds, documents, clientName]);
+  }, [selectedIds, orderedDocs, clientName]);
 
-  // Delete a single document
   const handleDeleteDocument = useCallback(async (docId: string) => {
     setIsDeleting(true);
     try {
@@ -278,7 +318,6 @@ export function MultiDocumentSelector({
     }
   }, [onDocumentsChange]);
 
-  // Delete selected documents
   const handleDeleteSelected = useCallback(async () => {
     if (selectedIds.size === 0) return;
     
@@ -310,18 +349,15 @@ export function MultiDocumentSelector({
     }
   }, [selectedIds, onDocumentsChange]);
 
-  // Replace a document
   const handleReplaceDocument = useCallback(async (docId: string, file: File) => {
-    const doc = documents.find((d) => d.id === docId);
+    const doc = orderedDocs.find((d) => d.id === docId);
     if (!doc || !clientId) return;
 
     setIsReplacing(true);
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
 
-      // Convert file to PDF if it's an image
       let pdfBlob: Blob;
       
       if (file.type.startsWith("image/")) {
@@ -333,7 +369,6 @@ export function MultiDocumentSelector({
         throw new Error("Format de fichier non supporté");
       }
 
-      // Upload new file
       const timestamp = Date.now();
       const fileName = `${user.id}/${clientId}/${doc.type_document}_${timestamp}.pdf`;
 
@@ -346,14 +381,12 @@ export function MultiDocumentSelector({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL (receipts bucket is now public for reading)
       const { data: urlData } = supabase.storage
         .from("receipts")
         .getPublicUrl(fileName);
 
       if (!urlData?.publicUrl) throw new Error("Impossible de générer l'URL");
 
-      // Update document record
       const { error: updateError } = await supabase
         .from("documents")
         .update({
@@ -380,7 +413,7 @@ export function MultiDocumentSelector({
     } finally {
       setIsReplacing(false);
     }
-  }, [documents, clientId, onDocumentsChange]);
+  }, [orderedDocs, clientId, onDocumentsChange]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -390,14 +423,34 @@ export function MultiDocumentSelector({
     });
   };
 
-  const isAllSelected = selectedIds.size === documents.length && documents.length > 0;
+  const isAllSelected = selectedIds.size === orderedDocs.length && orderedDocs.length > 0;
 
   return (
     <>
       <div className="space-y-3">
         {/* Selection controls */}
-        {documents.length > 0 && (
+        {orderedDocs.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
+            {/* Drag mode toggle */}
+            <Button
+              variant={isDragMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setIsDragMode(!isDragMode);
+                if (isDragMode) {
+                  setSelectedIds(new Set());
+                }
+              }}
+              className="gap-2"
+            >
+              {isDragMode ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <GripVertical className="h-4 w-4" />
+              )}
+              {isDragMode ? "Terminer" : "Classer"}
+            </Button>
+            
             <Button
               variant="ghost"
               size="sm"
@@ -467,28 +520,40 @@ export function MultiDocumentSelector({
           </div>
         )}
 
-        {/* Document list */}
-        {documents.map((doc) => {
-          const isSelected = selectedIds.has(doc.id);
-          const fileType = getFileType(doc.url);
+        {/* Document list with DnD */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={orderedDocs.map(d => d.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {orderedDocs.map((doc) => {
+              const isSelected = selectedIds.has(doc.id);
+              const fileType = getFileType(doc.url);
 
-          return (
-            <DocumentCard
-              key={doc.id}
-              doc={doc}
-              isSelected={isSelected}
-              fileType={fileType}
-              onToggleSelection={() => toggleSelection(doc.id)}
-              onOpenPreview={() => openSinglePreview(doc)}
-              onDelete={() => {
-                setDocToDelete(doc.id);
-                setDeleteDialogOpen(true);
-              }}
-              onReplace={(file) => handleReplaceDocument(doc.id, file)}
-              formatDate={formatDate}
-            />
-          );
-        })}
+              return (
+                <SortableDocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  isSelected={isSelected}
+                  fileType={fileType}
+                  onToggleSelection={() => toggleSelection(doc.id)}
+                  onOpenPreview={() => openSinglePreview(doc)}
+                  onDelete={() => {
+                    setDocToDelete(doc.id);
+                    setDeleteDialogOpen(true);
+                  }}
+                  onReplace={(file) => handleReplaceDocument(doc.id, file)}
+                  formatDate={formatDate}
+                  isDragMode={isDragMode}
+                />
+              );
+            })}
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* Preview dialog */}
