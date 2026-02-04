@@ -690,22 +690,21 @@ const ClientDetail = () => {
                 variant="outline"
                 className="flex-1 gap-2 h-12 border-primary text-primary"
                 onClick={async () => {
-                  // Get last RDV to find the régie's confirmateur
+                  // Get last RDV to find the régie's principal contact
                   const lastRdv = rdvs.find(r => r.regie_id);
                   if (lastRdv?.regie_id) {
-                    const { data: confirmateur } = await supabase
-                      .from("confirmateurs")
+                    const { data: regieContact } = await supabase
+                      .from("regies_contacts")
                       .select("telephone, nom")
                       .eq("regie_id", lastRdv.regie_id)
+                      .eq("is_principal", true)
                       .eq("actif", true)
-                      .order("ordre_priorite", { ascending: true })
-                      .limit(1)
-                      .single();
+                      .maybeSingle();
                     
-                    if (confirmateur) {
+                    if (regieContact?.telephone) {
                       await sendPdfDoc({
                         clientId: id!,
-                        phoneNumber: confirmateur.telephone,
+                        phoneNumber: regieContact.telephone,
                         message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
                         includeEtude: true,
                       });
