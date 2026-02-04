@@ -56,6 +56,7 @@ const Index = () => {
         .eq("user_id", user.id)
         .gte("date_heure", today.toISOString())
         .lt("date_heure", tomorrow.toISOString())
+        .not("status", "eq", "annule")
         .order("date_heure", { ascending: true });
 
       if (error) throw error;
