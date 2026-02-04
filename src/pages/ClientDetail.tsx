@@ -29,6 +29,8 @@ import {
   Pencil,
   Building2,
   RefreshCw,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +45,7 @@ import { RegieSelector } from "@/components/planning/RegieSelector";
 import { RetapeDialog } from "@/components/crm/RetapeDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
+import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -150,7 +153,11 @@ const ClientDetail = () => {
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
+  const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [destinationPhone, setDestinationPhone] = useState("");
 
+  // WhatsApp PDF sending
+  const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
   // Delete functionality
   const {
     isDeleteDialogOpen,
@@ -677,7 +684,60 @@ const ClientDetail = () => {
                 onClick={() => setShowMultiImport(true)}
               >
                 <Plus className="h-5 w-5" />
-                Importer des documents
+                Importer
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex-1 gap-2 h-12 border-primary text-primary"
+                onClick={async () => {
+                  // Get last RDV to find the régie's confirmateur
+                  const lastRdv = rdvs.find(r => r.regie_id);
+                  if (lastRdv?.regie_id) {
+                    const { data: confirmateur } = await supabase
+                      .from("confirmateurs")
+                      .select("telephone, nom")
+                      .eq("regie_id", lastRdv.regie_id)
+                      .eq("actif", true)
+                      .order("ordre_priorite", { ascending: true })
+                      .limit(1)
+                      .single();
+                    
+                    if (confirmateur) {
+                      await sendPdfDoc({
+                        clientId: id!,
+                        phoneNumber: confirmateur.telephone,
+                        message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
+                        includeEtude: true,
+                      });
+                      return;
+                    }
+                  }
+                  // Fallback: send to client's phone if no confirmateur
+                  if (client?.telephone) {
+                    const cleanPhone = client.telephone.replace(/\D/g, "");
+                    const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
+                    await sendPdfDoc({
+                      clientId: id!,
+                      phoneNumber: frPhone,
+                      message: `📄 Votre dossier complet`,
+                      includeEtude: true,
+                    });
+                  } else {
+                    toast({
+                      variant: "destructive",
+                      title: "Aucun destinataire",
+                      description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
+                    });
+                  }
+                }}
+                disabled={isSendingDoc || documents.length === 0}
+              >
+                {isSendingDoc ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+                Envoyer WhatsApp
               </Button>
             </div>
 
