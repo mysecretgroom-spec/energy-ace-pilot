@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
+import { DashboardRdvCard } from "@/components/dashboard/DashboardRdvCard";
 
 interface DashboardStats {
   // Ventes
@@ -69,8 +70,19 @@ interface ProchainRdv {
   id: string;
   date_heure: string;
   client_nom: string;
+  client_prenom?: string;
+  client_id: string;
   type_projet: string;
   status: string;
+  type_rdv: "standard" | "external_installation";
+  etude_id?: string | null;
+  regie_id?: string | null;
+  regie_nom?: string | null;
+  regie_couleur?: string | null;
+  telephone?: string | null;
+  adresse?: string | null;
+  code_postal?: string | null;
+  ville?: string | null;
 }
 
 interface RdvDemain {
@@ -239,12 +251,16 @@ const Dashboard = () => {
           .limit(5),
         // Prochains RDV
         supabase.from("rdv")
-          .select("id, date_heure, type_projet, status, clients(nom)")
+          .select(`
+            id, date_heure, type_projet, status, type_rdv, etude_id, regie_id,
+            clients(id, nom, prenom, telephone, adresse, code_postal, ville),
+            regies(nom, couleur)
+          `)
           .eq("user_id", user.id)
           .gte("date_heure", new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString())
           .not("status", "eq", "annule")
           .order("date_heure", { ascending: true })
-          .limit(3),
+          .limit(5),
         // Premier RDV de demain pour recherche hôtel (exclure annulés)
         supabase.from("rdv")
           .select("id, date_heure, clients(ville)")
@@ -349,8 +365,19 @@ const Dashboard = () => {
         id: r.id,
         date_heure: r.date_heure,
         client_nom: r.clients?.nom || "Client inconnu",
+        client_prenom: r.clients?.prenom || "",
+        client_id: r.clients?.id || "",
         type_projet: r.type_projet,
-        status: r.status
+        status: r.status,
+        type_rdv: r.type_rdv || "standard",
+        etude_id: r.etude_id,
+        regie_id: r.regie_id,
+        regie_nom: r.regies?.nom || null,
+        regie_couleur: r.regies?.couleur || null,
+        telephone: r.clients?.telephone || null,
+        adresse: r.clients?.adresse || null,
+        code_postal: r.clients?.code_postal || null,
+        ville: r.clients?.ville || null,
       })));
 
       // Premier RDV de demain pour Booking
@@ -383,15 +410,6 @@ const Dashboard = () => {
   const getProgressPercent = (value: number, target: number) => {
     if (target === 0) return 0;
     return Math.min((value / target) * 100, 100);
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'nouveau': return <Clock className="h-3 w-3 text-blue-500" />;
-      case 'confirme': return <CheckCircle2 className="h-3 w-3 text-green-500" />;
-      case 'annule': return <AlertCircle className="h-3 w-3 text-red-500" />;
-      default: return <Clock className="h-3 w-3 text-muted-foreground" />;
-    }
   };
 
   // Open stat detail dialog
@@ -707,24 +725,11 @@ const Dashboard = () => {
               </p>
             ) : (
               prochainsRdv.map((rdv) => (
-                <div 
+                <DashboardRdvCard 
                   key={rdv.id}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
-                  onClick={() => navigate(`/planning`)}
-                >
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(rdv.status)}
-                    <div>
-                      <p className="font-medium text-sm">{rdv.client_nom}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(rdv.date_heure), "EEEE d MMM à HH:mm", { locale: fr })}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {rdv.type_projet}
-                  </Badge>
-                </div>
+                  rdv={rdv}
+                  onRefresh={fetchDashboardData}
+                />
               ))
             )}
           </CardContent>
