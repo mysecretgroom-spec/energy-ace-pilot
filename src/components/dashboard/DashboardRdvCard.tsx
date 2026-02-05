@@ -93,9 +93,6 @@
                {rdv.regie_nom}
              </Badge>
            )}
-           <Badge variant="outline" className="text-xs">
-             {rdv.type_projet}
-           </Badge>
          </div>
        </div>
  

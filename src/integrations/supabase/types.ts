@@ -2348,6 +2348,7 @@ export type Database = {
           phone: string | null
           pin_code: string | null
           prenom_scene: string | null
+          produit_principal: string | null
           telephone_pro: string | null
           updated_at: string
           user_id: string
@@ -2368,6 +2369,7 @@ export type Database = {
           phone?: string | null
           pin_code?: string | null
           prenom_scene?: string | null
+          produit_principal?: string | null
           telephone_pro?: string | null
           updated_at?: string
           user_id: string
@@ -2388,6 +2390,7 @@ export type Database = {
           phone?: string | null
           pin_code?: string | null
           prenom_scene?: string | null
+          produit_principal?: string | null
           telephone_pro?: string | null
           updated_at?: string
           user_id?: string
