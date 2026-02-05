@@ -36,6 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
+import { detectDocumentEdges, applyPerspectiveCorrection, preloadOpenCV } from "./services/edgeDetection";
 import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 
 export type MultiImportContext = "finance" | "client_docs";
@@ -93,6 +94,13 @@ export function MultiImportFlow({
   const [isSaving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Preload OpenCV for auto-crop
+  React.useEffect(() => {
+    if (context === "client_docs") {
+      preloadOpenCV();
+    }
+  }, [context]);
+
   const title = context === "finance" 
     ? "Importer des factures" 
     : "Importer des documents";
@@ -127,12 +135,31 @@ export function MultiImportFlow({
 
   const analyzeFile = async (importedFile: ImportedFile): Promise<ImportedFile> => {
     // For client docs, skip AI analysis - user will select document type manually
-    // The automatic cropping is handled in CropEditor via OpenCV
+    // Apply automatic cropping via OpenCV for images
     if (context === "client_docs") {
+      // Try to auto-crop the image if it's an image file
+      if (importedFile.file.type.startsWith("image/") && importedFile.preview) {
+        try {
+          const edges = await detectDocumentEdges(importedFile.preview);
+          if (edges && edges.confidence > 0.3) {
+            // Apply perspective correction
+            const correctedImage = await applyPerspectiveCorrection(importedFile.preview, edges);
+            // Update the preview with cropped image
+            return {
+              ...importedFile,
+              preview: correctedImage,
+              status: "manual",
+              description: importedFile.file.name.replace(/\.[^/.]+$/, ""),
+            };
+          }
+        } catch (error) {
+          console.warn("Auto-crop failed, using original image:", error);
+        }
+      }
+      
       return {
         ...importedFile,
         status: "manual",
-        // Pre-fill with filename as description
         description: importedFile.file.name.replace(/\.[^/.]+$/, ""),
       };
     }

@@ -241,7 +241,8 @@ const Dashboard = () => {
         supabase.from("rdv")
           .select("id, date_heure, type_projet, status, clients(nom)")
           .eq("user_id", user.id)
-          .gte("date_heure", now.toISOString())
+          .gte("date_heure", new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString())
+          .not("status", "eq", "annule")
           .order("date_heure", { ascending: true })
           .limit(3),
         // Premier RDV de demain pour recherche hôtel (exclure annulés)
