@@ -387,6 +387,22 @@ const Profil = () => {
                   </Label>
                   <Input value={formData.numero_agrement || "—"} disabled className="bg-muted" />
                 </div>
+                {/* Produit principal - lecture seule */}
+                <div className="pt-4 border-t border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sun className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Produit principal</span>
+                  </div>
+                  <Input 
+                    value={
+                      formData.produit_principal === "photovoltaique" ? "Photovoltaïque" :
+                      formData.produit_principal === "pompe_a_chaleur" ? "Pompe à Chaleur" :
+                      formData.produit_principal === "isolation" ? "Isolation (ITE)" : "—"
+                    } 
+                    disabled 
+                    className="bg-muted" 
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground text-center pt-2">
                   Cliquez sur "Modifier le profil" pour éditer vos informations
                 </p>
