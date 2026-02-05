@@ -91,44 +91,67 @@ interface ExtractedLead {
 }
 
 async function extractLeadWithAI(emailBody: string, subject: string): Promise<ExtractedLead | null> {
-  const systemPrompt = `Tu es un expert en extraction de données structurées depuis des emails de leads pour entreprises d'énergie renouvelable (panneaux solaires, PAC, isolation).
+  const systemPrompt = `Tu es un expert en extraction de données structurées depuis des emails de leads pour entreprises d'énergie renouvelable.
 
-MISSION: Analyse cet email de régie/agence et extrait TOUTES les informations en JSON.
+MISSION: Analyse le SUJET et le CONTENU de l'email pour extraire TOUTES les informations en JSON.
 
 ## FORMATS D'EMAIL COURANTS À RECONNAÎTRE:
 
 ### Format 1 - Clé:Valeur (le plus courant)
+Ce format utilise des labels suivis de ":" ou de valeurs:
 \`\`\`
-Nom:Bernier
-Prénom:Eric
-Adresse:25 RUE DES 3 FLEURS
-Code postal:28150
-Ville:MOUTIERS
+Statut call: RDV Confirmé
+Civilité: M.
+Nom: FOUSSAT
+Prénom: Franck
+Adresse: 21 ROUTE DES POIRIERS
+Code postal: 19240
+Ville: SAINT-VIANCE
 Date du RDV:29/01/2026
-Heure du RDV:10:00
+Heure du RDV: 13:00
+Infos RDV: Propriétaire depuis 21 ans...
 \`\`\`
 
-### Format 2 - Tableau HTML (après conversion texte)
+### Format 2 - Tableau HTML aplati (labels et valeurs mélangés)
 \`\`\`
-Statut call RDV Confirmé Nom Bernier Prénom Eric ...
+Statut call RDV Confirmé Civilité M. Nom FOUSSAT Prénom Franck Adresse 21 ROUTE DES POIRIERS...
+\`\`\`
+Cherche les patterns: "Nom [VALEUR]", "Prénom [VALEUR]", "Adresse [VALEUR]", etc.
+
+### Format 3 - Informations dans le SUJET
+\`\`\`
+Sujet: Votre RDV du 05/02/2026 13:00
+\`\`\`
+IMPORTANT: La DATE et l'HEURE peuvent être UNIQUEMENT dans le sujet. Analyse le sujet en priorité !
+
+### Format 4 - Email narratif/prose
+\`\`\`
+Bonjour, nouveau RDV pour M. FOUSSAT Franck au 21 route des Poiriers 19240 SAINT-VIANCE le 05/02/2026 à 13h00.
 \`\`\`
 
-### Format 3 - Email narratif
+### Format 5 - Format Calendrier/iCal
 \`\`\`
-Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
+ORGANIZER:...
+LOCATION:21 Route des Poiriers, 19240 Saint-Viance
+DTSTART:20260205T130000
 \`\`\`
 
 ## RÈGLES D'EXTRACTION CRITIQUES:
 
-1. **DATES** - Convertis TOUS les formats en YYYY-MM-DD:
+1. **DATES** - PRIORITÉ AU SUJET puis au corps. Convertis TOUS les formats en YYYY-MM-DD:
    - "29/01/2026" → "2026-01-29"
+   - "05/02/2026" dans le sujet "Votre RDV du 05/02/2026 13:00" → "2026-02-05"
    - "29 janvier 2026" → "2026-01-29"
    - "29-01-2026" → "2026-01-29"
+   - "20260205" (format iCal) → "2026-02-05"
 
-2. **HEURES** - Convertis en HH:MM:
+2. **HEURES** - PRIORITÉ AU SUJET puis au corps. Convertis en HH:MM:
    - "10:00" → "10:00"
    - "10h00" → "10:00"
    - "10h" → "10:00"
+   - "13:00" dans "Votre RDV du 05/02/2026 13:00" → "13:00"
+   - "T130000" (format iCal) → "13:00"
+   - ATTENTION: "08:00" par défaut est probablement FAUX. Cherche l'heure réelle !
 
 3. **TÉLÉPHONES** - Extrait les 10 chiffres français:
    - "06 12 34 56 78" → "0612345678"
@@ -137,6 +160,7 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
 4. **INVERSION NOM/PRÉNOM** - ATTENTION aux templates mal configurés:
    - Si "Nom:" contient un prénom typique (Jean, Marie, Eric) et "Prénom:" un nom de famille → INVERSE
    - Le nom de famille est souvent en majuscules ou plus court
+   - Civilité M./Mme peut aider à identifier le prénom
 
 5. **TYPE DE PROJET** - Utilise UNIQUEMENT ces valeurs:
    - "photovoltaique" (pour solaire, PV, panneaux)
@@ -147,10 +171,16 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
 
 6. **EMAIL** - Si absent ou invalide, NE METS PAS le champ du tout (pas de valeur vide, pas "INCONNU", pas null)
 
-7. **COMMENTAIRES** - Inclus les infos importantes du contexte:
-   - Historique client (déjà reçu des devis, mauvaise expérience...)
-   - Instructions spéciales
-   - Motivation/hésitations
+7. **COMMENTAIRES/INFOS RDV** - TRÈS IMPORTANT! Capture TOUT le contexte utile:
+   - Cherche les sections "Infos RDV:", "Notes:", "Commentaire:", "Détails:"
+   - Historique client (propriétaire depuis X ans, déjà reçu des devis...)
+   - Situation familiale (seul, divorcé, X enfants à la maison)
+   - Équipements actuels (2 PAC split, poêle à granulé, chauffage actuel)
+   - Facture énergie mensuelle/annuelle (335€/mois, 4000€/an)
+   - Description maison (grande maison, tuile, plein sud, orientation)
+   - Situation financière (crédit maison, trésorerie, comptant possible)
+   - Tempérament (hyper sympa, méfiant, pressé)
+   - Mets tout ce texte dans le champ "commentaire"
 
 8. **RÈGLE ABSOLUE - JAMAIS "INCONNU"**:
    - Si une info n'est pas dans l'email, NE METS PAS le champ
@@ -169,30 +199,36 @@ Bonjour, nouveau RDV pour M. Bernier Eric au 25 rue des 3 fleurs...
    - Si l'adresse contient des abréviations: RUE, AV (Avenue), BD (Boulevard), IMPASSE, ALLÉE, PL (Place)
    - Gère les noms composés: "SAINT-MARTIN", "VILLENEUVE-D'ASCQ"
    - Le code postal doit TOUJOURS être 5 chiffres exactement
+   - Format LOCATION iCal: "21 Route des Poiriers, 19240 Saint-Viance" → sépare les composants
+
+10. **EXTRACTION DEPUIS LE SUJET** (PRIORITAIRE):
+   - Le sujet contient souvent date et heure: "Votre RDV du 05/02/2026 13:00"
+   - Pattern à chercher: "du DD/MM/YYYY HH:MM"
+   - Extrait ces informations AVANT de regarder le corps de l'email
 
 ## STRUCTURE JSON ATTENDUE:
 
 {
   "CONTACT": {
-    "nom": "BERNIER",
-    "prenom": "Eric",
+    "nom": "FOUSSAT",
+    "prenom": "Franck",
     "telephone": "0612345678"
   },
   "ADRESSE": {
-    "adresse": "25 RUE DES 3 FLEURS",
-    "code_postal": "28150",
-    "ville": "MOUTIERS"
+    "adresse": "21 ROUTE DES POIRIERS",
+    "code_postal": "19240",
+    "ville": "SAINT-VIANCE"
   },
   "RDV": {
-    "date": "2026-01-29",
-    "heure": "10:00",
+    "date": "2026-02-05",
+    "heure": "13:00",
     "duree_minutes": 90,
     "type_projet": "photovoltaique",
-    "commentaire": "A déjà reçu 3 devis entre 25k-30k pour 6kWc. Mauvaise expérience PAC. Faire étude technique approfondie."
+    "commentaire": "Propriétaire depuis 21 ans, seul, divorcé 2 enfants à la maison. 2 PAC split intérieur + poêle à granulé. 335€/mois. Grande maison tuile plein sud. Crédit maison, trésorerie disponible, vient d'acheter un immeuble cash. Paiement comptant possible ou autofinancement. Hyper sympa."
   },
   "PROJET": {
-    "type_chauffage": "bois",
-    "facture_energie": 130
+    "type_chauffage": "pac + granule",
+    "facture_energie": 335
   }
 }
 
@@ -208,10 +244,10 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Sujet: ${subject}\n\nContenu:\n${emailBody}` }
+          { role: "user", content: `SUJET DE L'EMAIL (peut contenir date/heure!):\n${subject}\n\n---\n\nCONTENU DE L'EMAIL:\n${emailBody}` }
         ],
         temperature: 0.1,
       }),
