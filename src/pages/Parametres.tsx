@@ -75,7 +75,6 @@ const settingsSections = [
   {
     title: "Profil",
     items: [
-      { icon: User, label: "Mon profil", description: "Nom, téléphone, email", path: "/profil" },
       { icon: Target, label: "Mes objectifs", description: "CA, ventes, RDV mensuels", path: "/parametres/objectifs" },
       { icon: Bell, label: "Notifications", description: "Alertes RDV, rappels", path: "/notifications" },
     ],
