@@ -12,6 +12,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Loader2, User, Mail, Phone, MapPin, Shield, IdCard, Briefcase, Camera } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Sun, Thermometer, Home } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -26,6 +34,7 @@ interface Profile {
   telephone_pro: string | null;
   nom_scene: string | null;
   prenom_scene: string | null;
+  produit_principal: string | null;
 }
 
 const Profil = () => {
@@ -46,6 +55,7 @@ const Profil = () => {
     telephone_pro: "",
     nom_scene: "",
     prenom_scene: "",
+    produit_principal: "photovoltaique",
   });
   const [originalFormData, setOriginalFormData] = useState({
     first_name: "",
@@ -56,6 +66,7 @@ const Profil = () => {
     telephone_pro: "",
     nom_scene: "",
     prenom_scene: "",
+    produit_principal: "photovoltaique",
   });
 
   const hasChanges = useMemo(() => {
@@ -67,7 +78,8 @@ const Profil = () => {
       formData.numero_agrement !== originalFormData.numero_agrement ||
       formData.telephone_pro !== originalFormData.telephone_pro ||
       formData.nom_scene !== originalFormData.nom_scene ||
-      formData.prenom_scene !== originalFormData.prenom_scene
+      formData.prenom_scene !== originalFormData.prenom_scene ||
+      formData.produit_principal !== originalFormData.produit_principal
     );
   }, [formData, originalFormData]);
 
@@ -100,6 +112,7 @@ const Profil = () => {
           telephone_pro: data.telephone_pro || "",
           nom_scene: data.nom_scene || "",
           prenom_scene: data.prenom_scene || "",
+          produit_principal: data.produit_principal || "photovoltaique",
         };
         setFormData(newFormData);
         setOriginalFormData(newFormData);
@@ -132,6 +145,7 @@ const Profil = () => {
           telephone_pro: formData.telephone_pro || null,
           nom_scene: formData.nom_scene || null,
           prenom_scene: formData.prenom_scene || null,
+          produit_principal: formData.produit_principal || "photovoltaique",
         })
         .eq("user_id", user.id);
 
@@ -539,6 +553,47 @@ const Profil = () => {
               <p className="text-xs text-muted-foreground">
                 Affiché sur la carte RGE professionnelle
               </p>
+            </div>
+
+            {/* Produit principal */}
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <Sun className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Produit principal</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Ce produit sera affiché en premier lors de la création d'études
+              </p>
+              <Select
+                value={formData.produit_principal}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, produit_principal: value })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sélectionner un produit" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="photovoltaique">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span>Photovoltaïque</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="pompe_a_chaleur">
+                    <div className="flex items-center gap-2">
+                      <Thermometer className="h-4 w-4 text-blue-500" />
+                      <span>Pompe à Chaleur</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="isolation">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-4 w-4 text-green-500" />
+                      <span>Isolation (ITE)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
