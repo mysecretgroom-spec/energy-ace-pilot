@@ -1311,6 +1311,23 @@ const EtudeForm = () => {
           comment: classificationComment || null,
           r2_date_heure: r2DateTime,
         });
+
+        // Synchroniser le statut du RDV associé
+        const classificationToRdvStatus: Record<string, string> = {
+          positif: "signe",
+          negatif: "negatif",
+          r2: "r2",
+          r2_prestudy: "r2_prestudy",
+          annule: "annule",
+          reporte: "reporte",
+        };
+        const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | undefined;
+        if (rdvStatus && rdvId) {
+          await supabase
+            .from("rdv")
+            .update({ status: rdvStatus })
+            .eq("id", rdvId);
+        }
       }
       
       // Créer automatiquement un RDV R2 si une date est définie
