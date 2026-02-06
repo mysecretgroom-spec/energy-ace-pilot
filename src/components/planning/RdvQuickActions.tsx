@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import { Phone, MessageCircle, FolderOpen, Clock, MapPin } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
 import { RdvStatus } from "@/components/ui/status-badge";
+import { useRdvActions } from "@/hooks/useRdvActions";
 import {
   Popover,
   PopoverContent,
@@ -43,25 +43,7 @@ export function RdvQuickActions({
   onStatusChange,
   children,
 }: RdvQuickActionsProps) {
-  const navigate = useNavigate();
-
-  const handleCall = () => {
-    if (clientPhone) {
-      window.open(`tel:${clientPhone}`, "_self");
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (clientPhone) {
-      const cleanPhone = clientPhone.replace(/\D/g, "");
-      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-      window.open(`https://wa.me/${frPhone}`, "_blank");
-    }
-  };
-
-  const handleOpenClient = () => {
-    navigate(`/clients/${clientId}`);
-  };
+  const { callPhone, openWhatsApp, openClient } = useRdvActions();
 
   return (
     <Popover>
@@ -111,7 +93,7 @@ export function RdvQuickActions({
                 size="icon"
                 variant="outline"
                 className="h-8 w-8"
-                onClick={handleCall}
+                onClick={() => callPhone(clientPhone)}
                 disabled={!clientPhone}
                 title="Appeler"
               >
@@ -121,7 +103,7 @@ export function RdvQuickActions({
                 size="icon"
                 variant="outline"
                 className="h-8 w-8"
-                onClick={handleWhatsApp}
+                onClick={() => openWhatsApp(clientPhone)}
                 disabled={!clientPhone}
                 title="WhatsApp"
               >
@@ -137,7 +119,7 @@ export function RdvQuickActions({
                 size="icon"
                 variant="outline"
                 className="h-8 w-8"
-                onClick={handleOpenClient}
+                onClick={() => openClient(clientId)}
                 title="Dossier client"
               >
                 <FolderOpen className="h-3.5 w-3.5" />
