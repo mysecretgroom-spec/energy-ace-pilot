@@ -1757,6 +1757,7 @@ const EtudeForm = () => {
       userId: user.id,
       cqTime: pendingWhatsAppData.cqTime,
       pdfData: pendingWhatsAppData.pdfData,
+      regieId: regieId,
     });
     
     setPendingWhatsAppData(null);
