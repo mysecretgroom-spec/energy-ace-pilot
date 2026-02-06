@@ -369,7 +369,7 @@ export function RdvStatusSelector({
             </div>
           )}
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-[250]" position="popper" side="top" sideOffset={4}>
           {statusOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               <div className="flex items-center gap-2">
