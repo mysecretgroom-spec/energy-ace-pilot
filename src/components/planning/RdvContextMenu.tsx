@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FileText, 
@@ -27,8 +26,7 @@ import { RegieSelector } from "./RegieSelector";
 import { ExternalVenteDialog } from "./ExternalVenteDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useRdvActions } from "@/hooks/useRdvActions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,13 +71,24 @@ export function RdvContextMenu({
   onMoveRequest,
   onRefresh,
 }: RdvContextMenuProps) {
-  const navigate = useNavigate();
   const [canClose, setCanClose] = useState(false);
-  const [switching, setSwitching] = useState(false);
   const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
   const [regieId, setRegieId] = useState(rdv.regieId);
   const [regieNom, setRegieNom] = useState(rdv.regieNom);
   const [regieCouleur, setRegieCouleur] = useState(rdv.regieCouleur);
+
+  const {
+    callPhone,
+    openWhatsApp,
+    openClient,
+    openClientDocuments,
+    openNewEtude,
+    openWaze,
+    openGoogleMaps,
+    openAppleMaps,
+    toggleExternalType,
+    switchingType,
+  } = useRdvActions({ onRefresh });
 
   // Delete functionality
   const {
@@ -114,73 +123,18 @@ export function RdvContextMenu({
   };
 
   const handleDocuments = () => {
-    navigate(`/clients/${rdv.clientId}?tab=documents`);
+    openClientDocuments(rdv.clientId);
     onClose();
   };
 
   const handleOpenClient = () => {
-    navigate(`/clients/${rdv.clientId}`);
+    openClient(rdv.clientId);
     onClose();
   };
 
   const handleNewEtude = () => {
-    navigate(`/etude/new?clientId=${rdv.clientId}&rdvId=${rdv.id}`);
+    openNewEtude(rdv.clientId, rdv.id);
     onClose();
-  };
-
-  const handleCall = () => {
-    if (rdv.phone) {
-      window.open(`tel:${rdv.phone}`, "_self");
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (rdv.phone) {
-      const cleanPhone = rdv.phone.replace(/\D/g, "");
-      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-      window.open(`https://wa.me/${frPhone}`, "_blank");
-    }
-  };
-
-  const fullAddress = [rdv.address, rdv.postalCode, rdv.city].filter(Boolean).join(",");
-  const encodedAddress = encodeURIComponent(fullAddress);
-
-  const openWaze = () => {
-    window.open(`https://waze.com/ul?q=${encodedAddress}&navigate=yes`, "_blank");
-  };
-
-  const openGoogleMaps = () => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, "_blank");
-  };
-
-  const openAppleMaps = () => {
-    window.open(`https://maps.apple.com/?q=${encodedAddress}`, "_blank");
-  };
-
-  const handleExternalToggle = async () => {
-    const newType = rdv.typeRdv === "external_installation" ? "standard" : "external_installation";
-    setSwitching(true);
-    
-    try {
-      const { error } = await supabase
-        .from("rdv")
-        .update({ type_rdv: newType })
-        .eq("id", rdv.id);
-
-      if (error) throw error;
-
-      toast.success(
-        newType === "external_installation" 
-          ? "RDV marqué comme installation externe" 
-          : "RDV remis en standard"
-      );
-      onRefresh?.();
-    } catch (error) {
-      console.error("Error updating RDV type:", error);
-      toast.error("Erreur lors de la modification");
-    } finally {
-      setSwitching(false);
-    }
   };
 
   const handleMove = () => {
@@ -197,14 +151,6 @@ export function RdvContextMenu({
     setRegieNom(newRegieNom);
     setRegieCouleur(newRegieCouleur);
     onRefresh?.();
-  };
-
-  const handleCreateVente = () => {
-    setExternalVenteDialogOpen(true);
-  };
-
-  const handleDelete = () => {
-    openDeleteDialog(rdv.id);
   };
 
   const isExternalInstallation = rdv.typeRdv === "external_installation";
@@ -244,7 +190,6 @@ export function RdvContextMenu({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0 space-y-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Badge Régie */}
                     {regieNom && (
                       <Badge 
                         className="text-xs px-2 py-0.5 flex items-center gap-1 rounded-full"
@@ -319,7 +264,7 @@ export function RdvContextMenu({
                 <Button
                   variant="outline"
                   className="h-14 flex-col gap-1 touch-target-lg"
-                  onClick={handleCall}
+                  onClick={() => callPhone(rdv.phone)}
                   disabled={!rdv.phone}
                 >
                   <Phone className="h-5 w-5" />
@@ -329,7 +274,7 @@ export function RdvContextMenu({
                 <Button
                   variant="outline"
                   className="h-14 flex-col gap-1 touch-target-lg"
-                  onClick={handleWhatsApp}
+                  onClick={() => openWhatsApp(rdv.phone)}
                   disabled={!rdv.phone}
                 >
                   <MessageCircle className="h-5 w-5" />
@@ -349,15 +294,15 @@ export function RdvContextMenu({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center" className="w-48 z-[200]">
-                    <DropdownMenuItem onClick={openWaze} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem onClick={() => openWaze(rdv.address, rdv.postalCode, rdv.city)} className="gap-2 cursor-pointer">
                       <Navigation className="h-4 w-4 text-[#33ccff]" />
                       Waze
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={openGoogleMaps} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem onClick={() => openGoogleMaps(rdv.address, rdv.postalCode, rdv.city)} className="gap-2 cursor-pointer">
                       <Map className="h-4 w-4 text-[#4285f4]" />
                       Google Maps
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={openAppleMaps} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem onClick={() => openAppleMaps(rdv.address, rdv.postalCode, rdv.city)} className="gap-2 cursor-pointer">
                       <MapPin className="h-4 w-4 text-[#007aff]" />
                       Plans (Apple)
                     </DropdownMenuItem>
@@ -374,7 +319,7 @@ export function RdvContextMenu({
                 </Button>
               </div>
 
-              {/* Status Selector - with higher z-index for dialogs */}
+              {/* Status Selector */}
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Modifier le statut
@@ -422,7 +367,6 @@ export function RdvContextMenu({
                   <span className="text-sm">Documents</span>
                 </Button>
 
-                {/* Nouvelle étude - only for standard RDV */}
                 {rdv.typeRdv === "standard" && (
                   <Button
                     variant="outline"
@@ -441,10 +385,10 @@ export function RdvContextMenu({
                       ? "border-amber-500 bg-amber-500/10 text-amber-600" 
                       : ""
                   }`}
-                  onClick={handleExternalToggle}
-                  disabled={switching}
+                  onClick={() => toggleExternalType(rdv.id, rdv.typeRdv)}
+                  disabled={switchingType}
                 >
-                  {switching ? (
+                  {switchingType ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Wrench className="h-4 w-4" />
@@ -463,23 +407,21 @@ export function RdvContextMenu({
                   <span className="text-sm">Déplacer</span>
                 </Button>
 
-                {/* Créer vente - for external installation */}
                 {isExternalInstallation && (
                   <Button
                     variant="default"
                     className="h-12 flex-row gap-2 touch-target-lg bg-amber-500 hover:bg-amber-600"
-                    onClick={handleCreateVente}
+                    onClick={() => setExternalVenteDialogOpen(true)}
                   >
                     <Euro className="h-4 w-4" />
                     <span className="text-sm">Créer la vente</span>
                   </Button>
                 )}
 
-                {/* Delete button */}
                 <Button
                   variant="outline"
                   className="h-12 flex-row gap-2 touch-target-lg text-destructive hover:bg-destructive/10"
-                  onClick={handleDelete}
+                  onClick={() => openDeleteDialog(rdv.id)}
                 >
                   <Trash2 className="h-4 w-4" />
                   <span className="text-sm">Supprimer</span>

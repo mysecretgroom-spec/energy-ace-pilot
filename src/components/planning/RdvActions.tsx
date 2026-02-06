@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2, FileText } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
@@ -12,6 +11,7 @@ import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
+import { useRdvActions } from "@/hooks/useRdvActions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,7 @@ interface RdvActionsProps {
   regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
-  rdvDate?: string; // Date du RDV pour pré-remplir les ventes externes
+  rdvDate?: string;
   onRefresh: () => void;
   onStatusChange?: (newStatus: RdvStatus) => void;
   onRegieChange?: (regieId: string | null, regieNom: string | null, regieCouleur: string | null) => void;
@@ -62,10 +62,17 @@ export function RdvActions({
   onRegieChange,
   onBeforeNavigate,
 }: RdvActionsProps) {
-  const navigate = useNavigate();
-  const [switching, setSwitching] = useState(false);
   const [externalVenteDialogOpen, setExternalVenteDialogOpen] = useState(false);
   const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
+
+  const {
+    callPhone,
+    openWhatsApp,
+    openClient,
+    openNewEtude,
+    switchRdvType,
+    switchingType,
+  } = useRdvActions({ onRefresh, onBeforeNavigate });
 
   // Delete functionality
   const {
@@ -80,69 +87,12 @@ export function RdvActions({
     onSuccess: onRefresh,
   });
 
-  const handleNavigate = (path: string) => {
-    onBeforeNavigate?.();
-    navigate(path);
-  };
-
-  const handleCall = () => {
-    if (clientPhone) {
-      window.open(`tel:${clientPhone}`, "_self");
-    }
-  };
-
-  const handleWhatsApp = () => {
-    if (clientPhone) {
-      const cleanPhone = clientPhone.replace(/\D/g, "");
-      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-      window.open(`https://wa.me/${frPhone}`, "_blank");
-    }
-  };
-
-  const handleOpenClient = () => {
-    handleNavigate(`/clients/${clientId}`);
-  };
-
-  const handleNewEtude = () => {
-    handleNavigate(`/etude/new?clientId=${clientId}&rdvId=${rdvId}`);
-  };
-
-  const handleSwitchType = async (newType: RdvType) => {
-    setSwitching(true);
-    try {
-      const { error } = await supabase
-        .from("rdv")
-        .update({ type_rdv: newType })
-        .eq("id", rdvId);
-
-      if (error) throw error;
-
-      toast.success(
-        newType === 'external_installation' 
-          ? "Marqué comme installation externe" 
-          : "Marqué comme RDV standard"
-      );
-      onRefresh();
-    } catch (err) {
-      console.error("Error switching type:", err);
-      toast.error("Erreur lors du changement de type");
-    } finally {
-      setSwitching(false);
-    }
-  };
-
-  const handleCreateVente = () => {
-    // Open the external vente dialog directly
-    setExternalVenteDialogOpen(true);
-  };
-
   const handleSendDossier = async () => {
     if (!regieId) {
       toast.error("Aucune régie associée à ce RDV");
       return;
     }
 
-    // Fetch confirmateur for this regie
     const { data: confirmateur, error } = await supabase
       .from("confirmateurs")
       .select("telephone, nom")
@@ -198,7 +148,7 @@ export function RdvActions({
         size="icon"
         variant="outline"
         className="h-9 w-9 rounded-full"
-        onClick={handleCall}
+        onClick={() => callPhone(clientPhone)}
         disabled={!clientPhone}
         title="Appeler"
       >
@@ -210,7 +160,7 @@ export function RdvActions({
         size="icon"
         variant="outline"
         className="h-9 w-9 rounded-full"
-        onClick={handleWhatsApp}
+        onClick={() => openWhatsApp(clientPhone)}
         disabled={!clientPhone}
         title="WhatsApp"
       >
@@ -229,7 +179,7 @@ export function RdvActions({
         size="icon"
         variant="outline"
         className="h-9 w-9 rounded-full"
-        onClick={handleOpenClient}
+        onClick={() => openClient(clientId)}
         title="Dossier client"
       >
         <FolderOpen className="h-4 w-4" />
@@ -241,7 +191,7 @@ export function RdvActions({
           size="icon"
           variant="outline"
           className="h-9 w-9 rounded-full"
-          onClick={handleNewEtude}
+          onClick={() => openNewEtude(clientId, rdvId)}
           title="Nouvelle étude"
         >
           <Calculator className="h-4 w-4" />
@@ -255,10 +205,10 @@ export function RdvActions({
             size="icon"
             variant="outline"
             className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
-            disabled={switching}
+            disabled={switchingType}
             title="Changer type RDV"
           >
-            {switching ? (
+            {switchingType ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4" />
@@ -267,7 +217,7 @@ export function RdvActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem 
-            onClick={() => handleSwitchType('standard')}
+            onClick={() => switchRdvType(rdvId, 'standard')}
             disabled={typeRdv === 'standard'}
             className="gap-2"
           >
@@ -275,7 +225,7 @@ export function RdvActions({
             RDV Standard
           </DropdownMenuItem>
           <DropdownMenuItem 
-            onClick={() => handleSwitchType('external_installation')}
+            onClick={() => switchRdvType(rdvId, 'external_installation')}
             disabled={typeRdv === 'external_installation'}
             className="gap-2"
           >
@@ -291,7 +241,7 @@ export function RdvActions({
           size="icon"
           variant="default"
           className="h-9 w-9 rounded-full bg-amber-500 hover:bg-amber-600"
-          onClick={handleCreateVente}
+          onClick={() => setExternalVenteDialogOpen(true)}
           title="Créer la vente"
         >
           <Euro className="h-4 w-4" />
