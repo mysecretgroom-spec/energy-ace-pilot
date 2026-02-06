@@ -11,90 +11,104 @@ import { InteractiveOnboardingProvider } from "@/components/onboarding/Interacti
 import { PushPermissionPrompt } from "@/components/notifications/PushPermissionPrompt";
 import { SecurityPrompt } from "@/components/notifications/SecurityPrompt";
 import { DailyBriefingProvider } from "@/components/notifications/DailyBriefingProvider";
-import Dashboard from "./pages/Dashboard";
-import Planning from "./pages/Planning";
-import CRM from "./pages/CRM";
-import ClientDetail from "./pages/ClientDetail";
-import VenteDetail from "./pages/VenteDetail";
-import EtudeForm from "./pages/EtudeForm";
-import Finance from "./pages/Finance";
-import Notifications from "./pages/Notifications";
-import Parametres from "./pages/Parametres";
-import Profil from "./pages/Profil";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import NotFound from "./pages/NotFound";
-import Install from "./pages/Install";
-import AuthCallback from "./pages/AuthCallback";
-// Settings sub-pages
-import GmailAutoSync from "./pages/settings/GmailAutoSync";
-import DataPSH from "./pages/settings/DataPSH";
-import DataOrientation from "./pages/settings/DataOrientation";
-import DataTarifs from "./pages/settings/DataTarifs";
-import DataCompteurs from "./pages/settings/DataCompteurs";
-import DataCalibres from "./pages/settings/DataCalibres";
-import DataAides from "./pages/settings/DataAides";
-import DataIsolationPAC from "./pages/settings/DataIsolationPAC";
-import DataCopPAC from "./pages/settings/DataCopPAC";
-import DataPuissancesPAC from "./pages/settings/DataPuissancesPAC";
-import DataIsolantsITE from "./pages/settings/DataIsolantsITE";
-import DataFinitionsITE from "./pages/settings/DataFinitionsITE";
-import SecuritySettings from "./pages/settings/SecuritySettings";
-import VentesSettings from "./pages/settings/VentesSettings";
-import PushNotificationsSettings from "./pages/settings/PushNotificationsSettings";
-import ObjectifsSettings from "./pages/settings/ObjectifsSettings";
-import RegiesSettings from "./pages/settings/RegiesSettings";
-import WhatsAppTemplatesSettings from "./pages/settings/WhatsAppTemplatesSettings";
-import WhatsAppAgentSettings from "./pages/settings/WhatsAppAgentSettings";
-import DataEnergiesPrix from "./pages/settings/DataEnergiesPrix";
-import DataZonesClimatiques from "./pages/settings/DataZonesClimatiques";
-import DataAidesPAC from "./pages/settings/DataAidesPAC";
-import DataAidesITE from "./pages/settings/DataAidesITE";
-import DataMursITE from "./pages/settings/DataMursITE";
-import DataEconomiesITE from "./pages/settings/DataEconomiesITE";
-import WorkingDaysSettings from "./pages/settings/WorkingDaysSettings";
-import RegieDashboard from "./pages/RegieDashboard";
-import Confidentialite from "./pages/Confidentialite";
-import Conditions from "./pages/Conditions";
-import Legal from "./pages/Legal";
-import CGV from "./pages/CGV";
-import SecurityPolicy from "./pages/SecurityPolicy";
-import DataRetention from "./pages/DataRetention";
-import Abonnement from "./pages/Abonnement";
-import Support from "./pages/Support";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
-import AdminClients from "./pages/admin/AdminClients";
-import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
-import AdminNotifications from "./pages/admin/AdminNotifications";
-import AdminSupport from "./pages/admin/AdminSupport";
-import AdminFeatures from "./pages/admin/AdminFeatures";
-import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
-import AdminPlans from "./pages/admin/AdminPlans";
-import AdminAIWorkflows from "./pages/admin/AdminAIWorkflows";
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
+import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+// ─── Lazy-loaded pages for code-splitting ───
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const Planning = React.lazy(() => import("./pages/Planning"));
+const CRM = React.lazy(() => import("./pages/CRM"));
+const ClientDetail = React.lazy(() => import("./pages/ClientDetail"));
+const VenteDetail = React.lazy(() => import("./pages/VenteDetail"));
+const EtudeForm = React.lazy(() => import("./pages/EtudeForm"));
+const Finance = React.lazy(() => import("./pages/Finance"));
+const Notifications = React.lazy(() => import("./pages/Notifications"));
+const Parametres = React.lazy(() => import("./pages/Parametres"));
+const Profil = React.lazy(() => import("./pages/Profil"));
+const Login = React.lazy(() => import("./pages/Login"));
+const Signup = React.lazy(() => import("./pages/Signup"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
+const Install = React.lazy(() => import("./pages/Install"));
+const AuthCallback = React.lazy(() => import("./pages/AuthCallback"));
 
-// Initialize theme - dark mode only with HEJJA, default to light
-const initTheme = () => {
-  // Always start in light mode - dark mode is only enabled via HEJJA mode
-  document.documentElement.classList.remove("dark");
-  localStorage.setItem("theme", "light");
-};
+// Settings sub-pages
+const GmailAutoSync = React.lazy(() => import("./pages/settings/GmailAutoSync"));
+const DataPSH = React.lazy(() => import("./pages/settings/DataPSH"));
+const DataOrientation = React.lazy(() => import("./pages/settings/DataOrientation"));
+const DataTarifs = React.lazy(() => import("./pages/settings/DataTarifs"));
+const DataCompteurs = React.lazy(() => import("./pages/settings/DataCompteurs"));
+const DataCalibres = React.lazy(() => import("./pages/settings/DataCalibres"));
+const DataAides = React.lazy(() => import("./pages/settings/DataAides"));
+const DataIsolationPAC = React.lazy(() => import("./pages/settings/DataIsolationPAC"));
+const DataCopPAC = React.lazy(() => import("./pages/settings/DataCopPAC"));
+const DataPuissancesPAC = React.lazy(() => import("./pages/settings/DataPuissancesPAC"));
+const DataIsolantsITE = React.lazy(() => import("./pages/settings/DataIsolantsITE"));
+const DataFinitionsITE = React.lazy(() => import("./pages/settings/DataFinitionsITE"));
+const SecuritySettings = React.lazy(() => import("./pages/settings/SecuritySettings"));
+const VentesSettings = React.lazy(() => import("./pages/settings/VentesSettings"));
+const PushNotificationsSettings = React.lazy(() => import("./pages/settings/PushNotificationsSettings"));
+const ObjectifsSettings = React.lazy(() => import("./pages/settings/ObjectifsSettings"));
+const RegiesSettings = React.lazy(() => import("./pages/settings/RegiesSettings"));
+const WhatsAppTemplatesSettings = React.lazy(() => import("./pages/settings/WhatsAppTemplatesSettings"));
+const WhatsAppAgentSettings = React.lazy(() => import("./pages/settings/WhatsAppAgentSettings"));
+const DataEnergiesPrix = React.lazy(() => import("./pages/settings/DataEnergiesPrix"));
+const DataZonesClimatiques = React.lazy(() => import("./pages/settings/DataZonesClimatiques"));
+const DataAidesPAC = React.lazy(() => import("./pages/settings/DataAidesPAC"));
+const DataAidesITE = React.lazy(() => import("./pages/settings/DataAidesITE"));
+const DataMursITE = React.lazy(() => import("./pages/settings/DataMursITE"));
+const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomiesITE"));
+const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
 
-// Component to show HejjaToggle only for authenticated users
-const AuthenticatedHejjaToggle = () => {
-  return <HejjaToggle />;
-};
+// Other pages
+const RegieDashboard = React.lazy(() => import("./pages/RegieDashboard"));
+const Confidentialite = React.lazy(() => import("./pages/Confidentialite"));
+const Conditions = React.lazy(() => import("./pages/Conditions"));
+const Legal = React.lazy(() => import("./pages/Legal"));
+const CGV = React.lazy(() => import("./pages/CGV"));
+const SecurityPolicy = React.lazy(() => import("./pages/SecurityPolicy"));
+const DataRetention = React.lazy(() => import("./pages/DataRetention"));
+const Abonnement = React.lazy(() => import("./pages/Abonnement"));
+const Support = React.lazy(() => import("./pages/Support"));
+
+// Admin pages
+const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminAnalytics = React.lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminClients = React.lazy(() => import("./pages/admin/AdminClients"));
+const AdminSubscriptions = React.lazy(() => import("./pages/admin/AdminSubscriptions"));
+const AdminNotifications = React.lazy(() => import("./pages/admin/AdminNotifications"));
+const AdminSupport = React.lazy(() => import("./pages/admin/AdminSupport"));
+const AdminFeatures = React.lazy(() => import("./pages/admin/AdminFeatures"));
+const AdminAuditLogs = React.lazy(() => import("./pages/admin/AdminAuditLogs"));
+const AdminPlans = React.lazy(() => import("./pages/admin/AdminPlans"));
+const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows"));
+
+// ─── QueryClient with optimized defaults ───
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 min before refetch
+      gcTime: 10 * 60 * 1000, // 10 min garbage collection
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+// Suspense fallback
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
 
 const App = () => {
-  // PWA auto-update with network check
   usePWAUpdate();
   
   useEffect(() => {
-    initTheme();
+    // Always start in light mode - dark mode is only enabled via HEJJA mode
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("theme", "light");
   }, []);
 
   return (
@@ -107,78 +121,76 @@ const App = () => {
             <AuthProvider>
               <HejjaModeProvider>
                 <InteractiveOnboardingProvider>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/auth/callback" element={<AuthCallback />} />
-                    <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                    <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
-                    <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
-                    <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
-                    <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
-                    <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-                    <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
-                    <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
-                    <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                    <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
-                    <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
-                    <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
-                    <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
-                    <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
-                    <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
-                    <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
-                    <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
-                    <Route path="/parametres/data-isolation-pac" element={<ProtectedRoute><DataIsolationPAC /></ProtectedRoute>} />
-                    <Route path="/parametres/data-cop-pac" element={<ProtectedRoute><DataCopPAC /></ProtectedRoute>} />
-                    <Route path="/parametres/data-puissances-pac" element={<ProtectedRoute><DataPuissancesPAC /></ProtectedRoute>} />
-                    <Route path="/parametres/data-isolants-ite" element={<ProtectedRoute><DataIsolantsITE /></ProtectedRoute>} />
-                    <Route path="/parametres/data-finitions-ite" element={<ProtectedRoute><DataFinitionsITE /></ProtectedRoute>} />
-                    <Route path="/parametres/data-energies-prix" element={<ProtectedRoute><DataEnergiesPrix /></ProtectedRoute>} />
-                    <Route path="/parametres/data-zones-climatiques" element={<ProtectedRoute><DataZonesClimatiques /></ProtectedRoute>} />
-                    <Route path="/parametres/data-aides-pac" element={<ProtectedRoute><DataAidesPAC /></ProtectedRoute>} />
-                    <Route path="/parametres/data-aides-ite" element={<ProtectedRoute><DataAidesITE /></ProtectedRoute>} />
-                    <Route path="/parametres/data-murs-ite" element={<ProtectedRoute><DataMursITE /></ProtectedRoute>} />
-                    <Route path="/parametres/data-economies-ite" element={<ProtectedRoute><DataEconomiesITE /></ProtectedRoute>} />
-                    <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
-                    <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
-                    <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
-                    <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
-                    <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
-                    <Route path="/install" element={<Install />} />
-                    <Route path="/confidentialite" element={<Confidentialite />} />
-                    <Route path="/conditions" element={<Conditions />} />
-                    <Route path="/legal" element={<Legal />} />
-                    <Route path="/cgv" element={<CGV />} />
-                    <Route path="/securite" element={<SecurityPolicy />} />
-                    <Route path="/data-retention" element={<DataRetention />} />
-                    <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
-                    <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-                    {/* Admin routes */}
-                    <Route path="/admin" element={<AdminDashboard />} />
-                    <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                    <Route path="/admin/clients" element={<AdminClients />} />
-                    <Route path="/admin/plans" element={<AdminPlans />} />
-                    <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
-                    <Route path="/admin/notifications" element={<AdminNotifications />} />
-                    <Route path="/admin/support" element={<AdminSupport />} />
-                    <Route path="/admin/features" element={<AdminFeatures />} />
-                    <Route path="/admin/ai-workflows" element={<AdminAIWorkflows />} />
-                    <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                  {/* Push notification permission prompt */}
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
+                      <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
+                      <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+                      <Route path="/ventes/:id" element={<ProtectedRoute><VenteDetail /></ProtectedRoute>} />
+                      <Route path="/etude/new" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                      <Route path="/etude/edit" element={<ProtectedRoute><EtudeForm /></ProtectedRoute>} />
+                      <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
+                      <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                      <Route path="/parametres" element={<ProtectedRoute><Parametres /></ProtectedRoute>} />
+                      <Route path="/parametres/gmail-auto-sync" element={<ProtectedRoute><GmailAutoSync /></ProtectedRoute>} />
+                      <Route path="/parametres/data-psh" element={<ProtectedRoute><DataPSH /></ProtectedRoute>} />
+                      <Route path="/parametres/data-orientation" element={<ProtectedRoute><DataOrientation /></ProtectedRoute>} />
+                      <Route path="/parametres/data-tarifs" element={<ProtectedRoute><DataTarifs /></ProtectedRoute>} />
+                      <Route path="/parametres/data-compteurs" element={<ProtectedRoute><DataCompteurs /></ProtectedRoute>} />
+                      <Route path="/parametres/data-calibres" element={<ProtectedRoute><DataCalibres /></ProtectedRoute>} />
+                      <Route path="/parametres/data-aides" element={<ProtectedRoute><DataAides /></ProtectedRoute>} />
+                      <Route path="/parametres/data-isolation-pac" element={<ProtectedRoute><DataIsolationPAC /></ProtectedRoute>} />
+                      <Route path="/parametres/data-cop-pac" element={<ProtectedRoute><DataCopPAC /></ProtectedRoute>} />
+                      <Route path="/parametres/data-puissances-pac" element={<ProtectedRoute><DataPuissancesPAC /></ProtectedRoute>} />
+                      <Route path="/parametres/data-isolants-ite" element={<ProtectedRoute><DataIsolantsITE /></ProtectedRoute>} />
+                      <Route path="/parametres/data-finitions-ite" element={<ProtectedRoute><DataFinitionsITE /></ProtectedRoute>} />
+                      <Route path="/parametres/data-energies-prix" element={<ProtectedRoute><DataEnergiesPrix /></ProtectedRoute>} />
+                      <Route path="/parametres/data-zones-climatiques" element={<ProtectedRoute><DataZonesClimatiques /></ProtectedRoute>} />
+                      <Route path="/parametres/data-aides-pac" element={<ProtectedRoute><DataAidesPAC /></ProtectedRoute>} />
+                      <Route path="/parametres/data-aides-ite" element={<ProtectedRoute><DataAidesITE /></ProtectedRoute>} />
+                      <Route path="/parametres/data-murs-ite" element={<ProtectedRoute><DataMursITE /></ProtectedRoute>} />
+                      <Route path="/parametres/data-economies-ite" element={<ProtectedRoute><DataEconomiesITE /></ProtectedRoute>} />
+                      <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
+                      <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
+                      <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
+                      <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
+                      <Route path="/install" element={<Install />} />
+                      <Route path="/confidentialite" element={<Confidentialite />} />
+                      <Route path="/conditions" element={<Conditions />} />
+                      <Route path="/legal" element={<Legal />} />
+                      <Route path="/cgv" element={<CGV />} />
+                      <Route path="/securite" element={<SecurityPolicy />} />
+                      <Route path="/data-retention" element={<DataRetention />} />
+                      <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
+                      <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+                      {/* Admin routes */}
+                      <Route path="/admin" element={<AdminDashboard />} />
+                      <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                      <Route path="/admin/clients" element={<AdminClients />} />
+                      <Route path="/admin/plans" element={<AdminPlans />} />
+                      <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
+                      <Route path="/admin/notifications" element={<AdminNotifications />} />
+                      <Route path="/admin/support" element={<AdminSupport />} />
+                      <Route path="/admin/features" element={<AdminFeatures />} />
+                      <Route path="/admin/ai-workflows" element={<AdminAIWorkflows />} />
+                      <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
                   <PushPermissionPrompt />
-                  {/* Security prompt for biometric */}
                   <SecurityPrompt />
-                  {/* Daily briefing on first connection */}
                   <DailyBriefingProvider />
-                  {/* Floating HEJJA toggle - only visible when authenticated */}
-                  <AuthenticatedHejjaToggle />
+                  <HejjaToggle />
                 </InteractiveOnboardingProvider>
               </HejjaModeProvider>
             </AuthProvider>
