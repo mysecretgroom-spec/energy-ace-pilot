@@ -150,7 +150,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
         ref={setRefs}
         style={{
           ...style,
-          touchAction: disabled ? undefined : "none",
+          touchAction: disabled ? undefined : (isDragging ? "none" : "manipulation"),
         }}
         className={cn(
           "p-1.5 transition-all duration-200 select-none",

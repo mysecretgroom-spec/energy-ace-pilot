@@ -58,15 +58,16 @@
  
    return (
      <>
-       <div 
-         className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all select-none touch-none ${
-           isPressing 
-             ? "bg-primary/20 scale-[0.98]" 
-             : isOngoing
-               ? "bg-primary/10 border border-primary/30"
-               : "bg-muted/50 hover:bg-muted"
-         }`}
-         {...handlers}
+        <div 
+          className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all select-none ${
+            isPressing 
+              ? "bg-primary/20 scale-[0.98]" 
+              : isOngoing
+                ? "bg-primary/10 border border-primary/30"
+                : "bg-muted/50 hover:bg-muted"
+          }`}
+          style={{ touchAction: "manipulation" }}
+          {...handlers}
        >
          <div className="flex items-center gap-3">
            {getStatusIcon(rdv.status)}
