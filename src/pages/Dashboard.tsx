@@ -117,7 +117,7 @@ interface RawRdv {
   client_id?: string;
 }
 
-type StatDialogType = 'ca' | 'ventes' | 'rdv' | 'commissions' | 'commissionsAttente' | 'hejja' | null;
+type StatDialogType = 'ca' | 'ventes' | 'rdv' | 'commissions' | 'commissionsAttente' | 'hejja' | 'ventesEnCours' | 'caAnnee' | null;
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -533,6 +533,47 @@ const Dashboard = () => {
           total: commissionData.commissionsHejja,
         };
       }
+      case 'ventesEnCours': {
+        const enCoursStatuses = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
+        const ventesEC = ventesForCommission.filter(v => 
+          enCoursStatuses.includes(v.status) && !v.is_retape
+        );
+        return {
+          title: "Ventes en cours",
+          subtitle: "Signées, en attente de pose",
+          items: ventesEC.map(v => ({
+            id: v.id,
+            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: ventesEC.reduce((sum, v) => sum + v.montant_ttc, 0),
+        };
+      }
+      case 'caAnnee': {
+        const debutAnnee = new Date(now.getFullYear(), 0, 1);
+        const ventesAnnee = ventesForCommission.filter(v => 
+          v.date_signature && 
+          new Date(v.date_signature) >= debutAnnee &&
+          !v.is_retape &&
+          v.type_vente !== 'external_installation'
+        );
+        return {
+          title: "CA Année",
+          subtitle: now.getFullYear().toString(),
+          items: ventesAnnee.map(v => ({
+            id: v.id,
+            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: ventesAnnee.reduce((sum, v) => sum + v.montant_ttc, 0),
+        };
+      }
       default:
         return { title: "", items: [], total: undefined };
     }
@@ -794,15 +835,24 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
+              <div 
+                className="p-3 bg-blue-500/10 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors active:scale-[0.97]"
+                onClick={() => openStatDialog('ventesEnCours')}
+              >
                 <p className="text-lg font-bold text-blue-600">{stats.ventesEnCours}</p>
                 <p className="text-xs text-muted-foreground">En cours</p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-lg">
+              <div 
+                className="p-3 bg-green-500/10 rounded-lg cursor-pointer hover:bg-green-500/20 transition-colors active:scale-[0.97]"
+                onClick={() => openStatDialog('ventes')}
+              >
                 <p className="text-lg font-bold text-green-600">{stats.ventesSignesMois}</p>
                 <p className="text-xs text-muted-foreground">Signées</p>
               </div>
-              <div className="p-3 bg-amber-500/10 rounded-lg">
+              <div 
+                className="p-3 bg-amber-500/10 rounded-lg cursor-pointer hover:bg-amber-500/20 transition-colors active:scale-[0.97]"
+                onClick={() => openStatDialog('caAnnee')}
+              >
                 <p className="text-lg font-bold text-amber-600">{formatCurrency(stats.caAnnee)}</p>
                 <p className="text-xs text-muted-foreground">CA Année</p>
               </div>
