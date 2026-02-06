@@ -201,14 +201,9 @@ html, body {
 
   /* Mobile optimizations */
   html {
-    -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Prevent text size adjustment on orientation change */
-  html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
   }
