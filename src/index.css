@@ -4,6 +4,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global touch & selection optimization */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text selection in form inputs and editable areas */
+input, textarea, [contenteditable="true"], pre, code,
+input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="tel"], input[type="url"],
+input[type="search"], .select-text {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Smooth touch scrolling everywhere */
+html, body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
 /* DébalePro Design System - Corporate Professional */
 @layer base {
   :root {
