@@ -398,14 +398,16 @@ export function RdvContextMenu({
                   </span>
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="h-12 flex-row gap-2 touch-target-lg"
-                  onClick={handleMove}
-                >
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-sm">Déplacer</span>
-                </Button>
+                {onMoveRequest && (
+                  <Button
+                    variant="outline"
+                    className="h-12 flex-row gap-2 touch-target-lg"
+                    onClick={handleMove}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-sm">Déplacer</span>
+                  </Button>
+                )}
 
                 {isExternalInstallation && (
                   <Button
