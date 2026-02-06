@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
 
-export function HejjaToggle() {
+export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_props, ref) {
   const { user } = useAuth();
   const { isActive, activate, deactivate } = useHejjaMode();
   const location = useLocation();
@@ -773,4 +773,4 @@ export function HejjaToggle() {
       `}</style>
     </>
   );
-}
+});
