@@ -30,6 +30,10 @@ import {
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DashboardRdvCard } from "@/components/dashboard/DashboardRdvCard";
+import { PullToRefreshContainer } from "@/components/common/PullToRefreshContainer";
+import { GlobalSearch } from "@/components/common/GlobalSearch";
+import { DashboardKPISkeleton, DashboardRdvListSkeleton } from "@/components/common/DashboardSkeletons";
+import { DashboardQuickActions } from "@/components/common/QuickActions";
 
 interface DashboardStats {
   // Ventes
@@ -623,6 +627,7 @@ const Dashboard = () => {
 
   return (
     <MobileLayout title="Dashboard" showBackButton={false}>
+      <PullToRefreshContainer onRefresh={fetchDashboardData}>
       <div className="p-4 space-y-4 pb-24 max-w-4xl mx-auto">
         {/* Header avec salutation */}
         <div className="flex items-center justify-between">
@@ -632,22 +637,29 @@ const Dashboard = () => {
               {format(new Date(), "EEEE d MMMM", { locale: fr })}
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className="relative"
-            onClick={() => navigate("/notifications")}
-          >
-            <Bell className="h-5 w-5" />
-            {notifications.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                {notifications.length}
-              </span>
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <GlobalSearch />
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="relative"
+              onClick={() => navigate("/notifications")}
+            >
+              <Bell className="h-5 w-5" />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                  {notifications.length}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
 
+        {/* Raccourcis rapides */}
+        <DashboardQuickActions />
+
         {/* KPIs principaux - avec floutage opaque */}
+        {loading ? <DashboardKPISkeleton /> : (
         <BlurOverlay storageKey="dashboard_stats" blurAmount={12} opaque>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card 
@@ -748,8 +760,10 @@ const Dashboard = () => {
           )}
         </div>
         </BlurOverlay>
+        )}
 
         {/* Prochains RDV */}
+        {loading ? <DashboardRdvListSkeleton /> : (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -775,6 +789,7 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Bouton recherche hôtel Booking - affiché conditionnellement */}
         {shouldShowHotelButton() && (
@@ -887,6 +902,7 @@ const Dashboard = () => {
           </Card>
         </div>
       </div>
+      </PullToRefreshContainer>
 
       {/* Stat Detail Dialog */}
       <StatDetailDialog

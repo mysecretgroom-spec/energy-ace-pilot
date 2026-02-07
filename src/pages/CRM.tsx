@@ -19,6 +19,7 @@ import { PipelineKanban } from "@/components/crm/PipelineKanban";
 import { VenteSelectionBar } from "@/components/crm/VenteSelectionBar";
 import { QontoInvoice } from "@/components/crm/QontoInvoice";
 import { VenteCard } from "@/components/crm/VenteCard";
+import { PullToRefreshContainer } from "@/components/common/PullToRefreshContainer";
 import { MultiSelectFilter, FilterOption } from "@/components/crm/MultiSelectFilter";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import {
@@ -532,6 +533,7 @@ const CRM = () => {
   return (
     <MobileLayout title="CRM">
       <BlurOverlay storageKey="crm">
+      <PullToRefreshContainer onRefresh={async () => { await Promise.all([fetchClients(), fetchVentes()]); }}>
       <div className="p-4 space-y-4 pb-24 max-w-5xl mx-auto">
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1145,6 +1147,7 @@ const CRM = () => {
           </TabsContent>
         </Tabs>
       </div>
+      </PullToRefreshContainer>
       </BlurOverlay>
     </MobileLayout>
   );

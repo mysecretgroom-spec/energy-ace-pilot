@@ -25,6 +25,7 @@ import {
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DecomDialog } from "./DecomDialog";
+import { VenteProgressBar } from "./VenteProgressBar";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
 type VenteType = 'standard' | 'external_installation';
@@ -277,6 +278,9 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
               )}
             </div>
           </div>
+
+          {/* Progress bar */}
+          <VenteProgressBar status={vente.status} className="mt-3" />
 
           {!selectionMode && (
             <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
