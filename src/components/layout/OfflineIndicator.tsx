@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle, Wifi } from "lucide-react";
+import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle, Wifi, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { getPendingMutationCount } from "@/lib/offlineMutationQueue";
 import { cn } from "@/lib/utils";
 
 export function OfflineIndicator() {
@@ -15,7 +16,24 @@ export function OfflineIndicator() {
   } = useOfflineData();
 
   const [showBackOnline, setShowBackOnline] = useState(false);
+  const [pendingMutationsCount, setPendingMutationsCount] = useState(0);
   const wasOffline = useRef(false);
+
+  // Track pending mutations count
+  useEffect(() => {
+    const refresh = async () => {
+      const count = await getPendingMutationCount();
+      setPendingMutationsCount(count);
+    };
+    refresh();
+    window.addEventListener("offline-queue-changed", refresh);
+    // Also refresh periodically when offline
+    const interval = setInterval(refresh, 3000);
+    return () => {
+      window.removeEventListener("offline-queue-changed", refresh);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Detect transition from offline → online
   useEffect(() => {
@@ -30,7 +48,7 @@ export function OfflineIndicator() {
   }, [isOnline]);
 
   const isSyncing = isSyncingDocs || isSyncingData;
-  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
+  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount + pendingMutationsCount;
 
   // Show "back online" toast briefly
   if (showBackOnline && totalPending === 0) {
@@ -80,7 +98,13 @@ export function OfflineIndicator() {
                 : "Tout est synchronisé"}
             </p>
             {totalPending > 0 && (
-              <div className="flex items-center gap-2 text-xs opacity-90 mt-0.5">
+              <div className="flex items-center gap-2 text-xs opacity-90 mt-0.5 flex-wrap">
+                {pendingMutationsCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Send className="h-3 w-3" />
+                    {pendingMutationsCount} action{pendingMutationsCount > 1 ? "s" : ""}
+                  </span>
+                )}
                 {pendingDocsCount > 0 && (
                   <span className="flex items-center gap-1">
                     <FileText className="h-3 w-3" />
