@@ -5989,7 +5989,7 @@ INTENTIONS DISPONIBLES:
 - query_ventes_by_filter: "ventes posées", "ventes payées", "ventes signées", "posés < 2 sem", "par régie X" → Liste filtrée avec Entity: filter_type (poses, payees, signees, poses_recentes, par_regie)
 - query_stats: "stats", "CA", "taux conversion", "chiffres"
 - query_client_info: "téléphone de X", "adresse de X"
-- query_rdv_planning: "planning", "rdv demain", "agenda" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT
+- query_rdv_planning: "planning", "rdv demain", "agenda", "ma journée" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT + VILLE. Si period=today/tomorrow, inclure aussi le RÉSUMÉ: nombre total RDV, distance totale en km, temps de route, et les ALERTES (RDV à confirmer, sans adresse)
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "toutes mes ventes" → Liste simple sans détails commission
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
@@ -8675,7 +8675,9 @@ async function executeAction(
           adresse,
           status,
           type_rdv,
-          clients(nom, prenom, telephone)
+          distance_km,
+          travel_time_minutes,
+          clients(nom, prenom, telephone, ville)
         `)
         .eq("user_id", userId);
       
@@ -8704,7 +8706,7 @@ async function executeAction(
       
       // deno-lint-ignore no-explicit-any
       const responseData = (rdvs || []).map((r: any) => {
-        const client = r.clients as { nom: string; prenom: string; telephone: string } | null;
+        const client = r.clients as { nom: string; prenom: string; telephone: string; ville: string | null } | null;
         const rdvDate = new Date(r.date_heure);
         const jour = joursFr[rdvDate.getDay()];
         const dateFormatted = rdvDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
@@ -8719,15 +8721,35 @@ async function executeAction(
           client: clientNom,
           telephone: client?.telephone || null,
           adresse: r.adresse,
+          ville: client?.ville || null,
           type: r.type_rdv,
-          statut: r.status
+          statut: r.status,
+          distance_km: r.distance_km || null,
+          travel_time_minutes: r.travel_time_minutes || null,
         };
       });
+
+      // Compute summary for today/tomorrow briefings
+      const totalDistance = (rdvs || []).reduce((sum: number, r: any) => sum + (r.distance_km || 0), 0);
+      const totalTravelTime = (rdvs || []).reduce((sum: number, r: any) => sum + (r.travel_time_minutes || 0), 0);
+      const pendingRdvs = (rdvs || []).filter((r: any) => r.status === "a_confirmer").length;
+      const noAddressRdvs = (rdvs || []).filter((r: any) => !r.adresse && !r.clients?.adresse).length;
+
+      const alerts: string[] = [];
+      if (pendingRdvs > 0) alerts.push(`${pendingRdvs} RDV à confirmer`);
+      if (noAddressRdvs > 0) alerts.push(`${noAddressRdvs} RDV sans adresse`);
 
       return {
         actionTaken: "query_rdv_result",
         entityType: "planning",
-        entityId: JSON.stringify({ period, count: responseData.length, rdvs: responseData }),
+        entityId: JSON.stringify({ 
+          period, 
+          count: responseData.length, 
+          rdvs: responseData,
+          totalDistance: Math.round(totalDistance),
+          totalTravelTime: Math.round(totalTravelTime),
+          alerts,
+        }),
       };
     }
 
