@@ -66,7 +66,6 @@ type Intent =
   | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
   | "update_vente_data"    // Modifier les données d'une vente (prix, puissance, technicien, dates)
   | "create_external_vente" // Créer une vente externe (installation tierce) - peut créer nouveau client
-  | "import_document" 
   | "import_facture" 
   | "query_commissions"
   | "query_ventes_a_facturer"  // Liste détaillée des ventes à facturer avec commissions
@@ -101,8 +100,7 @@ type WorkflowState =
   | "awaiting_choice_selection"  // En attente d'une sélection parmi des choix proposés
   | "awaiting_regie_selection"   // En attente de sélection de régie pour attribution
   | "awaiting_new_sale_type"     // En attente de choix du type de vente (interne/externe) pour nouveau client
-  | "awaiting_document_type_confirmation" // NOUVEAU: En attente de confirmation du type de document (facture vs doc client)
-  | "awaiting_document_client_selection" // En attente de validation du client pour un document
+  | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
   | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
   | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
@@ -1673,18 +1671,8 @@ serve(async (req) => {
         messageText.includes("parking") ||
         messageText.includes("hotel");
       
-      const hasExplicitClientDocKeyword = 
-        messageText.includes("cni") ||
-        messageText.includes("document") ||
-        messageText.includes("identité") ||
-        messageText.includes("avis d'impot") ||
-        messageText.includes("rib") ||
-        messageText.includes("taxe");
-      
-      // Default to finance if explicit keywords found, otherwise use AI detection
-      const forcedContext: "finance" | "client_docs" | null = 
-        hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword ? "finance" :
-        hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword ? "client_docs" : null;
+      // All media via agent are treated as expense receipts (notes de frais)
+      // Client documents must be imported via the app
       
       // Process each file in parallel (max 5 concurrent to avoid overload)
       const BATCH_CONCURRENCY = 5;
@@ -1710,7 +1698,7 @@ serve(async (req) => {
               return {
                 filename: fileInfo.name,
                 success: false,
-                type: "client_docs",
+                type: "finance",
                 error: `Fichier trop volumineux (${(fileBytes.length / 1024 / 1024).toFixed(1)} Mo)`,
               };
             }
@@ -1725,21 +1713,13 @@ serve(async (req) => {
               isLargeFile: fileBytes.length > MAX_MEMORY_SIZE_BYTES,
             };
             
-            // Detect document type if not forced
-            let isReceipt = forcedContext === "finance";
-            if (!forcedContext && !fileMediaData.isLargeFile) {
-              const typeDetection = await detectDocumentType(fileMediaData, LOVABLE_API_KEY);
-              isReceipt = typeDetection.isReceipt;
-            }
-            
-            // Run analysis
-            const analysisContext: "finance" | "client_docs" = isReceipt ? "finance" : "client_docs";
+            // Always analyze as finance (expense receipt)
             let analysisResult: DocumentAnalysisResult | null = null;
             
             if (!fileMediaData.isLargeFile) {
               analysisResult = await analyzeMediaStructured(
                 fileMediaData,
-                analysisContext,
+                "finance",
                 LOVABLE_API_KEY
               );
             }
@@ -1765,7 +1745,7 @@ serve(async (req) => {
             return {
               filename: fileInfo.name,
               success: true,
-              type: analysisContext,
+              type: "finance",
               analysisResult: analysisResult || undefined,
               uploadedUrl: urlData?.signedUrl || uploadPath, // Fallback to path
             };
@@ -1774,7 +1754,7 @@ serve(async (req) => {
             return {
               filename: fileInfo.name,
               success: false,
-              type: "client_docs",
+              type: "finance",
               error: err instanceof Error ? err.message : "Unknown error",
             };
           }
@@ -1789,38 +1769,17 @@ serve(async (req) => {
       
       // Build summary for AI context
       const successCount = batchResults.filter(r => r.success).length;
-      const financeCount = batchResults.filter(r => r.success && r.type === "finance").length;
-      const docCount = batchResults.filter(r => r.success && r.type === "client_docs").length;
       
       if (successCount > 0) {
-        let batchSummary = `[Lot de ${successCount} fichiers analysés: `;
-        
-        if (financeCount > 0) {
-          const financeDetails = batchResults
-            .filter(r => r.success && r.type === "finance" && r.analysisResult)
-            .map(r => {
-              const fin = r.analysisResult as FinanceAnalysisResult;
-              return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
-            })
-            .slice(0, 5)
-            .join(", ");
-          batchSummary += `${financeCount} factures/tickets${financeDetails ? ` - ${financeDetails}` : ""}`;
-        }
-        
-        if (docCount > 0) {
-          if (financeCount > 0) batchSummary += "; ";
-          const docDetails = batchResults
-            .filter(r => r.success && r.type === "client_docs" && r.analysisResult)
-            .map(r => {
-              const doc = r.analysisResult as ClientDocAnalysisResult;
-              return `${r.filename}: ${doc.document_type || "?"}`;
-            })
-            .slice(0, 5)
-            .join(", ");
-          batchSummary += `${docCount} documents${docDetails ? ` - ${docDetails}` : ""}`;
-        }
-        
-        batchSummary += "]";
+        const financeDetails = batchResults
+          .filter(r => r.success && r.analysisResult)
+          .map(r => {
+            const fin = r.analysisResult as FinanceAnalysisResult;
+            return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
+          })
+          .slice(0, 5)
+          .join(", ");
+        const batchSummary = `[Lot de ${successCount} notes de frais analysées: ${financeDetails}]`;
         processedContent = request.content ? `${request.content}\n\n${batchSummary}` : batchSummary;
       }
     }
@@ -1847,30 +1806,7 @@ serve(async (req) => {
       const batchStartTime = Date.now();
       const messageText = (request.content || "").toLowerCase();
       
-      // Determine if user indicates these are finance docs or client docs
-      const hasExplicitFinanceKeyword = 
-        messageText.includes("frais") ||
-        messageText.includes("facture") ||
-        messageText.includes("ticket") ||
-        messageText.includes("note de frais") ||
-        messageText.includes("essence") ||
-        messageText.includes("carburant") ||
-        messageText.includes("péage") ||
-        messageText.includes("parking") ||
-        messageText.includes("hotel");
-      
-      const hasExplicitClientDocKeyword = 
-        messageText.includes("cni") ||
-        messageText.includes("document") ||
-        messageText.includes("identité") ||
-        messageText.includes("avis d'impot") ||
-        messageText.includes("rib") ||
-        messageText.includes("taxe");
-      
-      // Default to finance if explicit keywords found, otherwise use AI detection
-      const forcedContext: "finance" | "client_docs" | null = 
-        hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword ? "finance" :
-        hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword ? "client_docs" : null;
+      // All media via WhatsApp agent are treated as expense receipts
       
       // Process each file in parallel (max 5 concurrent to avoid overload)
       const BATCH_CONCURRENCY = 5;
@@ -1900,26 +1836,18 @@ serve(async (req) => {
               return {
                 filename: fileMediaData.filename,
                 success: false,
-                type: "client_docs",
+                type: "finance",
                 error: `Fichier trop volumineux (${(fileMediaData.sizeBytes / 1024 / 1024).toFixed(1)} Mo)`,
               };
             }
             
-            // Detect document type if not forced
-            let isReceipt = forcedContext === "finance";
-            if (!forcedContext && !fileMediaData.isLargeFile) {
-              const typeDetection = await detectDocumentType(fileMediaData, LOVABLE_API_KEY);
-              isReceipt = typeDetection.isReceipt;
-            }
-            
-            // Run analysis
-            const analysisContext: "finance" | "client_docs" = isReceipt ? "finance" : "client_docs";
+            // Always analyze as finance (expense receipt)
             let analysisResult: DocumentAnalysisResult | null = null;
             
             if (!fileMediaData.isLargeFile) {
               analysisResult = await analyzeMediaStructured(
                 fileMediaData,
-                analysisContext,
+                "finance",
                 LOVABLE_API_KEY
               );
             }
@@ -1945,7 +1873,7 @@ serve(async (req) => {
             return {
               filename: fileMediaData.filename,
               success: true,
-              type: analysisContext,
+              type: "finance",
               analysisResult: analysisResult || undefined,
               uploadedUrl: urlData?.signedUrl || uploadPath, // Fallback to path
             };
@@ -1965,18 +1893,18 @@ serve(async (req) => {
               errorType = "analysis";
             }
             
-            // Generate fallback URL based on detected type (default to client_docs)
+            // Generate fallback URL for finance
             const fallback = formatUploadErrorWithFallback(
               filename,
               errorType,
-              "client_docs", // Will be updated if we know better
+              "finance",
               errMessage
             );
             
             return {
               filename,
               success: false,
-              type: "client_docs",
+              type: "finance",
               error: errMessage,
               errorType,
               fallbackUrl: fallback.fallbackUrl,
@@ -1994,40 +1922,19 @@ serve(async (req) => {
       // Build summary for AI context
       const successCount = batchResults.filter(r => r.success).length;
       const failedCount = batchResults.filter(r => !r.success).length;
-      const financeCount = batchResults.filter(r => r.success && r.type === "finance").length;
-      const docCount = batchResults.filter(r => r.success && r.type === "client_docs").length;
       
       let batchSummary = "";
       
       if (successCount > 0) {
-        batchSummary = `[Lot de ${successCount} fichiers analysés: `;
-        
-        if (financeCount > 0) {
-          const financeDetails = batchResults
-            .filter(r => r.success && r.type === "finance" && r.analysisResult)
-            .map(r => {
-              const fin = r.analysisResult as FinanceAnalysisResult;
-              return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
-            })
-            .slice(0, 5)
-            .join(", ");
-          batchSummary += `${financeCount} factures/tickets${financeDetails ? ` - ${financeDetails}` : ""}`;
-        }
-        
-        if (docCount > 0) {
-          if (financeCount > 0) batchSummary += "; ";
-          const docDetails = batchResults
-            .filter(r => r.success && r.type === "client_docs" && r.analysisResult)
-            .map(r => {
-              const doc = r.analysisResult as ClientDocAnalysisResult;
-              return `${r.filename}: ${doc.document_type || "?"}`;
-            })
-            .slice(0, 5)
-            .join(", ");
-          batchSummary += `${docCount} documents${docDetails ? ` - ${docDetails}` : ""}`;
-        }
-        
-        batchSummary += "]";
+        const financeDetails = batchResults
+          .filter(r => r.success && r.analysisResult)
+          .map(r => {
+            const fin = r.analysisResult as FinanceAnalysisResult;
+            return `${r.filename}: ${fin.montant_ttc || "?"}€ (${fin.categorie || "?"})`;
+          })
+          .slice(0, 5)
+          .join(", ");
+        batchSummary = `[Lot de ${successCount} notes de frais analysées: ${financeDetails}]`;
       }
       
       // Add error summary with fallback links if any failed
@@ -2165,66 +2072,44 @@ serve(async (req) => {
         messageText.includes("hotel") ||
         messageText.includes("hôtel");
       
-      const hasExplicitClientDocKeyword = 
-        messageText.includes("cni") ||
-        messageText.includes("carte d'identité") ||
-        messageText.includes("identité") ||
-        messageText.includes("avis d'impot") ||
-        messageText.includes("impots") ||
-        messageText.includes("rib") ||
-        messageText.includes("taxe fonciere") ||
-        messageText.includes("facture energie") ||
-        messageText.includes("facture edf") ||
-        messageText.includes("compteur") ||
-        messageText.includes("tableau électrique");
-      
+      // All media via WhatsApp are treated as expense receipts (notes de frais)
+      // Client documents must be imported via the app
       if (!mediaData.isLargeFile) {
-        // If user explicitly says it's a finance document, trust them
-        if (hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword) {
-          isReceiptDocument = true;
-          typeDetectionConfidence = 95;
+        // Skip Phase 1 type detection - always finance
+        if (hasExplicitFinanceKeyword) {
           console.log("User explicitly indicated this is a finance document");
-        } 
-        // If user explicitly says it's a client document, trust them  
-        else if (hasExplicitClientDocKeyword && !hasExplicitFinanceKeyword) {
-          isReceiptDocument = false;
-          typeDetectionConfidence = 95;
-          console.log("User explicitly indicated this is a client document");
-        }
-        // Otherwise, use AI to detect document type
-        else {
-          console.log("Running Phase 1: Document type detection...");
-          const typeDetection = await detectDocumentType(mediaData, LOVABLE_API_KEY);
-          isReceiptDocument = typeDetection.isReceipt;
-          typeDetectionConfidence = typeDetection.confidence;
-          console.log(`Phase 1 result: isReceipt=${isReceiptDocument}, confidence=${typeDetectionConfidence}%, reason="${typeDetection.reasoning}"`);
         }
         
-        // =================================================================
-        // PHASE 2: RUN APPROPRIATE DETAILED ANALYSIS BASED ON TYPE
-        // =================================================================
-        console.log(`Running Phase 2: ${isReceiptDocument ? "Finance" : "Client document"} detailed analysis...`);
+        isReceiptDocument = true;
+        typeDetectionConfidence = 95;
+        
+        console.log("Running finance analysis (all WhatsApp media = notes de frais)...");
         
         documentAnalysisResult = await analyzeMediaStructured(
           mediaData,
-          isReceiptDocument ? "finance" : "client_docs",
+          "finance",
           LOVABLE_API_KEY
         );
 
-        console.log("Phase 2 structured analysis result:", documentAnalysisResult);
+        console.log("Finance analysis result:", documentAnalysisResult);
       } else {
-        // For large files, create a placeholder result (no AI analysis)
-        isReceiptDocument = hasExplicitFinanceKeyword && !hasExplicitClientDocKeyword;
+        // For large files, create a placeholder result
+        isReceiptDocument = true;
         documentAnalysisResult = {
-          type: isReceiptDocument ? "finance" : "client_docs",
+          type: "finance",
           success: true,
-          document_type: "autre",
-          confidence: 50,
+          is_multi_category: false,
+          items: [],
+          montant_ttc: null,
+          montant_ht: null,
+          tva: null,
+          taux_tva: null,
+          date: null,
+          fournisseur: null,
           description: "Document volumineux - classification automatique non disponible",
-          extracted_client_name: null,
-          extracted_client_confidence: 0,
-        } as ClientDocAnalysisResult;
-        console.log("Large file - skipping AI analysis, using placeholder");
+          categorie: null,
+        } as FinanceAnalysisResult;
+        console.log("Large file - skipping AI analysis, using finance placeholder");
       }
 
       // Build processed content from analysis
@@ -2234,16 +2119,6 @@ serve(async (req) => {
           processedContent = request.content 
             ? `${request.content}\n\n[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`
             : `[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`;
-        } else {
-          const doc = documentAnalysisResult as ClientDocAnalysisResult;
-          const largeFileNote = mediaData.isLargeFile ? " (fichier volumineux)" : "";
-          const clientConfidence = doc.extracted_client_confidence ?? 0;
-          const clientNote = doc.extracted_client_name && clientConfidence >= 60
-            ? `, client_detecte="${doc.extracted_client_name}" (confiance=${clientConfidence}%)`
-            : "";
-          processedContent = request.content 
-            ? `${request.content}\n\n[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%${clientNote}, ${doc.description || ""}]`
-            : `[Analyse document client: type=${doc.document_type || "?"}${largeFileNote}, confiance=${doc.confidence}%${clientNote}, ${doc.description || ""}]`;
         }
       } else if (documentAnalysisResult) {
         processedContent = request.content 
@@ -2251,7 +2126,6 @@ serve(async (req) => {
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
     }
-
     // Get conversation context, user memories, and custom prompts in parallel
     const [conversationResult, userMemories, userPrompts] = await Promise.all([
       supabase
@@ -2461,7 +2335,6 @@ serve(async (req) => {
             mark_signe: "✍️ Enregistrer une vente signée",
             update_vente_data: "📝 Modifier les données de vente",
             create_external_vente: "📦 Vente externe",
-            import_document: "📄 Importer un document",
             import_facture: "🧾 Importer une note de frais",
             update_client_notes: "📝 Modifier les notes client",
           };
@@ -2497,7 +2370,7 @@ serve(async (req) => {
         };
       } else if (delegateConfirmationToAction || !needsConfirmation) {
         // For import intents, use the staging workflow for type validation
-        if ((aiResponse!.intent === "import_document" || aiResponse!.intent === "import_facture") && mediaData) {
+        if (aiResponse!.intent === "import_facture" && mediaData) {
           console.log("Initiating staging workflow for document...");
           
           // Upload to staging bucket first (not final destination)
@@ -3962,161 +3835,7 @@ async function handlePendingWorkflow(
           };
         }
         
-        // Handle import_document with new client creation
-        if (pendingAction.intent === "import_document" && pendingAction.collectedData?.isNewClient) {
-          // User provided new client name - this message IS the client name
-          const newClientName = userMessage.trim();
-          const pendingDocId = pendingAction.collectedData.pendingDocumentId;
-          const documentFilename = pendingAction.collectedData.documentFilename || "document";
-          const documentType = pendingAction.collectedData.documentType || "autre";
-          // Use stagingPath directly from collectedData, or extract from URL
-          const storagePath = pendingAction.collectedData.stagingPath || 
-            extractStoragePathFromUrl(pendingAction.collectedData.documentStorageUrl || "", "staging-uploads");
-          
-          if (!newClientName || newClientName.length < 2) {
-            return {
-              intent: "import_document",
-              actionTaken: "invalid_client_name",
-              newPendingAction: pendingAction,
-              responseMessage: "❌ Nom de client invalide. Veuillez entrer un nom valide (minimum 2 caractères).",
-            };
-          }
-          
-          if (!pendingDocId || !storagePath) {
-            return {
-              intent: "import_document",
-              actionTaken: "error",
-              newPendingAction: null,
-              responseMessage: "❌ Erreur: document non trouvé. Veuillez renvoyer le document.",
-            };
-          }
-          
-          try {
-            // Create the new client
-            const { data: newClient, error: clientError } = await supabase
-              .from("clients")
-              .insert({
-                user_id: userId,
-                nom: newClientName,
-                source: "whatsapp_agent",
-              })
-              .select("id")
-              .single();
-            
-            if (clientError) {
-              console.error("Error creating client:", clientError);
-              throw new Error("Client creation failed");
-            }
-            
-            const clientId = newClient.id;
-            console.log(`Created new client "${newClientName}" with ID: ${clientId}`);
-            
-            // Download file from staging-uploads bucket (NOT pending-documents)
-            const { data: fileData, error: downloadError } = await supabase.storage
-              .from("staging-uploads")
-              .download(storagePath);
-            
-            if (downloadError || !fileData) {
-              console.error("Error downloading from staging:", downloadError);
-              throw new Error("Download failed");
-            }
-            
-            // Upload to documents bucket - path must start with userId to satisfy RLS
-            const newPath = `${userId}/${clientId}/${Date.now()}_${documentFilename}`;
-            const fileBytes = await fileData.arrayBuffer();
-            
-            const { error: uploadError } = await supabase.storage
-              .from("documents")
-              .upload(newPath, new Uint8Array(fileBytes), {
-                contentType: pendingAction.collectedData?.documentMimeType || "application/octet-stream",
-              });
-            
-            if (uploadError) {
-              console.error("Error uploading to documents:", uploadError);
-              throw new Error("Upload failed");
-            }
-            
-            // Get public URL
-            const { data: urlData } = supabase.storage
-              .from("documents")
-              .getPublicUrl(newPath);
-            
-            // Create document record
-            const { data: docRecord, error: docError } = await supabase
-              .from("documents")
-              .insert({
-                client_id: clientId,
-                user_id: userId,
-                nom: documentFilename,
-                type_document: documentType,
-                url: urlData?.publicUrl || "",
-                mime_type: pendingAction.collectedData?.documentMimeType,
-                taille_bytes: pendingAction.collectedData?.documentSizeBytes,
-                context_source: "whatsapp",
-                metadata: {
-                  assigned_via: "whatsapp_new_client",
-                  original_pending_id: pendingDocId,
-                },
-              })
-              .select("id")
-              .single();
-            
-            if (docError) {
-              console.error("Error creating document record:", docError);
-              throw new Error("Document record creation failed");
-            }
-            
-            // Update pending document status
-            await supabase
-              .from("pending_documents")
-              .update({
-                status: "manually_assigned",
-                assigned_client_id: clientId,
-                assigned_document_type: documentType,
-                assigned_at: new Date().toISOString(),
-                processed_at: new Date().toISOString(),
-                final_document_id: docRecord?.id,
-              })
-              .eq("id", pendingDocId);
-            
-            // Delete from staging storage
-            await supabase.storage
-              .from("staging-uploads")
-              .remove([storagePath]);
-            
-            // Log action
-            await logAgentAction(
-              supabase,
-              userId,
-              null,
-              "import_document",
-              "documents",
-              docRecord?.id,
-              { client_id: clientId, client_name: newClientName, document_type: documentType, filename: documentFilename, new_client: true },
-              null,
-              `Document ${documentFilename} attribué au nouveau client ${newClientName}`
-            );
-            
-            return {
-              intent: "import_document",
-              actionTaken: "document_assigned_new_client",
-              entityId: docRecord?.id,
-              entityType: "document",
-              newPendingAction: null,
-              responseMessage: `✅ *Document attribué !*\n\n📄 ${documentFilename}\n👤 Nouveau client: *${newClientName}*\n📋 Type: ${documentType}`,
-            };
-            
-          } catch (err) {
-            console.error("Error processing document with new client:", err);
-            
-            return {
-              intent: "import_document",
-              actionTaken: "error",
-              newPendingAction: null,
-              responseMessage: `❌ Erreur lors du traitement. Veuillez réessayer.`,
-            };
-          }
-        }
+        // import_document new client flow removed - client docs must be imported via the app
         
         // For other pending actions - execute the stored action
         // Return a signal to the main flow to execute the pending action
@@ -4440,265 +4159,7 @@ async function handlePendingWorkflow(
       };
     }
     
-    case "awaiting_document_client_selection": {
-      // User is selecting a client for a document
-      const choices = pendingAction.collectedData?.choices || [];
-      const pendingDocId = pendingAction.collectedData?.pendingDocumentId;
-      const documentFilename = pendingAction.collectedData?.documentFilename || "document";
-      const documentType = pendingAction.collectedData?.documentType || "autre";
-      const documentStorageUrl = pendingAction.collectedData?.documentStorageUrl;
-      
-      if (!pendingDocId) {
-        return {
-          intent: "cancel_action",
-          actionTaken: "error",
-          newPendingAction: null,
-          responseMessage: "❌ Erreur: document non trouvé. Veuillez renvoyer le document.",
-        };
-      }
-      
-      // Check for cancel - be strict to avoid false positives with "non" in a client name
-      const cancelPatterns = ["annule", "cancel", "abandonne", "stop"];
-      const isPlainNo = messageLower.trim() === "non" || messageLower.trim() === "no";
-      const isExplicitCancel = cancelPatterns.some(p => messageLower.trim() === p);
-      
-      if (isPlainNo || isExplicitCancel) {
-        // Mark document as rejected
-        await supabase
-          .from("pending_documents")
-          .update({ status: "rejected", rejection_reason: "user_cancelled" })
-          .eq("id", pendingDocId);
-        
-        return {
-          intent: "cancel_action",
-          actionTaken: "document_cancelled",
-          newPendingAction: null,
-          responseMessage: "❌ Import annulé. Le document n'a pas été attribué.",
-        };
-      }
-      
-      // Check for "nouveau client" intent
-      const newClientPatterns = [
-        "nouveau client", "new client", "c'est un nouveau", "nouveau", "nouvelle",
-        "creer", "créer", "pas dans la liste", "aucun", "autre"
-      ];
-      const wantsNewClient = newClientPatterns.some(p => messageLower.includes(p));
-      
-      let selectedChoice: ChoiceOption | null = null;
-      
-      if (wantsNewClient) {
-        selectedChoice = choices.find(c => c.id === "NEW_CLIENT") || null;
-      }
-      
-      // Try number selection
-      if (!selectedChoice) {
-        const numberMatch = userMessage.match(/^[#]?(\d+)\.?$/);
-        if (numberMatch) {
-          const choiceIndex = parseInt(numberMatch[1], 10) - 1;
-          if (choiceIndex >= 0 && choiceIndex < choices.length) {
-            selectedChoice = choices[choiceIndex];
-          }
-        }
-      }
-      
-      // Try emoji numbers
-      if (!selectedChoice) {
-        const emojiNumbers: Record<string, number> = {
-          "1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4,
-          "①": 0, "②": 1, "③": 2, "④": 3, "⑤": 4,
-        };
-        for (const [emoji, index] of Object.entries(emojiNumbers)) {
-          if (userMessage.includes(emoji) && index < choices.length) {
-            selectedChoice = choices[index];
-            break;
-          }
-        }
-      }
-      
-      // Try text match by label
-      if (!selectedChoice) {
-        const normalizedMessage = messageLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        for (const choice of choices) {
-          if (choice.id === "NEW_CLIENT") continue; // Skip new client for text match
-          const normalizedLabel = choice.label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          const labelWords = normalizedLabel.split(/\s+/);
-          const messageWords = normalizedMessage.split(/\s+/);
-          
-          // Check if any word from the message matches any word from the label
-          const matchCount = labelWords.filter(lw => 
-            messageWords.some(mw => mw.includes(lw) || lw.includes(mw))
-          ).length;
-          
-          if (matchCount >= 1 && labelWords.length > 0) {
-            selectedChoice = choice;
-            break;
-          }
-        }
-      }
-      
-      if (!selectedChoice) {
-        // Couldn't parse - ask again
-        const choiceList = choices.map((c, i) => {
-          if (c.id === "NEW_CLIENT") {
-            return `${i + 1}️⃣ 🆕 Nouveau client`;
-          }
-          const suggestion = pendingAction.collectedData?.clientSuggestions?.find(s => s.id === c.id);
-          const scoreStr = suggestion ? ` (${suggestion.score}%)` : "";
-          return `${i + 1}️⃣ ${c.label}${scoreStr}`;
-        }).join("\n");
-        
-        return {
-          intent: "import_document",
-          actionTaken: "invalid_selection",
-          newPendingAction: pendingAction,
-          responseMessage: `🤔 Je n'ai pas compris ton choix.\n\n📄 *${documentFilename}*\n\n${choiceList}\n\n_Réponds avec le numéro ou le nom du client_`,
-        };
-      }
-      
-      console.log(`User selected client for document: ${selectedChoice.label} (${selectedChoice.id})`);
-      
-      // Handle "Nouveau client" selection
-      if (selectedChoice.id === "NEW_CLIENT") {
-        return {
-          intent: "import_document",
-          actionTaken: "awaiting_new_client_name",
-          newPendingAction: {
-            ...pendingAction,
-            workflowState: "awaiting_confirmation",
-            collectedData: {
-              ...pendingAction.collectedData,
-              isNewClient: true,
-            },
-          },
-          responseMessage: `🆕 Nouveau client !\n\n📝 Quel est le *nom* du client pour ce document ?`,
-        };
-      }
-      
-      // Client selected - move document to client's folder
-      const selectedClientId = selectedChoice.id;
-      const selectedClientName = selectedChoice.label;
-      
-      // Download file from staging-uploads bucket (files are uploaded there via uploadToStagingBucket)
-      // The staging_storage_path in pending_documents points to staging-uploads, NOT pending-documents
-      const storagePath = pendingAction.collectedData?.stagingPath || 
-        extractStoragePathFromUrl(pendingAction.collectedData?.documentStorageUrl || "", "staging-uploads");
-      
-      if (!storagePath) {
-        return {
-          intent: "import_document",
-          actionTaken: "error",
-          newPendingAction: null,
-          responseMessage: "❌ Erreur: chemin du fichier non trouvé.",
-        };
-      }
-      
-      try {
-        // Get file from staging-uploads bucket (NOT pending-documents)
-        const { data: fileData, error: downloadError } = await supabase.storage
-          .from("staging-uploads")
-          .download(storagePath);
-        
-        if (downloadError || !fileData) {
-          console.error("Error downloading from staging:", downloadError);
-          throw new Error("Download failed");
-        }
-        
-        // Upload to documents bucket - path must start with userId to satisfy RLS
-        const newPath = `${userId}/${selectedClientId}/${Date.now()}_${documentFilename}`;
-        const fileBytes = await fileData.arrayBuffer();
-        
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(newPath, new Uint8Array(fileBytes), {
-            contentType: pendingAction.collectedData?.documentMimeType || "application/octet-stream",
-          });
-        
-        if (uploadError) {
-          console.error("Error uploading to documents:", uploadError);
-          throw new Error("Upload failed");
-        }
-        
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("documents")
-          .getPublicUrl(newPath);
-        
-        // Create document record
-        const { data: docRecord, error: docError } = await supabase
-          .from("documents")
-          .insert({
-            client_id: selectedClientId,
-            user_id: userId,
-            nom: documentFilename,
-            type_document: documentType,
-            url: urlData?.publicUrl || "",
-            mime_type: pendingAction.collectedData?.documentMimeType,
-            taille_bytes: pendingAction.collectedData?.documentSizeBytes,
-            context_source: "whatsapp",
-            metadata: {
-              assigned_via: "whatsapp_user_selection",
-              original_pending_id: pendingDocId,
-            },
-          })
-          .select("id")
-          .single();
-        
-        if (docError) {
-          console.error("Error creating document record:", docError);
-          throw new Error("Document record creation failed");
-        }
-        
-        // Update pending document status
-        await supabase
-          .from("pending_documents")
-          .update({
-            status: "manually_assigned",
-            assigned_client_id: selectedClientId,
-            assigned_document_type: documentType,
-            assigned_at: new Date().toISOString(),
-            processed_at: new Date().toISOString(),
-            final_document_id: docRecord?.id,
-          })
-          .eq("id", pendingDocId);
-        
-        // Delete from staging storage
-        await supabase.storage
-          .from("staging-uploads")
-          .remove([storagePath]);
-        
-        // Log action
-        await logAgentAction(
-          supabase,
-          userId,
-          null,
-          "import_document",
-          "documents",
-          docRecord?.id,
-          { client_id: selectedClientId, document_type: documentType, filename: documentFilename },
-          null,
-          `Document ${documentFilename} attribué à ${selectedClientName}`
-        );
-        
-        return {
-          intent: "import_document",
-          actionTaken: "document_assigned",
-          entityId: docRecord?.id,
-          entityType: "document",
-          newPendingAction: null,
-          responseMessage: `✅ *Document attribué !*\n\n📄 ${documentFilename}\n👤 Client: *${selectedClientName}*\n📋 Type: ${documentType}`,
-        };
-        
-      } catch (err) {
-        console.error("Error processing document:", err);
-        
-        return {
-          intent: "import_document",
-          actionTaken: "error",
-          newPendingAction: null,
-          responseMessage: `❌ Erreur lors du traitement du document. Veuillez réessayer.`,
-        };
-      }
-    }
+    // awaiting_document_client_selection removed - client docs must be imported via the app
     
     case "awaiting_facture_confirmation": {
       // User is confirming or correcting facture data before saving
@@ -5906,8 +5367,6 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
     case "query_frais":
     case "query_frais_detail":
       return "💳 Je récupère tes frais...";
-    case "import_document":
-      return "📄 Je traite ton document...";
     case "import_facture":
       return "🧾 Je traite ta note de frais...";
     case "user_feedback":
@@ -5989,8 +5448,7 @@ INTENTIONS DISPONIBLES:
 - update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
 - update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
-- import_document: Document client (CNI, RIB, facture énergie)
-- import_facture: Note de frais (ticket, carburant, péage)
+- import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
 - query_commissions: "mes coms", "combien je gagne" → Vue globale commissions (totaux uniquement)
 - query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
 - query_ventes_en_cours: "dossiers en cours", "ventes en cours", "mes en cours" → Liste DÉTAILLÉE des ventes signées non encore posées avec NOM PRÉNOM + COMMISSION pour chaque
@@ -6119,7 +5577,7 @@ RÈGLES CRITIQUES:
 
 ⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_document, import_facture
+- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture
 - FORMAT OBLIGATOIRE du responseMessage:
   📋 *[TYPE ACTION]*
   • Client: [Nom complet]
@@ -6233,7 +5691,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "update_client_notes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "update_client_notes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -7603,215 +7061,9 @@ async function executeAction(
       };
     }
 
-    case "import_document": {
-      // Récupérer staging path depuis entities ou URL
-      const stagingPath = entities.staging_path as string;
-      const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
-      
-      if (!stagingUrl && !uploadedDocumentUrl) {
-        return { actionTaken: "no_media" };
-      }
-
-      // Get document type from analysis result if available
-      let documentType = entities.document_type as string || "autre";
-      let extractedClientName: string | null = null;
-      let extractedClientConfidence = 0;
-      
-      if (analysisResult && analysisResult.type === "client_docs" && analysisResult.success) {
-        documentType = analysisResult.document_type || documentType;
-        extractedClientName = analysisResult.extracted_client_name || null;
-        extractedClientConfidence = analysisResult.extracted_client_confidence || 0;
-        console.log(`AI extracted client name: "${extractedClientName}" (confidence: ${extractedClientConfidence}%)`);
-      }
-      
-      // Priority: 1) User-provided name, 2) AI-extracted from document
-      let clientName = entities.client_name as string;
-      
-      if (!clientName && extractedClientName && extractedClientConfidence >= 60) {
-        clientName = extractedClientName;
-        console.log(`Using AI-extracted client name: "${clientName}"`);
-      }
-      
-      // Get original filename from mediaData
-      const originalFilename = mediaData?.filename || `document_${Date.now()}`;
-      
-      // Search for matching clients with scores
-      let clientSuggestions: Array<{ id: string; fullName: string; score: number }> = [];
-      let highConfidenceMatch: { id: string; fullName: string; score: number } | null = null;
-      
-      if (clientName) {
-        const searchResult = await findClientByName(supabase, userId, clientName);
-        // Get top 3 clients with their scores
-        clientSuggestions = searchResult.clients.slice(0, 3).map(c => ({
-          id: c.id,
-          fullName: c.fullName,
-          score: Math.round(c.score * 100)
-        }));
-        
-        // Check for high confidence match (≥80%)
-        if (clientSuggestions.length > 0 && clientSuggestions[0].score >= 80) {
-          highConfidenceMatch = clientSuggestions[0];
-          console.log(`Found high-confidence match: ${highConfidenceMatch.fullName} (${highConfidenceMatch.score}%)`);
-        }
-      }
-      
-      // Create pending document record in staging with workflow_type
-      const { data: pendingDoc, error: pendingError } = await supabase
-        .from("pending_documents")
-        .insert({
-          user_id: userId,
-          original_filename: originalFilename,
-          staging_storage_path: stagingPath,
-          storage_path: stagingPath, // Will be updated after validation
-          mime_type: mediaData?.contentType || "application/octet-stream",
-          file_size_bytes: mediaData?.sizeBytes || null,
-          source: "whatsapp",
-          workflow_type: "document_client",
-          ai_detected_client_name: extractedClientName || clientName || null,
-          ai_detected_client_id: clientSuggestions[0]?.id || null,
-          ai_detected_document_type: documentType,
-          ai_confidence: extractedClientConfidence,
-          ai_analysis_summary: analysisResult?.type === "client_docs" ? analysisResult.description : null,
-          status: "awaiting_confirmation",
-          final_bucket: "documents",
-        })
-        .select("id")
-        .single();
-
-      if (pendingError) {
-        console.error("Error creating pending document:", pendingError);
-        return { actionTaken: "error" };
-      }
-      
-      // ========================================================================
-      // WORKFLOW DECISION: HIGH CONFIDENCE MATCH vs LOW CONFIDENCE / NO MATCH
-      // ========================================================================
-      
-      // CASE 1: High confidence match (≥80%) - Ask for direct confirmation
-      if (highConfidenceMatch) {
-        const responseMsg = `📥 *Document client reçu !*\n\n` +
-          `📄 ${originalFilename}\n` +
-          (documentType !== "autre" ? `📋 Type: ${documentType}\n` : "") +
-          `\n👤 Client identifié: *${highConfidenceMatch.fullName}* (${highConfidenceMatch.score}%)\n\n` +
-          `✅ *Confirmes-tu ?* (Oui/Non)\n` +
-          `_Ou tape le nom du bon client si ce n'est pas le bon_`;
-        
-        // Create pending action for high-confidence confirmation
-        const newPendingAction: PendingAction = {
-          intent: "import_document",
-          entities,
-          workflowState: "awaiting_document_client_selection",
-          collectedData: {
-            pendingDocumentId: pendingDoc.id,
-            documentStorageUrl: stagingUrl || undefined,
-            stagingPath: stagingPath,  // Store the staging path for download later
-            documentFilename: originalFilename,
-            documentType: documentType,
-            documentMimeType: mediaData?.contentType,
-            documentSizeBytes: mediaData?.sizeBytes,
-            choices: [
-              {
-                id: highConfidenceMatch.id,
-                label: highConfidenceMatch.fullName,
-                entityType: "client" as const,
-                data: { clientId: highConfidenceMatch.id, score: highConfidenceMatch.score }
-              },
-              {
-                id: "NEW_CLIENT",
-                label: "Nouveau client",
-                entityType: "client" as const,
-                data: { is_new_client: true }
-              }
-            ],
-            clientSuggestions: [highConfidenceMatch],
-            highConfidenceMode: true,
-          },
-          createdAt: new Date().toISOString(),
-        };
-          
-        return {
-          actionTaken: "awaiting_document_client_high_confidence",
-          entityId: pendingDoc?.id,
-          entityType: "pending_document",
-          newPendingAction,
-          customResponse: responseMsg,
-        };
-      }
-      
-      // CASE 2: Low confidence or no match - Ask for client name or show top 3 suggestions
-      let responseMsg = `📥 *Document client reçu !*\n\n`;
-      responseMsg += `📄 ${originalFilename}\n`;
-      
-      if (documentType !== "autre") {
-        responseMsg += `📋 Type: ${documentType}\n`;
-      }
-      
-      responseMsg += `\n👤 *À quel client attribuer ce document ?*\n\n`;
-      
-      // Build choices for the poll
-      const choices: ChoiceOption[] = [];
-      
-      if (clientSuggestions.length > 0) {
-        // Show top 3 suggestions with < 80% confidence
-        responseMsg += `🔍 _Suggestions (correspondance faible):_\n`;
-        for (let i = 0; i < clientSuggestions.length; i++) {
-          const suggestion = clientSuggestions[i];
-          responseMsg += `${i + 1}️⃣ ${suggestion.fullName} (${suggestion.score}%)\n`;
-          choices.push({
-            id: suggestion.id,
-            label: suggestion.fullName,
-            entityType: "client",
-            data: { clientId: suggestion.id, score: suggestion.score }
-          });
-        }
-      } else {
-        // No matches found - ask for client name directly
-        responseMsg += `_Aucun client correspondant trouvé_\n`;
-      }
-      
-      // Add "Nouveau client" option
-      const newClientIndex = choices.length + 1;
-      responseMsg += `\n${newClientIndex}️⃣ 🆕 *Nouveau client*\n`;
-      choices.push({
-        id: "NEW_CLIENT",
-        label: "Nouveau client",
-        entityType: "client",
-        data: { is_new_client: true }
-      });
-      
-      responseMsg += `\n_Réponds avec le numéro, le nom du client, ou "nouveau" pour créer_`;
-      
-      // Create pending action for document client selection
-      const newPendingAction: PendingAction = {
-        intent: "import_document",
-        entities,
-        workflowState: "awaiting_document_client_selection",
-        collectedData: {
-          pendingDocumentId: pendingDoc.id,
-          documentStorageUrl: stagingUrl || undefined,
-          stagingPath: stagingPath,  // Store the staging path for download later
-          documentFilename: originalFilename,
-          documentType: documentType,
-          documentMimeType: mediaData?.contentType,
-          documentSizeBytes: mediaData?.sizeBytes,
-          choices: choices,
-          clientSuggestions: clientSuggestions,
-          highConfidenceMode: false,
-        },
-        createdAt: new Date().toISOString(),
-      };
-        
-      return {
-        actionTaken: "awaiting_document_client",
-        entityId: pendingDoc?.id,
-        entityType: "pending_document",
-        newPendingAction,
-        customResponse: responseMsg,
-      };
-    }
+    // import_document removed - client docs must be imported via the app
 
     case "import_facture": {
-      // Récupérer staging path depuis entities ou URL
       const stagingPath = entities.staging_path as string;
       const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
       
