@@ -149,8 +149,8 @@ export function RdvStatusSelector({
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
-    // If R2 or R2 Pré-étude, show date picker dialog
-    if (newStatus === "r2" || newStatus === "r2_prestudy") {
+    // If R2, R2 Pré-étude, or Reporté, show date picker dialog
+    if (newStatus === "r2" || newStatus === "r2_prestudy" || newStatus === "reporte") {
       setPendingR2Status(newStatus);
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -232,8 +232,8 @@ export function RdvStatusSelector({
 
       if (error) throw error;
 
-      // If R2, create new R2 appointment
-      if ((newStatus === "r2" || newStatus === "r2_prestudy") && options?.r2DateTime && clientId) {
+      // If R2 or Reporté, create new appointment
+      if ((newStatus === "r2" || newStatus === "r2_prestudy" || newStatus === "reporte") && options?.r2DateTime && clientId) {
         const { data: originalRdv } = await supabase
           .from("rdv")
           .select("adresse, type_projet, duree_minutes, regie_id")
@@ -241,7 +241,8 @@ export function RdvStatusSelector({
           .maybeSingle();
 
         if (originalRdv) {
-          const { error: r2Error } = await supabase
+          const isR2 = newStatus === "r2" || newStatus === "r2_prestudy";
+          const { error: newRdvError } = await supabase
             .from("rdv")
             .insert({
               user_id: user.id,
@@ -252,16 +253,16 @@ export function RdvStatusSelector({
               duree_minutes: originalRdv.duree_minutes || 90,
               status: "nouveau",
               type_rdv: "standard",
-              is_r2: true,
-              r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : "r2",
+              is_r2: isR2,
+              r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
               regie_id: originalRdv.regie_id,
             });
 
-          if (r2Error) {
-            console.error("Error creating R2 RDV:", r2Error);
-            toast.error("Erreur lors de la création du RDV R2");
+          if (newRdvError) {
+            console.error("Error creating new RDV:", newRdvError);
+            toast.error("Erreur lors de la création du nouveau RDV");
           } else {
-            toast.success("RDV R2 créé avec succès");
+            toast.success(isR2 ? "RDV R2 créé avec succès" : "Nouveau RDV reporté créé avec succès");
           }
         }
       }
@@ -389,13 +390,15 @@ export function RdvStatusSelector({
         <DialogContent className="sm:max-w-[400px] z-[200]">
           <DialogHeader>
             <DialogTitle>
-              Planifier le RDV {pendingR2Status === "r2_prestudy" ? "R2 Pré-étude" : "R2"}
+              {pendingR2Status === "reporte" 
+                ? "Reporter le RDV" 
+                : `Planifier le RDV ${pendingR2Status === "r2_prestudy" ? "R2 Pré-étude" : "R2"}`}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Date du RDV R2</Label>
+              <Label>Date du nouveau RDV</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
