@@ -6,6 +6,7 @@ import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { RdvActions } from "./RdvActions";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { SwipeableRdvCard } from "@/components/common/SwipeableRdvCard";
 
 interface DayRdvCardProps {
   rdv: {
@@ -48,7 +49,15 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
     navigate(path);
   };
 
-  return (
+    return (
+    <SwipeableRdvCard
+      phone={rdv.phone}
+      address={rdv.address}
+      postalCode={rdv.postalCode}
+      city={rdv.city}
+      rdvId={rdv.id}
+      clientId={rdv.clientId}
+    >
     <div 
       className="relative animate-fade-in"
       style={{ animationDelay: `${index * 50}ms` }}
@@ -216,5 +225,6 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
         </CardContent>
       </Card>
     </div>
+    </SwipeableRdvCard>
   );
 }

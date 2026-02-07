@@ -12,6 +12,7 @@ import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 import { GoogleCalendarSync } from "@/components/planning/GoogleCalendarSync";
 import { GmailSync } from "@/components/planning/GmailSync";
 import { WeekCalendarView } from "@/components/planning/WeekCalendarView";
+import { PullToRefreshContainer } from "@/components/common/PullToRefreshContainer";
 import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
 import { DayRdvCard } from "@/components/planning/DayRdvCard";
 import { RouteMap } from "@/components/planning/RouteMap";
@@ -497,6 +498,7 @@ const Planning = () => {
 
   return (
     <MobileLayout title="Planning">
+      <PullToRefreshContainer onRefresh={fetchRdvs}>
       <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-7xl mx-auto">
         {/* Sélecteur de vue - responsive sizing */}
         <Tabs
@@ -757,6 +759,7 @@ const Planning = () => {
           </div>
         )}
       </div>
+      </PullToRefreshContainer>
     </MobileLayout>
   );
 };

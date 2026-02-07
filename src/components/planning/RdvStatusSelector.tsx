@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 import { ProductType, PacSubtype } from "@/lib/productTypes";
+import { hapticSuccess } from "@/lib/haptics";
 
 import {
   Select,
@@ -305,6 +306,7 @@ export function RdvStatusSelector({
       onStatusChange?.(newStatus);
       
       const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
+      hapticSuccess();
       toast.success(`Statut changé en "${statusLabel}"`);
 
       // Show WhatsApp confirmation dialog (unless user disabled it)
