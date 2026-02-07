@@ -17,8 +17,14 @@ interface Regie {
   couleur: string | null;
 }
 
+type TargetTable = "rdv" | "clients" | "ventes";
+
 interface RegieSelectorProps {
-  rdvId: string;
+  /** ID of the record to update */
+  rdvId?: string;
+  entityId?: string;
+  /** Which table to update (default: "rdv" for backward compat) */
+  targetTable?: TargetTable;
   currentRegieId?: string | null;
   currentRegieNom?: string | null;
   currentRegieCouleur?: string | null;
@@ -28,6 +34,8 @@ interface RegieSelectorProps {
 
 export function RegieSelector({
   rdvId,
+  entityId,
+  targetTable = "rdv",
   currentRegieId,
   currentRegieNom,
   currentRegieCouleur,
@@ -39,6 +47,8 @@ export function RegieSelector({
   const [regies, setRegies] = useState<Regie[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const recordId = entityId || rdvId;
 
   useEffect(() => {
     if (open && user) {
@@ -54,7 +64,7 @@ export function RegieSelector({
         .from("regies")
         .select("id, nom, couleur")
         .eq("user_id", user.id)
-        .eq("active", true)
+        .eq("actif", true)
         .order("nom");
 
       if (error) throw error;
@@ -67,12 +77,13 @@ export function RegieSelector({
   };
 
   const handleSelectRegie = async (regie: Regie | null) => {
+    if (!recordId) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("rdv")
+      const { error } = await (supabase as any)
+        .from(targetTable)
         .update({ regie_id: regie?.id || null })
-        .eq("id", rdvId);
+        .eq("id", recordId);
 
       if (error) throw error;
 
