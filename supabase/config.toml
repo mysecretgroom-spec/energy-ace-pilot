@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.check-relance-paiement]
 verify_jwt = false
+
+[functions.rdv-preparation]
+verify_jwt = false
+
+[functions.pipeline-tracker]
+verify_jwt = false
