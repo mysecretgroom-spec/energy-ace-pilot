@@ -35,14 +35,18 @@ import {
   ArrowLeft,
   Plus,
   Sparkles,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { WorkflowCanvas, AIWorkflow, WorkflowNode, WorkflowEdge } from "@/components/admin/workflow-editor";
 
 const categoryConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  documents: { label: "Documents", icon: FileText, color: "bg-blue-500" },
-  planning: { label: "Planning", icon: Calendar, color: "bg-green-500" },
+  clients: { label: "Clients", icon: Users, color: "bg-cyan-500" },
   crm: { label: "CRM / Ventes", icon: TrendingUp, color: "bg-purple-500" },
+  planning: { label: "Planning", icon: Calendar, color: "bg-green-500" },
+  documents: { label: "Documents", icon: FileText, color: "bg-blue-500" },
+  finance: { label: "Finance", icon: Wallet, color: "bg-emerald-500" },
   notifications: { label: "Notifications", icon: Bell, color: "bg-amber-500" },
 };
 
