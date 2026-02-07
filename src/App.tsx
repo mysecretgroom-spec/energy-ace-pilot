@@ -84,14 +84,22 @@ const AdminAuditLogs = React.lazy(() => import("./pages/admin/AdminAuditLogs"));
 const AdminPlans = React.lazy(() => import("./pages/admin/AdminPlans"));
 const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows"));
 
-// ─── QueryClient with optimized defaults ───
+// ─── QueryClient with optimized defaults + offline-first ───
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 2 * 60 * 1000, // 2 min before refetch
-      gcTime: 10 * 60 * 1000, // 10 min garbage collection
-      retry: 1,
+      gcTime: 30 * 60 * 1000, // 30 min garbage collection (longer for offline)
+      retry: (failureCount, error) => {
+        // Don't retry when offline
+        if (!navigator.onLine) return false;
+        return failureCount < 1;
+      },
       refetchOnWindowFocus: false,
+      networkMode: "offlineFirst", // Serve cached data when offline
+    },
+    mutations: {
+      networkMode: "offlineFirst",
     },
   },
 });
