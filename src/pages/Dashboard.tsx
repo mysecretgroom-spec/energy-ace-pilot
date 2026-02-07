@@ -655,8 +655,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Raccourcis rapides */}
-        <DashboardQuickActions />
 
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
