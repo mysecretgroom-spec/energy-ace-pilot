@@ -59,7 +59,8 @@ function extractStoragePathFromUrl(url: string, bucketName: string): string | nu
 // Intent types
 type Intent = 
   | "create_rdv" 
-  | "update_rdv" 
+  | "update_rdv"
+  | "update_client_notes"  // Ajouter/modifier les notes d'un client
   | "update_vente_status" 
   | "mark_signe"           // Marquer une vente comme signée (workflow complet)
   | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
@@ -2419,7 +2420,7 @@ serve(async (req) => {
       // Actions that require MANDATORY confirmation before execution - ALWAYS enforce this
       const actionIntents: Intent[] = [
         "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
-        "mark_signe", "update_vente_data"
+        "mark_signe", "update_vente_data", "update_client_notes"
       ];
       
       // FORCE confirmation for all action intents, regardless of AI response
@@ -2462,6 +2463,7 @@ serve(async (req) => {
             create_external_vente: "📦 Vente externe",
             import_document: "📄 Importer un document",
             import_facture: "🧾 Importer une note de frais",
+            update_client_notes: "📝 Modifier les notes client",
           };
           
           const actionLabel = intentLabels[aiResponse!.intent] || aiResponse!.intent;
@@ -5548,6 +5550,8 @@ function getIntentActionDescription(intent: Intent, entities: Record<string, unk
   switch (intent) {
     case "query_client_info":
       return `te donner les infos de ce client`;
+    case "update_client_notes":
+      return `mettre à jour les notes de ce client`;
     case "query_rdv_detail":
       return `te faire le topo de ce RDV`;
     case "query_vente_detail":
@@ -5895,6 +5899,10 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
       return "🏆 Je récupère tes ventes...";
     case "query_client_info":
       return "👤 Je recherche les informations...";
+    case "update_client_notes":
+      return clientName
+        ? `📝 Je vais modifier les notes de ${clientName}. Confirmes-tu ? (Oui/Non)`
+        : "📝 Je vais modifier les notes du client. Confirmes-tu ? (Oui/Non)";
     case "query_frais":
     case "query_frais_detail":
       return "💳 Je récupère tes frais...";
@@ -6086,6 +6094,9 @@ RÈGLES CRITIQUES:
 5. Actions en masse: LISTER d'abord, demander confirmation explicite
 6. Si le message CRITIQUE ou CORRIGE mon comportement → TOUJOURS user_feedback
 7. Pour "vente externe/installation externe/commission externe" → create_external_vente (crée client si nouveau)
+8. Pour "ajoute/modifie une note chez X" ou "note chez X: ..." → update_client_notes (avec notes_content et notes_action)
+   - Par défaut notes_action = "append" (ajoute à la suite)
+   - Si l'utilisateur dit "remplace la note" / "change la note" → notes_action = "replace"
 
 🔧 VENTES EXTERNES (create_external_vente):
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
@@ -6222,7 +6233,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_document", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "update_client_notes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -6254,7 +6265,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     feedback_value: { type: "string", description: "The correction or preference value" },
                     commission: { type: "number", description: "Commission amount in EUR HT for external sales" },
                     date_pose: { type: "string", description: "Installation date in YYYY-MM-DD format for external sales" },
-                    is_new_client: { type: "boolean", description: "True if the client doesn't exist and should be created" }
+                    is_new_client: { type: "boolean", description: "True if the client doesn't exist and should be created" },
+                    notes_content: { type: "string", description: "Note content to add or replace on the client. Extract the full note text the user wants to save." },
+                    notes_action: { type: "string", enum: ["append", "replace"], description: "How to handle notes: 'append' (default) adds to existing notes, 'replace' overwrites them entirely. Use 'replace' only if user explicitly says 'remplace' or 'change la note'." }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -8612,6 +8625,74 @@ async function executeAction(
         actionTaken: "query_client_result",
         entityType: "client",
         entityId: JSON.stringify(responseData),
+      };
+    }
+
+    case "update_client_notes": {
+      const clientName = entities.client_name as string;
+      const notesContent = entities.notes_content as string;
+      const notesAction = (entities.notes_action as string) || "append";
+
+      if (!clientName) {
+        return { actionTaken: "missing_client_name", customResponse: "❌ Quel client ?" };
+      }
+      if (!notesContent) {
+        return { actionTaken: "missing_notes", customResponse: "❌ Quelle note veux-tu ajouter ?" };
+      }
+
+      const searchResult = await findClientByName(supabase, userId, clientName);
+
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client trouvé pour "${clientName}".` };
+      }
+
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "update_client_notes", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+
+      const clientId = searchResult.exactMatch?.id || searchResult.clients[0]?.id;
+      if (!clientId) {
+        return { actionTaken: "client_not_found" };
+      }
+
+      // Fetch current notes
+      const { data: currentClient } = await supabase
+        .from("clients")
+        .select("notes, nom, prenom")
+        .eq("id", clientId)
+        .single();
+
+      let newNotes: string;
+      const timestamp = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+      if (notesAction === "replace") {
+        newNotes = notesContent;
+      } else {
+        // Append with date separator
+        const existing = currentClient?.notes?.trim() || "";
+        newNotes = existing
+          ? `${existing}\n[${timestamp}] ${notesContent}`
+          : `[${timestamp}] ${notesContent}`;
+      }
+
+      const { error: updateError } = await supabase
+        .from("clients")
+        .update({ notes: newNotes, updated_at: new Date().toISOString() })
+        .eq("id", clientId);
+
+      if (updateError) {
+        console.error("Error updating client notes:", updateError);
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de la mise à jour des notes." };
+      }
+
+      const fullName = `${currentClient?.prenom || ""} ${currentClient?.nom || ""}`.trim();
+      const actionLabel = notesAction === "replace" ? "remplacée" : "ajoutée";
+      return {
+        actionTaken: "client_notes_updated",
+        entityType: "client",
+        entityId: clientId,
+        customResponse: `✅ Note ${actionLabel} chez *${fullName}*:\n> ${notesContent}`,
       };
     }
 
