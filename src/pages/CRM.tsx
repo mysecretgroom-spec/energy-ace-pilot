@@ -1094,39 +1094,58 @@ const CRM = () => {
                   <p className="text-muted-foreground">Aucune vente</p>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="space-y-3">
-                {filteredVentes.map((vente) => {
-                  const isSelected = selectedVenteIds.includes(vente.id);
-                  const commission = getCommission(vente.id);
+            ) : (() => {
+              const activeVentes = filteredVentes.filter(v => v.status !== 'paye');
+              const payeVentes = filteredVentes.filter(v => v.status === 'paye');
 
-                  const handleCardClick = () => {
-                    if (selectionMode) {
-                      setSelectedVenteIds(prev => 
-                        prev.includes(vente.id) 
-                          ? prev.filter(id => id !== vente.id)
-                          : [...prev, vente.id]
-                      );
-                    } else {
-                      navigate(`/ventes/${vente.id}`);
-                    }
-                  };
+              const renderVenteCard = (vente: Vente) => {
+                const isSelected = selectedVenteIds.includes(vente.id);
+                const commission = getCommission(vente.id);
+                const handleCardClick = () => {
+                  if (selectionMode) {
+                    setSelectedVenteIds(prev =>
+                      prev.includes(vente.id)
+                        ? prev.filter(id => id !== vente.id)
+                        : [...prev, vente.id]
+                    );
+                  } else {
+                    navigate(`/ventes/${vente.id}`);
+                  }
+                };
+                return (
+                  <VenteCard
+                    key={vente.id}
+                    vente={vente}
+                    commission={commission}
+                    regies={regies}
+                    selectionMode={selectionMode}
+                    isSelected={isSelected}
+                    onClick={handleCardClick}
+                    onRefresh={fetchVentes}
+                  />
+                );
+              };
 
-                  return (
-                    <VenteCard
-                      key={vente.id}
-                      vente={vente}
-                      commission={commission}
-                      regies={regies}
-                      selectionMode={selectionMode}
-                      isSelected={isSelected}
-                      onClick={handleCardClick}
-                      onRefresh={fetchVentes}
-                    />
-                  );
-                })}
-              </div>
-            )}
+              return (
+                <div className="space-y-3">
+                  {activeVentes.map(renderVenteCard)}
+
+                  {payeVentes.length > 0 && (
+                    <>
+                      <div className="flex items-center gap-3 pt-4 pb-1">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                          Payées ({payeVentes.length})
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                      {payeVentes.map(renderVenteCard)}
+                    </>
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* Pipeline Tab */}
