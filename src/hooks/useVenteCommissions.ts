@@ -35,6 +35,7 @@ interface BouquetData {
   prix_recommande: number;
   commission_fixe: number | null;
   regie_id?: string;
+  product_type?: string | null;
 }
 
 interface VenteInput {
@@ -76,8 +77,11 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       const regieIds = [...new Set(ventes.map((v) => v.regie_id).filter(Boolean))] as string[];
       const etudeIds = [...new Set(ventes.map((v) => v.etude_id).filter(Boolean))] as string[];
 
+      // Collect unique product types for filtering bouquets
+      const productTypes = [...new Set(ventes.map(v => v.product_type).filter(Boolean))] as string[];
+
       const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
-        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
@@ -86,7 +90,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
         // Tranches pour le mode pourcentage
-        supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente").order("tranche_min", { ascending: true }),
+        supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente, product_type").order("tranche_min", { ascending: true }),
       ]);
 
       // ─────────────────────────────────────────────────────────────────────
@@ -94,27 +98,36 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       // ─────────────────────────────────────────────────────────────────────
       const allBouquets = bouquetsRes.data || [];
       
-      // Global bouquets (regie_ids is null or empty)
-      const globalBouquets: BouquetData[] = allBouquets
+      // Helper to filter bouquets by product_type
+      const filterByProductType = (bouquets: any[], productType: string | null | undefined) => {
+        if (!productType) return bouquets; // No product_type on vente, don't filter
+        const filtered = bouquets.filter((b: any) => b.product_type === productType);
+        return filtered.length > 0 ? filtered : bouquets; // Fallback to all if no match
+      };
+      
+      // Global bouquets (regie_ids is null or empty), indexed by product_type
+      const globalBouquetsAll: BouquetData[] = allBouquets
         .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
         .map((b: any) => ({
           puissance_kwc: Number(b.puissance_kwc),
           prix_recommande: Number(b.prix_recommande),
           commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
+          product_type: b.product_type,
         }));
 
-      const regieBouquetsMap = new Map<string, BouquetData[]>();
+      const regieBouquetsMapAll = new Map<string, BouquetData[]>();
       allBouquets.forEach((b: any) => {
         if (b.regie_ids && b.regie_ids.length > 0) {
           b.regie_ids.forEach((regieId: string) => {
-            const existing = regieBouquetsMap.get(regieId) || [];
+            const existing = regieBouquetsMapAll.get(regieId) || [];
             existing.push({
               puissance_kwc: Number(b.puissance_kwc),
               prix_recommande: Number(b.prix_recommande),
               commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
               regie_id: regieId,
+              product_type: b.product_type,
             });
-            regieBouquetsMap.set(regieId, existing);
+            regieBouquetsMapAll.set(regieId, existing);
           });
         }
       });
@@ -124,12 +137,13 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       );
       const etudeSurcoutsMap = new Map((etudesRes.data || []).map((e) => [e.id, e]));
 
-      // Tranches de commission (mode pourcentage)
-      const commissionTiers: CommissionTier[] = (tiersRes.data || []).map((t) => ({
+      // Tranches de commission (mode pourcentage) - all, will be filtered per vente
+      const allCommissionTiers = (tiersRes.data || []).map((t: any) => ({
         trancheMin: Number(t.tranche_min),
         trancheMax: Number(t.tranche_max),
         tauxCommission: Number(t.taux_commission),
         bonusSurvente: Number(t.bonus_survente || 0),
+        productType: t.product_type as string | null,
       }));
 
       const globalConfig = {
@@ -165,6 +179,10 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           // ═══════════════════════════════════════════════════════════════
           // MODE POURCENTAGE: % du CA selon tranches
           // ═══════════════════════════════════════════════════════════════
+          // Filter tiers by product_type
+          const commissionTiers: CommissionTier[] = allCommissionTiers
+            .filter(t => !vente.product_type || !t.productType || t.productType === vente.product_type)
+            .map(t => ({ trancheMin: t.trancheMin, trancheMax: t.trancheMax, tauxCommission: t.tauxCommission, bonusSurvente: t.bonusSurvente }));
           const result = calculatePourcentageCommission(vente, commissionTiers, decom);
           results.set(vente.id, result);
         } else {
@@ -177,9 +195,18 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           }
 
           const puissanceKwc = Number(vente.puissance_kwc);
-          const bouquets = (vente.regie_id && regieBouquetsMap.has(vente.regie_id))
-            ? regieBouquetsMap.get(vente.regie_id)!
-            : globalBouquets;
+          
+          // Filter bouquets by product_type then by régie
+          const regieBouquetsRaw = (vente.regie_id && regieBouquetsMapAll.has(vente.regie_id))
+            ? regieBouquetsMapAll.get(vente.regie_id)!
+            : globalBouquetsAll;
+          
+          // Apply product_type filter
+          const bouquets = vente.product_type
+            ? (regieBouquetsRaw.filter(b => b.product_type === vente.product_type).length > 0
+              ? regieBouquetsRaw.filter(b => b.product_type === vente.product_type)
+              : regieBouquetsRaw)
+            : regieBouquetsRaw;
 
           const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc);
           const commissionBase = interpolated.commissionFixe;
