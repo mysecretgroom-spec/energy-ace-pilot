@@ -2871,16 +2871,23 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          coaching_enabled: boolean | null
           created_at: string
+          daily_briefing_whatsapp: boolean | null
           gmail_last_auto_sync: string | null
           gmail_sync_enabled: boolean
           gmail_sync_interval_minutes: number
           id: string
+          pipeline_alerts_enabled: boolean | null
+          pipeline_stale_days: number | null
           push_enabled: boolean | null
           push_gmail_import: boolean | null
           push_new_rdv: boolean | null
           push_rappel_rdv: boolean | null
           push_vente_status: boolean | null
+          rdv_prep_enabled: boolean | null
+          rdv_prep_minutes_before: number | null
+          rdv_prep_whatsapp: boolean | null
           relance_paiement_delay_days: number | null
           relance_paiement_enabled: boolean | null
           updated_at: string
@@ -2892,16 +2899,23 @@ export type Database = {
           working_days: number[] | null
         }
         Insert: {
+          coaching_enabled?: boolean | null
           created_at?: string
+          daily_briefing_whatsapp?: boolean | null
           gmail_last_auto_sync?: string | null
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
           id?: string
+          pipeline_alerts_enabled?: boolean | null
+          pipeline_stale_days?: number | null
           push_enabled?: boolean | null
           push_gmail_import?: boolean | null
           push_new_rdv?: boolean | null
           push_rappel_rdv?: boolean | null
           push_vente_status?: boolean | null
+          rdv_prep_enabled?: boolean | null
+          rdv_prep_minutes_before?: number | null
+          rdv_prep_whatsapp?: boolean | null
           relance_paiement_delay_days?: number | null
           relance_paiement_enabled?: boolean | null
           updated_at?: string
@@ -2913,16 +2927,23 @@ export type Database = {
           working_days?: number[] | null
         }
         Update: {
+          coaching_enabled?: boolean | null
           created_at?: string
+          daily_briefing_whatsapp?: boolean | null
           gmail_last_auto_sync?: string | null
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
           id?: string
+          pipeline_alerts_enabled?: boolean | null
+          pipeline_stale_days?: number | null
           push_enabled?: boolean | null
           push_gmail_import?: boolean | null
           push_new_rdv?: boolean | null
           push_rappel_rdv?: boolean | null
           push_vente_status?: boolean | null
+          rdv_prep_enabled?: boolean | null
+          rdv_prep_minutes_before?: number | null
+          rdv_prep_whatsapp?: boolean | null
           relance_paiement_delay_days?: number | null
           relance_paiement_enabled?: boolean | null
           updated_at?: string

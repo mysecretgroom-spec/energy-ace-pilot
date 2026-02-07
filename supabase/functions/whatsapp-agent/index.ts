@@ -86,6 +86,7 @@ type Intent =
   | "query_documents"      // Liste des documents d'un client
   | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
+  | "coaching_performance" // Analyse des performances et conseils personnalisés
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
@@ -5621,6 +5622,7 @@ RÈGLES CRITIQUES:
 12. Pour "documents de X" / "pièces de X" → query_documents
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
 14. Pour "mes régies" / "infos régie X" → query_regie_info
+15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
 
 🔧 VENTES EXTERNES (create_external_vente):
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
@@ -5758,7 +5760,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -9559,6 +9561,183 @@ async function executeAction(
       sections.push(`_💡 Lien: ${APP_BASE_URL}/client/${matchedClient.id}_`);
       
       return { actionTaken: "query_client_full_result", entityType: "client_full", entityId: matchedClient.id, customResponse: sections.join("\n") };
+    }
+
+    case "coaching_performance": {
+      const period = (entities.period as string) || "month";
+      
+      // Calculate date range
+      const now = new Date();
+      let startDate: Date;
+      let periodLabel: string;
+      
+      if (period === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        periodLabel = "cette semaine";
+      } else if (period === "quarter") {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        periodLabel = "ce trimestre";
+      } else {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        periodLabel = "ce mois";
+      }
+      
+      const startStr = startDate.toISOString();
+      
+      // Fetch data in parallel
+      const [rdvsRes, ventesRes, previousRdvsRes, previousVentesRes] = await Promise.all([
+        supabase.from("rdv").select("id, status, type_rdv, date_heure, regies(nom)")
+          .eq("user_id", userId).gte("date_heure", startStr),
+        supabase.from("ventes").select("id, status, montant_ttc, puissance_kwc, date_signature, type_rdv, regie_id, regies(nom)")
+          .eq("user_id", userId).neq("status", "annule").gte("date_signature", startStr.split("T")[0]),
+        // Previous period for comparison
+        supabase.from("rdv").select("id, status")
+          .eq("user_id", userId)
+          .gte("date_heure", new Date(startDate.getTime() - (now.getTime() - startDate.getTime())).toISOString())
+          .lt("date_heure", startStr),
+        supabase.from("ventes").select("id, montant_ttc, date_signature")
+          .eq("user_id", userId).neq("status", "annule")
+          .gte("date_signature", new Date(startDate.getTime() - (now.getTime() - startDate.getTime())).toISOString().split("T")[0])
+          .lt("date_signature", startStr.split("T")[0]),
+      ]);
+      
+      const rdvs = rdvsRes.data || [];
+      const ventes = ventesRes.data || [];
+      const prevRdvs = previousRdvsRes.data || [];
+      const prevVentes = previousVentesRes.data || [];
+      
+      const totalRdv = rdvs.length;
+      const signeRdv = rdvs.filter(r => r.status === "signe").length;
+      const negatifRdv = rdvs.filter(r => r.status === "negatif").length;
+      const r2Rdv = rdvs.filter(r => r.status === "r2" || r.status === "r2_prestudy").length;
+      const tauxTransfo = totalRdv > 0 ? Math.round((signeRdv / totalRdv) * 100) : 0;
+      const totalCA = ventes.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
+      const totalKwc = ventes.reduce((sum, v) => sum + (v.puissance_kwc || 0), 0);
+      
+      // Previous period stats
+      const prevTotalRdv = prevRdvs.length;
+      const prevSigneRdv = prevRdvs.filter(r => r.status === "signe").length;
+      const prevTauxTransfo = prevTotalRdv > 0 ? Math.round((prevSigneRdv / prevTotalRdv) * 100) : 0;
+      const prevTotalCA = prevVentes.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
+      
+      const sections: string[] = [];
+      sections.push(`🎯 *COACHING PERFORMANCE* (${periodLabel})\n`);
+      
+      // KPIs with trends
+      const caArrow = totalCA > prevTotalCA ? "📈" : totalCA < prevTotalCA ? "📉" : "➡️";
+      const transfoArrow = tauxTransfo > prevTauxTransfo ? "📈" : tauxTransfo < prevTauxTransfo ? "📉" : "➡️";
+      
+      sections.push("📊 *Tes chiffres:*");
+      sections.push(`• RDV: ${totalRdv} (${signeRdv} signés, ${negatifRdv} négatifs, ${r2Rdv} R2)`);
+      sections.push(`• ${transfoArrow} Taux transfo: *${tauxTransfo}%* (avant: ${prevTauxTransfo}%)`);
+      sections.push(`• ${caArrow} CA: *${totalCA.toLocaleString("fr-FR")}€* (avant: ${prevTotalCA.toLocaleString("fr-FR")}€)`);
+      sections.push(`• kWc: ${totalKwc.toFixed(1)}`);
+      sections.push("");
+      
+      // Insights & tips
+      sections.push("💡 *Analyse:*");
+      
+      // R2 conversion analysis
+      if (r2Rdv > 0 && signeRdv > 0) {
+        const r2Ratio = Math.round((r2Rdv / (signeRdv + r2Rdv)) * 100);
+        sections.push(`• ${r2Ratio}% de tes positifs passent en R2`);
+        if (r2Ratio > 50) {
+          sections.push(`  → _Essaie de closer plus en R1 : argumentation aides, urgence_`);
+        }
+      }
+      
+      // Best regie analysis
+      // deno-lint-ignore no-explicit-any
+      const regieStats: Record<string, { total: number; signe: number; ca: number; name: string }> = {};
+      for (const rdv of rdvs) {
+        // deno-lint-ignore no-explicit-any
+        const regie = (rdv as any).regies;
+        const regieId = regie?.nom || "Sans régie";
+        if (!regieStats[regieId]) regieStats[regieId] = { total: 0, signe: 0, ca: 0, name: regieId };
+        regieStats[regieId].total++;
+        if (rdv.status === "signe") regieStats[regieId].signe++;
+      }
+      for (const vente of ventes) {
+        // deno-lint-ignore no-explicit-any
+        const regie = (vente as any).regies;
+        const regieId = regie?.nom || "Sans régie";
+        if (regieStats[regieId]) regieStats[regieId].ca += vente.montant_ttc || 0;
+      }
+      
+      const sortedRegies = Object.values(regieStats).filter(r => r.total >= 3).sort((a, b) => {
+        const aRate = a.total > 0 ? a.signe / a.total : 0;
+        const bRate = b.total > 0 ? b.signe / b.total : 0;
+        return bRate - aRate;
+      });
+      
+      if (sortedRegies.length >= 2) {
+        const best = sortedRegies[0];
+        const bestRate = Math.round((best.signe / best.total) * 100);
+        sections.push(`• Meilleure régie: *${best.name}* (${bestRate}% transfo, ${best.total} RDV)`);
+        
+        const worst = sortedRegies[sortedRegies.length - 1];
+        const worstRate = Math.round((worst.signe / worst.total) * 100);
+        if (worstRate < bestRate) {
+          sections.push(`• À améliorer: *${worst.name}* (${worstRate}% transfo)`);
+        }
+      }
+      
+      // Panier moyen
+      if (ventes.length > 0) {
+        const panierMoyen = Math.round(totalCA / ventes.length);
+        sections.push(`• Panier moyen: ${panierMoyen.toLocaleString("fr-FR")}€`);
+        
+        const avgKwc = totalKwc / ventes.length;
+        sections.push(`• Puissance moyenne: ${avgKwc.toFixed(1)} kWc`);
+      }
+      
+      // Day-of-week analysis
+      const dayStats: Record<number, { total: number; signe: number }> = {};
+      for (const rdv of rdvs) {
+        const day = new Date(rdv.date_heure).getDay();
+        if (!dayStats[day]) dayStats[day] = { total: 0, signe: 0 };
+        dayStats[day].total++;
+        if (rdv.status === "signe") dayStats[day].signe++;
+      }
+      
+      const dayNames = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+      let bestDay = -1;
+      let bestDayRate = 0;
+      for (const [day, stat] of Object.entries(dayStats)) {
+        if (stat.total >= 2) {
+          const rate = stat.signe / stat.total;
+          if (rate > bestDayRate) {
+            bestDayRate = rate;
+            bestDay = parseInt(day);
+          }
+        }
+      }
+      
+      if (bestDay >= 0) {
+        sections.push(`• Ton meilleur jour: *${dayNames[bestDay]}* (${Math.round(bestDayRate * 100)}% transfo)`);
+      }
+      sections.push("");
+      
+      // Actionable tips
+      sections.push("🚀 *Conseils:*");
+      
+      if (tauxTransfo < 20) {
+        sections.push("• Focus sur la qualification : assure-toi que les RDV sont bien ciblés");
+        sections.push("• Prépare mieux tes visites (dis-moi \"brief\" avant chaque RDV)");
+      } else if (tauxTransfo < 35) {
+        sections.push("• Ton taux est correct, vise les 35%+");
+        sections.push("• Travaille l'urgence et la rareté des aides");
+      } else {
+        sections.push("• 🏆 Excellent taux de transfo !");
+        sections.push("• Focus sur l'upsell : propose des puissances supérieures");
+      }
+      
+      if (totalCA < prevTotalCA && prevTotalCA > 0) {
+        const drop = Math.round(((prevTotalCA - totalCA) / prevTotalCA) * 100);
+        sections.push(`• ⚠️ CA en baisse de ${drop}% → augmente le volume de RDV ou le panier moyen`);
+      }
+      
+      return { actionTaken: "coaching_result", entityType: "coaching", customResponse: sections.join("\n") };
     }
 
     default:

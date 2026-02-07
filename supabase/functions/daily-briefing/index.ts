@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
 const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER") || Deno.env.get("TWILIO_WHATSAPP_FROM");
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -186,6 +189,43 @@ serve(async (req) => {
           message: briefingBody,
           date_envoi: new Date().toISOString(),
         });
+
+        // Send via WhatsApp proactively if user has phone and setting enabled
+        const { data: userSettings } = await supabase
+          .from("user_settings")
+          .select("daily_briefing_whatsapp")
+          .eq("user_id", profile.user_id)
+          .single();
+
+        if (userSettings?.daily_briefing_whatsapp !== false) {
+          const { data: fullProfile } = await supabase
+            .from("profiles")
+            .select("phone")
+            .eq("user_id", profile.user_id)
+            .single();
+
+          if (fullProfile?.phone && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+            let phone = fullProfile.phone.replace(/\D/g, "");
+            if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
+            if (!phone.startsWith("+")) phone = `+${phone}`;
+
+            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+            const whatsappResp = await fetch(twilioUrl, {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                From: TWILIO_WHATSAPP_NUMBER,
+                To: `whatsapp:${phone}`,
+                Body: `${briefingTitle}\n\n${briefingBody}`,
+              }).toString(),
+            });
+            const whatsappRes = await whatsappResp.json();
+            console.log(`WhatsApp briefing sent to ${phone}:`, whatsappResp.ok, whatsappRes.sid || whatsappRes.message);
+          }
+        }
 
       } catch (userError) {
         console.error(`Error processing user ${profile.user_id}:`, userError);
