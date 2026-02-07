@@ -2881,9 +2881,14 @@ export type Database = {
           push_new_rdv: boolean | null
           push_rappel_rdv: boolean | null
           push_vente_status: boolean | null
+          relance_paiement_delay_days: number | null
+          relance_paiement_enabled: boolean | null
           updated_at: string
           user_id: string
           vente_auto_transition_weeks: number
+          weekly_recap_day: number | null
+          weekly_recap_enabled: boolean | null
+          weekly_recap_hour: number | null
           working_days: number[] | null
         }
         Insert: {
@@ -2897,9 +2902,14 @@ export type Database = {
           push_new_rdv?: boolean | null
           push_rappel_rdv?: boolean | null
           push_vente_status?: boolean | null
+          relance_paiement_delay_days?: number | null
+          relance_paiement_enabled?: boolean | null
           updated_at?: string
           user_id: string
           vente_auto_transition_weeks?: number
+          weekly_recap_day?: number | null
+          weekly_recap_enabled?: boolean | null
+          weekly_recap_hour?: number | null
           working_days?: number[] | null
         }
         Update: {
@@ -2913,9 +2923,14 @@ export type Database = {
           push_new_rdv?: boolean | null
           push_rappel_rdv?: boolean | null
           push_vente_status?: boolean | null
+          relance_paiement_delay_days?: number | null
+          relance_paiement_enabled?: boolean | null
           updated_at?: string
           user_id?: string
           vente_auto_transition_weeks?: number
+          weekly_recap_day?: number | null
+          weekly_recap_enabled?: boolean | null
+          weekly_recap_hour?: number | null
           working_days?: number[] | null
         }
         Relationships: []
