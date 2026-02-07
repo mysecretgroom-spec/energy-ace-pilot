@@ -648,10 +648,21 @@ const CRM = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-foreground">
                               {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
                             </h3>
+                            {client.regie_id && (() => {
+                              const regie = regies.find(r => r.id === client.regie_id);
+                              return regie ? (
+                                <span 
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+                                  style={{ backgroundColor: regie.couleur }}
+                                >
+                                  {regie.nom}
+                                </span>
+                              ) : null;
+                            })()}
                             {client.is_retape && (
                               <Badge variant="outline" className="text-[10px] h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
                                 RETAPE
