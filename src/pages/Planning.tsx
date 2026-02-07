@@ -549,7 +549,7 @@ const Planning = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Car className="h-5 w-5" />
-              <span className="font-medium">{rdvListWithRoutes.length} RDV</span>
+              <span className="font-medium">{rdvListWithRoutes.filter(r => r.status !== 'annule' && r.status !== 'reporte').length} RDV</span>
             </div>
             {viewMode === "jour" && totalDistance > 0 && (
               <div className="flex items-center gap-2 text-primary font-medium text-sm">

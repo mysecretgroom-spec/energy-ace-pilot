@@ -115,13 +115,14 @@ export function MonthCalendarView({
           {week.map((day) => {
             const dayKey = format(day, "yyyy-MM-dd");
             const dayRdvs = rdvsByDay[dayKey] || [];
+            const activeRdvs = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte');
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, today);
-            const hasRdvs = dayRdvs.length > 0;
-            const hasInstallation = dayRdvs.some(
+            const hasRdvs = activeRdvs.length > 0;
+            const hasInstallation = activeRdvs.some(
               (r) => r.typeRdv === "external_installation"
             );
-            const hasR2 = dayRdvs.some((r) => r.isR2);
+            const hasR2 = activeRdvs.some((r) => r.isR2);
             const isWorkingDay = workingDays.includes(day.getDay());
 
             return (
@@ -170,8 +171,8 @@ export function MonthCalendarView({
                 {/* RDV indicators */}
                 {hasRdvs && (
                   <div className="space-y-0.5">
-                    {dayRdvs.length <= 2 ? (
-                      dayRdvs.map((rdv) => (
+                    {activeRdvs.length <= 2 ? (
+                      activeRdvs.map((rdv) => (
                         <div
                           key={rdv.id}
                           className={`text-[9px] px-1 py-0.5 rounded truncate select-none ${
@@ -189,10 +190,10 @@ export function MonthCalendarView({
                       <Badge
                         variant="secondary"
                         className={`text-[9px] h-4 w-full justify-center ${getStatusColor(
-                          dayRdvs
+                          activeRdvs
                         )} text-white`}
                       >
-                        {dayRdvs.length} RDV
+                        {activeRdvs.length} RDV
                       </Badge>
                     )}
                   </div>

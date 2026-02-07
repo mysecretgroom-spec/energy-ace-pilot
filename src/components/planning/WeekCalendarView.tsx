@@ -271,13 +271,16 @@ export function WeekCalendarView({
               </ScrollArea>
 
               {/* RDV count badge */}
-              {dayRdvs.length > 0 && (
-                <div className="px-1 pb-1 text-center">
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1">
-                    {dayRdvs.length} RDV
-                  </Badge>
-                </div>
-              )}
+              {(() => {
+                const activeCount = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte').length;
+                return activeCount > 0 ? (
+                  <div className="px-1 pb-1 text-center">
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                      {activeCount} RDV
+                    </Badge>
+                  </div>
+                ) : null;
+              })()}
             </DroppableDay>
           );
         })}
