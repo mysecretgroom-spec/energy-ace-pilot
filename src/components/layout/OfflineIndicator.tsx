@@ -1,7 +1,9 @@
-import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { cn } from "@/lib/utils";
 
 export function OfflineIndicator() {
   const { pendingCount: pendingDocsCount, isSyncing: isSyncingDocs, isOnline, syncPendingDocuments } = useOfflineDocuments();
@@ -12,8 +14,35 @@ export function OfflineIndicator() {
     syncAll 
   } = useOfflineData();
 
+  const [showBackOnline, setShowBackOnline] = useState(false);
+  const wasOffline = useRef(false);
+
+  // Detect transition from offline → online
+  useEffect(() => {
+    if (!isOnline) {
+      wasOffline.current = true;
+    } else if (wasOffline.current) {
+      wasOffline.current = false;
+      setShowBackOnline(true);
+      const timer = setTimeout(() => setShowBackOnline(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnline]);
+
   const isSyncing = isSyncingDocs || isSyncingData;
   const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
+
+  // Show "back online" toast briefly
+  if (showBackOnline && totalPending === 0) {
+    return (
+      <div className="fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm bg-emerald-500/90 text-white">
+          <Wifi className="h-5 w-5" />
+          <p className="font-medium text-sm">Connexion rétablie ✓</p>
+        </div>
+      </div>
+    );
+  }
 
   // Don't show anything if online and no pending items
   if (isOnline && totalPending === 0) return null;
@@ -23,7 +52,10 @@ export function OfflineIndicator() {
   };
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-40">
+    <div className={cn(
+      "fixed bottom-20 left-4 right-4 z-40",
+      "animate-in slide-in-from-bottom-4 fade-in duration-300"
+    )}>
       <div
         className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm ${
           isOnline
