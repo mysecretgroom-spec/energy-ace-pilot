@@ -126,7 +126,7 @@ export function VentesGroupedList({
   });
 
   // Sort groups: known regies first (alphabetically), then "Sans régie"
-  // Sort groups by most recent sale date (newest first), "Sans régie" last
+  // Sort groups by most recent sale date (newest first)
   const getLatestDate = (ventes: Vente[]) => {
     return ventes.reduce((latest, v) => {
       const d = v.date_signature || v.created_at;
@@ -135,8 +135,6 @@ export function VentesGroupedList({
   };
 
   const sortedRegieKeys = Array.from(regieGroups.keys()).sort((a, b) => {
-    if (a === null) return 1;
-    if (b === null) return -1;
     const latestA = getLatestDate(regieGroups.get(a) || []);
     const latestB = getLatestDate(regieGroups.get(b) || []);
     return latestB.localeCompare(latestA);
@@ -172,18 +170,18 @@ export function VentesGroupedList({
       {sortedRegieKeys.map(regieId => {
         const regie = regieId ? regies.find(r => r.id === regieId) : null;
         const groupVentes = sortByStatus(regieGroups.get(regieId) || []);
+        if (!regie) return null;
 
         return (
-          <div key={regieId || "sans-regie"} className="space-y-2">
-            {/* Regie header - only show if multiple groups */}
+          <div key={regie.id} className="space-y-2">
             {multipleRegies && (
               <div className="flex items-center gap-2 pt-2">
                 <div
                   className="h-3 w-3 rounded-full shrink-0"
-                  style={{ backgroundColor: regie?.couleur || 'hsl(var(--muted-foreground))' }}
+                  style={{ backgroundColor: regie.couleur }}
                 />
                 <span className="text-sm font-semibold text-foreground">
-                  {regie?.nom || "Sans régie"}
+                  {regie.nom}
                 </span>
                 <Badge variant="secondary" className="text-[10px] h-5">
                   {groupVentes.length}
