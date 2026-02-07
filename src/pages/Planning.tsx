@@ -747,7 +747,7 @@ const Planning = () => {
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5 text-primary font-medium">
                         <Car className="h-4 w-4" />
-                        <span>{tomorrowFirstDistance.duration_minutes} min</span>
+                        <span>{tomorrowFirstDistance.duration_minutes < 60 ? `${Math.round(tomorrowFirstDistance.duration_minutes)} min` : `${Math.floor(tomorrowFirstDistance.duration_minutes / 60)}h${Math.round(tomorrowFirstDistance.duration_minutes % 60) > 0 ? String(Math.round(tomorrowFirstDistance.duration_minutes % 60)).padStart(2, "0") : ""}`}</span>
                       </div>
                       <span className="text-muted-foreground">•</span>
                       <span className="text-primary font-medium">{tomorrowFirstDistance.distance_km} km</span>

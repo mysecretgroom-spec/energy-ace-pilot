@@ -23,6 +23,13 @@ interface RouteInfo {
   duration_minutes: number;
 }
 
+function formatTravelTime(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
 export function usePlanningRoutes(date: Date) {
   const { user } = useAuth();
   const [rdvs, setRdvs] = useState<RdvWithRoute[]>([]);
@@ -152,7 +159,7 @@ export function usePlanningRoutes(date: Date) {
           status: rdv.status,
           type: projectTypeLabels[rdv.type_projet] || rdv.type_projet,
           distance: routeInfo ? `${routeInfo.distance_km} km` : undefined,
-          travelTime: routeInfo ? `${routeInfo.duration_minutes} min` : undefined,
+          travelTime: routeInfo ? formatTravelTime(routeInfo.duration_minutes) : undefined,
           alert: isAlert,
           latitude: rdv.latitude || undefined,
           longitude: rdv.longitude || undefined,
