@@ -83,6 +83,7 @@ const settingsSections = [
     title: "WhatsApp",
     items: [
       { icon: Bot, label: "Assistant IA", description: "Agent WhatsApp intelligent", path: "/parametres/whatsapp-agent" },
+      { icon: Bell, label: "Notifications Agent", description: "Briefing, prépa RDV, pipeline, coaching", path: "/parametres/agent-notifications" },
       { icon: MessageCircle, label: "Messages personnalisés", description: "Templates par statut de RDV", path: "/parametres/whatsapp-templates" },
     ],
   },

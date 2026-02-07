@@ -59,6 +59,7 @@ const DataAidesITE = React.lazy(() => import("./pages/settings/DataAidesITE"));
 const DataMursITE = React.lazy(() => import("./pages/settings/DataMursITE"));
 const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomiesITE"));
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
+const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
 
 // Other pages
 const RegieDashboard = React.lazy(() => import("./pages/RegieDashboard"));
@@ -161,6 +162,7 @@ const App = () => {
                       <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/agent-notifications" element={<ProtectedRoute><AgentNotificationsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
                       <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
