@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { BlurOverlay } from "@/components/layout/BlurOverlay";
@@ -16,6 +16,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PipelineKanban } from "@/components/crm/PipelineKanban";
+import { VentesGroupedList } from "@/components/crm/VentesGroupedList";
 import { VenteSelectionBar } from "@/components/crm/VenteSelectionBar";
 import { QontoInvoice } from "@/components/crm/QontoInvoice";
 import { VenteCard } from "@/components/crm/VenteCard";
@@ -27,6 +28,7 @@ import {
   Phone,
   MapPin,
   ChevronRight,
+  ChevronDown,
   Plus,
   Euro,
   FileText,
@@ -34,11 +36,13 @@ import {
   Users,
   Kanban,
   CheckCircle2,
+  XCircle,
   Filter,
   Building2,
   Tag,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
 
@@ -403,9 +407,7 @@ const CRM = () => {
       const regie = regies.find(r => r.id === v.regie_id);
       if (regie?.is_hejja) return false;
     }
-    
-    // Always exclude cancelled
-    if (v.status === 'annule') return false;
+    // Don't exclude cancelled here — they'll be shown in a collapsible section
     
     // Filter by status (multi-select)
     if (statusFilters.length > 0) {
@@ -1083,69 +1085,26 @@ const CRM = () => {
             </div>
 
             {/* Ventes list */}
-            {ventesLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : filteredVentes.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Aucune vente</p>
-                </CardContent>
-              </Card>
-            ) : (() => {
-              const activeVentes = filteredVentes.filter(v => v.status !== 'paye');
-              const payeVentes = filteredVentes.filter(v => v.status === 'paye');
-
-              const renderVenteCard = (vente: Vente) => {
-                const isSelected = selectedVenteIds.includes(vente.id);
-                const commission = getCommission(vente.id);
-                const handleCardClick = () => {
-                  if (selectionMode) {
-                    setSelectedVenteIds(prev =>
-                      prev.includes(vente.id)
-                        ? prev.filter(id => id !== vente.id)
-                        : [...prev, vente.id]
-                    );
-                  } else {
-                    navigate(`/ventes/${vente.id}`);
-                  }
-                };
-                return (
-                  <VenteCard
-                    key={vente.id}
-                    vente={vente}
-                    commission={commission}
-                    regies={regies}
-                    selectionMode={selectionMode}
-                    isSelected={isSelected}
-                    onClick={handleCardClick}
-                    onRefresh={fetchVentes}
-                  />
-                );
-              };
-
-              return (
-                <div className="space-y-3">
-                  {activeVentes.map(renderVenteCard)}
-
-                  {payeVentes.length > 0 && (
-                    <>
-                      <div className="flex items-center gap-3 pt-4 pb-1">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                          Payées ({payeVentes.length})
-                        </span>
-                        <div className="h-px flex-1 bg-border" />
-                      </div>
-                      {payeVentes.map(renderVenteCard)}
-                    </>
-                  )}
-                </div>
-              );
-            })()}
+            <VentesGroupedList
+              ventes={filteredVentes}
+              regies={regies}
+              selectedVenteIds={selectedVenteIds}
+              selectionMode={selectionMode}
+              onCardClick={(vente) => {
+                if (selectionMode) {
+                  setSelectedVenteIds(prev =>
+                    prev.includes(vente.id)
+                      ? prev.filter(id => id !== vente.id)
+                      : [...prev, vente.id]
+                  );
+                } else {
+                  navigate(`/ventes/${vente.id}`);
+                }
+              }}
+              getCommission={getCommission}
+              onRefresh={fetchVentes}
+              isLoading={ventesLoading}
+            />
           </TabsContent>
 
           {/* Pipeline Tab */}
