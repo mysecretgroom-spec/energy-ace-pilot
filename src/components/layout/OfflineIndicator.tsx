@@ -24,7 +24,7 @@ export function OfflineIndicator() {
     } else if (wasOffline.current) {
       wasOffline.current = false;
       setShowBackOnline(true);
-      const timer = setTimeout(() => setShowBackOnline(false), 3000);
+      const timer = setTimeout(() => setShowBackOnline(false), 2000);
       return () => clearTimeout(timer);
     }
   }, [isOnline]);
