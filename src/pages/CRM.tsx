@@ -318,6 +318,10 @@ const CRM = () => {
     const hasNouveau = rdvStatuses.includes('nouveau');
     if (hasNouveau && !hasActiveVente) categories.push('nouveau');
     
+    // "Négatif" = has RDV with negatif status
+    const hasNegatif = rdvStatuses.includes('negatif');
+    if (hasNegatif && !hasActiveVente) categories.push('negatif');
+    
     // "Annulés" = all ventes are annulé OR RDV is annule/ni
     const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule');
     const hasAnnuleRdv = rdvStatuses.some(s => ['annule', 'ni'].includes(s));
@@ -326,39 +330,78 @@ const CRM = () => {
     return categories;
   };
 
+  // Helper: get the primary status badge info for a client
+  const getClientStatusBadge = (clientId: string): { label: string; color: string; bgColor: string } | null => {
+    const rdvStatuses = clientRdvStatuses[clientId] || [];
+    const venteStatuses = clientVenteStatuses[clientId] || [];
+    
+    // Priority order: Signé > R2 Pré-étude > R2 > Reporté > Nouveau > Négatif > Annulé
+    const hasActiveVente = venteStatuses.some(s => s !== 'annule');
+    if (hasActiveVente) return { label: 'Signé', color: 'text-green-700 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-500/20' };
+    
+    if (rdvStatuses.includes('r2_prestudy')) return { label: 'R2 Pré-étude', color: 'text-indigo-700 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-500/20' };
+    if (rdvStatuses.includes('r2')) return { label: 'R2', color: 'text-purple-700 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-500/20' };
+    if (rdvStatuses.includes('reporte')) return { label: 'Reporté', color: 'text-orange-700 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-500/20' };
+    if (rdvStatuses.includes('nouveau')) return { label: 'Nouveau', color: 'text-blue-700 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-500/20' };
+    if (rdvStatuses.includes('negatif')) return { label: 'Négatif', color: 'text-red-700 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/20' };
+    
+    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule');
+    const hasAnnuleRdv = rdvStatuses.includes('annule');
+    if (allVentesAnnule || hasAnnuleRdv) return { label: 'Annulé', color: 'text-gray-700 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-500/20' };
+    
+    return null;
+  };
+
+  // Sort priority for client categories
+  const getCategorySortPriority = (clientId: string): number => {
+    const categories = getClientCategory(clientId);
+    if (categories.includes('signe')) return 0;
+    if (categories.includes('r2_reporte')) return 1;
+    if (categories.includes('nouveau')) return 2;
+    if (categories.includes('negatif')) return 3;
+    if (categories.includes('annule')) return 4;
+    return 5;
+  };
+
   // Client category filter options
   const clientCategoryOptions: FilterOption[] = [
     { id: 'signe', label: 'Signés', color: '#22c55e' },
-    { id: 'r2_reporte', label: 'R2 / Reporté', color: '#3b82f6' },
-    { id: 'nouveau', label: 'Nouveaux', color: '#f59e0b' },
-    { id: 'annule', label: 'Annulés', color: '#ef4444' },
+    { id: 'r2_reporte', label: 'R2 / Reporté', color: '#8b5cf6' },
+    { id: 'nouveau', label: 'Nouveaux', color: '#3b82f6' },
+    { id: 'negatif', label: 'Négatifs', color: '#ef4444' },
+    { id: 'annule', label: 'Annulés', color: '#6b7280' },
   ];
 
-  // Client helpers - filter out retape clients when HEJJA mode is not active
-  const filteredClients = clients.filter((client) => {
-    // Hide retape clients when HEJJA mode is not active
-    if (!modeHejjaActive && client.is_retape) return false;
+  // Client helpers - filter out retape clients when HEJJA mode is not active, then sort by category
+  const filteredClients = useMemo(() => {
+    const filtered = clients.filter((client) => {
+      // Hide retape clients when HEJJA mode is not active
+      if (!modeHejjaActive && client.is_retape) return false;
+      
+      // Filter by regie (multi-select)
+      if (clientRegieFilters.length > 0) {
+        if (!client.regie_id || !clientRegieFilters.includes(client.regie_id)) return false;
+      }
+      
+      // Filter by category (multi-select)
+      if (clientCategoryFilters.length > 0) {
+        const clientCategories = getClientCategory(client.id);
+        if (!clientCategoryFilters.some(cat => clientCategories.includes(cat))) return false;
+      }
+      
+      // Search filter
+      return (
+        client.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (client.prenom && client.prenom.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (client.telephone && client.telephone.includes(searchQuery)) ||
+        (client.ville && client.ville.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    });
     
-    // Filter by regie (multi-select)
-    if (clientRegieFilters.length > 0) {
-      if (!client.regie_id || !clientRegieFilters.includes(client.regie_id)) return false;
-    }
-    
-    // Filter by category (multi-select)
-    if (clientCategoryFilters.length > 0) {
-      const clientCategories = getClientCategory(client.id);
-      if (!clientCategoryFilters.some(cat => clientCategories.includes(cat))) return false;
-    }
-    
-    // Search filter
-    return (
-      client.nom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (client.prenom && client.prenom.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (client.email && client.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (client.telephone && client.telephone.includes(searchQuery)) ||
-      (client.ville && client.ville.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  });
+    // Sort by category priority: Signés → À revoir → Nouveaux → Négatifs → Annulés
+    return filtered.sort((a, b) => getCategorySortPriority(a.id) - getCategorySortPriority(b.id));
+  }, [clients, modeHejjaActive, clientRegieFilters, clientCategoryFilters, searchQuery, clientRdvStatuses, clientVenteStatuses]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -654,6 +697,15 @@ const CRM = () => {
                             <h3 className="font-semibold text-foreground">
                               {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
                             </h3>
+                            {/* Status badge */}
+                            {(() => {
+                              const badge = getClientStatusBadge(client.id);
+                              return badge ? (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${badge.color} ${badge.bgColor}`}>
+                                  {badge.label}
+                                </span>
+                              ) : null;
+                            })()}
                             {client.regie_id && (() => {
                               const regie = regies.find(r => r.id === client.regie_id);
                               return regie ? (
