@@ -61,10 +61,12 @@ type Intent =
   | "create_rdv" 
   | "update_rdv"
   | "update_client_notes"  // Ajouter/modifier les notes d'un client
+  | "update_client_data"   // Modifier les données d'un client (téléphone, email, adresse)
   | "update_vente_status" 
   | "mark_signe"           // Marquer une vente comme signée (workflow complet)
   | "update_vente_pipeline" // Mettre à jour le statut pipeline d'une vente (posé, payé, annulé, etc.)
   | "update_vente_data"    // Modifier les données d'une vente (prix, puissance, technicien, dates)
+  | "add_decom"            // Ajouter/modifier une décommission sur une vente
   | "create_external_vente" // Créer une vente externe (installation tierce) - peut créer nouveau client
   | "import_facture" 
   | "query_commissions"
@@ -73,12 +75,16 @@ type Intent =
   | "query_ventes_by_filter"   // Requêtes filtrées (posées, payées, signées, etc.)
   | "query_stats"
   | "query_client_info"
+  | "query_client_full"    // Fiche complète client (infos + ventes + RDV + documents + étude)
   | "query_rdv_planning"
   | "query_rdv_detail"     // Topo détaillé sur un RDV spécifique (infos Gmail, conso, profil)
   | "query_ventes"
   | "query_vente_detail"   // Fiche détaillée d'une vente spécifique par nom de client
   | "query_frais"          // Liste des frais/dépenses avec filtres (période, catégorie)
   | "query_frais_detail"   // Total des frais avec répartition par catégorie
+  | "query_regie_info"     // Infos sur les régies (liste ou détail)
+  | "query_documents"      // Liste des documents d'un client
+  | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
@@ -5503,13 +5509,19 @@ INTENTIONS DISPONIBLES:
 - query_ventes_by_filter: "ventes posées", "ventes payées", "ventes signées", "posés < 2 sem", "par régie X" → Liste filtrée avec Entity: filter_type (poses, payees, signees, poses_recentes, par_regie)
 - query_stats: "stats", "CA", "taux conversion", "chiffres"
 - query_client_info: "téléphone de X", "adresse de X"
+- query_client_full: "fiche complète de X", "tout sur X", "résumé client X", "dossier complet X" → Fiche COMPLÈTE: infos client + ventes + RDV + documents + étude
 - query_rdv_planning: "planning", "rdv demain", "agenda", "ma journée" → TOUJOURS citer JOUR + DATE + HEURE + NOM CLIENT + VILLE. Si period=today/tomorrow, inclure aussi le RÉSUMÉ: nombre total RDV, distance totale en km, temps de route, et les ALERTES (RDV à confirmer, sans adresse)
 - query_rdv_detail: "topo Dupont", "infos rdv Martin", "brief client X" → Fiche détaillée avec CONSOMMATION, PROFIL CLIENT, COMMENTAIRES GMAIL
 - query_ventes: "mes ventes", "toutes mes ventes" → Liste simple sans détails commission
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
 - query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
 - query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
+- query_regie_info: "mes régies", "liste régies", "infos régie X", "quelle régie pour X" → Liste des régies ou détail d'une régie spécifique
+- query_documents: "documents de X", "docs client X", "pièces de X" → Liste des documents d'un client
+- query_etude_detail: "étude de X", "étude technique X", "bilan X" → Détail de l'étude technique d'un client
 - query_hejja: "mode hejja", "retape", "prix hejja", "régies hejja", "commissions hejja" → Demande liée au mode HEJJA → REDIRIGER vers l'application car l'agent n'a pas accès
+- add_decom: "décom Dupont 200€", "ajoute décom X", "décommission", "enlève la décom" → Ajouter/modifier/supprimer une décommission sur une vente. Entities: client_name, decom_montant, decom_raison
+- update_client_data: "change le tel de X", "modifie email de X", "nouvelle adresse X" → Modifier téléphone, email, adresse d'un client. Entities: client_name, new_phone, new_email, new_address, new_city, new_postal_code
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
@@ -5603,6 +5615,12 @@ RÈGLES CRITIQUES:
 8. Pour "ajoute/modifie une note chez X" ou "note chez X: ..." → update_client_notes (avec notes_content et notes_action)
    - Par défaut notes_action = "append" (ajoute à la suite)
    - Si l'utilisateur dit "remplace la note" / "change la note" → notes_action = "replace"
+9. Pour "décom X 200€" / "ajoute décom" / "supprime la décom" → add_decom (avec decom_montant + decom_raison)
+10. Pour "change le tel de X" / "modifie email" / "nouvelle adresse" → update_client_data (avec new_phone, new_email, new_address, new_city, new_postal_code)
+11. Pour "fiche complète X" / "tout sur X" / "dossier complet X" → query_client_full (vue 360° du client)
+12. Pour "documents de X" / "pièces de X" → query_documents
+13. Pour "étude de X" / "bilan technique X" → query_etude_detail
+14. Pour "mes régies" / "infos régie X" → query_regie_info
 
 🔧 VENTES EXTERNES (create_external_vente):
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
@@ -5625,7 +5643,7 @@ RÈGLES CRITIQUES:
 
 ⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture
+- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data
 - FORMAT OBLIGATOIRE du responseMessage:
   📋 *[TYPE ACTION]*
   • Client: [Nom complet]
@@ -5740,7 +5758,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_hejja", "update_vente_data", "update_client_notes", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -5774,7 +5792,14 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     date_pose: { type: "string", description: "Installation date in YYYY-MM-DD format for external sales" },
                     is_new_client: { type: "boolean", description: "True if the client doesn't exist and should be created" },
                     notes_content: { type: "string", description: "Note content to add or replace on the client. Extract the full note text the user wants to save." },
-                    notes_action: { type: "string", enum: ["append", "replace"], description: "How to handle notes: 'append' (default) adds to existing notes, 'replace' overwrites them entirely. Use 'replace' only if user explicitly says 'remplace' or 'change la note'." }
+                    notes_action: { type: "string", enum: ["append", "replace"], description: "How to handle notes: 'append' (default) adds to existing notes, 'replace' overwrites them entirely. Use 'replace' only if user explicitly says 'remplace' or 'change la note'." },
+                    decom_montant: { type: "number", description: "Montant de la décommission en € HT" },
+                    decom_raison: { type: "string", description: "Raison de la décommission (ex: parrainage, remise commerciale)" },
+                    new_phone: { type: "string", description: "New phone number for client update" },
+                    new_email: { type: "string", description: "New email for client update" },
+                    new_address: { type: "string", description: "New address for client update" },
+                    new_city: { type: "string", description: "New city for client update" },
+                    new_postal_code: { type: "string", description: "New postal code for client update" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -9072,6 +9097,468 @@ async function executeAction(
         entityType: "memory",
         entityId: feedbackValue, // Pass the correction value for context
       };
+    }
+
+    case "add_decom": {
+      const clientName = entities.client_name as string;
+      const decomMontant = entities.decom_montant as number;
+      const decomRaison = entities.decom_raison as string;
+      
+      if (!clientName) {
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+      }
+      
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client "${clientName}" trouvé.` };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "add_decom", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+      
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      // Find vente
+      const { data: ventes, error: venteError } = await supabase
+        .from("ventes")
+        .select("id, status, montant_ttc, decom_montant, decom_raison, clients(nom, prenom)")
+        .eq("user_id", userId)
+        .eq("client_id", matchedClient.id)
+        .not("status", "eq", "annule")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (venteError || !ventes || ventes.length === 0) {
+        return { actionTaken: "vente_not_found", customResponse: `❌ Aucune vente active pour "${matchedClient.fullName}".` };
+      }
+      
+      const vente = ventes[0];
+      // deno-lint-ignore no-explicit-any
+      const client = vente.clients as any;
+      const clientFullName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+      
+      // If decomMontant is 0 or explicitly "supprime", remove decom
+      const isRemoval = decomMontant === 0 || (entities.action as string) === "supprime";
+      
+      const previousData = await getPreviousData(supabase, "ventes", vente.id, userId);
+      
+      const updateData = isRemoval
+        ? { decom_montant: 0, decom_raison: null }
+        : { decom_montant: decomMontant || 0, decom_raison: decomRaison || null };
+      
+      const { error: updateError } = await supabase
+        .from("ventes")
+        .update(updateData)
+        .eq("id", vente.id);
+      
+      if (updateError) {
+        return { actionTaken: "error", customResponse: `❌ Erreur: ${updateError.message}` };
+      }
+      
+      await logAgentAction(supabase, userId, messageId, "add_decom", "ventes", vente.id, updateData, previousData,
+        isRemoval ? `Décom supprimée: ${clientFullName}` : `Décom ajoutée: ${clientFullName} - ${decomMontant}€`);
+      
+      if (isRemoval) {
+        return { actionTaken: "decom_removed", entityId: vente.id, entityType: "vente",
+          customResponse: `✅ Décom supprimée pour *${clientFullName}* !` };
+      }
+      
+      return { actionTaken: "decom_added", entityId: vente.id, entityType: "vente",
+        customResponse: `✅ Décom ajoutée pour *${clientFullName}* !\n\n💸 Montant: *${decomMontant?.toLocaleString("fr-FR")}€ HT*${decomRaison ? `\n📝 Raison: ${decomRaison}` : ""}` };
+    }
+
+    case "update_client_data": {
+      const clientName = entities.client_name as string;
+      if (!clientName) {
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+      }
+      
+      const newPhone = entities.new_phone as string;
+      const newEmail = entities.new_email as string;
+      const newAddress = entities.new_address as string;
+      const newCity = entities.new_city as string;
+      const newPostalCode = entities.new_postal_code as string;
+      
+      if (!newPhone && !newEmail && !newAddress && !newCity && !newPostalCode) {
+        return { actionTaken: "missing_data", customResponse: "❌ Que veux-tu modifier ? (téléphone, email, adresse, ville, code postal)" };
+      }
+      
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client "${clientName}" trouvé.` };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "update_client_data", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+      
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      const previousData = await getPreviousData(supabase, "clients", matchedClient.id, userId);
+      
+      // deno-lint-ignore no-explicit-any
+      const updateData: any = {};
+      const changes: string[] = [];
+      
+      if (newPhone) { updateData.telephone = newPhone; changes.push(`📞 Tél: ${newPhone}`); }
+      if (newEmail) { updateData.email = newEmail; changes.push(`📧 Email: ${newEmail}`); }
+      if (newAddress) { updateData.adresse = newAddress; changes.push(`📍 Adresse: ${newAddress}`); }
+      if (newCity) { updateData.ville = newCity; changes.push(`🏙️ Ville: ${newCity}`); }
+      if (newPostalCode) { updateData.code_postal = newPostalCode; changes.push(`📮 CP: ${newPostalCode}`); }
+      
+      const { error: updateError } = await supabase
+        .from("clients")
+        .update(updateData)
+        .eq("id", matchedClient.id)
+        .eq("user_id", userId);
+      
+      if (updateError) {
+        return { actionTaken: "error", customResponse: `❌ Erreur: ${updateError.message}` };
+      }
+      
+      await logAgentAction(supabase, userId, messageId, "update_client_data", "clients", matchedClient.id, updateData, previousData,
+        `Client ${matchedClient.fullName} modifié: ${changes.join(", ")}`);
+      
+      return { actionTaken: "client_updated", entityId: matchedClient.id, entityType: "client",
+        customResponse: `✅ Client *${matchedClient.fullName}* mis à jour:\n${changes.join("\n")}` };
+    }
+
+    case "query_regie_info": {
+      const regieName = entities.regie_name as string || entities.client_name as string;
+      
+      if (regieName) {
+        // Detail of a specific regie
+        const { data: regies, error } = await supabase
+          .from("regies")
+          .select("id, nom, siret, adresse, telephone, email, contact_nom, mode_calcul_commission, part_survente_pct, created_at")
+          .eq("user_id", userId)
+          .ilike("nom", `%${regieName}%`);
+        
+        if (error || !regies || regies.length === 0) {
+          return { actionTaken: "regie_not_found", customResponse: `❌ Aucune régie "${regieName}" trouvée.` };
+        }
+        
+        // deno-lint-ignore no-explicit-any
+        const r = regies[0] as any;
+        
+        // Count clients and ventes for this regie
+        const { count: clientCount } = await supabase.from("clients").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("regie_id", r.id);
+        const { count: venteCount } = await supabase.from("ventes").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("regie_id", r.id).neq("status", "annule");
+        
+        const sections: string[] = [];
+        sections.push(`🏢 *RÉGIE: ${r.nom}*\n`);
+        if (r.siret) sections.push(`• SIRET: ${r.siret}`);
+        if (r.contact_nom) sections.push(`• Contact: ${r.contact_nom}`);
+        if (r.telephone) sections.push(`• Tél: ${r.telephone}`);
+        if (r.email) sections.push(`• Email: ${r.email}`);
+        if (r.adresse) sections.push(`• Adresse: ${r.adresse}`);
+        sections.push("");
+        sections.push(`📊 *Activité:*`);
+        sections.push(`• Clients: ${clientCount || 0}`);
+        sections.push(`• Ventes actives: ${venteCount || 0}`);
+        if (r.part_survente_pct) sections.push(`• Part survente: ${r.part_survente_pct}%`);
+        
+        return { actionTaken: "query_regie_detail", entityType: "regie", customResponse: sections.join("\n") };
+      }
+      
+      // List all regies
+      const { data: regies, error } = await supabase
+        .from("regies")
+        .select("id, nom, contact_nom, telephone")
+        .eq("user_id", userId)
+        .eq("actif", true)
+        .order("nom");
+      
+      if (error || !regies || regies.length === 0) {
+        return { actionTaken: "no_regies", customResponse: "📭 Aucune régie configurée. Ajoute-en une dans l'app !" };
+      }
+      
+      let msg = `🏢 *MES RÉGIES* (${regies.length})\n\n`;
+      for (const r of regies) {
+        msg += `• *${r.nom}*${r.contact_nom ? ` (${r.contact_nom})` : ""}${r.telephone ? ` - ${r.telephone}` : ""}\n`;
+      }
+      msg += `\n_💡 Demande "infos régie X" pour le détail_`;
+      
+      return { actionTaken: "query_regies_list", entityType: "regies", customResponse: msg };
+    }
+
+    case "query_documents": {
+      const clientName = entities.client_name as string;
+      if (!clientName) {
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+      }
+      
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client "${clientName}" trouvé.` };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "query_documents", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+      
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      const { data: docs, error } = await supabase
+        .from("documents")
+        .select("id, nom, type_document, mime_type, created_at, taille_bytes")
+        .eq("user_id", userId)
+        .eq("client_id", matchedClient.id)
+        .order("created_at", { ascending: false });
+      
+      if (error) {
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de la récupération des documents." };
+      }
+      
+      if (!docs || docs.length === 0) {
+        return { actionTaken: "no_documents", customResponse: `📭 Aucun document pour *${matchedClient.fullName}*.\n\n_Importe des documents via l'app._` };
+      }
+      
+      const typeLabels: Record<string, string> = {
+        cni: "🪪 CNI", avis_imposition: "📄 Avis d'imposition", rib: "🏦 RIB",
+        facture_energie: "⚡ Facture énergie", taxe_fonciere: "🏠 Taxe foncière",
+        photo_technique: "📸 Photo technique", contrat: "📝 Contrat", devis: "📋 Devis",
+        autre: "📎 Autre", mandat: "✍️ Mandat", attestation: "📜 Attestation"
+      };
+      
+      let msg = `📂 *DOCUMENTS - ${matchedClient.fullName}* (${docs.length})\n\n`;
+      for (const d of docs) {
+        const date = new Date(d.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+        const typeLabel = typeLabels[d.type_document] || `📎 ${d.type_document}`;
+        const size = d.taille_bytes ? `${(d.taille_bytes / 1024).toFixed(0)} Ko` : "";
+        msg += `${typeLabel} *${d.nom}*\n   ${date}${size ? ` | ${size}` : ""}\n\n`;
+      }
+      
+      msg += `_💡 Consulte les documents dans l'app: ${APP_BASE_URL}/client/${matchedClient.id}?tab=documents_`;
+      
+      return { actionTaken: "query_documents_result", entityType: "documents", customResponse: msg };
+    }
+
+    case "query_etude_detail": {
+      const clientName = entities.client_name as string;
+      if (!clientName) {
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+      }
+      
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client "${clientName}" trouvé.` };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "query_etude_detail", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+      
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      const { data: etudes, error } = await supabase
+        .from("etudes")
+        .select(`
+          id, product_type, puissance_kwc, nombre_panneaux, orientation, inclinaison,
+          prix_installation, prix_total, total_aides, total_aides_deduites,
+          production_annuelle_kwh, consommation_annuelle_kwh, autoconsommation_pct,
+          gain_total_annuel, resultat_mensuel, mode_financement, mensualite_estimee,
+          type_toiture, surface_toiture, etat_toiture,
+          pac_subtype, pac_puissance_calorifique, pac_surface_chauffee, pac_cop,
+          pac_economie_nette_euros, pac_energie_actuelle,
+          ite_surface_isoler, ite_type_isolant, ite_epaisseur_isolant,
+          verdict, notes, created_at, updated_at
+        `)
+        .eq("user_id", userId)
+        .eq("client_id", matchedClient.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (error || !etudes || etudes.length === 0) {
+        return { actionTaken: "etude_not_found", customResponse: `📭 Aucune étude pour *${matchedClient.fullName}*.\n\n_Crée une étude dans l'app._` };
+      }
+      
+      const e = etudes[0];
+      const sections: string[] = [];
+      sections.push(`📊 *ÉTUDE - ${matchedClient.fullName}*`);
+      sections.push("");
+      
+      // Product type
+      const productLabels: Record<string, string> = { pv: "☀️ Photovoltaïque", pac: "❄️ PAC", ite: "🧱 ITE" };
+      sections.push(`🏷️ *Type:* ${productLabels[e.product_type || "pv"] || e.product_type}`);
+      if (e.verdict) sections.push(`📋 *Verdict:* ${e.verdict}`);
+      sections.push("");
+      
+      if (e.product_type === "pv" || !e.product_type) {
+        // PV details
+        sections.push("⚡ *Installation PV:*");
+        if (e.puissance_kwc) sections.push(`• Puissance: ${e.puissance_kwc} kWc`);
+        if (e.nombre_panneaux) sections.push(`• Panneaux: ${e.nombre_panneaux}`);
+        if (e.orientation) sections.push(`• Orientation: ${e.orientation}`);
+        if (e.inclinaison) sections.push(`• Inclinaison: ${e.inclinaison}°`);
+        if (e.type_toiture) sections.push(`• Toiture: ${e.type_toiture}`);
+        sections.push("");
+        
+        sections.push("📈 *Production:*");
+        if (e.production_annuelle_kwh) sections.push(`• Production: ${Math.round(e.production_annuelle_kwh).toLocaleString("fr-FR")} kWh/an`);
+        if (e.consommation_annuelle_kwh) sections.push(`• Conso: ${Math.round(e.consommation_annuelle_kwh).toLocaleString("fr-FR")} kWh/an`);
+        if (e.autoconsommation_pct) sections.push(`• Autoconso: ${e.autoconsommation_pct}%`);
+        if (e.gain_total_annuel) sections.push(`• Gain annuel: ${Math.round(e.gain_total_annuel).toLocaleString("fr-FR")}€`);
+        sections.push("");
+      }
+      
+      if (e.product_type === "pac") {
+        sections.push("❄️ *PAC:*");
+        if (e.pac_subtype) sections.push(`• Type: ${e.pac_subtype}`);
+        if (e.pac_puissance_calorifique) sections.push(`• Puissance: ${e.pac_puissance_calorifique} kW`);
+        if (e.pac_surface_chauffee) sections.push(`• Surface: ${e.pac_surface_chauffee} m²`);
+        if (e.pac_cop) sections.push(`• COP: ${e.pac_cop}`);
+        if (e.pac_energie_actuelle) sections.push(`• Énergie actuelle: ${e.pac_energie_actuelle}`);
+        if (e.pac_economie_nette_euros) sections.push(`• Économie nette: ${Math.round(e.pac_economie_nette_euros).toLocaleString("fr-FR")}€/an`);
+        sections.push("");
+      }
+      
+      if (e.product_type === "ite") {
+        sections.push("🧱 *ITE:*");
+        if (e.ite_surface_isoler) sections.push(`• Surface: ${e.ite_surface_isoler} m²`);
+        if (e.ite_type_isolant) sections.push(`• Isolant: ${e.ite_type_isolant}`);
+        if (e.ite_epaisseur_isolant) sections.push(`• Épaisseur: ${e.ite_epaisseur_isolant} mm`);
+        sections.push("");
+      }
+      
+      // Financial
+      sections.push("💰 *Financier:*");
+      if (e.prix_total) sections.push(`• Prix total: ${Math.round(e.prix_total).toLocaleString("fr-FR")}€`);
+      if (e.total_aides) sections.push(`• Aides: ${Math.round(e.total_aides).toLocaleString("fr-FR")}€`);
+      if (e.total_aides_deduites) sections.push(`• Reste à charge: ${Math.round(e.total_aides_deduites).toLocaleString("fr-FR")}€`);
+      if (e.mode_financement) sections.push(`• Financement: ${e.mode_financement}`);
+      if (e.mensualite_estimee) sections.push(`• Mensualité: ${Math.round(e.mensualite_estimee).toLocaleString("fr-FR")}€/mois`);
+      if (e.resultat_mensuel) sections.push(`• Résultat mensuel: ${Math.round(e.resultat_mensuel).toLocaleString("fr-FR")}€`);
+      
+      if (e.notes) {
+        sections.push("");
+        sections.push(`💬 *Notes:* ${e.notes}`);
+      }
+      
+      return { actionTaken: "query_etude_detail_result", entityType: "etude", entityId: e.id, customResponse: sections.join("\n") };
+    }
+
+    case "query_client_full": {
+      // Full client dossier: info + ventes + RDV + documents + étude
+      const clientName = entities.client_name as string;
+      if (!clientName) {
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+      }
+      
+      const searchResult = await findClientByName(supabase, userId, clientName);
+      
+      if (searchResult.notFound) {
+        return { actionTaken: "client_not_found", customResponse: `❌ Aucun client "${clientName}" trouvé.` };
+      }
+      
+      if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        const poll = generateChoicePoll(searchResult.suggestions, clientName, "query_client_full", entities);
+        return { actionTaken: "client_ambiguous", newPendingAction: poll.pendingAction, customResponse: poll.responseMessage };
+      }
+      
+      const matchedClient = searchResult.exactMatch || searchResult.clients[0];
+      
+      // Fetch all data in parallel
+      const [clientResult, ventesResult, rdvsResult, docsResult, etudesResult] = await Promise.all([
+        supabase.from("clients").select("*").eq("id", matchedClient.id).eq("user_id", userId).single(),
+        supabase.from("ventes").select("id, status, montant_ttc, puissance_kwc, date_signature, decom_montant, type_vente, regie_id, regies(nom)").eq("user_id", userId).eq("client_id", matchedClient.id).order("created_at", { ascending: false }),
+        supabase.from("rdv").select("id, date_heure, status, type_rdv, adresse, regies(nom)").eq("user_id", userId).eq("client_id", matchedClient.id).order("date_heure", { ascending: false }).limit(5),
+        supabase.from("documents").select("id, nom, type_document, created_at").eq("user_id", userId).eq("client_id", matchedClient.id).order("created_at", { ascending: false }),
+        supabase.from("etudes").select("id, product_type, puissance_kwc, prix_total, total_aides, verdict").eq("user_id", userId).eq("client_id", matchedClient.id).order("created_at", { ascending: false }).limit(1),
+      ]);
+      
+      // deno-lint-ignore no-explicit-any
+      const c = clientResult.data as any;
+      const sections: string[] = [];
+      
+      sections.push(`👤 *FICHE COMPLÈTE - ${matchedClient.fullName}*\n`);
+      
+      // Contact info
+      sections.push("📋 *Coordonnées:*");
+      if (c?.telephone) sections.push(`• Tél: ${c.telephone}`);
+      if (c?.telephone_secondaire) sections.push(`• Tél 2: ${c.telephone_secondaire}`);
+      if (c?.email) sections.push(`• Email: ${c.email}`);
+      if (c?.adresse) sections.push(`• Adresse: ${[c.adresse, c.code_postal, c.ville].filter(Boolean).join(", ")}`);
+      if (c?.source) sections.push(`• Source: ${c.source}`);
+      if (c?.notes) sections.push(`• Notes: ${c.notes.substring(0, 100)}${c.notes.length > 100 ? "..." : ""}`);
+      sections.push("");
+      
+      // Ventes
+      const ventes = ventesResult.data || [];
+      sections.push(`💼 *Ventes (${ventes.length}):*`);
+      if (ventes.length === 0) {
+        sections.push("_Aucune vente_");
+      } else {
+        const statusLabels: Record<string, string> = {
+          signe: "📝 Signé", cq_a_faire: "🔴 CQ", cq_fait: "🟡 CQ fait",
+          attente_financement: "🟡 Att. fin.", envoi_pose: "🔵 Envoi",
+          en_installation: "🔵 Install.", installe: "✅ Posé",
+          attente_paiement: "💳 Att. paie.", paye: "💰 Payé", annule: "❌ Annulé"
+        };
+        for (const v of ventes.slice(0, 3)) {
+          // deno-lint-ignore no-explicit-any
+          const regie = (v as any).regies;
+          const dateStr = v.date_signature ? new Date(v.date_signature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+          sections.push(`• ${statusLabels[v.status] || v.status} ${v.puissance_kwc || "?"}kWc | ${(v.montant_ttc || 0).toLocaleString("fr-FR")}€${v.decom_montant ? ` (-${v.decom_montant}€ décom)` : ""}${regie?.nom ? ` | ${regie.nom}` : ""}${dateStr ? ` (${dateStr})` : ""}`);
+        }
+      }
+      sections.push("");
+      
+      // RDV
+      const rdvs = rdvsResult.data || [];
+      sections.push(`📅 *RDV (${rdvs.length}):*`);
+      if (rdvs.length === 0) {
+        sections.push("_Aucun RDV_");
+      } else {
+        const rdvStatusLabels: Record<string, string> = {
+          nouveau: "🆕", signe: "✅", negatif: "❌", reporte: "🔄", annule: "❌", r2: "🔁"
+        };
+        for (const r of rdvs.slice(0, 3)) {
+          const date = new Date(r.date_heure).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+          sections.push(`• ${rdvStatusLabels[r.status] || r.status} ${r.type_rdv} - ${date}${r.adresse ? ` | ${r.adresse.substring(0, 30)}` : ""}`);
+        }
+      }
+      sections.push("");
+      
+      // Documents
+      const docs = docsResult.data || [];
+      sections.push(`📂 *Documents (${docs.length}):*`);
+      if (docs.length === 0) {
+        sections.push("_Aucun document_");
+      } else {
+        for (const d of docs.slice(0, 5)) {
+          sections.push(`• ${d.type_document}: ${d.nom}`);
+        }
+        if (docs.length > 5) sections.push(`  ... +${docs.length - 5} autre(s)`);
+      }
+      sections.push("");
+      
+      // Étude
+      const etudes = etudesResult.data || [];
+      if (etudes.length > 0) {
+        const e = etudes[0];
+        const productLabels: Record<string, string> = { pv: "☀️ PV", pac: "❄️ PAC", ite: "🧱 ITE" };
+        sections.push(`📊 *Étude:*`);
+        sections.push(`• Type: ${productLabels[e.product_type || "pv"] || e.product_type}${e.puissance_kwc ? ` | ${e.puissance_kwc}kWc` : ""}`);
+        if (e.prix_total) sections.push(`• Prix: ${Math.round(e.prix_total).toLocaleString("fr-FR")}€`);
+        if (e.total_aides) sections.push(`• Aides: ${Math.round(e.total_aides).toLocaleString("fr-FR")}€`);
+        if (e.verdict) sections.push(`• Verdict: ${e.verdict}`);
+      } else {
+        sections.push("📊 *Étude:* _Aucune_");
+      }
+      
+      sections.push("");
+      sections.push(`_💡 Lien: ${APP_BASE_URL}/client/${matchedClient.id}_`);
+      
+      return { actionTaken: "query_client_full_result", entityType: "client_full", entityId: matchedClient.id, customResponse: sections.join("\n") };
     }
 
     default:
