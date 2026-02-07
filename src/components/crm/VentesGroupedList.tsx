@@ -91,6 +91,7 @@ export function VentesGroupedList({
   onRefresh,
   isLoading,
 }: VentesGroupedListProps) {
+  const [payeOpen, setPayeOpen] = useState(false);
   const [annuleOpen, setAnnuleOpen] = useState(false);
 
   if (isLoading) {
@@ -197,21 +198,25 @@ export function VentesGroupedList({
         );
       })}
 
-      {/* Payées section */}
       {payeVentes.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 pt-4 pb-1">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              Payées ({payeVentes.length})
-            </span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <div className="space-y-2">
-            {payeVentes.map(renderCard)}
-          </div>
-        </div>
+        <Collapsible open={payeOpen} onOpenChange={setPayeOpen}>
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center gap-3 pt-4 pb-1 cursor-pointer group">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 group-hover:text-foreground transition-colors">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                Payées ({payeVentes.length})
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${payeOpen ? 'rotate-180' : ''}`} />
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-2 pt-2">
+              {payeVentes.map(renderCard)}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Annulées collapsible */}
