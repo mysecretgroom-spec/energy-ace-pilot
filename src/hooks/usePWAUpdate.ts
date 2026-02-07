@@ -133,8 +133,24 @@ export function usePWAUpdate() {
     }
   }, [needRefresh, updateServiceWorker]);
 
+  const forceCheckAndUpdate = useCallback(async () => {
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration) {
+        console.log('[PWA] Force checking for updates...');
+        await registration.update();
+        // If a waiting worker exists, activate it immediately
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          window.location.reload();
+        }
+      }
+    }
+  }, []);
+
   return {
     needRefresh,
     updateServiceWorker: () => updateServiceWorker(true),
+    forceCheckAndUpdate,
   };
 }
