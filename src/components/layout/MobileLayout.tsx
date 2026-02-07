@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { RGECardDialog } from "./RGECardDialog";
+import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
@@ -50,11 +51,10 @@ export const MobileLayout = ({
             <h1 className={`font-display text-base font-semibold text-foreground tracking-tight ${!showBackButton ? 'flex-1 text-center' : 'flex-1'}`}>
               {title}
             </h1>
-            {shouldShowRGECard ? (
-              <RGECardDialog />
-            ) : (
-              showBackButton && <div className="w-10" />
-            )}
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              {shouldShowRGECard && <RGECardDialog />}
+            </div>
           </div>
         </header>
       )}
