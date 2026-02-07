@@ -156,7 +156,7 @@ interface VenteForCommission {
   client_id?: string;
 }
 
-type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'payees' | 'commissionsMois' | null;
+type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'payees' | 'commissionsMois' | 'caMois' | 'signesMois' | 'annulees' | null;
 
 const Finance = () => {
   const { user } = useAuth();
@@ -572,6 +572,78 @@ const Finance = () => {
       case 'payees':
         const payees = filterByType(["paye"]);
         return { title: "Payées", subtitle: "Commissions encaissées", items: mapToItems(payees), total: venteStats?.comPayees };
+      case 'commissionsMois': {
+        const now2 = new Date();
+        const startOfMonthComm = new Date(now2.getFullYear(), now2.getMonth(), 1);
+        const ventesCommMois = ventesForCommission.filter(v => 
+          v.date_signature && new Date(v.date_signature) >= startOfMonthComm &&
+          !["en_negociation", "annule"].includes(v.status)
+        );
+        return { title: "Commissions ce mois", subtitle: "HT", items: mapToItems(ventesCommMois), total: venteStats?.commissionsMonth };
+      }
+      case 'caMois': {
+        const now3 = new Date();
+        const startOfMonthCA = new Date(now3.getFullYear(), now3.getMonth(), 1);
+        const ventesCaMois = ventesForCommission.filter(v => 
+          v.date_signature && new Date(v.date_signature) >= startOfMonthCA &&
+          !["en_negociation", "annule"].includes(v.status) &&
+          v.type_vente !== 'external_installation'
+        );
+        return { 
+          title: "CA ce mois", 
+          subtitle: "TTC", 
+          items: ventesCaMois.map(v => ({
+            id: v.id,
+            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : undefined,
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: venteStats?.caMonth 
+        };
+      }
+      case 'signesMois': {
+        const now4 = new Date();
+        const startOfMonthSig = new Date(now4.getFullYear(), now4.getMonth(), 1);
+        const ventesSignesMois = ventesForCommission.filter(v => 
+          v.date_signature && new Date(v.date_signature) >= startOfMonthSig &&
+          !["en_negociation", "annule"].includes(v.status) &&
+          v.type_vente !== 'external_installation'
+        );
+        return { 
+          title: "Dossiers signés ce mois", 
+          items: ventesSignesMois.map(v => ({
+            id: v.id,
+            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : undefined,
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: undefined,
+        };
+      }
+      case 'annulees': {
+        const now5 = new Date();
+        const startOfMonthAnn = new Date(now5.getFullYear(), now5.getMonth(), 1);
+        const ventesAnnulees = rawVentes.filter(v => {
+          const date = v.date_signature ? new Date(v.date_signature) : new Date(v.created_at);
+          return date >= startOfMonthAnn && v.status === "annule";
+        });
+        return { 
+          title: "Ventes annulées ce mois", 
+          items: ventesAnnulees.map((v: any) => ({
+            id: v.id,
+            label: `${v.clients?.nom || "Client"} ${v.clients?.prenom || ""}`.trim(),
+            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : undefined,
+            value: v.montant_ttc,
+            date: v.date_signature || undefined,
+            navigateTo: `/ventes/${v.id}`,
+          })),
+          total: undefined,
+        };
+      }
       default:
         return { title: "", items: [], total: undefined };
     }
@@ -820,7 +892,7 @@ const Finance = () => {
             ) : venteStats ? (
               <>
                 {/* CA du mois */}
-                <Card className="bg-gradient-hero text-primary-foreground shadow-card">
+                <Card className="bg-gradient-hero text-primary-foreground shadow-card cursor-pointer hover:shadow-xl transition-shadow" onClick={() => openFinanceStatDialog('caMois')}>
                   <CardContent className="p-6">
                     <div className="text-center space-y-2">
                       <p className="text-sm opacity-90">Chiffre d'affaires ce mois</p>
@@ -843,7 +915,7 @@ const Finance = () => {
 
                 {/* Stats grid - responsive */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <Card className="shadow-card">
+                  <Card className="shadow-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFinanceStatDialog('commissionsMois')}>
                     <CardContent className="p-4 text-center">
                       <Euro className="h-6 w-6 mx-auto mb-2 text-primary" />
                       <p className="text-2xl font-bold text-foreground">
@@ -855,7 +927,7 @@ const Finance = () => {
                     </CardContent>
                   </Card>
 
-                  <Card className="shadow-card">
+                  <Card className="shadow-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFinanceStatDialog('signesMois')}>
                     <CardContent className="p-4 text-center">
                       <Calendar className="h-6 w-6 mx-auto mb-2 text-secondary" />
                       <p className="text-2xl font-bold text-foreground">
@@ -879,7 +951,7 @@ const Finance = () => {
                     </CardContent>
                   </Card>
 
-                  <Card className="shadow-card">
+                  <Card className="shadow-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFinanceStatDialog('enCours')}>
                     <CardContent className="p-4 text-center">
                       <CheckCircle className="h-6 w-6 mx-auto mb-2 text-status-signed" />
                       <p className="text-sm text-muted-foreground">En cours</p>
@@ -980,7 +1052,7 @@ const Finance = () => {
                 <BillingSection />
 
                 {/* Ventes annulées */}
-                <Card className="shadow-card">
+                <Card className="shadow-card cursor-pointer hover:shadow-md transition-shadow" onClick={() => openFinanceStatDialog('annulees')}>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2">
                       <Ban className="h-4 w-4 text-destructive" />
