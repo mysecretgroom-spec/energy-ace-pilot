@@ -469,9 +469,9 @@ const Finance = () => {
       ["installe", "attente_paiement"].includes(v.status)
     );
     
-    // En attente de facturation: posé < 2 semaines
+    // En attente de facturation: posé < 2 semaines (sauf attente_paiement sans date → va dans à facturer)
     const ventesAttenteFacturation = ventesPosees.filter(v => {
-      if (!v.date_installation_reelle) return true; // Si pas de date, on considère récent par défaut
+      if (!v.date_installation_reelle) return v.status !== "attente_paiement"; // attente_paiement sans date → à facturer
       return new Date(v.date_installation_reelle) > twoWeeksAgo;
     });
     const comAttenteFacturation = ventesAttenteFacturation.reduce((sum, v) => {
@@ -479,9 +479,9 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
     
-    // À facturer: posé >= 2 semaines
+    // À facturer: posé >= 2 semaines OR attente_paiement sans date
     const ventesAFacturer = ventesPosees.filter(v => {
-      if (!v.date_installation_reelle) return false; // Si pas de date, pas facturable
+      if (!v.date_installation_reelle) return v.status === "attente_paiement"; // attente_paiement sans date → facturable
       return new Date(v.date_installation_reelle) <= twoWeeksAgo;
     });
     const comAFacturer = ventesAFacturer.reduce((sum, v) => {
