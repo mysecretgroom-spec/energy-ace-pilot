@@ -43,7 +43,13 @@ export const MobileLayout = ({
                 variant="ghost" 
                 size="icon" 
                 className="mr-2 h-10 w-10 min-h-[40px] min-w-[40px] rounded-lg"
-                onClick={() => navigate(-1)}
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate("/");
+                  }
+                }}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
