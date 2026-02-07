@@ -33,6 +33,7 @@ interface Vente {
   status: string;
   regie_id?: string | null;
   decom_montant?: number | null;
+  product_type?: string | null;
   client: {
     id: string;
     nom: string;
@@ -92,7 +93,7 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       
       // Fetch bouquets (unified table) and regie configs
       const [bouquetsRes, regiesRes, configRes] = await Promise.all([
-        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
@@ -143,9 +144,16 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
         if (!vente.puissance_kwc) return;
         
         const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
-        const bouquetsToUse = vente.regie_id && regieBouquetsMap.has(vente.regie_id)
+        let bouquetsToUse = vente.regie_id && regieBouquetsMap.has(vente.regie_id)
           ? regieBouquetsMap.get(vente.regie_id)!
           : globalBouquets;
+        
+        // Filter by product_type
+        if (vente.product_type) {
+          const filtered = bouquetsToUse.filter((b: any) => b.product_type === vente.product_type);
+          if (filtered.length > 0) bouquetsToUse = filtered;
+        }
+        
         const partSurventePct = regieConfig?.part_survente_pct ?? globalSurventePct;
         
         const bouquet = findBouquet(bouquetsToUse, vente.puissance_kwc);
