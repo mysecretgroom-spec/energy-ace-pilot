@@ -236,7 +236,7 @@ export function RdvStatusSelector({
       if ((newStatus === "r2" || newStatus === "r2_prestudy") && options?.r2DateTime && clientId) {
         const { data: originalRdv } = await supabase
           .from("rdv")
-          .select("adresse, type_projet, duree_minutes")
+          .select("adresse, type_projet, duree_minutes, regie_id")
           .eq("id", rdvId)
           .maybeSingle();
 
@@ -254,6 +254,7 @@ export function RdvStatusSelector({
               type_rdv: "standard",
               is_r2: true,
               r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : "r2",
+              regie_id: originalRdv.regie_id,
             });
 
           if (r2Error) {
