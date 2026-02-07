@@ -222,12 +222,12 @@ const VenteDetail = () => {
     loadWhatsAppSettings();
   }, [user]);
 
-  // Auto-set installation date when status changes to "installe" or "attente_paiement"
+  // Auto-set installation date when status changes to "installe"
   const handleStatusChange = (newStatus: VenteStatus) => {
     setStatus(newStatus);
     
-    // If changing to "installe" or "attente_paiement" and no installation date set, set it to today
-    if ((newStatus === "installe" || newStatus === "attente_paiement") && !dateInstallationReelle) {
+    // If changing to "installe" and no installation date set, set it to today
+    if (newStatus === "installe" && !dateInstallationReelle) {
       const today = new Date().toISOString().split("T")[0];
       setDateInstallationReelle(today);
     }
