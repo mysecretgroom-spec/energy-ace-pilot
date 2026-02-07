@@ -355,9 +355,9 @@ const CRM = () => {
   // Sort priority for client categories
   const getCategorySortPriority = (clientId: string): number => {
     const categories = getClientCategory(clientId);
-    if (categories.includes('signe')) return 0;
-    if (categories.includes('r2_reporte')) return 1;
-    if (categories.includes('nouveau')) return 2;
+    if (categories.includes('r2_reporte')) return 0;
+    if (categories.includes('nouveau')) return 1;
+    if (categories.includes('signe')) return 2;
     if (categories.includes('negatif')) return 3;
     if (categories.includes('annule')) return 4;
     return 5;
