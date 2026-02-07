@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void> | void;
@@ -13,6 +14,8 @@ export function usePullToRefresh({
   maxPull = 120,
   disabled = false,
 }: UsePullToRefreshOptions) {
+  const { isEffectivelyOffline } = useConnectionQuality();
+  const isDisabled = disabled || isEffectivelyOffline;
   const [pulling, setPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -21,7 +24,7 @@ export function usePullToRefresh({
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
-      if (disabled || refreshing) return;
+      if (isDisabled || refreshing) return;
       // Only activate if scrolled to top
       const el = containerRef.current;
       if (el && el.scrollTop <= 0) {
@@ -29,12 +32,12 @@ export function usePullToRefresh({
         setPulling(true);
       }
     },
-    [disabled, refreshing]
+    [isDisabled, refreshing]
   );
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (!pulling || disabled || refreshing) return;
+      if (!pulling || isDisabled || refreshing) return;
       const diff = e.touches[0].clientY - startY.current;
       if (diff > 0) {
         // Apply resistance
@@ -45,11 +48,11 @@ export function usePullToRefresh({
         }
       }
     },
-    [pulling, disabled, refreshing, maxPull]
+    [pulling, isDisabled, refreshing, maxPull]
   );
 
   const handleTouchEnd = useCallback(async () => {
-    if (!pulling || disabled) return;
+    if (!pulling || isDisabled) return;
     setPulling(false);
 
     if (pullDistance >= threshold && !refreshing) {

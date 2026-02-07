@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 
 const DB_NAME = "debalepro_offline_v3";
 const DB_VERSION = 3;
@@ -142,30 +143,19 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 export function useOfflineData() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { isEffectivelyOffline, isOnline } = useConnectionQuality();
   const [pendingEtudesCount, setPendingEtudesCount] = useState(0);
   const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Track online/offline status
+  // Auto-sync when coming back online
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Auto-sync when coming back online
+    if (isOnline) {
       syncAll();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+    }
+  }, [isOnline]);
 
   // Load counts on mount
   useEffect(() => {
