@@ -3,23 +3,6 @@ import { RefreshCw } from "lucide-react";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { cn } from "@/lib/utils";
 
-async function checkPWAUpdate() {
-  if ('serviceWorker' in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        await registration.update();
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          window.location.reload();
-        }
-      }
-    } catch (e) {
-      console.log('[PWA] Update check failed:', e);
-    }
-  }
-}
-
 interface PullToRefreshContainerProps {
   onRefresh: () => Promise<void> | void;
   children: ReactNode;
@@ -34,10 +17,7 @@ export function PullToRefreshContainer({
   disabled = false,
 }: PullToRefreshContainerProps) {
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      Promise.resolve(onRefresh()),
-      checkPWAUpdate(),
-    ]);
+    await Promise.resolve(onRefresh());
   }, [onRefresh]);
 
   const { containerRef, pullDistance, refreshing, progress } = usePullToRefresh({
