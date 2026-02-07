@@ -94,6 +94,13 @@ interface Client {
   metadata: ClientMetadata | null;
   is_retape?: boolean;
   retape_original_id?: string | null;
+  regie_id?: string | null;
+}
+
+interface ClientRegie {
+  id: string;
+  nom: string;
+  couleur: string | null;
 }
 
 interface Rdv {
@@ -155,6 +162,7 @@ const ClientDetail = () => {
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [destinationPhone, setDestinationPhone] = useState("");
+  const [clientRegie, setClientRegie] = useState<ClientRegie | null>(null);
 
   // WhatsApp PDF sending
   const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
@@ -203,6 +211,18 @@ const ClientDetail = () => {
       ...clientData,
       metadata: clientData.metadata as ClientMetadata | null,
     });
+
+    // Fetch client's regie info
+    if (clientData.regie_id) {
+      const { data: regieData } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .eq("id", clientData.regie_id)
+        .maybeSingle();
+      setClientRegie(regieData as ClientRegie | null);
+    } else {
+      setClientRegie(null);
+    }
 
     // Fetch RDVs with régie info
     const { data: rdvData } = await supabase
@@ -338,10 +358,19 @@ const ClientDetail = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-display font-bold text-foreground">
                 {client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
               </h1>
+              {clientRegie && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: clientRegie.couleur || '#888' }}
+                >
+                  <Building2 className="h-3 w-3" />
+                  {clientRegie.nom}
+                </span>
+              )}
               {client.is_retape && (
                 <Badge variant="outline" className="text-xs h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
                   RETAPE
@@ -353,6 +382,17 @@ const ClientDetail = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <RegieSelector
+              entityId={id!}
+              targetTable="clients"
+              currentRegieId={client.regie_id}
+              currentRegieNom={clientRegie?.nom}
+              currentRegieCouleur={clientRegie?.couleur}
+              onRegieChange={(regieId, regieNom, regieCouleur) => {
+                setClient(prev => prev ? { ...prev, regie_id: regieId } : prev);
+                setClientRegie(regieId ? { id: regieId, nom: regieNom || "", couleur: regieCouleur } : null);
+              }}
+            />
             {modeHejjaActive && (
               <Button
                 variant="outline"

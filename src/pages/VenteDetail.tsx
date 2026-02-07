@@ -23,12 +23,14 @@ import {
   ExternalLink,
   Trash2
 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
+import { RegieSelector } from "@/components/planning/RegieSelector";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -115,7 +117,8 @@ const VenteDetail = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [previousStatus, setPreviousStatus] = useState<VenteStatus>("en_negociation");
   const [regieId, setRegieId] = useState<string | null>(null);
-  
+  const [regieNom, setRegieNom] = useState<string | null>(null);
+  const [regieCouleur, setRegieCouleur] = useState<string | null>(null);
   // WhatsApp dialog state
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const [pendingWhatsApp, setPendingWhatsApp] = useState<{
@@ -249,6 +252,23 @@ const VenteDetail = () => {
 
     setVente(venteData);
     setRegieId(venteData.regie_id || null);
+
+    // Fetch regie info
+    if (venteData.regie_id) {
+      const { data: regieData } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .eq("id", venteData.regie_id)
+        .maybeSingle();
+      if (regieData) {
+        setRegieNom(regieData.nom);
+        setRegieCouleur(regieData.couleur);
+      }
+    } else {
+      setRegieNom(null);
+      setRegieCouleur(null);
+    }
+
     const newNumeroContrat = venteData.numero_contrat || "";
     const newStatus = venteData.status || "en_negociation";
     const newDateInstallationReelle = venteData.date_installation_reelle || "";
@@ -461,14 +481,37 @@ const VenteDetail = () => {
         {/* Header with status */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">
-              {client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client inconnu"}
-            </h2>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold">
+                {client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client inconnu"}
+              </h2>
+              {regieNom && (
+                <span 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                  style={{ backgroundColor: regieCouleur || '#888' }}
+                >
+                  <Building2 className="h-3 w-3" />
+                  {regieNom}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               Créée le {format(new Date(vente.created_at), "dd MMMM yyyy", { locale: fr })}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <RegieSelector
+              entityId={id!}
+              targetTable="ventes"
+              currentRegieId={regieId}
+              currentRegieNom={regieNom}
+              currentRegieCouleur={regieCouleur}
+              onRegieChange={(newRegieId, newRegieNom, newRegieCouleur) => {
+                setRegieId(newRegieId);
+                setRegieNom(newRegieNom);
+                setRegieCouleur(newRegieCouleur);
+              }}
+            />
             <Badge className={statusColors[status]}>
               {statusLabels[status]}
             </Badge>
