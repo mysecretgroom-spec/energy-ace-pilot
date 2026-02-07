@@ -126,12 +126,20 @@ export function VentesGroupedList({
   });
 
   // Sort groups: known regies first (alphabetically), then "Sans régie"
+  // Sort groups by most recent sale date (newest first), "Sans régie" last
+  const getLatestDate = (ventes: Vente[]) => {
+    return ventes.reduce((latest, v) => {
+      const d = v.date_signature || v.created_at;
+      return d > latest ? d : latest;
+    }, "");
+  };
+
   const sortedRegieKeys = Array.from(regieGroups.keys()).sort((a, b) => {
     if (a === null) return 1;
     if (b === null) return -1;
-    const regieA = regies.find(r => r.id === a);
-    const regieB = regies.find(r => r.id === b);
-    return (regieA?.nom || "").localeCompare(regieB?.nom || "");
+    const latestA = getLatestDate(regieGroups.get(a) || []);
+    const latestB = getLatestDate(regieGroups.get(b) || []);
+    return latestB.localeCompare(latestA);
   });
 
   // Sort ventes within each group by status order
