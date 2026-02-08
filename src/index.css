@@ -6,11 +6,15 @@
 
 /* Global touch & selection optimization */
 * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection on non-interactive content only */
+body {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
 
@@ -34,10 +38,13 @@ input[type="search"], .select-text {
 }
 
 /* Smooth touch scrolling everywhere */
-html, body {
+html {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: none;
-  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+body {
+  overscroll-behavior-y: none;
 }
 
 /* DébalePro Design System - Corporate Professional */
