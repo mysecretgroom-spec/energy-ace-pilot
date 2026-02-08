@@ -155,9 +155,9 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
 
       if (ventesError) throw ventesError;
 
-      // Filtrer: date_installation_reelle >= 2 semaines
+      // Filtrer: date_installation_reelle >= 2 semaines OU attente_paiement sans date
       const billableData = (ventesData || []).filter((v: any) => {
-        if (!v.date_installation_reelle) return false;
+        if (!v.date_installation_reelle) return v.status === "attente_paiement";
         return new Date(v.date_installation_reelle) <= twoWeeksAgo;
       });
 
