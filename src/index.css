@@ -23,6 +23,9 @@ button, a, [role="button"], [role="link"], [role="tab"],
   -webkit-user-select: none;
   touch-action: manipulation;
   cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 /* Allow text selection in form inputs and editable areas */
@@ -34,6 +37,12 @@ input[type="search"], .select-text {
   -moz-user-select: text;
   -ms-user-select: text;
   user-select: text;
+}
+
+/* Reset z-index for elements inside Radix portals to prevent stacking conflicts */
+[data-radix-popper-content-wrapper] *,
+[data-radix-portal] * {
+  z-index: auto;
 }
 
 /* Smooth touch scrolling everywhere */
