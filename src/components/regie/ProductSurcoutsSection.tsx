@@ -26,7 +26,7 @@ interface RegieSurcout {
   code: string;
   nom: string;
   prix: number;
-  type_calcul: 'fixe' | 'par_panneau' | 'par_m2';
+  type_calcul: 'fixe' | 'par_panneau' | 'par_m2' | 'par_ml';
   actif: boolean;
   isGlobal?: boolean;
   product_type?: ProductType | null;
@@ -67,6 +67,7 @@ const productConfig: Record<ProductType, {
     typeCalculOptions: [
       { value: "fixe", label: "Forfait fixe" },
       { value: "par_panneau", label: "Par panneau" },
+      { value: "par_ml", label: "Par mètre linéaire" },
     ],
   },
   PAC: { 
@@ -80,6 +81,7 @@ const productConfig: Record<ProductType, {
     ],
     typeCalculOptions: [
       { value: "fixe", label: "Forfait fixe" },
+      { value: "par_ml", label: "Par mètre linéaire" },
     ],
   },
   ITE: { 
@@ -94,6 +96,7 @@ const productConfig: Record<ProductType, {
     typeCalculOptions: [
       { value: "fixe", label: "Forfait fixe" },
       { value: "par_m2", label: "Par m²" },
+      { value: "par_ml", label: "Par mètre linéaire" },
     ],
   },
 };
@@ -362,6 +365,8 @@ export function ProductSurcoutsSection({
                                   ? `${formatCurrency(surcout.prix)}/pann.`
                                   : surcout.type_calcul === 'par_m2'
                                   ? `${formatCurrency(surcout.prix)}/m²`
+                                  : surcout.type_calcul === 'par_ml'
+                                  ? `${formatCurrency(surcout.prix)}/ml`
                                   : formatCurrency(surcout.prix)}
                               </span>
                               <Switch 

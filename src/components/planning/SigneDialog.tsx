@@ -85,6 +85,7 @@ export function SigneDialog({
   const [allBouquets, setAllBouquets] = useState<Bouquet[]>([]);
   const [surcouts, setSurcouts] = useState<Surcout[]>([]);
   const [selectedSurcoutsIds, setSelectedSurcoutsIds] = useState<string[]>([]);
+  const [mlQuantities, setMlQuantities] = useState<Record<string, number>>({});
   const [selectedBouquetId, setSelectedBouquetId] = useState<string>("");
   const [puissance, setPuissance] = useState("");
   const [prixTTC, setPrixTTC] = useState("");
@@ -228,7 +229,7 @@ export function SigneDialog({
       setCqTime("10:00");
       setCommentaire("");
       setSelectedSurcoutsIds([]);
-      setSurcoutsOpen(false);
+      setMlQuantities({});
       setProductType(defaultProductType);
       setPacSubtype("air_eau");
       setSurfaceM2("");
@@ -391,22 +392,22 @@ export function SigneDialog({
   };
 
   // Calculate total surcouts
-  const totalSurcouts = useMemo(() => {
+  const calcSurcoutPrice = (surcout: Surcout) => {
     const puissanceNum = parseFloat(puissance) || 0;
     const surfaceNum = parseFloat(surfaceM2) || 0;
+    if (surcout.type_calcul === "par_panneau") return surcout.prix * puissanceNum * 2;
+    if (surcout.type_calcul === "par_m2") return surcout.prix * surfaceNum;
+    if (surcout.type_calcul === "par_ml") return surcout.prix * (mlQuantities[surcout.id] || 0);
+    return surcout.prix;
+  };
+
+  const totalSurcouts = useMemo(() => {
     return selectedSurcoutsIds.reduce((total, id) => {
       const surcout = surcouts.find(s => s.id === id);
       if (!surcout) return total;
-      
-      if (surcout.type_calcul === "par_panneau") {
-        return total + (surcout.prix * puissanceNum * 2);
-      }
-      if (surcout.type_calcul === "par_m2") {
-        return total + (surcout.prix * surfaceNum);
-      }
-      return total + surcout.prix;
+      return total + calcSurcoutPrice(surcout);
     }, 0);
-  }, [selectedSurcoutsIds, surcouts, puissance, surfaceM2]);
+  }, [selectedSurcoutsIds, surcouts, puissance, surfaceM2, mlQuantities]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -621,29 +622,48 @@ export function SigneDialog({
                         {categorie.replace(/_/g, " ")}
                       </p>
                       {items.map((surcout) => {
-                        const puissanceNum = parseFloat(puissance) || 0;
-                        const calculatedPrice = surcout.type_calcul === "par_panneau" 
-                          ? surcout.prix * puissanceNum * 2 
-                          : surcout.type_calcul === "par_m2"
-                            ? surcout.prix * (parseFloat(surfaceM2) || 0)
-                            : surcout.prix;
+                        const calculatedPrice = calcSurcoutPrice(surcout);
+                        const isSelected = selectedSurcoutsIds.includes(surcout.id);
                         
                         return (
-                          <div key={surcout.id} className="flex items-center space-x-3">
-                            <Checkbox
-                              id={`surcout-${surcout.id}`}
-                              checked={selectedSurcoutsIds.includes(surcout.id)}
-                              onCheckedChange={() => toggleSurcout(surcout.id)}
-                            />
-                            <label
-                              htmlFor={`surcout-${surcout.id}`}
-                              className="flex-1 text-sm cursor-pointer flex justify-between items-center"
-                            >
-                              <span>{surcout.nom}</span>
-                              <span className="text-muted-foreground font-medium">
-                                +{formatCurrency(calculatedPrice)} €
-                              </span>
-                            </label>
+                          <div key={surcout.id} className="space-y-1">
+                            <div className="flex items-center space-x-3">
+                              <Checkbox
+                                id={`surcout-${surcout.id}`}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSurcout(surcout.id)}
+                              />
+                              <label
+                                htmlFor={`surcout-${surcout.id}`}
+                                className="flex-1 text-sm cursor-pointer flex justify-between items-center"
+                              >
+                                <span>
+                                  {surcout.nom}
+                                  {surcout.type_calcul === "par_ml" && (
+                                    <span className="text-xs text-muted-foreground ml-1">({surcout.prix}€/ml)</span>
+                                  )}
+                                </span>
+                                <span className="text-muted-foreground font-medium">
+                                  +{formatCurrency(calculatedPrice)} €
+                                </span>
+                              </label>
+                            </div>
+                            {surcout.type_calcul === "par_ml" && isSelected && (
+                              <div className="ml-9">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  placeholder="Nb mètres linéaires"
+                                  className="h-7 text-xs w-32"
+                                  value={mlQuantities[surcout.id] || ""}
+                                  onChange={(e) => setMlQuantities(prev => ({
+                                    ...prev,
+                                    [surcout.id]: parseFloat(e.target.value) || 0,
+                                  }))}
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
