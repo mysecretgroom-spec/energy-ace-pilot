@@ -4,32 +4,20 @@ import { toast } from "sonner";
 import type { ImportedDoc } from "../ImportPreviewCarousel";
 
 /**
- * Converts an image data URL to a canvas-based cropped data URL
+ * Normalized 4-corner points (0-1) returned by AI
  */
-function cropImageFromNormalized(
-  imageData: string,
-  crop: { x: number; y: number; width: number; height: number }
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const sx = Math.round(crop.x * img.width);
-      const sy = Math.round(crop.y * img.height);
-      const sw = Math.round(crop.width * img.width);
-      const sh = Math.round(crop.height * img.height);
+export interface AiCropCorners {
+  topLeft: { x: number; y: number };
+  topRight: { x: number; y: number };
+  bottomRight: { x: number; y: number };
+  bottomLeft: { x: number; y: number };
+}
 
-      const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("No canvas context"));
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-      resolve(canvas.toDataURL("image/jpeg", 0.92));
-    };
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = imageData;
-  });
+interface AiCropResult {
+  id: string;
+  needs_crop: boolean;
+  corners?: AiCropCorners;
+  error?: string;
 }
 
 /**
@@ -60,30 +48,67 @@ async function compressForAi(dataUrl: string): Promise<string> {
   });
 }
 
-interface AiCropResult {
-  id: string;
-  needs_crop: boolean;
-  crop?: { x: number; y: number; width: number; height: number };
-  error?: string;
-}
-
 export function useAiCrop() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const analyzeAndCrop = useCallback(
+  /**
+   * Detect crop corners via AI. Returns the doc ID and corners if crop is needed.
+   * Does NOT apply the crop — caller should open CropEditor with these corners.
+   */
+  const detectCropCorners = useCallback(
     async (
-      documents: ImportedDoc[],
-      mode: "current" | "all",
-      currentIndex: number
-    ): Promise<ImportedDoc[]> => {
-      // Filter only images that can be cropped
-      const targetDocs =
-        mode === "current"
-          ? [documents[currentIndex]].filter(Boolean)
-          : documents;
+      doc: ImportedDoc
+    ): Promise<{ docId: string; corners: AiCropCorners } | null> => {
+      if (!doc.preview || doc.preview === "/placeholder.svg" || !doc.preview.startsWith("data:")) {
+        toast.info("Aucune image à analyser");
+        return null;
+      }
 
-      const imageDocs = targetDocs.filter(
+      setIsAnalyzing(true);
+      setProgress(0);
+
+      try {
+        const compressed = await compressForAi(doc.preview);
+        setProgress(30);
+
+        const { data, error } = await supabase.functions.invoke("ai-crop-detect", {
+          body: { images: [{ id: doc.id, base64: compressed }] },
+        });
+
+        if (error) throw new Error(error.message);
+        setProgress(80);
+
+        const results: AiCropResult[] = data?.results || [];
+        const result = results[0];
+
+        if (result?.needs_crop && result.corners) {
+          setProgress(100);
+          toast.success("Document détecté — ajustez le cadrage");
+          return { docId: doc.id, corners: result.corners };
+        } else {
+          toast.info("Aucun recadrage nécessaire détecté");
+          return null;
+        }
+      } catch (err: any) {
+        console.error("AI crop error:", err);
+        toast.error("Erreur lors de l'analyse IA");
+        return null;
+      } finally {
+        setIsAnalyzing(false);
+        setProgress(0);
+      }
+    },
+    []
+  );
+
+  /**
+   * Batch detect: returns array of results for multiple docs.
+   * For batch mode, auto-crop is applied directly (no manual editor).
+   */
+  const analyzeAndCropBatch = useCallback(
+    async (documents: ImportedDoc[]): Promise<ImportedDoc[]> => {
+      const imageDocs = documents.filter(
         (d) => d.preview && d.preview !== "/placeholder.svg" && d.preview.startsWith("data:")
       );
 
@@ -96,7 +121,6 @@ export function useAiCrop() {
       setProgress(0);
 
       try {
-        // Compress images for AI
         const images = await Promise.all(
           imageDocs.map(async (doc) => ({
             id: doc.id,
@@ -106,26 +130,23 @@ export function useAiCrop() {
 
         setProgress(30);
 
-        // Call edge function
         const { data, error } = await supabase.functions.invoke("ai-crop-detect", {
           body: { images },
         });
 
         if (error) throw new Error(error.message);
-
         setProgress(70);
 
         const results: AiCropResult[] = data?.results || [];
         let croppedCount = 0;
 
-        // Apply crops
         const updatedDocs = await Promise.all(
           documents.map(async (doc) => {
             const result = results.find((r) => r.id === doc.id);
-            if (!result || !result.needs_crop || !result.crop) return doc;
+            if (!result || !result.needs_crop || !result.corners) return doc;
 
             try {
-              const cropped = await cropImageFromNormalized(doc.preview, result.crop);
+              const cropped = await cropFromCorners(doc.preview, result.corners);
               croppedCount++;
               return {
                 ...doc,
@@ -162,5 +183,39 @@ export function useAiCrop() {
     []
   );
 
-  return { analyzeAndCrop, isAnalyzing, progress };
+  return { detectCropCorners, analyzeAndCropBatch, isAnalyzing, progress };
+}
+
+/**
+ * Crop image using 4 normalized corner points (bounding box approach).
+ */
+function cropFromCorners(
+  imageData: string,
+  corners: AiCropCorners
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const minX = Math.min(corners.topLeft.x, corners.bottomLeft.x);
+      const maxX = Math.max(corners.topRight.x, corners.bottomRight.x);
+      const minY = Math.min(corners.topLeft.y, corners.topRight.y);
+      const maxY = Math.max(corners.bottomLeft.y, corners.bottomRight.y);
+
+      const sx = Math.round(minX * img.width);
+      const sy = Math.round(minY * img.height);
+      const sw = Math.round((maxX - minX) * img.width);
+      const sh = Math.round((maxY - minY) * img.height);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("No canvas context"));
+
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = imageData;
+  });
 }

@@ -6,10 +6,19 @@ import { Check, X, RotateCw, Move, Wand2, Loader2, SunMedium, Contrast } from "l
 import { detectDocumentEdges, preloadOpenCV, isOpenCVAvailable } from "./services/edgeDetection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
 
+interface NormalizedCorners {
+  topLeft: { x: number; y: number };
+  topRight: { x: number; y: number };
+  bottomRight: { x: number; y: number };
+  bottomLeft: { x: number; y: number };
+}
+
 interface CropEditorProps {
   imageData: string;
   onComplete: (croppedImage: string, thumbnail: string) => void;
   onCancel: () => void;
+  /** AI-detected corners in normalized (0-1) coordinates */
+  initialCorners?: NormalizedCorners;
 }
 
 interface Point {
@@ -26,7 +35,7 @@ interface CropPoints {
 
 const HANDLE_SIZE = 24;
 
-export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps) {
+export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -134,13 +143,19 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
 
     setDisplaySize({ width: displayWidth, height: displayHeight, offsetX, offsetY });
 
-    // Check for auto-detected edges
+    // Use AI-detected corners or OpenCV-detected edges or default margin
     const detectedEdges = (window as any).__detectedEdges;
-    if (detectedEdges) {
-      // Convert image coordinates to display coordinates
+    if (initialCorners) {
+      // AI corners are normalized (0-1), convert to display coordinates
+      setCropPoints({
+        topLeft: { x: offsetX + initialCorners.topLeft.x * displayWidth, y: offsetY + initialCorners.topLeft.y * displayHeight },
+        topRight: { x: offsetX + initialCorners.topRight.x * displayWidth, y: offsetY + initialCorners.topRight.y * displayHeight },
+        bottomRight: { x: offsetX + initialCorners.bottomRight.x * displayWidth, y: offsetY + initialCorners.bottomRight.y * displayHeight },
+        bottomLeft: { x: offsetX + initialCorners.bottomLeft.x * displayWidth, y: offsetY + initialCorners.bottomLeft.y * displayHeight },
+      });
+    } else if (detectedEdges) {
       const scaleX = displayWidth / imageSize.width;
       const scaleY = displayHeight / imageSize.height;
-      
       setCropPoints({
         topLeft: { x: offsetX + detectedEdges.topLeft.x * scaleX, y: offsetY + detectedEdges.topLeft.y * scaleY },
         topRight: { x: offsetX + detectedEdges.topRight.x * scaleX, y: offsetY + detectedEdges.topRight.y * scaleY },
@@ -149,7 +164,6 @@ export function CropEditor({ imageData, onComplete, onCancel }: CropEditorProps)
       });
       delete (window as any).__detectedEdges;
     } else {
-      // Set initial crop points (10% margin)
       const margin = 0.1;
       setCropPoints({
         topLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * margin },

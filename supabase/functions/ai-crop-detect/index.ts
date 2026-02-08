@@ -13,7 +13,6 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const { images } = await req.json();
-    // images: Array<{ id: string, base64: string }>
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
@@ -22,7 +21,6 @@ serve(async (req) => {
       });
     }
 
-    // Process images in parallel (max 5 concurrent)
     const results = [];
     const batchSize = 5;
 
@@ -45,17 +43,18 @@ serve(async (req) => {
                     content: [
                       {
                         type: "text",
-                        text: `Analyze this image. Is there a document (paper, card, receipt, invoice, ID, etc.) visible in the photo that needs to be cropped out from the background?
+                        text: `Analyze this image. Is there a document (paper, card, receipt, invoice, ID, etc.) photographed on a background surface that needs to be cropped?
 
-If YES, return the crop coordinates as a JSON object with these normalized values (0 to 1, relative to image width/height):
-{"needs_crop": true, "crop": {"x": <left>, "y": <top>, "width": <width>, "height": <height>}}
+If YES (photo of a document on a desk/table/surface with visible background), return the 4 corner coordinates of the document as normalized values (0 to 1, relative to image width and height). The corners should follow the actual edges of the document precisely, even if it's tilted or in perspective:
+{"needs_crop": true, "corners": {"topLeft": {"x": 0.1, "y": 0.05}, "topRight": {"x": 0.85, "y": 0.08}, "bottomRight": {"x": 0.9, "y": 0.95}, "bottomLeft": {"x": 0.08, "y": 0.92}}}
 
-The crop rectangle should tightly fit the document edges with a small margin (2-3%).
-
-If NO (the image is already a clean document scan, or no document is visible), return:
+If NO (the image is already a clean scan, a PDF rendering, or the document fills the entire frame with no background visible), return:
 {"needs_crop": false}
 
-IMPORTANT: Return ONLY the JSON object, no other text.`,
+IMPORTANT: 
+- Return ONLY the JSON object, no other text.
+- The 4 corners must precisely follow the document edges for perspective-aware cropping.
+- Add a tiny margin (~1-2%) around the detected edges.`,
                       },
                       {
                         type: "image_url",
@@ -76,7 +75,6 @@ IMPORTANT: Return ONLY the JSON object, no other text.`,
             const data = await response.json();
             const content = data.choices?.[0]?.message?.content || "";
             
-            // Extract JSON from response
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
               return { id: img.id, needs_crop: false };
