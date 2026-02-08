@@ -94,12 +94,12 @@ export function MultiImportFlow({
   const [isSaving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Preload OpenCV for auto-crop
+  // Only preload OpenCV when the dialog is actually open and visible
   React.useEffect(() => {
-    if (context === "client_docs") {
+    if (isOpen && context === "client_docs") {
       preloadOpenCV();
     }
-  }, [context]);
+  }, [isOpen, context]);
 
   const title = context === "finance" 
     ? "Importer des factures" 
