@@ -438,7 +438,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       return `${clientName}\t${v.puissance_kwc || "-"} kWc\t${formatCurrency(v.commission)} €${decomNote}`;
     });
 
-    let fullText = `Lignes pour facture Qonto:\n\n${lines.join("\n")}\n\nTOTAL HT: ${formatCurrency(selectedTotal)} €`;
+    let fullText = `Lignes pour ma facture:\n\n${lines.join("\n")}\n\nTOTAL HT: ${formatCurrency(selectedTotal)} €`;
     if (selectedDecom > 0) {
       fullText += `\n(Dont décommissions: -${formatCurrency(selectedDecom)} €)`;
     }
@@ -587,7 +587,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     }
   };
 
-  // Copy facture ventes for Qonto (one by one format)
+  // Copy facture ventes for invoice
   const handleCopyFactureForQonto = async (facture: Facture) => {
     const factureVentesData = await fetchFactureVentes(facture);
     
@@ -609,7 +609,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     
     navigator.clipboard.writeText(fullText);
     setCopiedFactureId(facture.id);
-    toast.success("Lignes copiées pour Qonto");
+    toast.success("Lignes copiées pour votre facture");
     setTimeout(() => setCopiedFactureId(null), 2000);
   };
 
@@ -864,7 +864,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                           ) : (
                             <Copy className="h-4 w-4 mr-2" />
                           )}
-                          {copiedFactureId === facture.id ? "Copié !" : "Copier pour Qonto"}
+                          {copiedFactureId === facture.id ? "Copié !" : "Copier pour faire ma facture"}
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => setDeletingFacture(facture)}

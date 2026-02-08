@@ -181,13 +181,13 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
   const totalDecom = lines.reduce((sum, l) => sum + l.decomMontant, 0);
 
   const copyToClipboard = () => {
-    // Format for Qonto: Client | Puissance | Commission HT (net après décom)
+    // Format: Client | Puissance | Commission HT (net après décom)
     const text = lines.map(l => {
       const decomNote = l.decomMontant > 0 ? ` (décom: -${formatCurrency(l.decomMontant)})` : "";
       return `${l.clientName}\t${l.puissanceKwc} kWc\t${formatCurrency(l.commissionNette)}${decomNote}`;
     }).join("\n");
     
-    let fullText = `Lignes pour facture Qonto:\n\n${text}\n\nTOTAL HT: ${formatCurrency(totalCommission)}`;
+    let fullText = `Lignes pour ma facture:\n\n${text}\n\nTOTAL HT: ${formatCurrency(totalCommission)}`;
     if (totalDecom > 0) {
       fullText += `\n(Dont décommissions: -${formatCurrency(totalDecom)})`;
     }
@@ -204,7 +204,7 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Lignes facture Qonto
+            Lignes pour ma facture
           </DialogTitle>
         </DialogHeader>
 
@@ -215,7 +215,7 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              Copiez ces lignes pour créer votre facture sur Qonto
+              Copiez ces lignes pour créer votre facture
             </p>
 
             {/* Table */}
