@@ -393,6 +393,7 @@ export function SigneDialog({
   // Calculate total surcouts
   const totalSurcouts = useMemo(() => {
     const puissanceNum = parseFloat(puissance) || 0;
+    const surfaceNum = parseFloat(surfaceM2) || 0;
     return selectedSurcoutsIds.reduce((total, id) => {
       const surcout = surcouts.find(s => s.id === id);
       if (!surcout) return total;
@@ -400,9 +401,12 @@ export function SigneDialog({
       if (surcout.type_calcul === "par_panneau") {
         return total + (surcout.prix * puissanceNum * 2);
       }
+      if (surcout.type_calcul === "par_m2") {
+        return total + (surcout.prix * surfaceNum);
+      }
       return total + surcout.prix;
     }, 0);
-  }, [selectedSurcoutsIds, surcouts, puissance]);
+  }, [selectedSurcoutsIds, surcouts, puissance, surfaceM2]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -470,7 +474,7 @@ export function SigneDialog({
               <SelectTrigger>
                 <SelectValue placeholder={loadingBouquets ? "Chargement..." : `Sélectionner un bouquet ${PRODUCT_SHORT_LABELS[productType]}`} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[250]">
                 {bouquets.map((bouquet) => (
                   <SelectItem key={bouquet.id} value={bouquet.id}>
                     {bouquet.nom_bouquet} - {bouquet.puissance_kwc} {productType === "ITE" ? "m²" : "kWc"}
@@ -603,32 +607,48 @@ export function SigneDialog({
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-3 space-y-3">
-                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-                  {surcouts.map((surcout) => {
-                    const puissanceNum = parseFloat(puissance) || 0;
-                    const calculatedPrice = surcout.type_calcul === "par_panneau" 
-                      ? surcout.prix * puissanceNum * 2 
-                      : surcout.prix;
-                    
-                    return (
-                      <div key={surcout.id} className="flex items-center space-x-3">
-                        <Checkbox
-                          id={`surcout-${surcout.id}`}
-                          checked={selectedSurcoutsIds.includes(surcout.id)}
-                          onCheckedChange={() => toggleSurcout(surcout.id)}
-                        />
-                        <label
-                          htmlFor={`surcout-${surcout.id}`}
-                          className="flex-1 text-sm cursor-pointer flex justify-between items-center"
-                        >
-                          <span>{surcout.nom}</span>
-                          <span className="text-muted-foreground font-medium">
-                            +{formatCurrency(calculatedPrice)} €
-                          </span>
-                        </label>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+                  {Object.entries(
+                    surcouts.reduce((groups, surcout) => {
+                      const cat = surcout.categorie || "general";
+                      if (!groups[cat]) groups[cat] = [];
+                      groups[cat].push(surcout);
+                      return groups;
+                    }, {} as Record<string, Surcout[]>)
+                  ).map(([categorie, items]) => (
+                    <div key={categorie} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        {categorie.replace(/_/g, " ")}
+                      </p>
+                      {items.map((surcout) => {
+                        const puissanceNum = parseFloat(puissance) || 0;
+                        const calculatedPrice = surcout.type_calcul === "par_panneau" 
+                          ? surcout.prix * puissanceNum * 2 
+                          : surcout.type_calcul === "par_m2"
+                            ? surcout.prix * (parseFloat(surfaceM2) || 0)
+                            : surcout.prix;
+                        
+                        return (
+                          <div key={surcout.id} className="flex items-center space-x-3">
+                            <Checkbox
+                              id={`surcout-${surcout.id}`}
+                              checked={selectedSurcoutsIds.includes(surcout.id)}
+                              onCheckedChange={() => toggleSurcout(surcout.id)}
+                            />
+                            <label
+                              htmlFor={`surcout-${surcout.id}`}
+                              className="flex-1 text-sm cursor-pointer flex justify-between items-center"
+                            >
+                              <span>{surcout.nom}</span>
+                              <span className="text-muted-foreground font-medium">
+                                +{formatCurrency(calculatedPrice)} €
+                              </span>
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
                 {selectedSurcoutsIds.length > 0 && (
                   <div className="flex justify-between text-sm font-medium p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
