@@ -66,7 +66,7 @@ export const MobileLayout = ({
       )}
 
       {/* Main Content - ensure proper spacing for bottom nav */}
-      <main className={`flex-1 ${showNav ? "pb-28 sm:pb-24" : ""}`}>{children}</main>
+      <main className={`flex-1 ${showNav ? "pb-28 sm:pb-24" : ""} max-w-5xl md:mx-auto`}>{children}</main>
 
       {/* Offline Indicator */}
       <OfflineIndicator />

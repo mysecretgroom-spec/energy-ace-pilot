@@ -22,7 +22,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
         <div className="absolute -top-10 right-2">
           <BackgroundJobsIndicator />
         </div>
-        <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
+        <div className="flex items-center justify-around h-16 max-w-lg md:max-w-2xl mx-auto px-2">
           {navItems.map(({ icon: Icon, label, path }) => {
             const isActive = location.pathname === path;
             return (

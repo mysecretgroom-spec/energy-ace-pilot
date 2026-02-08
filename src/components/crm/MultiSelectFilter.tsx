@@ -75,7 +75,7 @@ export function MultiSelectFilter({
           <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2" align="start">
+      <PopoverContent className="w-60 p-2 z-[60]" align="start" sideOffset={4}>
         <div className="space-y-1">
           {/* Select all / Clear */}
           <Button

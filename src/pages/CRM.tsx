@@ -579,7 +579,7 @@ const CRM = () => {
     <MobileLayout title="CRM">
       <BlurOverlay storageKey="crm">
       <PullToRefreshContainer onRefresh={async () => { await Promise.all([fetchClients(), fetchVentes()]); }}>
-      <div className="p-4 space-y-4 pb-24 max-w-5xl mx-auto">
+      <div className="p-4 space-y-4 pb-24 max-w-4xl mx-auto">
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full grid grid-cols-3">
@@ -756,7 +756,7 @@ const CRM = () => {
           {/* Ventes Tab */}
           <TabsContent value="ventes" className="space-y-4 mt-4">
             {/* Stats header */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
                 <CardContent className="p-4">
                   <p className="text-xs text-muted-foreground">CA Total</p>
@@ -1027,7 +1027,7 @@ const CRM = () => {
             {/* Filters section */}
             <div className="space-y-3">
               {/* Status and Regie multi-select filters */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <MultiSelectFilter
                   label="Statut"
                   icon={<Tag className="h-4 w-4" />}
@@ -1045,7 +1045,7 @@ const CRM = () => {
                   ]}
                   selected={statusFilters}
                   onChange={(s) => setStatusFilters(s as VenteStatus[])}
-                  className="flex-1"
+                  className="min-w-[140px] flex-1"
                 />
                 
                 {regies.length > 0 && (
@@ -1060,15 +1060,15 @@ const CRM = () => {
                     }))}
                     selected={regieFilters}
                     onChange={setRegieFilters}
-                    className="flex-1"
+                    className="min-w-[140px] flex-1"
                   />
                 )}
               </div>
 
               {/* Type filter */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Select value={typeFilter} onValueChange={(v: "all" | VenteType) => setTypeFilter(v)}>
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="w-full sm:w-auto sm:min-w-[200px]">
                     <SelectValue placeholder="Type de vente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1080,7 +1080,7 @@ const CRM = () => {
               </div>
 
               {/* Date range filter */}
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-wrap gap-2 items-center">
                 <div className="flex-1">
                   <Input
                     type="date"
