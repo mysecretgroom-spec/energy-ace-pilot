@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -27,8 +26,6 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  Trash2,
-  Eye,
   Save,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +35,8 @@ import { generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
 import { detectDocumentEdges, applyPerspectiveCorrection, preloadOpenCV } from "./services/edgeDetection";
 import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
+import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel";
+import { CropEditor } from "./CropEditor";
 
 export type MultiImportContext = "finance" | "client_docs";
 
@@ -46,7 +45,6 @@ interface ImportedFile {
   file: File;
   preview: string;
   status: "pending" | "analyzing" | "success" | "error" | "manual";
-  // Finance fields
   montant_ttc?: number | null;
   montant_ht?: number | null;
   tva?: number | null;
@@ -55,7 +53,6 @@ interface ImportedFile {
   fournisseur?: string | null;
   description?: string | null;
   categorie?: string | null;
-  // Client doc fields
   document_type?: DocumentType | null;
   confidence?: number;
   error_message?: string;
@@ -89,12 +86,27 @@ export function MultiImportFlow({
 }: MultiImportFlowProps) {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  // Finance mode state (unchanged)
   const [files, setFiles] = useState<ImportedFile[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Only preload OpenCV when the dialog is actually open and visible
+  // Client docs carousel mode state
+  const [carouselDocs, setCarouselDocs] = useState<ImportedDoc[]>([]);
+  const [showCarousel, setShowCarousel] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+
+  // Crop mode
+  const [cropDocId, setCropDocId] = useState<string | null>(null);
+  const [cropImageData, setCropImageData] = useState<string | null>(null);
+
+  // Replace mode
+  const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
+
   React.useEffect(() => {
     if (isOpen && context === "client_docs") {
       preloadOpenCV();
@@ -105,7 +117,223 @@ export function MultiImportFlow({
     ? "Importer des factures" 
     : "Importer des documents";
 
-  const handleFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ===== CLIENT DOCS: Carousel flow =====
+
+  const processFilesForCarousel = async (selectedFiles: File[]) => {
+    setIsProcessing(true);
+    setProcessingProgress(0);
+
+    const docs: ImportedDoc[] = [];
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      let preview = "";
+
+      if (file.type.startsWith("image/")) {
+        preview = URL.createObjectURL(file);
+
+        // Try auto-crop
+        try {
+          const edges = await detectDocumentEdges(preview);
+          if (edges && edges.confidence > 0.3) {
+            const corrected = await applyPerspectiveCorrection(preview, edges);
+            // Revoke old URL
+            URL.revokeObjectURL(preview);
+            preview = corrected;
+          }
+        } catch (err) {
+          console.warn("Auto-crop failed for", file.name, err);
+        }
+      } else if (file.type === "application/pdf") {
+        preview = "/placeholder.svg";
+      }
+
+      docs.push({
+        id: crypto.randomUUID(),
+        file,
+        preview,
+        rotation: 0,
+        description: file.name.replace(/\.[^/.]+$/, ""),
+      });
+
+      setProcessingProgress(((i + 1) / selectedFiles.length) * 100);
+    }
+
+    setCarouselDocs((prev) => [...prev, ...docs]);
+    setShowCarousel(true);
+    setIsProcessing(false);
+    setProcessingProgress(0);
+  };
+
+  const handleClientDocsSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    await processFilesForCarousel(selectedFiles);
+  };
+
+  const handleCarouselDelete = useCallback((id: string) => {
+    setCarouselDocs((prev) => prev.filter((d) => d.id !== id));
+  }, []);
+
+  const handleCarouselReplace = useCallback((id: string) => {
+    setReplaceDocId(id);
+    setTimeout(() => replaceInputRef.current?.click(), 100);
+  }, []);
+
+  const handleReplaceFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !replaceDocId) return;
+    if (replaceInputRef.current) replaceInputRef.current.value = "";
+
+    let preview = "";
+    if (file.type.startsWith("image/")) {
+      preview = URL.createObjectURL(file);
+      try {
+        const edges = await detectDocumentEdges(preview);
+        if (edges && edges.confidence > 0.3) {
+          const corrected = await applyPerspectiveCorrection(preview, edges);
+          URL.revokeObjectURL(preview);
+          preview = corrected;
+        }
+      } catch {}
+    } else {
+      preview = "/placeholder.svg";
+    }
+
+    setCarouselDocs((prev) =>
+      prev.map((d) =>
+        d.id === replaceDocId
+          ? { ...d, file, preview, rotation: 0, description: file.name.replace(/\.[^/.]+$/, "") }
+          : d
+      )
+    );
+    setReplaceDocId(null);
+  }, [replaceDocId]);
+
+  const handleCarouselCrop = useCallback((id: string) => {
+    const doc = carouselDocs.find((d) => d.id === id);
+    if (!doc || !doc.preview || doc.preview === "/placeholder.svg") {
+      toast.error("Le recadrage n'est disponible que pour les images");
+      return;
+    }
+    setCropDocId(id);
+    setCropImageData(doc.preview);
+  }, [carouselDocs]);
+
+  const handleCropComplete = useCallback((croppedImage: string, _thumbnail: string) => {
+    if (!cropDocId) return;
+    setCarouselDocs((prev) =>
+      prev.map((d) =>
+        d.id === cropDocId ? { ...d, preview: croppedImage, rotation: 0 } : d
+      )
+    );
+    setCropDocId(null);
+    setCropImageData(null);
+  }, [cropDocId]);
+
+  const handleCarouselSave = useCallback(async () => {
+    if (!user || !clientId) return;
+
+    const validDocs = carouselDocs.filter((d) => !!d.documentType);
+    if (validDocs.length === 0) {
+      toast.error("Sélectionnez le type pour chaque document");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Fetch existing docs for duplicate check
+      const { data: existingDocs } = await supabase
+        .from("documents")
+        .select("nom, type_document")
+        .eq("user_id", user.id)
+        .eq("client_id", clientId);
+
+      let savedCount = 0;
+      let duplicateCount = 0;
+      const existing = existingDocs || [];
+
+      for (const doc of validDocs) {
+        const docName = doc.description || doc.file.name;
+        const docType = doc.documentType || "autre";
+
+        const isDuplicate = existing.some(
+          (e) => e.nom === docName && e.type_document === docType
+        );
+        if (isDuplicate) {
+          duplicateCount++;
+          continue;
+        }
+
+        // If the preview is a data URL (cropped image), convert to blob for PDF
+        let fileForPdf: File | Blob = doc.file;
+        if (doc.preview && doc.preview.startsWith("data:image")) {
+          // Use the cropped/rotated preview image instead of original file
+          const resp = await fetch(doc.preview);
+          fileForPdf = await resp.blob();
+        }
+
+        const pdfResult = await generatePdfFromFile(
+          fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
+        );
+
+        const signedUrl = await uploadDocumentToStorage(
+          pdfResult.blob,
+          user.id,
+          "client_docs"
+        );
+
+        const { error } = await supabase.from("documents").insert({
+          user_id: user.id,
+          client_id: clientId,
+          nom: docName,
+          url: signedUrl,
+          type_document: docType,
+          mime_type: "application/pdf",
+          taille_bytes: pdfResult.blob.size,
+          thumbnails_urls: pdfResult.thumbnails,
+          context_source: "multi_import",
+        });
+
+        if (error) throw error;
+        existing.push({ nom: docName, type_document: docType });
+        savedCount++;
+      }
+
+      if (duplicateCount > 0 && savedCount > 0) {
+        toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
+      } else if (duplicateCount > 0 && savedCount === 0) {
+        toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
+      } else {
+        toast.success(`${savedCount} documents enregistrés`);
+      }
+
+      setCarouselDocs([]);
+      setShowCarousel(false);
+      onSuccess?.();
+      onClose();
+    } catch (error: any) {
+      console.error("Save error:", error);
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
+    }
+  }, [carouselDocs, user, clientId, onSuccess, onClose]);
+
+  const handleCarouselClose = useCallback(() => {
+    setCarouselDocs([]);
+    setShowCarousel(false);
+    onClose();
+  }, [onClose]);
+
+  const handleCarouselAddMore = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // ===== FINANCE MODE (unchanged logic) =====
+
+  const handleFinanceFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length === 0) return;
 
@@ -115,403 +343,138 @@ export function MultiImportFlow({
         if (file.type.startsWith("image/")) {
           preview = URL.createObjectURL(file);
         } else if (file.type === "application/pdf") {
-          preview = "/placeholder.svg"; // PDF placeholder
+          preview = "/placeholder.svg";
         }
-
-        return {
-          id: crypto.randomUUID(),
-          file,
-          preview,
-          status: "pending" as const,
-        };
+        return { id: crypto.randomUUID(), file, preview, status: "pending" as const };
       })
     );
 
     setFiles((prev) => [...prev, ...newFiles]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const analyzeFile = async (importedFile: ImportedFile): Promise<ImportedFile> => {
-    // For client docs, skip AI analysis - user will select document type manually
-    // Apply automatic cropping via OpenCV for images
-    if (context === "client_docs") {
-      // Try to auto-crop the image if it's an image file
-      if (importedFile.file.type.startsWith("image/") && importedFile.preview) {
-        try {
-          const edges = await detectDocumentEdges(importedFile.preview);
-          if (edges && edges.confidence > 0.3) {
-            // Apply perspective correction
-            const correctedImage = await applyPerspectiveCorrection(importedFile.preview, edges);
-            // Update the preview with cropped image
-            return {
-              ...importedFile,
-              preview: correctedImage,
-              status: "manual",
-              description: importedFile.file.name.replace(/\.[^/.]+$/, ""),
-            };
-          }
-        } catch (error) {
-          console.warn("Auto-crop failed, using original image:", error);
-        }
-      }
-      
-      return {
-        ...importedFile,
-        status: "manual",
-        description: importedFile.file.name.replace(/\.[^/.]+$/, ""),
-      };
-    }
-
     try {
       let base64: string;
       
-      // For PDFs, try to extract first page as image for better AI analysis
       if (importedFile.file.type === "application/pdf") {
         try {
           const pdfjsLib = await import("pdfjs-dist");
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-          
           const arrayBuffer = await importedFile.file.arrayBuffer();
-          const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("PDF load timeout")), 15000)
-          );
-          
-          const pdf = await Promise.race([loadPromise, timeoutPromise]);
+          const pdf = await Promise.race([
+            pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
+          ]);
           const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2 }); // Higher scale for better OCR
-          
+          const viewport = page.getViewport({ scale: 2 });
           const canvas = document.createElement("canvas");
-          canvas.width = Math.min(viewport.width, 2000); // Limit size
+          canvas.width = Math.min(viewport.width, 2000);
           canvas.height = Math.min(viewport.height, 2800);
-          
           const ctx = canvas.getContext("2d");
           if (ctx) {
             const scale = Math.min(canvas.width / viewport.width, canvas.height / viewport.height);
-            const scaledViewport = page.getViewport({ scale: scale * 2 });
-            canvas.width = scaledViewport.width;
-            canvas.height = scaledViewport.height;
-            
-            await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+            const sv = page.getViewport({ scale: scale * 2 });
+            canvas.width = sv.width;
+            canvas.height = sv.height;
+            await page.render({ canvasContext: ctx, viewport: sv }).promise;
             base64 = canvas.toDataURL("image/jpeg", 0.85);
-          } else {
-            throw new Error("Canvas context not available");
-          }
-        } catch (pdfError) {
-          console.warn("PDF extraction failed, sending raw file:", pdfError);
-          // Fallback: send raw PDF base64
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(importedFile.file);
+          } else throw new Error("no ctx");
+        } catch {
+          base64 = await new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.onerror = rej;
+            r.readAsDataURL(importedFile.file);
           });
         }
       } else {
-        // For images, compress if too large
-        const maxSize = 4 * 1024 * 1024; // 4MB limit
+        const maxSize = 4 * 1024 * 1024;
         if (importedFile.file.size > maxSize) {
           const imageCompression = (await import("browser-image-compression")).default;
-          const compressedFile = await imageCompression(importedFile.file, {
-            maxSizeMB: 2,
-            maxWidthOrHeight: 2000,
-            useWebWorker: true,
-          });
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(compressedFile);
-          });
+          const compressed = await imageCompression(importedFile.file, { maxSizeMB: 2, maxWidthOrHeight: 2000, useWebWorker: true });
+          base64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(compressed); });
         } else {
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(importedFile.file);
-          });
+          base64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(importedFile.file); });
         }
       }
-      
-      console.log("Sending to analyze-document:", importedFile.file.name, "size:", Math.round(base64.length / 1024), "KB");
 
-      const { data, error } = await supabase.functions.invoke("analyze-document", {
-        body: { image_base64: base64, context },
-      });
-
-      if (error) {
-        console.error("Edge function error:", error);
-        throw new Error(error.message || "Erreur de connexion au serveur");
-      }
+      const { data, error } = await supabase.functions.invoke("analyze-document", { body: { image_base64: base64, context } });
+      if (error) throw new Error(error.message || "Erreur serveur");
 
       if (data.success) {
-        if (context === "finance") {
-          return {
-            ...importedFile,
-            status: "success",
-            montant_ttc: data.montant_ttc,
-            montant_ht: data.montant_ht,
-            tva: data.tva,
-            taux_tva: data.taux_tva,
-            date: data.date,
-            fournisseur: data.fournisseur,
-            description: data.description,
-            categorie: data.categorie,
-          };
-        } else {
-          return {
-            ...importedFile,
-            status: "success",
-            document_type: data.document_type as DocumentType,
-            confidence: data.confidence,
-            description: data.description,
-          };
-        }
-      } else {
         return {
           ...importedFile,
-          status: "manual",
-          error_message: data.error_message || "L'IA n'a pas pu analyser ce document",
+          status: "success",
+          montant_ttc: data.montant_ttc,
+          montant_ht: data.montant_ht,
+          tva: data.tva,
+          taux_tva: data.taux_tva,
+          date: data.date,
+          fournisseur: data.fournisseur,
+          description: data.description,
+          categorie: data.categorie,
         };
       }
+      return { ...importedFile, status: "manual", error_message: data.error_message || "Saisie manuelle requise" };
     } catch (error: any) {
-      console.error("Analysis error for", importedFile.file.name, ":", error);
-      const errorMsg = error.message?.includes("timeout") 
-        ? "Délai d'attente dépassé, réessayez" 
-        : error.message?.includes("network") || error.message?.includes("Failed to fetch")
-          ? "Erreur réseau, vérifiez votre connexion"
-          : error.message || "Erreur lors de l'analyse";
-      return {
-        ...importedFile,
-        status: "manual",
-        error_message: errorMsg,
-      };
+      return { ...importedFile, status: "manual", error_message: error.message || "Erreur" };
     }
   };
 
   const handleAnalyzeAll = async () => {
-    if (files.length === 0) return;
-
-    // Get pending files BEFORE updating state (state update is async)
-    const pendingFiles = files.filter((f) => f.status === "pending");
-    
-    if (pendingFiles.length === 0) {
-      toast.info("Aucun fichier en attente d'analyse");
-      return;
-    }
-
+    const pending = files.filter((f) => f.status === "pending");
+    if (pending.length === 0) return;
     setIsAnalyzing(true);
-
-    // Mark all as analyzing
-    setFiles((prev) =>
-      prev.map((f) => (f.status === "pending" ? { ...f, status: "analyzing" as const } : f))
-    );
-
-    console.log("Starting analysis for", pendingFiles.length, "files");
-
-    // Analyze in parallel
-    const results = await Promise.all(pendingFiles.map(analyzeFile));
-
-    console.log("Analysis complete, results:", results.map(r => ({ name: r.file.name, status: r.status })));
-
-    setFiles((prev) =>
-      prev.map((f) => {
-        const result = results.find((r) => r.id === f.id);
-        return result || f;
-      })
-    );
-
+    setFiles((prev) => prev.map((f) => f.status === "pending" ? { ...f, status: "analyzing" as const } : f));
+    const results = await Promise.all(pending.map(analyzeFile));
+    setFiles((prev) => prev.map((f) => { const r = results.find((x) => x.id === f.id); return r || f; }));
     setIsAnalyzing(false);
-
-    const successCount = results.filter((r) => r.status === "success").length;
-    const manualCount = results.filter((r) => r.status === "manual").length;
-
-    if (context === "client_docs") {
-      // For client docs, all files go to manual mode for type selection
-      toast.info(`${results.length} document(s) prêt(s) - sélectionnez le type pour chacun`);
-    } else if (manualCount > 0) {
-      toast.info(`${successCount} analysés avec succès, ${manualCount} nécessitent une saisie manuelle`);
-    } else {
-      toast.success(`${successCount} documents analysés avec succès`);
-    }
+    const sc = results.filter((r) => r.status === "success").length;
+    const mc = results.filter((r) => r.status === "manual").length;
+    if (mc > 0) toast.info(`${sc} analysés, ${mc} à compléter`);
+    else toast.success(`${sc} analysés`);
   };
 
-  const handleRemoveFile = (id: string) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
-  };
-
-  const updateFileField = (id: string, field: string, value: any) => {
-    setFiles((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, [field]: value } : f))
-    );
-  };
+  const handleRemoveFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+  const updateFileField = (id: string, field: string, value: any) => setFiles((prev) => prev.map((f) => f.id === id ? { ...f, [field]: value } : f));
 
   const handleSaveAll = async () => {
     if (!user) return;
-
-    const validFiles = files.filter(
-      (f) => f.status === "success" || f.status === "manual"
-    );
-
-    if (validFiles.length === 0) {
-      toast.error("Aucun document à enregistrer");
-      return;
-    }
-
-    // Validate required fields
-    for (const f of validFiles) {
-      if (context === "finance" && !f.montant_ttc) {
-        toast.error(`Montant TTC requis pour ${f.file.name}`);
-        return;
-      }
-      if (context === "client_docs" && !f.document_type) {
-        toast.error(`Type de document requis pour ${f.file.name}`);
-        return;
-      }
-    }
+    const validFiles = files.filter((f) => f.status === "success" || f.status === "manual");
+    if (validFiles.length === 0) { toast.error("Aucun document à enregistrer"); return; }
+    for (const f of validFiles) { if (!f.montant_ttc) { toast.error(`Montant TTC requis pour ${f.file.name}`); return; } }
 
     setSaving(true);
-
     try {
-      let savedCount = 0;
-      let duplicateCount = 0;
-
-      // Fetch existing records to check for duplicates
-      let existingFrais: { montant: number; date_frais: string; description: string | null }[] = [];
-      let existingDocs: { nom: string; type_document: string }[] = [];
-
-      if (context === "finance") {
-        const { data } = await supabase
-          .from("frais")
-          .select("montant, date_frais, description")
-          .eq("user_id", user.id);
-        existingFrais = data || [];
-      } else if (clientId) {
-        // For client docs, fetch existing documents for this client
-        const { data } = await supabase
-          .from("documents")
-          .select("nom, type_document")
-          .eq("user_id", user.id)
-          .eq("client_id", clientId);
-        existingDocs = data || [];
-      }
+      let savedCount = 0, duplicateCount = 0;
+      const { data } = await supabase.from("frais").select("montant, date_frais, description").eq("user_id", user.id);
+      const existingFrais = data || [];
 
       for (const importedFile of validFiles) {
-        // Check for duplicates based on context
-        if (context === "finance") {
-          const isDuplicate = existingFrais.some(
-            (existing) =>
-              existing.montant === importedFile.montant_ttc &&
-              existing.date_frais === (importedFile.date || new Date().toISOString().split("T")[0]) &&
-              (existing.description === importedFile.fournisseur || 
-               existing.description === importedFile.description)
-          );
+        const isDuplicate = existingFrais.some((e) => e.montant === importedFile.montant_ttc && e.date_frais === (importedFile.date || new Date().toISOString().split("T")[0]) && (e.description === importedFile.fournisseur || e.description === importedFile.description));
+        if (isDuplicate) { duplicateCount++; continue; }
 
-          if (isDuplicate) {
-            console.log("Skipping duplicate frais:", importedFile.file.name);
-            duplicateCount++;
-            continue;
-          }
-        } else {
-          // For client docs: check if same name and type already exists
-          const docName = importedFile.description || importedFile.file.name;
-          const docType = importedFile.document_type || "autre";
-          
-          const isDuplicate = existingDocs.some(
-            (existing) =>
-              existing.nom === docName &&
-              existing.type_document === docType
-          );
-
-          if (isDuplicate) {
-            console.log("Skipping duplicate document:", importedFile.file.name);
-            duplicateCount++;
-            continue;
-          }
-        }
-
-        // Generate PDF from file
         const pdfResult = await generatePdfFromFile(importedFile.file);
+        const signedUrl = await uploadDocumentToStorage(pdfResult.blob, user.id, context);
 
-        // Upload to storage - returns signedUrl string directly
-        const signedUrl = await uploadDocumentToStorage(
-          pdfResult.blob,
-          user.id,
-          context
-        );
-
-        if (context === "finance") {
-          // Save to frais table
-          const { error } = await supabase.from("frais").insert({
-            user_id: user.id,
-            montant: importedFile.montant_ttc!,
-            date_frais: importedFile.date || new Date().toISOString().split("T")[0],
-            categorie: (importedFile.categorie || "autre") as "carburant" | "peage" | "repas" | "hotel" | "parking" | "train" | "location_vehicule" | "autre",
-            description: importedFile.description || importedFile.fournisseur,
-            justificatif_url: signedUrl,
-            ocr_data: {
-              montant_ttc: importedFile.montant_ttc,
-              montant_ht: importedFile.montant_ht,
-              tva: importedFile.tva,
-              taux_tva: importedFile.taux_tva,
-              fournisseur: importedFile.fournisseur,
-            },
-          });
-
-          if (error) throw error;
-          
-          // Add to existing frais to prevent duplicates within same batch
-          existingFrais.push({
-            montant: importedFile.montant_ttc!,
-            date_frais: importedFile.date || new Date().toISOString().split("T")[0],
-            description: importedFile.fournisseur || importedFile.description || null,
-          });
-          
-          savedCount++;
-        } else {
-          // Save to documents table
-          if (!clientId) {
-            toast.error("Client ID requis pour les documents clients");
-            continue;
-          }
-
-          const docName = importedFile.description || importedFile.file.name;
-          const docType = importedFile.document_type || "autre";
-
-          const { error } = await supabase.from("documents").insert({
-            user_id: user.id,
-            client_id: clientId,
-            nom: docName,
-            url: signedUrl,
-            type_document: docType,
-            mime_type: "application/pdf",
-            taille_bytes: pdfResult.blob.size,
-            thumbnails_urls: pdfResult.thumbnails,
-            context_source: "multi_import",
-          });
-
-          if (error) throw error;
-
-          // Add to existing docs to prevent duplicates within same batch
-          existingDocs.push({
-            nom: docName,
-            type_document: docType,
-          });
-
-          savedCount++;
-        }
+        const { error } = await supabase.from("frais").insert({
+          user_id: user.id,
+          montant: importedFile.montant_ttc!,
+          date_frais: importedFile.date || new Date().toISOString().split("T")[0],
+          categorie: (importedFile.categorie || "autre") as any,
+          description: importedFile.description || importedFile.fournisseur,
+          justificatif_url: signedUrl,
+          ocr_data: { montant_ttc: importedFile.montant_ttc, montant_ht: importedFile.montant_ht, tva: importedFile.tva, taux_tva: importedFile.taux_tva, fournisseur: importedFile.fournisseur },
+        });
+        if (error) throw error;
+        existingFrais.push({ montant: importedFile.montant_ttc!, date_frais: importedFile.date || new Date().toISOString().split("T")[0], description: importedFile.fournisseur || importedFile.description || null });
+        savedCount++;
       }
 
-      // Show appropriate message based on results
-      if (duplicateCount > 0 && savedCount > 0) {
-        toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
-      } else if (duplicateCount > 0 && savedCount === 0) {
-        toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
-      } else {
-        toast.success(`${savedCount} documents enregistrés`);
-      }
+      if (duplicateCount > 0 && savedCount > 0) toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
+      else if (duplicateCount > 0) toast.info(`${duplicateCount} doublons, aucun nouveau`);
+      else toast.success(`${savedCount} factures enregistrées`);
       setFiles([]);
       onSuccess?.();
       onClose();
@@ -525,12 +488,110 @@ export function MultiImportFlow({
 
   const handleClose = () => {
     setFiles([]);
+    setCarouselDocs([]);
+    setShowCarousel(false);
     setPreviewUrl(null);
     onClose();
   };
 
-  const groupedCategories = getGroupedCategories();
+  // ===== RENDER: Crop editor overlay =====
+  if (cropImageData && cropDocId) {
+    return (
+      <CropEditor
+        imageData={cropImageData}
+        onComplete={handleCropComplete}
+        onCancel={() => { setCropDocId(null); setCropImageData(null); }}
+      />
+    );
+  }
 
+  // ===== RENDER: Client docs carousel mode =====
+  if (context === "client_docs") {
+    // Processing overlay
+    if (isProcessing) {
+      return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+          <DialogContent className="sm:max-w-sm">
+            <div className="flex flex-col items-center py-8 gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Préparation des documents...</p>
+              <Progress value={processingProgress} className="w-full" />
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    // Carousel view
+    if (showCarousel && carouselDocs.length > 0) {
+      return (
+        <>
+          <ImportPreviewCarousel
+            documents={carouselDocs}
+            onDocumentsChange={setCarouselDocs}
+            onDelete={handleCarouselDelete}
+            onReplace={handleCarouselReplace}
+            onCrop={handleCarouselCrop}
+            onAddMore={handleCarouselAddMore}
+            onSave={handleCarouselSave}
+            onClose={handleCarouselClose}
+            isSaving={isSaving}
+          />
+          {/* Hidden inputs */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png"
+            multiple
+            onChange={handleClientDocsSelect}
+            className="hidden"
+          />
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,application/pdf"
+            onChange={handleReplaceFileChange}
+            className="hidden"
+          />
+        </>
+      );
+    }
+
+    // Initial upload dialog
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {title}
+            </DialogTitle>
+          </DialogHeader>
+          <div
+            className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+            <p className="text-sm font-medium">Sélectionnez vos documents</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              PDF, JPG, PNG • Plusieurs fichiers autorisés
+            </p>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png"
+            multiple
+            onChange={handleClientDocsSelect}
+            className="hidden"
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // ===== RENDER: Finance mode (list view, unchanged) =====
+  const groupedCategories = getGroupedCategories();
   const pendingCount = files.filter((f) => f.status === "pending").length;
   const successCount = files.filter((f) => f.status === "success").length;
   const manualCount = files.filter((f) => f.status === "manual").length;
@@ -540,257 +601,92 @@ export function MultiImportFlow({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            {context === "finance" ? (
-              <Receipt className="h-5 w-5 text-primary" />
-            ) : (
-              <FileText className="h-5 w-5 text-primary" />
-            )}
+            <Receipt className="h-5 w-5 text-primary" />
             {title}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Upload zone - fixed at top */}
         <div
           className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors flex-shrink-0"
           onClick={() => fileInputRef.current?.click()}
         >
           <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm font-medium">
-            Cliquez pour sélectionner des fichiers
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            PDF, JPG, PNG • Plusieurs fichiers autorisés
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf,image/jpeg,image/jpg,image/png"
-            multiple
-            onChange={handleFilesSelect}
-            className="hidden"
-          />
+          <p className="text-sm font-medium">Cliquez pour sélectionner des fichiers</p>
+          <p className="text-xs text-muted-foreground mt-1">PDF, JPG, PNG • Plusieurs fichiers autorisés</p>
+          <input ref={fileInputRef} type="file" accept="application/pdf,image/jpeg,image/jpg,image/png" multiple onChange={handleFinanceFilesSelect} className="hidden" />
         </div>
 
-        {/* Files status */}
         {files.length > 0 && (
           <div className="flex items-center gap-2 text-sm flex-shrink-0">
             <Badge variant="outline">{files.length} fichiers</Badge>
-            {pendingCount > 0 && (
-              <Badge variant="secondary">{pendingCount} en attente</Badge>
-            )}
-            {successCount > 0 && (
-              <Badge className="bg-green-100 text-green-700">{successCount} analysés</Badge>
-            )}
-            {manualCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700">
-                {context === "client_docs" ? `${manualCount} à typer` : `${manualCount} à compléter`}
-              </Badge>
-            )}
+            {pendingCount > 0 && <Badge variant="secondary">{pendingCount} en attente</Badge>}
+            {successCount > 0 && <Badge className="bg-green-100 text-green-700">{successCount} analysés</Badge>}
+            {manualCount > 0 && <Badge className="bg-amber-100 text-amber-700">{manualCount} à compléter</Badge>}
           </div>
         )}
 
-        {/* Files list - scrollable */}
         <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-            <div className="space-y-3">
-              {files.map((f) => (
-                <Card key={f.id} className={f.status === "manual" ? "border-amber-300" : ""}>
-                  <CardContent className="p-3">
-                    <div className="flex gap-3">
-                      {/* Thumbnail */}
-                      <div
-                        className="w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer"
-                        onClick={() => f.preview && setPreviewUrl(f.preview)}
-                      >
-                        {f.preview && f.preview !== "/placeholder.svg" ? (
-                          <img
-                            src={f.preview}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <FileText className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {f.file.name}
-                            </p>
-                            {f.status === "analyzing" && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                {context === "client_docs" ? "Préparation..." : "Analyse en cours..."}
-                              </div>
-                            )}
-                            {f.status === "success" && (
-                              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Analysé avec succès
-                              </div>
-                            )}
-                            {f.status === "manual" && (
-                              <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
-                                <AlertCircle className="h-3 w-3" />
-                                {context === "client_docs" 
-                                  ? "Sélectionnez le type de document"
-                                  : (f.error_message || "Saisie manuelle requise")}
-                              </div>
-                            )}
-                          </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-muted-foreground"
-                            onClick={() => handleRemoveFile(f.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Editable fields for finance */}
-                        {context === "finance" && (f.status === "success" || f.status === "manual") && (
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div>
-                              <Label className="text-xs">Montant TTC *</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={f.montant_ttc || ""}
-                                onChange={(e) => updateFileField(f.id, "montant_ttc", parseFloat(e.target.value) || null)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Catégorie</Label>
-                              <Select
-                                value={f.categorie || "autre"}
-                                onValueChange={(v) => updateFileField(f.id, "categorie", v)}
-                              >
-                                <SelectTrigger className="h-8 text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {FINANCE_CATEGORIES.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>
-                                      {cat.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Date</Label>
-                              <Input
-                                type="date"
-                                value={f.date || ""}
-                                onChange={(e) => updateFileField(f.id, "date", e.target.value)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Fournisseur</Label>
-                              <Input
-                                value={f.fournisseur || ""}
-                                onChange={(e) => updateFileField(f.id, "fournisseur", e.target.value)}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Editable fields for client docs */}
-                        {context === "client_docs" && (f.status === "success" || f.status === "manual") && (
-                          <div className="mt-2">
-                            <Label className="text-xs">Type de document *</Label>
-                            <Select
-                              value={f.document_type || ""}
-                              onValueChange={(v) => updateFileField(f.id, "document_type", v)}
-                            >
-                              <SelectTrigger className="h-8 text-sm">
-                                <SelectValue placeholder="Sélectionner le type" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                {Array.from(groupedCategories.entries()).map(([group, cats]) => (
-                                  <div key={group}>
-                                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                                      {group}
-                                    </div>
-                                    {cats.map((cat) => (
-                                      <SelectItem key={cat.value} value={cat.value}>
-                                        {cat.label}
-                                      </SelectItem>
-                                    ))}
-                                  </div>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {f.confidence !== undefined && f.confidence > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Confiance IA: {f.confidence}%
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
+          <div className="space-y-3">
+            {files.map((f) => (
+              <Card key={f.id} className={f.status === "manual" ? "border-amber-300" : ""}>
+                <CardContent className="p-3">
+                  <div className="flex gap-3">
+                    <div className="w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => f.preview && setPreviewUrl(f.preview)}>
+                      {f.preview && f.preview !== "/placeholder.svg" ? (
+                        <img src={f.preview} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><FileText className="h-6 w-6 text-muted-foreground" /></div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{f.file.name}</p>
+                          {f.status === "analyzing" && <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1"><Loader2 className="h-3 w-3 animate-spin" />Analyse...</div>}
+                          {f.status === "success" && <div className="flex items-center gap-1 text-xs text-green-600 mt-1"><CheckCircle2 className="h-3 w-3" />Analysé</div>}
+                          {f.status === "manual" && <div className="flex items-center gap-1 text-xs text-amber-600 mt-1"><AlertCircle className="h-3 w-3" />{f.error_message || "Saisie manuelle"}</div>}
+                        </div>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => handleRemoveFile(f.id)}><X className="h-4 w-4" /></Button>
+                      </div>
+                      {(f.status === "success" || f.status === "manual") && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div><Label className="text-xs">Montant TTC *</Label><Input type="number" step="0.01" value={f.montant_ttc || ""} onChange={(e) => updateFileField(f.id, "montant_ttc", parseFloat(e.target.value) || null)} className="h-8 text-sm" /></div>
+                          <div><Label className="text-xs">Catégorie</Label>
+                            <Select value={f.categorie || "autre"} onValueChange={(v) => updateFileField(f.id, "categorie", v)}>
+                              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{FINANCE_CATEGORIES.map((cat) => <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div><Label className="text-xs">Date</Label><Input type="date" value={f.date || ""} onChange={(e) => updateFileField(f.id, "date", e.target.value)} className="h-8 text-sm" /></div>
+                          <div><Label className="text-xs">Fournisseur</Label><Input value={f.fournisseur || ""} onChange={(e) => updateFileField(f.id, "fournisseur", e.target.value)} className="h-8 text-sm" /></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 pt-4 border-t">
-          <Button variant="ghost" onClick={handleClose}>
-            Annuler
-          </Button>
+          <Button variant="ghost" onClick={handleClose}>Annuler</Button>
           <div className="flex-1" />
           {pendingCount > 0 && (
-            <Button
-              variant="outline"
-              onClick={handleAnalyzeAll}
-              disabled={isAnalyzing}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {context === "client_docs" ? "Préparation..." : "Analyse..."}
-                </>
-              ) : context === "client_docs" ? (
-                <>Préparer ({pendingCount})</>
-              ) : (
-                <>Analyser ({pendingCount})</>
-              )}
+            <Button variant="outline" onClick={handleAnalyzeAll} disabled={isAnalyzing}>
+              {isAnalyzing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyse...</> : <>Analyser ({pendingCount})</>}
             </Button>
           )}
           {(successCount > 0 || manualCount > 0) && (
             <Button onClick={handleSaveAll} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Enregistrement...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Enregistrer ({successCount + manualCount})
-                </>
-              )}
+              {isSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enregistrement...</> : <><Save className="h-4 w-4 mr-2" />Enregistrer ({successCount + manualCount})</>}
             </Button>
           )}
         </div>
 
-        {/* Preview dialog */}
         {previewUrl && (
           <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-            <DialogContent className="max-w-lg">
-              <img src={previewUrl} alt="Preview" className="w-full rounded" />
-            </DialogContent>
+            <DialogContent className="max-w-lg"><img src={previewUrl} alt="Preview" className="w-full rounded" /></DialogContent>
           </Dialog>
         )}
       </DialogContent>
