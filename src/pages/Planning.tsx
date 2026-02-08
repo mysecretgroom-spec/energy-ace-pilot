@@ -499,7 +499,7 @@ const Planning = () => {
   return (
     <MobileLayout title="Planning">
       <PullToRefreshContainer onRefresh={fetchRdvs}>
-      <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-7xl mx-auto">
+      <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-5xl mx-auto">
         {/* Sélecteur de vue - responsive sizing */}
         <Tabs
           value={viewMode}
@@ -567,7 +567,7 @@ const Planning = () => {
                 value={selectedRegieId || "all"}
                 onValueChange={(value) => setSelectedRegieId(value === "all" ? null : value)}
               >
-                <SelectTrigger className="w-[130px] sm:w-[150px] h-10 sm:h-9">
+                <SelectTrigger className="w-[140px] sm:w-[180px] h-10 sm:h-9">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     <SelectValue placeholder="Régie" />

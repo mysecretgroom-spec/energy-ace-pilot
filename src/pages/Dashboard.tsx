@@ -659,7 +659,7 @@ const Dashboard = () => {
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
         <BlurOverlay storageKey="dashboard_stats" blurAmount={12} opaque>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <Card 
             className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => openStatDialog('ca')}
@@ -738,7 +738,7 @@ const Dashboard = () => {
           {/* Commission HEJJA - Only visible in HEJJA mode */}
           {modeHejjaActive && (
             <Card 
-              className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2 cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 col-span-2 md:col-span-4 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => openStatDialog('hejja')}
             >
               <CardContent className="p-4">
