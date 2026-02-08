@@ -35,6 +35,12 @@ export function SwipeableRdvCard({
   const THRESHOLD = 70;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Don't capture if the target is a button or interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, [role="button"], input, textarea, select, [data-radix-collection-item]')) {
+      swiping.current = false;
+      return;
+    }
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
     swiping.current = true;

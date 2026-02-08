@@ -15,7 +15,6 @@ body {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  -webkit-touch-callout: none;
 }
 
 /* Ensure interactive elements always receive touch/click events on iOS */
@@ -24,6 +23,9 @@ button, a, [role="button"], [role="link"], [role="tab"],
   -webkit-user-select: none;
   touch-action: manipulation;
   cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 /* Allow text selection in form inputs and editable areas */
