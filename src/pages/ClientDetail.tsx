@@ -144,6 +144,7 @@ interface HistoriqueAction {
 }
 
 const ClientDetail = () => {
+  console.log("[ClientDetail] Component render start");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -187,6 +188,7 @@ const ClientDetail = () => {
 
   const fetchClientData = async () => {
     if (!id) return;
+    console.log("[ClientDetail] fetchClientData called for id:", id);
 
     setLoading(true);
 
@@ -272,6 +274,7 @@ const ClientDetail = () => {
 
     setHistorique((histData as HistoriqueAction[]) || []);
 
+    console.log("[ClientDetail] fetchClientData complete, rdvs:", rdvData?.length, "docs:", docsData?.length);
     setLoading(false);
   };
 
@@ -345,6 +348,8 @@ const ClientDetail = () => {
     return null;
   }
 
+  console.log("[ClientDetail] Rendering main content, activeTab:", activeTab);
+  
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
