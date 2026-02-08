@@ -849,19 +849,21 @@ const ClientDetailInner = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Multi Import Flow */}
-        <Suspense fallback={<LazyFallback />}>
-          <MultiImportFlow
-            isOpen={showMultiImport}
-            context="client_docs"
-            clientId={id}
-            onSuccess={() => {
-              setShowMultiImport(false);
-              fetchClientData();
-            }}
-            onClose={() => setShowMultiImport(false)}
-          />
-        </Suspense>
+        {/* Multi Import Flow - only mount when open to avoid loading OpenCV.js */}
+        {showMultiImport && (
+          <Suspense fallback={<LazyFallback />}>
+            <MultiImportFlow
+              isOpen={showMultiImport}
+              context="client_docs"
+              clientId={id}
+              onSuccess={() => {
+                setShowMultiImport(false);
+                fetchClientData();
+              }}
+              onClose={() => setShowMultiImport(false)}
+            />
+          </Suspense>
+        )}
 
         {/* Edit Client Dialog */}
         <EditClientDialog
