@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, Component, ErrorInfo, ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
@@ -16,12 +16,9 @@ import {
   Calendar,
   FileText,
   Image,
-  Camera,
   Plus,
   Clock,
   Euro,
-  CheckCircle2,
-  XCircle,
   Edit,
   Trash2,
   Sun,
@@ -31,21 +28,66 @@ import {
   RefreshCw,
   Send,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
-import { MultiImportFlow } from "@/components/scanner";
-import { MultiDocumentSelector } from "@/components/documents/MultiDocumentSelector";
-import { DocumentSearch } from "@/components/documents/DocumentSearch";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { RegieSelector } from "@/components/planning/RegieSelector";
-import { RetapeDialog } from "@/components/crm/RetapeDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
+
+// Lazy load heavy components to avoid blocking the main thread
+const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
+const MultiDocumentSelector = React.lazy(() => import("@/components/documents/MultiDocumentSelector").then(m => ({ default: m.MultiDocumentSelector })));
+const DocumentSearch = React.lazy(() => import("@/components/documents/DocumentSearch").then(m => ({ default: m.DocumentSearch })));
+const RetapeDialog = React.lazy(() => import("@/components/crm/RetapeDialog").then(m => ({ default: m.RetapeDialog })));
+
+// Error Boundary to catch render crashes
+class ClientDetailErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[ClientDetail] Crash caught:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <MobileLayout title="Erreur">
+          <div className="flex flex-col items-center justify-center h-64 p-6 text-center gap-4">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <h2 className="text-lg font-semibold">Erreur d'affichage</h2>
+            <p className="text-sm text-muted-foreground">
+              {this.state.error?.message || "Une erreur inattendue s'est produite"}
+            </p>
+            <Button onClick={() => window.location.href = "/crm"}>
+              Retour au CRM
+            </Button>
+          </div>
+        </MobileLayout>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center py-8">
+    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  </div>
+);
 
 interface ClientMetadata {
   situation_familiale?: string;
@@ -143,8 +185,7 @@ interface HistoriqueAction {
   created_at: string;
 }
 
-const ClientDetail = () => {
-  console.log("[ClientDetail] Component render start");
+const ClientDetailInner = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -188,7 +229,6 @@ const ClientDetail = () => {
 
   const fetchClientData = async () => {
     if (!id) return;
-    console.log("[ClientDetail] fetchClientData called for id:", id);
 
     setLoading(true);
 
@@ -274,7 +314,6 @@ const ClientDetail = () => {
 
     setHistorique((histData as HistoriqueAction[]) || []);
 
-    console.log("[ClientDetail] fetchClientData complete, rdvs:", rdvData?.length, "docs:", docsData?.length);
     setLoading(false);
   };
 
@@ -348,8 +387,7 @@ const ClientDetail = () => {
     return null;
   }
 
-  console.log("[ClientDetail] Rendering main content, activeTab:", activeTab);
-  
+
   return (
     <MobileLayout>
       <div className="p-4 space-y-4">
@@ -717,109 +755,111 @@ const ClientDetail = () => {
 
           {/* Tab Documents et Photos */}
           <TabsContent value="docs" className="space-y-3 mt-4">
-            {/* Recherche dans les documents */}
-            <DocumentSearch 
-              clientId={id}
-              onSelectDocument={(doc) => window.open(doc.url, "_blank")}
-            />
+            <Suspense fallback={<LazyFallback />}>
+              {/* Recherche dans les documents */}
+              <DocumentSearch 
+                clientId={id}
+                onSelectDocument={(doc) => window.open(doc.url, "_blank")}
+              />
 
-            <div className="flex gap-2">
-              <Button 
-                className="flex-1 gap-2 h-12 bg-gradient-hero"
-                onClick={() => setShowMultiImport(true)}
-              >
-                <Plus className="h-5 w-5" />
-                Importer
-              </Button>
-              <Button 
-                variant="outline"
-                className="flex-1 gap-2 h-12 border-primary text-primary"
-                onClick={async () => {
-                  // Get last RDV to find the régie's principal contact
-                  const lastRdv = rdvs.find(r => r.regie_id);
-                  if (lastRdv?.regie_id) {
-                    const { data: regieContact } = await supabase
-                      .from("regies_contacts")
-                      .select("telephone, nom")
-                      .eq("regie_id", lastRdv.regie_id)
-                      .eq("is_principal", true)
-                      .eq("actif", true)
-                      .maybeSingle();
-                    
-                    if (regieContact?.telephone) {
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 gap-2 h-12 bg-gradient-hero"
+                  onClick={() => setShowMultiImport(true)}
+                >
+                  <Plus className="h-5 w-5" />
+                  Importer
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1 gap-2 h-12 border-primary text-primary"
+                  onClick={async () => {
+                    const lastRdv = rdvs.find(r => r.regie_id);
+                    if (lastRdv?.regie_id) {
+                      const { data: regieContact } = await supabase
+                        .from("regies_contacts")
+                        .select("telephone, nom")
+                        .eq("regie_id", lastRdv.regie_id)
+                        .eq("is_principal", true)
+                        .eq("actif", true)
+                        .maybeSingle();
+                      
+                      if (regieContact?.telephone) {
+                        await sendPdfDoc({
+                          clientId: id!,
+                          phoneNumber: regieContact.telephone,
+                          message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
+                          includeEtude: true,
+                        });
+                        return;
+                      }
+                    }
+                    if (client?.telephone) {
+                      const cleanPhone = client.telephone.replace(/\D/g, "");
+                      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
                       await sendPdfDoc({
                         clientId: id!,
-                        phoneNumber: regieContact.telephone,
-                        message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
+                        phoneNumber: frPhone,
+                        message: `📄 Votre dossier complet`,
                         includeEtude: true,
                       });
-                      return;
+                    } else {
+                      toast({
+                        variant: "destructive",
+                        title: "Aucun destinataire",
+                        description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
+                      });
                     }
-                  }
-                  // Fallback: send to client's phone if no confirmateur
-                  if (client?.telephone) {
-                    const cleanPhone = client.telephone.replace(/\D/g, "");
-                    const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-                    await sendPdfDoc({
-                      clientId: id!,
-                      phoneNumber: frPhone,
-                      message: `📄 Votre dossier complet`,
-                      includeEtude: true,
-                    });
-                  } else {
-                    toast({
-                      variant: "destructive",
-                      title: "Aucun destinataire",
-                      description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
-                    });
-                  }
-                }}
-                disabled={isSendingDoc || documents.length === 0}
-              >
-                {isSendingDoc ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
-                Envoyer WhatsApp
-              </Button>
-            </div>
+                  }}
+                  disabled={isSendingDoc || documents.length === 0}
+                >
+                  {isSendingDoc ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                  Envoyer WhatsApp
+                </Button>
+              </div>
 
-            {documents.length === 0 ? (
-              <Card className="shadow-card">
-                <CardContent className="p-6 text-center">
-                  <Image className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Aucun document ou photo</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Ajoutez des photos du site, documents techniques, etc.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <MultiDocumentSelector 
-                documents={documents.map(doc => ({
-                  ...doc,
-                  thumbnails_urls: (doc as any).thumbnails_urls || null,
-                }))}
-                clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
-                clientId={id}
-                onDocumentsChange={fetchClientData}
-              />
+              {documents.length === 0 ? (
+                <Card className="shadow-card">
+                  <CardContent className="p-6 text-center">
+                    <Image className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Aucun document ou photo</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ajoutez des photos du site, documents techniques, etc.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <MultiDocumentSelector 
+                  documents={documents.map(doc => ({
+                    ...doc,
+                    thumbnails_urls: (doc as any).thumbnails_urls || null,
+                  }))}
+                  clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
+                  clientId={id}
+                  onDocumentsChange={fetchClientData}
+                />
             )}
+            </Suspense>
           </TabsContent>
         </Tabs>
 
         {/* Multi Import Flow */}
-        <MultiImportFlow
-          isOpen={showMultiImport}
-          context="client_docs"
-          clientId={id}
-          onSuccess={() => {
-            setShowMultiImport(false);
-            fetchClientData();
-          }}
-          onClose={() => setShowMultiImport(false)}
-        />
+        <Suspense fallback={<LazyFallback />}>
+          <MultiImportFlow
+            isOpen={showMultiImport}
+            context="client_docs"
+            clientId={id}
+            onSuccess={() => {
+              setShowMultiImport(false);
+              fetchClientData();
+            }}
+            onClose={() => setShowMultiImport(false)}
+          />
+        </Suspense>
 
         {/* Edit Client Dialog */}
         <EditClientDialog
@@ -831,13 +871,15 @@ const ClientDetail = () => {
 
         {/* Retape Dialog - HEJJA mode only */}
         {client && (
-          <RetapeDialog
-            open={showRetapeDialog}
-            onOpenChange={setShowRetapeDialog}
-            clientId={client.id}
-            clientName={client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
-            onSuccess={fetchClientData}
-          />
+          <Suspense fallback={null}>
+            <RetapeDialog
+              open={showRetapeDialog}
+              onOpenChange={setShowRetapeDialog}
+              clientId={client.id}
+              clientName={client.prenom ? `${client.prenom} ${client.nom}` : client.nom}
+              onSuccess={fetchClientData}
+            />
+          </Suspense>
         )}
 
         {/* Delete Confirmation Dialog */}
@@ -853,5 +895,12 @@ const ClientDetail = () => {
     </MobileLayout>
   );
 };
+
+// Wrap with ErrorBoundary
+const ClientDetail = () => (
+  <ClientDetailErrorBoundary>
+    <ClientDetailInner />
+  </ClientDetailErrorBoundary>
+);
 
 export default ClientDetail;
