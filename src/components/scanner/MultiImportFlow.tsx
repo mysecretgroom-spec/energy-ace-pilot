@@ -153,6 +153,7 @@ export function MultiImportFlow({
         file,
         preview,
         rotation: 0,
+        activeFilter: "original",
         description: file.name.replace(/\.[^/.]+$/, ""),
       });
 
@@ -204,7 +205,7 @@ export function MultiImportFlow({
     setCarouselDocs((prev) =>
       prev.map((d) =>
         d.id === replaceDocId
-          ? { ...d, file, preview, rotation: 0, description: file.name.replace(/\.[^/.]+$/, "") }
+          ? { ...d, file, preview, rotation: 0, activeFilter: "original", description: file.name.replace(/\.[^/.]+$/, "") }
           : d
       )
     );
@@ -225,7 +226,7 @@ export function MultiImportFlow({
     if (!cropDocId) return;
     setCarouselDocs((prev) =>
       prev.map((d) =>
-        d.id === cropDocId ? { ...d, preview: croppedImage, rotation: 0 } : d
+        d.id === cropDocId ? { ...d, preview: croppedImage, rotation: 0, activeFilter: "original", processedPreview: undefined } : d
       )
     );
     setCropDocId(null);
@@ -266,11 +267,11 @@ export function MultiImportFlow({
           continue;
         }
 
-        // If the preview is a data URL (cropped image), convert to blob for PDF
+        // Use processed (filtered) or cropped preview if available
         let fileForPdf: File | Blob = doc.file;
-        if (doc.preview && doc.preview.startsWith("data:image")) {
-          // Use the cropped/rotated preview image instead of original file
-          const resp = await fetch(doc.preview);
+        const finalPreview = doc.processedPreview || doc.preview;
+        if (finalPreview && finalPreview.startsWith("data:image")) {
+          const resp = await fetch(finalPreview);
           fileForPdf = await resp.blob();
         }
 
