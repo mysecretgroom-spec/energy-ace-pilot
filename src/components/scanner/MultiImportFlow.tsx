@@ -37,6 +37,7 @@ import { detectDocumentEdges, applyPerspectiveCorrection, preloadOpenCV } from "
 import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel";
 import { CropEditor } from "./CropEditor";
+import { useAiCrop } from "./hooks/useAiCrop";
 
 export type MultiImportContext = "finance" | "client_docs";
 
@@ -106,6 +107,9 @@ export function MultiImportFlow({
 
   // Replace mode
   const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
+
+  // AI crop hook
+  const { analyzeAndCrop, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
   React.useEffect(() => {
     if (isOpen && context === "client_docs") {
@@ -533,6 +537,12 @@ export function MultiImportFlow({
             onDelete={handleCarouselDelete}
             onReplace={handleCarouselReplace}
             onCrop={handleCarouselCrop}
+            onAiCrop={async (mode, idx) => {
+              const updated = await analyzeAndCrop(carouselDocs, mode, idx);
+              setCarouselDocs(updated);
+            }}
+            isAiCropping={isAiCropping}
+            aiCropProgress={aiCropProgress}
             onAddMore={handleCarouselAddMore}
             onSave={handleCarouselSave}
             onClose={handleCarouselClose}
