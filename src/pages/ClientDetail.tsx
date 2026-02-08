@@ -753,97 +753,99 @@ const ClientDetailInner = () => {
             )}
           </TabsContent>
 
-          {/* Tab Documents et Photos */}
-          <TabsContent value="docs" className="space-y-3 mt-4">
-            <Suspense fallback={<LazyFallback />}>
-              {/* Recherche dans les documents */}
-              <DocumentSearch 
-                clientId={id}
-                onSelectDocument={(doc) => window.open(doc.url, "_blank")}
-              />
+          {/* Tab Documents et Photos - only render content when active to avoid freezing */}
+          <TabsContent value="docs" className="space-y-3 mt-4" forceMount={undefined}>
+            {activeTab === "docs" && (
+              <Suspense fallback={<LazyFallback />}>
+                {/* Recherche dans les documents */}
+                <DocumentSearch 
+                  clientId={id}
+                  onSelectDocument={(doc) => window.open(doc.url, "_blank")}
+                />
 
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1 gap-2 h-12 bg-gradient-hero"
-                  onClick={() => setShowMultiImport(true)}
-                >
-                  <Plus className="h-5 w-5" />
-                  Importer
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="flex-1 gap-2 h-12 border-primary text-primary"
-                  onClick={async () => {
-                    const lastRdv = rdvs.find(r => r.regie_id);
-                    if (lastRdv?.regie_id) {
-                      const { data: regieContact } = await supabase
-                        .from("regies_contacts")
-                        .select("telephone, nom")
-                        .eq("regie_id", lastRdv.regie_id)
-                        .eq("is_principal", true)
-                        .eq("actif", true)
-                        .maybeSingle();
-                      
-                      if (regieContact?.telephone) {
+                <div className="flex gap-2">
+                  <Button 
+                    className="flex-1 gap-2 h-12 bg-gradient-hero"
+                    onClick={() => setShowMultiImport(true)}
+                  >
+                    <Plus className="h-5 w-5" />
+                    Importer
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex-1 gap-2 h-12 border-primary text-primary"
+                    onClick={async () => {
+                      const lastRdv = rdvs.find(r => r.regie_id);
+                      if (lastRdv?.regie_id) {
+                        const { data: regieContact } = await supabase
+                          .from("regies_contacts")
+                          .select("telephone, nom")
+                          .eq("regie_id", lastRdv.regie_id)
+                          .eq("is_principal", true)
+                          .eq("actif", true)
+                          .maybeSingle();
+                        
+                        if (regieContact?.telephone) {
+                          await sendPdfDoc({
+                            clientId: id!,
+                            phoneNumber: regieContact.telephone,
+                            message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
+                            includeEtude: true,
+                          });
+                          return;
+                        }
+                      }
+                      if (client?.telephone) {
+                        const cleanPhone = client.telephone.replace(/\D/g, "");
+                        const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
                         await sendPdfDoc({
                           clientId: id!,
-                          phoneNumber: regieContact.telephone,
-                          message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
+                          phoneNumber: frPhone,
+                          message: `📄 Votre dossier complet`,
                           includeEtude: true,
                         });
-                        return;
+                      } else {
+                        toast({
+                          variant: "destructive",
+                          title: "Aucun destinataire",
+                          description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
+                        });
                       }
-                    }
-                    if (client?.telephone) {
-                      const cleanPhone = client.telephone.replace(/\D/g, "");
-                      const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-                      await sendPdfDoc({
-                        clientId: id!,
-                        phoneNumber: frPhone,
-                        message: `📄 Votre dossier complet`,
-                        includeEtude: true,
-                      });
-                    } else {
-                      toast({
-                        variant: "destructive",
-                        title: "Aucun destinataire",
-                        description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
-                      });
-                    }
-                  }}
-                  disabled={isSendingDoc || documents.length === 0}
-                >
-                  {isSendingDoc ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Send className="h-5 w-5" />
-                  )}
-                  Envoyer WhatsApp
-                </Button>
-              </div>
+                    }}
+                    disabled={isSendingDoc || documents.length === 0}
+                  >
+                    {isSendingDoc ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Send className="h-5 w-5" />
+                    )}
+                    Envoyer WhatsApp
+                  </Button>
+                </div>
 
-              {documents.length === 0 ? (
-                <Card className="shadow-card">
-                  <CardContent className="p-6 text-center">
-                    <Image className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Aucun document ou photo</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Ajoutez des photos du site, documents techniques, etc.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <MultiDocumentSelector 
-                  documents={documents.map(doc => ({
-                    ...doc,
-                    thumbnails_urls: (doc as any).thumbnails_urls || null,
-                  }))}
-                  clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
-                  clientId={id}
-                  onDocumentsChange={fetchClientData}
-                />
+                {documents.length === 0 ? (
+                  <Card className="shadow-card">
+                    <CardContent className="p-6 text-center">
+                      <Image className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Aucun document ou photo</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ajoutez des photos du site, documents techniques, etc.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <MultiDocumentSelector 
+                    documents={documents.map(doc => ({
+                      ...doc,
+                      thumbnails_urls: (doc as any).thumbnails_urls || null,
+                    }))}
+                    clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
+                    clientId={id}
+                    onDocumentsChange={fetchClientData}
+                  />
+                )}
+              </Suspense>
             )}
-            </Suspense>
           </TabsContent>
         </Tabs>
 
