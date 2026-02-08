@@ -63,25 +63,31 @@ export function usePWAUpdate() {
     },
   });
 
+  // Listen for the new SW taking control and reload immediately
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('[PWA] New SW activated, reloading...');
+        window.location.reload();
+      });
+    }
+  }, []);
+
   // Check for updates when app becomes visible
   const checkForUpdates = useCallback(() => {
-    if (!hasGoodConnection()) {
-      console.log('[PWA] Skipping update check - poor/no connection');
-      return;
-    }
+    if (!hasGoodConnection()) return;
 
-    // Trigger SW update check
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistration().then((registration) => {
         if (registration) {
-          console.log('[PWA] Checking for updates on visibility change...');
+          console.log('[PWA] Checking for updates...');
           registration.update();
         }
       });
     }
   }, []);
 
-  // Handle visibility change - check for updates when app comes to foreground
+  // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -89,13 +95,8 @@ export function usePWAUpdate() {
       }
     };
 
-    // Check on mount
     checkForUpdates();
-
-    // Listen for visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Also check when coming back online
     window.addEventListener('online', checkForUpdates);
 
     return () => {
@@ -104,32 +105,11 @@ export function usePWAUpdate() {
     };
   }, [checkForUpdates]);
 
-  // Show toast when update is available
-  useEffect(() => {
-    if (needRefresh) {
-      toast.info('Mise à jour disponible', {
-        description: 'Une nouvelle version est prête.',
-        action: {
-          label: 'Mettre à jour',
-          onClick: () => {
-            updateServiceWorker(true);
-          },
-        },
-        duration: 10000,
-      });
-    }
-  }, [needRefresh, updateServiceWorker]);
-
-  // Auto-update if good connection and update available
+  // Auto-update immediately when available with good connection
   useEffect(() => {
     if (needRefresh && hasGoodConnection()) {
-      // Small delay to let user see the toast
-      const timer = setTimeout(() => {
-        console.log('[PWA] Auto-updating...');
-        updateServiceWorker(true);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
+      console.log('[PWA] Auto-updating immediately...');
+      updateServiceWorker(true);
     }
   }, [needRefresh, updateServiceWorker]);
 
