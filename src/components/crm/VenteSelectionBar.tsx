@@ -115,7 +115,7 @@ export const VenteSelectionBar = ({
           onClick={onGenerateInvoice}
         >
           <FileText className="h-4 w-4 mr-2" />
-          Générer facture Qonto
+          Copier pour faire ma facture
         </Button>
       </div>
     </div>
