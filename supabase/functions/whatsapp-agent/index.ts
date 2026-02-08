@@ -2293,6 +2293,7 @@ serve(async (req) => {
         userMemories,
         userPrompts,
         LOVABLE_API_KEY,
+        request.userId,
         {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
@@ -5436,6 +5437,7 @@ async function analyzeIntent(
   userMemories: AgentMemory[],
   userPrompts: AgentPrompt[],
   apiKey: string,
+  userId: string,
   replyContext?: { isReply: boolean; replyToContent: string | null }
 ): Promise<{
   intent: Intent;
