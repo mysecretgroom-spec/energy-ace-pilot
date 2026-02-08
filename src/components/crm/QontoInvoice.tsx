@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
+import { copyToClipboard as copyToClipboardUtil } from "@/lib/clipboard";
 import { 
   FileText, 
   Copy,
@@ -180,7 +181,7 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
   const totalCommission = lines.reduce((sum, l) => sum + l.commissionNette, 0);
   const totalDecom = lines.reduce((sum, l) => sum + l.decomMontant, 0);
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     // Format: Client | Puissance | Commission HT (net après décom)
     const text = lines.map(l => {
       const decomNote = l.decomMontant > 0 ? ` (décom: -${formatCurrency(l.decomMontant)})` : "";
@@ -192,10 +193,14 @@ export const QontoInvoice = ({ venteIds, ventes, open, onOpenChange }: QontoInvo
       fullText += `\n(Dont décommissions: -${formatCurrency(totalDecom)})`;
     }
     
-    navigator.clipboard.writeText(fullText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast.success("Copié dans le presse-papier");
+    const ok = await copyToClipboardUtil(fullText);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Copié dans le presse-papier");
+    } else {
+      toast.error("Impossible de copier");
+    }
   };
 
   return (

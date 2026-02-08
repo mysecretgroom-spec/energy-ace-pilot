@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { getTauxTVAByPuissance, ttcToHT } from "@/lib/tva";
+import { copyToClipboard as copyToClipboardUtil } from "@/lib/clipboard";
 import { 
   FileText, 
   Euro, 
@@ -427,7 +428,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     }
   };
 
-  const handleCopySelected = () => {
+  const handleCopySelected = async () => {
     if (selectedVentes.length === 0) return;
 
     const lines = selectedVentes.map(v => {
@@ -443,9 +444,13 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       fullText += `\n(Dont décommissions: -${formatCurrency(selectedDecom)} €)`;
     }
     
-    navigator.clipboard.writeText(fullText);
-    setCopied(true);
-    toast.success("Lignes copiées dans le presse-papier");
+    const ok = await copyToClipboardUtil(fullText);
+    if (ok) {
+      setCopied(true);
+      toast.success("Lignes copiées dans le presse-papier");
+    } else {
+      toast.error("Impossible de copier, essayez manuellement");
+    }
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -607,9 +612,13 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     const totalCommission = factureVentesData.reduce((sum, v) => sum + v.commission, 0);
     const fullText = lines.join("\n") + `\n\nTOTAL HT: ${formatCurrency(totalCommission)} €`;
     
-    navigator.clipboard.writeText(fullText);
-    setCopiedFactureId(facture.id);
-    toast.success("Lignes copiées pour votre facture");
+    const ok = await copyToClipboardUtil(fullText);
+    if (ok) {
+      setCopiedFactureId(facture.id);
+      toast.success("Lignes copiées pour votre facture");
+    } else {
+      toast.error("Impossible de copier");
+    }
     setTimeout(() => setCopiedFactureId(null), 2000);
   };
 
