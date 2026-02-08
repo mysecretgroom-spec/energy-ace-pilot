@@ -14,6 +14,14 @@
   -webkit-touch-callout: none;
 }
 
+/* Ensure interactive elements always receive touch/click events on iOS */
+button, a, [role="button"], [role="link"], [role="tab"],
+[data-radix-collection-item], summary, label[for] {
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
 /* Allow text selection in form inputs and editable areas */
 input, textarea, [contenteditable="true"], pre, code,
 input[type="text"], input[type="email"], input[type="password"],
