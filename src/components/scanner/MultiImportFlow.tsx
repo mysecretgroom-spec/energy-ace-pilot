@@ -37,7 +37,7 @@ import { detectDocumentEdges, applyPerspectiveCorrection, preloadOpenCV } from "
 import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel";
 import { CropEditor } from "./CropEditor";
-import { useAiCrop } from "./hooks/useAiCrop";
+import { useAiCrop, type AiCropCorners } from "./hooks/useAiCrop";
 
 export type MultiImportContext = "finance" | "client_docs";
 
@@ -104,12 +104,13 @@ export function MultiImportFlow({
   // Crop mode
   const [cropDocId, setCropDocId] = useState<string | null>(null);
   const [cropImageData, setCropImageData] = useState<string | null>(null);
+  const [cropInitialCorners, setCropInitialCorners] = useState<AiCropCorners | undefined>(undefined);
 
   // Replace mode
   const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
 
   // AI crop hook
-  const { analyzeAndCrop, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
+  const { detectCropCorners, analyzeAndCropBatch, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
   React.useEffect(() => {
     if (isOpen && context === "client_docs") {
@@ -224,6 +225,7 @@ export function MultiImportFlow({
     }
     setCropDocId(id);
     setCropImageData(doc.preview);
+    setCropInitialCorners(undefined); // manual crop = no AI corners
   }, [carouselDocs]);
 
   const handleCropComplete = useCallback((croppedImage: string, _thumbnail: string) => {
@@ -235,6 +237,7 @@ export function MultiImportFlow({
     );
     setCropDocId(null);
     setCropImageData(null);
+    setCropInitialCorners(undefined);
   }, [cropDocId]);
 
   const handleCarouselSave = useCallback(async () => {
@@ -505,7 +508,8 @@ export function MultiImportFlow({
       <CropEditor
         imageData={cropImageData}
         onComplete={handleCropComplete}
-        onCancel={() => { setCropDocId(null); setCropImageData(null); }}
+        onCancel={() => { setCropDocId(null); setCropImageData(null); setCropInitialCorners(undefined); }}
+        initialCorners={cropInitialCorners}
       />
     );
   }
@@ -538,8 +542,21 @@ export function MultiImportFlow({
             onReplace={handleCarouselReplace}
             onCrop={handleCarouselCrop}
             onAiCrop={async (mode, idx) => {
-              const updated = await analyzeAndCrop(carouselDocs, mode, idx);
-              setCarouselDocs(updated);
+              if (mode === "current") {
+                // Single doc: detect corners then open CropEditor
+                const doc = carouselDocs[idx];
+                if (!doc) return;
+                const result = await detectCropCorners(doc);
+                if (result) {
+                  setCropDocId(result.docId);
+                  setCropImageData(doc.preview);
+                  setCropInitialCorners(result.corners);
+                }
+              } else {
+                // Batch: auto-crop all directly
+                const updated = await analyzeAndCropBatch(carouselDocs);
+                setCarouselDocs(updated);
+              }
             }}
             isAiCropping={isAiCropping}
             aiCropProgress={aiCropProgress}
