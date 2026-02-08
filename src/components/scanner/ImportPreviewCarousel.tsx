@@ -21,11 +21,13 @@ import {
   Upload,
   Image as ImageIcon,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
 import useEmblaCarousel from "embla-carousel-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 
 export interface ImportedDoc {
   id: string;
@@ -44,6 +46,9 @@ interface ImportPreviewCarouselProps {
   onDelete: (id: string) => void;
   onReplace: (id: string) => void;
   onCrop: (id: string) => void;
+  onAiCrop: (mode: "current" | "all", currentIndex: number) => void;
+  isAiCropping?: boolean;
+  aiCropProgress?: number;
   onAddMore: () => void;
   onSave: () => void;
   onClose: () => void;
@@ -76,6 +81,9 @@ export function ImportPreviewCarousel({
   onDelete,
   onReplace,
   onCrop,
+  onAiCrop,
+  isAiCropping = false,
+  aiCropProgress = 0,
   onAddMore,
   onSave,
   onClose,
@@ -397,6 +405,21 @@ export function ImportPreviewCarousel({
           >
             <Crop className="h-5 w-5" />
             <span className="text-[10px]">Recadrer</span>
+          </button>
+
+          <button
+            className={`flex flex-col items-center gap-1 transition-colors p-2 ${
+              isAiCropping ? "text-primary" : "text-white/70 hover:text-white"
+            }`}
+            onClick={() => onAiCrop(applyToAll ? "all" : "current", currentIndex)}
+            disabled={isAiCropping}
+          >
+            {isAiCropping ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Sparkles className="h-5 w-5" />
+            )}
+            <span className="text-[10px]">IA Crop</span>
           </button>
 
           <button
