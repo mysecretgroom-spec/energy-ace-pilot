@@ -97,6 +97,8 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const [deletingFacture, setDeletingFacture] = useState<Facture | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [removingVenteId, setRemovingVenteId] = useState<string | null>(null);
+  const [factureTexts, setFactureTexts] = useState<Map<string, string>>(new Map());
+  const [loadingFactureTexts, setLoadingFactureTexts] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -592,30 +594,48 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     }
   };
 
-  // Copy facture ventes for invoice
-  const handleCopyFactureForQonto = async (facture: Facture) => {
-    const factureVentesData = await fetchFactureVentes(facture);
-    
-    if (factureVentesData.length === 0) {
-      toast.error("Aucune vente trouvée pour cette facture");
-      return;
-    }
-
-    const lines = factureVentesData.map(v => {
+  // Build copy text for a facture from its ventes
+  const buildFactureText = (ventesData: BillableVente[]) => {
+    const lines = ventesData.map(v => {
       const clientName = v.client_prenom 
         ? `${v.client_prenom} ${v.client_nom}`
         : v.client_nom;
       const puissanceStr = v.puissance_kwc ? `${v.puissance_kwc} kWc` : "";
-      return `Commission Installation(s): ${puissanceStr} - ${clientName}\t${formatCurrency(v.commission)} €`;
+      return `Commission Installation(s): ${puissanceStr} - ${clientName}  ${formatCurrency(v.commission)} €`;
     });
+    const totalCommission = ventesData.reduce((sum, v) => sum + v.commission, 0);
+    return lines.join("\n") + `\n\nTOTAL HT: ${formatCurrency(totalCommission)} €`;
+  };
 
-    const totalCommission = factureVentesData.reduce((sum, v) => sum + v.commission, 0);
-    const fullText = lines.join("\n") + `\n\nTOTAL HT: ${formatCurrency(totalCommission)} €`;
-    
-    const ok = await copyToClipboardUtil(fullText);
+  // Preload facture texts when factures change
+  useEffect(() => {
+    if (factures.length === 0 || !showPendingInvoices) return;
+    const loadTexts = async () => {
+      setLoadingFactureTexts(true);
+      const newTexts = new Map<string, string>();
+      for (const facture of factures) {
+        const ventesData = await fetchFactureVentes(facture);
+        if (ventesData.length > 0) {
+          newTexts.set(facture.id, buildFactureText(ventesData));
+        }
+      }
+      setFactureTexts(newTexts);
+      setLoadingFactureTexts(false);
+    };
+    loadTexts();
+  }, [factures, showPendingInvoices]);
+
+  // Copy facture text
+  const handleCopyFacture = async (factureId: string) => {
+    const text = factureTexts.get(factureId);
+    if (!text) {
+      toast.error("Texte non disponible, réessayez");
+      return;
+    }
+    const ok = await copyToClipboardUtil(text);
     if (ok) {
-      setCopiedFactureId(facture.id);
-      toast.success("Lignes copiées pour votre facture");
+      setCopiedFactureId(factureId);
+      toast.success("Copié dans le presse-papier");
     } else {
       toast.error("Impossible de copier");
     }
@@ -809,98 +829,116 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     <>
       {/* Factures en attente de paiement */}
       {factures.length > 0 && (
-        <Card className="shadow-card border-purple-200 bg-purple-50/50 mb-4">
+        <Card className="shadow-card border-primary/20 bg-primary/5 mb-4">
           <CardHeader className="pb-2">
             <CardTitle 
               className="flex items-center justify-between text-base cursor-pointer"
               onClick={() => setShowPendingInvoices(!showPendingInvoices)}
             >
               <div className="flex items-center gap-2">
-                <Receipt className="h-5 w-5 text-purple-600" />
-                <span className="text-purple-800">Factures émises</span>
+                <Receipt className="h-5 w-5 text-primary" />
+                <span className="text-foreground">Factures émises</span>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
                   {formatCurrency(totalPendingInvoices)} €
                 </Badge>
                 {showPendingInvoices ? (
-                  <ChevronUp className="h-4 w-4 text-purple-600" />
+                  <ChevronUp className="h-4 w-4 text-primary" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-purple-600" />
+                  <ChevronDown className="h-4 w-4 text-primary" />
                 )}
               </div>
             </CardTitle>
           </CardHeader>
           {showPendingInvoices && (
-            <CardContent className="space-y-2">
-              {factures.map((facture) => (
-                <div
-                  key={facture.id}
-                  className="p-3 rounded-lg bg-white border border-purple-100 space-y-2"
-                >
-                  {/* Ligne 1: Numéro + Montant */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate">{facture.numero_facture}</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-                        <Clock className="h-3 w-3 shrink-0" />
-                        <span>{format(new Date(facture.date_emission), "dd MMM yyyy", { locale: fr })}</span>
-                        <span>•</span>
-                        <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
+            <CardContent className="space-y-3">
+              {factures.map((facture) => {
+                const factureText = factureTexts.get(facture.id);
+                return (
+                  <div
+                    key={facture.id}
+                    className="p-3 rounded-lg bg-card border border-border space-y-2"
+                  >
+                    {/* Ligne 1: Numéro + Montant */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{facture.numero_facture}</p>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>{format(new Date(facture.date_emission), "dd MMM yyyy", { locale: fr })}</span>
+                          <span>•</span>
+                          <span>{facture.vente_ids.length} vente{facture.vente_ids.length > 1 ? "s" : ""}</span>
+                        </div>
                       </div>
+                      <p className="font-bold text-primary whitespace-nowrap shrink-0">
+                        {formatCurrency(Number(facture.montant_total_ht))} €
+                      </p>
                     </div>
-                    <p className="font-bold text-purple-700 whitespace-nowrap shrink-0">
-                      {formatCurrency(Number(facture.montant_total_ht))} €
-                    </p>
-                  </div>
-                  
-                  {/* Ligne 2: Actions */}
-                  <div className="flex items-center justify-end gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
-                          <MoreVertical className="h-4 w-4 text-purple-600" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-background z-50">
-                        <DropdownMenuItem onClick={() => handleEditFacture(facture)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleCopyFactureForQonto(facture)}>
-                          {copiedFactureId === facture.id ? (
-                            <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                          ) : (
-                            <Copy className="h-4 w-4 mr-2" />
-                          )}
-                          {copiedFactureId === facture.id ? "Copié !" : "Copier pour faire ma facture"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => setDeletingFacture(facture)}
-                          className="text-destructive focus:text-destructive"
+
+                    {/* Texte copiable */}
+                    {factureText ? (
+                      <div className="relative bg-muted rounded-md p-3 pr-10">
+                        <pre className="text-xs text-foreground whitespace-pre-wrap font-sans select-text">{factureText}</pre>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 h-7 w-7"
+                          onClick={() => handleCopyFacture(facture.id)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {copiedFactureId === facture.id ? (
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </div>
+                    ) : loadingFactureTexts ? (
+                      <div className="bg-muted rounded-md p-3 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : null}
                     
-                    <Button
-                      size="sm"
-                      onClick={() => handleMarkAsPaid(facture)}
-                      disabled={markingPaid === facture.id}
-                      className="gap-1.5 bg-green-600 hover:bg-green-700 h-9"
-                    >
-                      {markingPaid === facture.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-4 w-4" />
-                      )}
-                      <span>Payée</span>
-                    </Button>
+                    {/* Ligne 2: Actions */}
+                    <div className="flex items-center justify-end gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-9 w-9">
+                            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-background z-50">
+                          <DropdownMenuItem onClick={() => handleEditFacture(facture)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setDeletingFacture(facture)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      
+                      <Button
+                        size="sm"
+                        onClick={() => handleMarkAsPaid(facture)}
+                        disabled={markingPaid === facture.id}
+                        className="gap-1.5 bg-primary hover:bg-primary/90 h-9"
+                      >
+                        {markingPaid === facture.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CreditCard className="h-4 w-4" />
+                        )}
+                        <span>Payée</span>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           )}
         </Card>
