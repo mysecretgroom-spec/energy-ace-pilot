@@ -232,7 +232,7 @@ const ClientDetailInner = () => {
 
     setLoading(true);
 
-    // Fetch client
+    // Fetch client first (needed for regie_id)
     const { data: clientData, error: clientError } = await supabase
       .from("clients")
       .select("*")
@@ -254,65 +254,26 @@ const ClientDetailInner = () => {
       metadata: clientData.metadata as ClientMetadata | null,
     });
 
-    // Fetch client's regie info
-    if (clientData.regie_id) {
-      const { data: regieData } = await supabase
-        .from("regies")
-        .select("id, nom, couleur")
-        .eq("id", clientData.regie_id)
-        .maybeSingle();
-      setClientRegie(regieData as ClientRegie | null);
-    } else {
-      setClientRegie(null);
-    }
+    // Parallel fetch all related data at once
+    const [regieResult, rdvResult, etudesResult, docsResult, histResult] = await Promise.all([
+      clientData.regie_id
+        ? supabase.from("regies").select("id, nom, couleur").eq("id", clientData.regie_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from("rdv").select(`*, regies:regie_id (id, nom, couleur)`).eq("client_id", id).order("date_heure", { ascending: false }),
+      supabase.from("etudes").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+      supabase.from("documents").select("*").eq("client_id", id).order("created_at", { ascending: false }),
+      supabase.from("historique_actions").select("*").eq("client_id", id).order("created_at", { ascending: false }).limit(20),
+    ]);
 
-    // Fetch RDVs with régie info
-    const { data: rdvData } = await supabase
-      .from("rdv")
-      .select(`
-        *,
-        regies:regie_id (
-          id,
-          nom,
-          couleur
-        )
-      `)
-      .eq("client_id", id)
-      .order("date_heure", { ascending: false });
-
-    setRdvs((rdvData || []).map(r => ({
+    setClientRegie(regieResult.data as ClientRegie | null);
+    setRdvs((rdvResult.data || []).map(r => ({
       ...r,
       metadata: r.metadata as RdvMetadata | null,
       regies: r.regies as Rdv["regies"],
     })) as Rdv[]);
-
-    // Fetch Études
-    const { data: etudesData } = await supabase
-      .from("etudes")
-      .select("*")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false });
-
-    setEtudes((etudesData as Etude[]) || []);
-
-    // Fetch Documents
-    const { data: docsData } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false });
-
-    setDocuments((docsData as Document[]) || []);
-
-    // Fetch Historique
-    const { data: histData } = await supabase
-      .from("historique_actions")
-      .select("*")
-      .eq("client_id", id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    setHistorique((histData as HistoriqueAction[]) || []);
+    setEtudes((etudesResult.data as Etude[]) || []);
+    setDocuments((docsResult.data as Document[]) || []);
+    setHistorique((histResult.data as HistoriqueAction[]) || []);
 
     setLoading(false);
   };
@@ -865,16 +826,18 @@ const ClientDetailInner = () => {
           </Suspense>
         )}
 
-        {/* Edit Client Dialog */}
-        <EditClientDialog
-          client={client}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onSuccess={fetchClientData}
-        />
+        {/* Edit Client Dialog - only mount when open */}
+        {showEditDialog && (
+          <EditClientDialog
+            client={client}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+            onSuccess={fetchClientData}
+          />
+        )}
 
-        {/* Retape Dialog - HEJJA mode only */}
-        {client && (
+        {/* Retape Dialog - only mount when open */}
+        {showRetapeDialog && client && (
           <Suspense fallback={null}>
             <RetapeDialog
               open={showRetapeDialog}
@@ -886,15 +849,17 @@ const ClientDetailInner = () => {
           </Suspense>
         )}
 
-        {/* Delete Confirmation Dialog */}
-        <DeleteConfirmDialog
-          open={isDeleteDialogOpen}
-          onOpenChange={cancelDelete}
-          onConfirm={confirmDelete}
-          title="Supprimer ce client ?"
-          description="Cette action est irréversible. Toutes les données associées (RDV, études, documents) seront également supprimées."
-          isLoading={isDeleting}
-        />
+        {/* Delete Confirmation - only mount when open */}
+        {isDeleteDialogOpen && (
+          <DeleteConfirmDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={cancelDelete}
+            onConfirm={confirmDelete}
+            title="Supprimer ce client ?"
+            description="Cette action est irréversible. Toutes les données associées (RDV, études, documents) seront également supprimées."
+            isLoading={isDeleting}
+          />
+        )}
       </div>
     </MobileLayout>
   );
