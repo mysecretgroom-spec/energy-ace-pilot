@@ -33,6 +33,7 @@ interface DocumentItem {
 interface MultiDocumentSelectorProps {
   documents: DocumentItem[];
   clientName: string;
+  clientAddress?: string;
   clientId?: string;
   onDocumentsChange?: () => void;
 }
@@ -92,6 +93,7 @@ const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
 export function MultiDocumentSelector({
   documents,
   clientName,
+  clientAddress,
   clientId,
   onDocumentsChange,
 }: MultiDocumentSelectorProps) {
@@ -196,7 +198,9 @@ export function MultiDocumentSelector({
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = `Dossier_${clientName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const namePart = clientName.trim().replace(/\s+/g, "_");
+      const addressPart = clientAddress ? `, ${clientAddress}` : "";
+      link.download = `${namePart}${addressPart}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

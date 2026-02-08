@@ -801,6 +801,7 @@ const ClientDetailInner = () => {
                       thumbnails_urls: (doc as any).thumbnails_urls || null,
                     }))}
                     clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
+                    clientAddress={[client?.adresse, client?.code_postal, client?.ville].filter(Boolean).join(", ")}
                     clientId={id}
                     onDocumentsChange={fetchClientData}
                   />
