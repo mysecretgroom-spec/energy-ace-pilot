@@ -5719,7 +5719,12 @@ IMPORTANT: Ne PAS transformer en multi-requête si:
 - C'est une question/requête simple (ex: "mes rdv de la semaine" = 1 requête)
 
 Format réponse JSON:
-{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"...","is_multi_request":false,"requests":[]}
+{"intent":"...","confidence":0-100,"entities":{"client_name":"...","date":"YYYY-MM-DD","time":"HH:MM","status":"...","pipeline_status":"...","period":"today|week|month|all","amount":number,"puissance_kwc":number,"technicien":"...","commentaire":"...","include_cancelled":true/false,"ordinal":number,"feedback_type":"correction|preference|rule|alias","feedback_key":"ce que je dois retenir","feedback_value":"la règle/correction exacte"},"requiresConfirmation":true/false,"responseMessage":"...","is_multi_request":false,"requests":[]}
+
+IMPORTANT pour query_rdv_detail:
+- Si l'utilisateur dit "le 1er/2ème/3ème rdv de demain/aujourd'hui", utilise intent=query_rdv_detail avec entities.period et entities.ordinal (numéro du rdv, ex: 1, 2, 3). PAS BESOIN de client_name dans ce cas.
+- Si l'utilisateur nomme un client, utilise entities.client_name normalement.
+- confidence DOIT être entre 0 et 100 (ex: 90, 95, 100). NE PAS utiliser une échelle 0-1.
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
 Contexte: ${userName} | Date: ${today}
@@ -5876,6 +5881,12 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
           requiresConfirmation: false,
           responseMessage: "🤔 Je n'ai pas bien compris. Peux-tu reformuler ?"
         };
+      }
+      
+      // Normalize confidence: if AI returned 0-1 scale, convert to 0-100
+      if (parsed.confidence > 0 && parsed.confidence <= 1) {
+        parsed.confidence = Math.round(parsed.confidence * 100);
+        console.log(`Normalized confidence from 0-1 scale to: ${parsed.confidence}`);
       }
       
       // Assurer que responseMessage n'est jamais vide
@@ -8166,21 +8177,96 @@ async function executeAction(
 
     case "query_rdv_detail": {
       const clientName = entities.client_name as string;
+      const period = entities.period as string;
+      const queryField = entities.query_field as string;
+      const queryType = entities.query_type as string;
       
-      if (!clientName) {
+      // Support ordinal RDV lookup: "le 2ème rdv de demain" without client_name
+      if (!clientName && period) {
+        // Determine ordinal position from the original message context or default to 1
+        // Parse ordinal from entities or query_field (e.g. "2" from "Le 2eme rdv")
+        let ordinalIndex = 0; // 0-based index, default to first
+        const ordinalMatch = String(entities.ordinal || queryField || queryType || "").match(/(\d+)/);
+        if (ordinalMatch) {
+          ordinalIndex = parseInt(ordinalMatch[1], 10) - 1; // Convert to 0-based
+        }
+        
+        // Fetch RDVs for the period
+        const now = new Date();
+        let startDate: Date, endDate: Date;
+        
+        if (period === "tomorrow") {
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() + 1);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setHours(23, 59, 59, 999);
+        } else if (period === "today") {
+          startDate = new Date(now);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setHours(23, 59, 59, 999);
+        } else {
+          // Default: next 7 days
+          startDate = new Date(now);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 7);
+        }
+        
+        const { data: periodRdvs, error: periodError } = await supabase
+          .from("rdv")
+          .select(`
+            id, date_heure, client_id,
+            clients!inner(id, nom, prenom)
+          `)
+          .eq("user_id", userId)
+          .gte("date_heure", startDate.toISOString())
+          .lte("date_heure", endDate.toISOString())
+          .order("date_heure", { ascending: true });
+        
+        if (periodError || !periodRdvs || periodRdvs.length === 0) {
+          return {
+            actionTaken: "not_found",
+            customResponse: `Aucun RDV trouvé pour cette période.`,
+          };
+        }
+        
+        if (ordinalIndex >= periodRdvs.length) {
+          const periodLabel = period === "tomorrow" ? "demain" : period === "today" ? "aujourd'hui" : "cette période";
+          return {
+            actionTaken: "not_found",
+            customResponse: `Tu n'as que ${periodRdvs.length} RDV ${periodLabel}. Demande le RDV n°1 à ${periodRdvs.length}.`,
+          };
+        }
+        
+        // Get the client name from the selected RDV and re-execute with client_name
+        const selectedRdv = periodRdvs[ordinalIndex];
+        const selectedClient = selectedRdv.clients as any;
+        const resolvedClientName = `${selectedClient?.prenom || ""} ${selectedClient?.nom || ""}`.trim();
+        
+        // Recursively call with resolved client_name
+        entities.client_name = resolvedClientName;
+        // Fall through to normal client_name handling below
+      }
+      
+      // Re-read client_name after potential ordinal resolution
+      const resolvedClientName = entities.client_name as string;
+      
+      if (!resolvedClientName) {
         return {
           actionTaken: "error",
-          customResponse: "Quel client ? Dis-moi 'topo Dupont' ou 'infos rdv Martin'.",
+          customResponse: "Quel client ? Dis-moi 'topo Dupont' ou 'infos rdv Martin', ou 'le 1er rdv de demain'.",
         };
       }
 
       // Find client with fuzzy search
-      const searchResult = await findClientByName(supabase, userId, clientName);
+      const searchResult = await findClientByName(supabase, userId, resolvedClientName);
       
       if (searchResult.notFound) {
         return { 
           actionTaken: "not_found",
-          customResponse: `❌ Aucun client "${clientName}" trouvé. Vérifie l'orthographe.`
+          customResponse: `❌ Aucun client "${resolvedClientName}" trouvé. Vérifie l'orthographe.`
         };
       }
       
@@ -8188,7 +8274,7 @@ async function executeAction(
         // Generate a choice poll for the user to select the right client
         const poll = generateChoicePoll(
           searchResult.suggestions,
-          clientName,
+          resolvedClientName,
           "query_rdv_detail",
           entities
         );
