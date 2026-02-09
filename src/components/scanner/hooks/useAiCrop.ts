@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectDocumentEdgesLight } from "../services/edgeDetectionLight";
@@ -55,53 +55,149 @@ const FULL_IMAGE_CORNERS: AiCropCorners = {
 };
 
 /**
+ * Compute a rectangularity score (0-1) for a quad.
+ * 1.0 = perfect rectangle.
+ */
+function rectangularityScore(c: AiCropCorners): number {
+  const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft];
+  const angles: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % 4];
+    const cc = pts[(i + 2) % 4];
+    const v1x = a.x - b.x, v1y = a.y - b.y;
+    const v2x = cc.x - b.x, v2y = cc.y - b.y;
+    const dot = v1x * v2x + v1y * v2y;
+    const m1 = Math.sqrt(v1x * v1x + v1y * v1y);
+    const m2 = Math.sqrt(v2x * v2x + v2y * v2y);
+    if (m1 < 0.001 || m2 < 0.001) return 0;
+    angles.push(Math.abs(Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) - Math.PI / 2));
+  }
+  const avgDev = angles.reduce((s, a) => s + a, 0) / 4;
+  return Math.max(0, 1 - avgDev / (Math.PI / 4));
+}
+
+/**
+ * Compute area of a normalized quad (0-1 coords).
+ */
+function quadArea(c: AiCropCorners): number {
+  const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft];
+  let a = 0;
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    a += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+  }
+  return Math.abs(a) / 2;
+}
+
+/**
+ * Compute a composite confidence score combining:
+ * - Raw confidence from detector
+ * - Rectangularity (documents are rectangles)
+ * - Area coverage (documents should cover significant area)
+ */
+function compositeScore(corners: AiCropCorners, rawConfidence: number): number {
+  const rect = rectangularityScore(corners);
+  const area = quadArea(corners);
+  // Area bonus: prefer quads covering 30-90% of image
+  const areaPenalty = area < 0.15 ? 0.5 : area > 0.95 ? 0.8 : 1.0;
+  return rawConfidence * 0.5 + rect * 0.3 + areaPenalty * 0.2;
+}
+
+interface DetectionResult {
+  corners: AiCropCorners;
+  confidence: number;
+  source: "local" | "ai" | "fallback";
+}
+
+/**
  * Run local JS detection and AI detection in parallel.
- * Return the best result (highest confidence), or full-image fallback.
+ * AI receives the local result as a hint to validate/refine.
+ * The result with the highest composite confidence wins.
  */
 async function detectParallel(
   docId: string,
   preview: string
-): Promise<{ corners: AiCropCorners; source: "local" | "ai" | "fallback" }> {
-  // Launch both detections simultaneously
-  const localPromise = detectDocumentEdgesLight(preview).catch(() => null);
-  const aiPromise = (async () => {
-    try {
-      const compressed = await compressForAi(preview);
-      const { data, error } = await supabase.functions.invoke("ai-crop-detect", {
-        body: { images: [{ id: docId, base64: compressed }] },
-      });
-      if (error) throw new Error(error.message);
-      const result = data?.results?.[0];
-      if (result?.needs_crop && result.corners) {
-        return result.corners as AiCropCorners;
-      }
-      return null;
-    } catch (err) {
-      console.warn("AI detection failed:", err);
-      return null;
+): Promise<DetectionResult> {
+  // 1. Start local detection immediately
+  let localCorners: AiCropCorners | null = null;
+  let localConfidence = 0;
+
+  try {
+    const edges = await detectDocumentEdgesLight(preview);
+    if (edges && edges.confidence > 0.15) {
+      localCorners = {
+        topLeft: edges.topLeft,
+        topRight: edges.topRight,
+        bottomRight: edges.bottomRight,
+        bottomLeft: edges.bottomLeft,
+      };
+      localConfidence = edges.confidence;
     }
-  })();
-
-  const [localResult, aiResult] = await Promise.all([localPromise, aiPromise]);
-
-  // Pick best: prefer AI if available (more precise), else local if confident
-  if (aiResult) {
-    return { corners: aiResult, source: "ai" };
+  } catch (err) {
+    console.warn("Local detection failed:", err);
   }
-  if (localResult && localResult.confidence > 0.20) {
-    return {
-      corners: {
-        topLeft: localResult.topLeft,
-        topRight: localResult.topRight,
-        bottomRight: localResult.bottomRight,
-        bottomLeft: localResult.bottomLeft,
+
+  // 2. Call AI with local hint (if available) for validation/refinement
+  let aiCorners: AiCropCorners | null = null;
+  let aiConfidence = 0;
+
+  try {
+    const compressed = await compressForAi(preview);
+    const localHint = localCorners
+      ? { [docId]: localCorners }
+      : undefined;
+
+    const { data, error } = await supabase.functions.invoke("ai-crop-detect", {
+      body: {
+        images: [{ id: docId, base64: compressed }],
+        local_corners: localHint,
       },
-      source: "local",
-    };
+    });
+    if (error) throw new Error(error.message);
+    const result = data?.results?.[0];
+    if (result?.needs_crop && result.corners) {
+      aiCorners = result.corners as AiCropCorners;
+      aiConfidence = typeof result.confidence === "number" ? result.confidence : 0.7;
+    }
+  } catch (err) {
+    console.warn("AI detection failed:", err);
   }
 
-  // Fallback: full image
-  return { corners: FULL_IMAGE_CORNERS, source: "fallback" };
+  // 3. Compare composite scores and pick the best
+  const candidates: DetectionResult[] = [];
+
+  if (localCorners) {
+    candidates.push({
+      corners: localCorners,
+      confidence: compositeScore(localCorners, localConfidence),
+      source: "local",
+    });
+  }
+
+  if (aiCorners) {
+    candidates.push({
+      corners: aiCorners,
+      confidence: compositeScore(aiCorners, aiConfidence),
+      source: "ai",
+    });
+  }
+
+  if (candidates.length === 0) {
+    return { corners: FULL_IMAGE_CORNERS, confidence: 0, source: "fallback" };
+  }
+
+  // Sort by composite confidence descending
+  candidates.sort((a, b) => b.confidence - a.confidence);
+
+  console.log(
+    `[crop] Winner: ${candidates[0].source} (score=${candidates[0].confidence.toFixed(3)})`,
+    candidates.length > 1
+      ? `| Runner-up: ${candidates[1].source} (score=${candidates[1].confidence.toFixed(3)})`
+      : ""
+  );
+
+  return candidates[0];
 }
 
 export function useAiCrop() {
@@ -110,7 +206,6 @@ export function useAiCrop() {
 
   /**
    * Detect + auto-apply crop on a single document.
-   * Returns the updated doc with cropped preview, or null if unchanged.
    */
   const autoCropSingle = useCallback(
     async (doc: ImportedDoc): Promise<ImportedDoc | null> => {
@@ -123,16 +218,18 @@ export function useAiCrop() {
       setProgress(20);
 
       try {
-        const { corners, source } = await detectParallel(doc.id, doc.preview);
+        const result = await detectParallel(doc.id, doc.preview);
         setProgress(60);
 
-        // Apply perspective correction directly
-        const cropped = await applyPerspectiveCorrectionLight(doc.preview, corners);
+        const cropped = await applyPerspectiveCorrectionLight(doc.preview, result.corners);
         setProgress(100);
 
         const label =
-          source === "ai" ? "Recadré (IA)" :
-          source === "local" ? "Recadré" : "Cadrage par défaut appliqué";
+          result.source === "ai"
+            ? `Recadré (IA, confiance ${Math.round(result.confidence * 100)}%)`
+            : result.source === "local"
+            ? `Recadré (auto, confiance ${Math.round(result.confidence * 100)}%)`
+            : "Cadrage par défaut appliqué";
         toast.success(label);
 
         return {
@@ -168,16 +265,18 @@ export function useAiCrop() {
       setProgress(10);
 
       try {
-        const { corners, source } = await detectParallel(doc.id, doc.preview);
+        const result = await detectParallel(doc.id, doc.preview);
         setProgress(100);
 
         const label =
-          source === "ai" ? "Document détecté (IA) — ajustez le cadrage" :
-          source === "local" ? "Document détecté — ajustez le cadrage" :
-          "Cadrage par défaut — ajustez manuellement";
+          result.source === "ai"
+            ? `Détecté (IA, ${Math.round(result.confidence * 100)}%) — ajustez`
+            : result.source === "local"
+            ? `Détecté (auto, ${Math.round(result.confidence * 100)}%) — ajustez`
+            : "Cadrage par défaut — ajustez manuellement";
         toast.success(label);
 
-        return { docId: doc.id, corners };
+        return { docId: doc.id, corners: result.corners };
       } catch (err: any) {
         console.error("Crop detection error:", err);
         toast.error("Erreur lors de la détection");
