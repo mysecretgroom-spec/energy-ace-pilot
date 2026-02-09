@@ -73,7 +73,7 @@ export function usePWAUpdate() {
     }
   }, []);
 
-  // Check for updates when app becomes visible
+  // Check for updates when app becomes visible or reopened
   const checkForUpdates = useCallback(() => {
     if (!hasGoodConnection()) return;
 
@@ -82,12 +82,17 @@ export function usePWAUpdate() {
         if (registration) {
           console.log('[PWA] Checking for updates...');
           registration.update();
+          // If a waiting worker exists already, activate it
+          if (registration.waiting) {
+            console.log('[PWA] Found waiting SW on reopen, activating...');
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
         }
       });
     }
   }, []);
 
-  // Handle visibility change
+  // Handle visibility change + app reopen (pageshow for bfcache on iOS)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -95,13 +100,27 @@ export function usePWAUpdate() {
       }
     };
 
-    checkForUpdates();
+    const handlePageShow = (e: PageTransitionEvent) => {
+      // persisted = true means restored from bfcache (iOS app reopen)
+      if (e.persisted) {
+        console.log('[PWA] App restored from bfcache, checking updates...');
+        checkForUpdates();
+      }
+    };
+
+    // Delay initial check so SW registration is ready
+    const timer = setTimeout(checkForUpdates, 2000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', checkForUpdates);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', checkForUpdates);
 
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', checkForUpdates);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', checkForUpdates);
     };
   }, [checkForUpdates]);
 
