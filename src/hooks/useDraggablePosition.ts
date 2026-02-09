@@ -45,17 +45,35 @@ export function useDraggablePosition({
   longPressDuration = 1200,
   snapThreshold = 8,
 }: UseDraggablePositionOptions) {
+  // Compute a safe default that works even if window isn't ready yet
+  const getSafeDefault = useCallback((): DragPosition => {
+    if (typeof window === "undefined") return defaultPosition;
+    // Clamp default to viewport
+    return {
+      x: Math.max(0, Math.min(defaultPosition.x, window.innerWidth - 60)),
+      y: Math.max(0, Math.min(defaultPosition.y, window.innerHeight - 60)),
+    };
+  }, [defaultPosition]);
+
   const [position, setPosition] = useState<DragPosition>(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.x === "number" && typeof parsed.y === "number") {
+          // Validate saved position is still within viewport
+          if (typeof window !== "undefined") {
+            const maxX = window.innerWidth - 40;
+            const maxY = window.innerHeight - 40;
+            if (parsed.x <= maxX && parsed.y <= maxY && parsed.x >= 0 && parsed.y >= 0) {
+              return parsed;
+            }
+          }
           return parsed;
         }
       }
     } catch {}
-    return defaultPosition;
+    return getSafeDefault();
   });
 
   const [isDragging, setIsDragging] = useState(false);
