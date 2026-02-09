@@ -10,13 +10,20 @@ import {
   Trash2,
   GripVertical,
   Check,
+  Pencil,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { DocumentPreview } from "./DocumentPreview";
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { generatePdfFromFile } from "@/components/scanner/services/pdfGenerator";
+import { uploadDocumentToStorage } from "@/components/scanner/services/uploadService";
+import { ImportPreviewCarousel, type ImportedDoc } from "@/components/scanner/ImportPreviewCarousel";
+import { CropEditor } from "@/components/scanner/CropEditor";
+import { useAiCrop, type AiCropCorners } from "@/components/scanner/hooks/useAiCrop";
+import { useAuth } from "@/hooks/useAuth";
 
 // Lazy load heavy DnD component
 const LazyDndList = React.lazy(() => import("./DndDocumentList"));
@@ -97,6 +104,7 @@ export function MultiDocumentSelector({
   clientId,
   onDocumentsChange,
 }: MultiDocumentSelectorProps) {
+  const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -106,6 +114,17 @@ export function MultiDocumentSelector({
   const [docToDelete, setDocToDelete] = useState<string | null>(null);
   const [isDragMode, setIsDragMode] = useState(false);
   const [orderedDocs, setOrderedDocs] = useState<DocumentItem[]>(documents);
+
+  // Edit carousel state
+  const [editCarouselDocs, setEditCarouselDocs] = useState<ImportedDoc[]>([]);
+  const [showEditCarousel, setShowEditCarousel] = useState(false);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editDocIdMap, setEditDocIdMap] = useState<Map<string, string>>(new Map()); // carouselId -> originalDocId
+  const [editCropDocId, setEditCropDocId] = useState<string | null>(null);
+  const [editCropImageData, setEditCropImageData] = useState<string | null>(null);
+  const [editCropInitialCorners, setEditCropInitialCorners] = useState<AiCropCorners | undefined>(undefined);
+  const { detectCropCorners, analyzeAndCropBatch, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
   // Sync orderedDocs with documents prop
   React.useEffect(() => {
@@ -313,6 +332,165 @@ export function MultiDocumentSelector({
     [orderedDocs, clientId, onDocumentsChange]
   );
 
+  // ===== EDIT CAROUSEL HANDLERS =====
+
+  const handleOpenEditCarousel = useCallback(async () => {
+    if (selectedIds.size === 0) {
+      toast({ title: "Sélection vide", description: "Sélectionnez des documents à modifier", variant: "destructive" });
+      return;
+    }
+
+    setIsLoadingEdit(true);
+    const selectedDocs = orderedDocs.filter((d) => selectedIds.has(d.id));
+    const idMap = new Map<string, string>();
+
+    try {
+      const carouselDocs: ImportedDoc[] = await Promise.all(
+        selectedDocs.map(async (doc) => {
+          const carouselId = crypto.randomUUID();
+          idMap.set(carouselId, doc.id);
+
+          let preview = "";
+          const fileType = getFileType(doc.url);
+
+          if (fileType === "image") {
+            // Fetch image as data URL
+            try {
+              const resp = await fetch(doc.url);
+              const blob = await resp.blob();
+              preview = await new Promise<string>((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result as string);
+                reader.onerror = rej;
+                reader.readAsDataURL(blob);
+              });
+            } catch {
+              preview = doc.url;
+            }
+          } else if (fileType === "pdf") {
+            // Render first page of PDF as image
+            try {
+              const pdfjsLib = await import("pdfjs-dist");
+              pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+              const resp = await fetch(doc.url);
+              const arrayBuffer = await resp.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              const page = await pdf.getPage(1);
+              const viewport = page.getViewport({ scale: 2 });
+              const canvas = document.createElement("canvas");
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                preview = canvas.toDataURL("image/jpeg", 0.9);
+              }
+            } catch {
+              preview = "/placeholder.svg";
+            }
+          }
+
+          // Create a dummy File object
+          const blob = preview.startsWith("data:") 
+            ? await fetch(preview).then(r => r.blob()) 
+            : new Blob([], { type: "image/jpeg" });
+          const file = new File([blob], doc.nom, { type: blob.type || "image/jpeg" });
+
+          return {
+            id: carouselId,
+            file,
+            preview,
+            rotation: 0,
+            activeFilter: "original",
+            description: doc.nom,
+            documentType: doc.type_document as any,
+          };
+        })
+      );
+
+      setEditDocIdMap(idMap);
+      setEditCarouselDocs(carouselDocs);
+      setShowEditCarousel(true);
+    } catch (err) {
+      console.error("Failed to load docs for editing:", err);
+      toast({ title: "Erreur", description: "Impossible de charger les documents", variant: "destructive" });
+    } finally {
+      setIsLoadingEdit(false);
+    }
+  }, [selectedIds, orderedDocs]);
+
+  const handleEditCarouselSave = useCallback(async () => {
+    if (!user || !clientId) return;
+
+    setIsSavingEdit(true);
+    try {
+      let savedCount = 0;
+
+      for (const doc of editCarouselDocs) {
+        const originalDocId = editDocIdMap.get(doc.id);
+        if (!originalDocId) continue;
+
+        const finalPreview = doc.processedPreview || doc.preview;
+        if (!finalPreview || finalPreview === "/placeholder.svg") continue;
+
+        // Convert to PDF
+        let fileForPdf: File | Blob = doc.file;
+        if (finalPreview.startsWith("data:image")) {
+          const resp = await fetch(finalPreview);
+          fileForPdf = await resp.blob();
+        }
+
+        const pdfResult = await generatePdfFromFile(
+          fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
+        );
+
+        const signedUrl = await uploadDocumentToStorage(pdfResult.blob, user.id, "client_docs");
+
+        const { error } = await supabase
+          .from("documents")
+          .update({
+            url: signedUrl,
+            thumbnails_urls: pdfResult.thumbnails,
+          })
+          .eq("id", originalDocId);
+
+        if (error) throw error;
+        savedCount++;
+      }
+
+      sonnerToast.success(`${savedCount} document${savedCount > 1 ? "s" : ""} mis à jour`);
+      setShowEditCarousel(false);
+      setEditCarouselDocs([]);
+      setSelectedIds(new Set());
+      onDocumentsChange?.();
+    } catch (err) {
+      console.error("Save edited docs error:", err);
+      sonnerToast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [editCarouselDocs, editDocIdMap, user, clientId, onDocumentsChange]);
+
+  const handleEditCrop = useCallback((id: string) => {
+    const doc = editCarouselDocs.find((d) => d.id === id);
+    if (!doc || !doc.preview || doc.preview === "/placeholder.svg") return;
+    setEditCropDocId(id);
+    setEditCropImageData(doc.preview);
+    setEditCropInitialCorners(undefined);
+  }, [editCarouselDocs]);
+
+  const handleEditCropComplete = useCallback((croppedImage: string) => {
+    if (!editCropDocId) return;
+    setEditCarouselDocs((prev) =>
+      prev.map((d) =>
+        d.id === editCropDocId ? { ...d, preview: croppedImage, rotation: 0, activeFilter: "original", processedPreview: undefined } : d
+      )
+    );
+    setEditCropDocId(null);
+    setEditCropImageData(null);
+    setEditCropInitialCorners(undefined);
+  }, [editCropDocId]);
+
   const isAllSelected = selectedIds.size === orderedDocs.length && orderedDocs.length > 0;
 
   return (
@@ -341,6 +519,17 @@ export function MultiDocumentSelector({
 
             {selectedIds.size > 0 && (
               <div className="flex flex-wrap gap-1.5 ml-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenEditCarousel}
+                  disabled={isLoadingEdit}
+                  className="gap-1 h-8 px-2"
+                >
+                  {isLoadingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+                  <span className="hidden sm:inline">Éditer</span>
+                </Button>
+
                 <Button variant="outline" size="sm" onClick={openSelectedPreview} className="gap-1 h-8 px-2">
                   <Eye className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Voir</span> ({selectedIds.size})
@@ -435,6 +624,45 @@ export function MultiDocumentSelector({
         description="Cette action est irréversible. Le document sera définitivement supprimé."
         isLoading={isDeleting}
       />
+
+      {/* Edit carousel overlay */}
+      {editCropImageData && editCropDocId ? (
+        <CropEditor
+          imageData={editCropImageData}
+          onComplete={(croppedImage) => handleEditCropComplete(croppedImage)}
+          onCancel={() => { setEditCropDocId(null); setEditCropImageData(null); setEditCropInitialCorners(undefined); }}
+          initialCorners={editCropInitialCorners}
+        />
+      ) : showEditCarousel && editCarouselDocs.length > 0 ? (
+        <ImportPreviewCarousel
+          documents={editCarouselDocs}
+          onDocumentsChange={setEditCarouselDocs}
+          onDelete={(id) => setEditCarouselDocs((prev) => prev.filter((d) => d.id !== id))}
+          onReplace={() => {}}
+          onCrop={handleEditCrop}
+          onAiCrop={async (mode, idx) => {
+            if (mode === "current") {
+              const doc = editCarouselDocs[idx];
+              if (!doc) return;
+              const result = await detectCropCorners(doc);
+              if (result) {
+                setEditCropDocId(result.docId);
+                setEditCropImageData(doc.preview);
+                setEditCropInitialCorners(result.corners);
+              }
+            } else {
+              const updated = await analyzeAndCropBatch(editCarouselDocs);
+              setEditCarouselDocs(updated);
+            }
+          }}
+          isAiCropping={isAiCropping}
+          aiCropProgress={aiCropProgress}
+          onAddMore={() => {}}
+          onSave={handleEditCarouselSave}
+          onClose={() => { setShowEditCarousel(false); setEditCarouselDocs([]); }}
+          isSaving={isSavingEdit}
+        />
+      ) : null}
     </>
   );
 }
