@@ -117,9 +117,10 @@ export function AgentChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Fixed default: bottom-right, 16px from right edge, 220px from bottom (above Hejja)
   const defaultAgentPos = useMemo(() => ({
-    x: typeof window !== "undefined" ? window.innerWidth - 160 : 200,
-    y: typeof window !== "undefined" ? window.innerHeight - 200 : 400,
+    x: typeof window !== "undefined" ? window.innerWidth - 56 : 200,
+    y: typeof window !== "undefined" ? window.innerHeight - 220 : 400,
   }), []);
 
   const {
