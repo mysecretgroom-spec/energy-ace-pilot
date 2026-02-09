@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectDocumentEdgesLight } from "../services/edgeDetectionLight";
@@ -43,11 +43,20 @@ async function compressForAi(dataUrl: string): Promise<string> {
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("No ctx"));
       ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", 0.5));
+      const result = canvas.toDataURL("image/jpeg", 0.5);
+      // Cleanup
+      canvas.width = 0;
+      canvas.height = 0;
+      resolve(result);
     };
     img.onerror = () => reject(new Error("Failed to load"));
     img.src = dataUrl;
   });
+}
+
+/** Small delay to let the browser GC between heavy canvas operations */
+function breathe(ms = 50): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
@@ -93,9 +102,13 @@ async function detectLocalThenAI(
   return null;
 }
 
+/** Batch size for processing to avoid memory pressure */
+const BATCH_SIZE = 3;
+
 export function useAiCrop() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const cancelledRef = useRef(false);
 
   /**
    * Detect crop corners for a single doc.
@@ -140,6 +153,7 @@ export function useAiCrop() {
 
   /**
    * Batch detect and auto-crop multiple docs.
+   * Processes in small batches with memory cleanup to prevent crashes.
    */
   const analyzeAndCropBatch = useCallback(
     async (documents: ImportedDoc[]): Promise<ImportedDoc[]> => {
@@ -154,48 +168,76 @@ export function useAiCrop() {
 
       setIsAnalyzing(true);
       setProgress(0);
+      cancelledRef.current = false;
 
       try {
         let croppedCount = 0;
+        let errorCount = 0;
         const total = imageDocs.length;
+        const resultMap = new Map<string, string>(); // docId → cropped dataUrl
 
-        // Process sequentially to avoid overwhelming the device
-        const resultMap = new Map<string, AiCropCorners>();
-        for (let i = 0; i < imageDocs.length; i++) {
-          const doc = imageDocs[i];
-          const result = await detectLocalThenAI(doc.id, doc.preview);
-          if (result) {
-            resultMap.set(doc.id, result.corners);
-          }
-          setProgress(Math.round(((i + 1) / total) * 90));
-        }
+        // Process in small batches to avoid memory saturation
+        for (let batchStart = 0; batchStart < imageDocs.length; batchStart += BATCH_SIZE) {
+          if (cancelledRef.current) break;
 
-        const updatedDocs = await Promise.all(
-          documents.map(async (doc) => {
-            const corners = resultMap.get(doc.id);
-            if (!corners) return doc;
+          const batch = imageDocs.slice(batchStart, batchStart + BATCH_SIZE);
 
+          // Step 1: Detect corners for all docs in this batch
+          const detections: { doc: ImportedDoc; corners: AiCropCorners }[] = [];
+          for (const doc of batch) {
+            if (cancelledRef.current) break;
             try {
-              const cropped = await cropFromCorners(doc.preview, corners);
+              const result = await detectLocalThenAI(doc.id, doc.preview);
+              if (result) {
+                detections.push({ doc, corners: result.corners });
+              }
+            } catch (err) {
+              console.warn("Detection failed for", doc.id, err);
+              errorCount++;
+            }
+          }
+
+          // Step 2: Apply perspective correction one by one with breathing room
+          for (const { doc, corners } of detections) {
+            if (cancelledRef.current) break;
+            try {
+              const cropped = await applyPerspectiveCorrectionLight(doc.preview, corners);
+              resultMap.set(doc.id, cropped);
               croppedCount++;
-              return {
-                ...doc,
-                preview: cropped,
-                processedPreview: undefined,
-                activeFilter: "original",
-                rotation: 0,
-              };
             } catch (err) {
               console.warn("Crop failed for", doc.id, err);
-              return doc;
+              errorCount++;
             }
-          })
-        );
+            // Let the browser breathe between heavy canvas ops
+            await breathe(30);
+          }
 
-        setProgress(100);
+          // Update progress
+          const processed = Math.min(batchStart + BATCH_SIZE, total);
+          setProgress(Math.round((processed / total) * 100));
+
+          // Longer pause between batches for GC
+          if (batchStart + BATCH_SIZE < imageDocs.length) {
+            await breathe(100);
+          }
+        }
+
+        // Build updated documents array
+        const updatedDocs = documents.map((doc) => {
+          const cropped = resultMap.get(doc.id);
+          if (!cropped) return doc;
+          return {
+            ...doc,
+            preview: cropped,
+            processedPreview: undefined,
+            activeFilter: "original",
+            rotation: 0,
+          };
+        });
 
         if (croppedCount > 0) {
-          toast.success(`${croppedCount} document${croppedCount > 1 ? "s" : ""} recadré${croppedCount > 1 ? "s" : ""}`);
+          const msg = `${croppedCount} document${croppedCount > 1 ? "s" : ""} recadré${croppedCount > 1 ? "s" : ""}`;
+          toast.success(errorCount > 0 ? `${msg} (${errorCount} erreur${errorCount > 1 ? "s" : ""})` : msg);
         } else {
           toast.info("Aucun recadrage nécessaire détecté");
         }
@@ -203,7 +245,7 @@ export function useAiCrop() {
         return updatedDocs;
       } catch (err: any) {
         console.error("Batch crop error:", err);
-        toast.error("Erreur lors de l'analyse");
+        toast.error("Erreur lors de l'analyse par lot");
         return documents;
       } finally {
         setIsAnalyzing(false);
@@ -214,14 +256,4 @@ export function useAiCrop() {
   );
 
   return { detectCropCorners, analyzeAndCropBatch, isAnalyzing, progress };
-}
-
-/**
- * Crop and straighten image using perspective correction (pure JS).
- */
-function cropFromCorners(
-  imageData: string,
-  corners: AiCropCorners
-): Promise<string> {
-  return applyPerspectiveCorrectionLight(imageData, corners);
 }
