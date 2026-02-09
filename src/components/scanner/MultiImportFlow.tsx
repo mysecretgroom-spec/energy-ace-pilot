@@ -111,7 +111,7 @@ export function MultiImportFlow({
   const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
 
   // AI crop hook
-  const { detectCropCorners, analyzeAndCropBatch, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
+  const { detectCropCorners, autoCropSingle, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
   // No preloading needed — lightweight JS detection is instant
 
@@ -537,21 +537,12 @@ export function MultiImportFlow({
             onDelete={handleCarouselDelete}
             onReplace={handleCarouselReplace}
             onCrop={handleCarouselCrop}
-            onAiCrop={async (mode, idx) => {
-              if (mode === "current") {
-                // Single doc: detect corners then open CropEditor
-                const doc = carouselDocs[idx];
-                if (!doc) return;
-                const result = await detectCropCorners(doc);
-                if (result) {
-                  setCropDocId(result.docId);
-                  setCropImageData(doc.preview);
-                  setCropInitialCorners(result.corners);
-                }
-              } else {
-                // Batch: auto-crop all directly
-                const updated = await analyzeAndCropBatch(carouselDocs);
-                setCarouselDocs(updated);
+            onAiCrop={async (_mode, idx) => {
+              const doc = carouselDocs[idx];
+              if (!doc) return;
+              const updated = await autoCropSingle(doc);
+              if (updated) {
+                setCarouselDocs(prev => prev.map(d => d.id === updated.id ? updated : d));
               }
             }}
             isAiCropping={isAiCropping}

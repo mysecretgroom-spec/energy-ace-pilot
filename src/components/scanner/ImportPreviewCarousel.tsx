@@ -411,7 +411,7 @@ export function ImportPreviewCarousel({
             className={`flex flex-col items-center gap-1 transition-colors p-2 ${
               isAiCropping ? "text-primary" : "text-white/70 hover:text-white"
             }`}
-            onClick={() => onAiCrop(applyToAll ? "all" : "current", currentIndex)}
+            onClick={() => onAiCrop("current", currentIndex)}
             disabled={isAiCropping}
           >
             {isAiCropping ? (
