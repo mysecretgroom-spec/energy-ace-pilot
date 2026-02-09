@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { toast } from 'sonner';
 
@@ -6,41 +6,27 @@ import { toast } from 'sonner';
 const MIN_EFFECTIVE_TYPE_FOR_UPDATE = ['4g', '3g'];
 
 function hasGoodConnection(): boolean {
-  // Check if online first
-  if (!navigator.onLine) {
-    return false;
-  }
+  if (!navigator.onLine) return false;
 
-  // Check Network Information API if available
   const connection = (navigator as any).connection || 
                      (navigator as any).mozConnection || 
                      (navigator as any).webkitConnection;
 
   if (connection) {
-    // Check effective type (4g, 3g, 2g, slow-2g)
     const effectiveType = connection.effectiveType;
     if (effectiveType && !MIN_EFFECTIVE_TYPE_FOR_UPDATE.includes(effectiveType)) {
-      console.log('[PWA] Slow connection detected:', effectiveType);
       return false;
     }
-
-    // Check if save-data mode is enabled
-    if (connection.saveData) {
-      console.log('[PWA] Save-data mode enabled, skipping update');
-      return false;
-    }
-
-    // Check downlink speed (Mbps) - skip if very slow
-    if (connection.downlink !== undefined && connection.downlink < 0.5) {
-      console.log('[PWA] Very slow downlink:', connection.downlink, 'Mbps');
-      return false;
-    }
+    if (connection.saveData) return false;
+    if (connection.downlink !== undefined && connection.downlink < 0.5) return false;
   }
 
   return true;
 }
 
 export function usePWAUpdate() {
+  const toastShownRef = useRef(false);
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -63,16 +49,6 @@ export function usePWAUpdate() {
     },
   });
 
-  // Listen for the new SW taking control and reload immediately
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[PWA] New SW activated, reloading...');
-        window.location.reload();
-      });
-    }
-  }, []);
-
   // Check for updates when app becomes visible or reopened
   const checkForUpdates = useCallback(() => {
     if (!hasGoodConnection()) return;
@@ -82,11 +58,6 @@ export function usePWAUpdate() {
         if (registration) {
           console.log('[PWA] Checking for updates...');
           registration.update();
-          // If a waiting worker exists already, activate it
-          if (registration.waiting) {
-            console.log('[PWA] Found waiting SW on reopen, activating...');
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
         }
       });
     }
@@ -101,14 +72,12 @@ export function usePWAUpdate() {
     };
 
     const handlePageShow = (e: PageTransitionEvent) => {
-      // persisted = true means restored from bfcache (iOS app reopen)
       if (e.persisted) {
         console.log('[PWA] App restored from bfcache, checking updates...');
         checkForUpdates();
       }
     };
 
-    // Delay initial check so SW registration is ready
     const timer = setTimeout(checkForUpdates, 2000);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', checkForUpdates);
@@ -124,13 +93,50 @@ export function usePWAUpdate() {
     };
   }, [checkForUpdates]);
 
-  // Auto-update immediately when available with good connection
+  // Show a persistent toast when update is available (instead of auto-updating)
   useEffect(() => {
-    if (needRefresh && hasGoodConnection()) {
-      console.log('[PWA] Auto-updating immediately...');
-      updateServiceWorker(true);
+    if (needRefresh && !toastShownRef.current) {
+      toastShownRef.current = true;
+      console.log('[PWA] Update available, showing notification...');
+
+      // Pre-activate the waiting SW so it's ready on refresh
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          if (reg?.waiting) {
+            console.log('[PWA] Sending SKIP_WAITING to new SW...');
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      }
+
+      toast('Nouvelle version disponible 🚀', {
+        description: 'Actualisez pour profiter des dernières améliorations.',
+        duration: Infinity,
+        action: {
+          label: 'Actualiser',
+          onClick: () => {
+            window.location.reload();
+          },
+        },
+        onDismiss: () => {
+          toastShownRef.current = false;
+        },
+      });
     }
-  }, [needRefresh, updateServiceWorker]);
+  }, [needRefresh]);
+
+  // Listen for the new SW taking control → reload
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        console.log('[PWA] New SW activated, reloading...');
+        window.location.reload();
+      });
+    }
+  }, []);
 
   const forceCheckAndUpdate = useCallback(async () => {
     if ('serviceWorker' in navigator) {
@@ -138,7 +144,6 @@ export function usePWAUpdate() {
       if (registration) {
         console.log('[PWA] Force checking for updates...');
         await registration.update();
-        // If a waiting worker exists, activate it immediately
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
           window.location.reload();
