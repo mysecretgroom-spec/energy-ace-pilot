@@ -43,10 +43,8 @@ function checkEffectivelyOffline(): boolean {
     // even if effectiveType reports weak (some devices misreport over WiFi)
     if (conn.type && WIFI_TYPES.has(conn.type)) return false;
 
-    // On cellular: weak effective type (2G or worse) → offline
+    // On cellular: only truly weak effective type (2G or worse) → offline
     if (WEAK_TYPES.has(conn.effectiveType)) return true;
-    // On cellular: very high RTT (>2s) or very low downlink (<0.1 Mbps)
-    if (conn.rtt > 2000 || conn.downlink < 0.1) return true;
   }
 
   return false;
