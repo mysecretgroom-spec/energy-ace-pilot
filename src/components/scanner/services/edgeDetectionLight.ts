@@ -1,6 +1,7 @@
 /**
- * Lightweight document edge detection — pure JS/Canvas, no OpenCV needed (~3KB vs 8MB).
- * Uses grayscale → blur → Sobel edges → contour tracing → largest quad detection.
+ * Lightweight document edge detection — pure JS/Canvas, no OpenCV needed.
+ * Uses grayscale → blur → adaptive threshold → Canny-like edges → contour → largest quad.
+ * Optimised for receipts / documents on dark or textured backgrounds.
  */
 
 interface Point {
@@ -28,7 +29,7 @@ export async function detectDocumentEdgesLight(
     img.onload = () => {
       try {
         // Work at reduced resolution for speed
-        const maxDim = 400;
+        const maxDim = 500;
         let w = img.width;
         let h = img.height;
         const scale = Math.min(maxDim / w, maxDim / h, 1);
@@ -55,27 +56,40 @@ export async function detectDocumentEdgesLight(
         // 2. Gaussian blur 5x5
         const blurred = gaussianBlur(gray, w, h);
 
-        // 3. Sobel edge detection
+        // 3. Adaptive threshold to handle uneven lighting
+        const adaptiveBin = adaptiveThreshold(blurred, w, h, 25, 8);
+
+        // 4. Sobel edge detection on blurred image
         const edges = sobelEdges(blurred, w, h);
 
-        // 4. Threshold
-        const threshold = otsuThreshold(edges);
-        const binary = new Uint8Array(w * h);
-        for (let i = 0; i < edges.length; i++) {
-          binary[i] = edges[i] > threshold ? 255 : 0;
+        // 5. Canny-like: non-maximum suppression + hysteresis threshold
+        const cannyEdges = cannyNMS(edges, blurred, w, h);
+
+        // 6. Combine: edge AND near adaptive-threshold boundary
+        const combined = new Uint8Array(w * h);
+        // Dilate the adaptive threshold to get boundary region
+        const dilated = dilate(adaptiveBin, w, h, 3);
+        const eroded = erode(adaptiveBin, w, h, 3);
+        for (let i = 0; i < w * h; i++) {
+          // Boundary = dilated XOR eroded (pixels near the edge of white regions)
+          const isBoundary = dilated[i] !== eroded[i] ? 1 : 0;
+          // Use Canny edges, boosted at boundary regions
+          combined[i] = cannyEdges[i] > 0 || (edges[i] > 40 && isBoundary) ? 255 : 0;
         }
 
-        // 5. Find contours and detect largest quad
-        const quad = findLargestQuad(binary, w, h);
-        
+        // 7. Dilate edges to connect fragments
+        const connectedEdges = dilate(combined, w, h, 2);
+
+        // 8. Find contours and detect largest quad
+        const quad = findLargestQuad(connectedEdges, w, h);
+
         if (quad) {
           const area = quadArea(quad);
           const imageArea = w * h;
           const confidence = Math.min(area / imageArea, 1);
 
-          // Must cover at least 15% of image
-          if (confidence > 0.15) {
-            // Normalize to 0-1
+          // Must cover at least 10% of image
+          if (confidence > 0.10) {
             const sorted = sortCorners(quad);
             resolve({
               topLeft: { x: sorted.topLeft.x / w, y: sorted.topLeft.y / h },
@@ -138,10 +152,144 @@ function sobelEdges(src: Uint8Array, w: number, h: number): Uint8Array {
   return out;
 }
 
+/** Adaptive threshold using mean of local window */
+function adaptiveThreshold(src: Uint8Array, w: number, h: number, blockSize: number, C: number): Uint8Array {
+  const out = new Uint8Array(w * h);
+  const half = (blockSize >> 1);
+
+  // Integral image for fast mean computation
+  const integral = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rowSum = 0;
+    for (let x = 0; x < w; x++) {
+      rowSum += src[y * w + x];
+      integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
+    }
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const x1 = Math.max(0, x - half);
+      const y1 = Math.max(0, y - half);
+      const x2 = Math.min(w - 1, x + half);
+      const y2 = Math.min(h - 1, y + half);
+      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+      const sum = integral[(y2 + 1) * (w + 1) + (x2 + 1)]
+                - integral[y1 * (w + 1) + (x2 + 1)]
+                - integral[(y2 + 1) * (w + 1) + x1]
+                + integral[y1 * (w + 1) + x1];
+      const mean = sum / count;
+      out[y * w + x] = src[y * w + x] > mean - C ? 255 : 0;
+    }
+  }
+  return out;
+}
+
+/** Canny-like non-maximum suppression for cleaner edges */
+function cannyNMS(magnitude: Uint8Array, blurred: Uint8Array, w: number, h: number): Uint8Array {
+  const out = new Uint8Array(w * h);
+
+  // Compute gradient directions from blurred
+  const directions = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const gx = blurred[y * w + x + 1] - blurred[y * w + x - 1];
+      const gy = blurred[(y + 1) * w + x] - blurred[(y - 1) * w + x];
+      directions[y * w + x] = Math.atan2(gy, gx);
+    }
+  }
+
+  // NMS
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      const mag = magnitude[idx];
+      if (mag < 20) continue;
+
+      const angle = ((directions[idx] * 180 / Math.PI) + 180) % 180;
+      let n1 = 0, n2 = 0;
+
+      if (angle < 22.5 || angle >= 157.5) {
+        n1 = magnitude[idx - 1]; n2 = magnitude[idx + 1];
+      } else if (angle < 67.5) {
+        n1 = magnitude[(y - 1) * w + x + 1]; n2 = magnitude[(y + 1) * w + x - 1];
+      } else if (angle < 112.5) {
+        n1 = magnitude[(y - 1) * w + x]; n2 = magnitude[(y + 1) * w + x];
+      } else {
+        n1 = magnitude[(y - 1) * w + x - 1]; n2 = magnitude[(y + 1) * w + x + 1];
+      }
+
+      out[idx] = mag >= n1 && mag >= n2 ? mag : 0;
+    }
+  }
+
+  // Hysteresis thresholding
+  const highThresh = otsuThreshold(magnitude) * 0.8;
+  const lowThresh = highThresh * 0.4;
+  const result = new Uint8Array(w * h);
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      if (out[idx] >= highThresh) {
+        result[idx] = 255;
+      } else if (out[idx] >= lowThresh) {
+        // Check 8-connected neighbors for a strong edge
+        let hasStrong = false;
+        for (let dy = -1; dy <= 1 && !hasStrong; dy++) {
+          for (let dx = -1; dx <= 1 && !hasStrong; dx++) {
+            if (out[(y + dy) * w + (x + dx)] >= highThresh) hasStrong = true;
+          }
+        }
+        if (hasStrong) result[idx] = 255;
+      }
+    }
+  }
+
+  return result;
+}
+
+/** Morphological dilate */
+function dilate(src: Uint8Array, w: number, h: number, radius: number): Uint8Array {
+  const out = new Uint8Array(w * h);
+  for (let y = radius; y < h - radius; y++) {
+    for (let x = radius; x < w - radius; x++) {
+      let max = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const v = src[(y + dy) * w + (x + dx)];
+          if (v > max) max = v;
+        }
+      }
+      out[y * w + x] = max;
+    }
+  }
+  return out;
+}
+
+/** Morphological erode */
+function erode(src: Uint8Array, w: number, h: number, radius: number): Uint8Array {
+  const out = new Uint8Array(w * h);
+  out.fill(255);
+  for (let y = radius; y < h - radius; y++) {
+    for (let x = radius; x < w - radius; x++) {
+      let min = 255;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const v = src[(y + dy) * w + (x + dx)];
+          if (v < min) min = v;
+        }
+      }
+      out[y * w + x] = min;
+    }
+  }
+  return out;
+}
+
 function otsuThreshold(data: Uint8Array): number {
   const hist = new Array(256).fill(0);
   for (let i = 0; i < data.length; i++) hist[data[i]]++;
-  
+
   const total = data.length;
   let sum = 0;
   for (let i = 0; i < 256; i++) sum += i * hist[i];
@@ -165,12 +313,9 @@ function otsuThreshold(data: Uint8Array): number {
 }
 
 /**
- * Simple contour-based quad detection:
- * Scan edge pixels, find connected components, approximate to polygon,
- * and pick the largest 4-sided polygon.
+ * Find the largest quad from edge image using contour + convex hull + RDP simplification.
  */
 function findLargestQuad(binary: Uint8Array, w: number, h: number): Point[] | null {
-  // Find edge points using boundary tracing
   const edgePoints: Point[] = [];
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
@@ -182,44 +327,36 @@ function findLargestQuad(binary: Uint8Array, w: number, h: number): Point[] | nu
 
   if (edgePoints.length < 20) return null;
 
-  // Use convex hull to find the outer boundary
   const hull = convexHull(edgePoints);
   if (hull.length < 4) return null;
 
   // Approximate hull to 4 points using Ramer-Douglas-Peucker
   let approx = hull;
-  let epsilon = perimeter(hull) * 0.01;
-  
-  for (let iter = 0; iter < 50; iter++) {
+  let epsilon = perimeter(hull) * 0.015;
+
+  for (let iter = 0; iter < 60; iter++) {
     approx = rdpSimplify(hull, epsilon);
     if (approx.length <= 4) break;
     epsilon *= 1.1;
   }
 
-  // If we got exactly 4 points, great
   if (approx.length === 4) return approx;
-
-  // If more than 4, pick the 4 most extreme points
-  if (approx.length > 4) {
-    return pickBestQuad(approx);
-  }
+  if (approx.length > 4) return pickBestQuad(approx);
 
   return null;
 }
 
 function convexHull(points: Point[]): Point[] {
   if (points.length < 3) return points;
-  
-  // Sort by x, then y
+
   const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
-  
+
   const cross = (o: Point, a: Point, b: Point) =>
     (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
 
-  // Sample points if too many (performance)
   let pts = sorted;
-  if (pts.length > 2000) {
-    const step = Math.ceil(pts.length / 2000);
+  if (pts.length > 3000) {
+    const step = Math.ceil(pts.length / 3000);
     pts = pts.filter((_, i) => i % step === 0);
   }
 
@@ -256,7 +393,7 @@ function perimeter(points: Point[]): number {
 
 function rdpSimplify(points: Point[], epsilon: number): Point[] {
   if (points.length <= 2) return points;
-  
+
   let maxDist = 0;
   let maxIdx = 0;
   const first = points[0];
@@ -291,12 +428,9 @@ function pointLineDistance(p: Point, a: Point, b: Point): number {
 }
 
 function pickBestQuad(points: Point[]): Point[] {
-  // Pick the 4 points that form the largest area quadrilateral
-  // Simple heuristic: pick corners closest to image corners
   const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
   const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
 
-  // Classify points into quadrants relative to centroid
   const quadrants: [Point[], Point[], Point[], Point[]] = [[], [], [], []];
   for (const p of points) {
     const qx = p.x < cx ? 0 : 1;
@@ -305,10 +439,8 @@ function pickBestQuad(points: Point[]): Point[] {
   }
 
   const result: Point[] = [];
-  // TL (0), TR (1), BL (2), BR (3)
   for (const quad of quadrants) {
-    if (quad.length === 0) return points.slice(0, 4); // fallback
-    // Pick the point furthest from centroid in this quadrant
+    if (quad.length === 0) return points.slice(0, 4);
     let best = quad[0];
     let bestDist = 0;
     for (const p of quad) {
@@ -325,7 +457,6 @@ function pickBestQuad(points: Point[]): Point[] {
 }
 
 function quadArea(points: Point[]): number {
-  // Shoelace formula
   let area = 0;
   for (let i = 0; i < points.length; i++) {
     const j = (i + 1) % points.length;
@@ -341,13 +472,20 @@ function sortCorners(points: Point[]): {
   bottomRight: Point;
   bottomLeft: Point;
 } {
-  const sorted = [...points].sort((a, b) => a.y - b.y);
-  const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
-  const bottom = sorted.slice(2).sort((a, b) => a.x - b.x);
+  // Sort by sum (x+y) and difference (x-y) for robust corner assignment
+  const sorted = [...points];
+  const sums = sorted.map(p => p.x + p.y);
+  const diffs = sorted.map(p => p.x - p.y);
+
+  const topLeftIdx = sums.indexOf(Math.min(...sums));
+  const bottomRightIdx = sums.indexOf(Math.max(...sums));
+  const topRightIdx = diffs.indexOf(Math.max(...diffs));
+  const bottomLeftIdx = diffs.indexOf(Math.min(...diffs));
+
   return {
-    topLeft: top[0],
-    topRight: top[1],
-    bottomRight: bottom[1],
-    bottomLeft: bottom[0],
+    topLeft: sorted[topLeftIdx],
+    topRight: sorted[topRightIdx],
+    bottomRight: sorted[bottomRightIdx],
+    bottomLeft: sorted[bottomLeftIdx],
   };
 }
