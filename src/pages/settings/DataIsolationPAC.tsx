@@ -288,7 +288,7 @@ const DataIsolationPAC = () => {
         </Card>
 
         {/* Actions fixes en bas */}
-        <div className="fixed bottom-16 left-0 right-0 p-4 bg-background border-t">
+        <div className="fixed bottom-[5.5rem] left-0 right-0 p-4 bg-background border-t z-40">
           <div className="flex gap-2 max-w-lg mx-auto">
             <Button variant="outline" className="flex-1" onClick={handleAddNew}>
               <Plus className="h-4 w-4 mr-1" /> Ajouter

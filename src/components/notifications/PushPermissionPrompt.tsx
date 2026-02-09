@@ -66,7 +66,7 @@ export function PushPermissionPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300 md:left-auto md:right-6 md:max-w-sm">
+    <div className="fixed bottom-[5.5rem] left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300 md:left-auto md:right-6 md:max-w-sm">
       <div className="bg-card border border-border rounded-xl shadow-lg p-4">
         <button
           onClick={handleDismiss}
