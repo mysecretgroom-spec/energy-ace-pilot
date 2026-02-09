@@ -485,6 +485,7 @@ serve(async (req) => {
         code_postal: validated.ADRESSE?.code_postal || null,
         ville: validated.ADRESSE?.ville || null,
         source: sender_email?.slice(0, 255) || null,
+        regie_id: regie_id || null,
         metadata: validated.PROJET ? {
           type_chauffage: validated.PROJET.type_chauffage,
           type_toiture: validated.PROJET.type_toiture,
