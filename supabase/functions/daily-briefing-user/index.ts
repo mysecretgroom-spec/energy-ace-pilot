@@ -153,7 +153,6 @@ serve(async (req) => {
 
         let rdvLine = `⏰ ${time} - ${clientName}`;
         if (city) rdvLine += ` (${city})`;
-        if (rdv.product_type) rdvLine += ` • ${rdv.product_type.toUpperCase()}`;
 
         // Status icon
         const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
