@@ -760,36 +760,41 @@ export function AgentChat() {
       <AnimatePresence>
         {!isOpen && (
           <motion.div
-            ref={agentRef}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className={cn(
-              "fixed z-40 touch-none select-none",
-              isAgentDragging && "ring-2 ring-primary/50 rounded-full scale-105"
-            )}
+            className="fixed z-40"
             style={{
               left: `${agentPos.x}px`,
               top: `${agentPos.y}px`,
+              pointerEvents: "auto",
             }}
-            {...agentDragHandlers}
           >
-            <Button
-              onClick={() => {
-                if (!agentHasMoved.current) {
-                  setIsOpen(true);
-                }
-              }}
-              variant="outline"
-              className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform touch-action-manipulation"
+            <div
+              ref={agentRef}
+              className={cn(
+                "touch-none select-none",
+                isAgentDragging && "ring-2 ring-primary/50 rounded-full scale-105"
+              )}
+              {...agentDragHandlers}
             >
-              <div className="relative">
-                <MessageCircle className="h-5 w-5 text-primary" />
-                <Sparkles className="h-2.5 w-2.5 text-primary absolute -top-1 -right-1" />
-              </div>
-              <span className="text-muted-foreground font-medium">Agent</span>
-              <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-            </Button>
+              <Button
+                onClick={() => {
+                  if (!agentHasMoved.current) {
+                    setIsOpen(true);
+                  }
+                }}
+                variant="outline"
+                className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform"
+              >
+                <div className="relative">
+                  <MessageCircle className="h-5 w-5 text-primary" />
+                  <Sparkles className="h-2.5 w-2.5 text-primary absolute -top-1 -right-1" />
+                </div>
+                <span className="text-muted-foreground font-medium">Agent</span>
+                <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
