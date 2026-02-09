@@ -540,9 +540,12 @@ export function MultiImportFlow({
             onAiCrop={async (_mode, idx) => {
               const doc = carouselDocs[idx];
               if (!doc) return;
-              const updated = await autoCropSingle(doc);
-              if (updated) {
-                setCarouselDocs(prev => prev.map(d => d.id === updated.id ? updated : d));
+              // Detect corners via AI, then open CropEditor with those corners for manual adjustment
+              const result = await detectCropCorners(doc);
+              if (result) {
+                setCropDocId(result.docId);
+                setCropImageData(doc.preview);
+                setCropInitialCorners(result.corners);
               }
             }}
             isAiCropping={isAiCropping}
