@@ -343,33 +343,20 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
       >
         <Button
           variant={isActive ? "default" : "outline"}
-          size="sm"
+          size="icon"
           onClick={() => {
             if (!hejjaHasMoved.current) {
               handleClick();
             }
           }}
           className={cn(
-            "shadow-lg rounded-full h-12 px-4 gap-2 transition-all active:scale-95 touch-action-manipulation",
+            "shadow-lg rounded-full h-10 w-10 transition-all active:scale-95 touch-action-manipulation",
             isActive 
               ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
               : "bg-background/95 backdrop-blur border-border hover:bg-muted"
           )}
         >
-          {isActive ? (
-            <>
-              <span className="text-xl">😈</span>
-              <span className="font-bold">HEJJA</span>
-              <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse touch-compact">
-                🔥
-              </Badge>
-            </>
-          ) : (
-            <>
-              <span className="text-xl">😇</span>
-              <span className="text-muted-foreground">HEJJA</span>
-            </>
-          )}
+          <span className="text-lg">{isActive ? "😈" : "😇"}</span>
         </Button>
       </div>
 

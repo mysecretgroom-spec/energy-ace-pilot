@@ -785,14 +785,10 @@ export function AgentChat() {
                   }
                 }}
                 variant="outline"
-                className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform"
+                size="icon"
+                className="h-10 w-10 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform"
               >
-                <div className="relative">
-                  <MessageCircle className="h-5 w-5 text-primary" />
-                  <Sparkles className="h-2.5 w-2.5 text-primary absolute -top-1 -right-1" />
-                </div>
-                <span className="text-muted-foreground font-medium">Agent</span>
-                <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-lg">🤖</span>
               </Button>
             </div>
           </motion.div>
