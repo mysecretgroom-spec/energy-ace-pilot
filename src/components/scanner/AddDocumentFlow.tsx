@@ -72,6 +72,19 @@ export function AddDocumentFlow({
     setStep("pages");
   }, []);
 
+  const handleSplitPages = useCallback((splitPages: Array<{ croppedImage: string; thumbnail: string }>) => {
+    const newPages: ScanPage[] = splitPages.map((p) => ({
+      id: crypto.randomUUID(),
+      imageData: p.croppedImage,
+      thumbnailData: p.thumbnail,
+      rotation: 0,
+      cropped: true,
+    }));
+    setPages((prev) => [...prev, ...newPages]);
+    setCurrentCapture(null);
+    setStep("pages");
+  }, []);
+
   const handleCropCancel = useCallback(() => {
     setCurrentCapture(null);
     setStep("camera");
@@ -128,6 +141,7 @@ export function AddDocumentFlow({
         <CropEditor
           imageData={currentCapture}
           onComplete={handleCropComplete}
+          onSplitPages={handleSplitPages}
           onCancel={handleCropCancel}
         />
       ) : null;

@@ -2,10 +2,11 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
+import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast, SplitSquareHorizontal } from "lucide-react";
 import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
+import { detectFoldLines, type DetectedFolds } from "./services/foldDetection";
 
 // ---- Types ----
 
@@ -20,6 +21,7 @@ interface CropEditorProps {
   imageData: string;
   onComplete: (croppedImage: string, thumbnail: string) => void;
   onCancel: () => void;
+  onSplitPages?: (pages: Array<{ croppedImage: string; thumbnail: string }>) => void;
   initialCorners?: NormalizedCorners;
 }
 
@@ -110,7 +112,7 @@ function basicCrop(
 
 // ---- Component ----
 
-export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: CropEditorProps) {
+export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -128,6 +130,8 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isProcessingCrop, setIsProcessingCrop] = useState(false);
+  const [isSplitting, setIsSplitting] = useState(false);
+  const [detectedFolds, setDetectedFolds] = useState<DetectedFolds | null>(null);
 
   const detectedEdgesRef = useRef<any>(null);
 
@@ -370,6 +374,61 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     } finally { setIsProcessingCrop(false); }
   }, [generateCroppedImage, onComplete]);
 
+  // ---- Fold detection + split ----
+
+  const handleDetectFolds = useCallback(async () => {
+    if (!cropPoints || !imageSize.width) return;
+    setIsSplitting(true);
+    try {
+      const normalizedCrop = {
+        topLeft: {
+          x: (cropPoints.topLeft.x - displaySize.offsetX) / displaySize.width,
+          y: (cropPoints.topLeft.y - displaySize.offsetY) / displaySize.height,
+        },
+        topRight: {
+          x: (cropPoints.topRight.x - displaySize.offsetX) / displaySize.width,
+          y: (cropPoints.topRight.y - displaySize.offsetY) / displaySize.height,
+        },
+        bottomRight: {
+          x: (cropPoints.bottomRight.x - displaySize.offsetX) / displaySize.width,
+          y: (cropPoints.bottomRight.y - displaySize.offsetY) / displaySize.height,
+        },
+        bottomLeft: {
+          x: (cropPoints.bottomLeft.x - displaySize.offsetX) / displaySize.width,
+          y: (cropPoints.bottomLeft.y - displaySize.offsetY) / displaySize.height,
+        },
+      };
+
+      const folds = await detectFoldLines(imageData, normalizedCrop);
+      if (folds && folds.subQuads.length > 1 && onSplitPages) {
+        setDetectedFolds(folds);
+        // Process each sub-quad into a separate page
+        const pages: Array<{ croppedImage: string; thumbnail: string }> = [];
+        const sourceImage = enhancedImage || imageData;
+        for (const quad of folds.subQuads) {
+          try {
+            let cropped = await applyPerspectiveCorrectionLight(sourceImage, quad);
+            if (rotation !== 0) cropped = await rotateImage(cropped, rotation);
+            const thumbnail = await generateThumbnail(cropped, 200);
+            pages.push({ croppedImage: cropped, thumbnail });
+          } catch (err) {
+            console.error("Failed to crop sub-quad:", err);
+          }
+        }
+        if (pages.length > 1) {
+          onSplitPages(pages);
+          return;
+        }
+      }
+      // No folds detected — notify user
+      setDetectedFolds(null);
+    } catch (err) {
+      console.error("Fold detection failed:", err);
+    } finally {
+      setIsSplitting(false);
+    }
+  }, [cropPoints, displaySize, imageData, enhancedImage, rotation, onSplitPages]);
+
   // ---- Rendering ----
 
   const midpoint = (a: Point, b: Point): Point => ({
@@ -512,12 +571,19 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
       </div>
 
       {/* Enhancement controls */}
-      <div className="flex items-center justify-center gap-4 px-4 py-2 bg-black/60">
+      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-black/60 flex-wrap">
         <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 gap-2"
           onClick={handleAutoDetect} disabled={isDetecting}>
           {isDetecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Auto
         </Button>
+        {onSplitPages && (
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 gap-2"
+            onClick={handleDetectFolds} disabled={isSplitting}>
+            {isSplitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <SplitSquareHorizontal className="h-4 w-4" />}
+            Séparer
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing} />
           <Label htmlFor="enhance" className="text-white text-xs flex items-center gap-1">
