@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectDocumentEdgesLight } from "../services/edgeDetectionLight";
+import { applyPerspectiveCorrectionLight } from "../services/perspectiveCorrection";
 import type { ImportedDoc } from "../ImportPreviewCarousel";
 
 /**
@@ -216,37 +217,11 @@ export function useAiCrop() {
 }
 
 /**
- * Crop image using 4 normalized corner points (bounding box approach).
+ * Crop and straighten image using perspective correction (pure JS).
  */
 function cropFromCorners(
   imageData: string,
   corners: AiCropCorners
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const minX = Math.min(corners.topLeft.x, corners.bottomLeft.x);
-      const maxX = Math.max(corners.topRight.x, corners.bottomRight.x);
-      const minY = Math.min(corners.topLeft.y, corners.topRight.y);
-      const maxY = Math.max(corners.bottomLeft.y, corners.bottomRight.y);
-
-      const sx = Math.round(minX * img.width);
-      const sy = Math.round(minY * img.height);
-      const sw = Math.round((maxX - minX) * img.width);
-      const sh = Math.round((maxY - minY) * img.height);
-
-      if (sw <= 0 || sh <= 0) return reject(new Error("Invalid crop dimensions"));
-
-      const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("No canvas context"));
-
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-      resolve(canvas.toDataURL("image/jpeg", 0.92));
-    };
-    img.onerror = () => reject(new Error("Failed to load image"));
-    img.src = imageData;
-  });
+  return applyPerspectiveCorrectionLight(imageData, corners);
 }
