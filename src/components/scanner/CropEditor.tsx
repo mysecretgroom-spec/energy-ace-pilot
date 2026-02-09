@@ -2,10 +2,12 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Check, X, RotateCw, Move, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
+import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
 import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
+
+// ---- Types ----
 
 interface NormalizedCorners {
   topLeft: { x: number; y: number };
@@ -18,14 +20,10 @@ interface CropEditorProps {
   imageData: string;
   onComplete: (croppedImage: string, thumbnail: string) => void;
   onCancel: () => void;
-  /** AI-detected corners in normalized (0-1) coordinates */
   initialCorners?: NormalizedCorners;
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
+interface Point { x: number; y: number }
 
 interface CropPoints {
   topLeft: Point;
@@ -34,7 +32,17 @@ interface CropPoints {
   bottomLeft: Point;
 }
 
-const HANDLE_SIZE = 24;
+type CornerHandle = keyof CropPoints;
+type EdgeHandle = "top" | "right" | "bottom" | "left";
+type HandleType = CornerHandle | EdgeHandle;
+
+const CORNER_SIZE = 28; // touch target
+const MIDPOINT_W = 20;
+const MIDPOINT_H = 8;
+
+const ACCENT = "#2dd4bf"; // teal-400
+
+// ---- Image utilities ----
 
 function rotateImage(dataUrl: string, degrees: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -44,8 +52,7 @@ function rotateImage(dataUrl: string, degrees: number): Promise<string> {
       const w = isSwap ? img.height : img.width;
       const h = isSwap ? img.width : img.height;
       const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("No ctx"));
       ctx.translate(w / 2, h / 2);
@@ -64,8 +71,7 @@ function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string>
     img.onload = () => {
       const thumbHeight = (img.height / img.width) * thumbWidth;
       const canvas = document.createElement("canvas");
-      canvas.width = thumbWidth;
-      canvas.height = thumbHeight;
+      canvas.width = thumbWidth; canvas.height = thumbHeight;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("No ctx"));
       ctx.drawImage(img, 0, 0, thumbWidth, thumbHeight);
@@ -76,70 +82,62 @@ function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string>
   });
 }
 
-interface PointXY { x: number; y: number }
-
 function basicCrop(
   img: HTMLImageElement,
-  points: { topLeft: PointXY; topRight: PointXY; bottomRight: PointXY; bottomLeft: PointXY },
+  points: { topLeft: Point; topRight: Point; bottomRight: Point; bottomLeft: Point },
   rotation: number
 ): { cropped: string; thumbnail: string } {
   const minX = Math.min(points.topLeft.x, points.bottomLeft.x);
   const maxX = Math.max(points.topRight.x, points.bottomRight.x);
   const minY = Math.min(points.topLeft.y, points.topRight.y);
   const maxY = Math.max(points.bottomLeft.y, points.bottomRight.y);
-  const w = maxX - minX;
-  const h = maxY - minY;
+  const w = maxX - minX; const h = maxY - minY;
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(img, minX, minY, w, h, 0, 0, w, h);
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d")!.drawImage(img, minX, minY, w, h, 0, 0, w, h);
   const cropped = canvas.toDataURL("image/jpeg", 0.92);
-  const tw = 200;
-  const th = (h / w) * tw;
+  const tw = 200; const th = (h / w) * tw;
   const tc = document.createElement("canvas");
   tc.width = tw; tc.height = th;
   tc.getContext("2d")!.drawImage(canvas, 0, 0, tw, th);
   return { cropped, thumbnail: tc.toDataURL("image/jpeg", 0.7) };
 }
 
+// ---- Component ----
 
 export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
   const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(0);
   const [cropPoints, setCropPoints] = useState<CropPoints | null>(null);
-  const [activeHandle, setActiveHandle] = useState<keyof CropPoints | null>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [activeHandle, setActiveHandle] = useState<HandleType | null>(null);
+  const [dragStart, setDragStart] = useState<Point | null>(null);
+  const [dragStartPoints, setDragStartPoints] = useState<CropPoints | null>(null);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
-  
-  // Enhancement states
+
   const [isDetecting, setIsDetecting] = useState(false);
   const [autoEnhance, setAutoEnhance] = useState(false);
   const [blackAndWhite, setBlackAndWhite] = useState(false);
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isProcessingCrop, setIsProcessingCrop] = useState(false);
 
-  // No preloading needed — lightweight JS detection
-
-  // Load image and try auto-detection
+  // Load image + auto-detect
   useEffect(() => {
     const img = new Image();
     img.onload = async () => {
       imageRef.current = img;
       setImageSize({ width: img.width, height: img.height });
-
       setIsDetecting(true);
       try {
         const edges = await detectDocumentEdgesLight(imageData);
         if (edges && edges.confidence > 0.3) {
           (window as any).__detectedEdges = edges;
         }
-      } catch (error) {
-        console.error("Edge detection failed:", error);
+      } catch (err) {
+        console.error("Edge detection failed:", err);
       } finally {
         setIsDetecting(false);
       }
@@ -147,91 +145,63 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     img.src = imageData;
   }, [imageData]);
 
-  // Apply image enhancements
+  // Enhancements
   useEffect(() => {
-    const applyEnhancements = async () => {
-      if (!imageData) return;
-      
-      if (!autoEnhance && !blackAndWhite) {
-        setEnhancedImage(null);
-        return;
-      }
-
-      setIsEnhancing(true);
+    if (!imageData) return;
+    if (!autoEnhance && !blackAndWhite) { setEnhancedImage(null); return; }
+    setIsEnhancing(true);
+    (async () => {
       try {
         let result = imageData;
-        
-        if (autoEnhance) {
-          result = await enhanceForDocument(result);
-        }
-        
-        if (blackAndWhite) {
-          result = await convertToBlackAndWhite(result);
-        }
-        
+        if (autoEnhance) result = await enhanceForDocument(result);
+        if (blackAndWhite) result = await convertToBlackAndWhite(result);
         setEnhancedImage(result);
-      } catch (error) {
-        console.error("Enhancement failed:", error);
-      } finally {
-        setIsEnhancing(false);
-      }
-    };
-
-    applyEnhancements();
+      } catch (err) { console.error("Enhancement failed:", err); }
+      finally { setIsEnhancing(false); }
+    })();
   }, [imageData, autoEnhance, blackAndWhite]);
 
-  // Calculate display size and initial crop points
+  // Calculate display size + initial crop points
   useEffect(() => {
     if (!containerRef.current || !imageSize.width) return;
-
     const container = containerRef.current;
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    setContainerSize({ width: containerWidth, height: containerHeight });
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
 
-    // Account for rotation
     const isRotated = rotation === 90 || rotation === 270;
-    const imgWidth = isRotated ? imageSize.height : imageSize.width;
-    const imgHeight = isRotated ? imageSize.width : imageSize.height;
+    const imgW = isRotated ? imageSize.height : imageSize.width;
+    const imgH = isRotated ? imageSize.width : imageSize.height;
 
-    // Calculate display size (fit to container)
-    const scale = Math.min(
-      containerWidth / imgWidth,
-      containerHeight / imgHeight
-    );
-    const displayWidth = imgWidth * scale;
-    const displayHeight = imgHeight * scale;
-    const offsetX = (containerWidth - displayWidth) / 2;
-    const offsetY = (containerHeight - displayHeight) / 2;
+    const scale = Math.min(cw / imgW, ch / imgH);
+    const dw = imgW * scale;
+    const dh = imgH * scale;
+    const ox = (cw - dw) / 2;
+    const oy = (ch - dh) / 2;
+    setDisplaySize({ width: dw, height: dh, offsetX: ox, offsetY: oy });
 
-    setDisplaySize({ width: displayWidth, height: displayHeight, offsetX, offsetY });
-
-    // Use AI-detected corners or OpenCV-detected edges or default margin
     const detectedEdges = (window as any).__detectedEdges;
     if (initialCorners) {
-      // AI corners are normalized (0-1), convert to display coordinates
       setCropPoints({
-        topLeft: { x: offsetX + initialCorners.topLeft.x * displayWidth, y: offsetY + initialCorners.topLeft.y * displayHeight },
-        topRight: { x: offsetX + initialCorners.topRight.x * displayWidth, y: offsetY + initialCorners.topRight.y * displayHeight },
-        bottomRight: { x: offsetX + initialCorners.bottomRight.x * displayWidth, y: offsetY + initialCorners.bottomRight.y * displayHeight },
-        bottomLeft: { x: offsetX + initialCorners.bottomLeft.x * displayWidth, y: offsetY + initialCorners.bottomLeft.y * displayHeight },
+        topLeft: { x: ox + initialCorners.topLeft.x * dw, y: oy + initialCorners.topLeft.y * dh },
+        topRight: { x: ox + initialCorners.topRight.x * dw, y: oy + initialCorners.topRight.y * dh },
+        bottomRight: { x: ox + initialCorners.bottomRight.x * dw, y: oy + initialCorners.bottomRight.y * dh },
+        bottomLeft: { x: ox + initialCorners.bottomLeft.x * dw, y: oy + initialCorners.bottomLeft.y * dh },
       });
     } else if (detectedEdges) {
-      // detectedEdges from edgeDetectionLight are normalized 0-1
       setCropPoints({
-        topLeft: { x: offsetX + detectedEdges.topLeft.x * displayWidth, y: offsetY + detectedEdges.topLeft.y * displayHeight },
-        topRight: { x: offsetX + detectedEdges.topRight.x * displayWidth, y: offsetY + detectedEdges.topRight.y * displayHeight },
-        bottomRight: { x: offsetX + detectedEdges.bottomRight.x * displayWidth, y: offsetY + detectedEdges.bottomRight.y * displayHeight },
-        bottomLeft: { x: offsetX + detectedEdges.bottomLeft.x * displayWidth, y: offsetY + detectedEdges.bottomLeft.y * displayHeight },
+        topLeft: { x: ox + detectedEdges.topLeft.x * dw, y: oy + detectedEdges.topLeft.y * dh },
+        topRight: { x: ox + detectedEdges.topRight.x * dw, y: oy + detectedEdges.topRight.y * dh },
+        bottomRight: { x: ox + detectedEdges.bottomRight.x * dw, y: oy + detectedEdges.bottomRight.y * dh },
+        bottomLeft: { x: ox + detectedEdges.bottomLeft.x * dw, y: oy + detectedEdges.bottomLeft.y * dh },
       });
       delete (window as any).__detectedEdges;
     } else {
-      const margin = 0.1;
+      const m = 0.1;
       setCropPoints({
-        topLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * margin },
-        topRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * margin },
-        bottomRight: { x: offsetX + displayWidth * (1 - margin), y: offsetY + displayHeight * (1 - margin) },
-        bottomLeft: { x: offsetX + displayWidth * margin, y: offsetY + displayHeight * (1 - margin) },
+        topLeft: { x: ox + dw * m, y: oy + dh * m },
+        topRight: { x: ox + dw * (1 - m), y: oy + dh * m },
+        bottomRight: { x: ox + dw * (1 - m), y: oy + dh * (1 - m) },
+        bottomLeft: { x: ox + dw * m, y: oy + dh * (1 - m) },
       });
     }
   }, [imageSize, rotation]);
@@ -245,180 +215,276 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     try {
       const edges = await detectDocumentEdgesLight(imageData);
       if (edges && edges.confidence > 0.2) {
-        const scaleX = displaySize.width;
-        const scaleY = displaySize.height;
-        
         setCropPoints({
-          topLeft: { x: displaySize.offsetX + edges.topLeft.x * scaleX, y: displaySize.offsetY + edges.topLeft.y * scaleY },
-          topRight: { x: displaySize.offsetX + edges.topRight.x * scaleX, y: displaySize.offsetY + edges.topRight.y * scaleY },
-          bottomRight: { x: displaySize.offsetX + edges.bottomRight.x * scaleX, y: displaySize.offsetY + edges.bottomRight.y * scaleY },
-          bottomLeft: { x: displaySize.offsetX + edges.bottomLeft.x * scaleX, y: displaySize.offsetY + edges.bottomLeft.y * scaleY },
+          topLeft: { x: displaySize.offsetX + edges.topLeft.x * displaySize.width, y: displaySize.offsetY + edges.topLeft.y * displaySize.height },
+          topRight: { x: displaySize.offsetX + edges.topRight.x * displaySize.width, y: displaySize.offsetY + edges.topRight.y * displaySize.height },
+          bottomRight: { x: displaySize.offsetX + edges.bottomRight.x * displaySize.width, y: displaySize.offsetY + edges.bottomRight.y * displaySize.height },
+          bottomLeft: { x: displaySize.offsetX + edges.bottomLeft.x * displaySize.width, y: displaySize.offsetY + edges.bottomLeft.y * displaySize.height },
         });
       }
-    } catch (error) {
-      console.error("Auto-detect failed:", error);
-    } finally {
-      setIsDetecting(false);
-    }
-  }, [imageData, displaySize, imageSize]);
+    } catch (err) { console.error("Auto-detect failed:", err); }
+    finally { setIsDetecting(false); }
+  }, [imageData, displaySize]);
+
+  // ---- Pointer handling: corners + edge midpoints ----
+
+  const clampX = useCallback((x: number) =>
+    Math.max(displaySize.offsetX, Math.min(x, displaySize.offsetX + displaySize.width)),
+  [displaySize]);
+  const clampY = useCallback((y: number) =>
+    Math.max(displaySize.offsetY, Math.min(y, displaySize.offsetY + displaySize.height)),
+  [displaySize]);
 
   const handlePointerDown = useCallback(
-    (handle: keyof CropPoints) => (e: React.PointerEvent) => {
+    (handle: HandleType) => (e: React.PointerEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setActiveHandle(handle);
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        if (cropPoints) setDragStartPoints({ ...cropPoints });
+      }
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     },
-    []
+    [cropPoints]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!activeHandle || !cropPoints || !containerRef.current) return;
+      if (!activeHandle || !dragStart || !dragStartPoints || !containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const x = Math.max(
-        displaySize.offsetX,
-        Math.min(e.clientX - rect.left, displaySize.offsetX + displaySize.width)
-      );
-      const y = Math.max(
-        displaySize.offsetY,
-        Math.min(e.clientY - rect.top, displaySize.offsetY + displaySize.height)
-      );
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const dx = x - dragStart.x;
+      const dy = y - dragStart.y;
 
-      setCropPoints((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          [activeHandle]: { x, y },
-        };
+      setCropPoints(() => {
+        const p = { ...dragStartPoints };
+
+        switch (activeHandle) {
+          // Corner handles — move single point
+          case "topLeft":
+            return { ...p, topLeft: { x: clampX(p.topLeft.x + dx), y: clampY(p.topLeft.y + dy) } };
+          case "topRight":
+            return { ...p, topRight: { x: clampX(p.topRight.x + dx), y: clampY(p.topRight.y + dy) } };
+          case "bottomRight":
+            return { ...p, bottomRight: { x: clampX(p.bottomRight.x + dx), y: clampY(p.bottomRight.y + dy) } };
+          case "bottomLeft":
+            return { ...p, bottomLeft: { x: clampX(p.bottomLeft.x + dx), y: clampY(p.bottomLeft.y + dy) } };
+
+          // Edge handles — move both corners on that edge
+          case "top":
+            return {
+              ...p,
+              topLeft: { x: p.topLeft.x, y: clampY(p.topLeft.y + dy) },
+              topRight: { x: p.topRight.x, y: clampY(p.topRight.y + dy) },
+            };
+          case "bottom":
+            return {
+              ...p,
+              bottomLeft: { x: p.bottomLeft.x, y: clampY(p.bottomLeft.y + dy) },
+              bottomRight: { x: p.bottomRight.x, y: clampY(p.bottomRight.y + dy) },
+            };
+          case "left":
+            return {
+              ...p,
+              topLeft: { x: clampX(p.topLeft.x + dx), y: p.topLeft.y },
+              bottomLeft: { x: clampX(p.bottomLeft.x + dx), y: p.bottomLeft.y },
+            };
+          case "right":
+            return {
+              ...p,
+              topRight: { x: clampX(p.topRight.x + dx), y: p.topRight.y },
+              bottomRight: { x: clampX(p.bottomRight.x + dx), y: p.bottomRight.y },
+            };
+          default:
+            return p;
+        }
       });
     },
-    [activeHandle, cropPoints, displaySize]
+    [activeHandle, dragStart, dragStartPoints, clampX, clampY]
   );
 
   const handlePointerUp = useCallback(() => {
     setActiveHandle(null);
+    setDragStart(null);
+    setDragStartPoints(null);
   }, []);
+
+  // ---- Crop processing ----
 
   const generateCroppedImage = useCallback(async (): Promise<{ cropped: string; thumbnail: string } | null> => {
     if (!imageRef.current || !cropPoints) return null;
-
-    // Use enhanced image if available
     const sourceImage = enhancedImage || imageData;
-
-    // Convert display coordinates back to image coordinates
     const scaleX = imageSize.width / displaySize.width;
     const scaleY = imageSize.height / displaySize.height;
-
-    const toImageCoords = (p: Point) => ({
+    const toImg = (p: Point) => ({
       x: (p.x - displaySize.offsetX) * scaleX,
       y: (p.y - displaySize.offsetY) * scaleY,
     });
-
     const imgPoints = {
-      topLeft: toImageCoords(cropPoints.topLeft),
-      topRight: toImageCoords(cropPoints.topRight),
-      bottomRight: toImageCoords(cropPoints.bottomRight),
-      bottomLeft: toImageCoords(cropPoints.bottomLeft),
+      topLeft: toImg(cropPoints.topLeft),
+      topRight: toImg(cropPoints.topRight),
+      bottomRight: toImg(cropPoints.bottomRight),
+      bottomLeft: toImg(cropPoints.bottomLeft),
     };
-
     try {
-      // Normalize corners to 0-1 for perspective correction
-      const normalizedCorners = {
+      const normalized = {
         topLeft: { x: imgPoints.topLeft.x / imageSize.width, y: imgPoints.topLeft.y / imageSize.height },
         topRight: { x: imgPoints.topRight.x / imageSize.width, y: imgPoints.topRight.y / imageSize.height },
         bottomRight: { x: imgPoints.bottomRight.x / imageSize.width, y: imgPoints.bottomRight.y / imageSize.height },
         bottomLeft: { x: imgPoints.bottomLeft.x / imageSize.width, y: imgPoints.bottomLeft.y / imageSize.height },
       };
-
-      // Use pure JS perspective correction to straighten the document
-      const corrected = await applyPerspectiveCorrectionLight(sourceImage, normalizedCorners);
-
-      // Apply rotation if needed
-      let finalImage = corrected;
-      if (rotation !== 0) {
-        finalImage = await rotateImage(corrected, rotation);
-      }
-
-      // Generate thumbnail
+      let finalImage = await applyPerspectiveCorrectionLight(sourceImage, normalized);
+      if (rotation !== 0) finalImage = await rotateImage(finalImage, rotation);
       const thumbnail = await generateThumbnail(finalImage, 200);
-
       return { cropped: finalImage, thumbnail };
-    } catch (error) {
-      console.error("Perspective correction failed, falling back to basic crop:", error);
-      // Fallback: basic bounding-box crop
+    } catch (err) {
+      console.error("Perspective correction failed:", err);
       return basicCrop(imageRef.current, imgPoints, rotation);
     }
   }, [cropPoints, imageSize, displaySize, rotation, enhancedImage, imageData]);
-
-  const [isProcessingCrop, setIsProcessingCrop] = useState(false);
 
   const handleComplete = useCallback(async () => {
     setIsProcessingCrop(true);
     try {
       const result = await generateCroppedImage();
-      if (result) {
-        onComplete(result.cropped, result.thumbnail);
-      }
-    } finally {
-      setIsProcessingCrop(false);
-    }
+      if (result) onComplete(result.cropped, result.thumbnail);
+    } finally { setIsProcessingCrop(false); }
   }, [generateCroppedImage, onComplete]);
 
-  const renderHandle = (key: keyof CropPoints) => {
-    if (!cropPoints) return null;
-    const point = cropPoints[key];
+  // ---- Rendering ----
 
+  const midpoint = (a: Point, b: Point): Point => ({
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  });
+
+  const renderCornerHandle = (key: CornerHandle) => {
+    if (!cropPoints) return null;
+    const p = cropPoints[key];
     return (
       <div
         key={key}
-        className="absolute cursor-move touch-none"
+        className="absolute touch-none"
         style={{
-          left: point.x - HANDLE_SIZE / 2,
-          top: point.y - HANDLE_SIZE / 2,
-          width: HANDLE_SIZE,
-          height: HANDLE_SIZE,
+          left: p.x - CORNER_SIZE / 2,
+          top: p.y - CORNER_SIZE / 2,
+          width: CORNER_SIZE,
+          height: CORNER_SIZE,
+          cursor: "move",
+          zIndex: 12,
         }}
         onPointerDown={handlePointerDown(key)}
       >
-        <div className="absolute inset-1 bg-white rounded-full border-2 border-primary shadow-lg" />
-        <Move className="absolute inset-0 m-auto h-3 w-3 text-primary" />
+        <div
+          className="absolute rounded-full"
+          style={{
+            inset: 3,
+            backgroundColor: ACCENT,
+            border: `2px solid white`,
+            boxShadow: `0 0 8px ${ACCENT}80`,
+          }}
+        />
+      </div>
+    );
+  };
+
+  const renderEdgeMidpointHandle = (edge: EdgeHandle) => {
+    if (!cropPoints) return null;
+
+    let a: Point, b: Point;
+    let isHorizontal: boolean;
+
+    switch (edge) {
+      case "top":    a = cropPoints.topLeft; b = cropPoints.topRight; isHorizontal = true; break;
+      case "bottom": a = cropPoints.bottomLeft; b = cropPoints.bottomRight; isHorizontal = true; break;
+      case "left":   a = cropPoints.topLeft; b = cropPoints.bottomLeft; isHorizontal = false; break;
+      case "right":  a = cropPoints.topRight; b = cropPoints.bottomRight; isHorizontal = false; break;
+    }
+
+    const mid = midpoint(a, b);
+    const handleW = isHorizontal ? MIDPOINT_W : MIDPOINT_H;
+    const handleH = isHorizontal ? MIDPOINT_H : MIDPOINT_W;
+
+    return (
+      <div
+        key={edge}
+        className="absolute touch-none"
+        style={{
+          left: mid.x - handleW / 2,
+          top: mid.y - handleH / 2,
+          width: handleW,
+          height: handleH,
+          // Bigger touch target
+          padding: 10,
+          margin: -10,
+          cursor: isHorizontal ? "ns-resize" : "ew-resize",
+          zIndex: 11,
+        }}
+        onPointerDown={handlePointerDown(edge)}
+      >
+        <div
+          style={{
+            width: handleW,
+            height: handleH,
+            borderRadius: 4,
+            backgroundColor: ACCENT,
+            border: "1px solid white",
+            boxShadow: `0 0 6px ${ACCENT}60`,
+          }}
+        />
       </div>
     );
   };
 
   const renderCropOverlay = () => {
     if (!cropPoints) return null;
-
     const { topLeft, topRight, bottomRight, bottomLeft } = cropPoints;
-
-    // Create SVG path for the crop area
     const path = `M ${topLeft.x} ${topLeft.y} L ${topRight.x} ${topRight.y} L ${bottomRight.x} ${bottomRight.y} L ${bottomLeft.x} ${bottomLeft.y} Z`;
 
     return (
-      <>
-        {/* Darkened area outside crop */}
-        <svg className="absolute inset-0 pointer-events-none">
-          <defs>
-            <mask id="cropMask">
-              <rect width="100%" height="100%" fill="white" />
-              <path d={path} fill="black" />
-            </mask>
-          </defs>
-          <rect
-            width="100%"
-            height="100%"
-            fill="rgba(0,0,0,0.5)"
-            mask="url(#cropMask)"
-          />
-          <path
-            d={path}
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-          />
-        </svg>
-      </>
+      <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
+        <defs>
+          <mask id="cropMask">
+            <rect width="100%" height="100%" fill="white" />
+            <path d={path} fill="black" />
+          </mask>
+        </defs>
+        {/* Dark overlay outside */}
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#cropMask)" />
+        {/* Main border */}
+        <path d={path} fill="none" stroke={ACCENT} strokeWidth="2.5" />
+        {/* Dashed inner grid — thirds */}
+        {(() => {
+          const lerp = (a: Point, b: Point, t: number): Point => ({
+            x: a.x + (b.x - a.x) * t,
+            y: a.y + (b.y - a.y) * t,
+          });
+          const lines: React.ReactNode[] = [];
+          // Horizontal thirds
+          for (const t of [1/3, 2/3]) {
+            const l = lerp(topLeft, bottomLeft, t);
+            const r = lerp(topRight, bottomRight, t);
+            lines.push(
+              <line key={`h${t}`} x1={l.x} y1={l.y} x2={r.x} y2={r.y}
+                stroke={ACCENT} strokeWidth="0.8" strokeDasharray="6 4" opacity={0.5} />
+            );
+          }
+          // Vertical thirds
+          for (const t of [1/3, 2/3]) {
+            const top = lerp(topLeft, topRight, t);
+            const bot = lerp(bottomLeft, bottomRight, t);
+            lines.push(
+              <line key={`v${t}`} x1={top.x} y1={top.y} x2={bot.x} y2={bot.y}
+                stroke={ACCENT} strokeWidth="0.8" strokeDasharray="6 4" opacity={0.5} />
+            );
+          }
+          return lines;
+        })()}
+      </svg>
     );
   };
 
@@ -428,67 +494,34 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     <div className="fixed inset-0 z-[60] bg-black flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/80">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/20"
-          onClick={onCancel}
-        >
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onCancel}>
           <X className="h-6 w-6" />
         </Button>
         <span className="text-white font-medium">
-          {isDetecting ? "Détection..." : "Recadrer"}
+          {isDetecting ? "Détection..." : "Rogner"}
         </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-white hover:bg-white/20"
-          onClick={handleRotate}
-        >
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleRotate}>
           <RotateCw className="h-5 w-5" />
         </Button>
       </div>
 
       {/* Enhancement controls */}
       <div className="flex items-center justify-center gap-4 px-4 py-2 bg-black/60">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-white hover:bg-white/20 gap-2"
-          onClick={handleAutoDetect}
-          disabled={isDetecting}
-        >
-          {isDetecting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Wand2 className="h-4 w-4" />
-          )}
+        <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 gap-2"
+          onClick={handleAutoDetect} disabled={isDetecting}>
+          {isDetecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Auto
         </Button>
-        
         <div className="flex items-center gap-2">
-          <Switch
-            id="enhance"
-            checked={autoEnhance}
-            onCheckedChange={setAutoEnhance}
-            disabled={isEnhancing}
-          />
+          <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing} />
           <Label htmlFor="enhance" className="text-white text-xs flex items-center gap-1">
-            <SunMedium className="h-3 w-3" />
-            Améliorer
+            <SunMedium className="h-3 w-3" /> Améliorer
           </Label>
         </div>
-        
         <div className="flex items-center gap-2">
-          <Switch
-            id="bw"
-            checked={blackAndWhite}
-            onCheckedChange={setBlackAndWhite}
-            disabled={isEnhancing}
-          />
+          <Switch id="bw" checked={blackAndWhite} onCheckedChange={setBlackAndWhite} disabled={isEnhancing} />
           <Label htmlFor="bw" className="text-white text-xs flex items-center gap-1">
-            <Contrast className="h-3 w-3" />
-            N&B
+            <Contrast className="h-3 w-3" /> N&B
           </Label>
         </div>
       </div>
@@ -501,14 +534,12 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {/* Loading overlay */}
         {(isDetecting || isEnhancing) && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
             <Loader2 className="h-8 w-8 text-white animate-spin" />
           </div>
         )}
 
-        {/* Image */}
         {imageSize.width > 0 && (
           <img
             src={displayImageSrc}
@@ -526,31 +557,33 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
           />
         )}
 
-        {/* Crop overlay and handles */}
         {renderCropOverlay()}
-        {renderHandle("topLeft")}
-        {renderHandle("topRight")}
-        {renderHandle("bottomRight")}
-        {renderHandle("bottomLeft")}
+        {renderCornerHandle("topLeft")}
+        {renderCornerHandle("topRight")}
+        {renderCornerHandle("bottomRight")}
+        {renderCornerHandle("bottomLeft")}
+        {renderEdgeMidpointHandle("top")}
+        {renderEdgeMidpointHandle("bottom")}
+        {renderEdgeMidpointHandle("left")}
+        {renderEdgeMidpointHandle("right")}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between p-4 pb-20 bg-black/80">
-        <p className="text-white/70 text-sm">
-          Déplacez les points pour ajuster
-        </p>
-        <Button onClick={handleComplete} className="bg-primary hover:bg-primary/90" disabled={isProcessingCrop}>
+      <div className="flex items-center justify-center p-4 pb-20 bg-black/80">
+        <Button
+          onClick={handleComplete}
+          disabled={isProcessingCrop}
+          className="rounded-lg px-8 py-3"
+          style={{ backgroundColor: ACCENT, color: "#000" }}
+        >
           {isProcessingCrop ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
           ) : (
-            <Check className="h-4 w-4 mr-2" />
+            <Check className="h-5 w-5 mr-2" />
           )}
           Confirmer
         </Button>
       </div>
-
-      {/* Hidden canvas for processing */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
