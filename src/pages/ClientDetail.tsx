@@ -811,7 +811,7 @@ const ClientDetailInner = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Multi Import Flow - only mount when open to avoid loading OpenCV.js */}
+        {/* Multi Import Flow - lazy loaded */}
         {showMultiImport && (
           <Suspense fallback={<LazyFallback />}>
             <MultiImportFlow

@@ -33,7 +33,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
-import { detectDocumentEdges, applyPerspectiveCorrection, preloadOpenCV } from "./services/edgeDetection";
+import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
+import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel";
 import { CropEditor } from "./CropEditor";
@@ -112,11 +113,7 @@ export function MultiImportFlow({
   // AI crop hook
   const { detectCropCorners, analyzeAndCropBatch, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
-  React.useEffect(() => {
-    if (isOpen && context === "client_docs") {
-      preloadOpenCV();
-    }
-  }, [isOpen, context]);
+  // No preloading needed — lightweight JS detection is instant
 
   const title = context === "finance" 
     ? "Importer des factures" 
@@ -139,10 +136,9 @@ export function MultiImportFlow({
 
         // Try auto-crop
         try {
-          const edges = await detectDocumentEdges(preview);
+          const edges = await detectDocumentEdgesLight(preview);
           if (edges && edges.confidence > 0.3) {
-            const corrected = await applyPerspectiveCorrection(preview, edges);
-            // Revoke old URL
+            const corrected = await applyPerspectiveCorrectionLight(preview, edges);
             URL.revokeObjectURL(preview);
             preview = corrected;
           }
@@ -196,9 +192,9 @@ export function MultiImportFlow({
     if (file.type.startsWith("image/")) {
       preview = URL.createObjectURL(file);
       try {
-        const edges = await detectDocumentEdges(preview);
+        const edges = await detectDocumentEdgesLight(preview);
         if (edges && edges.confidence > 0.3) {
-          const corrected = await applyPerspectiveCorrection(preview, edges);
+          const corrected = await applyPerspectiveCorrectionLight(preview, edges);
           URL.revokeObjectURL(preview);
           preview = corrected;
         }
