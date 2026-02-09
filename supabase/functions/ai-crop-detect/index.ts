@@ -30,9 +30,9 @@ serve(async (req) => {
         let promptText: string;
 
         if (localHint) {
-          promptText = `Detect the FULL document in this photo. A local algorithm detected corners at: TL(${localHint.topLeft.x.toFixed(3)},${localHint.topLeft.y.toFixed(3)}) TR(${localHint.topRight.x.toFixed(3)},${localHint.topRight.y.toFixed(3)}) BR(${localHint.bottomRight.x.toFixed(3)},${localHint.bottomRight.y.toFixed(3)}) BL(${localHint.bottomLeft.x.toFixed(3)},${localHint.bottomLeft.y.toFixed(3)}). Validate or correct these corners. Return the 4 corners of the ENTIRE document as normalized 0-1 coordinates, plus a confidence score (0-1). Response format: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+          promptText = `You are a document edge detector. This photo contains a paper document (possibly tilted, rotated, or at an angle). Find the EXACT 4 corners of the document's physical edges. A local algorithm suggests: TL(${localHint.topLeft.x.toFixed(3)},${localHint.topLeft.y.toFixed(3)}) TR(${localHint.topRight.x.toFixed(3)},${localHint.topRight.y.toFixed(3)}) BR(${localHint.bottomRight.x.toFixed(3)},${localHint.bottomRight.y.toFixed(3)}) BL(${localHint.bottomLeft.x.toFixed(3)},${localHint.bottomLeft.y.toFixed(3)}). Validate or correct these. IMPORTANT: The corners should trace the actual document edges even if the document is tilted — do NOT force a rectangle. Return normalized 0-1 coordinates. Response: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
         } else {
-          promptText = `Detect the FULL document in this photo. Return the 4 corners of the ENTIRE document (all edges, top to bottom, left to right) as normalized 0-1 coordinates, plus a confidence score (0-1, where 1 = very certain). Response format: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+          promptText = `You are a document edge detector. This photo contains a paper document (possibly tilted, rotated, or at an angle on a surface). Find the EXACT 4 corners where the document's physical edges meet. Trace the real edges precisely — the quad will likely be a trapezoid or parallelogram, NOT a perfect rectangle. Return the corners as normalized 0-1 coordinates (x=left-to-right, y=top-to-bottom) with a confidence score. Response: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
         }
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -42,7 +42,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash-lite",
+            model: "google/gemini-2.5-flash",
             messages: [
               {
                 role: "user",

@@ -22,7 +22,7 @@ async function compressForAi(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const maxDim = 800;
+      const maxDim = 1200;
       let w = img.width;
       let h = img.height;
       if (w > maxDim || h > maxDim) {
@@ -36,7 +36,7 @@ async function compressForAi(dataUrl: string): Promise<string> {
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("No ctx"));
       ctx.drawImage(img, 0, 0, w, h);
-      const result = canvas.toDataURL("image/jpeg", 0.5);
+      const result = canvas.toDataURL("image/jpeg", 0.7);
       canvas.width = 0;
       canvas.height = 0;
       resolve(result);
@@ -55,12 +55,26 @@ const FULL_IMAGE_CORNERS: AiCropCorners = {
 };
 
 /**
- * Compute a rectangularity score (0-1) for a quad.
- * 1.0 = perfect rectangle.
+ * Check that a quad is convex and has reasonable angles (not degenerate).
+ * Returns 1.0 for any valid convex quad, penalizes degenerate shapes.
  */
-function rectangularityScore(c: AiCropCorners): number {
+function quadValidityScore(c: AiCropCorners): number {
   const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft];
-  const angles: number[] = [];
+  // Check convexity via cross products
+  const crosses: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % 4];
+    const cc = pts[(i + 2) % 4];
+    const cross = (b.x - a.x) * (cc.y - b.y) - (b.y - a.y) * (cc.x - b.x);
+    crosses.push(cross);
+  }
+  // All cross products should have the same sign for a convex quad
+  const allPositive = crosses.every(c => c > 0);
+  const allNegative = crosses.every(c => c < 0);
+  if (!allPositive && !allNegative) return 0.3; // non-convex = bad
+
+  // Check no angle is too extreme (< 20° or > 160°)
   for (let i = 0; i < 4; i++) {
     const a = pts[i];
     const b = pts[(i + 1) % 4];
@@ -71,10 +85,10 @@ function rectangularityScore(c: AiCropCorners): number {
     const m1 = Math.sqrt(v1x * v1x + v1y * v1y);
     const m2 = Math.sqrt(v2x * v2x + v2y * v2y);
     if (m1 < 0.001 || m2 < 0.001) return 0;
-    angles.push(Math.abs(Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2)))) - Math.PI / 2));
+    const angle = Math.acos(Math.max(-1, Math.min(1, dot / (m1 * m2))));
+    if (angle < 0.35 || angle > 2.79) return 0.5; // extreme angle
   }
-  const avgDev = angles.reduce((s, a) => s + a, 0) / 4;
-  return Math.max(0, 1 - avgDev / (Math.PI / 4));
+  return 1.0;
 }
 
 /**
@@ -92,16 +106,18 @@ function quadArea(c: AiCropCorners): number {
 
 /**
  * Compute a composite confidence score combining:
- * - Raw confidence from detector
- * - Rectangularity (documents are rectangles)
+ * - Raw confidence from detector (dominant factor)
+ * - Quad validity (convex, no extreme angles)
  * - Area coverage (documents should cover significant area)
+ * NOTE: We do NOT penalize non-rectangular quads — a document
+ * photographed at an angle IS a trapezoid, and that's correct.
  */
 function compositeScore(corners: AiCropCorners, rawConfidence: number): number {
-  const rect = rectangularityScore(corners);
+  const validity = quadValidityScore(corners);
   const area = quadArea(corners);
-  // Area bonus: prefer quads covering 30-90% of image
-  const areaPenalty = area < 0.15 ? 0.5 : area > 0.95 ? 0.8 : 1.0;
-  return rawConfidence * 0.5 + rect * 0.3 + areaPenalty * 0.2;
+  // Area: prefer quads covering 15-95% of image
+  const areaScore = area < 0.10 ? 0.4 : area > 0.96 ? 0.7 : 1.0;
+  return rawConfidence * 0.65 + validity * 0.15 + areaScore * 0.2;
 }
 
 interface DetectionResult {
