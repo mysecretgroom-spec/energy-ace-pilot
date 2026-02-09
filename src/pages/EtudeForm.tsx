@@ -588,6 +588,13 @@ const EtudeForm = () => {
     dataPsh,
   ]);
 
+  // Reload bouquets when productType changes (to filter by product)
+  useEffect(() => {
+    if (!loading && regieId !== undefined) {
+      loadReferenceData(regieId || null);
+    }
+  }, [productType]);
+
   const loadReferenceData = async (currentRegieId: string | null = null): Promise<DataFinancement[]> => {
     setLoading(true);
 
@@ -616,15 +623,17 @@ const EtudeForm = () => {
 
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids").eq("actif", true),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids, product_type").eq("actif", true),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
       if (bouquetsRes.data) {
-        // Filter bouquets that belong to this regie (regie_ids contains currentRegieId)
+        // Filter bouquets by product_type AND regie
+        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
+        
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId))
+          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId) && matchesProductType(b))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
@@ -633,10 +642,10 @@ const EtudeForm = () => {
             prix_max: b.prix_max,
           }));
         
-        // If no regie-specific bouquets, use global ones
+        // If no regie-specific bouquets for this product, use global ones filtered by product_type
         if (bouquetsData.length === 0) {
           bouquetsData = bouquetsRes.data
-            .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
             .map((b: any) => ({
               id: b.id,
               nom_bouquet: b.nom_bouquet,
@@ -668,14 +677,15 @@ const EtudeForm = () => {
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids").eq("actif", true).order("puissance_kwc"),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids, product_type").eq("actif", true).order("puissance_kwc"),
         supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
       ]);
       
       if (bouquetsRes.data) {
-        // Use only global bouquets (regie_ids is null or empty)
+        // Use only global bouquets filtered by product_type
+        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => !b.regie_ids || b.regie_ids.length === 0)
+          .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
