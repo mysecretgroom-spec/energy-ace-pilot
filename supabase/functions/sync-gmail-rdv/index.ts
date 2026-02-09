@@ -486,6 +486,30 @@ serve(async (req) => {
           console.log(`Regie attribution via fallback header: ${regieSource}`);
         }
         
+        // BLOCK import if no régie found — régie is mandatory
+        if (!regieId) {
+          console.log(`Skipping email "${subject}" from ${senderEmail}: no régie found in any header`);
+          result.skipped++;
+          result.details.push({
+            messageId: msg.id,
+            subject,
+            sender: senderEmail,
+            status: "skipped",
+            error: "Aucune régie associée à cet expéditeur"
+          });
+          
+          await supabase.from("gmail_imports").insert({
+            user_id: userId,
+            gmail_message_id: msg.id,
+            gmail_thread_id: msg.threadId,
+            sender_email: senderEmail,
+            subject,
+            status: "skipped",
+            error_message: "Aucune régie associée à cet expéditeur (From/Reply-To/Cc)"
+          });
+          continue;
+        }
+        
         // Call import-rdv-email to parse and create RDV
         const importResponse = await fetch(
           `${SUPABASE_URL}/functions/v1/import-rdv-email`,
