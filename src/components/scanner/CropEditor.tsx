@@ -146,7 +146,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       setIsDetecting(true);
       try {
         const edges = await detectDocumentEdgesLight(imageData);
-        if (!cancelled && edges && edges.confidence > 0.2) {
+        if (!cancelled && edges && edges.confidence > 0.25) {
           detectedEdgesRef.current = edges;
         }
       } catch (err) {
@@ -233,7 +233,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     setIsDetecting(true);
     try {
       const edges = await detectDocumentEdgesLight(imageData);
-      if (edges && edges.confidence > 0.2) {
+      if (edges && edges.confidence > 0.25) {
         setCropPoints({
           topLeft: { x: displaySize.offsetX + edges.topLeft.x * displaySize.width, y: displaySize.offsetY + edges.topLeft.y * displaySize.height },
           topRight: { x: displaySize.offsetX + edges.topRight.x * displaySize.width, y: displaySize.offsetY + edges.topRight.y * displaySize.height },

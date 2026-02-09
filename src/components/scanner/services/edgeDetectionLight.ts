@@ -25,7 +25,7 @@ export async function detectDocumentEdgesLight(
     const img = new Image();
     img.onload = () => {
       try {
-        const maxDim = 400;
+        const maxDim = 600;
         let w = img.width, h = img.height;
         const scale = Math.min(maxDim / w, maxDim / h, 1);
         w = Math.round(w * scale);
@@ -225,7 +225,7 @@ function houghLines(edges: Uint8Array, w: number, h: number): HoughLine[] {
   }
 
   // Find peaks with NMS
-  const minVotes = Math.max(w, h) * 0.15;
+  const minVotes = Math.max(w, h) * 0.10;
   const lines: HoughLine[] = [];
   const nmsRadius = 5;
 
@@ -329,12 +329,13 @@ function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | nul
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.08 || area > imgArea * 1.1) continue;
+          if (area < imgArea * 0.05 || area > imgArea * 1.15) continue;
 
-          // Score: area * votes * rectangularity
+          // Score: area² * votes * rectangularity — strongly prefer larger quads
           const votes = h1.votes + h2.votes + v1.votes + v2.votes;
           const rect = rectangularity(pts);
-          const score = (area / imgArea) * votes * rect;
+          const areaRatio = area / imgArea;
+          const score = areaRatio * areaRatio * votes * rect;
 
           if (score > bestScore) {
             bestScore = score;
@@ -400,11 +401,12 @@ function houghQuadFromClusters(lines: HoughLine[], w: number, h: number): Point[
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.08 || area > imgArea * 1.1) continue;
+          if (area < imgArea * 0.05 || area > imgArea * 1.15) continue;
 
           const votes = g0[i].votes + g0[j].votes + g1[k].votes + g1[l].votes;
           const rect = rectangularity(pts);
-          const score = (area / imgArea) * votes * rect;
+          const areaRatio = area / imgArea;
+          const score = areaRatio * areaRatio * votes * rect;
 
           if (score > bestScore) {
             bestScore = score;
