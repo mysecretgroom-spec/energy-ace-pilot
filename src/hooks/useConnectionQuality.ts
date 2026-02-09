@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 
 interface NetworkInformation extends EventTarget {
   effectiveType: "slow-2g" | "2g" | "3g" | "4g";
+  type?: "bluetooth" | "cellular" | "ethernet" | "none" | "wifi" | "wimax" | "other" | "unknown";
   downlink: number;
   rtt: number;
   saveData: boolean;
@@ -30,16 +31,21 @@ function getConnection(): NetworkInformation | undefined {
 
 const WEAK_TYPES = new Set(["slow-2g", "2g"]);
 
+const WIFI_TYPES = new Set(["wifi", "ethernet", "wimax"]);
+
 function checkEffectivelyOffline(): boolean {
   // If browser says offline, it's offline
   if (!navigator.onLine) return true;
 
-  // Check Network Information API for weak connection
   const conn = getConnection();
   if (conn) {
-    // Weak effective type (2G or worse)
+    // If connected via WiFi/Ethernet, trust it — don't flag as offline
+    // even if effectiveType reports weak (some devices misreport over WiFi)
+    if (conn.type && WIFI_TYPES.has(conn.type)) return false;
+
+    // On cellular: weak effective type (2G or worse) → offline
     if (WEAK_TYPES.has(conn.effectiveType)) return true;
-    // Very high RTT (>2s) or very low downlink (<0.1 Mbps)
+    // On cellular: very high RTT (>2s) or very low downlink (<0.1 Mbps)
     if (conn.rtt > 2000 || conn.downlink < 0.1) return true;
   }
 
