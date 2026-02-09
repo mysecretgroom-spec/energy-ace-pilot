@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useDraggablePosition } from "@/hooks/useDraggablePosition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -115,6 +116,22 @@ export function AgentChat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  const defaultAgentPos = useMemo(() => ({
+    x: typeof window !== "undefined" ? window.innerWidth - 160 : 200,
+    y: typeof window !== "undefined" ? window.innerHeight - 200 : 400,
+  }), []);
+
+  const {
+    position: agentPos,
+    isDragging: isAgentDragging,
+    hasMoved: agentHasMoved,
+    elementRef: agentRef,
+    handlers: agentDragHandlers,
+  } = useDraggablePosition({
+    storageKey: "agent_btn_pos",
+    defaultPosition: defaultAgentPos,
+  });
 
   const {
     conversations,
@@ -739,17 +756,30 @@ export function AgentChat() {
 
   return (
     <>
-      {/* Floating Button - positioned above BottomNav (72px + safe) and Hejja toggle */}
+      {/* Floating Button - draggable with long press */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div
+            ref={agentRef}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom)+3.5rem)] right-4 z-40 sm:bottom-[calc(5.5rem+env(safe-area-inset-bottom))] sm:right-auto sm:left-4"
+            className={cn(
+              "fixed z-40 touch-none select-none",
+              isAgentDragging && "ring-2 ring-primary/50 rounded-full scale-105"
+            )}
+            style={{
+              left: `${agentPos.x}px`,
+              top: `${agentPos.y}px`,
+            }}
+            {...agentDragHandlers}
           >
             <Button
-              onClick={() => setIsOpen(true)}
+              onClick={() => {
+                if (!agentHasMoved.current) {
+                  setIsOpen(true);
+                }
+              }}
               variant="outline"
               className="h-12 px-4 gap-2 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform touch-action-manipulation"
             >

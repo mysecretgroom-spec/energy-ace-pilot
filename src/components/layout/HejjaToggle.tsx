@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
+import { useDraggablePosition } from "@/hooks/useDraggablePosition";
+import { cn } from "@/lib/utils";
 
 export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_props, ref) {
   const { user } = useAuth();
@@ -16,6 +18,22 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showFireAnimation, setShowFireAnimation] = useState(false);
   const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
+
+  const defaultHejjaPos = {
+    x: typeof window !== "undefined" ? window.innerWidth - 150 : 200,
+    y: typeof window !== "undefined" ? window.innerHeight - 150 : 500,
+  };
+
+  const {
+    position: hejjaPos,
+    isDragging: isHejjaDragging,
+    hasMoved: hejjaHasMoved,
+    elementRef: hejjaRef,
+    handlers: hejjaDragHandlers,
+  } = useDraggablePosition({
+    storageKey: "hejja_btn_pos",
+    defaultPosition: defaultHejjaPos,
+  });
 
   const handleClick = () => {
     if (isActive) {
@@ -310,32 +328,50 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
         </div>
       )}
 
-      {/* Full button on other pages - positioned above BottomNav, side by side with Agent on larger screens */}
-      <Button
-        variant={isActive ? "default" : "outline"}
-        size="sm"
-        onClick={handleClick}
-        className={`fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-40 shadow-lg rounded-full h-12 px-4 gap-2 transition-all active:scale-95 touch-action-manipulation ${
-          isActive 
-            ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
-            : "bg-background/95 backdrop-blur border-border hover:bg-muted"
-        }`}
-      >
-        {isActive ? (
-          <>
-            <span className="text-xl">😈</span>
-            <span className="font-bold">HEJJA</span>
-            <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse touch-compact">
-              🔥
-            </Badge>
-          </>
-        ) : (
-          <>
-            <span className="text-xl">😇</span>
-            <span className="text-muted-foreground">HEJJA</span>
-          </>
+      {/* Full button on other pages - draggable with long press */}
+      <div
+        ref={hejjaRef}
+        className={cn(
+          "fixed z-40 touch-none select-none",
+          isHejjaDragging && "ring-2 ring-primary/50 rounded-full scale-105"
         )}
-      </Button>
+        style={{
+          left: `${hejjaPos.x}px`,
+          top: `${hejjaPos.y}px`,
+        }}
+        {...hejjaDragHandlers}
+      >
+        <Button
+          variant={isActive ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            if (!hejjaHasMoved.current) {
+              handleClick();
+            }
+          }}
+          className={cn(
+            "shadow-lg rounded-full h-12 px-4 gap-2 transition-all active:scale-95 touch-action-manipulation",
+            isActive 
+              ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
+              : "bg-background/95 backdrop-blur border-border hover:bg-muted"
+          )}
+        >
+          {isActive ? (
+            <>
+              <span className="text-xl">😈</span>
+              <span className="font-bold">HEJJA</span>
+              <Badge variant="secondary" className="bg-red-900 text-white text-xs px-1.5 animate-pulse touch-compact">
+                🔥
+              </Badge>
+            </>
+          ) : (
+            <>
+              <span className="text-xl">😇</span>
+              <span className="text-muted-foreground">HEJJA</span>
+            </>
+          )}
+        </Button>
+      </div>
 
       <PinDialog
         open={showPinDialog}
