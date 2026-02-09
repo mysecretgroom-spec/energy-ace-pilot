@@ -265,7 +265,7 @@ const DataCalibres = () => {
 
       {/* Fixed bottom bar with save button */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-50 transition-all duration-300 ease-out ${
+        className={`fixed bottom-[5.5rem] left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 z-40 transition-all duration-300 ease-out ${
           hasChanges 
             ? "translate-y-0 opacity-100" 
             : "translate-y-full opacity-0 pointer-events-none"
