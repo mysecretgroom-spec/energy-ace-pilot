@@ -99,7 +99,17 @@ async function detectLocalThenAI(
     console.warn("AI fallback also failed:", err);
   }
 
-  return null;
+  // Fallback: return full-image corners so the user always gets a crop frame
+  const m = 0.02; // 2% margin
+  return {
+    corners: {
+      topLeft: { x: m, y: m },
+      topRight: { x: 1 - m, y: m },
+      bottomRight: { x: 1 - m, y: 1 - m },
+      bottomLeft: { x: m, y: 1 - m },
+    },
+    source: "local" as const,
+  };
 }
 
 /** Batch size for processing to avoid memory pressure */
@@ -135,10 +145,9 @@ export function useAiCrop() {
               : "Document détecté (IA) — ajustez le cadrage"
           );
           return { docId: doc.id, corners: result.corners };
-        } else {
-          toast.info("Aucun recadrage nécessaire détecté");
-          return null;
         }
+        // Should not happen since detectLocalThenAI always returns corners now
+        return null;
       } catch (err: any) {
         console.error("Crop detection error:", err);
         toast.error("Erreur lors de la détection");
