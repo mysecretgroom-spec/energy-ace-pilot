@@ -53,7 +53,7 @@ export function OfflineIndicator() {
   // Show "back online" toast briefly
   if (showBackOnline && totalPending === 0) {
     return (
-      <div className="fixed bottom-20 left-4 right-4 z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
+      <div className="fixed bottom-[5.5rem] left-3 right-3 z-40 animate-in slide-in-from-bottom-4 fade-in duration-300">
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm bg-emerald-500/90 text-white">
           <Wifi className="h-5 w-5" />
           <p className="font-medium text-sm">Connexion rétablie ✓</p>
@@ -71,7 +71,7 @@ export function OfflineIndicator() {
 
   return (
     <div className={cn(
-      "fixed bottom-20 left-4 right-4 z-40",
+      "fixed bottom-[5.5rem] left-3 right-3 z-40",
       "animate-in slide-in-from-bottom-4 fade-in duration-300"
     )}>
       <div
