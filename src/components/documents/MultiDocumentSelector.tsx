@@ -124,7 +124,7 @@ export function MultiDocumentSelector({
   const [editCropDocId, setEditCropDocId] = useState<string | null>(null);
   const [editCropImageData, setEditCropImageData] = useState<string | null>(null);
   const [editCropInitialCorners, setEditCropInitialCorners] = useState<AiCropCorners | undefined>(undefined);
-  const { detectCropCorners, analyzeAndCropBatch, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
+  const { detectCropCorners, autoCropSingle, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
 
   // Sync orderedDocs with documents prop
   React.useEffect(() => {
@@ -640,19 +640,12 @@ export function MultiDocumentSelector({
           onDelete={(id) => setEditCarouselDocs((prev) => prev.filter((d) => d.id !== id))}
           onReplace={() => {}}
           onCrop={handleEditCrop}
-          onAiCrop={async (mode, idx) => {
-            if (mode === "current") {
-              const doc = editCarouselDocs[idx];
-              if (!doc) return;
-              const result = await detectCropCorners(doc);
-              if (result) {
-                setEditCropDocId(result.docId);
-                setEditCropImageData(doc.preview);
-                setEditCropInitialCorners(result.corners);
-              }
-            } else {
-              const updated = await analyzeAndCropBatch(editCarouselDocs);
-              setEditCarouselDocs(updated);
+          onAiCrop={async (_mode, idx) => {
+            const doc = editCarouselDocs[idx];
+            if (!doc) return;
+            const updated = await autoCropSingle(doc);
+            if (updated) {
+              setEditCarouselDocs(prev => prev.map(d => d.id === updated.id ? updated : d));
             }
           }}
           isAiCropping={isAiCropping}
