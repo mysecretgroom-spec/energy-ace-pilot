@@ -27,7 +27,7 @@ async function compressForAi(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const maxDim = 1500;
+      const maxDim = 800;
       let w = img.width;
       let h = img.height;
       if (w > maxDim || h > maxDim) {
@@ -41,7 +41,7 @@ async function compressForAi(dataUrl: string): Promise<string> {
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("No ctx"));
       ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", 0.7));
+      resolve(canvas.toDataURL("image/jpeg", 0.5));
     };
     img.onerror = () => reject(new Error("Failed to load"));
     img.src = dataUrl;
