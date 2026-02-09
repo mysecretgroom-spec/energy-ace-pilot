@@ -194,7 +194,13 @@ export function applyPerspectiveCorrectionLight(
         }
 
         dstCtx.putImageData(dstImgData, 0, 0);
-        resolve(dstCanvas.toDataURL("image/jpeg", 0.92));
+        const result = dstCanvas.toDataURL("image/jpeg", 0.92);
+        // Cleanup canvases to free memory immediately
+        srcCanvas.width = 0;
+        srcCanvas.height = 0;
+        dstCanvas.width = 0;
+        dstCanvas.height = 0;
+        resolve(result);
       } catch (err) {
         reject(err);
       }
@@ -245,5 +251,11 @@ function bilinearFallback(
     }
   }
   dstCtx.putImageData(dstData, 0, 0);
-  return dstCanvas.toDataURL("image/jpeg", 0.92);
+  const result = dstCanvas.toDataURL("image/jpeg", 0.92);
+  // Cleanup
+  srcCanvas.width = 0;
+  srcCanvas.height = 0;
+  dstCanvas.width = 0;
+  dstCanvas.height = 0;
+  return result;
 }
