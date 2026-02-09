@@ -411,13 +411,7 @@ export function ImportPreviewCarousel({
             className={`flex flex-col items-center gap-1 transition-colors p-2 ${
               isAiCropping ? "text-primary" : "text-white/70 hover:text-white"
             }`}
-            onClick={async () => {
-              await onAiCrop("current", currentIndex);
-              // Auto-advance to next doc after crop
-              if (emblaApi && currentIndex < documents.length - 1) {
-                setTimeout(() => emblaApi.scrollTo(currentIndex + 1), 300);
-              }
-            }}
+            onClick={() => onAiCrop("current", currentIndex)}
             disabled={isAiCropping}
           >
             {isAiCropping ? (
