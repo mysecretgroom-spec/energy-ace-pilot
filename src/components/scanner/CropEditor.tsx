@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Check, X, RotateCw, Move, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
-import { detectDocumentEdges, preloadOpenCV, isOpenCVAvailable } from "./services/edgeDetection";
+import { detectDocumentEdges, preloadOpenCV, isOpenCVAvailable, applyPerspectiveCorrection } from "./services/edgeDetection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
 
 interface NormalizedCorners {
@@ -34,6 +34,74 @@ interface CropPoints {
 }
 
 const HANDLE_SIZE = 24;
+
+function rotateImage(dataUrl: string, degrees: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const isSwap = degrees === 90 || degrees === 270;
+      const w = isSwap ? img.height : img.width;
+      const h = isSwap ? img.width : img.height;
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("No ctx"));
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
+    };
+    img.onerror = () => reject(new Error("Failed to load"));
+    img.src = dataUrl;
+  });
+}
+
+function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const thumbHeight = (img.height / img.width) * thumbWidth;
+      const canvas = document.createElement("canvas");
+      canvas.width = thumbWidth;
+      canvas.height = thumbHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("No ctx"));
+      ctx.drawImage(img, 0, 0, thumbWidth, thumbHeight);
+      resolve(canvas.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => reject(new Error("Failed to load"));
+    img.src = dataUrl;
+  });
+}
+
+interface PointXY { x: number; y: number }
+
+function basicCrop(
+  img: HTMLImageElement,
+  points: { topLeft: PointXY; topRight: PointXY; bottomRight: PointXY; bottomLeft: PointXY },
+  rotation: number
+): { cropped: string; thumbnail: string } {
+  const minX = Math.min(points.topLeft.x, points.bottomLeft.x);
+  const maxX = Math.max(points.topRight.x, points.bottomRight.x);
+  const minY = Math.min(points.topLeft.y, points.topRight.y);
+  const maxY = Math.max(points.bottomLeft.y, points.bottomRight.y);
+  const w = maxX - minX;
+  const h = maxY - minY;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, minX, minY, w, h, 0, 0, w, h);
+  const cropped = canvas.toDataURL("image/jpeg", 0.92);
+  const tw = 200;
+  const th = (h / w) * tw;
+  const tc = document.createElement("canvas");
+  tc.width = tw; tc.height = th;
+  tc.getContext("2d")!.drawImage(canvas, 0, 0, tw, th);
+  return { cropped, thumbnail: tc.toDataURL("image/jpeg", 0.7) };
+}
+
 
 export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -238,18 +306,11 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     setActiveHandle(null);
   }, []);
 
-  const generateCroppedImage = useCallback((): { cropped: string; thumbnail: string } | null => {
-    if (!imageRef.current || !cropPoints || !canvasRef.current) return null;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
+  const generateCroppedImage = useCallback(async (): Promise<{ cropped: string; thumbnail: string } | null> => {
+    if (!imageRef.current || !cropPoints) return null;
 
     // Use enhanced image if available
-    const sourceImage = enhancedImage ? enhancedImage : imageData;
-    
-    const img = new Image();
-    img.src = sourceImage;
+    const sourceImage = enhancedImage || imageData;
 
     // Convert display coordinates back to image coordinates
     const scaleX = imageSize.width / displaySize.width;
@@ -267,75 +328,38 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
       bottomLeft: toImageCoords(cropPoints.bottomLeft),
     };
 
-    // Calculate bounding box
-    const minX = Math.min(imgPoints.topLeft.x, imgPoints.bottomLeft.x);
-    const maxX = Math.max(imgPoints.topRight.x, imgPoints.bottomRight.x);
-    const minY = Math.min(imgPoints.topLeft.y, imgPoints.topRight.y);
-    const maxY = Math.max(imgPoints.bottomLeft.y, imgPoints.bottomRight.y);
+    try {
+      // Use OpenCV perspective correction to straighten the document
+      const corrected = await applyPerspectiveCorrection(sourceImage, imgPoints);
 
-    const cropWidth = maxX - minX;
-    const cropHeight = maxY - minY;
-
-    // Set canvas size
-    canvas.width = cropWidth;
-    canvas.height = cropHeight;
-
-    // Apply rotation and draw
-    ctx.save();
-    
-    if (rotation !== 0) {
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      
-      if (rotation === 90 || rotation === 270) {
-        ctx.drawImage(
-          imageRef.current,
-          minX, minY, cropWidth, cropHeight,
-          -cropHeight / 2, -cropWidth / 2, cropHeight, cropWidth
-        );
-        // Resize canvas for rotated dimensions
-        const temp = canvas.width;
-        canvas.width = canvas.height;
-        canvas.height = temp;
-      } else {
-        ctx.drawImage(
-          imageRef.current,
-          minX, minY, cropWidth, cropHeight,
-          -cropWidth / 2, -cropHeight / 2, cropWidth, cropHeight
-        );
+      // Apply rotation if needed
+      let finalImage = corrected;
+      if (rotation !== 0) {
+        finalImage = await rotateImage(corrected, rotation);
       }
-    } else {
-      ctx.drawImage(
-        imageRef.current,
-        minX, minY, cropWidth, cropHeight,
-        0, 0, cropWidth, cropHeight
-      );
+
+      // Generate thumbnail
+      const thumbnail = await generateThumbnail(finalImage, 200);
+
+      return { cropped: finalImage, thumbnail };
+    } catch (error) {
+      console.error("Perspective correction failed, falling back to basic crop:", error);
+      // Fallback: basic bounding-box crop
+      return basicCrop(imageRef.current, imgPoints, rotation);
     }
-    
-    ctx.restore();
+  }, [cropPoints, imageSize, displaySize, rotation, enhancedImage, imageData]);
 
-    // Generate cropped image
-    const cropped = canvas.toDataURL("image/jpeg", 0.92);
+  const [isProcessingCrop, setIsProcessingCrop] = useState(false);
 
-    // Generate thumbnail (200px wide)
-    const thumbWidth = 200;
-    const thumbHeight = (canvas.height / canvas.width) * thumbWidth;
-    const thumbCanvas = document.createElement("canvas");
-    thumbCanvas.width = thumbWidth;
-    thumbCanvas.height = thumbHeight;
-    const thumbCtx = thumbCanvas.getContext("2d");
-    if (thumbCtx) {
-      thumbCtx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
-    }
-    const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.7);
-
-    return { cropped, thumbnail };
-  }, [imageRef, cropPoints, imageSize, displaySize, rotation, enhancedImage, imageData]);
-
-  const handleComplete = useCallback(() => {
-    const result = generateCroppedImage();
-    if (result) {
-      onComplete(result.cropped, result.thumbnail);
+  const handleComplete = useCallback(async () => {
+    setIsProcessingCrop(true);
+    try {
+      const result = await generateCroppedImage();
+      if (result) {
+        onComplete(result.cropped, result.thumbnail);
+      }
+    } finally {
+      setIsProcessingCrop(false);
     }
   }, [generateCroppedImage, onComplete]);
 
@@ -513,8 +537,12 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
         <p className="text-white/70 text-sm">
           Déplacez les points pour ajuster
         </p>
-        <Button onClick={handleComplete} className="bg-primary hover:bg-primary/90">
-          <Check className="h-4 w-4 mr-2" />
+        <Button onClick={handleComplete} className="bg-primary hover:bg-primary/90" disabled={isProcessingCrop}>
+          {isProcessingCrop ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4 mr-2" />
+          )}
           Confirmer
         </Button>
       </div>
