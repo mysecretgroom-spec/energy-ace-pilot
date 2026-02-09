@@ -3,8 +3,9 @@ import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle, Wifi, Sen
 import { Button } from "@/components/ui/button";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
-import { getPendingMutationCount } from "@/lib/offlineMutationQueue";
+import { getPendingMutationCount, replayPendingMutations } from "@/lib/offlineMutationQueue";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export function OfflineIndicator() {
   const { pendingCount: pendingDocsCount, isSyncing: isSyncingDocs, isOnline, syncPendingDocuments } = useOfflineDocuments();
@@ -66,7 +67,36 @@ export function OfflineIndicator() {
   if (isOnline && totalPending === 0) return null;
 
   const handleSync = async () => {
-    await Promise.all([syncPendingDocuments(), syncAll()]);
+    // Replay offline mutation queue (uses original fetch to bypass interceptor)
+    const replayMutations = async () => {
+      if (pendingMutationsCount > 0) {
+        try {
+          // Access the original fetch stored by the interceptor
+          const result = await replayPendingMutations(window.fetch.bind(window));
+          if (result.succeeded.length > 0) {
+            const successList = result.succeeded.map((d) => `✅ ${d}`).join("\n");
+            toast.success(`${result.succeeded.length} action(s) synchronisée(s)`, {
+              description: successList,
+              duration: 5000,
+            });
+          }
+          if (result.failed.length > 0) {
+            const failList = result.failed.map((f) => `❌ ${f.description}`).join("\n");
+            toast.error(`${result.failed.length} action(s) échouée(s)`, {
+              description: failList,
+              duration: 6000,
+            });
+          }
+          // Refresh count
+          const count = await getPendingMutationCount();
+          setPendingMutationsCount(count);
+        } catch (err) {
+          console.error("Error replaying mutations:", err);
+        }
+      }
+    };
+
+    await Promise.all([syncPendingDocuments(), syncAll(), replayMutations()]);
   };
 
   return (
