@@ -127,25 +127,36 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isProcessingCrop, setIsProcessingCrop] = useState(false);
 
+  const detectedEdgesRef = useRef<any>(null);
+
   // Load image + auto-detect
   useEffect(() => {
+    let cancelled = false;
     const img = new Image();
     img.onload = async () => {
+      if (cancelled) return;
       imageRef.current = img;
       setImageSize({ width: img.width, height: img.height });
       setIsDetecting(true);
       try {
         const edges = await detectDocumentEdgesLight(imageData);
-        if (edges && edges.confidence > 0.3) {
-          (window as any).__detectedEdges = edges;
+        if (!cancelled && edges && edges.confidence > 0.2) {
+          detectedEdgesRef.current = edges;
         }
       } catch (err) {
-        console.error("Edge detection failed:", err);
+        console.warn("Edge detection failed, using default crop:", err);
       } finally {
+        if (!cancelled) setIsDetecting(false);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        console.error("Failed to load image for crop editor");
         setIsDetecting(false);
       }
     };
     img.src = imageData;
+    return () => { cancelled = true; };
   }, [imageData]);
 
   // Enhancements
@@ -182,7 +193,7 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     const oy = (ch - dh) / 2;
     setDisplaySize({ width: dw, height: dh, offsetX: ox, offsetY: oy });
 
-    const detectedEdges = (window as any).__detectedEdges;
+    const edges = detectedEdgesRef.current;
     if (initialCorners) {
       setCropPoints({
         topLeft: { x: ox + initialCorners.topLeft.x * dw, y: oy + initialCorners.topLeft.y * dh },
@@ -190,14 +201,13 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
         bottomRight: { x: ox + initialCorners.bottomRight.x * dw, y: oy + initialCorners.bottomRight.y * dh },
         bottomLeft: { x: ox + initialCorners.bottomLeft.x * dw, y: oy + initialCorners.bottomLeft.y * dh },
       });
-    } else if (detectedEdges) {
+    } else if (edges) {
       setCropPoints({
-        topLeft: { x: ox + detectedEdges.topLeft.x * dw, y: oy + detectedEdges.topLeft.y * dh },
-        topRight: { x: ox + detectedEdges.topRight.x * dw, y: oy + detectedEdges.topRight.y * dh },
-        bottomRight: { x: ox + detectedEdges.bottomRight.x * dw, y: oy + detectedEdges.bottomRight.y * dh },
-        bottomLeft: { x: ox + detectedEdges.bottomLeft.x * dw, y: oy + detectedEdges.bottomLeft.y * dh },
+        topLeft: { x: ox + edges.topLeft.x * dw, y: oy + edges.topLeft.y * dh },
+        topRight: { x: ox + edges.topRight.x * dw, y: oy + edges.topRight.y * dh },
+        bottomRight: { x: ox + edges.bottomRight.x * dw, y: oy + edges.bottomRight.y * dh },
+        bottomLeft: { x: ox + edges.bottomLeft.x * dw, y: oy + edges.bottomLeft.y * dh },
       });
-      delete (window as any).__detectedEdges;
     } else {
       const m = 0.1;
       setCropPoints({
