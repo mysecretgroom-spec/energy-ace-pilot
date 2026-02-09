@@ -36,25 +36,14 @@ serve(async (req) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                model: "google/gemini-2.5-flash",
+                model: "google/gemini-2.5-flash-lite",
                 messages: [
                   {
                     role: "user",
                     content: [
                       {
                         type: "text",
-                        text: `Analyze this image. Is there a document (paper, card, receipt, invoice, ID, etc.) photographed on a background surface that needs to be cropped?
-
-If YES (photo of a document on a desk/table/surface with visible background), return the 4 corner coordinates of the document as normalized values (0 to 1, relative to image width and height). The corners should follow the actual edges of the document precisely, even if it's tilted or in perspective:
-{"needs_crop": true, "corners": {"topLeft": {"x": 0.1, "y": 0.05}, "topRight": {"x": 0.85, "y": 0.08}, "bottomRight": {"x": 0.9, "y": 0.95}, "bottomLeft": {"x": 0.08, "y": 0.92}}}
-
-If NO (the image is already a clean scan, a PDF rendering, or the document fills the entire frame with no background visible), return:
-{"needs_crop": false}
-
-IMPORTANT: 
-- Return ONLY the JSON object, no other text.
-- The 4 corners must precisely follow the document edges for perspective-aware cropping.
-- Add a tiny margin (~1-2%) around the detected edges.`,
+                        text: `Is there a document on a background that needs cropping? If YES return corners as normalized 0-1 values: {"needs_crop":true,"corners":{"topLeft":{"x":0.1,"y":0.05},"topRight":{"x":0.85,"y":0.08},"bottomRight":{"x":0.9,"y":0.95},"bottomLeft":{"x":0.08,"y":0.92}}}. If NO: {"needs_crop":false}. JSON ONLY.`,
                       },
                       {
                         type: "image_url",
@@ -63,6 +52,7 @@ IMPORTANT:
                     ],
                   },
                 ],
+                max_tokens: 200,
               }),
             });
 
