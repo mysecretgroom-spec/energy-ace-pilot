@@ -217,13 +217,12 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
         bottomLeft: { x: offsetX + initialCorners.bottomLeft.x * displayWidth, y: offsetY + initialCorners.bottomLeft.y * displayHeight },
       });
     } else if (detectedEdges) {
-      const scaleX = displayWidth / imageSize.width;
-      const scaleY = displayHeight / imageSize.height;
+      // detectedEdges from edgeDetectionLight are normalized 0-1
       setCropPoints({
-        topLeft: { x: offsetX + detectedEdges.topLeft.x * scaleX, y: offsetY + detectedEdges.topLeft.y * scaleY },
-        topRight: { x: offsetX + detectedEdges.topRight.x * scaleX, y: offsetY + detectedEdges.topRight.y * scaleY },
-        bottomRight: { x: offsetX + detectedEdges.bottomRight.x * scaleX, y: offsetY + detectedEdges.bottomRight.y * scaleY },
-        bottomLeft: { x: offsetX + detectedEdges.bottomLeft.x * scaleX, y: offsetY + detectedEdges.bottomLeft.y * scaleY },
+        topLeft: { x: offsetX + detectedEdges.topLeft.x * displayWidth, y: offsetY + detectedEdges.topLeft.y * displayHeight },
+        topRight: { x: offsetX + detectedEdges.topRight.x * displayWidth, y: offsetY + detectedEdges.topRight.y * displayHeight },
+        bottomRight: { x: offsetX + detectedEdges.bottomRight.x * displayWidth, y: offsetY + detectedEdges.bottomRight.y * displayHeight },
+        bottomLeft: { x: offsetX + detectedEdges.bottomLeft.x * displayWidth, y: offsetY + detectedEdges.bottomLeft.y * displayHeight },
       });
       delete (window as any).__detectedEdges;
     } else {
