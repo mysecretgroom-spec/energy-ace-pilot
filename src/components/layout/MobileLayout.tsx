@@ -4,6 +4,7 @@ import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
 import { RGECardDialog } from "./RGECardDialog";
 import { NotificationBell } from "./NotificationBell";
+import { AlignmentGuides } from "./AlignmentGuides";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
@@ -73,6 +74,9 @@ export const MobileLayout = ({
 
       {/* Agent Chat */}
       {showAgentChat && <AgentChat />}
+
+      {/* Alignment guides for draggable buttons */}
+      <AlignmentGuides />
 
       {/* Bottom Navigation */}
       {showNav && <BottomNav />}
