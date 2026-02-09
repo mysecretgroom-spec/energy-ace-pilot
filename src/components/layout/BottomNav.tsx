@@ -37,7 +37,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                 )}
               >
                 <div className={cn(
-                  "flex items-center justify-center w-10 h-7 rounded-md transition-all duration-150",
+                  "flex items-center justify-center w-10 h-7 md:w-12 md:h-8 rounded-md transition-all duration-150",
                   isActive && "bg-primary/10"
                 )}>
                   <Icon
@@ -49,8 +49,8 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                   />
                 </div>
                 <span
-                  className={cn(
-                    "text-[10px] font-medium tracking-tight transition-all duration-150",
+                    className={cn(
+                      "text-[10px] md:text-xs font-medium tracking-tight transition-all duration-150",
                     isActive && "font-semibold text-primary"
                   )}
                 >
