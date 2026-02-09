@@ -874,7 +874,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Stats rapides */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => navigate("/crm")}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">

@@ -193,7 +193,7 @@ const Parametres = () => {
 
   return (
     <MobileLayout title="Paramètres">
-      <div className="p-4 space-y-6 max-w-2xl mx-auto">
+      <div className="p-4 space-y-6 max-w-3xl mx-auto">
         {/* Header profil - clickable */}
         <Card 
           className="shadow-card overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
@@ -252,7 +252,7 @@ const Parametres = () => {
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
             Tables DATA par Produit
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
             <DataProductSection
               title="Données Communes"
               icon={Flame}
