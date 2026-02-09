@@ -69,7 +69,7 @@ async function detectLocalThenAI(
   // 1. Local detection (pure JS, instant, no heavy libs)
   try {
     const edges = await detectDocumentEdgesLight(preview);
-    if (edges && edges.confidence > 0.2) {
+    if (edges && edges.confidence > 0.25) {
       return {
         corners: {
           topLeft: edges.topLeft,

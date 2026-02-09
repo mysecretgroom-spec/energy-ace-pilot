@@ -43,7 +43,7 @@ serve(async (req) => {
                     content: [
                       {
                         type: "text",
-                        text: `Is there a document on a background that needs cropping? If YES return corners as normalized 0-1 values: {"needs_crop":true,"corners":{"topLeft":{"x":0.1,"y":0.05},"topRight":{"x":0.85,"y":0.08},"bottomRight":{"x":0.9,"y":0.95},"bottomLeft":{"x":0.08,"y":0.92}}}. If NO: {"needs_crop":false}. JSON ONLY.`,
+                        text: `Detect the FULL document in this photo. Return the 4 corners of the ENTIRE document (all edges, top to bottom, left to right) as normalized 0-1 coordinates. The corners MUST encompass the whole document, not just a portion. If a document is found: {"needs_crop":true,"corners":{"topLeft":{"x":0.1,"y":0.05},"topRight":{"x":0.85,"y":0.08},"bottomRight":{"x":0.9,"y":0.95},"bottomLeft":{"x":0.08,"y":0.92}}}. If no document: {"needs_crop":false}. JSON ONLY, no explanation.`,
                       },
                       {
                         type: "image_url",
