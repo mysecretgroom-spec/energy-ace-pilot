@@ -215,7 +215,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         bottomLeft: { x: ox + edges.bottomLeft.x * dw, y: oy + edges.bottomLeft.y * dh },
       });
     } else {
-      const m = 0.1;
+      const m = 0.02; // 2% margin — near full-image frame
       setCropPoints({
         topLeft: { x: ox + dw * m, y: oy + dh * m },
         topRight: { x: ox + dw * (1 - m), y: oy + dh * m },
