@@ -60,7 +60,9 @@ export async function detectDocumentEdgesLight(
         if (houghResult) {
           clearTimeout(timeout);
           const conf = Math.min(quadArea(houghResult) / (w * h), 1);
-          if (conf > 0.08) {
+          // Require the quad to cover at least 20% of the image
+          // to avoid partial detections (e.g. only upper half)
+          if (conf > 0.20) {
             const s = sortCorners(houghResult);
             resolve({
               topLeft: { x: s.topLeft.x / w, y: s.topLeft.y / h },
@@ -78,7 +80,7 @@ export async function detectDocumentEdgesLight(
         const hullResult = findLargestQuadHull(dilated, w, h);
         if (hullResult) {
           const conf = Math.min(quadArea(hullResult) / (w * h), 1);
-          if (conf > 0.08) {
+          if (conf > 0.20) {
             clearTimeout(timeout);
             const s = sortCorners(hullResult);
             resolve({
@@ -329,7 +331,7 @@ function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | nul
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.05 || area > imgArea * 1.15) continue;
+          if (area < imgArea * 0.15 || area > imgArea * 1.15) continue;
 
           // Score: area² * votes * rectangularity — strongly prefer larger quads
           const votes = h1.votes + h2.votes + v1.votes + v2.votes;
@@ -401,7 +403,7 @@ function houghQuadFromClusters(lines: HoughLine[], w: number, h: number): Point[
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.05 || area > imgArea * 1.15) continue;
+          if (area < imgArea * 0.15 || area > imgArea * 1.15) continue;
 
           const votes = g0[i].votes + g0[j].votes + g1[k].votes + g1[l].votes;
           const rect = rectangularity(pts);
