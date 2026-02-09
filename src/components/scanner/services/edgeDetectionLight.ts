@@ -25,11 +25,17 @@ export async function detectDocumentEdgesLight(
   imageData: string
 ): Promise<LightDetectedEdges | null> {
   return new Promise((resolve) => {
+    // Timeout guard: don't freeze the UI
+    const timeout = setTimeout(() => {
+      console.warn("Edge detection timed out");
+      resolve(null);
+    }, 5000);
+
     const img = new Image();
     img.onload = () => {
       try {
         // Work at reduced resolution for speed
-        const maxDim = 500;
+        const maxDim = 400;
         let w = img.width;
         let h = img.height;
         const scale = Math.min(maxDim / w, maxDim / h, 1);
@@ -102,13 +108,15 @@ export async function detectDocumentEdgesLight(
           }
         }
 
+        clearTimeout(timeout);
         resolve(null);
       } catch (err) {
-        console.error("Light edge detection error:", err);
+        clearTimeout(timeout);
+        console.warn("Light edge detection error:", err);
         resolve(null);
       }
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => { clearTimeout(timeout); resolve(null); };
     img.src = imageData;
   });
 }

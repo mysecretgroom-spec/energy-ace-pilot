@@ -98,6 +98,8 @@ function applyH(H: number[], x: number, y: number): [number, number] {
 
 // ---- Main export ----
 
+const MAX_OUTPUT_DIM = 2048; // Cap to avoid crashing on large images
+
 export function applyPerspectiveCorrectionLight(
   imageData: string,
   corners: Corners
@@ -116,12 +118,19 @@ export function applyPerspectiveCorrectionLight(
           { x: corners.bottomLeft.x * W, y: corners.bottomLeft.y * H },
         ];
 
-        // Output dimensions from longest edges
+        // Output dimensions from longest edges, capped
         const d = (a: Point, b: Point) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-        const outW = Math.round(Math.max(d(srcCorners[0], srcCorners[1]), d(srcCorners[3], srcCorners[2])));
-        const outH = Math.round(Math.max(d(srcCorners[0], srcCorners[3]), d(srcCorners[1], srcCorners[2])));
+        let outW = Math.round(Math.max(d(srcCorners[0], srcCorners[1]), d(srcCorners[3], srcCorners[2])));
+        let outH = Math.round(Math.max(d(srcCorners[0], srcCorners[3]), d(srcCorners[1], srcCorners[2])));
 
         if (outW < 10 || outH < 10) return reject(new Error("Output too small"));
+
+        // Cap output to prevent crashes on mobile
+        if (outW > MAX_OUTPUT_DIM || outH > MAX_OUTPUT_DIM) {
+          const scale = Math.min(MAX_OUTPUT_DIM / outW, MAX_OUTPUT_DIM / outH);
+          outW = Math.round(outW * scale);
+          outH = Math.round(outH * scale);
+        }
 
         // Destination rectangle corners (output image)
         const dstCorners: [Point, Point, Point, Point] = [
@@ -134,21 +143,22 @@ export function applyPerspectiveCorrectionLight(
         // Compute inverse homography: maps dst pixel → src pixel
         const homography = computeHomography(srcCorners, dstCorners);
         if (!homography) {
-          // Fallback to bilinear if homography fails
           return resolve(bilinearFallback(img, srcCorners, outW, outH));
         }
 
         // Read source pixels
         const srcCanvas = document.createElement("canvas");
         srcCanvas.width = W; srcCanvas.height = H;
-        const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true })!;
+        const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+        if (!srcCtx) return reject(new Error("No source canvas context"));
         srcCtx.drawImage(img, 0, 0);
         const srcPx = srcCtx.getImageData(0, 0, W, H).data;
 
         // Write destination pixels
         const dstCanvas = document.createElement("canvas");
         dstCanvas.width = outW; dstCanvas.height = outH;
-        const dstCtx = dstCanvas.getContext("2d")!;
+        const dstCtx = dstCanvas.getContext("2d");
+        if (!dstCtx) return reject(new Error("No dest canvas context"));
         const dstImgData = dstCtx.createImageData(outW, outH);
         const dstPx = dstImgData.data;
 
@@ -156,7 +166,6 @@ export function applyPerspectiveCorrectionLight(
           for (let dx = 0; dx < outW; dx++) {
             const [sx, sy] = applyH(homography, dx, dy);
 
-            // Bilinear interpolation from source
             const x0 = Math.floor(sx);
             const y0 = Math.floor(sy);
             if (x0 < 0 || y0 < 0 || x0 >= W - 1 || y0 >= H - 1) continue;
