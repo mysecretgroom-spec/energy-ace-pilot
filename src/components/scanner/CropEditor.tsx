@@ -36,14 +36,16 @@ type CornerHandle = keyof CropPoints;
 type EdgeHandle = "top" | "right" | "bottom" | "left";
 type HandleType = CornerHandle | EdgeHandle;
 
-const CORNER_SIZE = 36; // touch target
-const CORNER_ARM = 20; // L-shaped arm length
-const CORNER_THICKNESS = 3;
-const MIDPOINT_W = 22;
-const MIDPOINT_H = 6;
+const CORNER_TOUCH = 44; // touch target size
+const CORNER_RADIUS = 11; // visible circle radius
+const MIDPOINT_W = 24;
+const MIDPOINT_H = 8;
+const MIDPOINT_ROUNDING = 4;
 
 const ACCENT = "#2dd4bf"; // teal-400
-const ACCENT_FILL = "rgba(45,212,191,0.12)"; // subtle teal fill inside crop area
+const ACCENT_GLOW = "rgba(45,212,191,0.35)";
+const ACCENT_FILL = "rgba(45,212,191,0.15)"; // CamScanner highlight
+const BORDER_WIDTH = 2.5;
 
 // ---- Image utilities ----
 
@@ -378,53 +380,35 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
   const renderCornerHandle = (key: CornerHandle) => {
     if (!cropPoints) return null;
     const p = cropPoints[key];
-
-    // Determine which direction the L-shape arms extend
-    const isLeft = key === "topLeft" || key === "bottomLeft";
-    const isTop = key === "topLeft" || key === "topRight";
-    const armDx = isLeft ? 1 : -1;
-    const armDy = isTop ? 1 : -1;
+    const c = CORNER_TOUCH / 2;
 
     return (
       <div
         key={key}
         className="absolute touch-none"
         style={{
-          left: p.x - CORNER_SIZE / 2,
-          top: p.y - CORNER_SIZE / 2,
-          width: CORNER_SIZE,
-          height: CORNER_SIZE,
+          left: p.x - c,
+          top: p.y - c,
+          width: CORNER_TOUCH,
+          height: CORNER_TOUCH,
           cursor: "move",
           zIndex: 12,
         }}
         onPointerDown={handlePointerDown(key)}
       >
-        {/* L-shaped corner bracket */}
         <svg
-          width={CORNER_SIZE}
-          height={CORNER_SIZE}
-          viewBox={`0 0 ${CORNER_SIZE} ${CORNER_SIZE}`}
+          width={CORNER_TOUCH}
+          height={CORNER_TOUCH}
+          viewBox={`0 0 ${CORNER_TOUCH} ${CORNER_TOUCH}`}
           className="absolute inset-0"
           style={{ overflow: "visible" }}
         >
-          <path
-            d={`M ${CORNER_SIZE / 2 + armDx * CORNER_ARM} ${CORNER_SIZE / 2} L ${CORNER_SIZE / 2} ${CORNER_SIZE / 2} L ${CORNER_SIZE / 2} ${CORNER_SIZE / 2 + armDy * CORNER_ARM}`}
-            fill="none"
-            stroke="white"
-            strokeWidth={CORNER_THICKNESS + 2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d={`M ${CORNER_SIZE / 2 + armDx * CORNER_ARM} ${CORNER_SIZE / 2} L ${CORNER_SIZE / 2} ${CORNER_SIZE / 2} L ${CORNER_SIZE / 2} ${CORNER_SIZE / 2 + armDy * CORNER_ARM}`}
-            fill="none"
-            stroke={ACCENT}
-            strokeWidth={CORNER_THICKNESS}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          {/* Small dot at junction */}
-          <circle cx={CORNER_SIZE / 2} cy={CORNER_SIZE / 2} r={4} fill={ACCENT} stroke="white" strokeWidth={1.5} />
+          {/* Glow */}
+          <circle cx={c} cy={c} r={CORNER_RADIUS + 3} fill={ACCENT_GLOW} />
+          {/* White ring */}
+          <circle cx={c} cy={c} r={CORNER_RADIUS} fill="white" />
+          {/* Teal center */}
+          <circle cx={c} cy={c} r={CORNER_RADIUS - 2.5} fill={ACCENT} />
         </svg>
       </div>
     );
@@ -444,34 +428,34 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     }
 
     const mid = midpoint(a, b);
-    const handleW = isHorizontal ? MIDPOINT_W : MIDPOINT_H;
-    const handleH = isHorizontal ? MIDPOINT_H : MIDPOINT_W;
+    const w = isHorizontal ? MIDPOINT_W : MIDPOINT_H;
+    const h = isHorizontal ? MIDPOINT_H : MIDPOINT_W;
 
     return (
       <div
         key={edge}
         className="absolute touch-none"
         style={{
-          left: mid.x - handleW / 2,
-          top: mid.y - handleH / 2,
-          width: handleW,
-          height: handleH,
-          // Bigger touch target
-          padding: 10,
-          margin: -10,
+          left: mid.x - (w + 20) / 2,
+          top: mid.y - (h + 20) / 2,
+          width: w + 20,
+          height: h + 20,
           cursor: isHorizontal ? "ns-resize" : "ew-resize",
           zIndex: 11,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
         onPointerDown={handlePointerDown(edge)}
       >
         <div
           style={{
-            width: handleW,
-            height: handleH,
-            borderRadius: 4,
+            width: w,
+            height: h,
+            borderRadius: MIDPOINT_ROUNDING,
             backgroundColor: ACCENT,
-            border: "1px solid white",
-            boxShadow: `0 0 6px ${ACCENT}60`,
+            border: "2px solid white",
+            boxShadow: `0 0 8px ${ACCENT_GLOW}`,
           }}
         />
       </div>
@@ -490,42 +474,22 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
             <rect width="100%" height="100%" fill="white" />
             <path d={path} fill="black" />
           </mask>
+          <filter id="borderGlow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         {/* Dark overlay outside crop area */}
-        <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cropMask)" />
-        {/* Semi-transparent teal fill INSIDE crop area (CamScanner-style) */}
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#cropMask)" />
+        {/* Teal highlight inside crop area */}
         <path d={path} fill={ACCENT_FILL} />
-        {/* Main border — slightly thicker */}
-        <path d={path} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" />
-        {/* Glow border */}
-        <path d={path} fill="none" stroke={`${ACCENT}40`} strokeWidth="6" strokeLinejoin="round" />
-        {/* Dashed inner grid — thirds */}
-        {(() => {
-          const lerp = (a: Point, b: Point, t: number): Point => ({
-            x: a.x + (b.x - a.x) * t,
-            y: a.y + (b.y - a.y) * t,
-          });
-          const lines: React.ReactNode[] = [];
-          // Horizontal thirds
-          for (const t of [1/3, 2/3]) {
-            const l = lerp(topLeft, bottomLeft, t);
-            const r = lerp(topRight, bottomRight, t);
-            lines.push(
-              <line key={`h${t}`} x1={l.x} y1={l.y} x2={r.x} y2={r.y}
-                stroke={ACCENT} strokeWidth="0.8" strokeDasharray="6 4" opacity={0.5} />
-            );
-          }
-          // Vertical thirds
-          for (const t of [1/3, 2/3]) {
-            const top = lerp(topLeft, topRight, t);
-            const bot = lerp(bottomLeft, bottomRight, t);
-            lines.push(
-              <line key={`v${t}`} x1={top.x} y1={top.y} x2={bot.x} y2={bot.y}
-                stroke={ACCENT} strokeWidth="0.8" strokeDasharray="6 4" opacity={0.5} />
-            );
-          }
-          return lines;
-        })()}
+        {/* Soft glow border */}
+        <path d={path} fill="none" stroke={ACCENT} strokeWidth="8" strokeLinejoin="round" opacity={0.18} />
+        {/* Main border with glow filter */}
+        <path d={path} fill="none" stroke={ACCENT} strokeWidth={BORDER_WIDTH} strokeLinejoin="round" filter="url(#borderGlow)" />
       </svg>
     );
   };
