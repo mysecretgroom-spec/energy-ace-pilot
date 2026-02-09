@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Check, X, RotateCw, Move, Wand2, Loader2, SunMedium, Contrast } from "lucide-react";
-import { detectDocumentEdges, preloadOpenCV, isOpenCVAvailable, applyPerspectiveCorrection } from "./services/edgeDetection";
+import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
+import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
 
 interface NormalizedCorners {
@@ -122,10 +123,7 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
 
-  // Preload OpenCV on mount
-  useEffect(() => {
-    preloadOpenCV();
-  }, []);
+  // No preloading needed — lightweight JS detection
 
   // Load image and try auto-detection
   useEffect(() => {
@@ -134,13 +132,10 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
       imageRef.current = img;
       setImageSize({ width: img.width, height: img.height });
 
-      // Try auto-detection with OpenCV
       setIsDetecting(true);
       try {
-        const edges = await detectDocumentEdges(imageData);
+        const edges = await detectDocumentEdgesLight(imageData);
         if (edges && edges.confidence > 0.3) {
-          // Convert image coordinates to display coordinates (will be done after display size is set)
-          // Store detected edges in state to apply after display size calculation
           (window as any).__detectedEdges = edges;
         }
       } catch (error) {
@@ -249,10 +244,10 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
   const handleAutoDetect = useCallback(async () => {
     setIsDetecting(true);
     try {
-      const edges = await detectDocumentEdges(imageData);
+      const edges = await detectDocumentEdgesLight(imageData);
       if (edges && edges.confidence > 0.2) {
-        const scaleX = displaySize.width / imageSize.width;
-        const scaleY = displaySize.height / imageSize.height;
+        const scaleX = displaySize.width;
+        const scaleY = displaySize.height;
         
         setCropPoints({
           topLeft: { x: displaySize.offsetX + edges.topLeft.x * scaleX, y: displaySize.offsetY + edges.topLeft.y * scaleY },
@@ -329,8 +324,16 @@ export function CropEditor({ imageData, onComplete, onCancel, initialCorners }: 
     };
 
     try {
-      // Use OpenCV perspective correction to straighten the document
-      const corrected = await applyPerspectiveCorrection(sourceImage, imgPoints);
+      // Normalize corners to 0-1 for perspective correction
+      const normalizedCorners = {
+        topLeft: { x: imgPoints.topLeft.x / imageSize.width, y: imgPoints.topLeft.y / imageSize.height },
+        topRight: { x: imgPoints.topRight.x / imageSize.width, y: imgPoints.topRight.y / imageSize.height },
+        bottomRight: { x: imgPoints.bottomRight.x / imageSize.width, y: imgPoints.bottomRight.y / imageSize.height },
+        bottomLeft: { x: imgPoints.bottomLeft.x / imageSize.width, y: imgPoints.bottomLeft.y / imageSize.height },
+      };
+
+      // Use pure JS perspective correction to straighten the document
+      const corrected = await applyPerspectiveCorrectionLight(sourceImage, normalizedCorners);
 
       // Apply rotation if needed
       let finalImage = corrected;
