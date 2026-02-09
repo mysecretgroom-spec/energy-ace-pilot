@@ -12,7 +12,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { images } = await req.json();
+    const { images, local_corners } = await req.json();
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return new Response(JSON.stringify({ error: "No images provided" }), {
@@ -22,63 +22,74 @@ serve(async (req) => {
     }
 
     const results = [];
-    const batchSize = 5;
 
-    for (let i = 0; i < images.length; i += batchSize) {
-      const batch = images.slice(i, i + batchSize);
-      const batchResults = await Promise.all(
-        batch.map(async (img: { id: string; base64: string }) => {
-          try {
-            const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "google/gemini-2.5-flash-lite",
-                messages: [
-                  {
-                    role: "user",
-                    content: [
-                      {
-                        type: "text",
-                        text: `Detect the FULL document in this photo. Return the 4 corners of the ENTIRE document (all edges, top to bottom, left to right) as normalized 0-1 coordinates. The corners MUST encompass the whole document, not just a portion. If a document is found: {"needs_crop":true,"corners":{"topLeft":{"x":0.1,"y":0.05},"topRight":{"x":0.85,"y":0.08},"bottomRight":{"x":0.9,"y":0.95},"bottomLeft":{"x":0.08,"y":0.92}}}. If no document: {"needs_crop":false}. JSON ONLY, no explanation.`,
-                      },
-                      {
-                        type: "image_url",
-                        image_url: { url: img.base64 },
-                      },
-                    ],
-                  },
+    for (const img of images) {
+      try {
+        // Build prompt: if local detection provided corners, ask AI to validate/refine
+        const localHint = local_corners?.[img.id];
+        let promptText: string;
+
+        if (localHint) {
+          promptText = `Detect the FULL document in this photo. A local algorithm detected corners at: TL(${localHint.topLeft.x.toFixed(3)},${localHint.topLeft.y.toFixed(3)}) TR(${localHint.topRight.x.toFixed(3)},${localHint.topRight.y.toFixed(3)}) BR(${localHint.bottomRight.x.toFixed(3)},${localHint.bottomRight.y.toFixed(3)}) BL(${localHint.bottomLeft.x.toFixed(3)},${localHint.bottomLeft.y.toFixed(3)}). Validate or correct these corners. Return the 4 corners of the ENTIRE document as normalized 0-1 coordinates, plus a confidence score (0-1). Response format: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+        } else {
+          promptText = `Detect the FULL document in this photo. Return the 4 corners of the ENTIRE document (all edges, top to bottom, left to right) as normalized 0-1 coordinates, plus a confidence score (0-1, where 1 = very certain). Response format: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+        }
+
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: promptText },
+                  { type: "image_url", image_url: { url: img.base64 } },
                 ],
-                max_tokens: 200,
-              }),
+              },
+            ],
+            max_tokens: 250,
+          }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`AI error for ${img.id}:`, response.status, errText);
+          if (response.status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later" }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
-
-            if (!response.ok) {
-              const errText = await response.text();
-              console.error(`AI error for ${img.id}:`, response.status, errText);
-              return { id: img.id, needs_crop: false, error: "AI analysis failed" };
-            }
-
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content || "";
-            
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-              return { id: img.id, needs_crop: false };
-            }
-
-            const parsed = JSON.parse(jsonMatch[0]);
-            return { id: img.id, ...parsed };
-          } catch (err) {
-            console.error(`Error processing ${img.id}:`, err);
-            return { id: img.id, needs_crop: false, error: String(err) };
           }
-        })
-      );
-      results.push(...batchResults);
+          if (response.status === 402) {
+            return new Response(JSON.stringify({ error: "Payment required" }), {
+              status: 402,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          results.push({ id: img.id, needs_crop: false, confidence: 0, error: "AI analysis failed" });
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || "";
+
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          results.push({ id: img.id, needs_crop: false, confidence: 0 });
+          continue;
+        }
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        results.push({ id: img.id, ...parsed });
+      } catch (err) {
+        console.error(`Error processing ${img.id}:`, err);
+        results.push({ id: img.id, needs_crop: false, confidence: 0, error: String(err) });
+      }
     }
 
     return new Response(JSON.stringify({ results }), {
