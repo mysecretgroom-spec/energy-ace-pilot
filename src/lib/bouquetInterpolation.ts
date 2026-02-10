@@ -9,15 +9,11 @@
 interface BouquetData {
   puissance_kwc: number;
   prix_recommande: number;
-  prix_max?: number;
-  prix_hejja?: number;
   commission_fixe?: number | null;
 }
 
 export interface InterpolatedBouquet {
   prixRecommande: number;
-  prixMax: number;
-  prixHejja: number;
   commissionFixe: number;
   isInterpolated: boolean;
   basedOnBouquet?: BouquetData;
@@ -35,8 +31,6 @@ export function findOrInterpolateBouquet(
   if (exactMatch) {
     return {
       prixRecommande: exactMatch.prix_recommande,
-      prixMax: exactMatch.prix_max || exactMatch.prix_recommande * 1.15,
-      prixHejja: exactMatch.prix_hejja || exactMatch.prix_recommande,
       commissionFixe: exactMatch.commission_fixe || 0,
       isInterpolated: false,
       basedOnBouquet: exactMatch,
@@ -51,8 +45,6 @@ export function findOrInterpolateBouquet(
     if (bouquet4kwc) {
       return {
         prixRecommande: bouquet4kwc.prix_recommande - 500,
-        prixMax: (bouquet4kwc.prix_max || bouquet4kwc.prix_recommande * 1.15) - 500,
-        prixHejja: (bouquet4kwc.prix_hejja || bouquet4kwc.prix_recommande) - 500,
         commissionFixe: bouquet4kwc.commission_fixe || 0,
         isInterpolated: true,
         basedOnBouquet: bouquet4kwc,
@@ -69,8 +61,6 @@ export function findOrInterpolateBouquet(
     const adjustment = diffKwc * 1000;
     return {
       prixRecommande: lowerBouquet.prix_recommande + adjustment,
-      prixMax: (lowerBouquet.prix_max || lowerBouquet.prix_recommande * 1.15) + adjustment,
-      prixHejja: (lowerBouquet.prix_hejja || lowerBouquet.prix_recommande) + adjustment,
       commissionFixe: lowerBouquet.commission_fixe || 0,
       isInterpolated: true,
       basedOnBouquet: lowerBouquet,
@@ -81,8 +71,6 @@ export function findOrInterpolateBouquet(
     const adjustment = diffKwc * 1000;
     return {
       prixRecommande: upperBouquet.prix_recommande - adjustment,
-      prixMax: (upperBouquet.prix_max || upperBouquet.prix_recommande * 1.15) - adjustment,
-      prixHejja: (upperBouquet.prix_hejja || upperBouquet.prix_recommande) - adjustment,
       commissionFixe: upperBouquet.commission_fixe || 0,
       isInterpolated: true,
       basedOnBouquet: upperBouquet,
@@ -92,8 +80,6 @@ export function findOrInterpolateBouquet(
   // No bouquets at all - return defaults
   return {
     prixRecommande: targetPuissance * 4500,
-    prixMax: targetPuissance * 5000,
-    prixHejja: targetPuissance * 4500,
     commissionFixe: 0,
     isInterpolated: true,
   };

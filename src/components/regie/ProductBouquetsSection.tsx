@@ -26,8 +26,6 @@ interface RegieBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
-  prix_max: number;
-  prix_hejja: number;
   commission_fixe: number;
   commission_pct: number;
   description: string | null;
@@ -82,8 +80,6 @@ export function ProductBouquetsSection({
     nom_bouquet: "",
     puissance_kwc: 3,
     prix_recommande: 0,
-    prix_max: 0,
-    prix_hejja: 0,
     commission_fixe: 0,
   });
 
@@ -111,8 +107,7 @@ export function ProductBouquetsSection({
         nom_bouquet: newBouquet.nom_bouquet.trim(),
         puissance_kwc: newBouquet.puissance_kwc,
         prix_recommande: newBouquet.prix_recommande,
-        prix_max: newBouquet.prix_max,
-        prix_hejja: newBouquet.prix_hejja,
+        prix_max: newBouquet.prix_recommande,
         commission_fixe: newBouquet.commission_fixe,
         regie_ids: [selectedRegie.id],
         product_type: productType,
@@ -126,8 +121,6 @@ export function ProductBouquetsSection({
         nom_bouquet: "",
         puissance_kwc: productType === "ITE" ? 100 : 3,
         prix_recommande: 0,
-        prix_max: 0,
-        prix_hejja: 0,
         commission_fixe: 0,
       });
       onRefresh();
@@ -148,8 +141,7 @@ export function ProductBouquetsSection({
           nom_bouquet: bouquet.nom_bouquet,
           puissance_kwc: bouquet.puissance_kwc,
           prix_recommande: bouquet.prix_recommande,
-          prix_max: bouquet.prix_max,
-          prix_hejja: bouquet.prix_hejja || 0,
+          prix_max: bouquet.prix_recommande,
           commission_fixe: bouquet.commission_fixe,
           commission_pct: bouquet.commission_pct || 0,
           description: bouquet.description,
@@ -308,11 +300,11 @@ export function ProductBouquetsSection({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Prix max TTC</label>
+                          <label className="text-xs text-muted-foreground">Commission HT €</label>
                           <Input
                             type="number"
-                            value={newBouquet.prix_max}
-                            onChange={(e) => setNewBouquet({ ...newBouquet, prix_max: parseFloat(e.target.value) || 0 })}
+                            value={newBouquet.commission_fixe}
+                            onChange={(e) => setNewBouquet({ ...newBouquet, commission_fixe: parseFloat(e.target.value) || 0 })}
                           />
                         </div>
                         <div>
