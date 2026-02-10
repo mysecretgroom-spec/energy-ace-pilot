@@ -473,18 +473,44 @@ serve(async (req) => {
       action = "updated";
       console.log(`Found existing client: ${existingClient.nom} (${clientId})`);
 
-      // Check if client already has existing RDVs to flag as duplicate
+      // Check for same-date duplicate: block import if RDV already exists for this client on the same day
+      if (validated.RDV?.date) {
+        const rdvDate = validated.RDV.date; // YYYY-MM-DD
+        const { data: sameDateRdvs } = await supabase
+          .from("rdv")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("user_id", user_id)
+          .gte("date_heure", `${rdvDate}T00:00:00`)
+          .lte("date_heure", `${rdvDate}T23:59:59`)
+          .limit(1);
+
+        if (sameDateRdvs && sameDateRdvs.length > 0) {
+          console.log(`Skipping: client ${clientId} already has an RDV on ${rdvDate}`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              action: "skipped",
+              client_id: clientId,
+              reason: "RDV existant pour ce client à cette date",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Check if client already has existing RDVs (different date) to flag as duplicate
       let isDuplicateClient = false;
       const { data: existingRdvs } = await supabase
         .from("rdv")
-        .select("id, status")
+        .select("id")
         .eq("client_id", clientId)
         .eq("user_id", user_id)
         .limit(1);
       
       if (existingRdvs && existingRdvs.length > 0) {
         isDuplicateClient = true;
-        console.log(`Client ${clientId} already has RDVs — flagging as duplicate client`);
+        console.log(`Client ${clientId} already has RDVs on other dates — flagging as duplicate client`);
       }
       
       // Update client with any new info
