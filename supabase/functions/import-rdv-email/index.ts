@@ -467,6 +467,7 @@ serve(async (req) => {
 
     let clientId: string;
     let action: "created" | "updated" = "created";
+    let isDuplicateClient = false;
 
     if (existingClient) {
       clientId = existingClient.id;
@@ -500,7 +501,6 @@ serve(async (req) => {
       }
 
       // Check if client already has existing RDVs (different date) to flag as duplicate
-      let isDuplicateClient = false;
       const { data: existingRdvs } = await supabase
         .from("rdv")
         .select("id")
