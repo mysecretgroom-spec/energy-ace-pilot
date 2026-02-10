@@ -482,6 +482,7 @@ serve(async (req) => {
           .select("id")
           .eq("client_id", clientId)
           .eq("user_id", user_id)
+          .not("status", "in", '("reporte","annule")')
           .gte("date_heure", `${rdvDate}T00:00:00`)
           .lte("date_heure", `${rdvDate}T23:59:59`)
           .limit(1);
@@ -506,6 +507,7 @@ serve(async (req) => {
         .select("id")
         .eq("client_id", clientId)
         .eq("user_id", user_id)
+        .not("status", "in", '("reporte","annule")')
         .limit(1);
       
       if (existingRdvs && existingRdvs.length > 0) {
