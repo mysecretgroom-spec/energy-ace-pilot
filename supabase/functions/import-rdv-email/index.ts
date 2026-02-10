@@ -37,7 +37,8 @@ const RdvSchema = z.object({
   heure: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time format").optional(),
   duree_minutes: z.number().min(15).max(480).optional(),
   type_projet: z.string().max(50).optional(),
-  commentaire: z.string().max(2000).optional(),
+  commentaire: z.string().max(5000).optional(),
+  commentaire_regie: z.string().max(5000).optional(),
 });
 
 const ProjetSchema = z.object({
@@ -78,6 +79,7 @@ interface ExtractedLead {
     duree_minutes?: number;
     type_projet?: string;
     commentaire?: string;
+    commentaire_regie?: string;
   };
   PROJET?: {
     type_chauffage?: string;
@@ -171,16 +173,24 @@ DTSTART:20260205T130000
 
 6. **EMAIL** - Si absent ou invalide, NE METS PAS le champ du tout (pas de valeur vide, pas "INCONNU", pas null)
 
-7. **COMMENTAIRES/INFOS RDV** - TRÈS IMPORTANT! Capture TOUT le contexte utile:
-   - Cherche les sections "Infos RDV:", "Notes:", "Commentaire:", "Détails:"
+7. **COMMENTAIRES/INFOS RDV** - TRÈS IMPORTANT! Capture TOUT le contexte utile dans "commentaire":
+   - Cherche les sections "Infos RDV:", "Notes:", "Commentaire:", "Détails:", "Observations:"
    - Historique client (propriétaire depuis X ans, déjà reçu des devis...)
    - Situation familiale (seul, divorcé, X enfants à la maison)
    - Équipements actuels (2 PAC split, poêle à granulé, chauffage actuel)
    - Facture énergie mensuelle/annuelle (335€/mois, 4000€/an)
-   - Description maison (grande maison, tuile, plein sud, orientation)
+   - Description maison (grande maison, tuile, plein sud, orientation, surface, étages)
    - Situation financière (crédit maison, trésorerie, comptant possible)
    - Tempérament (hyper sympa, méfiant, pressé)
    - Mets tout ce texte dans le champ "commentaire"
+
+8. **COMMENTAIRE RÉGIE** - TRÈS IMPORTANT! Capture dans "commentaire_regie" TOUTES les informations supplémentaires qui ne rentrent pas dans les champs structurés:
+   - Toute information brute restante de l'email (texte libre, notes de la régie, instructions spéciales)
+   - Statut call (RDV Confirmé, Rappel, etc.)
+   - Remarques du call center, qualité du lead
+   - Disponibilités spéciales du client
+   - Tout texte qui n'a pas pu être catégorisé dans les champs ci-dessus
+   - Le but est de NE PERDRE AUCUNE INFORMATION de l'email original
 
 8. **RÈGLE ABSOLUE - JAMAIS "INCONNU"**:
    - Si une info n'est pas dans l'email, NE METS PAS le champ
@@ -224,7 +234,8 @@ DTSTART:20260205T130000
     "heure": "13:00",
     "duree_minutes": 90,
     "type_projet": "photovoltaique",
-    "commentaire": "Propriétaire depuis 21 ans, seul, divorcé 2 enfants à la maison. 2 PAC split intérieur + poêle à granulé. 335€/mois. Grande maison tuile plein sud. Crédit maison, trésorerie disponible, vient d'acheter un immeuble cash. Paiement comptant possible ou autofinancement. Hyper sympa."
+    "commentaire": "Propriétaire depuis 21 ans, seul, divorcé 2 enfants à la maison. 2 PAC split intérieur + poêle à granulé. 335€/mois. Grande maison tuile plein sud. Crédit maison, trésorerie disponible, vient d'acheter un immeuble cash. Paiement comptant possible ou autofinancement. Hyper sympa.",
+    "commentaire_regie": "Statut call: RDV Confirmé. Lead qualifié, client très intéressé. Disponible uniquement l'après-midi. Rappel effectué le 03/02."
   },
   "PROJET": {
     "type_chauffage": "pac + granule",
@@ -233,6 +244,7 @@ DTSTART:20260205T130000
 }
 
 IMPORTANT: Si un champ n'a pas de valeur trouvée, NE L'INCLUS PAS dans le JSON. Pas de "INCONNU" !
+IMPORTANT: Ne perds AUCUNE information de l'email. Tout doit être capturé dans les champs structurés OU dans commentaire/commentaire_regie.
 
 RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
@@ -474,6 +486,11 @@ serve(async (req) => {
       }
     } else {
       // Create new client with validated data
+      // Build notes for client from all extracted info
+      const clientNotes: string[] = [];
+      if (validated.RDV?.commentaire) clientNotes.push(validated.RDV.commentaire);
+      if (validated.RDV?.commentaire_regie) clientNotes.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
+
       const clientData = {
         user_id,
         nom: validated.CONTACT.nom.toUpperCase(),
@@ -486,6 +503,7 @@ serve(async (req) => {
         ville: validated.ADRESSE?.ville || null,
         source: sender_email?.slice(0, 255) || null,
         regie_id: regie_id || null,
+        notes: clientNotes.length > 0 ? clientNotes.join("\n\n") : null,
         metadata: validated.PROJET ? {
           type_chauffage: validated.PROJET.type_chauffage,
           type_toiture: validated.PROJET.type_toiture,
@@ -578,6 +596,12 @@ serve(async (req) => {
       typeProjet = "photovoltaique"; // Default to photovoltaique
     }
     
+    // Build combined commentaire for RDV
+    const commentParts: string[] = [];
+    if (validated.RDV?.commentaire) commentParts.push(validated.RDV.commentaire);
+    if (validated.RDV?.commentaire_regie) commentParts.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
+    const fullCommentaire = commentParts.join("\n\n") || null;
+
     const rdvData = {
       user_id,
       client_id: clientId,
@@ -586,7 +610,7 @@ serve(async (req) => {
       adresse: validated.ADRESSE?.adresse || null,
       type_projet: typeProjet,
       status: "nouveau",
-      commentaire: validated.RDV?.commentaire?.slice(0, 2000) || null,
+      commentaire: fullCommentaire?.slice(0, 5000) || null,
       source: "gmail",
       regie_id: regie_id || null,
       metadata: validated.PROJET ? {
