@@ -415,8 +415,11 @@ const EtudeForm = () => {
   // Load data on mount
   useEffect(() => {
     const init = async () => {
-      // First load RDV to get regie_id
+      // === Identifier la régie ===
+      // Priorité : RDV > Client > null
       let currentRegieId: string | null = null;
+      
+      // 1. Depuis le RDV
       if (rdvId) {
         const { data: rdvData } = await supabase
           .from("rdv")
@@ -427,6 +430,21 @@ const EtudeForm = () => {
           currentRegieId = rdvData.regie_id;
           setRegieId(rdvData.regie_id);
           setRegieNom((rdvData.regies as any)?.nom || "");
+        }
+      }
+      
+      // 2. Si pas de régie depuis le RDV, chercher depuis le client
+      if (!currentRegieId && clientId) {
+        const { data: clientData } = await supabase
+          .from("clients")
+          .select("regie_id, regies(nom)")
+          .eq("id", clientId)
+          .maybeSingle();
+        if (clientData?.regie_id) {
+          currentRegieId = clientData.regie_id;
+          setRegieId(clientData.regie_id);
+          setRegieNom((clientData.regies as any)?.nom || "");
+          console.log("[EtudeForm] Régie identifiée depuis le client:", (clientData.regies as any)?.nom);
         }
       }
       
