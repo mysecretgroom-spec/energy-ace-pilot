@@ -6,6 +6,66 @@ const GMAIL_API_BASE = "https://www.googleapis.com/gmail/v1";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+// Classify email intent using AI - returns true only if it's an appointment/lead email
+async function isAppointmentEmail(subject: string, bodyPreview: string): Promise<boolean> {
+  try {
+    const truncatedBody = bodyPreview.substring(0, 1500);
+    const response = await fetch(AI_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content: `Tu es un classifieur d'emails. Tu dois déterminer si un email concerne un RENDEZ-VOUS commercial ou un LEAD/prospect (prise de RDV, confirmation de RDV, fiche prospect, attribution de lead).
+
+Réponds UNIQUEMENT par "OUI" ou "NON".
+
+OUI si l'email contient :
+- Une prise de rendez-vous ou confirmation de RDV
+- Une fiche prospect/lead avec des coordonnées client
+- Une attribution de lead commercial
+- Des informations sur un client à visiter (nom, adresse, téléphone, date/heure)
+
+NON si l'email est :
+- Une newsletter, publicité, promotion
+- Un email administratif, facture, relance paiement
+- Une notification système
+- Un email de support/SAV
+- Un compte-rendu sans nouveau RDV
+- Un email de formation, réunion interne
+- Toute communication non liée à un prospect/lead`
+          },
+          {
+            role: "user",
+            content: `Sujet: ${subject}\n\nContenu:\n${truncatedBody}`
+          }
+        ],
+        max_tokens: 5,
+        temperature: 0,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI classification failed:", response.status);
+      return true; // Fail open - process the email if AI fails
+    }
+
+    const result = await response.json();
+    const answer = result.choices?.[0]?.message?.content?.trim().toUpperCase() || "";
+    console.log(`Intent classification for "${subject}": ${answer}`);
+    return answer.startsWith("OUI");
+  } catch (e) {
+    console.error("Intent classification error:", e);
+    return true; // Fail open
+  }
+}
 
 interface SyncResult {
   imported: number;
@@ -479,6 +539,31 @@ serve(async (req) => {
         }
 
         console.log(`Processing: ${subject} from ${senderEmail}`);
+
+        // AI Intent Classification - only process appointment/lead emails
+        const isAppointment = await isAppointmentEmail(subject, body);
+        if (!isAppointment) {
+          console.log(`Skipping non-appointment email: "${subject}"`);
+          result.skipped++;
+          result.details.push({
+            messageId: msg.id,
+            subject,
+            sender: senderEmail,
+            status: "skipped",
+            error: "Email non lié à un rendez-vous (filtré par IA)"
+          });
+          
+          await supabase.from("gmail_imports").insert({
+            user_id: userId,
+            gmail_message_id: msg.id,
+            gmail_thread_id: msg.threadId,
+            sender_email: senderEmail,
+            subject,
+            status: "skipped",
+            error_message: "Intent: non-RDV (filtré par IA)"
+          });
+          continue;
+        }
 
         // Find regie - try From first, then Reply-To, then Cc as fallback
         const { regieId, source: regieSource } = findRegieFromHeaders(emailHeaders, emailToRegieMap);
