@@ -2455,14 +2455,7 @@ _Envoyé depuis DébalePro_`;
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONOPHASÉ">Mono</SelectItem>
-                    <SelectItem value="TRIPHASÉ">
-                      Tri {(() => {
-                        const regiePrice = regieSurcouts.find(s => s.categorie === "compteur" && s.nom.toUpperCase().includes("TRIPHASE"))?.prix;
-                        const globalPrice = dataCompteurs.find(c => c.type_compteur === "TRIPHASÉ")?.montant;
-                        const price = regiePrice ?? globalPrice ?? 0;
-                        return price > 0 ? `+${price}€` : "";
-                      })()}
-                    </SelectItem>
+                    <SelectItem value="TRIPHASÉ">Tri</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2673,30 +2666,8 @@ _Envoyé depuis DébalePro_`;
                 <SelectContent>
                   <SelectItem value="TOITURE SURIMPOSITION">Surimposition</SelectItem>
                   <SelectItem value="TOITURE INTEGRATION">Intégration</SelectItem>
-                  <SelectItem value="BAC GSE (SOL)">
-                    Sol {(() => {
-                      const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("bac_gse"));
-                      if (regieSurcout) {
-                        if (regieSurcout.type_calcul === "par_panneau") {
-                          return `+${regieSurcout.prix}€/pan`;
-                        }
-                        return regieSurcout.prix > 0 ? `+${regieSurcout.prix}€` : "";
-                      }
-                      return "+1800€";
-                    })()}
-                  </SelectItem>
-                  <SelectItem value="PERGOLA / CARPORT">
-                    Pergola {(() => {
-                      const regieSurcout = regieSurcouts.find(s => s.categorie === "support" && s.code.includes("pergola"));
-                      if (regieSurcout) {
-                        if (regieSurcout.type_calcul === "par_panneau") {
-                          return `+${regieSurcout.prix}€/pan`;
-                        }
-                        return regieSurcout.prix > 0 ? `+${regieSurcout.prix}€` : "";
-                      }
-                      return "+3900€";
-                    })()}
-                  </SelectItem>
+                  <SelectItem value="BAC GSE (SOL)">Sol</SelectItem>
+                  <SelectItem value="PERGOLA / CARPORT">Pergola</SelectItem>
                 </SelectContent>
               </Select>
             </div>
