@@ -1,4 +1,4 @@
-import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2 } from "lucide-react";
+import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2, Copy } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ interface DayRdvCardProps {
     regieId?: string | null;
     regieNom?: string | null;
     regieCouleur?: string | null;
+    isDuplicateClient?: boolean;
   };
   index: number;
   onRefresh: () => void;
@@ -131,6 +132,13 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                   <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
                     <Wrench className="h-3 w-3" />
                     Installation Externe
+                  </Badge>
+                )}
+
+                {rdv.isDuplicateClient && (
+                  <Badge variant="outline" className="text-xs px-2 py-0.5 flex items-center gap-1 rounded-full border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400">
+                    <Copy className="h-3 w-3" />
+                    Doublon client
                   </Badge>
                 )}
                 
