@@ -106,23 +106,55 @@ export function SigneDialog({
     const fetchData = async () => {
       setLoadingBouquets(true);
       
-      // Fetch all bouquets (global ones without regie_ids)
+      // Fetch ALL active bouquets (both global and regie-specific)
       const { data: bouquetsData } = await supabase
         .from("bouquets")
-        .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type")
+        .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type, regie_ids")
         .eq("actif", true)
-        .is("regie_ids", null)
         .order("puissance_kwc", { ascending: true });
 
       if (bouquetsData) {
-        setAllBouquets(bouquetsData as Bouquet[]);
+        // Prioritize regie-specific bouquets, fallback to global
+        const regieBouquets = regieId
+          ? bouquetsData.filter(b => b.regie_ids && (b.regie_ids as string[]).includes(regieId))
+          : [];
+        const globalBouquets = bouquetsData.filter(b => !b.regie_ids);
+        
+        // For each puissance+product_type combo, prefer regie-specific
+        const bouquetMap = new Map<string, Bouquet>();
+        // Add globals first
+        for (const b of globalBouquets) {
+          const key = `${b.product_type}_${b.puissance_kwc}`;
+          bouquetMap.set(key, b as Bouquet);
+        }
+        // Override with regie-specific
+        for (const b of regieBouquets) {
+          const key = `${b.product_type}_${b.puissance_kwc}`;
+          bouquetMap.set(key, b as Bouquet);
+        }
+        
+        const mergedBouquets = Array.from(bouquetMap.values())
+          .sort((a, b) => a.puissance_kwc - b.puissance_kwc);
+        setAllBouquets(mergedBouquets);
       }
 
-      // Fetch surcouts - first try régie-specific, then global regies_surcouts, then data_surcouts
-      let surcoutsData: Surcout[] = [];
+      // Fetch surcouts: merge regie-specific + global (regie overrides global by code)
+      let regieSurcoutsData: Surcout[] = [];
+      let globalSurcoutsData: Surcout[] = [];
+      
+      // Always fetch global regies_surcouts
+      const { data: globalRegiesSurcouts } = await supabase
+        .from("regies_surcouts")
+        .select("id, nom, code, prix, categorie, type_calcul")
+        .is("regie_id", null)
+        .eq("actif", true)
+        .order("categorie", { ascending: true });
+      
+      if (globalRegiesSurcouts) {
+        globalSurcoutsData = globalRegiesSurcouts;
+      }
       
       if (regieId) {
-        // Try régie-specific surcouts first
         const { data: regiesSurcouts } = await supabase
           .from("regies_surcouts")
           .select("id, nom, code, prix, categorie, type_calcul")
@@ -130,35 +162,32 @@ export function SigneDialog({
           .eq("actif", true)
           .order("categorie", { ascending: true });
         
-        if (regiesSurcouts && regiesSurcouts.length > 0) {
-          surcoutsData = regiesSurcouts;
+        if (regiesSurcouts) {
+          regieSurcoutsData = regiesSurcouts;
         }
       }
       
-      // If no régie-specific surcouts, try global regies_surcouts (regie_id is null)
-      if (surcoutsData.length === 0) {
-        const { data: globalRegiesSurcouts } = await supabase
-          .from("regies_surcouts")
-          .select("id, nom, code, prix, categorie, type_calcul")
-          .is("regie_id", null)
-          .eq("actif", true)
-          .order("categorie", { ascending: true });
-        
-        if (globalRegiesSurcouts && globalRegiesSurcouts.length > 0) {
-          surcoutsData = globalRegiesSurcouts;
-        }
+      // Merge: regie-specific overrides global by code
+      const surcoutMap = new Map<string, Surcout>();
+      for (const s of globalSurcoutsData) {
+        surcoutMap.set(s.code, s);
+      }
+      for (const s of regieSurcoutsData) {
+        surcoutMap.set(s.code, s);
       }
       
-      // Last fallback: data_surcouts table
-      if (surcoutsData.length === 0) {
-        const { data: globalSurcouts } = await supabase
+      let mergedSurcouts = Array.from(surcoutMap.values());
+      
+      // Fallback to data_surcouts if nothing found
+      if (mergedSurcouts.length === 0) {
+        const { data: fallbackSurcouts } = await supabase
           .from("data_surcouts")
           .select("id, nom, code, prix, description")
           .eq("actif", true)
           .order("nom", { ascending: true });
         
-        if (globalSurcouts) {
-          surcoutsData = globalSurcouts.map(s => ({
+        if (fallbackSurcouts) {
+          mergedSurcouts = fallbackSurcouts.map(s => ({
             ...s,
             categorie: "general",
             type_calcul: "fixe"
@@ -166,7 +195,7 @@ export function SigneDialog({
         }
       }
       
-      setSurcouts(surcoutsData);
+      setSurcouts(mergedSurcouts);
       setLoadingBouquets(false);
     };
 
