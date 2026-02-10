@@ -34,8 +34,6 @@ interface Bouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
-  prix_hejja: number;
-  prix_max: number;
   commission_fixe: number | null;
   commission_pct: number | null;
   product_type: ProductType | null;
@@ -111,7 +109,7 @@ export function SigneDialog({
       // Fetch all bouquets (global ones without regie_ids)
       const { data: bouquetsData } = await supabase
         .from("bouquets")
-        .select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_hejja, prix_max, commission_fixe, commission_pct, product_type")
+        .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type")
         .eq("actif", true)
         .is("regie_ids", null)
         .order("puissance_kwc", { ascending: true });
@@ -248,7 +246,7 @@ export function SigneDialog({
   }, [puissance]);
 
   // Calculate survente and commission
-  // Prix recommandé et prix HEJJA sont en TTC
+  // Prix recommandé est en TTC
   // Survente = (prixTTC - prixRecommandéTTC), convertie en HT, puis 50%
   const calculations = useMemo(() => {
     const prixHTNum = parseFloat(prixHT);
@@ -258,7 +256,6 @@ export function SigneDialog({
     }
 
     const prixRecommandeTTC = selectedBouquet.prix_recommande || 0;
-    const prixHejjaTTC = selectedBouquet.prix_hejja || 0;
     
     // Survente TTC = prix vente TTC - prix recommandé TTC
     const surventeTTC = Math.max(0, prixTTCNum - prixRecommandeTTC);
@@ -278,7 +275,6 @@ export function SigneDialog({
     const commissionTotale = commissionBase + bonusSurvente;
 
     return {
-      prixHejja: prixHejjaTTC,
       prixRecommande: prixRecommandeTTC,
       surventeTTC,
       surventeHT,

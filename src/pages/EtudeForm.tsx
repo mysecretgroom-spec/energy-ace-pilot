@@ -101,7 +101,6 @@ interface DataBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
-  prix_max: number;
 }
 
 interface DataSurcout {
@@ -641,7 +640,7 @@ const EtudeForm = () => {
 
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids, product_type").eq("actif", true),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type").eq("actif", true),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
@@ -657,7 +656,6 @@ const EtudeForm = () => {
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
-            prix_max: b.prix_max,
           }));
         
         // If no regie-specific bouquets for this product, use global ones filtered by product_type
@@ -669,7 +667,6 @@ const EtudeForm = () => {
               nom_bouquet: b.nom_bouquet,
               puissance_kwc: b.puissance_kwc,
               prix_recommande: b.prix_recommande,
-              prix_max: b.prix_max,
             }));
         }
       }
@@ -695,7 +692,7 @@ const EtudeForm = () => {
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, prix_max, regie_ids, product_type").eq("actif", true).order("puissance_kwc"),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type").eq("actif", true).order("puissance_kwc"),
         supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
       ]);
       
@@ -709,7 +706,6 @@ const EtudeForm = () => {
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
-            prix_max: b.prix_max,
           }));
       }
       if (financementsRes.data) financementsData = financementsRes.data;
@@ -1022,7 +1018,7 @@ const EtudeForm = () => {
       // Toujours utiliser l'interpolation basée sur la puissance
       const interpolatedBouquet = findOrInterpolateBouquet(dataBouquets, puissance);
       prixInstallation = modeHejjaPrix 
-        ? (prixManuel ? Number(prixManuel) : interpolatedBouquet.prixMax)
+        ? (prixManuel ? Number(prixManuel) : 0)
         : interpolatedBouquet.prixRecommande;
       interpolated = interpolatedBouquet.isInterpolated;
       if (interpolated) {

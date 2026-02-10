@@ -88,8 +88,6 @@ interface RegieBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
-  prix_max: number;
-  prix_hejja: number;
   commission_fixe: number;
   commission_pct: number;
   description: string | null;
@@ -160,8 +158,6 @@ const RegiesSettings = () => {
     nom_bouquet: "",
     puissance_kwc: 3,
     prix_recommande: 0,
-    prix_max: 0,
-    prix_hejja: 0,
     commission_fixe: 0,
   });
   const [newFinancement, setNewFinancement] = useState({
@@ -612,12 +608,11 @@ const RegiesSettings = () => {
         .from("bouquets")
         .insert({
           user_id: user.id,
-          regie_ids: [selectedRegie.id], // Use regie_ids array instead of regie_id
+          regie_ids: [selectedRegie.id],
           nom_bouquet: newBouquet.nom_bouquet.trim(),
           puissance_kwc: newBouquet.puissance_kwc,
           prix_recommande: newBouquet.prix_recommande,
-          prix_max: newBouquet.prix_max,
-          prix_hejja: newBouquet.prix_hejja,
+          prix_max: newBouquet.prix_recommande,
           commission_fixe: newBouquet.commission_fixe,
           actif: true,
         });
@@ -629,8 +624,6 @@ const RegiesSettings = () => {
         nom_bouquet: "",
         puissance_kwc: 3,
         prix_recommande: 0,
-        prix_max: 0,
-        prix_hejja: 0,
         commission_fixe: 0,
       });
       fetchRegieDetails(selectedRegie.id);

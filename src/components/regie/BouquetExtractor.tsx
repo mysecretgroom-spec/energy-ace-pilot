@@ -28,8 +28,6 @@ interface ExtractedBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
-  prix_max: number;
-  prix_hejja: number;
   commission_fixe: number;
   commission_pct: number;
   description: string | null;
@@ -203,12 +201,11 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
     try {
       const inserts = selectedBouquets.map((b) => ({
         user_id: userId,
-        regie_ids: [regieId], // Use array for the new unified bouquets table
+        regie_ids: [regieId],
         nom_bouquet: b.nom_bouquet,
         puissance_kwc: b.puissance_kwc,
         prix_recommande: b.prix_recommande,
-        prix_max: b.prix_max,
-        prix_hejja: b.prix_hejja,
+        prix_max: b.prix_recommande, // same as recommande, no max concept
         commission_fixe: b.commission_fixe,
         commission_pct: b.commission_pct,
         description: b.description,
