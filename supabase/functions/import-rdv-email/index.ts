@@ -475,7 +475,9 @@ serve(async (req) => {
 
       // Check for existing RDVs to avoid true duplicates
       // but ALLOW new RDV when existing one is reporté/r2/r2_prestudy
-      const reopenableStatuses = ["reporte", "r2", "r2_prestudy"];
+      const reopenableStatuses = ["reporte", "r2", "r2_prestudy", "annule"];
+
+      let isDuplicateClient = false;
 
       if (validated.RDV?.date) {
         // Check if there's already an active RDV for this client around the same date
@@ -507,7 +509,22 @@ serve(async (req) => {
             );
           } else {
             console.log(`Client ${clientId} has RDVs on ${rdvDate} but all are ${reopenableStatuses.join("/")} — creating new RDV`);
+            isDuplicateClient = true;
           }
+        }
+      }
+
+      // Also check for any existing RDVs for this client (regardless of date) to flag duplicates
+      if (!isDuplicateClient) {
+        const { data: anyExistingRdvs } = await supabase
+          .from("rdv")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("user_id", user_id)
+          .limit(1);
+        
+        if (anyExistingRdvs && anyExistingRdvs.length > 0) {
+          isDuplicateClient = true;
         }
       }
       
@@ -650,17 +667,20 @@ serve(async (req) => {
       commentaire: fullCommentaire?.slice(0, 5000) || null,
       source: "gmail",
       regie_id: regie_id || null,
-      metadata: validated.PROJET ? {
+      metadata: {
         ai_extracted: true,
         extraction_date: new Date().toISOString(),
-        type_chauffage: validated.PROJET.type_chauffage,
-        type_toiture: validated.PROJET.type_toiture,
-        orientation_toiture: validated.PROJET.orientation_toiture,
-        facture_energie: validated.PROJET.facture_energie,
-        motivation: validated.PROJET.motivation,
-        budget_estime: validated.PROJET.budget_estime,
-        urgence: validated.PROJET.urgence,
-      } : { ai_extracted: true, extraction_date: new Date().toISOString() },
+        is_duplicate_client: isDuplicateClient || false,
+        ...(validated.PROJET ? {
+          type_chauffage: validated.PROJET.type_chauffage,
+          type_toiture: validated.PROJET.type_toiture,
+          orientation_toiture: validated.PROJET.orientation_toiture,
+          facture_energie: validated.PROJET.facture_energie,
+          motivation: validated.PROJET.motivation,
+          budget_estime: validated.PROJET.budget_estime,
+          urgence: validated.PROJET.urgence,
+        } : {}),
+      },
     };
 
     const { data: newRdv, error: rdvError } = await supabase

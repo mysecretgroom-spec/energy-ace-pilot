@@ -92,6 +92,7 @@ interface RdvData {
   regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
+  isDuplicateClient?: boolean;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -318,6 +319,7 @@ const Planning = () => {
             regieId: regieData?.id || null,
             regieNom: regieData?.nom || null,
             regieCouleur: regieData?.couleur || null,
+            isDuplicateClient: !!(rdv.metadata as any)?.is_duplicate_client,
           };
         });
       };
@@ -362,6 +364,7 @@ const Planning = () => {
           latitude,
           longitude,
           regie_id,
+          metadata,
           regies(
             id,
             nom,
