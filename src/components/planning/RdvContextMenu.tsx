@@ -431,8 +431,8 @@ export function RdvContextMenu({
               </div>
             </div>
 
-            {/* Safe area padding for iOS */}
-            <div className="h-6" />
+            {/* Safe area padding for iOS + bottom nav */}
+            <div className="h-20 sm:h-6" />
           </motion.div>
 
           {/* External Vente Dialog - higher z-index */}
