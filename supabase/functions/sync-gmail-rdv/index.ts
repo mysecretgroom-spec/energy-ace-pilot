@@ -554,6 +554,30 @@ serve(async (req) => {
           continue;
         }
 
+        // Handle "skipped" action (duplicate active RDV)
+        if (importResult.action === "skipped") {
+          result.skipped++;
+          result.details.push({
+            messageId: msg.id,
+            subject,
+            sender: senderEmail,
+            status: "skipped",
+            error: importResult.reason || "RDV existant"
+          });
+
+          await supabase.from("gmail_imports").insert({
+            user_id: userId,
+            gmail_message_id: msg.id,
+            gmail_thread_id: msg.threadId,
+            sender_email: senderEmail,
+            subject,
+            status: "skipped",
+            error_message: importResult.reason || "RDV existant",
+            client_id: importResult.client_id
+          });
+          continue;
+        }
+
         // Success!
         const action = importResult.action === "created" ? "imported" : "updated";
         if (action === "imported") result.imported++;

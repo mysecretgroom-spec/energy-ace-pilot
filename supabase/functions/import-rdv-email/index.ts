@@ -472,6 +472,44 @@ serve(async (req) => {
       clientId = existingClient.id;
       action = "updated";
       console.log(`Found existing client: ${existingClient.nom} (${clientId})`);
+
+      // Check for existing RDVs to avoid true duplicates
+      // but ALLOW new RDV when existing one is reporté/r2/r2_prestudy
+      const reopenableStatuses = ["reporte", "r2", "r2_prestudy"];
+
+      if (validated.RDV?.date) {
+        // Check if there's already an active RDV for this client around the same date
+        const rdvDate = validated.RDV.date; // YYYY-MM-DD
+        const { data: existingRdvs } = await supabase
+          .from("rdv")
+          .select("id, status, date_heure")
+          .eq("client_id", clientId)
+          .eq("user_id", user_id)
+          .gte("date_heure", `${rdvDate}T00:00:00`)
+          .lte("date_heure", `${rdvDate}T23:59:59`);
+
+        if (existingRdvs && existingRdvs.length > 0) {
+          // Check if ALL existing RDVs on that date are in reopenable statuses
+          const hasActiveRdv = existingRdvs.some(
+            r => !reopenableStatuses.includes(r.status)
+          );
+
+          if (hasActiveRdv) {
+            console.log(`Skipping: client ${clientId} already has an active RDV on ${rdvDate}`);
+            return new Response(
+              JSON.stringify({
+                success: true,
+                action: "skipped",
+                client_id: clientId,
+                reason: "RDV actif existant pour ce client à cette date",
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } else {
+            console.log(`Client ${clientId} has RDVs on ${rdvDate} but all are ${reopenableStatuses.join("/")} — creating new RDV`);
+          }
+        }
+      }
       
       // Update client with any new info
       const updateData: Record<string, unknown> = {};
@@ -480,7 +518,6 @@ serve(async (req) => {
       }
       if (phone2) updateData.telephone_secondaire = phone2;
       if (email) updateData.email = email;
-      
       if (Object.keys(updateData).length > 0) {
         await supabase.from("clients").update(updateData).eq("id", clientId);
       }
