@@ -149,7 +149,6 @@ interface DataFinancement {
   taux_effectif: number;
   taeg: number;
   actif: boolean;
-  duree_mois?: number;
 }
 
 const EtudeForm = () => {
@@ -663,7 +662,6 @@ const EtudeForm = () => {
           taux_effectif: Number(f.taux_effectif),
           taeg: Number(f.taeg),
           actif: f.actif,
-          duree_mois: f.duree_mois || undefined,
         }));
       }
       if (surcoutsRegieRes.data) {
@@ -1090,7 +1088,7 @@ const EtudeForm = () => {
     // Financement basé sur le montant TTC total hors aides
     let mensualite = 0;
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || selectedFinancement?.duree_mois || 120;
+    const dureeMois = dureeMoisManuelle || 120;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
     
     if (mensualiteManuelle) {
@@ -1253,7 +1251,7 @@ const EtudeForm = () => {
         : (productType === "PAC" ? aidesPAC : productType === "ITE" ? aidesITE : null),
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
-      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : (dataFinancements.find(f => f.id === financementId)?.duree_mois || 120),
+      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
       mensualite_estimee: productType === "PV" ? calculatedResults?.mensualite : (mensualiteManuelle || null),
       // Rentabilité
@@ -1829,7 +1827,7 @@ const EtudeForm = () => {
       totalAidesDeduites: calculatedResults.totalAidesDeduites,
       financementNom: selectedFinancement?.nom || "Non défini",
       tauxFinancement: selectedFinancement?.taux_effectif || 0,
-      dureeMois: dureeMoisManuelle || selectedFinancement?.duree_mois || 120,
+      dureeMois: dureeMoisManuelle || 120,
       mensualite: calculatedResults.mensualite,
       autoconsommationEuros: calculatedResults.autoconsommationEuros,
       reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
