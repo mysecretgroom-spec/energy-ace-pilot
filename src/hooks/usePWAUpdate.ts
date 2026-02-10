@@ -105,7 +105,8 @@ export function usePWAUpdate() {
         action: {
           label: 'Actualiser',
           onClick: () => {
-            // Only send SKIP_WAITING when user clicks
+            userTriggeredRef.current = true;
+            // Send SKIP_WAITING when user clicks
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.getRegistration().then((reg) => {
                 if (reg?.waiting) {
@@ -114,7 +115,6 @@ export function usePWAUpdate() {
                 }
               });
             }
-            // Fallback: use vite-pwa's updateServiceWorker
             updateServiceWorker(true);
           },
         },
@@ -125,14 +125,16 @@ export function usePWAUpdate() {
     }
   }, [needRefresh, updateServiceWorker]);
 
-  // Listen for the new SW taking control → reload
+  // Listen for the new SW taking control → reload only if user triggered it
+  const userTriggeredRef = useRef(false);
+  
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       let reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (reloading) return;
+        if (reloading || !userTriggeredRef.current) return;
         reloading = true;
-        console.log('[PWA] New SW activated, reloading...');
+        console.log('[PWA] New SW activated via user action, reloading...');
         window.location.reload();
       });
     }
