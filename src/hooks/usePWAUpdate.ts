@@ -93,21 +93,11 @@ export function usePWAUpdate() {
     };
   }, [checkForUpdates]);
 
-  // Show a persistent toast when update is available (instead of auto-updating)
+  // Show a persistent toast when update is available
   useEffect(() => {
     if (needRefresh && !toastShownRef.current) {
       toastShownRef.current = true;
       console.log('[PWA] Update available, showing notification...');
-
-      // Pre-activate the waiting SW so it's ready on refresh
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then((reg) => {
-          if (reg?.waiting) {
-            console.log('[PWA] Sending SKIP_WAITING to new SW...');
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-        });
-      }
 
       toast('Nouvelle version disponible 🚀', {
         description: 'Actualisez pour profiter des dernières améliorations.',
@@ -115,7 +105,17 @@ export function usePWAUpdate() {
         action: {
           label: 'Actualiser',
           onClick: () => {
-            window.location.reload();
+            // Only send SKIP_WAITING when user clicks
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistration().then((reg) => {
+                if (reg?.waiting) {
+                  console.log('[PWA] User accepted update, sending SKIP_WAITING...');
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+              });
+            }
+            // Fallback: use vite-pwa's updateServiceWorker
+            updateServiceWorker(true);
           },
         },
         onDismiss: () => {
@@ -123,7 +123,7 @@ export function usePWAUpdate() {
         },
       });
     }
-  }, [needRefresh]);
+  }, [needRefresh, updateServiceWorker]);
 
   // Listen for the new SW taking control → reload
   useEffect(() => {
