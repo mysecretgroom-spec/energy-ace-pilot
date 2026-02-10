@@ -620,6 +620,32 @@ export function SigneDialog({
                       {items.map((surcout) => {
                         const calculatedPrice = calcSurcoutPrice(surcout);
                         const isSelected = selectedSurcoutsIds.includes(surcout.id);
+                        const puissanceNum = parseFloat(puissance) || 0;
+                        const surfaceNum = parseFloat(surfaceM2) || 0;
+                        const nbPanneaux = Math.round(puissanceNum * 2);
+                        
+                        // Build descriptive label for variable surcoûts
+                        const getTypeLabel = () => {
+                          if (surcout.type_calcul === "par_panneau") {
+                            return nbPanneaux > 0 
+                              ? `(${surcout.prix}€ × ${nbPanneaux} pan.)` 
+                              : `(${surcout.prix}€/panneau)`;
+                          }
+                          if (surcout.type_calcul === "par_m2") {
+                            return surfaceNum > 0
+                              ? `(${surcout.prix}€ × ${surfaceNum} m²)`
+                              : `(${surcout.prix}€/m²)`;
+                          }
+                          if (surcout.type_calcul === "par_ml") {
+                            const qty = mlQuantities[surcout.id] || 0;
+                            return qty > 0
+                              ? `(${surcout.prix}€ × ${qty} ml)`
+                              : `(${surcout.prix}€/ml)`;
+                          }
+                          return null;
+                        };
+
+                        const typeLabel = getTypeLabel();
                         
                         return (
                           <div key={surcout.id} className="space-y-1">
@@ -635,11 +661,11 @@ export function SigneDialog({
                               >
                                 <span>
                                   {surcout.nom}
-                                  {surcout.type_calcul === "par_ml" && (
-                                    <span className="text-xs text-muted-foreground ml-1">({surcout.prix}€/ml)</span>
+                                  {typeLabel && (
+                                    <span className="text-xs text-muted-foreground ml-1">{typeLabel}</span>
                                   )}
                                 </span>
-                                <span className="text-muted-foreground font-medium">
+                                <span className="text-muted-foreground font-medium whitespace-nowrap ml-2">
                                   +{formatCurrency(calculatedPrice)} €
                                 </span>
                               </label>
