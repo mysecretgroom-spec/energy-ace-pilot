@@ -272,7 +272,23 @@ serve(async (req) => {
 
     // Send via WhatsApp
     const toNumber = phoneNumber.startsWith("whatsapp:") ? phoneNumber : `whatsapp:${phoneNumber}`;
-    const defaultMessage = message || `📄 Dossier complet pour ${clientName}\n\n${processedDocs.length} documents inclus:\n${processedDocs.map(d => `• ${d}`).join("\n")}`;
+    
+    // Build message - Twilio has a 1600 char limit for WhatsApp
+    let defaultMessage: string;
+    if (message) {
+      defaultMessage = message.length > 1500 ? message.substring(0, 1500) + "…" : message;
+    } else {
+      const header = `📄 Dossier complet pour ${clientName}\n\n${processedDocs.length} documents inclus`;
+      // Only list docs if total message stays under 1500 chars
+      const docList = processedDocs.map(d => `• ${d}`).join("\n");
+      if ((header + "\n" + docList).length < 1500) {
+        defaultMessage = `${header}:\n${docList}`;
+      } else {
+        // Show first few docs + count
+        const shortList = processedDocs.slice(0, 5).map(d => `• ${d}`).join("\n");
+        defaultMessage = `${header}:\n${shortList}\n... et ${processedDocs.length - 5} autre(s)`;
+      }
+    }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
