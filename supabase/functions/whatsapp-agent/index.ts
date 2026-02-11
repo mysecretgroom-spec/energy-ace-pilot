@@ -3575,13 +3575,43 @@ async function handlePendingWorkflow(
         );
         
         if (venteResult.success) {
+          // Fetch client details for the confirmateur message
+          let clientDetails: { telephone?: string; adresse?: string; codePostal?: string; ville?: string; totalAides?: number } | undefined;
+          if (collectedData.clientId) {
+            const { data: clientData } = await supabase
+              .from("clients")
+              .select("telephone, adresse, code_postal, ville")
+              .eq("id", collectedData.clientId)
+              .maybeSingle();
+            if (clientData) {
+              clientDetails = {
+                telephone: clientData.telephone || undefined,
+                adresse: clientData.adresse || undefined,
+                codePostal: clientData.code_postal || undefined,
+                ville: clientData.ville || undefined,
+              };
+            }
+            // Try to fetch aids from the latest etude
+            const { data: etudeData } = await supabase
+              .from("etudes")
+              .select("total_aides")
+              .eq("client_id", collectedData.clientId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (etudeData?.total_aides && clientDetails) {
+              clientDetails.totalAides = etudeData.total_aides;
+            }
+          }
+
           // Now generate WhatsApp message for confirmateur approval
           const whatsappMsg = generateConfirmateurMessage(
             collectedData.clientName || "Client",
             collectedData.puissanceKwc!,
             collectedData.prixTTC!,
             collectedData.cqTime || "10:00",
-            collectedData.commentaire
+            collectedData.commentaire,
+            clientDetails
           );
           
           // Get confirmateur phone
@@ -5189,7 +5219,8 @@ function generateConfirmateurMessage(
   puissanceKwc: number,
   prixTTC: number,
   cqTime: string,
-  commentaire?: string
+  commentaire?: string,
+  clientDetails?: { telephone?: string; adresse?: string; codePostal?: string; ville?: string; totalAides?: number }
 ): string {
   const now = new Date();
   const tomorrow = new Date(now);
@@ -5197,16 +5228,21 @@ function generateConfirmateurMessage(
   
   const formatDate = (d: Date) => d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   
-  let msg = `*🎉 NOUVELLE VENTE SIGNÉE*\n\n`;
+  // CQ at the very beginning
+  let msg = `*📞 CQ prévu: ${formatDate(tomorrow)} à ${cqTime}*\n\n---\n\n`;
+  msg += `*🎉 NOUVELLE VENTE SIGNÉE*\n\n`;
   msg += `👤 Client: *${clientName}*\n`;
-  msg += `📅 Date: ${formatDate(now)}\n`;
+  if (clientDetails?.telephone) msg += `📱 Tél: ${clientDetails.telephone}\n`;
+  const address = [clientDetails?.adresse, clientDetails?.codePostal, clientDetails?.ville].filter(Boolean).join(", ");
+  if (address) msg += `🏠 Adresse: ${address}\n`;
+  msg += `📅 Date: ${formatDate(now)}\n\n`;
   msg += `⚡ Puissance: *${puissanceKwc} kWc*\n`;
-  msg += `💰 Prix: *${prixTTC.toLocaleString("fr-FR")}€ TTC*\n\n`;
-  msg += `*📞 CQ prévu:*\n`;
-  msg += `${formatDate(tomorrow)} à ${cqTime}\n`;
+  msg += `💰 Prix: *${prixTTC.toLocaleString("fr-FR")}€ TTC*\n`;
+  if (clientDetails?.totalAides) msg += `🏛️ Total aides: *${clientDetails.totalAides.toLocaleString("fr-FR")}€*\n`;
   
+  // Comment at the very end
   if (commentaire) {
-    msg += `\n💬 Note: ${commentaire}\n`;
+    msg += `\n💬 Commentaire:\n${commentaire}\n`;
   }
   
   msg += `\n---\n_Envoyé depuis DébalePro_`;

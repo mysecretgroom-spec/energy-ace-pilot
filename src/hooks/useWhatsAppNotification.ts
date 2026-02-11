@@ -3,6 +3,19 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { EtudeData, getEtudePdfBlob } from "@/lib/exportEtudePdf";
 
+interface VenteDetails {
+  telephone?: string;
+  adresse?: string;
+  codePostal?: string;
+  ville?: string;
+  puissanceKwc?: number;
+  prixTTC?: number;
+  totalAides?: number;
+  primeAutoconsommation?: number;
+  ecoTva?: number;
+  productType?: string;
+}
+
 interface SendWhatsAppParams {
   clientName: string;
   clientPrenom?: string;
@@ -12,7 +25,8 @@ interface SendWhatsAppParams {
   userId: string;
   cqTime?: string;
   pdfData?: EtudeData;
-  regieId?: string | null; // NEW: régie associée au RDV
+  regieId?: string | null;
+  venteDetails?: VenteDetails;
 }
 
 // Decode HTML entities to proper Unicode characters
@@ -30,16 +44,18 @@ const decodeHtmlEntities = (text: string): string => {
 
 // Default templates with placeholders
 const DEFAULT_TEMPLATES: Record<string, string> = {
-  positif: `*MISE À JOUR DOSSIER*
+  positif: `*📞 CQ prévu: {{cq_date}}*
 
-Client: *{{client_name}}*
-Date: {{date}}
-Statut: POSITIF
+---
 
-Le client est intéressé et prêt à avancer.
+*NOUVELLE VENTE SIGNÉE* 🎉
 
-*CQ prévu:*
-{{cq_date}}
+👤 Client: *{{client_name}}*
+📱 Tél: {{client_phone}}
+🏠 Adresse: {{client_address}}
+📅 Date: {{date}}
+
+{{vente_details}}
 
 {{comment}}
 
@@ -180,6 +196,7 @@ export const useWhatsAppNotification = () => {
     cqTime,
     pdfData,
     regieId,
+    venteDetails,
   }: SendWhatsAppParams): Promise<boolean> => {
     try {
       // Get WhatsApp contact from the régie (principal contact)
@@ -259,6 +276,25 @@ export const useWhatsAppNotification = () => {
       // Get template (custom or default)
       const templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
 
+      // Build vente details block
+      let venteDetailsText = "";
+      if (venteDetails) {
+        const parts: string[] = [];
+        if (venteDetails.puissanceKwc) parts.push(`⚡ Puissance: *${venteDetails.puissanceKwc} kWc*`);
+        if (venteDetails.prixTTC) parts.push(`💰 Prix: *${venteDetails.prixTTC.toLocaleString("fr-FR")}€ TTC*`);
+        if (venteDetails.totalAides) parts.push(`🏛️ Total aides: *${venteDetails.totalAides.toLocaleString("fr-FR")}€*`);
+        if (venteDetails.primeAutoconsommation) parts.push(`☀️ Prime autoconso: ${venteDetails.primeAutoconsommation.toLocaleString("fr-FR")}€`);
+        if (venteDetails.ecoTva) parts.push(`📊 ECO TVA: ${venteDetails.ecoTva.toLocaleString("fr-FR")}€`);
+        if (venteDetails.productType) parts.push(`🔧 Type: ${venteDetails.productType}`);
+        venteDetailsText = parts.join("\n");
+      }
+
+      // Build client address
+      const clientAddressText = venteDetails 
+        ? [venteDetails.adresse, venteDetails.codePostal, venteDetails.ville].filter(Boolean).join(", ")
+        : "";
+      const clientPhoneText = venteDetails?.telephone || "";
+
       // Replace placeholders and decode HTML entities for proper emoji display
       const message = decodeHtmlEntities(
         templateText
@@ -267,14 +303,17 @@ export const useWhatsAppNotification = () => {
           .replace(/\{\{r2_date\}\}/g, r2DateStr || "Non défini")
           .replace(/\{\{cq_date\}\}/g, cqDateStr || "Non défini")
           .replace(/\{\{comment\}\}/g, commentText)
+          .replace(/\{\{vente_details\}\}/g, venteDetailsText)
+          .replace(/\{\{client_phone\}\}/g, clientPhoneText || "Non renseigné")
+          .replace(/\{\{client_address\}\}/g, clientAddressText || "Non renseignée")
       );
 
       // Encode message for URL
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-      // Pour r2_prestudy, partager le PDF en utilisant l'API Web Share si disponible
-      if (classification === "r2_prestudy" && pdfData) {
+      // Pour positif ou r2_prestudy, partager le PDF en utilisant l'API Web Share si disponible
+      if ((classification === "r2_prestudy" || classification === "positif") && pdfData) {
         try {
           const pdfBlob = await getEtudePdfBlob(pdfData);
           const fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;

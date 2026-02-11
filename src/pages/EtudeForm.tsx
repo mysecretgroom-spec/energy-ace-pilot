@@ -376,6 +376,18 @@ const EtudeForm = () => {
     r2DateTime: string | null;
     cqTime: string;
     pdfData?: EtudeData;
+    venteDetails?: {
+      telephone?: string;
+      adresse?: string;
+      codePostal?: string;
+      ville?: string;
+      puissanceKwc?: number;
+      prixTTC?: number;
+      totalAides?: number;
+      primeAutoconsommation?: number;
+      ecoTva?: number;
+      productType?: string;
+    };
   } | null>(null);
 
   // Data tables
@@ -1380,13 +1392,27 @@ const EtudeForm = () => {
       
       // Proposer notification WhatsApp au confirmateur si classification définie
       if (classification && classificationChanged) {
-        // Pour r2_prestudy, générer et stocker le PDF avant l'envoi WhatsApp
+        // Pour positif et r2_prestudy, générer et stocker le PDF avant l'envoi WhatsApp
         let pdfDataForWhatsApp: EtudeData | undefined = undefined;
-        if (classification === "r2_prestudy") {
+        if (classification === "r2_prestudy" || classification === "positif") {
           pdfDataForWhatsApp = buildPdfData() || undefined;
           // Stocker le PDF dans le cloud pour accès futur
           await generateAndStorePdf();
         }
+        
+        // Build vente details for WhatsApp message
+        const venteDetailsForWhatsApp = calculatedResults ? {
+          telephone: clientTelephone || undefined,
+          adresse: clientAdresse || undefined,
+          codePostal: clientCodePostal || undefined,
+          ville: clientVille || undefined,
+          puissanceKwc: Number(puissanceKwc) || undefined,
+          prixTTC: calculatedResults.prixTotalHorsAides || undefined,
+          totalAides: calculatedResults.totalAides || undefined,
+          primeAutoconsommation: calculatedResults.primeAutoconsommation || undefined,
+          ecoTva: calculatedResults.ecoTva || undefined,
+          productType: productType || undefined,
+        } : undefined;
         
         // Stocker les données et afficher le dialog de confirmation
         setPendingWhatsAppData({
@@ -1397,6 +1423,7 @@ const EtudeForm = () => {
           r2DateTime: r2DateTime,
           cqTime: cqTime,
           pdfData: pdfDataForWhatsApp,
+          venteDetails: venteDetailsForWhatsApp,
         });
         setShowWhatsAppDialog(true);
       }
@@ -1763,6 +1790,7 @@ const EtudeForm = () => {
       cqTime: pendingWhatsAppData.cqTime,
       pdfData: pendingWhatsAppData.pdfData,
       regieId: regieId,
+      venteDetails: pendingWhatsAppData.venteDetails,
     });
     
     setPendingWhatsAppData(null);
