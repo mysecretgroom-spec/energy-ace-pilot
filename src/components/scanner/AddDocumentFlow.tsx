@@ -5,6 +5,7 @@ import { CropEditor } from "./CropEditor";
 import { PageManager } from "./PageManager";
 import { ReviewDocument } from "./ReviewDocument";
 import type { DocumentContext, ScanPage } from "./types";
+import type { DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 
 interface AddDocumentFlowProps {
   context: DocumentContext;
@@ -54,9 +55,22 @@ export function AddDocumentFlow({
     setStep("review");
   }, []);
 
-  const handleCapture = useCallback((imageData: string) => {
+  const handleCapture = useCallback((imageData: string, detectedQuad?: DetectedQuad) => {
     setCurrentCapture(imageData);
     setStep("crop");
+  }, []);
+
+  /** New: receive auto-cropped pages directly from CameraScanner */
+  const handleMultiCapture = useCallback((capturedPages: Array<{ id: string; imageData: string; thumbnailData: string }>) => {
+    const newPages: ScanPage[] = capturedPages.map((p) => ({
+      id: p.id,
+      imageData: p.imageData,
+      thumbnailData: p.thumbnailData,
+      rotation: 0,
+      cropped: true,
+    }));
+    setPages((prev) => [...prev, ...newPages]);
+    setStep("pages");
   }, []);
 
   const handleCropComplete = useCallback((croppedImage: string, thumbnail: string) => {
@@ -134,6 +148,7 @@ export function AddDocumentFlow({
           onCapture={handleCapture}
           onCancel={pages.length > 0 ? () => setStep("pages") : handleClose}
           pageCount={pages.length}
+          onMultiCapture={handleMultiCapture}
         />
       );
     case "crop":
