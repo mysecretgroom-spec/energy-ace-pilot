@@ -167,6 +167,7 @@ const EtudeForm = () => {
   const [currentEtudeId, setCurrentEtudeId] = useState<string | null>(etudeId);
   const [originalClassification, setOriginalClassification] = useState<string>("");
   const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
+  const forceSyncRef = useRef(false);
   
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
@@ -1301,7 +1302,8 @@ const EtudeForm = () => {
       setSaving(false);
     } else {
       // Sauvegarder l'historique de classification si la classification a changé
-      const classificationChanged = classification !== originalClassification;
+      const classificationChanged = forceSyncRef.current || classification !== originalClassification;
+      forceSyncRef.current = false;
       const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
         ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
         : null;
@@ -3359,20 +3361,44 @@ _Envoyé depuis DébalePro_`;
         </div>
       )}
 
-      {/* Floating Save Button - optimisé mobile */}
-      <Button
-        onClick={handleSave}
-        disabled={saving || (productType === "PV" && !calculatedResults)}
-        className="fixed bottom-20 sm:bottom-24 right-3 sm:right-4 z-40 h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
-        size="icon"
-        aria-label="Sauvegarder l'étude"
-      >
-        {saving ? (
-          <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
-        ) : (
-          <Save className="h-5 w-5 sm:h-6 sm:w-6" />
+      {/* Floating Buttons - Terminé + Save */}
+      <div className="fixed bottom-20 sm:bottom-24 right-3 sm:right-4 z-40 flex flex-col gap-2 items-end">
+        {/* Bouton Terminé - force la propagation du statut */}
+        {classification && (
+          <Button
+            onClick={() => {
+              forceSyncRef.current = true;
+              handleSave();
+            }}
+            disabled={saving || (productType === "PV" && !calculatedResults)}
+            className="h-12 px-4 sm:h-14 sm:px-5 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95 bg-emerald-600 hover:bg-emerald-700"
+            aria-label="Terminer et propager le statut"
+          >
+            {saving ? (
+              <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+            ) : (
+              <>
+                <Check className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-sm font-medium">Terminé</span>
+              </>
+            )}
+          </Button>
         )}
-      </Button>
+        {/* Bouton Save */}
+        <Button
+          onClick={handleSave}
+          disabled={saving || (productType === "PV" && !calculatedResults)}
+          className="h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
+          size="icon"
+          aria-label="Sauvegarder l'étude"
+        >
+          {saving ? (
+            <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+          ) : (
+            <Save className="h-5 w-5 sm:h-6 sm:w-6" />
+          )}
+        </Button>
+      </div>
       
       {/* Dialog de confirmation WhatsApp */}
       <WhatsAppConfirmDialog
