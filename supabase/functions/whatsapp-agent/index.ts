@@ -5502,7 +5502,7 @@ INTENTIONS DISPONIBLES:
 - create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
 - update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés", "supprime les rdv de vendredi et samedi dernier")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
-- update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe
+- update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe. Si le RDV est DÉJÀ signé (une vente existe), ce changement de statut sera automatiquement redirigé vers la VENTE (pipeline).
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
 - update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
 - import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
@@ -6532,6 +6532,7 @@ async function executeAction(
         .from("rdv")
         .select(`
           id,
+          status,
           client_id,
           clients!inner(nom, prenom)
         `)
@@ -6545,27 +6546,96 @@ async function executeAction(
       }
 
       const rdv = rdvs[0];
+      const clientInfo = rdv.clients as { nom: string; prenom?: string };
+      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
 
       // Map user status to valid rdv_status enum values
-      // Valid rdv_status: nouveau, reporte, r2, r2_prestudy, signe, negatif, annule
       const statusMap: Record<string, string> = {
-        // User says "positif" = rdv was positive → status should be "signe" (they signed or will sign)
         positif: "signe",
-        // User says "negatif" = rdv was negative
         negatif: "negatif",
-        // User says "absent" = client was absent → treat as negatif for now
         absent: "negatif",
-        // User says "reporte" = reschedule
         reporte: "reporte",
-        // User says "r2" = second meeting needed
         r2: "r2",
-        // User says "annule" = cancelled
         annule: "annule",
-        // User says "a_rappeler" = need to call back → treat as reporte
         a_rappeler: "reporte",
       };
 
       const mappedStatus = statusMap[status] || status;
+
+      // ═══════════════════════════════════════════════════════════════
+      // SMART ROUTING: If RDV is already "signe", redirect to VENTE
+      // because a signed RDV means a vente exists
+      // ═══════════════════════════════════════════════════════════════
+      if (rdv.status === "signe") {
+        // Find the vente for this client
+        const { data: ventes } = await supabase
+          .from("ventes")
+          .select("id, status")
+          .eq("user_id", userId)
+          .eq("client_id", matchedClient.id)
+          .not("status", "eq", "annule")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (ventes && ventes.length > 0) {
+          const vente = ventes[0];
+
+          // Map RDV-style status to vente pipeline status
+          const venteStatusMap: Record<string, string> = {
+            annule: "annule",
+            installe: "installe",
+            paye: "paye",
+          };
+          const venteStatus = venteStatusMap[mappedStatus] || mappedStatus;
+
+          // Get previous data for undo
+          const previousVenteData = await getPreviousData(supabase, "ventes", vente.id, userId);
+
+          const updateData: Record<string, unknown> = { status: venteStatus };
+          if (venteStatus === "installe") {
+            updateData.date_installation_reelle = new Date().toISOString().split("T")[0];
+          }
+
+          const { error: updateError } = await supabase
+            .from("ventes")
+            .update(updateData)
+            .eq("id", vente.id);
+
+          if (updateError) {
+            console.error("Error updating vente:", updateError);
+            return { actionTaken: "error" };
+          }
+
+          // If vente is annulée, also annul the RDV
+          if (venteStatus === "annule") {
+            await supabase.from("rdv").update({ status: "annule" }).eq("id", rdv.id);
+          }
+
+          await logAgentAction(
+            supabase,
+            userId,
+            messageId,
+            "update_vente_pipeline",
+            "ventes",
+            vente.id,
+            { status: venteStatus },
+            previousVenteData,
+            `Vente ${clientFullName} → ${venteStatus} (RDV déjà signé, redirigé vers vente)`
+          );
+
+          return {
+            actionTaken: "status_updated",
+            entityId: vente.id,
+            entityType: "vente",
+            customResponse: `✅ Vente de ${clientFullName} mise à jour → *${venteStatus}* (le RDV étant déjà signé, c'est la vente qui a été modifiée)`,
+          };
+        }
+        // No vente found despite signed RDV, fall through to update RDV
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // Standard path: RDV is NOT signed, update RDV status
+      // ═══════════════════════════════════════════════════════════════
 
       // Get previous data for undo
       const previousRdvData = await getPreviousData(supabase, "rdv", rdv.id, userId);
@@ -6582,8 +6652,6 @@ async function executeAction(
       }
 
       // Log the action
-      const clientInfo = rdv.clients as { nom: string; prenom?: string };
-      const clientFullName = `${clientInfo?.prenom || ""} ${clientInfo?.nom || ""}`.trim();
       await logAgentAction(
         supabase,
         userId,
