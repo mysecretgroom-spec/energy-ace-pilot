@@ -48,7 +48,7 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
 
 ---
 
-*NOUVELLE VENTE SIGNÉE* 🎉
+*🎉 NOUVELLE VENTE SIGNÉE*
 
 👤 Client: *{{client_name}}*
 📱 Tél: {{client_phone}}
