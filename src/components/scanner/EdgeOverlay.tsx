@@ -10,6 +10,9 @@ interface EdgeOverlayProps {
   containerHeight: number;
 }
 
+const TEAL = "#2dd4bf";
+const TEAL_FILL = "rgba(45,212,191,0.12)";
+
 export function EdgeOverlay({
   quad,
   isStable,
@@ -18,37 +21,25 @@ export function EdgeOverlay({
   containerWidth,
   containerHeight,
 }: EdgeOverlayProps) {
-  // Calculate scale and offset for video -> container mapping
   const { scaleX, scaleY, offsetX, offsetY } = useMemo(() => {
     if (!videoWidth || !videoHeight || !containerWidth || !containerHeight) {
       return { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0 };
     }
-    
     const videoAspect = videoWidth / videoHeight;
     const containerAspect = containerWidth / containerHeight;
-    
-    let scale: number;
-    let ox = 0;
-    let oy = 0;
-    
+    let scale: number, ox = 0, oy = 0;
     if (videoAspect > containerAspect) {
-      // Video is wider - fit to height
       scale = containerHeight / videoHeight;
       ox = (containerWidth - videoWidth * scale) / 2;
     } else {
-      // Video is taller - fit to width
       scale = containerWidth / videoWidth;
       oy = (containerHeight - videoHeight * scale) / 2;
     }
-    
     return { scaleX: scale, scaleY: scale, offsetX: ox, offsetY: oy };
   }, [videoWidth, videoHeight, containerWidth, containerHeight]);
 
-  if (!quad) {
-    return null;
-  }
+  if (!quad) return null;
 
-  // Transform points to container coordinates
   const transform = (x: number, y: number) => ({
     x: x * scaleX + offsetX,
     y: y * scaleY + offsetY,
@@ -61,56 +52,41 @@ export function EdgeOverlay({
 
   const pathD = `M ${tl.x} ${tl.y} L ${tr.x} ${tr.y} L ${br.x} ${br.y} L ${bl.x} ${bl.y} Z`;
 
-  const color = isStable ? "#22c55e" : "#f59e0b"; // green when stable, amber when detecting
-
   return (
     <svg
       className="absolute inset-0 pointer-events-none"
       width={containerWidth}
       height={containerHeight}
     >
-      {/* Semi-transparent fill */}
+      {/* Semi-transparent teal fill */}
       <path
         d={pathD}
-        fill={color}
-        fillOpacity={0.1}
-        stroke={color}
+        fill={TEAL_FILL}
+        stroke={TEAL}
         strokeWidth={3}
         strokeLinejoin="round"
+        className="transition-all duration-150"
       />
-      
-      {/* Corner indicators */}
+
+      {/* Corner dots */}
       {[tl, tr, br, bl].map((point, i) => (
         <circle
           key={i}
           cx={point.x}
           cy={point.y}
-          r={isStable ? 10 : 8}
-          fill={color}
-          className={isStable ? "animate-pulse" : ""}
+          r={8}
+          fill={TEAL}
+          stroke="white"
+          strokeWidth={2}
         />
       ))}
-      
-      {/* Stable indicator */}
+
+      {/* Stable indicator badge */}
       {isStable && (
-        <g transform={`translate(${(tl.x + tr.x) / 2}, ${tl.y - 30})`}>
-          <rect
-            x={-60}
-            y={-12}
-            width={120}
-            height={24}
-            rx={12}
-            fill="#22c55e"
-          />
-          <text
-            x={0}
-            y={5}
-            textAnchor="middle"
-            fill="white"
-            fontSize={12}
-            fontWeight="600"
-          >
-            Prêt à capturer
+        <g transform={`translate(${(tl.x + tr.x) / 2}, ${Math.max(tl.y, tr.y) - 28})`}>
+          <rect x={-50} y={-12} width={100} height={24} rx={12} fill={TEAL} />
+          <text x={0} y={5} textAnchor="middle" fill="white" fontSize={11} fontWeight="600">
+            Prêt ✓
           </text>
         </g>
       )}
