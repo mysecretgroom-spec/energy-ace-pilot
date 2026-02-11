@@ -232,7 +232,50 @@ export function RdvStatusSelector({
 
       if (error) throw error;
 
-      // If R2 or Reporté, create new appointment
+      // If annulé, cascade: also annul the parent RDV (R2/reporté chain)
+      if (newStatus === "annule") {
+        // Check if this RDV has a parent (is a child R2/reporté)
+        const { data: currentRdv } = await supabase
+          .from("rdv")
+          .select("parent_rdv_id, client_id")
+          .eq("id", rdvId)
+          .maybeSingle();
+
+        if (currentRdv?.parent_rdv_id) {
+          await (supabase
+            .from("rdv")
+            .update({ status: "annule" } as any)
+            .eq("id", currentRdv.parent_rdv_id) as any);
+          console.log(`Cascade annulé: parent RDV ${currentRdv.parent_rdv_id}`);
+        }
+
+        // Also check if this RDV is a parent with children → annul children too
+        const { data: childRdvs } = await (supabase
+          .from("rdv")
+          .select("id")
+          .eq("parent_rdv_id", rdvId)
+          .neq("status", "annule") as any);
+
+        if (childRdvs && childRdvs.length > 0) {
+          for (const child of childRdvs) {
+            await supabase
+              .from("rdv")
+              .update({ status: "annule" })
+              .eq("id", child.id);
+          }
+          console.log(`Cascade annulé: ${childRdvs.length} child RDV(s)`);
+        }
+
+        // Update etude classification to annulé
+        if (clientId) {
+          await supabase
+            .from("etudes")
+            .update({ classification: "annule" })
+            .eq("client_id", clientId)
+            .is("classification", null);
+        }
+      }
+
       if ((newStatus === "r2" || newStatus === "r2_prestudy" || newStatus === "reporte") && options?.r2DateTime && clientId) {
         const { data: originalRdv } = await supabase
           .from("rdv")
@@ -251,12 +294,20 @@ export function RdvStatusSelector({
               adresse: originalRdv.adresse,
               type_projet: originalRdv.type_projet,
               duree_minutes: originalRdv.duree_minutes || 90,
-              status: "nouveau",
-              type_rdv: "standard",
+              status: "nouveau" as const,
+              type_rdv: "standard" as const,
               is_r2: isR2,
               r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
               regie_id: originalRdv.regie_id,
-            });
+              parent_rdv_id: rdvId,
+            } as any);
+
+          if (newRdvError) {
+            console.error("Error creating new RDV:", newRdvError);
+            toast.error("Erreur lors de la création du nouveau RDV");
+          } else {
+            toast.success(isR2 ? "RDV R2 créé avec succès" : "Nouveau RDV reporté créé avec succès");
+          }
 
           if (newRdvError) {
             console.error("Error creating new RDV:", newRdvError);
