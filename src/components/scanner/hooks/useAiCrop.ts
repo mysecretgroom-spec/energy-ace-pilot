@@ -124,6 +124,7 @@ interface DetectionResult {
   corners: AiCropCorners;
   confidence: number;
   source: "local" | "ai" | "fallback";
+  alreadyStraight?: boolean;
 }
 
 /**
@@ -157,6 +158,7 @@ async function detectParallel(
   // 2. Call AI with local hint (if available) for validation/refinement
   let aiCorners: AiCropCorners | null = null;
   let aiConfidence = 0;
+  let alreadyStraight = false;
 
   try {
     const compressed = await compressForAi(preview);
@@ -172,12 +174,23 @@ async function detectParallel(
     });
     if (error) throw new Error(error.message);
     const result = data?.results?.[0];
-    if (result?.needs_crop && result.corners) {
+    
+    // Check if AI determined document is already straight
+    if (result?.already_straight) {
+      alreadyStraight = true;
+      aiConfidence = typeof result.confidence === "number" ? result.confidence : 0.9;
+    } else if (result?.needs_crop && result.corners) {
       aiCorners = result.corners as AiCropCorners;
       aiConfidence = typeof result.confidence === "number" ? result.confidence : 0.7;
     }
   } catch (err) {
     console.warn("AI detection failed:", err);
+  }
+
+  // 3. If AI says document is already straight, return early with no crop needed
+  if (alreadyStraight && aiConfidence > 0.6) {
+    console.log(`[crop] AI determined document is already straight (confidence=${aiConfidence.toFixed(3)})`);
+    return { corners: FULL_IMAGE_CORNERS, confidence: 0, source: "fallback" as const, alreadyStraight: true };
   }
 
   // 3. Compare composite scores and pick the best
@@ -237,6 +250,11 @@ export function useAiCrop() {
         const result = await detectParallel(doc.id, doc.preview);
         setProgress(60);
 
+        if (result.alreadyStraight) {
+          toast.success("Document déjà droit — aucun recadrage nécessaire ✅");
+          return null;
+        }
+
         const cropped = await applyPerspectiveCorrectionLight(doc.preview, result.corners);
         setProgress(100);
 
@@ -283,6 +301,11 @@ export function useAiCrop() {
       try {
         const result = await detectParallel(doc.id, doc.preview);
         setProgress(100);
+
+        if (result.alreadyStraight) {
+          toast.success("Document déjà droit — aucun recadrage nécessaire ✅");
+          return null;
+        }
 
         const label =
           result.source === "ai"

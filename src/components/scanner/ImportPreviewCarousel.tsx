@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Check,
   Sparkles,
+  Undo2,
 } from "lucide-react";
 import { getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
@@ -33,6 +34,7 @@ export interface ImportedDoc {
   id: string;
   file: File;
   preview: string; // original or auto-cropped
+  originalPreview?: string; // stored before AI crop for revert
   processedPreview?: string; // after filter applied
   documentType?: DocumentType | null;
   description?: string;
@@ -421,6 +423,24 @@ export function ImportPreviewCarousel({
             )}
             <span className="text-[10px]">IA Crop</span>
           </button>
+
+          {currentDoc?.originalPreview && (
+            <button
+              className="flex flex-col items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors p-2"
+              onClick={() => {
+                onDocumentsChange(
+                  documents.map((d) =>
+                    d.id === currentDoc.id
+                      ? { ...d, preview: d.originalPreview!, originalPreview: undefined, processedPreview: undefined, activeFilter: "original", rotation: 0 }
+                      : d
+                  )
+                );
+              }}
+            >
+              <Undo2 className="h-5 w-5" />
+              <span className="text-[10px]">Annuler</span>
+            </button>
+          )}
 
           <button
             className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
