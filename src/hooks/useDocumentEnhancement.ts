@@ -10,7 +10,7 @@ interface CompressOptions {
 }
 
 async function compressForAI(dataUrl: string, opts: CompressOptions = {}): Promise<string> {
-  const { maxDim = 1200, quality = 0.7 } = opts;
+  const { maxDim = 800, quality = 0.6 } = opts;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -24,7 +24,7 @@ async function compressForAI(dataUrl: string, opts: CompressOptions = {}): Promi
       c.width = w; c.height = h;
       c.getContext("2d")!.drawImage(img, 0, 0, w, h);
       resolve(c.toDataURL("image/jpeg", quality));
-      c.width = 0; c.height = 0;
+      c.width = 0; c.height = 0; // free GPU memory
     };
     img.onerror = () => reject(new Error("Failed to load"));
     img.src = dataUrl;

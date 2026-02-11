@@ -128,39 +128,53 @@ export function MultiImportFlow({
     setProcessingProgress(0);
 
     const docs: ImportedDoc[] = [];
+    const BATCH_SIZE = 3;
+    const breathe = () => new Promise(r => setTimeout(r, 10)); // let GC run
 
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      let preview = "";
+    for (let batch = 0; batch < selectedFiles.length; batch += BATCH_SIZE) {
+      const chunk = selectedFiles.slice(batch, batch + BATCH_SIZE);
 
-      if (file.type.startsWith("image/")) {
-        preview = URL.createObjectURL(file);
-
-        // Try auto-crop
-        try {
-          const edges = await detectDocumentEdgesLight(preview);
-          if (edges && edges.confidence > 0.3) {
-            const corrected = await applyPerspectiveCorrectionLight(preview, edges);
-            URL.revokeObjectURL(preview);
-            preview = corrected;
+      const results = await Promise.all(
+        chunk.map(async (file) => {
+          let preview = "";
+          try {
+            if (file.type.startsWith("image/")) {
+              preview = URL.createObjectURL(file);
+              try {
+                const edges = await Promise.race([
+                  detectDocumentEdgesLight(preview),
+                  new Promise<null>((_, rej) => setTimeout(() => rej(new Error("edge timeout")), 5000)),
+                ]);
+                if (edges && edges.confidence > 0.3) {
+                  const corrected = await applyPerspectiveCorrectionLight(preview, edges);
+                  URL.revokeObjectURL(preview);
+                  preview = corrected;
+                }
+              } catch (err) {
+                console.warn("Auto-crop failed for", file.name, err);
+              }
+            } else if (file.type === "application/pdf") {
+              preview = "/placeholder.svg";
+            }
+          } catch (err) {
+            console.warn("Process failed for", file.name, err);
+            if (!preview) preview = "/placeholder.svg";
           }
-        } catch (err) {
-          console.warn("Auto-crop failed for", file.name, err);
-        }
-      } else if (file.type === "application/pdf") {
-        preview = "/placeholder.svg";
-      }
 
-      docs.push({
-        id: crypto.randomUUID(),
-        file,
-        preview,
-        rotation: 0,
-        activeFilter: "original",
-        description: file.name.replace(/\.[^/.]+$/, ""),
-      });
+          return {
+            id: crypto.randomUUID(),
+            file,
+            preview,
+            rotation: 0,
+            activeFilter: "original" as const,
+            description: file.name.replace(/\.[^/.]+$/, ""),
+          };
+        })
+      );
 
-      setProcessingProgress(((i + 1) / selectedFiles.length) * 100);
+      docs.push(...results);
+      setProcessingProgress(((batch + chunk.length) / selectedFiles.length) * 100);
+      await breathe();
     }
 
     setCarouselDocs((prev) => [...prev, ...docs]);
@@ -459,11 +473,26 @@ export function MultiImportFlow({
     if (pending.length === 0) return;
     setIsAnalyzing(true);
     setFiles((prev) => prev.map((f) => f.status === "pending" ? { ...f, status: "analyzing" as const } : f));
-    const results = await Promise.all(pending.map(analyzeFile));
-    setFiles((prev) => prev.map((f) => { const r = results.find((x) => x.id === f.id); return r || f; }));
+
+    // Process in batches of 3 to avoid rate limits and memory pressure
+    const BATCH = 3;
+    const allResults: ImportedFile[] = [];
+    for (let i = 0; i < pending.length; i += BATCH) {
+      const chunk = pending.slice(i, i + BATCH);
+      const results = await Promise.allSettled(chunk.map(analyzeFile));
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === "fulfilled") {
+          allResults.push((results[j] as PromiseFulfilledResult<ImportedFile>).value);
+        } else {
+          allResults.push({ ...chunk[j], status: "manual", error_message: "Erreur d'analyse" });
+        }
+      }
+      setFiles((prev) => prev.map((f) => { const r = allResults.find((x) => x.id === f.id); return r || f; }));
+    }
+
     setIsAnalyzing(false);
-    const sc = results.filter((r) => r.status === "success").length;
-    const mc = results.filter((r) => r.status === "manual").length;
+    const sc = allResults.filter((r) => r.status === "success").length;
+    const mc = allResults.filter((r) => r.status === "manual").length;
     if (mc > 0) toast.info(`${sc} analysés, ${mc} à compléter`);
     else toast.success(`${sc} analysés`);
   };
