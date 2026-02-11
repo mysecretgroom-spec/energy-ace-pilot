@@ -21,7 +21,8 @@ import {
   FileText, 
   Loader2,
   ExternalLink,
-  Trash2
+  Trash2,
+  Download,
 } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
@@ -751,14 +752,45 @@ const VenteDetail = () => {
 
         {/* Étude link */}
         {vente.etude_id && (
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => navigate(`/etude/edit?etude=${vente.etude_id}&client=${vente.client_id}`)}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Voir l'étude associée
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => navigate(`/etude/edit?etude=${vente.etude_id}&client=${vente.client_id}`)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Voir l'étude
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              title="Télécharger le PDF de l'étude"
+              onClick={async () => {
+                const { data: etude } = await supabase
+                  .from("etudes")
+                  .select("pdf_url, product_type, puissance_kwc")
+                  .eq("id", vente.etude_id!)
+                  .maybeSingle();
+                if (!etude?.pdf_url) {
+                  toast.error("Aucun PDF disponible. Ouvrez l'étude pour le générer.");
+                  return;
+                }
+                const { data } = await supabase.storage
+                  .from("etudes-pdf")
+                  .createSignedUrl(etude.pdf_url, 60 * 60);
+                if (data?.signedUrl) {
+                  const a = document.createElement("a");
+                  a.href = data.signedUrl;
+                  a.download = `Etude_${etude.product_type || "PV"}_${etude.puissance_kwc || ""}kWc.pdf`;
+                  a.click();
+                } else {
+                  toast.error("Erreur de téléchargement");
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
