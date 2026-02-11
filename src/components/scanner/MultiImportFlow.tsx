@@ -278,12 +278,38 @@ export function MultiImportFlow({
           fileForPdf = await resp.blob();
         }
 
-        const pdfResult = await generatePdfFromFile(
-          fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
-        );
+        let pdfBlob: Blob;
+        let thumbnailsForDb: string[] = [];
+
+        // For PDF files, skip re-processing - upload directly
+        if (doc.file.type === "application/pdf" && !(finalPreview && finalPreview.startsWith("data:image"))) {
+          pdfBlob = doc.file;
+          // Generate a simple placeholder thumbnail
+          const canvas = document.createElement("canvas");
+          canvas.width = 200;
+          canvas.height = 260;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#f1f5f9";
+            ctx.fillRect(0, 0, 200, 260);
+            ctx.fillStyle = "#64748b";
+            ctx.font = "bold 14px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("PDF", 100, 130);
+            ctx.font = "10px sans-serif";
+            ctx.fillText(doc.file.name.slice(0, 20), 100, 150);
+          }
+          thumbnailsForDb = [canvas.toDataURL("image/jpeg", 0.8)];
+        } else {
+          const pdfResult = await generatePdfFromFile(
+            fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
+          );
+          pdfBlob = pdfResult.blob;
+          thumbnailsForDb = pdfResult.thumbnails;
+        }
 
         const signedUrl = await uploadDocumentToStorage(
-          pdfResult.blob,
+          pdfBlob,
           user.id,
           "client_docs"
         );
@@ -295,8 +321,8 @@ export function MultiImportFlow({
           url: signedUrl,
           type_document: docType,
           mime_type: "application/pdf",
-          taille_bytes: pdfResult.blob.size,
-          thumbnails_urls: pdfResult.thumbnails,
+          taille_bytes: pdfBlob.size,
+          thumbnails_urls: thumbnailsForDb,
           context_source: "multi_import",
         });
 

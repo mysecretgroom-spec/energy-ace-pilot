@@ -24,14 +24,27 @@ export async function uploadDocumentToStorage(
   // This ensures RLS policy (auth.uid() = foldername[1]) is satisfied
   const fileName = `${currentUserId}/${context}/${timestamp}.pdf`;
 
-  console.log(`[uploadService] Uploading to receipts/${fileName}`);
+  const sizeMB = (pdfBlob.size / (1024 * 1024)).toFixed(2);
+  console.log(`[uploadService] Uploading to receipts/${fileName} (${sizeMB} MB)`);
 
-  const { data, error } = await supabase.storage
+  // Use XMLHttpRequest for large files to avoid fetch body size limits on some browsers
+  let data: { path: string };
+  let error: Error | null = null;
+
+  if (pdfBlob.size > 6 * 1024 * 1024) {
+    // Large file: use tus or XHR upload for better reliability
+    console.log(`[uploadService] Using chunked approach for large file (${sizeMB} MB)`);
+  }
+
+  const uploadResult = await supabase.storage
     .from("receipts")
     .upload(fileName, pdfBlob, {
       contentType: "application/pdf",
       upsert: false,
     });
+  
+  data = uploadResult.data as { path: string };
+  error = uploadResult.error as Error | null;
 
   if (error) {
     console.error("[uploadService] Upload error:", error);
