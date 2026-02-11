@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { DuplicateClientWarning } from "@/components/crm/DuplicateClientWarning";
 
 interface ClientData {
   id: string;
@@ -120,6 +121,13 @@ export const EditClientDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Duplicate detection warning */}
+          <DuplicateClientWarning
+            nom={formData.nom || ""}
+            prenom={formData.prenom}
+            telephone={formData.telephone}
+            excludeClientId={client?.id}
+          />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="prenom">Prénom</Label>

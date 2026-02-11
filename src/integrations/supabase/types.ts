@@ -2978,6 +2978,41 @@ export type Database = {
         }
         Relationships: []
       }
+      vente_status_history: {
+        Row: {
+          changed_at: string
+          id: string
+          new_status: string
+          old_status: string | null
+          user_id: string
+          vente_id: string
+        }
+        Insert: {
+          changed_at?: string
+          id?: string
+          new_status: string
+          old_status?: string | null
+          user_id: string
+          vente_id: string
+        }
+        Update: {
+          changed_at?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          user_id?: string
+          vente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vente_status_history_vente_id_fkey"
+            columns: ["vente_id"]
+            isOneToOne: false
+            referencedRelation: "ventes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ventes: {
         Row: {
           client_id: string

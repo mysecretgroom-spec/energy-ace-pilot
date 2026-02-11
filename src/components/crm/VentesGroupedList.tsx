@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { SwipeableVenteCard } from "./SwipeableVenteCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { VenteCard } from "./VenteCard";
+
 import {
   FileText,
   Loader2,
@@ -115,9 +116,9 @@ export function VentesGroupedList({
   }
 
   // Split ventes into 3 buckets
-  const activeVentes = ventes.filter(v => v.status !== 'paye' && v.status !== 'annule');
+  const activeVentes = ventes.filter(v => v.status !== 'paye' && v.status !== 'annule' && v.status !== 'refus_financement');
   const payeVentes = ventes.filter(v => v.status === 'paye');
-  const annuleVentes = ventes.filter(v => v.status === 'annule');
+  const annuleVentes = ventes.filter(v => v.status === 'annule' || v.status === 'refus_financement');
 
   // Group active ventes by regie
   const regieGroups = new Map<string | null, Vente[]>();
@@ -152,7 +153,7 @@ export function VentesGroupedList({
   };
 
   const renderCard = (vente: Vente) => (
-    <VenteCard
+    <SwipeableVenteCard
       key={vente.id}
       vente={vente}
       commission={getCommission(vente.id)}

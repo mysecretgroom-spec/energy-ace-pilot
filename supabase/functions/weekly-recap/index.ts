@@ -51,8 +51,15 @@ serve(async (req) => {
         const lastSunday = new Date(lastMonday);
         lastSunday.setDate(lastMonday.getDate() + 7);
 
+        // Previous week for trends comparison
+        const prevMonday = new Date(lastMonday);
+        prevMonday.setDate(prevMonday.getDate() - 7);
+        const prevSunday = new Date(lastMonday);
+
         const startStr = lastMonday.toISOString();
         const endStr = lastSunday.toISOString();
+        const prevStartStr = prevMonday.toISOString();
+        const prevEndStr = prevSunday.toISOString();
         const weekLabel = `${lastMonday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(lastSunday.getTime() - 86400000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
 
         // Fetch RDVs of the week
@@ -63,12 +70,24 @@ serve(async (req) => {
           .gte("date_heure", startStr)
           .lt("date_heure", endStr);
 
+        // Fetch previous week RDVs for trends
+        const { data: prevRdvs } = await supabase
+          .from("rdv")
+          .select("id, status")
+          .eq("user_id", userId)
+          .gte("date_heure", prevStartStr)
+          .lt("date_heure", prevEndStr);
+
         const totalRdv = rdvs?.length || 0;
         const signeRdv = rdvs?.filter(r => r.status === "signe").length || 0;
         const negatifRdv = rdvs?.filter(r => r.status === "negatif").length || 0;
         const annuleRdv = rdvs?.filter(r => r.status === "annule").length || 0;
         const r2Rdv = rdvs?.filter(r => r.status === "r2" || r.status === "r2_prestudy").length || 0;
         const tauxTransfo = totalRdv > 0 ? Math.round((signeRdv / totalRdv) * 100) : 0;
+
+        const prevTotalRdv = prevRdvs?.length || 0;
+        const prevSigneRdv = prevRdvs?.filter(r => r.status === "signe").length || 0;
+        const prevTauxTransfo = prevTotalRdv > 0 ? Math.round((prevSigneRdv / prevTotalRdv) * 100) : 0;
 
         // Fetch ventes signed this week
         const { data: ventes } = await supabase
@@ -80,24 +99,47 @@ serve(async (req) => {
           .gte("date_signature", startStr)
           .lt("date_signature", endStr);
 
+        // Previous week ventes for trends
+        const { data: prevVentes } = await supabase
+          .from("ventes")
+          .select("id, montant_ttc")
+          .eq("user_id", userId)
+          .neq("type_rdv", "external_installation")
+          .neq("status", "annule")
+          .gte("date_signature", prevStartStr)
+          .lt("date_signature", prevEndStr);
+
         const ventesCount = ventes?.length || 0;
         const totalCA = ventes?.reduce((sum, v) => sum + (v.montant_ttc || 0), 0) || 0;
         const totalKwc = ventes?.reduce((sum, v) => sum + (v.puissance_kwc || 0), 0) || 0;
+
+        const prevVentesCount = prevVentes?.length || 0;
+        const prevTotalCA = prevVentes?.reduce((sum, v) => sum + (v.montant_ttc || 0), 0) || 0;
+
+        // Trend indicator helper
+        const trend = (current: number, previous: number): string => {
+          if (previous === 0 && current === 0) return "";
+          if (previous === 0) return " ↑";
+          const diff = Math.round(((current - previous) / previous) * 100);
+          if (diff > 0) return ` ↑+${diff}%`;
+          if (diff < 0) return ` ↓${diff}%`;
+          return " ═";
+        };
 
         // Build recap message
         let message = `📊 *RÉCAP SEMAINE* (${weekLabel})\n`;
         message += `Salut ${firstName} ! Voici ton bilan :\n\n`;
         
-        message += `📅 *RDV effectués :* ${totalRdv}\n`;
-        if (signeRdv > 0) message += `✅ Signés : ${signeRdv}\n`;
+        message += `📅 *RDV effectués :* ${totalRdv}${trend(totalRdv, prevTotalRdv)}\n`;
+        if (signeRdv > 0) message += `✅ Signés : ${signeRdv}${trend(signeRdv, prevSigneRdv)}\n`;
         if (negatifRdv > 0) message += `❌ Négatifs : ${negatifRdv}\n`;
         if (r2Rdv > 0) message += `🔄 R2 : ${r2Rdv}\n`;
         if (annuleRdv > 0) message += `🚫 Annulés : ${annuleRdv}\n`;
-        message += `📈 Taux de transformation : ${tauxTransfo}%\n\n`;
+        message += `📈 Taux de transformation : ${tauxTransfo}%${trend(tauxTransfo, prevTauxTransfo)}\n\n`;
 
         if (ventesCount > 0) {
-          message += `💰 *Ventes signées :* ${ventesCount}\n`;
-          message += `💶 CA total : ${totalCA.toLocaleString("fr-FR")}€ TTC\n`;
+          message += `💰 *Ventes signées :* ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
+          message += `💶 CA total : ${totalCA.toLocaleString("fr-FR")}€ TTC${trend(totalCA, prevTotalCA)}\n`;
           message += `⚡ Puissance : ${totalKwc.toFixed(1)} kWc\n`;
         } else {
           message += `💰 Aucune vente signée cette semaine\n`;
