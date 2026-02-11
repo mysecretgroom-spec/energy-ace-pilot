@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
 const PIPELINE_STEPS: { status: VenteStatus; label: string }[] = [
   { status: "signe", label: "Signé" },
@@ -17,7 +17,7 @@ interface VenteProgressBarProps {
 }
 
 export function VenteProgressBar({ status, className }: VenteProgressBarProps) {
-  if (status === "annule" || status === "en_negociation") return null;
+  if (status === "annule" || status === "en_negociation" || status === "refus_financement") return null;
 
   // Map combined statuses to pipeline index
   const getStepIndex = (s: VenteStatus): number => {

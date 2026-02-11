@@ -48,6 +48,7 @@ const venteStatusToClassification: Record<VenteStatus, string | null> = {
   attente_paiement: null,
   paye: "paye", // Paiement reçu - template spécifique
   annule: "annule",
+  refus_financement: "annule",
 };
 
 interface Vente {
@@ -91,6 +92,7 @@ const statusLabels: Record<VenteStatus, string> = {
   attente_paiement: "Attente paiement",
   paye: "Payé",
   annule: "Annulé",
+  refus_financement: "Refus financement",
 };
 
 const statusColors: Record<VenteStatus, string> = {
@@ -105,6 +107,7 @@ const statusColors: Record<VenteStatus, string> = {
   attente_paiement: "bg-pink-500/10 text-pink-600 border-pink-200",
   paye: "bg-green-500/10 text-green-600 border-green-200",
   annule: "bg-red-500/10 text-red-600 border-red-200",
+  refus_financement: "bg-red-500/10 text-red-600 border-red-200",
 };
 
 const VenteDetail = () => {

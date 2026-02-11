@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
 interface Vente {
   id: string;
@@ -126,6 +126,7 @@ const venteStatusToClassification: Record<VenteStatus, string | null> = {
   attente_paiement: null,
   paye: "paye",
   annule: "annule",
+  refus_financement: "annule",
 };
 
 export function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {

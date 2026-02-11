@@ -27,7 +27,7 @@ import { fr } from "date-fns/locale";
 import { DecomDialog } from "./DecomDialog";
 import { VenteProgressBar } from "./VenteProgressBar";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 type VenteType = 'standard' | 'external_installation';
 
 interface Vente {
@@ -86,7 +86,8 @@ const statusConfig: Record<VenteStatus, { label: string; color: string; icon: Re
   installe: { label: "Posé", color: "bg-emerald-500/10 text-emerald-600 border-emerald-200", icon: <CheckCircle2 className="h-3 w-3" /> },
   attente_paiement: { label: "Att. paiement", color: "bg-pink-500/10 text-pink-600 border-pink-200", icon: <Clock className="h-3 w-3" /> },
   paye: { label: "Payé", color: "bg-green-500/10 text-green-600 border-green-200", icon: <Euro className="h-3 w-3" /> },
-  annule: { label: "Annulé", color: "bg-red-500/10 text-red-600 border-red-200", icon: <XCircle className="h-3 w-3" /> }
+  annule: { label: "Annulé", color: "bg-red-500/10 text-red-600 border-red-200", icon: <XCircle className="h-3 w-3" /> },
+  refus_financement: { label: "Refus financement", color: "bg-red-500/10 text-red-600 border-red-200", icon: <XCircle className="h-3 w-3" /> }
 };
 
 const formatCurrency = (amount: number) => {
