@@ -22,6 +22,28 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(chunks.join(""));
 }
 
+function generatePlaceholderThumbnail(fileName: string, fileSize?: number): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 200;
+  canvas.height = 260;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#f1f5f9";
+    ctx.fillRect(0, 0, 200, 260);
+    ctx.fillStyle = "#64748b";
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("PDF", 100, 120);
+    ctx.font = "10px sans-serif";
+    ctx.fillText(fileName.slice(0, 25), 100, 145);
+    if (fileSize) {
+      const sizeMB = fileSize / (1024 * 1024);
+      ctx.fillText(sizeMB >= 1 ? `${sizeMB.toFixed(1)} Mo` : `${(fileSize / 1024).toFixed(0)} Ko`, 100, 165);
+    }
+  }
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
 async function compressImage(dataUrl: string): Promise<Uint8Array> {
   // Convert data URL to blob
   const response = await fetch(dataUrl);
@@ -104,55 +126,46 @@ export async function generatePdfFromFile(
   const thumbnails: string[] = [];
 
   if (file.type === "application/pdf") {
-    // For PDF files, return as-is and try to generate thumbnail
-    const arrayBuffer = await file.arrayBuffer();
-    const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+    // For PDF files, return the file directly as a blob (no re-processing needed)
+    const blob = new Blob([file], { type: "application/pdf" });
 
-    // Try to generate thumbnail from first page using pdfjs with timeout
-    try {
-      const pdfjsLib = await import("pdfjs-dist");
-      
-      // Use unpkg as fallback CDN which is more reliable
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+    // For small PDFs (<5MB), try to generate a real thumbnail
+    // For larger PDFs, use a placeholder to avoid memory issues on mobile
+    const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
+    
+    if (file.size <= MAX_THUMBNAIL_SIZE) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfjsLib = await import("pdfjs-dist");
+        
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
-      // Add timeout for PDF loading (10 seconds max)
-      const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error("PDF load timeout")), 10000)
-      );
+        const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("PDF load timeout")), 10000)
+        );
 
-      const pdf = await Promise.race([loadPromise, timeoutPromise]);
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 0.5 });
+        const pdf = await Promise.race([loadPromise, timeoutPromise]);
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 0.5 });
 
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
 
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        thumbnails.push(canvas.toDataURL("image/jpeg", 0.7));
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          thumbnails.push(canvas.toDataURL("image/jpeg", 0.7));
+        }
+      } catch (err) {
+        console.warn("Could not generate PDF thumbnail:", err);
+        thumbnails.push(generatePlaceholderThumbnail(file.name, file.size));
       }
-    } catch (err) {
-      // If thumbnail generation fails, generate a simple placeholder image
-      console.warn("Could not generate PDF thumbnail:", err);
-      // Create a simple placeholder thumbnail with text
-      const canvas = document.createElement("canvas");
-      canvas.width = 200;
-      canvas.height = 260;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#f1f5f9";
-        ctx.fillRect(0, 0, 200, 260);
-        ctx.fillStyle = "#64748b";
-        ctx.font = "bold 14px sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("PDF", 100, 130);
-        ctx.font = "10px sans-serif";
-        ctx.fillText(file.name.slice(0, 20), 100, 150);
-        thumbnails.push(canvas.toDataURL("image/jpeg", 0.8));
-      }
+    } else {
+      // Large PDF - skip pdfjs entirely, use placeholder
+      console.log(`[pdfGenerator] Large PDF (${(file.size / 1024 / 1024).toFixed(1)}MB), skipping thumbnail generation`);
+      thumbnails.push(generatePlaceholderThumbnail(file.name, file.size));
     }
 
     return { blob, thumbnails };
