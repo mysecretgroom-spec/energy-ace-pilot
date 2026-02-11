@@ -38,6 +38,10 @@ serve(async (req) => {
         break;
     }
 
+    // Timeout protection for image generation (45s max - image gen is slower)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -57,7 +61,10 @@ serve(async (req) => {
         ],
         modalities: ["image", "text"],
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errText = await response.text();
