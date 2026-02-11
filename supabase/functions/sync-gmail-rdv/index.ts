@@ -23,24 +23,27 @@ async function isAppointmentEmail(subject: string, bodyPreview: string): Promise
         messages: [
           {
             role: "system",
-            content: `Tu es un classifieur d'emails. Tu dois déterminer si un email concerne un RENDEZ-VOUS commercial ou un LEAD/prospect (prise de RDV, confirmation de RDV, fiche prospect, attribution de lead).
+            content: `Tu es un classifieur d'emails. Tu dois déterminer si un email concerne un NOUVEAU RENDEZ-VOUS commercial ou un NOUVEAU LEAD/prospect (prise de RDV, confirmation de RDV, fiche prospect, attribution de lead).
 
 Réponds UNIQUEMENT par "OUI" ou "NON".
 
 OUI si l'email contient :
-- Une prise de rendez-vous ou confirmation de RDV
+- Une NOUVELLE prise de rendez-vous ou confirmation de RDV
 - Une fiche prospect/lead avec des coordonnées client
 - Une attribution de lead commercial
 - Des informations sur un client à visiter (nom, adresse, téléphone, date/heure)
 
 NON si l'email est :
+- Un suivi de vente ou changement de statut de vente (installation, pose, financement, paiement, CQ fait, livraison)
+- Un email de suivi de dossier (avancement, mise à jour, modification)
+- Un compte-rendu d'intervention ou de visite technique
+- Un email de relance ou rappel sur un dossier existant
 - Une newsletter, publicité, promotion
 - Un email administratif, facture, relance paiement
 - Une notification système
 - Un email de support/SAV
-- Un compte-rendu sans nouveau RDV
 - Un email de formation, réunion interne
-- Toute communication non liée à un prospect/lead`
+- Toute communication non liée à un NOUVEAU prospect/lead`
           },
           {
             role: "user",
