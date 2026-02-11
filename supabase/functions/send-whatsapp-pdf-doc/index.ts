@@ -1,31 +1,68 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
+import * as jpegJs from "https://esm.sh/jpeg-js@0.4.4";
+import UPNG from "https://esm.sh/upng-js@2.1.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface SendPdfDocRequest {
-  clientId: string;
-  phoneNumber?: string;
-  message?: string;
-  includeEtude?: boolean;
-  documentIds?: string[];
-  generateOnly?: boolean; // Just generate PDF, don't send via Twilio
+// Max image dimension for A4 at 150 DPI (visually lossless at print size)
+const MAX_IMG_DIM = 1500;
+const JPEG_QUALITY = 85;
+
+// Nearest-neighbor resize (fast, good enough for downscaling)
+function resizePixels(
+  src: Uint8Array, srcW: number, srcH: number, dstW: number, dstH: number
+): Uint8Array {
+  const dst = new Uint8Array(dstW * dstH * 4);
+  const xR = srcW / dstW;
+  const yR = srcH / dstH;
+  for (let y = 0; y < dstH; y++) {
+    const srcY = Math.floor(y * yR) * srcW;
+    const dstY = y * dstW;
+    for (let x = 0; x < dstW; x++) {
+      const si = (srcY + Math.floor(x * xR)) * 4;
+      const di = (dstY + x) * 4;
+      dst[di] = src[si]; dst[di+1] = src[si+1]; dst[di+2] = src[si+2]; dst[di+3] = src[si+3];
+    }
+  }
+  return dst;
 }
 
-// Maximum PDF size for WhatsApp (16MB limit, we target 10MB to be safe)
-const MAX_PDF_SIZE_MB = 10;
-const MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024;
+// Compress image: downscale if needed + always output JPEG
+function compressImageForPdf(imageBytes: Uint8Array, isPng: boolean): Uint8Array {
+  let width: number, height: number, pixels: Uint8Array;
 
-// Compress image by reducing quality and dimensions
-async function compressImage(imageData: Uint8Array, targetSizeKB: number = 500): Promise<Uint8Array> {
-  // For now, return as-is - Deno doesn't have canvas
-  // The edge function will handle compression at PDF level
-  return imageData;
+  if (isPng) {
+    const decoded = UPNG.decode(imageBytes.buffer);
+    width = decoded.width;
+    height = decoded.height;
+    pixels = new Uint8Array(UPNG.toRGBA8(decoded)[0]);
+  } else {
+    const decoded = jpegJs.decode(imageBytes, { useTArray: true });
+    width = decoded.width;
+    height = decoded.height;
+    pixels = decoded.data;
+  }
+
+  let outW = width, outH = height;
+  if (width > MAX_IMG_DIM || height > MAX_IMG_DIM) {
+    const ratio = Math.min(MAX_IMG_DIM / width, MAX_IMG_DIM / height);
+    outW = Math.round(width * ratio);
+    outH = Math.round(height * ratio);
+    pixels = resizePixels(pixels, width, height, outW, outH);
+    console.log(`  Resized ${width}x${height} → ${outW}x${outH}`);
+  }
+
+  const encoded = jpegJs.encode({ data: pixels, width: outW, height: outH }, JPEG_QUALITY);
+  return new Uint8Array(encoded.data);
 }
+
+// WhatsApp file size limit (16MB, target 14MB safe margin)
+const MAX_PDF_SIZE_BYTES = 14 * 1024 * 1024;
 
 // Fetch file from URL and return as Uint8Array
 async function fetchFileAsBytes(url: string): Promise<Uint8Array> {
@@ -187,12 +224,20 @@ serve(async (req) => {
           pages.forEach(page => mergedPdf.addPage(page));
           totalPages += pages.length;
         } else if (isImageUrl(doc.url) || doc.mime_type?.startsWith("image/")) {
-          // Convert image to PDF page
+          const isPng = doc.mime_type === "image/png" || doc.url.toLowerCase().includes(".png");
           let image;
-          if (doc.mime_type === "image/png" || doc.url.toLowerCase().includes(".png")) {
-            image = await mergedPdf.embedPng(fileBytes);
+          // Only compress images > 200KB (skip small ones for speed)
+          if (fileBytes.length > 200 * 1024) {
+            try {
+              const compressed = compressImageForPdf(fileBytes, isPng);
+              console.log(`  Compressed: ${(fileBytes.length/1024).toFixed(0)}KB → ${(compressed.length/1024).toFixed(0)}KB`);
+              image = await mergedPdf.embedJpg(compressed);
+            } catch (compressErr) {
+              console.warn(`  Compression failed, using original:`, compressErr);
+              image = isPng ? await mergedPdf.embedPng(fileBytes) : await mergedPdf.embedJpg(fileBytes);
+            }
           } else {
-            image = await mergedPdf.embedJpg(fileBytes);
+            image = isPng ? await mergedPdf.embedPng(fileBytes) : await mergedPdf.embedJpg(fileBytes);
           }
 
           // A4 dimensions in points (595 x 842)
