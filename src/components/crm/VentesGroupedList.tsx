@@ -12,7 +12,7 @@ import {
   Building2,
 } from "lucide-react";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
 interface Regie {
   id: string;
@@ -68,6 +68,7 @@ const STATUS_LABELS: Record<VenteStatus, string> = {
   attente_paiement: 'Attente paiement',
   paye: 'Payé',
   annule: 'Annulé',
+  refus_financement: 'Refus financement',
 };
 
 interface VentesGroupedListProps {

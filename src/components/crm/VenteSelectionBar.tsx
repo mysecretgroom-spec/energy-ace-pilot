@@ -12,7 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
 interface VenteSelectionBarProps {
   selectedIds: string[];
@@ -32,6 +32,7 @@ const statusOptions: { value: VenteStatus; label: string }[] = [
   { value: "attente_paiement", label: "Att. paiement" },
   { value: "paye", label: "Payé" },
   { value: "annule", label: "Annulé" },
+  { value: "refus_financement", label: "Refus financement" },
 ];
 
 export const VenteSelectionBar = ({ 

@@ -44,7 +44,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule';
+type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
 interface Regie {
   id: string;
@@ -307,7 +307,7 @@ const CRM = () => {
     const categories: string[] = [];
     
     // "Signés" = has at least one vente (not annule)
-    const hasActiveVente = venteStatuses.some(s => s !== 'annule');
+    const hasActiveVente = venteStatuses.some(s => s !== 'annule' && s !== 'refus_financement');
     if (hasActiveVente) categories.push('signe');
     
     // "R2/Reporté" = has RDV with r2, r2_prestudy, or reporte status
@@ -323,7 +323,7 @@ const CRM = () => {
     if (hasNegatif && !hasActiveVente) categories.push('negatif');
     
     // "Annulés" = all ventes are annulé OR RDV is annule/ni
-    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule');
+    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule' || s === 'refus_financement');
     const hasAnnuleRdv = rdvStatuses.some(s => ['annule', 'ni'].includes(s));
     if (allVentesAnnule || (hasAnnuleRdv && !hasActiveVente)) categories.push('annule');
     
@@ -336,7 +336,7 @@ const CRM = () => {
     const venteStatuses = clientVenteStatuses[clientId] || [];
     
     // Priority order: Signé > R2 Pré-étude > R2 > Reporté > Nouveau > Négatif > Annulé
-    const hasActiveVente = venteStatuses.some(s => s !== 'annule');
+    const hasActiveVente = venteStatuses.some(s => s !== 'annule' && s !== 'refus_financement');
     if (hasActiveVente) return { label: 'Signé', color: 'text-green-700 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-500/20' };
     
     if (rdvStatuses.includes('r2_prestudy')) return { label: 'R2 Pré-étude', color: 'text-indigo-700 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-500/20' };
@@ -345,7 +345,7 @@ const CRM = () => {
     if (rdvStatuses.includes('nouveau')) return { label: 'Nouveau', color: 'text-blue-700 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-500/20' };
     if (rdvStatuses.includes('negatif')) return { label: 'Négatif', color: 'text-red-700 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/20' };
     
-    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule');
+    const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => s === 'annule' || s === 'refus_financement');
     const hasAnnuleRdv = rdvStatuses.includes('annule');
     if (allVentesAnnule || hasAnnuleRdv) return { label: 'Annulé', color: 'text-gray-700 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-500/20' };
     

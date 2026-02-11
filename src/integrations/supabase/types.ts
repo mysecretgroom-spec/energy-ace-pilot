@@ -3754,6 +3754,7 @@ export type Database = {
         | "attente_financement"
         | "envoi_pose"
         | "attente_paiement"
+        | "refus_financement"
       vente_type: "standard" | "external_installation"
     }
     CompositeTypes: {
@@ -3965,6 +3966,7 @@ export const Constants = {
         "attente_financement",
         "envoi_pose",
         "attente_paiement",
+        "refus_financement",
       ],
       vente_type: ["standard", "external_installation"],
     },
