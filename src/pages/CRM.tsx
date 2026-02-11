@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { BlurOverlay } from "@/components/layout/BlurOverlay";
@@ -108,6 +108,14 @@ const CRM = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("ventes");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useMemo(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    return (value: string) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setSearchQuery(value), 200);
+    };
+  }, []);
+  const [searchInput, setSearchInput] = useState("");
   
   // Clients state
   const [clients, setClients] = useState<Client[]>([]);
@@ -604,8 +612,8 @@ const CRM = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher un client..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
                 className="pl-10"
               />
             </div>
