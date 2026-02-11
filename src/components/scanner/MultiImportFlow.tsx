@@ -263,7 +263,6 @@ export function MultiImportFlow({
 
     setSaving(true);
     try {
-      // Fetch existing docs for duplicate check
       const { data: existingDocs } = await supabase
         .from("documents")
         .select("nom, type_document")
@@ -272,82 +271,90 @@ export function MultiImportFlow({
 
       let savedCount = 0;
       let duplicateCount = 0;
+      let errorCount = 0;
       const existing = existingDocs || [];
+      const BATCH = 3;
+      const breathe = () => new Promise(r => setTimeout(r, 10));
 
-      for (const doc of validDocs) {
-        const docName = doc.description || doc.file.name;
-        const docType = doc.documentType || "autre";
+      for (let i = 0; i < validDocs.length; i += BATCH) {
+        const chunk = validDocs.slice(i, i + BATCH);
 
-        const isDuplicate = existing.some(
-          (e) => e.nom === docName && e.type_document === docType
+        const results = await Promise.allSettled(
+          chunk.map(async (doc) => {
+            const docName = doc.description || doc.file.name;
+            const docType = doc.documentType || "autre";
+
+            const isDuplicate = existing.some(
+              (e) => e.nom === docName && e.type_document === docType
+            );
+            if (isDuplicate) return "duplicate" as const;
+
+            let fileForPdf: File | Blob = doc.file;
+            const finalPreview = doc.processedPreview || doc.preview;
+            if (finalPreview && finalPreview.startsWith("data:image")) {
+              const resp = await fetch(finalPreview);
+              fileForPdf = await resp.blob();
+            }
+
+            let pdfBlob: Blob;
+            let thumbnailsForDb: string[] = [];
+
+            if (doc.file.type === "application/pdf" && !(finalPreview && finalPreview.startsWith("data:image"))) {
+              pdfBlob = doc.file;
+              const canvas = document.createElement("canvas");
+              canvas.width = 200; canvas.height = 260;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.fillStyle = "#f1f5f9"; ctx.fillRect(0, 0, 200, 260);
+                ctx.fillStyle = "#64748b"; ctx.font = "bold 14px sans-serif";
+                ctx.textAlign = "center"; ctx.fillText("PDF", 100, 130);
+                ctx.font = "10px sans-serif"; ctx.fillText(doc.file.name.slice(0, 20), 100, 150);
+              }
+              thumbnailsForDb = [canvas.toDataURL("image/jpeg", 0.8)];
+              canvas.width = 0; canvas.height = 0; // free memory
+            } else {
+              const pdfResult = await generatePdfFromFile(
+                fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
+              );
+              pdfBlob = pdfResult.blob;
+              thumbnailsForDb = pdfResult.thumbnails;
+            }
+
+            const signedUrl = await uploadDocumentToStorage(pdfBlob, user.id, "client_docs");
+
+            const { error } = await supabase.from("documents").insert({
+              user_id: user.id,
+              client_id: clientId,
+              nom: docName,
+              url: signedUrl,
+              type_document: docType,
+              mime_type: "application/pdf",
+              taille_bytes: pdfBlob.size,
+              thumbnails_urls: thumbnailsForDb,
+              context_source: "multi_import",
+            });
+
+            if (error) throw error;
+            existing.push({ nom: docName, type_document: docType });
+            return "saved" as const;
+          })
         );
-        if (isDuplicate) {
-          duplicateCount++;
-          continue;
-        }
 
-        // Use processed (filtered) or cropped preview if available
-        let fileForPdf: File | Blob = doc.file;
-        const finalPreview = doc.processedPreview || doc.preview;
-        if (finalPreview && finalPreview.startsWith("data:image")) {
-          const resp = await fetch(finalPreview);
-          fileForPdf = await resp.blob();
-        }
-
-        let pdfBlob: Blob;
-        let thumbnailsForDb: string[] = [];
-
-        // For PDF files, skip re-processing - upload directly
-        if (doc.file.type === "application/pdf" && !(finalPreview && finalPreview.startsWith("data:image"))) {
-          pdfBlob = doc.file;
-          // Generate a simple placeholder thumbnail
-          const canvas = document.createElement("canvas");
-          canvas.width = 200;
-          canvas.height = 260;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.fillStyle = "#f1f5f9";
-            ctx.fillRect(0, 0, 200, 260);
-            ctx.fillStyle = "#64748b";
-            ctx.font = "bold 14px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("PDF", 100, 130);
-            ctx.font = "10px sans-serif";
-            ctx.fillText(doc.file.name.slice(0, 20), 100, 150);
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            if (r.value === "duplicate") duplicateCount++;
+            else savedCount++;
+          } else {
+            console.error("Save doc error:", r.reason);
+            errorCount++;
           }
-          thumbnailsForDb = [canvas.toDataURL("image/jpeg", 0.8)];
-        } else {
-          const pdfResult = await generatePdfFromFile(
-            fileForPdf instanceof File ? fileForPdf : new File([fileForPdf], doc.file.name, { type: fileForPdf.type })
-          );
-          pdfBlob = pdfResult.blob;
-          thumbnailsForDb = pdfResult.thumbnails;
         }
-
-        const signedUrl = await uploadDocumentToStorage(
-          pdfBlob,
-          user.id,
-          "client_docs"
-        );
-
-        const { error } = await supabase.from("documents").insert({
-          user_id: user.id,
-          client_id: clientId,
-          nom: docName,
-          url: signedUrl,
-          type_document: docType,
-          mime_type: "application/pdf",
-          taille_bytes: pdfBlob.size,
-          thumbnails_urls: thumbnailsForDb,
-          context_source: "multi_import",
-        });
-
-        if (error) throw error;
-        existing.push({ nom: docName, type_document: docType });
-        savedCount++;
+        await breathe();
       }
 
-      if (duplicateCount > 0 && savedCount > 0) {
+      if (errorCount > 0) {
+        toast.error(`${errorCount} erreur(s), ${savedCount} enregistrés`);
+      } else if (duplicateCount > 0 && savedCount > 0) {
         toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
       } else if (duplicateCount > 0 && savedCount === 0) {
         toast.info(`${duplicateCount} doublons détectés, aucun nouveau document`);
@@ -410,22 +417,26 @@ export function MultiImportFlow({
           const arrayBuffer = await importedFile.file.arrayBuffer();
           const pdf = await Promise.race([
             pdfjsLib.getDocument({ data: arrayBuffer }).promise,
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000)),
           ]);
           const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2 });
+          // Use scale 1 instead of 2 — sufficient for AI analysis, halves memory
+          const viewport = page.getViewport({ scale: 1 });
           const canvas = document.createElement("canvas");
-          canvas.width = Math.min(viewport.width, 2000);
-          canvas.height = Math.min(viewport.height, 2800);
+          canvas.width = Math.min(viewport.width, 1200);
+          canvas.height = Math.min(viewport.height, 1600);
           const ctx = canvas.getContext("2d");
           if (ctx) {
             const scale = Math.min(canvas.width / viewport.width, canvas.height / viewport.height);
-            const sv = page.getViewport({ scale: scale * 2 });
+            const sv = page.getViewport({ scale });
             canvas.width = sv.width;
             canvas.height = sv.height;
             await page.render({ canvasContext: ctx, viewport: sv }).promise;
-            base64 = canvas.toDataURL("image/jpeg", 0.85);
+            base64 = canvas.toDataURL("image/jpeg", 0.7);
           } else throw new Error("no ctx");
+          // Free canvas memory immediately
+          canvas.width = 0;
+          canvas.height = 0;
         } catch {
           base64 = await new Promise<string>((res, rej) => {
             const r = new FileReader();
@@ -435,10 +446,10 @@ export function MultiImportFlow({
           });
         }
       } else {
-        const maxSize = 4 * 1024 * 1024;
+        const maxSize = 2 * 1024 * 1024; // Lower threshold: compress sooner
         if (importedFile.file.size > maxSize) {
           const imageCompression = (await import("browser-image-compression")).default;
-          const compressed = await imageCompression(importedFile.file, { maxSizeMB: 2, maxWidthOrHeight: 2000, useWebWorker: true });
+          const compressed = await imageCompression(importedFile.file, { maxSizeMB: 1, maxWidthOrHeight: 1200, useWebWorker: true });
           base64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(compressed); });
         } else {
           base64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(importedFile.file); });
