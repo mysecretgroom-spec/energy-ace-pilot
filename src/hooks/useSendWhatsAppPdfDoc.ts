@@ -12,7 +12,6 @@ interface SendPdfDocOptions {
 
 interface SendPdfDocResult {
   success: boolean;
-  messageSid?: string;
   pdfUrl?: string;
   pdfSizeMB?: string;
   documentsIncluded?: string[];
@@ -29,64 +28,59 @@ export function useSendWhatsAppPdfDoc() {
     setLastResult(null);
 
     try {
-      // Format phone number
-      let phoneNumber = options.phoneNumber.replace(/\D/g, "");
-      if (phoneNumber.startsWith("0")) {
-        phoneNumber = `33${phoneNumber.slice(1)}`;
-      }
-      if (!phoneNumber.startsWith("+")) {
-        phoneNumber = `+${phoneNumber}`;
-      }
-
+      // Step 1: Generate the merged PDF (no Twilio send)
       const { data, error } = await supabase.functions.invoke("send-whatsapp-pdf-doc", {
         body: {
           clientId: options.clientId,
-          phoneNumber,
-          message: options.message,
           includeEtude: options.includeEtude ?? true,
           documentIds: options.documentIds,
+          generateOnly: true,
         },
       });
 
-      if (error) {
-        throw error;
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (!data?.pdfUrl) {
+        throw new Error("Aucun PDF généré");
       }
 
-      if (data?.error) {
-        // Even if WhatsApp failed, we might have the PDF URL
-        if (data.pdfUrl) {
-          toast.warning("Le PDF a été créé mais l'envoi WhatsApp a échoué", {
-            description: "Vous pouvez télécharger le PDF et l'envoyer manuellement",
-            action: {
-              label: "Télécharger",
-              onClick: () => window.open(data.pdfUrl, "_blank"),
-            },
-          });
-        } else {
-          throw new Error(data.error);
-        }
-      } else {
-        toast.success("Dossier envoyé par WhatsApp", {
-          description: `${data.documentsIncluded?.length || 0} documents (${data.pdfSizeMB} MB)`,
-        });
+      // Step 2: Format phone number for wa.me
+      let phone = options.phoneNumber.replace(/[\s\-+]/g, "");
+      if (phone.startsWith("0")) {
+        phone = `33${phone.slice(1)}`;
       }
+
+      // Step 3: Build WhatsApp message with PDF link
+      const clientName = data.clientName || "";
+      const docCount = data.documentsIncluded?.length || 0;
+      const msgText = options.message 
+        || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)\n\n${data.pdfUrl}`;
+
+      const encodedMsg = encodeURIComponent(msgText);
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
+
+      // Step 4: Open WhatsApp
+      window.open(whatsappUrl, "_blank");
+
+      toast.success("Dossier prêt à envoyer", {
+        description: `${docCount} documents (${data.pdfSizeMB} MB) — WhatsApp ouvert`,
+      });
 
       const result: SendPdfDocResult = {
-        success: !data?.error,
-        messageSid: data?.messageSid,
-        pdfUrl: data?.pdfUrl,
-        pdfSizeMB: data?.pdfSizeMB,
-        documentsIncluded: data?.documentsIncluded,
-        totalPages: data?.totalPages,
-        error: data?.error,
+        success: true,
+        pdfUrl: data.pdfUrl,
+        pdfSizeMB: data.pdfSizeMB,
+        documentsIncluded: data.documentsIncluded,
+        totalPages: data.totalPages,
       };
 
       setLastResult(result);
       return result;
     } catch (error) {
-      console.error("Error sending PDF doc:", error);
+      console.error("Error generating PDF doc:", error);
       const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
-      toast.error("Erreur lors de l'envoi", {
+      toast.error("Erreur lors de la génération", {
         description: errorMessage,
       });
 

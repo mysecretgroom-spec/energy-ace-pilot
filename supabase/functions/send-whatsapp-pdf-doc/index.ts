@@ -9,10 +9,11 @@ const corsHeaders = {
 
 interface SendPdfDocRequest {
   clientId: string;
-  phoneNumber: string;
+  phoneNumber?: string;
   message?: string;
   includeEtude?: boolean;
-  documentIds?: string[]; // Optional: specific document IDs to include
+  documentIds?: string[];
+  generateOnly?: boolean; // Just generate PDF, don't send via Twilio
 }
 
 // Maximum PDF size for WhatsApp (16MB limit, we target 10MB to be safe)
@@ -70,11 +71,11 @@ serve(async (req) => {
       );
     }
 
-    const { clientId, phoneNumber, message, includeEtude = true, documentIds }: SendPdfDocRequest = await req.json();
+    const { clientId, phoneNumber, message, includeEtude = true, documentIds, generateOnly = false }: SendPdfDocRequest = await req.json();
 
-    if (!clientId || !phoneNumber) {
+    if (!clientId) {
       return new Response(
-        JSON.stringify({ error: "Missing clientId or phoneNumber" }),
+        JSON.stringify({ error: "Missing clientId" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -270,28 +271,39 @@ serve(async (req) => {
     const pdfUrl = publicUrlData.publicUrl;
     console.log(`PDF uploaded: ${pdfUrl}`);
 
-    // Send via WhatsApp
+    // If generateOnly, return the PDF URL without sending via Twilio
+    if (generateOnly || !phoneNumber) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          pdfUrl,
+          pdfSizeMB: pdfSizeMB.toFixed(2),
+          documentsIncluded: processedDocs,
+          totalPages,
+          clientName,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Legacy Twilio send path (kept for automated notifications)
     const toNumber = phoneNumber.startsWith("whatsapp:") ? phoneNumber : `whatsapp:${phoneNumber}`;
     
-    // Build message - Twilio has a 1600 char limit for WhatsApp
     let defaultMessage: string;
     if (message) {
       defaultMessage = message.length > 1500 ? message.substring(0, 1500) + "…" : message;
     } else {
       const header = `📄 Dossier complet pour ${clientName}\n\n${processedDocs.length} documents inclus`;
-      // Only list docs if total message stays under 1500 chars
       const docList = processedDocs.map(d => `• ${d}`).join("\n");
       if ((header + "\n" + docList).length < 1500) {
         defaultMessage = `${header}:\n${docList}`;
       } else {
-        // Show first few docs + count
         const shortList = processedDocs.slice(0, 5).map(d => `• ${d}`).join("\n");
         defaultMessage = `${header}:\n${shortList}\n... et ${processedDocs.length - 5} autre(s)`;
       }
     }
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-
     const response = await fetch(twilioUrl, {
       method: "POST",
       headers: {
@@ -299,7 +311,7 @@ serve(async (req) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        From: TWILIO_WHATSAPP_NUMBER,
+        From: TWILIO_WHATSAPP_NUMBER!,
         To: toNumber,
         Body: defaultMessage,
         MediaUrl: pdfUrl,
@@ -307,20 +319,13 @@ serve(async (req) => {
     });
 
     const twilioResponse = await response.json();
-
     if (!response.ok) {
       console.error("Twilio error:", twilioResponse);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to send WhatsApp message", 
-          details: twilioResponse,
-          pdfUrl // Return PDF URL anyway so user can share manually
-        }),
+        JSON.stringify({ error: "Failed to send WhatsApp message", details: twilioResponse, pdfUrl }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log(`WhatsApp message sent successfully, SID: ${twilioResponse.sid}`);
 
     return new Response(
       JSON.stringify({
