@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.pipeline-tracker]
 verify_jwt = false
+
+[functions.smart-analyze]
+verify_jwt = false
+
+[functions.enhance-document-image]
+verify_jwt = false

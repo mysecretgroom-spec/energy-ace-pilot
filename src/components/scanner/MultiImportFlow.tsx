@@ -39,6 +39,7 @@ import { CLIENT_DOC_CATEGORIES, getGroupedCategories, type DocumentType } from "
 import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel";
 import { CropEditor } from "./CropEditor";
 import { useAiCrop, type AiCropCorners } from "./hooks/useAiCrop";
+import { useDocumentEnhancement } from "@/hooks/useDocumentEnhancement";
 
 export type MultiImportContext = "finance" | "client_docs";
 
@@ -112,6 +113,7 @@ export function MultiImportFlow({
 
   // AI crop hook
   const { detectCropCorners, autoCropSingle, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
+  const { enhance: aiEnhance, isEnhancing: isAiEnhancing } = useDocumentEnhancement();
 
   // No preloading needed — lightweight JS detection is instant
 
@@ -582,6 +584,17 @@ export function MultiImportFlow({
             }}
             isAiCropping={isAiCropping}
             aiCropProgress={aiCropProgress}
+            onAiEnhance={async (id) => {
+              const doc = carouselDocs.find(d => d.id === id);
+              if (!doc || !doc.preview || doc.preview === "/placeholder.svg") return;
+              const enhanced = await aiEnhance(doc.preview, "auto");
+              if (enhanced) {
+                setCarouselDocs(prev => prev.map(d =>
+                  d.id === id ? { ...d, originalPreview: d.originalPreview || d.preview, preview: enhanced, processedPreview: undefined, activeFilter: "original" } : d
+                ));
+              }
+            }}
+            isAiEnhancing={isAiEnhancing}
             onAddMore={handleCarouselAddMore}
             onSave={handleCarouselSave}
             onClose={handleCarouselClose}
