@@ -1268,6 +1268,8 @@ export type Database = {
       }
       documents: {
         Row: {
+          ai_classification_confidence: number | null
+          ai_extracted_fields: Json | null
           client_id: string
           context_source: string | null
           created_at: string
@@ -1278,6 +1280,7 @@ export type Database = {
           mime_type: string | null
           nom: string
           page_count: number | null
+          search_vector: unknown
           taille_bytes: number | null
           thumbnails_urls: string[] | null
           type_document: Database["public"]["Enums"]["document_type"]
@@ -1285,6 +1288,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_classification_confidence?: number | null
+          ai_extracted_fields?: Json | null
           client_id: string
           context_source?: string | null
           created_at?: string
@@ -1295,6 +1300,7 @@ export type Database = {
           mime_type?: string | null
           nom: string
           page_count?: number | null
+          search_vector?: unknown
           taille_bytes?: number | null
           thumbnails_urls?: string[] | null
           type_document?: Database["public"]["Enums"]["document_type"]
@@ -1302,6 +1308,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_classification_confidence?: number | null
+          ai_extracted_fields?: Json | null
           client_id?: string
           context_source?: string | null
           created_at?: string
@@ -1312,6 +1320,7 @@ export type Database = {
           mime_type?: string | null
           nom?: string
           page_count?: number | null
+          search_vector?: unknown
           taille_bytes?: number | null
           thumbnails_urls?: string[] | null
           type_document?: Database["public"]["Enums"]["document_type"]
@@ -2335,6 +2344,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_analyze_docs: boolean | null
           avatar_url: string | null
           biometric_enabled: boolean | null
           biometric_login_enabled: boolean | null
@@ -2356,6 +2366,7 @@ export type Database = {
           zone_geographique: string | null
         }
         Insert: {
+          auto_analyze_docs?: boolean | null
           avatar_url?: string | null
           biometric_enabled?: boolean | null
           biometric_login_enabled?: boolean | null
@@ -2377,6 +2388,7 @@ export type Database = {
           zone_geographique?: string | null
         }
         Update: {
+          auto_analyze_docs?: boolean | null
           avatar_url?: string | null
           biometric_enabled?: boolean | null
           biometric_login_enabled?: boolean | null

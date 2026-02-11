@@ -23,6 +23,7 @@ import {
   Check,
   Sparkles,
   Undo2,
+  Wand2,
 } from "lucide-react";
 import { getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
@@ -51,6 +52,8 @@ interface ImportPreviewCarouselProps {
   onAiCrop: (mode: "current" | "all", currentIndex: number) => Promise<void> | void;
   isAiCropping?: boolean;
   aiCropProgress?: number;
+  onAiEnhance?: (id: string) => Promise<void> | void;
+  isAiEnhancing?: boolean;
   onAddMore: () => void;
   onSave: () => void;
   onClose: () => void;
@@ -86,6 +89,8 @@ export function ImportPreviewCarousel({
   onAiCrop,
   isAiCropping = false,
   aiCropProgress = 0,
+  onAiEnhance,
+  isAiEnhancing = false,
   onAddMore,
   onSave,
   onClose,
@@ -423,6 +428,23 @@ export function ImportPreviewCarousel({
             )}
             <span className="text-[10px]">IA Crop</span>
           </button>
+
+          {onAiEnhance && (
+            <button
+              className={`flex flex-col items-center gap-1 transition-colors p-2 ${
+                isAiEnhancing ? "text-primary" : "text-white/70 hover:text-white"
+              }`}
+              onClick={() => currentDoc && onAiEnhance(currentDoc.id)}
+              disabled={isAiEnhancing}
+            >
+              {isAiEnhancing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Wand2 className="h-5 w-5" />
+              )}
+              <span className="text-[10px]">IA Nettoyer</span>
+            </button>
+          )}
 
           {currentDoc?.originalPreview && (
             <button
