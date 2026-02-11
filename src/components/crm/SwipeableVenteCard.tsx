@@ -121,7 +121,11 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
       const newStatus = offsetX < 0 ? nextStatus : prevStatus;
       if (newStatus) {
         hapticFeedback("medium");
-        setUpdating(true);
+        
+        // Optimistic update: show success immediately
+        const previousStatus = vente.status;
+        toast.success(`→ ${STATUS_LABELS[newStatus]}`);
+        onRefresh?.();
         
         const updateData: any = { status: newStatus };
         if (newStatus === 'installe' && !vente.date_installation_reelle) {
@@ -134,12 +138,11 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
           .eq("id", vente.id);
 
         if (error) {
+          // Rollback on error
           toast.error("Erreur de mise à jour");
-        } else {
-          toast.success(`→ ${STATUS_LABELS[newStatus]}`);
+          await supabase.from("ventes").update({ status: previousStatus }).eq("id", vente.id);
           onRefresh?.();
         }
-        setUpdating(false);
       }
     }
     setOffsetX(0);

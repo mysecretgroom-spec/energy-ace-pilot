@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { SwipeableVenteCard } from "./SwipeableVenteCard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,7 @@ interface VentesGroupedListProps {
   isLoading: boolean;
 }
 
-export function VentesGroupedList({
+export const VentesGroupedList = memo(function VentesGroupedList({
   ventes,
   regies,
   selectedVenteIds,
@@ -244,4 +244,4 @@ export function VentesGroupedList({
       )}
     </div>
   );
-}
+});

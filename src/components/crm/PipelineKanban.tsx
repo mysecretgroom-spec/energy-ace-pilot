@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +129,7 @@ const venteStatusToClassification: Record<VenteStatus, string | null> = {
   refus_financement: "annule",
 };
 
-export function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
+export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { sendWhatsAppNotification } = useWhatsAppNotification();
@@ -477,4 +477,4 @@ export function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
       />
     </div>
   );
-}
+});
