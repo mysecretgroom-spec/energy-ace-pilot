@@ -2459,6 +2459,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           metadata: Json | null
+          parent_rdv_id: string | null
           r2_type: string | null
           regie_id: string | null
           source: string | null
@@ -2486,6 +2487,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
+          parent_rdv_id?: string | null
           r2_type?: string | null
           regie_id?: string | null
           source?: string | null
@@ -2513,6 +2515,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
+          parent_rdv_id?: string | null
           r2_type?: string | null
           regie_id?: string | null
           source?: string | null
@@ -2536,6 +2539,13 @@ export type Database = {
             columns: ["etude_id"]
             isOneToOne: false
             referencedRelation: "etudes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdv_parent_rdv_id_fkey"
+            columns: ["parent_rdv_id"]
+            isOneToOne: false
+            referencedRelation: "rdv"
             referencedColumns: ["id"]
           },
           {
