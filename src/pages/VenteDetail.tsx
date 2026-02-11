@@ -32,6 +32,7 @@ import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfir
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { RegieSelector } from "@/components/planning/RegieSelector";
+import { VenteStatusTimeline } from "@/components/crm/VenteStatusTimeline";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -620,6 +621,7 @@ const VenteDetail = () => {
                 <SelectItem value="attente_paiement">Attente paiement</SelectItem>
                 <SelectItem value="paye">Payé</SelectItem>
                 <SelectItem value="annule">Annulé</SelectItem>
+                <SelectItem value="refus_financement">Refus financement</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
@@ -752,6 +754,9 @@ const VenteDetail = () => {
             />
           </CardContent>
         </Card>
+
+        {/* Status History Timeline */}
+        <VenteStatusTimeline venteId={id!} />
 
         {/* Étude link */}
         {vente.etude_id && (
