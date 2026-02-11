@@ -29,6 +29,7 @@ import {
   Send,
   Loader2,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -168,6 +169,8 @@ interface Etude {
   prix_total: number | null;
   verdict: string | null;
   created_at: string;
+  pdf_url: string | null;
+  product_type: string | null;
 }
 
 interface Document {
@@ -678,6 +681,30 @@ const ClientDetailInner = () => {
                             </p>
                           </div>
                         )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          title="Télécharger le PDF"
+                          onClick={async () => {
+                            if (!etude.pdf_url) {
+                              toast({ title: "Aucun PDF disponible", description: "Ouvrez l'étude pour générer le PDF", variant: "destructive" });
+                              return;
+                            }
+                            const { data } = await supabase.storage
+                              .from("etudes-pdf")
+                              .createSignedUrl(etude.pdf_url, 60 * 60);
+                            if (data?.signedUrl) {
+                              const a = document.createElement("a");
+                              a.href = data.signedUrl;
+                              a.download = `Etude_${etude.product_type || "PV"}_${etude.puissance_kwc || ""}kWc.pdf`;
+                              a.click();
+                            } else {
+                              toast({ title: "Erreur de téléchargement", variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                         <Button 
                           variant="ghost" 
                           size="icon"
