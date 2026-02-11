@@ -25,14 +25,42 @@ serve(async (req) => {
 
     for (const img of images) {
       try {
-        // Build prompt: if local detection provided corners, ask AI to validate/refine
+        // Build prompt: ask AI to analyze text lines AND document edges
         const localHint = local_corners?.[img.id];
         let promptText: string;
 
+        const textAnalysisInstruction = `IMPORTANT: Before detecting edges, analyze the text lines in the image:
+1. If the text lines are horizontal and evenly spaced, the document is ALREADY STRAIGHT — set "needs_crop" to false and "already_straight" to true.
+2. If the document fills most of the image (>90% coverage) and text is horizontal, it does NOT need cropping — set "needs_crop" to false.
+3. Only set "needs_crop" to true if the document is clearly at an angle on a surface, or there are visible non-document borders/background around it.
+4. A scanned or photographed-from-above document that is already rectangular and fills the frame should NOT be cropped.`;
+
         if (localHint) {
-          promptText = `You are a document edge detector. This photo contains a paper document (possibly tilted, rotated, or at an angle). Find the EXACT 4 corners of the document's physical edges. A local algorithm suggests: TL(${localHint.topLeft.x.toFixed(3)},${localHint.topLeft.y.toFixed(3)}) TR(${localHint.topRight.x.toFixed(3)},${localHint.topRight.y.toFixed(3)}) BR(${localHint.bottomRight.x.toFixed(3)},${localHint.bottomRight.y.toFixed(3)}) BL(${localHint.bottomLeft.x.toFixed(3)},${localHint.bottomLeft.y.toFixed(3)}). Validate or correct these. IMPORTANT: The corners should trace the actual document edges even if the document is tilted — do NOT force a rectangle. Return normalized 0-1 coordinates. Response: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+          promptText = `You are a document edge detector and text alignment analyzer. This photo may contain a paper document.
+
+${textAnalysisInstruction}
+
+A local algorithm suggests corners: TL(${localHint.topLeft.x.toFixed(3)},${localHint.topLeft.y.toFixed(3)}) TR(${localHint.topRight.x.toFixed(3)},${localHint.topRight.y.toFixed(3)}) BR(${localHint.bottomRight.x.toFixed(3)},${localHint.bottomRight.y.toFixed(3)}) BL(${localHint.bottomLeft.x.toFixed(3)},${localHint.bottomLeft.y.toFixed(3)}). Validate or correct these.
+
+If the document needs cropping, return normalized 0-1 coordinates:
+{"needs_crop":true,"already_straight":false,"confidence":0.95,"text_angle_degrees":2.5,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}
+
+If the document is already straight/clean:
+{"needs_crop":false,"already_straight":true,"confidence":0.95,"text_angle_degrees":0.2}
+
+JSON ONLY.`;
         } else {
-          promptText = `You are a document edge detector. This photo contains a paper document (possibly tilted, rotated, or at an angle on a surface). Find the EXACT 4 corners where the document's physical edges meet. Trace the real edges precisely — the quad will likely be a trapezoid or parallelogram, NOT a perfect rectangle. Return the corners as normalized 0-1 coordinates (x=left-to-right, y=top-to-bottom) with a confidence score. Response: {"needs_crop":true,"confidence":0.95,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}. If no document: {"needs_crop":false,"confidence":0}. JSON ONLY.`;
+          promptText = `You are a document edge detector and text alignment analyzer. This photo may contain a paper document.
+
+${textAnalysisInstruction}
+
+If the document needs cropping (tilted on a surface with visible background), find the 4 corners and return:
+{"needs_crop":true,"already_straight":false,"confidence":0.95,"text_angle_degrees":2.5,"corners":{"topLeft":{"x":...,"y":...},"topRight":{"x":...,"y":...},"bottomRight":{"x":...,"y":...},"bottomLeft":{"x":...,"y":...}}}
+
+If the document is already straight/clean (text is horizontal, fills the frame):
+{"needs_crop":false,"already_straight":true,"confidence":0.95,"text_angle_degrees":0.2}
+
+Coordinates are normalized 0-1 (x=left-to-right, y=top-to-bottom). JSON ONLY.`;
         }
 
         const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -52,7 +80,7 @@ serve(async (req) => {
                 ],
               },
             ],
-            max_tokens: 250,
+            max_tokens: 300,
           }),
         });
 
