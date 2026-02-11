@@ -40,6 +40,7 @@ import { ImportPreviewCarousel, type ImportedDoc } from "./ImportPreviewCarousel
 import { CropEditor } from "./CropEditor";
 import { useAiCrop, type AiCropCorners } from "./hooks/useAiCrop";
 import { useDocumentEnhancement } from "@/hooks/useDocumentEnhancement";
+import { LibraryDocPicker } from "./LibraryDocPicker";
 
 export type MultiImportContext = "finance" | "client_docs";
 
@@ -110,6 +111,7 @@ export function MultiImportFlow({
 
   // Replace mode
   const [replaceDocId, setReplaceDocId] = useState<string | null>(null);
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
 
   // AI crop hook
   const { detectCropCorners, autoCropSingle, isAnalyzing: isAiCropping, progress: aiCropProgress } = useAiCrop();
@@ -384,6 +386,57 @@ export function MultiImportFlow({
     fileInputRef.current?.click();
   }, []);
 
+  const handleAddFromLibrary = useCallback(async (libraryDocs: Array<{
+    id: string; nom: string; url: string; type_document: string; thumbnails_urls: string[] | null;
+  }>) => {
+    setShowLibraryPicker(false);
+    if (libraryDocs.length === 0) return;
+
+    const newDocs: ImportedDoc[] = await Promise.all(
+      libraryDocs.map(async (doc) => {
+        let preview = "/placeholder.svg";
+        const thumb = doc.thumbnails_urls?.[0];
+        if (thumb && !thumb.includes("PDF")) {
+          preview = thumb;
+        } else {
+          // Try to fetch and render the first page
+          try {
+            const resp = await fetch(doc.url);
+            const contentType = resp.headers.get("content-type") || "";
+            if (contentType.includes("image")) {
+              const blob = await resp.blob();
+              preview = await new Promise<string>((res) => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result as string);
+                reader.onerror = () => res("/placeholder.svg");
+                reader.readAsDataURL(blob);
+              });
+            }
+          } catch {
+            // keep placeholder
+          }
+        }
+
+        const blob = preview.startsWith("data:")
+          ? await fetch(preview).then((r) => r.blob())
+          : new Blob([], { type: "application/pdf" });
+        const file = new File([blob], doc.nom, { type: blob.type || "application/pdf" });
+
+        return {
+          id: crypto.randomUUID(),
+          file,
+          preview,
+          rotation: 0,
+          activeFilter: "original" as const,
+          description: doc.nom,
+          documentType: doc.type_document as DocumentType,
+        };
+      })
+    );
+
+    setCarouselDocs((prev) => [...prev, ...newDocs]);
+  }, []);
+
   // ===== FINANCE MODE (unchanged logic) =====
 
   const handleFinanceFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -636,10 +689,19 @@ export function MultiImportFlow({
             }}
             isAiEnhancing={isAiEnhancing}
             onAddMore={handleCarouselAddMore}
+            onAddFromLibrary={clientId ? () => setShowLibraryPicker(true) : undefined}
             onSave={handleCarouselSave}
             onClose={handleCarouselClose}
             isSaving={isSaving}
           />
+          {/* Library doc picker */}
+          {showLibraryPicker && clientId && (
+            <LibraryDocPicker
+              clientId={clientId}
+              onSelect={handleAddFromLibrary}
+              onClose={() => setShowLibraryPicker(false)}
+            />
+          )}
           {/* Hidden inputs */}
           <input
             ref={fileInputRef}

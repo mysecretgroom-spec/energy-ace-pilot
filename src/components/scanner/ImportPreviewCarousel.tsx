@@ -24,6 +24,7 @@ import {
   Sparkles,
   Undo2,
   Wand2,
+  Library,
 } from "lucide-react";
 import { getGroupedCategories, type DocumentType } from "@/lib/documentCategories";
 import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
@@ -55,6 +56,7 @@ interface ImportPreviewCarouselProps {
   onAiEnhance?: (id: string) => Promise<void> | void;
   isAiEnhancing?: boolean;
   onAddMore: () => void;
+  onAddFromLibrary?: () => void;
   onSave: () => void;
   onClose: () => void;
   isSaving: boolean;
@@ -92,6 +94,7 @@ export function ImportPreviewCarousel({
   onAiEnhance,
   isAiEnhancing = false,
   onAddMore,
+  onAddFromLibrary,
   onSave,
   onClose,
   isSaving,
@@ -397,6 +400,16 @@ export function ImportPreviewCarousel({
             <ImageIcon className="h-5 w-5" />
             <span className="text-[10px]">Importer</span>
           </button>
+
+          {onAddFromLibrary && (
+            <button
+              className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
+              onClick={onAddFromLibrary}
+            >
+              <Library className="h-5 w-5" />
+              <span className="text-[10px]">Biblio</span>
+            </button>
+          )}
 
           <button
             className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
