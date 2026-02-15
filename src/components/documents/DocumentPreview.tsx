@@ -139,6 +139,9 @@ export function DocumentPreview({
                 {documents.length > 1 && ` • ${currentIndex + 1} / ${documents.length}`}
               </p>
             </div>
+            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
+              <X className="h-5 w-5" />
+            </Button>
           </div>
         </DialogHeader>
 
