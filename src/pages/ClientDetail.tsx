@@ -222,7 +222,7 @@ const ClientDetailInner = () => {
   } = useDeleteEntity({
     tableName: "clients",
     entityName: "Client",
-    onSuccess: () => navigate("/crm"),
+    onSuccess: () => navigate(-1),
   });
 
   useEffect(() => {
@@ -249,7 +249,7 @@ const ClientDetailInner = () => {
         title: "Erreur",
         description: "Client introuvable",
       });
-      navigate("/crm");
+      navigate(-1);
       return;
     }
 
@@ -361,7 +361,7 @@ const ClientDetailInner = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/crm")}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
