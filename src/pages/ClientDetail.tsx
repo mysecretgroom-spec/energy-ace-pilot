@@ -48,6 +48,7 @@ const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImpor
 const MultiDocumentSelector = React.lazy(() => import("@/components/documents/MultiDocumentSelector").then(m => ({ default: m.MultiDocumentSelector })));
 const DocumentSearch = React.lazy(() => import("@/components/documents/DocumentSearch").then(m => ({ default: m.DocumentSearch })));
 const RetapeDialog = React.lazy(() => import("@/components/crm/RetapeDialog").then(m => ({ default: m.RetapeDialog })));
+const AddDocumentFlow = React.lazy(() => import("@/components/scanner/AddDocumentFlow").then(m => ({ default: m.AddDocumentFlow })));
 
 // Error Boundary to catch render crashes
 class ClientDetailErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -204,6 +205,7 @@ const ClientDetailInner = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
   const [showMultiImport, setShowMultiImport] = useState(false);
+  const [showLiveScanner, setShowLiveScanner] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
@@ -770,6 +772,14 @@ const ClientDetailInner = () => {
                   </Button>
                   <Button 
                     variant="outline"
+                    className="gap-2 h-12 border-primary text-primary"
+                    onClick={() => setShowLiveScanner(true)}
+                  >
+                    <Image className="h-5 w-5" />
+                    Scanner
+                  </Button>
+                  <Button 
+                    variant="outline"
                     className="flex-1 gap-2 h-12 border-primary text-primary"
                     onClick={async () => {
                       const lastRdv = rdvs.find(r => r.regie_id);
@@ -816,7 +826,7 @@ const ClientDetailInner = () => {
                     ) : (
                       <Send className="h-5 w-5" />
                     )}
-                    Envoyer WhatsApp
+                    Envoyer
                   </Button>
                 </div>
 
@@ -863,7 +873,22 @@ const ClientDetailInner = () => {
           </Suspense>
         )}
 
-        {/* Edit Client Dialog - only mount when open */}
+        {/* Live Scanner Flow */}
+        {showLiveScanner && (
+          <Suspense fallback={<LazyFallback />}>
+            <AddDocumentFlow
+              isOpen={showLiveScanner}
+              context="client_docs"
+              relatedClientId={id}
+              onSuccess={() => {
+                setShowLiveScanner(false);
+                fetchClientData();
+              }}
+              onCancel={() => setShowLiveScanner(false)}
+            />
+          </Suspense>
+        )}
+
         {showEditDialog && (
           <EditClientDialog
             client={client}
