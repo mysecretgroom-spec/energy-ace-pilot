@@ -141,7 +141,7 @@ const VenteDetail = () => {
   } = useDeleteEntity({
     tableName: "ventes",
     entityName: "Vente",
-    onSuccess: () => navigate("/crm"),
+    onSuccess: () => navigate(-1),
   });
   
   // Editable fields
@@ -251,7 +251,7 @@ const VenteDetail = () => {
 
     if (error || !venteData) {
       toast.error("Vente non trouvée");
-      navigate("/crm");
+      navigate(-1);
       return;
     }
 
