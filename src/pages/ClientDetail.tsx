@@ -41,6 +41,7 @@ import { RegieSelector } from "@/components/planning/RegieSelector";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
+import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -619,6 +620,17 @@ const ClientDetailInner = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
+                        <RdvStatusSelector
+                          rdvId={rdv.id}
+                          currentStatus={rdv.status}
+                          clientName={client.nom}
+                          clientPrenom={client.prenom || undefined}
+                          clientId={client.id}
+                          regieId={rdv.regie_id}
+                          rdvDate={rdv.date_heure}
+                          onStatusChange={() => fetchClientData()}
+                          compact
+                        />
                         <RegieSelector
                           rdvId={rdv.id}
                           currentRegieId={rdv.regie_id}
@@ -626,9 +638,6 @@ const ClientDetailInner = () => {
                           currentRegieCouleur={rdv.regies?.couleur}
                           onRegieChange={() => fetchClientData()}
                         />
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                     {/* AI Extracted Info for RDV */}
