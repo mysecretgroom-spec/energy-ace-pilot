@@ -149,12 +149,12 @@ export function RdvStatusSelector({
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
-    // If R2, R2 Pré-étude, or Reporté, show date picker dialog
+    // If R2, R2 Pré-étude, or Reporté, show optional date picker dialog
     if (newStatus === "r2" || newStatus === "r2_prestudy" || newStatus === "reporte") {
       setPendingR2Status(newStatus);
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      setR2Date(tomorrow);
+      setR2Date(undefined);
       setR2Time("10:00");
       setShowR2Dialog(true);
     } else if (newStatus === "signe") {
@@ -167,14 +167,18 @@ export function RdvStatusSelector({
   };
 
   const handleR2Confirm = async () => {
-    if (!pendingR2Status || !r2Date || !user) return;
+    if (!pendingR2Status || !user) return;
     
-    const [hours, minutes] = r2Time.split(":").map(Number);
-    const r2DateTime = new Date(r2Date);
-    r2DateTime.setHours(hours, minutes, 0, 0);
+    let r2DateTimeISO: string | undefined;
+    if (r2Date) {
+      const [hours, minutes] = r2Time.split(":").map(Number);
+      const r2DateTime = new Date(r2Date);
+      r2DateTime.setHours(hours, minutes, 0, 0);
+      r2DateTimeISO = r2DateTime.toISOString();
+    }
     
     setShowR2Dialog(false);
-    await handleStatusChange(pendingR2Status, { r2DateTime: r2DateTime.toISOString() });
+    await handleStatusChange(pendingR2Status, { r2DateTime: r2DateTimeISO });
     setPendingR2Status(null);
   };
 
@@ -505,11 +509,11 @@ export function RdvStatusSelector({
             <Button variant="outline" onClick={() => setShowR2Dialog(false)}>
               Annuler
             </Button>
-            <Button onClick={handleR2Confirm} disabled={!r2Date || updating}>
+            <Button onClick={handleR2Confirm} disabled={updating}>
               {updating ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
-              Confirmer
+              {r2Date ? "Confirmer" : "Confirmer sans date"}
             </Button>
           </DialogFooter>
         </DialogContent>
