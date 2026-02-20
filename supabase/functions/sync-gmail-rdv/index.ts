@@ -8,10 +8,21 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-// Classify email intent using AI - returns true only if it's an appointment/lead email
-async function isAppointmentEmail(subject: string, bodyPreview: string): Promise<boolean> {
+/**
+ * EMAIL INTENT CLASSIFICATION
+ * 
+ * Returns one of:
+ * - "nouveau_rdv"     : New appointment for a prospect/client that does not yet exist
+ * - "mise_a_jour"     : Status change on an existing appointment (installation done, payment, CQ, etc.)
+ * - "report"          : Appointment rescheduled / postponed / replacement appointment
+ * - "installation"    : Scheduled installation visit (technician goes to sign / check work, ~30 min)
+ * - "ignore"          : Newsletter, invoice, internal notification – skip entirely
+ */
+type EmailIntent = "nouveau_rdv" | "mise_a_jour" | "report" | "installation" | "ignore";
+
+async function classifyEmailIntent(subject: string, bodyPreview: string): Promise<EmailIntent> {
   try {
-    const truncatedBody = bodyPreview.substring(0, 1500);
+    const truncatedBody = bodyPreview.substring(0, 2000);
     const response = await fetch(AI_GATEWAY_URL, {
       method: "POST",
       headers: {
@@ -23,50 +34,66 @@ async function isAppointmentEmail(subject: string, bodyPreview: string): Promise
         messages: [
           {
             role: "system",
-            content: `Tu es un classifieur d'emails. Tu dois déterminer si un email concerne un NOUVEAU RENDEZ-VOUS commercial ou un NOUVEAU LEAD/prospect (prise de RDV, confirmation de RDV, fiche prospect, attribution de lead).
+            content: `Tu es un classifieur d'emails pour une entreprise d'installation d'énergies renouvelables (photovoltaïque, pompe à chaleur, isolation, ballon thermodynamique).
 
-Réponds UNIQUEMENT par "OUI" ou "NON".
+Analyse le SUJET et le CONTENU de l'email et retourne EXACTEMENT l'un de ces mots-clés :
 
-OUI si l'email contient :
-- Une NOUVELLE prise de rendez-vous ou confirmation de RDV
-- Une fiche prospect/lead avec des coordonnées client
-- Une attribution de lead commercial
-- Des informations sur un client à visiter (nom, adresse, téléphone, date/heure)
+"nouveau_rdv" - Un NOUVEAU rendez-vous commercial (étude, visite prospect) pour un client qui n'existe pas encore. Inclut :
+  - Prise de RDV, confirmation de RDV commercial
+  - Fiche prospect/lead avec coordonnées client
+  - Attribution de lead ou nouveau prospect à visiter
 
-NON si l'email est :
-- Un suivi de vente ou changement de statut de vente (installation, pose, financement, paiement, CQ fait, livraison)
-- Un email de suivi de dossier (avancement, mise à jour, modification)
-- Un compte-rendu d'intervention ou de visite technique
-- Un email de relance ou rappel sur un dossier existant
-- Une newsletter, publicité, promotion
-- Un email administratif, facture, relance paiement
-- Une notification système
-- Un email de support/SAV
-- Un email de formation, réunion interne
-- Toute communication non liée à un NOUVEAU prospect/lead`
+"installation" - Un rendez-vous d'INSTALLATION planifié (le jour où l'installateur pose le matériel, ou visite de conformité/signature finale). Indices :
+  - Mots : "installation", "pose", "date d'installation", "rendez-vous technique", "pose du matériel", "date de pose", "technicien", "installateur", "DAT", "dossier posé"
+  - L'email annonce une DATE d'installation concrète pour un dossier déjà signé/vendu
+  - Peut inclure le nom du client et une adresse
+
+"report" - Un rendez-vous REPORTÉ, ANNULÉ ou REMPLACÉ (nouveau créneau pour un RDV existant). Indices :
+  - Mots : "reporté", "annulé", "reprogrammé", "déplacé", "nouveau créneau", "remplacement", "modification du RDV"
+
+"mise_a_jour" - Mise à jour de STATUT sur un dossier existant sans créer de nouveau RDV. Exemples :
+  - Confirmation d'installation réalisée, dossier finalisé, paiement reçu, financement accordé
+  - Changement de statut de vente
+  - CQ fait, livraison, vente annulée
+
+"ignore" - Tout le reste :
+  - Newsletter, publicité, promotion
+  - Email administratif, facture, relance paiement
+  - Notification système, email de formation, réunion interne
+  - Support/SAV non lié à un RDV planifié
+
+RETOURNE UNIQUEMENT le mot-clé exact, sans aucun autre texte.`,
           },
           {
             role: "user",
-            content: `Sujet: ${subject}\n\nContenu:\n${truncatedBody}`
+            content: `Sujet: ${subject}\n\nContenu:\n${truncatedBody}`,
           }
         ],
-        max_tokens: 5,
+        max_tokens: 10,
         temperature: 0,
       }),
     });
 
     if (!response.ok) {
       console.error("AI classification failed:", response.status);
-      return true; // Fail open - process the email if AI fails
+      return "nouveau_rdv"; // Fail open – try to import
     }
 
     const result = await response.json();
-    const answer = result.choices?.[0]?.message?.content?.trim().toUpperCase() || "";
-    console.log(`Intent classification for "${subject}": ${answer}`);
-    return answer.startsWith("OUI");
+    const answer = result.choices?.[0]?.message?.content?.trim().toLowerCase() || "";
+    console.log(`Intent classification for "${subject}": "${answer}"`);
+
+    if (answer.includes("installation")) return "installation";
+    if (answer.includes("report")) return "report";
+    if (answer.includes("mise_a_jour") || answer.includes("mise a jour")) return "mise_a_jour";
+    if (answer.includes("nouveau_rdv") || answer.includes("nouveau rdv")) return "nouveau_rdv";
+    if (answer.includes("ignore")) return "ignore";
+
+    // Fallback – treat as a potential new appointment
+    return "nouveau_rdv";
   } catch (e) {
     console.error("Intent classification error:", e);
-    return true; // Fail open
+    return "nouveau_rdv"; // Fail open
   }
 }
 
@@ -89,33 +116,27 @@ interface SyncResult {
 function extractTextFromPayload(payload: any): string {
   if (!payload) return "";
 
-  // If it's a simple text part
   if (payload.mimeType === "text/plain" && payload.body?.data) {
     return decodeBase64Url(payload.body.data);
   }
 
-  // If it's HTML without plain text alternative
   if (payload.mimeType === "text/html" && payload.body?.data) {
     const html = decodeBase64Url(payload.body.data);
     return stripHtml(html);
   }
 
-  // If it has parts (multipart message)
   if (payload.parts) {
-    // First try to find plain text
     for (const part of payload.parts) {
       if (part.mimeType === "text/plain" && part.body?.data) {
         return decodeBase64Url(part.body.data);
       }
     }
-    // Then try HTML
     for (const part of payload.parts) {
       if (part.mimeType === "text/html" && part.body?.data) {
         const html = decodeBase64Url(part.body.data);
         return stripHtml(html);
       }
     }
-    // Recursively check nested parts
     for (const part of payload.parts) {
       const text = extractTextFromPayload(part);
       if (text) return text;
@@ -127,26 +148,16 @@ function extractTextFromPayload(payload: any): string {
 
 function decodeBase64Url(data: string): string {
   try {
-    // Replace URL-safe characters (Gmail uses base64url encoding)
     const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-    
-    // Add padding if needed
     const padded = base64 + "=".repeat((4 - base64.length % 4) % 4);
-    
-    // Decode base64 to binary string
     const binaryString = atob(padded);
-    
-    // Convert binary string to UTF-8
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
-    // Decode as UTF-8
     return new TextDecoder("utf-8").decode(bytes);
   } catch (e) {
     console.error("Failed to decode base64:", e);
-    // Fallback: try simple atob
     try {
       const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
       return atob(base64);
@@ -157,37 +168,30 @@ function decodeBase64Url(data: string): string {
 }
 
 function stripHtml(html: string): string {
-  // Enhanced HTML to text conversion for lead emails
   let text = html;
-  
-  // Step 1: Handle table structures - multiple patterns for different email formats
-  // Pattern 1: <tr><td>Label:</td><td>Value</td></tr>
+
   text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
     const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
     const cleanValue = value.replace(/<[^>]+>/g, "").trim();
     return `${cleanLabel} ${cleanValue}\n`;
   });
-  
-  // Pattern 2: <tr><td colspan="2">...</td></tr> (section headers or multi-column content)
+
   text = text.replace(/<tr[^>]*>\s*<td[^>]*colspan[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, content) => {
     return content.replace(/<[^>]+>/g, "").trim() + "\n";
   });
-  
-  // Pattern 3: Multiple TDs in a row
+
   text = text.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (_, rowContent) => {
     const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || [];
     const values = cells.map((cell: string) => cell.replace(/<[^>]+>/g, "").trim()).filter(Boolean);
     return values.join(" ") + "\n";
   });
-  
-  // Step 2: Clean remaining table tags
+
   text = text
     .replace(/<\/?table[^>]*>/gi, "\n")
     .replace(/<\/?tbody[^>]*>/gi, "")
     .replace(/<\/?thead[^>]*>/gi, "")
     .replace(/<\/?tfoot[^>]*>/gi, "");
-  
-  // Step 3: Handle other HTML structures
+
   text = text
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
@@ -195,116 +199,74 @@ function stripHtml(html: string): string {
     .replace(/<\/li>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
     .replace(/<hr[^>]*>/gi, "\n---\n")
-    // Remove styles and scripts
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
-    // Handle strong/bold
     .replace(/<\/?(?:strong|b)>/gi, "")
-    // Remove all remaining HTML tags
     .replace(/<[^>]+>/g, " ");
-  
-  // Step 4: Decode HTML entities (including numeric)
+
   const entityMap: Record<string, string> = {
-    "&nbsp;": " ",
-    "&amp;": "&",
-    "&lt;": "<",
-    "&gt;": ">",
-    "&quot;": '"',
-    "&#39;": "'",
-    "&apos;": "'",
-    "&eacute;": "é",
-    "&Eacute;": "É",
-    "&egrave;": "è",
-    "&Egrave;": "È",
-    "&agrave;": "à",
-    "&Agrave;": "À",
-    "&acirc;": "â",
-    "&Acirc;": "Â",
-    "&ecirc;": "ê",
-    "&Ecirc;": "Ê",
-    "&icirc;": "î",
-    "&Icirc;": "Î",
-    "&ocirc;": "ô",
-    "&Ocirc;": "Ô",
-    "&ucirc;": "û",
-    "&Ucirc;": "Û",
-    "&euml;": "ë",
-    "&Euml;": "Ë",
-    "&iuml;": "ï",
-    "&Iuml;": "Ï",
-    "&uuml;": "ü",
-    "&Uuml;": "Ü",
-    "&ccedil;": "ç",
-    "&Ccedil;": "Ç",
-    "&oelig;": "œ",
-    "&OElig;": "Œ",
-    "&euro;": "€",
-    "&copy;": "©",
-    "&reg;": "®",
-    "&deg;": "°",
-    "&sup2;": "²",
-    "&sup3;": "³",
+    "&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"',
+    "&#39;": "'", "&apos;": "'", "&eacute;": "é", "&Eacute;": "É",
+    "&egrave;": "è", "&Egrave;": "È", "&agrave;": "à", "&Agrave;": "À",
+    "&acirc;": "â", "&Acirc;": "Â", "&ecirc;": "ê", "&Ecirc;": "Ê",
+    "&icirc;": "î", "&Icirc;": "Î", "&ocirc;": "ô", "&Ocirc;": "Ô",
+    "&ucirc;": "û", "&Ucirc;": "Û", "&euml;": "ë", "&Euml;": "Ë",
+    "&iuml;": "ï", "&Iuml;": "Ï", "&uuml;": "ü", "&Uuml;": "Ü",
+    "&ccedil;": "ç", "&Ccedil;": "Ç", "&oelig;": "œ", "&OElig;": "Œ",
+    "&euro;": "€", "&copy;": "©", "&reg;": "®", "&deg;": "°",
+    "&sup2;": "²", "&sup3;": "³",
   };
-  
+
   for (const [entity, char] of Object.entries(entityMap)) {
     text = text.replace(new RegExp(entity, "g"), char);
   }
-  
-  // Handle numeric entities (&#233; → é)
+
   text = text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)));
-  // Handle hex entities (&#xE9; → é)
   text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-  
-  // Step 5: Clean up whitespace
+
   text = text
-    .replace(/[ \t]+/g, " ")           // Multiple spaces → single space
-    .replace(/\n[ \t]+/g, "\n")        // Remove leading spaces on lines
-    .replace(/[ \t]+\n/g, "\n")        // Remove trailing spaces on lines
-    .replace(/\n{3,}/g, "\n\n")        // Max 2 consecutive newlines
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 
   return text;
 }
 
 function extractEmailAddress(from: string): string {
-  // Extract email from "Name <email@domain.com>" format
   const match = from.match(/<([^>]+)>/);
   return match ? match[1].toLowerCase() : from.toLowerCase();
 }
 
-// Interface for extracted email headers
 interface EmailHeaders {
   from: string;
   replyTo: string | null;
   cc: string[];
 }
 
-// Extract all useful email headers for regie attribution
 function extractAllEmailHeaders(headers: any[]): EmailHeaders {
-  const getHeader = (name: string) => 
+  const getHeader = (name: string) =>
     headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
-  
+
   const fromRaw = getHeader("From");
   const replyToRaw = getHeader("Reply-To");
   const ccRaw = getHeader("Cc");
-  
+
   return {
     from: extractEmailAddress(fromRaw),
     replyTo: replyToRaw ? extractEmailAddress(replyToRaw) : null,
-    cc: ccRaw 
+    cc: ccRaw
       ? ccRaw.split(",").map((e: string) => extractEmailAddress(e.trim())).filter(Boolean)
       : []
   };
 }
 
-// Find regie by checking ALL headers simultaneously (From, Reply-To, Cc)
-// Returns the first match found with a non-null regie_id
 function findRegieFromHeaders(
   emailHeaders: EmailHeaders,
   emailToRegieMap: Record<string, string | null>
 ): { regieId: string | null; source: string } {
-  // Collect all emails to check simultaneously
   const emailsToCheck: Array<{ email: string; header: string }> = [
     { email: emailHeaders.from, header: "From" }
   ];
@@ -314,10 +276,9 @@ function findRegieFromHeaders(
   for (const cc of emailHeaders.cc) {
     emailsToCheck.push({ email: cc, header: "Cc" });
   }
-  
+
   console.log(`Checking ${emailsToCheck.length} emails for regie: ${emailsToCheck.map(e => `${e.header}:${e.email}`).join(", ")}`);
-  
-  // Find the first email that has a regie in the authorized list
+
   for (const { email, header } of emailsToCheck) {
     const regieId = emailToRegieMap[email];
     if (regieId) {
@@ -325,8 +286,7 @@ function findRegieFromHeaders(
       return { regieId, source: email };
     }
   }
-  
-  // No regie found in any header
+
   console.log("No regie found in any header");
   return { regieId: null, source: emailHeaders.from };
 }
@@ -337,7 +297,6 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body for period options
     let body: { days?: number; fromDate?: string; toDate?: string } = {};
     try {
       body = await req.json();
@@ -345,20 +304,16 @@ serve(async (req) => {
       // No body or invalid JSON, use defaults
     }
 
-    // Support both regular auth and service role calls with x-user-id header (for cron)
     let userId = await getUserIdFromAuth(req.headers.get("Authorization"));
-    
-    // If no user from auth, check for service role call with x-user-id header
+
     if (!userId) {
       const serviceUserId = req.headers.get("x-user-id");
       const authHeader = req.headers.get("Authorization");
-      
-      // Verify it's a service role key call
       if (serviceUserId && authHeader?.includes(SUPABASE_SERVICE_ROLE_KEY)) {
         userId = serviceUserId;
       }
     }
-    
+
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -376,7 +331,6 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get authorized emails for this user (with regie_id for auto-attribution)
     const { data: authorizedEmails, error: emailsError } = await supabase
       .from("emails_autorises")
       .select("email, regie_id")
@@ -385,7 +339,7 @@ serve(async (req) => {
 
     if (emailsError || !authorizedEmails?.length) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "No authorized emails configured",
           code: "NO_AUTHORIZED_EMAILS"
         }),
@@ -393,35 +347,29 @@ serve(async (req) => {
       );
     }
 
-    // Build a map of email -> regie_id for auto-attribution
     const emailToRegieMap: Record<string, string | null> = {};
     for (const e of authorizedEmails) {
       emailToRegieMap[e.email.toLowerCase()] = e.regie_id;
     }
-    
+
     const authorizedEmailList = authorizedEmails.map(e => e.email.toLowerCase());
     console.log("Authorized emails:", authorizedEmailList);
 
-    // Build Gmail query for authorized senders with configurable period
     const fromQuery = authorizedEmailList.map(e => `from:${e}`).join(" OR ");
-    
-    // Determine date filter based on provided options
+
     let dateFilter: string;
     if (body.fromDate && body.toDate) {
-      // Custom date range: format YYYY/MM/DD
       dateFilter = `after:${body.fromDate} before:${body.toDate}`;
     } else if (body.fromDate) {
       dateFilter = `after:${body.fromDate}`;
     } else {
-      // Use days parameter, default to 7 days
       const days = body.days || 7;
       dateFilter = `newer_than:${days}d`;
     }
-    
+
     const query = `(${fromQuery}) ${dateFilter}`;
     console.log("Gmail query:", query);
 
-    // Fetch messages from Gmail
     const listResponse = await fetch(
       `${GMAIL_API_BASE}/users/me/messages?maxResults=50&q=${encodeURIComponent(query)}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -451,7 +399,6 @@ serve(async (req) => {
       );
     }
 
-    // Get already processed message IDs
     const { data: processedMessages } = await supabase
       .from("gmail_imports")
       .select("gmail_message_id")
@@ -469,7 +416,6 @@ serve(async (req) => {
       details: []
     };
 
-    // Process each unprocessed message
     for (const msg of messages) {
       if (processedIds.has(msg.id)) {
         result.skipped++;
@@ -477,7 +423,6 @@ serve(async (req) => {
       }
 
       try {
-        // Fetch full message
         const msgResponse = await fetch(
           `${GMAIL_API_BASE}/users/me/messages/${msg.id}?format=full`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -498,26 +443,23 @@ serve(async (req) => {
 
         const msgData = await msgResponse.json();
         const headers = msgData.payload?.headers || [];
-        
+
         const subject = headers.find((h: any) => h.name.toLowerCase() === "subject")?.value || "";
         const emailHeaders = extractAllEmailHeaders(headers);
         const senderEmail = emailHeaders.from;
 
-        // Log all headers for debugging
         console.log(`Email headers: From=${senderEmail}, Reply-To=${emailHeaders.replyTo}, Cc=${emailHeaders.cc.join(",")}`);
 
-        // Verify sender is authorized (From must be in authorized list)
         if (!authorizedEmailList.includes(senderEmail)) {
           console.log(`Skipping unauthorized sender: ${senderEmail}`);
           result.skipped++;
           continue;
         }
 
-        // Extract body text
-        const body = extractTextFromPayload(msgData.payload);
-        // Log extracted body for debugging (first 500 chars)
-        console.log(`Body preview (${body.length} chars): ${body.substring(0, 500)}...`);
-        if (!body) {
+        const emailBody = extractTextFromPayload(msgData.payload);
+        console.log(`Body preview (${emailBody.length} chars): ${emailBody.substring(0, 300)}...`);
+
+        if (!emailBody) {
           console.log(`Empty body for message ${msg.id}`);
           result.skipped++;
           result.details.push({
@@ -527,8 +469,6 @@ serve(async (req) => {
             status: "skipped",
             error: "Empty email body"
           });
-          
-          // Still record as processed to avoid retrying
           await supabase.from("gmail_imports").insert({
             user_id: userId,
             gmail_message_id: msg.id,
@@ -543,19 +483,25 @@ serve(async (req) => {
 
         console.log(`Processing: ${subject} from ${senderEmail}`);
 
-        // AI Intent Classification - only process appointment/lead emails
-        const isAppointment = await isAppointmentEmail(subject, body);
-        if (!isAppointment) {
-          console.log(`Skipping non-appointment email: "${subject}"`);
+        // ── INTENT CLASSIFICATION ──────────────────────────────────────────
+        const intent = await classifyEmailIntent(subject, emailBody);
+        console.log(`Intent for "${subject}": ${intent}`);
+
+        // Skip irrelevant emails
+        if (intent === "ignore" || intent === "mise_a_jour") {
+          const reason = intent === "ignore"
+            ? "Email non lié à un RDV (newsletter/admin)"
+            : "Mise à jour de statut – pas de nouveau RDV créé";
+
+          console.log(`Skipping (${intent}): "${subject}"`);
           result.skipped++;
           result.details.push({
             messageId: msg.id,
             subject,
             sender: senderEmail,
             status: "skipped",
-            error: "Email non lié à un rendez-vous (filtré par IA)"
+            error: reason
           });
-          
           await supabase.from("gmail_imports").insert({
             user_id: userId,
             gmail_message_id: msg.id,
@@ -563,20 +509,19 @@ serve(async (req) => {
             sender_email: senderEmail,
             subject,
             status: "skipped",
-            error_message: "Intent: non-RDV (filtré par IA)"
+            error_message: reason
           });
           continue;
         }
 
-        // Find regie - try From first, then Reply-To, then Cc as fallback
+        // ── REGIE LOOKUP ───────────────────────────────────────────────────
         const { regieId, source: regieSource } = findRegieFromHeaders(emailHeaders, emailToRegieMap);
         if (regieId && regieSource !== senderEmail) {
           console.log(`Regie attribution via fallback header: ${regieSource}`);
         }
-        
-        // BLOCK import if no régie found — régie is mandatory
+
         if (!regieId) {
-          console.log(`Skipping email "${subject}" from ${senderEmail}: no régie found in any header`);
+          console.log(`Skipping "${subject}" from ${senderEmail}: no régie found`);
           result.skipped++;
           result.details.push({
             messageId: msg.id,
@@ -585,7 +530,6 @@ serve(async (req) => {
             status: "skipped",
             error: "Aucune régie associée à cet expéditeur"
           });
-          
           await supabase.from("gmail_imports").insert({
             user_id: userId,
             gmail_message_id: msg.id,
@@ -593,12 +537,12 @@ serve(async (req) => {
             sender_email: senderEmail,
             subject,
             status: "skipped",
-            error_message: "Aucune régie associée à cet expéditeur (From/Reply-To/Cc)"
+            error_message: "Aucune régie associée (From/Reply-To/Cc)"
           });
           continue;
         }
-        
-        // Call import-rdv-email to parse and create RDV
+
+        // ── DISPATCH TO IMPORT FUNCTION ────────────────────────────────────
         const importResponse = await fetch(
           `${SUPABASE_URL}/functions/v1/import-rdv-email`,
           {
@@ -610,9 +554,10 @@ serve(async (req) => {
             body: JSON.stringify({
               sender_email: senderEmail,
               subject,
-              body,
+              body: emailBody,
               user_id: userId,
-              regie_id: regieId
+              regie_id: regieId,
+              intent, // "nouveau_rdv" | "report" | "installation"
             })
           }
         );
@@ -629,7 +574,6 @@ serve(async (req) => {
             status: "error",
             error: importResult.error || "Import failed"
           });
-
           await supabase.from("gmail_imports").insert({
             user_id: userId,
             gmail_message_id: msg.id,
@@ -642,7 +586,6 @@ serve(async (req) => {
           continue;
         }
 
-        // Handle "skipped" action (duplicate active RDV)
         if (importResult.action === "skipped") {
           result.skipped++;
           result.details.push({
@@ -652,7 +595,6 @@ serve(async (req) => {
             status: "skipped",
             error: importResult.reason || "RDV existant"
           });
-
           await supabase.from("gmail_imports").insert({
             user_id: userId,
             gmail_message_id: msg.id,
@@ -666,7 +608,7 @@ serve(async (req) => {
           continue;
         }
 
-        // Success!
+        // Success
         const action = importResult.action === "created" ? "imported" : "updated";
         if (action === "imported") result.imported++;
         else result.updated++;

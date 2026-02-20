@@ -11,16 +11,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Zod schemas for input validation - more tolerant for AI extraction
+// ── SCHEMAS ──────────────────────────────────────────────────────────────────
+
 const ContactSchema = z.object({
   nom: z.string().min(1).max(100).transform(v => v.replace(/[^\p{L}\s\-'.]/gu, "").trim()),
   prenom: z.string().max(100).optional().transform(v => v?.replace(/[^\p{L}\s\-'.]/gu, "").trim() || undefined),
   telephone: z.string().optional(),
   telephone_secondaire: z.string().optional(),
-  // More tolerant email validation - accept empty, omit invalid
   email: z.string().optional().transform(v => {
-    if (!v || v.trim() === '') return undefined;
-    // Basic email validation
+    if (!v || v.trim() === "") return undefined;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(v) ? v.toLowerCase() : undefined;
   }),
@@ -28,7 +27,7 @@ const ContactSchema = z.object({
 
 const AdresseSchema = z.object({
   adresse: z.string().max(500).optional(),
-  code_postal: z.string().regex(/^[0-9]{5}$/, "Invalid postal code").optional().or(z.literal('')).transform(v => v || undefined),
+  code_postal: z.string().regex(/^[0-9]{5}$/, "Invalid postal code").optional().or(z.literal("")).transform(v => v || undefined),
   ville: z.string().max(100).optional(),
 });
 
@@ -59,6 +58,8 @@ const ExtractedLeadSchema = z.object({
 });
 
 type ValidatedLead = z.infer<typeof ExtractedLeadSchema>;
+
+// ── AI EXTRACTION ─────────────────────────────────────────────────────────────
 
 interface ExtractedLead {
   CONTACT: {
@@ -92,15 +93,23 @@ interface ExtractedLead {
   };
 }
 
-async function extractLeadWithAI(emailBody: string, subject: string): Promise<ExtractedLead | null> {
-  const systemPrompt = `Tu es un expert en extraction de données structurées depuis des emails de leads pour entreprises d'énergie renouvelable.
+async function extractLeadWithAI(emailBody: string, subject: string, intent: string): Promise<ExtractedLead | null> {
+  const isInstallation = intent === "installation";
+  const isReport = intent === "report";
+
+  const intentContext = isInstallation
+    ? `\n\n⚠️ CET EMAIL CONCERNE UN RENDEZ-VOUS D'INSTALLATION (le technicien va poser le matériel ou signer les documents finaux). La durée sera courte (~30 min). Extrait le nom du client, l'adresse et la date/heure d'installation.`
+    : isReport
+    ? `\n\n⚠️ CET EMAIL CONCERNE UN RDV REPORTÉ/REPROGRAMMÉ. Cherche le nouveau créneau (nouvelle date/heure) et les coordonnées du client existant.`
+    : "";
+
+  const systemPrompt = `Tu es un expert en extraction de données structurées depuis des emails de leads pour entreprises d'énergie renouvelable.${intentContext}
 
 MISSION: Analyse le SUJET et le CONTENU de l'email pour extraire TOUTES les informations en JSON.
 
 ## FORMATS D'EMAIL COURANTS À RECONNAÎTRE:
 
 ### Format 1 - Clé:Valeur (le plus courant)
-Ce format utilise des labels suivis de ":" ou de valeurs:
 \`\`\`
 Statut call: RDV Confirmé
 Civilité: M.
@@ -111,140 +120,40 @@ Code postal: 19240
 Ville: SAINT-VIANCE
 Date du RDV:29/01/2026
 Heure du RDV: 13:00
-Infos RDV: Propriétaire depuis 21 ans...
 \`\`\`
 
-### Format 2 - Tableau HTML aplati (labels et valeurs mélangés)
-\`\`\`
-Statut call RDV Confirmé Civilité M. Nom FOUSSAT Prénom Franck Adresse 21 ROUTE DES POIRIERS...
-\`\`\`
-Cherche les patterns: "Nom [VALEUR]", "Prénom [VALEUR]", "Adresse [VALEUR]", etc.
-
+### Format 2 - Tableau HTML aplati
 ### Format 3 - Informations dans le SUJET
-\`\`\`
-Sujet: Votre RDV du 05/02/2026 13:00
-\`\`\`
-IMPORTANT: La DATE et l'HEURE peuvent être UNIQUEMENT dans le sujet. Analyse le sujet en priorité !
-
 ### Format 4 - Email narratif/prose
-\`\`\`
-Bonjour, nouveau RDV pour M. FOUSSAT Franck au 21 route des Poiriers 19240 SAINT-VIANCE le 05/02/2026 à 13h00.
-\`\`\`
-
 ### Format 5 - Format Calendrier/iCal
-\`\`\`
-ORGANIZER:...
-LOCATION:21 Route des Poiriers, 19240 Saint-Viance
-DTSTART:20260205T130000
-\`\`\`
 
 ## RÈGLES D'EXTRACTION CRITIQUES:
 
 1. **DATES** - PRIORITÉ AU SUJET puis au corps. Convertis TOUS les formats en YYYY-MM-DD:
    - "29/01/2026" → "2026-01-29"
-   - "05/02/2026" dans le sujet "Votre RDV du 05/02/2026 13:00" → "2026-02-05"
-   - "29 janvier 2026" → "2026-01-29"
-   - "29-01-2026" → "2026-01-29"
    - "20260205" (format iCal) → "2026-02-05"
 
-2. **HEURES** - PRIORITÉ AU SUJET puis au corps. Convertis en HH:MM:
-   - "10:00" → "10:00"
-   - "10h00" → "10:00"
-   - "10h" → "10:00"
-   - "13:00" dans "Votre RDV du 05/02/2026 13:00" → "13:00"
-   - "T130000" (format iCal) → "13:00"
-   - ATTENTION: "08:00" par défaut est probablement FAUX. Cherche l'heure réelle !
+2. **HEURES** - Convertis en HH:MM:
+   - "10h00" → "10:00", "T130000" → "13:00"
 
-3. **TÉLÉPHONES** - Extrait les 10 chiffres français:
-   - "06 12 34 56 78" → "0612345678"
-   - "+33612345678" → "0612345678"
+3. **TÉLÉPHONES** - Extrait les 10 chiffres français
 
-4. **INVERSION NOM/PRÉNOM** - ATTENTION aux templates mal configurés:
-   - Si "Nom:" contient un prénom typique (Jean, Marie, Eric) et "Prénom:" un nom de famille → INVERSE
-   - Le nom de famille est souvent en majuscules ou plus court
-   - Civilité M./Mme peut aider à identifier le prénom
+4. **TYPE DE PROJET** - Utilise UNIQUEMENT:
+   - "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre"
 
-5. **TYPE DE PROJET** - Utilise UNIQUEMENT ces valeurs:
-   - "photovoltaique" (pour solaire, PV, panneaux)
-   - "pompe_chaleur" (pour PAC, chauffage, pompe)
-   - "isolation" (pour ITE, isolation)
-   - "ballon_thermo" (pour ECS, ballon, chauffe-eau)
-   - "autre" (si aucun match)
+5. **COMMENTAIRES** - Capture TOUT le contexte dans "commentaire" et "commentaire_regie"
 
-6. **EMAIL** - Si absent ou invalide, NE METS PAS le champ du tout (pas de valeur vide, pas "INCONNU", pas null)
+6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
-7. **COMMENTAIRES/INFOS RDV** - TRÈS IMPORTANT! Capture TOUT le contexte utile dans "commentaire":
-   - Cherche les sections "Infos RDV:", "Notes:", "Commentaire:", "Détails:", "Observations:"
-   - Historique client (propriétaire depuis X ans, déjà reçu des devis...)
-   - Situation familiale (seul, divorcé, X enfants à la maison)
-   - Équipements actuels (2 PAC split, poêle à granulé, chauffage actuel)
-   - Facture énergie mensuelle/annuelle (335€/mois, 4000€/an)
-   - Description maison (grande maison, tuile, plein sud, orientation, surface, étages)
-   - Situation financière (crédit maison, trésorerie, comptant possible)
-   - Tempérament (hyper sympa, méfiant, pressé)
-   - Mets tout ce texte dans le champ "commentaire"
-
-8. **COMMENTAIRE RÉGIE** - TRÈS IMPORTANT! Capture dans "commentaire_regie" TOUTES les informations supplémentaires qui ne rentrent pas dans les champs structurés:
-   - Toute information brute restante de l'email (texte libre, notes de la régie, instructions spéciales)
-   - Statut call (RDV Confirmé, Rappel, etc.)
-   - Remarques du call center, qualité du lead
-   - Disponibilités spéciales du client
-   - Tout texte qui n'a pas pu être catégorisé dans les champs ci-dessus
-   - Le but est de NE PERDRE AUCUNE INFORMATION de l'email original
-
-8. **RÈGLE ABSOLUE - JAMAIS "INCONNU"**:
-   - Si une info n'est pas dans l'email, NE METS PAS le champ
-   - NE JAMAIS mettre "INCONNU", "N/A", "null", "" ou des valeurs vides
-   - Omets simplement le champ s'il n'y a pas de donnée
-
-9. **ADRESSE - EXTRACTION DÉTAILLÉE** (TRÈS IMPORTANT):
-   - Sépare TOUJOURS les composants de l'adresse:
-     - "adresse": Le numéro et nom de rue (ex: "25 RUE DES 3 FLEURS")
-     - "code_postal": Exactement 5 chiffres (ex: "28150")
-     - "ville": Le nom de la ville en majuscules (ex: "MOUTIERS")
-   - Si l'adresse est sur une seule ligne comme "25 rue des fleurs 28150 MOUTIERS":
-     - Extrait le code postal (5 chiffres)
-     - La partie après le code postal = ville
-     - La partie avant le code postal = adresse
-   - Si l'adresse contient des abréviations: RUE, AV (Avenue), BD (Boulevard), IMPASSE, ALLÉE, PL (Place)
-   - Gère les noms composés: "SAINT-MARTIN", "VILLENEUVE-D'ASCQ"
-   - Le code postal doit TOUJOURS être 5 chiffres exactement
-   - Format LOCATION iCal: "21 Route des Poiriers, 19240 Saint-Viance" → sépare les composants
-
-10. **EXTRACTION DEPUIS LE SUJET** (PRIORITAIRE):
-   - Le sujet contient souvent date et heure: "Votre RDV du 05/02/2026 13:00"
-   - Pattern à chercher: "du DD/MM/YYYY HH:MM"
-   - Extrait ces informations AVANT de regarder le corps de l'email
+7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville
 
 ## STRUCTURE JSON ATTENDUE:
-
 {
-  "CONTACT": {
-    "nom": "FOUSSAT",
-    "prenom": "Franck",
-    "telephone": "0612345678"
-  },
-  "ADRESSE": {
-    "adresse": "21 ROUTE DES POIRIERS",
-    "code_postal": "19240",
-    "ville": "SAINT-VIANCE"
-  },
-  "RDV": {
-    "date": "2026-02-05",
-    "heure": "13:00",
-    "duree_minutes": 90,
-    "type_projet": "photovoltaique",
-    "commentaire": "Propriétaire depuis 21 ans, seul, divorcé 2 enfants à la maison. 2 PAC split intérieur + poêle à granulé. 335€/mois. Grande maison tuile plein sud. Crédit maison, trésorerie disponible, vient d'acheter un immeuble cash. Paiement comptant possible ou autofinancement. Hyper sympa.",
-    "commentaire_regie": "Statut call: RDV Confirmé. Lead qualifié, client très intéressé. Disponible uniquement l'après-midi. Rappel effectué le 03/02."
-  },
-  "PROJET": {
-    "type_chauffage": "pac + granule",
-    "facture_energie": 335
-  }
+  "CONTACT": { "nom": "FOUSSAT", "prenom": "Franck", "telephone": "0612345678" },
+  "ADRESSE": { "adresse": "21 ROUTE DES POIRIERS", "code_postal": "19240", "ville": "SAINT-VIANCE" },
+  "RDV": { "date": "2026-02-05", "heure": "13:00", "type_projet": "photovoltaique", "commentaire": "..." },
+  "PROJET": { "facture_energie": 335 }
 }
-
-IMPORTANT: Si un champ n'a pas de valeur trouvée, NE L'INCLUS PAS dans le JSON. Pas de "INCONNU" !
-IMPORTANT: Ne perds AUCUNE information de l'email. Tout doit être capturé dans les champs structurés OU dans commentaire/commentaire_regie.
 
 RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
@@ -259,7 +168,7 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `SUJET DE L'EMAIL (peut contenir date/heure!):\n${subject}\n\n---\n\nCONTENU DE L'EMAIL:\n${emailBody}` }
+          { role: "user", content: `SUJET DE L'EMAIL:\n${subject}\n\n---\n\nCONTENU DE L'EMAIL:\n${emailBody}` }
         ],
         temperature: 0.1,
       }),
@@ -272,21 +181,15 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    
-    // Parse JSON from response (handle potential markdown code blocks)
+
     let jsonStr = content;
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1];
-    }
-    
-    // Clean up and parse
+    if (jsonMatch) jsonStr = jsonMatch[1];
+
     jsonStr = jsonStr.trim();
     const parsed = JSON.parse(jsonStr);
-    
     console.log("AI extracted data:", JSON.stringify(parsed, null, 2));
     return parsed as ExtractedLead;
-    
   } catch (error) {
     console.error("AI extraction error:", error);
     return null;
@@ -295,29 +198,16 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
 
 function normalizePhone(phone: string | undefined): string | null {
   if (!phone) return null;
-  
-  // Remove all non-digits
   let digits = phone.replace(/\D/g, "");
-  
-  // Handle French country code
-  if (digits.startsWith("33") && digits.length === 11) {
-    digits = "0" + digits.slice(2);
-  }
-  if (digits.startsWith("0033")) {
-    digits = "0" + digits.slice(4);
-  }
-  
-  // Must be 10 digits for French phone
+  if (digits.startsWith("33") && digits.length === 11) digits = "0" + digits.slice(2);
+  if (digits.startsWith("0033")) digits = "0" + digits.slice(4);
   if (digits.length !== 10) return null;
   if (!digits.startsWith("0")) return null;
-  
   return digits;
 }
 
-// Validate and sanitize extracted lead data
 function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
   try {
-    // Prepare data for validation
     const dataToValidate = {
       CONTACT: {
         nom: extracted.CONTACT?.nom || "",
@@ -330,20 +220,13 @@ function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
       RDV: extracted.RDV || {},
       PROJET: extracted.PROJET,
     };
-    
-    const validated = ExtractedLeadSchema.parse(dataToValidate);
-    return validated;
+    return ExtractedLeadSchema.parse(dataToValidate);
   } catch (validationError) {
     console.error("Validation error:", validationError);
-    
-    // Try to salvage basic data if possible
     if (extracted.CONTACT?.nom) {
       try {
-        // Minimal validation - just the name
         const minimalData = {
-          CONTACT: {
-            nom: extracted.CONTACT.nom.slice(0, 100).replace(/[^\p{L}\s\-'.]/gu, ""),
-          },
+          CONTACT: { nom: extracted.CONTACT.nom.slice(0, 100).replace(/[^\p{L}\s\-'.]/gu, "") },
           ADRESSE: {},
           RDV: {},
         };
@@ -356,22 +239,43 @@ function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
   }
 }
 
+function buildDateHeure(date: string | undefined, heure: string | undefined): string {
+  if (date) {
+    const time = heure || "09:00";
+    const month = parseInt(date.split("-")[1], 10);
+    const day = parseInt(date.split("-")[2], 10);
+    const isSummerTime = (month > 3 && month < 10) ||
+      (month === 3 && day >= 25) ||
+      (month === 10 && day <= 27);
+    const offset = isSummerTime ? "+02:00" : "+01:00";
+    return `${date}T${time}:00${offset}`;
+  }
+  // Default: tomorrow 09:00
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const y = tomorrow.getFullYear();
+  const m = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const d = String(tomorrow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}T09:00:00+01:00`;
+}
+
+// ── HANDLER ───────────────────────────────────────────────────────────────────
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { sender_email, subject, body, user_id, regie_id } = await req.json();
-    
-    // Validate required fields
+    const { sender_email, subject, body, user_id, regie_id, intent = "nouveau_rdv" } = await req.json();
+
     if (!user_id || typeof user_id !== "string") {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid or missing user_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     if (!body || typeof body !== "string") {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid or missing email body" }),
@@ -379,7 +283,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate UUID format for user_id
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(user_id)) {
       return new Response(
@@ -387,8 +290,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
-    // Validate regie_id if provided
     if (regie_id && !uuidRegex.test(regie_id)) {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid regie_id format" }),
@@ -396,12 +297,11 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing email from ${sender_email}: ${subject}`);
-    console.log(`Regie ID: ${regie_id}`);
+    console.log(`Processing email (intent=${intent}) from ${sender_email}: ${subject}`);
 
-    // Extract lead data using AI
-    const extracted = await extractLeadWithAI(body, subject);
-    
+    // ── AI EXTRACTION ────────────────────────────────────────────────────────
+    const extracted = await extractLeadWithAI(body, subject, intent);
+
     if (!extracted || !extracted.CONTACT?.nom) {
       return new Response(
         JSON.stringify({ success: false, error: "Could not extract lead data (nom manquant)" }),
@@ -409,26 +309,23 @@ serve(async (req) => {
       );
     }
 
-    // Validate and sanitize extracted data
     const validated = validateLeadData(extracted);
     if (!validated) {
       return new Response(
-        JSON.stringify({ success: false, error: "Data validation failed - invalid format" }),
+        JSON.stringify({ success: false, error: "Data validation failed" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Normalize phone numbers (with additional validation)
     const phone1 = normalizePhone(validated.CONTACT.telephone);
     const phone2 = normalizePhone(validated.CONTACT.telephone_secondaire);
     const email = validated.CONTACT.email?.toLowerCase();
 
-    // Deduplication: check if client already exists
-    let existingClient = null;
-    
-    // Try to find by phone first
+    // ── CLIENT LOOKUP / CREATION ─────────────────────────────────────────────
+    let existingClient: { id: string; nom: string } | null = null;
+
     if (phone1) {
       const { data } = await supabase
         .from("clients")
@@ -439,8 +336,7 @@ serve(async (req) => {
         .maybeSingle();
       existingClient = data;
     }
-    
-    // Try by email if not found
+
     if (!existingClient && email) {
       const { data } = await supabase
         .from("clients")
@@ -451,8 +347,7 @@ serve(async (req) => {
         .maybeSingle();
       existingClient = data;
     }
-    
-    // Try by name + address as last resort
+
     if (!existingClient && validated.CONTACT.nom && validated.ADRESSE?.code_postal) {
       const { data } = await supabase
         .from("clients")
@@ -474,15 +369,16 @@ serve(async (req) => {
       action = "updated";
       console.log(`Found existing client: ${existingClient.nom} (${clientId})`);
 
-      // Check for same-date duplicate: block import if RDV already exists for this client on the same day
-      if (validated.RDV?.date) {
-        const rdvDate = validated.RDV.date; // YYYY-MM-DD
+      // For installation/report intents we don't block on same-date — we always want to create
+      if (intent === "nouveau_rdv" && validated.RDV?.date) {
+        const rdvDate = validated.RDV.date;
         const { data: sameDateRdvs } = await supabase
           .from("rdv")
           .select("id")
           .eq("client_id", clientId)
           .eq("user_id", user_id)
           .not("status", "in", '("reporte","annule")')
+          .not("type_rdv", "eq", "installation") // don't block on installation slots
           .gte("date_heure", `${rdvDate}T00:00:00`)
           .lte("date_heure", `${rdvDate}T23:59:59`)
           .limit(1);
@@ -501,7 +397,6 @@ serve(async (req) => {
         }
       }
 
-      // Check if client already has existing RDVs (different date) to flag as duplicate
       const { data: existingRdvs } = await supabase
         .from("rdv")
         .select("id")
@@ -509,25 +404,19 @@ serve(async (req) => {
         .eq("user_id", user_id)
         .not("status", "in", '("reporte","annule")')
         .limit(1);
-      
+
       if (existingRdvs && existingRdvs.length > 0) {
         isDuplicateClient = true;
-        console.log(`Client ${clientId} already has RDVs on other dates — flagging as duplicate client`);
       }
-      
-      // Update client with any new info
+
       const updateData: Record<string, unknown> = {};
-      if (!existingClient.nom && validated.CONTACT.prenom) {
-        updateData.prenom = validated.CONTACT.prenom;
-      }
       if (phone2) updateData.telephone_secondaire = phone2;
       if (email) updateData.email = email;
       if (Object.keys(updateData).length > 0) {
         await supabase.from("clients").update(updateData).eq("id", clientId);
       }
     } else {
-      // Create new client with validated data
-      // Build notes for client from all extracted info
+      // Create new client
       const clientNotes: string[] = [];
       if (validated.RDV?.commentaire) clientNotes.push(validated.RDV.commentaire);
       if (validated.RDV?.commentaire_regie) clientNotes.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
@@ -538,7 +427,7 @@ serve(async (req) => {
         prenom: validated.CONTACT.prenom || null,
         telephone: phone1,
         telephone_secondaire: phone2,
-        email: email,
+        email,
         adresse: validated.ADRESSE?.adresse || null,
         code_postal: validated.ADRESSE?.code_postal || null,
         ville: validated.ADRESSE?.ville || null,
@@ -574,90 +463,59 @@ serve(async (req) => {
       console.log(`Created new client: ${validated.CONTACT.nom} (${clientId})`);
     }
 
-    // Parse RDV date/time with validation
-    // IMPORTANT: Emails contain French local time, so we need to store with Europe/Paris timezone
-    let dateHeure: string | null = null;
-    if (validated.RDV?.date) {
-      const date = validated.RDV.date;
-      const time = validated.RDV.heure || "09:00";
-      
-      // Validate the date is not too far in the past or future
-      // Parse as Europe/Paris timezone (where the RDV actually takes place)
-      const parsedDate = new Date(`${date}T${time}:00+01:00`); // CET offset for validation
-      const now = new Date();
-      const oneYearAgo = new Date(now);
-      oneYearAgo.setFullYear(now.getFullYear() - 1);
-      const oneYearAhead = new Date(now);
-      oneYearAhead.setFullYear(now.getFullYear() + 1);
-      
-      if (parsedDate >= oneYearAgo && parsedDate <= oneYearAhead) {
-        // Determine if date falls in DST (summer time) for France
-        // DST in France: last Sunday of March to last Sunday of October
-        const month = parseInt(date.split('-')[1], 10);
-        const day = parseInt(date.split('-')[2], 10);
-        const year = parseInt(date.split('-')[0], 10);
-        
-        // Simple DST check for France (approximate)
-        // March 25 - October 31 is roughly summer time
-        const isSummerTime = (month > 3 && month < 10) || 
-          (month === 3 && day >= 25) || 
-          (month === 10 && day <= 27);
-        
-        const offset = isSummerTime ? "+02:00" : "+01:00";
-        dateHeure = `${date}T${time}:00${offset}`;
-      }
-    }
-    
-    if (!dateHeure) {
-      // Default to tomorrow at 9:00 Paris time
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const year = tomorrow.getFullYear();
-      const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-      const day = String(tomorrow.getDate()).padStart(2, '0');
-      // Use CET offset for default
-      dateHeure = `${year}-${month}-${day}T09:00:00+01:00`;
-    }
+    // ── RDV CONFIGURATION BY INTENT ──────────────────────────────────────────
 
-    // Create RDV with regie_id
-    // Map type_projet to valid enum values
+    const dateHeure = buildDateHeure(validated.RDV?.date, validated.RDV?.heure);
+
+    // Map type_projet
     const validProjectTypes = ["photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre"];
     let typeProjet = validated.RDV?.type_projet?.toLowerCase() || "photovoltaique";
-    
-    // Map common variations to valid enum values
-    if (typeProjet.includes("solaire") || typeProjet.includes("pv") || typeProjet.includes("panneau")) {
-      typeProjet = "photovoltaique";
-    } else if (typeProjet.includes("pac") || typeProjet.includes("chaleur") || typeProjet.includes("pompe")) {
-      typeProjet = "pompe_chaleur";
-    } else if (typeProjet.includes("isol") || typeProjet.includes("ite")) {
-      typeProjet = "isolation";
-    } else if (typeProjet.includes("ballon") || typeProjet.includes("thermo") || typeProjet.includes("ecs")) {
-      typeProjet = "ballon_thermo";
-    } else if (!validProjectTypes.includes(typeProjet)) {
-      typeProjet = "photovoltaique"; // Default to photovoltaique
-    }
-    
-    // Build combined commentaire for RDV
+    if (typeProjet.includes("solaire") || typeProjet.includes("pv") || typeProjet.includes("panneau")) typeProjet = "photovoltaique";
+    else if (typeProjet.includes("pac") || typeProjet.includes("chaleur") || typeProjet.includes("pompe")) typeProjet = "pompe_chaleur";
+    else if (typeProjet.includes("isol") || typeProjet.includes("ite")) typeProjet = "isolation";
+    else if (typeProjet.includes("ballon") || typeProjet.includes("thermo") || typeProjet.includes("ecs")) typeProjet = "ballon_thermo";
+    else if (!validProjectTypes.includes(typeProjet)) typeProjet = "photovoltaique";
+
+    // Build commentaire
     const commentParts: string[] = [];
     if (validated.RDV?.commentaire) commentParts.push(validated.RDV.commentaire);
     if (validated.RDV?.commentaire_regie) commentParts.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
     const fullCommentaire = commentParts.join("\n\n") || null;
 
+    // Intent-specific RDV properties
+    let typeRdv = "standard";
+    let rdvStatus = "nouveau";
+    let durationMinutes = validated.RDV?.duree_minutes || 90;
+
+    if (intent === "installation") {
+      // Installation appointment: short visit (~30 min), different type
+      typeRdv = "installation";
+      rdvStatus = "nouveau";
+      durationMinutes = validated.RDV?.duree_minutes || 30;
+    } else if (intent === "report") {
+      // Rescheduled appointment: standard type, "reporte" flag handled by parent logic
+      typeRdv = "standard";
+      rdvStatus = "nouveau";
+      durationMinutes = validated.RDV?.duree_minutes || 90;
+    }
+
     const rdvData = {
       user_id,
       client_id: clientId,
       date_heure: dateHeure,
-      duree_minutes: validated.RDV?.duree_minutes || 90,
+      duree_minutes: durationMinutes,
       adresse: validated.ADRESSE?.adresse || null,
       type_projet: typeProjet,
-      status: "nouveau",
+      type_rdv: typeRdv,
+      status: rdvStatus,
       commentaire: fullCommentaire?.slice(0, 5000) || null,
       source: "gmail",
       regie_id: regie_id || null,
       metadata: {
         ai_extracted: true,
         extraction_date: new Date().toISOString(),
-        is_duplicate_client: isDuplicateClient || false,
+        email_intent: intent,
+        is_duplicate_client: isDuplicateClient,
         ...(validated.PROJET ? {
           type_chauffage: validated.PROJET.type_chauffage,
           type_toiture: validated.PROJET.type_toiture,
@@ -684,20 +542,18 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Created RDV: ${newRdv.id} with regie_id: ${regie_id}`);
+    console.log(`Created RDV (type=${typeRdv}): ${newRdv.id}`);
 
-    // Geocode address automatically if we have address components
+    // ── GEOCODING ─────────────────────────────────────────────────────────────
     let geocodeInfo: { approximate?: boolean; corrected?: boolean } = {};
     if (validated.ADRESSE?.adresse || (validated.ADRESSE?.ville && validated.ADRESSE?.code_postal)) {
       try {
         const fullAddress = [
           validated.ADRESSE?.adresse,
           validated.ADRESSE?.code_postal,
-          validated.ADRESSE?.ville
+          validated.ADRESSE?.ville,
         ].filter(Boolean).join(" ");
 
-        console.log(`[Geocode] Auto-geocoding address: "${fullAddress}"`);
-        
         const geocodeResponse = await fetch(
           `${SUPABASE_URL}/functions/v1/geocode-address`,
           {
@@ -716,20 +572,13 @@ serve(async (req) => {
 
         if (geocodeResponse.ok) {
           const geocodeData = await geocodeResponse.json();
-          console.log(`[Geocode] Result: lat=${geocodeData.latitude}, lon=${geocodeData.longitude}, approximate=${geocodeData.approximate}`);
-          
-          geocodeInfo = {
-            approximate: geocodeData.approximate || false,
-            corrected: geocodeData.corrected || false,
-          };
+          geocodeInfo = { approximate: geocodeData.approximate, corrected: geocodeData.corrected };
 
-          // Update client with coordinates
           await supabase.from("clients").update({
             latitude: geocodeData.latitude,
             longitude: geocodeData.longitude,
           }).eq("id", clientId);
 
-          // Update RDV with coordinates
           await supabase.from("rdv").update({
             latitude: geocodeData.latitude,
             longitude: geocodeData.longitude,
@@ -739,23 +588,19 @@ serve(async (req) => {
               geocode_formatted_address: geocodeData.formatted_address,
             },
           }).eq("id", newRdv.id);
-
-          console.log(`[Geocode] Updated client and RDV with coordinates`);
-        } else {
-          console.log(`[Geocode] Failed to geocode address`);
         }
       } catch (geocodeError) {
-        console.error("[Geocode] Error during geocoding:", geocodeError);
-        // Continue without geocoding - it's not critical
+        console.error("[Geocode] Error:", geocodeError);
       }
     }
 
-    // Log action in historique
+    // ── HISTORIQUE ────────────────────────────────────────────────────────────
+    const intentLabel = intent === "installation" ? "installation" : intent === "report" ? "reporté/remplacement" : "importé";
     await supabase.from("historique_actions").insert({
       user_id,
       client_id: clientId,
       action_type: "rdv_import",
-      description: `RDV importé depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}${geocodeInfo.approximate ? " (géoloc. approx.)" : ""}`,
+      description: `RDV ${intentLabel} depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}`,
     });
 
     return new Response(
@@ -765,6 +610,8 @@ serve(async (req) => {
         client_id: clientId,
         rdv_id: newRdv.id,
         regie_id: regie_id || null,
+        intent,
+        type_rdv: typeRdv,
         geocoded: !!geocodeInfo.corrected || !!geocodeInfo.approximate,
         geocode_approximate: geocodeInfo.approximate || false,
       }),
