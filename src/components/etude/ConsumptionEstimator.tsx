@@ -151,6 +151,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
   const [ecsType, setEcsType] = useState("electrique");
   const [occupants, setOccupants] = useState<number | "">(3);
   const [appliances, setAppliances] = useState<ApplianceConfig[]>([]);
+  const [customPrices, setCustomPrices] = useState<Record<string, number | "">>({});
 
   const zonesTotal = useMemo(
     () => heatingZones.reduce((sum, z) => sum + (Number(z.surface) || 0), 0),
@@ -257,7 +258,12 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
         bois: "bois_buche",
         propane: "propane",
       };
-      return prixEnergies[dbKeyMap[energy]] || 0.20;
+      const dbKey = dbKeyMap[energy];
+      // Use custom price if set, otherwise fall back to DB
+      if (customPrices[energy] !== undefined && customPrices[energy] !== "") {
+        return Number(customPrices[energy]);
+      }
+      return prixEnergies[dbKey] || 0.20;
     };
 
     // ── Heating by zone ──
@@ -330,7 +336,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
       mainCombustibleEnergy,
       getPrix,
     };
-  }, [heatingZones, occupants, isolation, ecsType, appliances, isolationLevels, prixEnergies, copBySubtype, coefficients, calcApplianceKwh]);
+  }, [heatingZones, occupants, isolation, ecsType, appliances, isolationLevels, prixEnergies, copBySubtype, coefficients, calcApplianceKwh, customPrices]);
 
   const handleApply = () => {
     if (productType === "PV") {
@@ -481,6 +487,60 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                   onChange={e => setOccupants(e.target.value ? Number(e.target.value) : "")}
                   className="h-8 sm:h-9 text-xs sm:text-sm" placeholder="3"
                 />
+              </div>
+            </div>
+
+            {/* ── Custom energy prices ── */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px] sm:text-xs block">Prix de l'énergie du client <span className="text-muted-foreground font-normal">(laisser vide = prix par défaut)</span></Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {(() => {
+                  // Determine which energy types are used
+                  const usedEnergies = new Set<EnergyType>();
+                  usedEnergies.add("elec"); // always show electricity
+                  heatingZones.forEach(z => {
+                    const e = HEATING_ENERGY_MAP[z.type];
+                    if (e) usedEnergies.add(e);
+                  });
+                  const ecsEnergy: EnergyType = ecsType === "thermodynamique" ? "elec" : (HEATING_ENERGY_MAP[ecsType] || "elec");
+                  usedEnergies.add(ecsEnergy);
+
+                  const labels: Record<EnergyType, string> = {
+                    elec: "Électricité",
+                    gaz: "Gaz naturel",
+                    fioul: "Fioul",
+                    bois: "Bois",
+                    propane: "Propane",
+                  };
+                  const dbKeyMap: Record<EnergyType, string> = {
+                    elec: "electricite",
+                    gaz: "gaz_naturel",
+                    fioul: "fioul",
+                    bois: "bois_buche",
+                    propane: "propane",
+                  };
+
+                  return Array.from(usedEnergies).map(energy => {
+                    const defaultPrice = prixEnergies[dbKeyMap[energy]] || 0;
+                    return (
+                      <div key={energy}>
+                        <Label className="text-[9px] text-muted-foreground">{labels[energy]} (€/kWh)</Label>
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min={0}
+                          placeholder={defaultPrice ? `${defaultPrice.toFixed(4)}` : "0.2000"}
+                          value={customPrices[energy] ?? ""}
+                          onChange={e => setCustomPrices(prev => ({
+                            ...prev,
+                            [energy]: e.target.value ? parseFloat(e.target.value) : "",
+                          }))}
+                          className="h-7 sm:h-8 text-[10px] sm:text-xs"
+                        />
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 
