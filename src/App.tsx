@@ -58,6 +58,7 @@ const DataAidesPAC = React.lazy(() => import("./pages/settings/DataAidesPAC"));
 const DataAidesITE = React.lazy(() => import("./pages/settings/DataAidesITE"));
 const DataMursITE = React.lazy(() => import("./pages/settings/DataMursITE"));
 const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomiesITE"));
+const DataEstimateurCoefficients = React.lazy(() => import("./pages/settings/DataEstimateurCoefficients"));
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
 const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
 
@@ -163,6 +164,7 @@ const App = () => {
                       <Route path="/parametres/data-aides-ite" element={<ProtectedRoute><DataAidesITE /></ProtectedRoute>} />
                       <Route path="/parametres/data-murs-ite" element={<ProtectedRoute><DataMursITE /></ProtectedRoute>} />
                       <Route path="/parametres/data-economies-ite" element={<ProtectedRoute><DataEconomiesITE /></ProtectedRoute>} />
+                      <Route path="/parametres/data-estimateur" element={<ProtectedRoute><DataEstimateurCoefficients /></ProtectedRoute>} />
                       <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                       <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />

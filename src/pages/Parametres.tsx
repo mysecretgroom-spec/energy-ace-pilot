@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 const dataSharedItems = [
   { icon: Flame, label: "Prix énergies fossiles", description: "Gaz, fioul, propane, bois", path: "/parametres/data-energies-prix" },
   { icon: MapPin, label: "Zones climatiques (DJU)", description: "Besoins chauffage par région", path: "/parametres/data-zones-climatiques" },
+  { icon: Settings2, label: "Coefficients estimateur", description: "ECS, élec base, appareils", path: "/parametres/data-estimateur" },
 ];
 
 // Données PV
