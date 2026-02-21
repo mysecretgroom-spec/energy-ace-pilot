@@ -2232,9 +2232,10 @@ serve(async (req) => {
               // Override the response if action was successful
               if (actionResult.customResponse) {
                 handled.responseMessage = actionResult.customResponse;
-              } else if (actionResult.actionTaken && !actionResult.actionTaken.includes("error")) {
+              } else if (actionResult.actionTaken && !actionResult.actionTaken.includes("error") && !["missing_client", "missing_data", "rdv_not_found", "vente_not_found", "client_not_found", "no_media"].includes(actionResult.actionTaken)) {
                 handled.responseMessage = "✅ Action exécutée avec succès !";
-              } else if (actionResult.actionTaken === "error" && !actionResult.customResponse) {
+              } else if (!actionResult.customResponse) {
+                // Fallback for any unhandled failure case
                 handled.responseMessage = "❌ Une erreur s'est produite lors de l'exécution. Réessaie.";
               }
               
@@ -6006,7 +6007,7 @@ async function executeAction(
       const isNewClient = entities.is_new_client as boolean;
       
       if (!clientName) {
-        return { actionTaken: "missing_client" };
+        return { actionTaken: "missing_client", customResponse: "❌ Indique-moi le nom du client pour créer le RDV." };
       }
 
       let client: ClientMatch | null = null;
@@ -6180,7 +6181,7 @@ async function executeAction(
 
       if (rdvError) {
         console.error("Error creating RDV:", rdvError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: `❌ Erreur lors de la création du RDV: ${rdvError.message}` };
       }
 
       // Log the action for audit trail
@@ -6312,7 +6313,7 @@ async function executeAction(
       
       if (rdvError) {
         console.error("Error fetching RDVs:", rdvError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de la recherche des RDV. Réessaie." };
       }
       
       if (!rdvsToModify || rdvsToModify.length === 0) {
@@ -6504,7 +6505,7 @@ async function executeAction(
       
       if (updateError) {
         console.error("Error updating RDV:", updateError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: `❌ Erreur lors de la mise à jour du RDV: ${updateError.message}` };
       }
       
       // Log the action
@@ -6532,7 +6533,7 @@ async function executeAction(
       const status = entities.status as string;
 
       if (!clientName || !status) {
-        return { actionTaken: "missing_data" };
+        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le *nom du client* et le *statut* (positif, négatif, r2, reporté, annulé)." };
       }
 
       // Find client with fuzzy search
@@ -6578,7 +6579,7 @@ async function executeAction(
         .limit(1);
 
       if (rdvError || !rdvs || rdvs.length === 0) {
-        return { actionTaken: "rdv_not_found" };
+        return { actionTaken: "rdv_not_found", customResponse: `❌ Aucun RDV trouvé pour "${matchedClient.fullName}". Vérifie le nom du client.` };
       }
 
       const rdv = rdvs[0];
@@ -6637,12 +6638,12 @@ async function executeAction(
             .update(updateData)
             .eq("id", vente.id);
 
-          if (updateError) {
-            console.error("Error updating vente:", updateError);
-            return { actionTaken: "error" };
-          }
+      if (updateError) {
+        console.error("Error updating vente:", updateError);
+        return { actionTaken: "error", customResponse: `❌ Erreur lors de la mise à jour de la vente: ${updateError.message}` };
+      }
 
-          // If vente is annulée, also annul the RDV
+      // If vente is annulée, also annul the RDV
           if (venteStatus === "annule") {
             await supabase.from("rdv").update({ status: "annule" }).eq("id", rdv.id);
           }
@@ -6684,7 +6685,7 @@ async function executeAction(
 
       if (updateError) {
         console.error("Error updating RDV:", updateError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: `❌ Erreur lors de la mise à jour du statut: ${updateError.message}` };
       }
 
       // Log the action
@@ -6813,7 +6814,7 @@ async function executeAction(
       
       if (updateError) {
         console.error("Error updating vente:", updateError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: `❌ Erreur lors de la mise à jour du pipeline: ${updateError.message}` };
       }
       
       // Log the action
@@ -7261,7 +7262,7 @@ async function executeAction(
       const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
       
       if (!stagingUrl && !uploadedDocumentUrl) {
-        return { actionTaken: "no_media" };
+        return { actionTaken: "no_media", customResponse: "📎 Envoie-moi la *photo du ticket* ou du *justificatif* pour importer la note de frais." };
       }
 
       // Use structured analysis result for finance data
@@ -7313,7 +7314,7 @@ async function executeAction(
 
       if (pendingError) {
         console.error("Error creating pending facture:", pendingError);
-        return { actionTaken: "error" };
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de l'enregistrement de la facture. Réessaie en renvoyant le document." };
       }
 
       // Search for potential client matches based on supplier name
