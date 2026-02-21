@@ -180,7 +180,7 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // La semaine de frais va du dimanche au vendredi (6 jours)
+  // La semaine de frais va du dimanche au samedi (7 jours)
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
@@ -644,11 +644,11 @@ const Finance = () => {
       // Jour sélectionné
       const selectedDayStr = selectedDate.toISOString().split("T")[0];
       
-      // Semaine sélectionnée (dimanche au vendredi = 6 jours)
+      // Semaine sélectionnée (dimanche au samedi = 7 jours)
       const weekStart = new Date(selectedWeekStart);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 5); // Dimanche + 5 jours = Vendredi
+      weekEnd.setDate(weekStart.getDate() + 6); // Dimanche + 6 jours = Samedi
       const weekStartStr = weekStart.toISOString().split("T")[0];
       const weekEndStr = weekEnd.toISOString().split("T")[0];
 
@@ -1262,7 +1262,7 @@ const Finance = () => {
                     </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-tight">
-                    {isCurrentWeek ? "Cette semaine" : `${selectedWeekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(selectedWeekStart.getTime() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
+                    {isCurrentWeek ? "Cette semaine" : `${selectedWeekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(selectedWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
                   </p>
                 </CardContent>
               </Card>
