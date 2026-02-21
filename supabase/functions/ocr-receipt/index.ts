@@ -18,6 +18,8 @@ interface OCRResponse {
   categorie: string | null;
   description: string | null;
   commercant: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
   raw_text?: string;
 }
 
@@ -118,12 +120,14 @@ serve(async (req) => {
 - tva: le montant de la TVA en euros si visible (nombre décimal ou null)
 - taux_tva: le taux de TVA en pourcentage si visible (ex: 20 pour 20%, nombre ou null)
 - date: la date au format YYYY-MM-DD
-- categorie: une des catégories suivantes: "carburant", "peage", "repas", "hotel", "parking", "autre"
+- categorie: une des catégories suivantes: "carburant", "peage", "repas", "hotel", "parking", "location_vehicule", "train", "autre"
 - description: une courte description de la dépense
 - commercant: le nom du commerce/enseigne
+- date_debut: si c'est une facture de location véhicule ou d'hôtel/logement, la date de DÉBUT de la période couverte au format YYYY-MM-DD (null sinon)
+- date_fin: si c'est une facture de location véhicule ou d'hôtel/logement, la date de FIN de la période couverte au format YYYY-MM-DD (null sinon)
 
 Réponds UNIQUEMENT avec le JSON, sans markdown ni explication. Exemple:
-{"montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "categorie": "carburant", "description": "Plein essence", "commercant": "Total Access"}
+{"montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "categorie": "carburant", "description": "Plein essence", "commercant": "Total Access", "date_debut": null, "date_fin": null}
 
 Si tu ne peux pas lire certaines informations, mets null pour ces champs. Si le HT n'est pas visible mais que tu as le TTC et le taux TVA, calcule-le.`,
               },
@@ -179,6 +183,8 @@ Si tu ne peux pas lire certaines informations, mets null pour ces champs. Si le 
         categorie: null,
         description: null,
         commercant: null,
+        date_debut: null,
+        date_fin: null,
         raw_text: content,
       };
     }
