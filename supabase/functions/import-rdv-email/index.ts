@@ -145,7 +145,9 @@ Heure du RDV: 13:00
 
 6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
-7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville
+7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville. L'adresse complète est OBLIGATOIRE. Cherche-la dans TOUS les champs de l'email (sujet, corps, signature, en-têtes).
+
+8. **PRÉNOM** - Le prénom est OBLIGATOIRE. Cherche-le dans tous les champs disponibles. Si le nom complet est sur une seule ligne (ex: "DUPONT Jean"), sépare nom et prénom.
 
 ## STRUCTURE JSON ATTENDUE:
 {
@@ -317,6 +319,21 @@ serve(async (req) => {
       );
     }
 
+    // ── MANDATORY FIELDS VALIDATION ──────────────────────────────────────────
+    // Track missing mandatory fields for AI agent follow-up
+    const missingFields: string[] = [];
+    if (!validated.CONTACT.prenom) missingFields.push("prenom");
+    if (!validated.ADRESSE?.adresse) missingFields.push("adresse");
+    if (!validated.ADRESSE?.code_postal) missingFields.push("code_postal");
+    if (!validated.ADRESSE?.ville) missingFields.push("ville");
+
+    const hasCompleteAddress = !missingFields.includes("adresse") && 
+                                !missingFields.includes("code_postal") && 
+                                !missingFields.includes("ville");
+    const hasMissingMandatoryFields = missingFields.length > 0;
+
+    console.log(`Mandatory fields check: missing=[${missingFields.join(",")}] complete_address=${hasCompleteAddress}`);
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const phone1 = normalizePhone(validated.CONTACT.telephone);
@@ -434,15 +451,18 @@ serve(async (req) => {
         source: sender_email?.slice(0, 255) || null,
         regie_id: regie_id || null,
         notes: clientNotes.length > 0 ? clientNotes.join("\n\n") : null,
-        metadata: validated.PROJET ? {
-          type_chauffage: validated.PROJET.type_chauffage,
-          type_toiture: validated.PROJET.type_toiture,
-          orientation_toiture: validated.PROJET.orientation_toiture,
-          facture_energie: validated.PROJET.facture_energie,
-          projet_motivation: validated.PROJET.motivation,
-          budget_estime: validated.PROJET.budget_estime,
-          urgence: validated.PROJET.urgence,
-        } : null,
+        metadata: {
+          ...(validated.PROJET ? {
+            type_chauffage: validated.PROJET.type_chauffage,
+            type_toiture: validated.PROJET.type_toiture,
+            orientation_toiture: validated.PROJET.orientation_toiture,
+            facture_energie: validated.PROJET.facture_energie,
+            projet_motivation: validated.PROJET.motivation,
+            budget_estime: validated.PROJET.budget_estime,
+            urgence: validated.PROJET.urgence,
+          } : {}),
+          ...(hasMissingMandatoryFields ? { missing_fields: missingFields, needs_completion: true } : {}),
+        },
       };
 
       const { data: newClient, error: clientError } = await supabase
@@ -516,6 +536,7 @@ serve(async (req) => {
         extraction_date: new Date().toISOString(),
         email_intent: intent,
         is_duplicate_client: isDuplicateClient,
+        ...(hasMissingMandatoryFields ? { missing_fields: missingFields, needs_completion: true } : {}),
         ...(validated.PROJET ? {
           type_chauffage: validated.PROJET.type_chauffage,
           type_toiture: validated.PROJET.type_toiture,
@@ -600,8 +621,32 @@ serve(async (req) => {
       user_id,
       client_id: clientId,
       action_type: "rdv_import",
-      description: `RDV ${intentLabel} depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}`,
+      description: `RDV ${intentLabel} depuis ${sender_email?.slice(0, 100) || "email"}${regie_id ? " (régie auto-attribuée)" : ""}${hasMissingMandatoryFields ? ` ⚠️ Données manquantes: ${missingFields.join(", ")}` : ""}`,
     });
+
+    // ── NOTIFICATION IF MISSING MANDATORY FIELDS ─────────────────────────────
+    if (hasMissingMandatoryFields) {
+      const clientName = `${validated.CONTACT.prenom || ""} ${validated.CONTACT.nom}`.trim();
+      const missingLabels: string[] = [];
+      if (missingFields.includes("prenom")) missingLabels.push("prénom");
+      if (missingFields.includes("adresse")) missingLabels.push("adresse");
+      if (missingFields.includes("code_postal")) missingLabels.push("code postal");
+      if (missingFields.includes("ville")) missingLabels.push("ville");
+
+      const notifTitle = `⚠️ RDV incomplet – ${clientName}`;
+      const notifMessage = `Le RDV importé pour ${clientName} est incomplet. Données manquantes : ${missingLabels.join(", ")}. Veuillez compléter la fiche client pour assurer le bon déroulement du rendez-vous.`;
+
+      await supabase.from("notifications").insert({
+        user_id,
+        titre: notifTitle.slice(0, 255),
+        message: notifMessage.slice(0, 1000),
+        type: "rdv_rappel",
+        client_id: clientId,
+        rdv_id: newRdv.id,
+      });
+
+      console.log(`Created notification for missing fields: ${missingFields.join(", ")} for client ${clientName}`);
+    }
 
     return new Response(
       JSON.stringify({
@@ -614,6 +659,8 @@ serve(async (req) => {
         type_rdv: typeRdv,
         geocoded: !!geocodeInfo.corrected || !!geocodeInfo.approximate,
         geocode_approximate: geocodeInfo.approximate || false,
+        missing_fields: hasMissingMandatoryFields ? missingFields : [],
+        needs_completion: hasMissingMandatoryFields,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
