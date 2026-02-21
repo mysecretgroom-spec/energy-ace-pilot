@@ -154,6 +154,10 @@ interface VenteForCommission {
   client_nom?: string;
   client_prenom?: string;
   client_id?: string;
+  client_telephone?: string | null;
+  client_adresse?: string | null;
+  client_ville?: string | null;
+  client_code_postal?: string | null;
 }
 
 type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'payees' | 'commissionsMois' | 'caMois' | 'signesMois' | 'annulees' | null;
@@ -353,7 +357,7 @@ const Finance = () => {
         // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom)")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -376,6 +380,10 @@ const Finance = () => {
           client_nom: v.clients?.nom || "Client",
           client_prenom: v.clients?.prenom || "",
           client_id: v.client_id,
+          client_telephone: v.clients?.telephone || null,
+          client_adresse: v.clients?.adresse || null,
+          client_ville: v.clients?.ville || null,
+          client_code_postal: v.clients?.code_postal || null,
         })));
 
       } catch (err) {
@@ -537,6 +545,11 @@ const Finance = () => {
         value: comm?.commissionNette || 0,
         date: v.date_installation_reelle || v.date_signature || undefined,
         navigateTo: `/ventes/${v.id}`,
+        phone: v.client_telephone,
+        clientId: v.client_id,
+        address: v.client_adresse,
+        city: v.client_ville,
+        postalCode: v.client_code_postal,
       };
     });
     
@@ -580,6 +593,11 @@ const Finance = () => {
             value: v.montant_ttc,
             date: v.date_signature || undefined,
             navigateTo: `/ventes/${v.id}`,
+            phone: v.client_telephone,
+            clientId: v.client_id,
+            address: v.client_adresse,
+            city: v.client_ville,
+            postalCode: v.client_code_postal,
           })),
           total: venteStats?.caMonth 
         };
@@ -601,6 +619,11 @@ const Finance = () => {
             value: v.montant_ttc,
             date: v.date_signature || undefined,
             navigateTo: `/ventes/${v.id}`,
+            phone: v.client_telephone,
+            clientId: v.client_id,
+            address: v.client_adresse,
+            city: v.client_ville,
+            postalCode: v.client_code_postal,
           })),
           total: undefined,
         };

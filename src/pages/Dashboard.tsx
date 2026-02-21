@@ -110,6 +110,10 @@ interface VenteForCommission {
   client_nom?: string;
   client_prenom?: string;
   client_id?: string;
+  client_telephone?: string | null;
+  client_adresse?: string | null;
+  client_ville?: string | null;
+  client_code_postal?: string | null;
 }
 
 interface RawRdv {
@@ -232,7 +236,7 @@ const Dashboard = () => {
         rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année - include client info
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape, client_id, clients(nom, prenom)").eq("user_id", user.id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
         supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
@@ -295,6 +299,10 @@ const Dashboard = () => {
         client_nom: v.clients?.nom || "Client",
         client_prenom: v.clients?.prenom || "",
         client_id: v.client_id,
+        client_telephone: v.clients?.telephone || null,
+        client_adresse: v.clients?.adresse || null,
+        client_ville: v.clients?.ville || null,
+        client_code_postal: v.clients?.code_postal || null,
       })));
       
       const ventesMois = ventes.filter((v: any) => 
@@ -427,11 +435,25 @@ const Dashboard = () => {
     const now = new Date();
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
     const aujourd = format(now, "yyyy-MM-dd");
+
+    // Helper to enrich vente items with quick action data
+    const venteToItem = (v: typeof ventesForCommission[0], valueOverride?: number) => ({
+      id: v.id,
+      label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+      sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
+      value: valueOverride ?? v.montant_ttc,
+      date: v.date_signature || undefined,
+      navigateTo: `/ventes/${v.id}`,
+      phone: v.client_telephone,
+      clientId: v.client_id,
+      address: v.client_adresse,
+      city: v.client_ville,
+      postalCode: v.client_code_postal,
+    });
     
     switch (statDialogType) {
       case 'ca':
       case 'ventes': {
-        // Ventes signées ce mois
         const ventesMois = ventesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
@@ -440,19 +462,11 @@ const Dashboard = () => {
         return {
           title: statDialogType === 'ca' ? "CA du mois" : "Ventes du mois",
           subtitle: format(now, "MMMM yyyy", { locale: fr }),
-          items: ventesMois.map(v => ({
-            id: v.id,
-            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-            value: v.montant_ttc,
-            date: v.date_signature || undefined,
-            navigateTo: `/ventes/${v.id}`,
-          })),
+          items: ventesMois.map(v => venteToItem(v)),
           total: ventesMois.reduce((sum, v) => sum + v.montant_ttc, 0),
         };
       }
       case 'rdv': {
-        // RDV aujourd'hui
         const rdvsAujourd = rawRdvs.filter(r => r.date_heure?.startsWith(aujourd));
         return {
           title: "RDV aujourd'hui",
@@ -466,13 +480,13 @@ const Dashboard = () => {
             status: r.status === 'confirme' ? 'Confirmé' : r.status === 'annule' ? 'Annulé' : 'Nouveau',
             statusColor: r.status === 'confirme' ? '#22c55e' : r.status === 'annule' ? '#ef4444' : '#3b82f6',
             navigateTo: `/planning`,
+            clientId: r.client_id,
           })),
           total: undefined,
           formatValue: (v: number) => `${v}`,
         };
       }
       case 'commissions': {
-        // Commissions du mois (ventes signées ce mois)
         const ventesMois = ventesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
@@ -481,59 +495,27 @@ const Dashboard = () => {
         return {
           title: "Commissions du mois",
           subtitle: format(now, "MMMM yyyy", { locale: fr }),
-          items: ventesMois.map(v => {
-            const comm = getCommission(v.id);
-            return {
-              id: v.id,
-              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-              value: comm?.commissionNette || 0,
-              date: v.date_signature || undefined,
-              navigateTo: `/ventes/${v.id}`,
-            };
-          }),
+          items: ventesMois.map(v => venteToItem(v, getCommission(v.id)?.commissionNette || 0)),
           total: commissionData.commissionsMois,
         };
       }
       case 'commissionsAttente': {
-        // Toutes les ventes non payées (sauf retapes)
         const ventesNonPayees = ventesForCommission.filter(v => 
           v.status !== 'paye' && !v.is_retape
         );
         return {
           title: "Commissions en attente",
           subtitle: "Ventes non payées",
-          items: ventesNonPayees.map(v => {
-            const comm = getCommission(v.id);
-            return {
-              id: v.id,
-              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-              value: comm?.commissionNette || 0,
-              date: v.date_signature || undefined,
-              navigateTo: `/ventes/${v.id}`,
-            };
-          }),
+          items: ventesNonPayees.map(v => venteToItem(v, getCommission(v.id)?.commissionNette || 0)),
           total: commissionData.commissionsEnAttente,
         };
       }
       case 'hejja': {
-        // Ventes retape
         const ventesRetape = ventesForCommission.filter(v => v.is_retape);
         return {
           title: "Commissions HEJJA",
           subtitle: "Ventes Retape",
-          items: ventesRetape.map(v => {
-            const comm = getCommission(v.id);
-            return {
-              id: v.id,
-              label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-              sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-              value: comm?.commissionNette || 0,
-              date: v.date_signature || undefined,
-              navigateTo: `/ventes/${v.id}`,
-            };
-          }),
+          items: ventesRetape.map(v => venteToItem(v, getCommission(v.id)?.commissionNette || 0)),
           total: commissionData.commissionsHejja,
         };
       }
@@ -545,14 +527,7 @@ const Dashboard = () => {
         return {
           title: "Ventes en cours",
           subtitle: "Signées, en attente de pose",
-          items: ventesEC.map(v => ({
-            id: v.id,
-            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-            value: v.montant_ttc,
-            date: v.date_signature || undefined,
-            navigateTo: `/ventes/${v.id}`,
-          })),
+          items: ventesEC.map(v => venteToItem(v)),
           total: ventesEC.reduce((sum, v) => sum + v.montant_ttc, 0),
         };
       }
@@ -567,14 +542,7 @@ const Dashboard = () => {
         return {
           title: "CA Année",
           subtitle: now.getFullYear().toString(),
-          items: ventesAnnee.map(v => ({
-            id: v.id,
-            label: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
-            sublabel: v.puissance_kwc ? `${v.puissance_kwc} kWc` : "Installation externe",
-            value: v.montant_ttc,
-            date: v.date_signature || undefined,
-            navigateTo: `/ventes/${v.id}`,
-          })),
+          items: ventesAnnee.map(v => venteToItem(v)),
           total: ventesAnnee.reduce((sum, v) => sum + v.montant_ttc, 0),
         };
       }

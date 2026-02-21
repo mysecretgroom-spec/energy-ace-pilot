@@ -1,9 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { Phone, MessageCircle, MapPin, FolderOpen } from "lucide-react";
+import { useRdvActions } from "@/hooks/useRdvActions";
 
 export interface StatDetailItem {
   id: string;
@@ -15,6 +18,12 @@ export interface StatDetailItem {
   status?: string;
   statusColor?: string;
   navigateTo?: string;
+  // Quick action data
+  phone?: string | null;
+  clientId?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
 }
 
 interface StatDetailDialogProps {
@@ -41,6 +50,7 @@ export function StatDetailDialog({
   formatValue = (v) => `${v.toLocaleString("fr-FR")} €`,
 }: StatDetailDialogProps) {
   const navigate = useNavigate();
+  const { callPhone, openWhatsApp, openGoogleMaps } = useRdvActions();
 
   const handleItemClick = (item: StatDetailItem) => {
     if (item.navigateTo) {
@@ -48,6 +58,9 @@ export function StatDetailDialog({
       navigate(item.navigateTo);
     }
   };
+
+  const hasActions = (item: StatDetailItem) =>
+    item.phone || item.clientId || item.address || item.city;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,6 +124,56 @@ export function StatDetailDialog({
                       )}
                     </div>
                   </div>
+
+                  {/* Quick action buttons */}
+                  {hasActions(item) && (
+                    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/50">
+                      {item.phone && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); callPhone(item.phone); }}
+                        >
+                          <Phone className="h-3 w-3" />
+                          Appeler
+                        </Button>
+                      )}
+                      {item.phone && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); openWhatsApp(item.phone); }}
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                          WhatsApp
+                        </Button>
+                      )}
+                      {(item.address || item.city) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); openGoogleMaps(item.address || undefined, item.postalCode || undefined, item.city || undefined); }}
+                        >
+                          <MapPin className="h-3 w-3" />
+                          GPS
+                        </Button>
+                      )}
+                      {item.clientId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={(e) => { e.stopPropagation(); onOpenChange(false); navigate(`/clients/${item.clientId}`); }}
+                        >
+                          <FolderOpen className="h-3 w-3" />
+                          Dossier
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
