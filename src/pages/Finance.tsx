@@ -145,6 +145,7 @@ interface VenteForCommission {
   montant_ttc: number;
   puissance_kwc: number | null;
   decom_montant: number | null;
+  decom_raison: string | null;
   type_vente: 'standard' | 'external_installation';
   regie_id: string | null;
   etude_id: string | null;
@@ -357,7 +358,7 @@ const Finance = () => {
         // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, decom_raison, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -371,6 +372,7 @@ const Finance = () => {
           montant_ttc: v.montant_ttc,
           puissance_kwc: v.puissance_kwc,
           decom_montant: v.decom_montant,
+          decom_raison: v.decom_raison || null,
           type_vente: v.type_vente || 'standard',
           regie_id: v.regie_id,
           etude_id: v.etude_id,
@@ -550,6 +552,12 @@ const Finance = () => {
         address: v.client_adresse,
         city: v.client_ville,
         postalCode: v.client_code_postal,
+        venteId: v.id,
+        venteStatus: v.status,
+        clientName: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+        decomMontant: v.decom_montant ?? 0,
+        decomRaison: v.decom_raison,
+        montantHt: v.montant_ht,
       };
     });
     
@@ -598,6 +606,12 @@ const Finance = () => {
             address: v.client_adresse,
             city: v.client_ville,
             postalCode: v.client_code_postal,
+            venteId: v.id,
+            venteStatus: v.status,
+            clientName: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            decomMontant: v.decom_montant ?? 0,
+            decomRaison: v.decom_raison,
+            montantHt: v.montant_ht,
           })),
           total: venteStats?.caMonth 
         };
@@ -624,6 +638,12 @@ const Finance = () => {
             address: v.client_adresse,
             city: v.client_ville,
             postalCode: v.client_code_postal,
+            venteId: v.id,
+            venteStatus: v.status,
+            clientName: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+            decomMontant: v.decom_montant ?? 0,
+            decomRaison: v.decom_raison,
+            montantHt: v.montant_ht,
           })),
           total: undefined,
         };
@@ -1753,6 +1773,7 @@ const Finance = () => {
         items={getFinanceDialogData.items}
         total={getFinanceDialogData.total}
         emptyMessage="Aucune vente"
+        onRefresh={triggerRefresh}
       />
       </BlurOverlay>
     </MobileLayout>

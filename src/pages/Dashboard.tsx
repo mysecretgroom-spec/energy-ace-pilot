@@ -101,6 +101,7 @@ interface VenteForCommission {
   montant_ttc: number;
   puissance_kwc: number | null;
   decom_montant: number | null;
+  decom_raison: string | null;
   type_vente: 'standard' | 'external_installation';
   regie_id: string | null;
   etude_id: string | null;
@@ -236,7 +237,7 @@ const Dashboard = () => {
         rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année - include client info
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, is_retape, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
         supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
@@ -290,6 +291,7 @@ const Dashboard = () => {
         montant_ttc: v.montant_ttc,
         puissance_kwc: v.puissance_kwc,
         decom_montant: v.decom_montant,
+        decom_raison: v.decom_raison || null,
         type_vente: v.type_vente || 'standard',
         regie_id: v.regie_id,
         etude_id: v.etude_id,
@@ -449,6 +451,12 @@ const Dashboard = () => {
       address: v.client_adresse,
       city: v.client_ville,
       postalCode: v.client_code_postal,
+      venteId: v.id,
+      venteStatus: v.status,
+      clientName: `${v.client_nom} ${v.client_prenom || ""}`.trim(),
+      decomMontant: v.decom_montant ?? 0,
+      decomRaison: v.decom_raison,
+      montantHt: v.montant_ht,
     });
     
     switch (statDialogType) {
@@ -879,6 +887,7 @@ const Dashboard = () => {
         items={getStatDialogData.items}
         total={getStatDialogData.total}
         emptyMessage="Aucune donnée"
+        onRefresh={fetchDashboardData}
       />
     </MobileLayout>
   );
