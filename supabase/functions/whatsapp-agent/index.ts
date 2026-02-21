@@ -7477,17 +7477,8 @@ async function executeAction(
         return { actionTaken: "error", customResponse: "❌ Erreur lors de l'enregistrement de la facture. Réessaie en renvoyant le document." };
       }
 
-      // Search for potential client matches based on supplier name
-      let clientSuggestions: Array<{ id: string; fullName: string; score: number }> = [];
-      
-      if (fournisseur && fournisseur.length >= 2) {
-        const searchResult = await findClientByName(supabase, userId, fournisseur);
-        if (searchResult.suggestions && searchResult.suggestions.length > 0) {
-          clientSuggestions = searchResult.suggestions.slice(0, 3);
-        }
-      }
-
-      // Build confirmation message with extracted data
+      // Build confirmation message with extracted data - no client matching needed
+      // Expense receipts are personal expenses, not linked to clients
       let responseMsg = `🧾 *Note de frais reçue !*\n\n`;
       responseMsg += `📄 ${originalFilename}\n\n`;
       responseMsg += `📊 *Données extraites:*\n`;
@@ -7497,22 +7488,10 @@ async function executeAction(
       responseMsg += `📅 Date: ${dateStr}\n`;
       if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
       responseMsg += `📂 Catégorie: ${categorie}\n\n`;
-      
-      // If client suggestions found, ask user to select
-      if (clientSuggestions.length > 0) {
-        responseMsg += `👤 *Lier à un client ?*\n`;
-        for (let i = 0; i < clientSuggestions.length; i++) {
-          const suggestion = clientSuggestions[i];
-          responseMsg += `${i + 1}️⃣ ${suggestion.fullName} (${suggestion.score}%)\n`;
-        }
-        responseMsg += `4️⃣ 🚫 *Frais personnel* (pas de client)\n\n`;
-        responseMsg += `_Réponds 1, 2, 3 ou 4_`;
-      } else {
-        responseMsg += `*Ces informations sont-elles correctes ?*\n`;
-        responseMsg += `✅ *Oui* pour confirmer\n`;
-        responseMsg += `❌ *Non* pour annuler\n`;
-        responseMsg += `_Ou donne-moi les corrections (ex: "montant 45€" ou "catégorie carburant")_`;
-      }
+      responseMsg += `*Ces informations sont-elles correctes ?*\n`;
+      responseMsg += `✅ *Oui* pour confirmer\n`;
+      responseMsg += `❌ *Non* pour annuler\n`;
+      responseMsg += `_Ou donne-moi les corrections (ex: "montant 45€" ou "catégorie carburant")_`;
 
       // Create pending action for facture confirmation
       const newPendingAction: PendingAction = {
@@ -7533,7 +7512,7 @@ async function executeAction(
           factureFournisseur: fournisseur || undefined,
           factureDescription: description,
           factureCategorie: categorie,
-          clientSuggestions: clientSuggestions.length > 0 ? clientSuggestions : undefined,
+          // No client suggestions - expenses are not linked to clients via agent
         },
         createdAt: new Date().toISOString(),
       };
