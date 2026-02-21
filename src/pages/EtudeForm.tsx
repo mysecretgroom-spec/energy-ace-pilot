@@ -51,6 +51,7 @@ import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
 import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
+import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { Textarea } from "@/components/ui/textarea";
@@ -2635,6 +2636,26 @@ _Envoyé depuis DébalePro_`;
                 </p>
               </div>
             )}
+
+            {/* Estimateur de consommation simplifié */}
+            <ConsumptionEstimator
+              productType={productType}
+              onApply={(result) => {
+                if (productType === "PV") {
+                  setConsoAnnuelle(result.consoElecKwh);
+                  setFactureMensuelle(result.factureMensuelleElec);
+                } else if (productType === "PAC") {
+                  setConsoAnnuelle(result.consoElecKwh);
+                  setFactureMensuelle(result.factureMensuelleElec);
+                  if (result.consoChaufffageKwh) setPacConsoChaufffageKwh(result.consoChaufffageKwh);
+                  if (result.factureChaufMensuelle) setPacFactureChauffageEuros(result.factureChaufMensuelle);
+                } else {
+                  setConsoAnnuelle(result.consoElecKwh);
+                  setFactureMensuelle(result.factureMensuelleElec);
+                  if (result.factureChaufMensuelle) setIteFactureChaufActuelle(result.factureChaufMensuelle);
+                }
+              }}
+            />
           </CardContent>
         </Card>
 
