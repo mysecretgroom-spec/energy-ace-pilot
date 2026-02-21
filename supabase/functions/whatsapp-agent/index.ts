@@ -111,6 +111,7 @@ type WorkflowState =
   | "awaiting_facture_confirmation"       // En attente de confirmation pour une note de frais
   | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
+  | "collecting_missing_data"             // Collecte de données manquantes (question conversationnelle)
   | null;
 
 // Choice option for disambiguation polls
@@ -5080,6 +5081,168 @@ async function handlePendingWorkflow(
       };
     }
     
+    case "collecting_missing_data": {
+      // User is providing missing data for a previous action
+      // Smart extraction based on what fields are missing
+      const storedIntent = pendingAction.intent;
+      const missingFields = (pendingAction.collectedData?.missingFields || []) as string[];
+      
+      // Try to extract missing data from user message
+      for (const field of missingFields) {
+        switch (field) {
+          case "client_name":
+            if (!pendingAction.entities.client_name) {
+              // Strip common prefixes
+              const cleanName = userMessage.trim()
+                .replace(/^(c'est |c est |client |pour |chez |le client |la cliente )/i, "")
+                .trim();
+              if (cleanName.length >= 2) {
+                pendingAction.entities.client_name = cleanName;
+              }
+            }
+            break;
+          case "status":
+            if (!pendingAction.entities.status) {
+              const statusKeywords: Record<string, string> = {
+                "positif": "positif", "signé": "positif", "signe": "positif", "vendu": "positif",
+                "négatif": "negatif", "negatif": "negatif", "absent": "negatif", "nrp": "negatif",
+                "r2": "r2", "deuxième": "r2", "deuxieme": "r2", "rappel": "r2",
+                "reporté": "reporte", "reporte": "reporte", "décalé": "reporte",
+                "annulé": "annule", "annule": "annule",
+              };
+              for (const [keyword, value] of Object.entries(statusKeywords)) {
+                if (messageLower.includes(keyword)) {
+                  pendingAction.entities.status = value;
+                  break;
+                }
+              }
+            }
+            break;
+          case "pipeline_status":
+            if (!pendingAction.entities.pipeline_status) {
+              const pipelineKeywords: Record<string, string> = {
+                "posé": "installe", "pose": "installe", "installé": "installe",
+                "payé": "paye", "paye": "paye",
+                "cq fait": "cq_fait", "cq ok": "cq_fait",
+                "annulé": "annule", "annule": "annule",
+                "financement": "attente_financement",
+                "envoi pose": "envoi_pose",
+              };
+              for (const [keyword, value] of Object.entries(pipelineKeywords)) {
+                if (messageLower.includes(keyword)) {
+                  pendingAction.entities.pipeline_status = value;
+                  break;
+                }
+              }
+            }
+            break;
+          case "notes_content":
+            if (!pendingAction.entities.notes_content) {
+              pendingAction.entities.notes_content = userMessage.trim();
+            }
+            break;
+          case "fields_to_update":
+            // Parse data modifications from natural language
+            // Extract amounts, dates, etc.
+            const numbers = userMessage.match(/(\d+(?:[.,]\d+)?)/g);
+            if (numbers) {
+              for (const num of numbers) {
+                const amount = parseFloat(num.replace(",", "."));
+                if (amount >= 1000 && !pendingAction.entities.amount) {
+                  pendingAction.entities.amount = amount;
+                } else if (amount >= 1 && amount <= 100 && !pendingAction.entities.puissance_kwc) {
+                  pendingAction.entities.puissance_kwc = amount;
+                }
+              }
+            }
+            // Check for date
+            const dateMatch = userMessage.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+            if (dateMatch && !pendingAction.entities.date) {
+              const day = parseInt(dateMatch[1]);
+              const month = parseInt(dateMatch[2]) - 1;
+              let year = parseInt(dateMatch[3]);
+              if (year < 100) year += 2000;
+              const d = new Date(year, month, day);
+              if (!isNaN(d.getTime())) {
+                pendingAction.entities.date = d.toISOString().split("T")[0];
+              }
+            }
+            // Check for text fields
+            if (messageLower.includes("note") || messageLower.includes("commentaire")) {
+              const noteMatch = userMessage.match(/(?:note|commentaire)\s*[:=]?\s*(.+)/i);
+              if (noteMatch) pendingAction.entities.commentaire = noteMatch[1].trim();
+            }
+            break;
+          case "media":
+            // Can't extract media from text - re-ask
+            break;
+          case "new_phone":
+          case "new_email":
+          case "new_address":
+            // For client data updates, try to parse
+            if (field === "new_phone") {
+              const phoneMatch = userMessage.match(/(?:0|\+33)\s*[1-9](?:[\s.-]?\d{2}){4}/);
+              if (phoneMatch) pendingAction.entities.new_phone = phoneMatch[0];
+            }
+            if (field === "new_email") {
+              const emailMatch = userMessage.match(/[\w.-]+@[\w.-]+\.\w+/);
+              if (emailMatch) pendingAction.entities.new_email = emailMatch[0];
+            }
+            if (field === "new_address") {
+              pendingAction.entities.new_address = userMessage.trim();
+            }
+            break;
+        }
+      }
+      
+      // Check if all missing fields have been filled
+      const stillMissing = missingFields.filter(f => {
+        if (f === "fields_to_update") {
+          // At least one data field must be present
+          return !pendingAction.entities.amount && !pendingAction.entities.puissance_kwc && 
+                 !pendingAction.entities.date && !pendingAction.entities.commentaire &&
+                 !pendingAction.entities.new_phone && !pendingAction.entities.new_email && 
+                 !pendingAction.entities.new_address;
+        }
+        if (f === "media") return true; // Media can't be extracted from text
+        return !pendingAction.entities[f];
+      });
+      
+      if (stillMissing.length > 0) {
+        // Still missing data - ask again with more specific question
+        const fieldLabels: Record<string, string> = {
+          client_name: "👤 Quel est le *nom du client* ?",
+          status: "📊 Quel *statut* ? (positif, négatif, r2, reporté, annulé)",
+          pipeline_status: "📊 Quel *statut pipeline* ? (posé, payé, CQ fait, annulé...)",
+          notes_content: "📝 Quel est le *contenu de la note* à ajouter ?",
+          fields_to_update: "✏️ Que veux-tu modifier ? Donne-moi la valeur (ex: 8500€, 6kWc, 15/03/2026...)",
+          media: "📎 Envoie-moi la *photo du ticket* ou du *justificatif* pour continuer.",
+          new_phone: "📞 Quel est le nouveau *numéro de téléphone* ?",
+          new_email: "📧 Quel est le nouvel *email* ?",
+          new_address: "📍 Quelle est la nouvelle *adresse* ?",
+        };
+        const questions = stillMissing.map(f => fieldLabels[f] || f);
+        
+        return {
+          intent: storedIntent,
+          actionTaken: "collecting_missing_data",
+          newPendingAction: {
+            ...pendingAction,
+            collectedData: { ...pendingAction.collectedData, missingFields: stillMissing },
+          },
+          responseMessage: questions.join("\n"),
+        };
+      }
+      
+      // All data collected - signal to re-execute
+      return {
+        intent: storedIntent,
+        actionTaken: "confirmed_execute",
+        newPendingAction: null,
+        responseMessage: "✅ Traitement en cours...",
+      };
+    }
+
     default:
       return null;
   }
@@ -6007,7 +6170,7 @@ async function executeAction(
       const isNewClient = entities.is_new_client as boolean;
       
       if (!clientName) {
-        return { actionTaken: "missing_client", customResponse: "❌ Indique-moi le nom du client pour créer le RDV." };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "create_rdv", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "📅 Pour créer le RDV, j'ai besoin d'une info :\n\n👤 Quel est le *nom du client* ?" };
       }
 
       let client: ClientMatch | null = null;
@@ -6533,7 +6696,13 @@ async function executeAction(
       const status = entities.status as string;
 
       if (!clientName || !status) {
-        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le *nom du client* et le *statut* (positif, négatif, r2, reporté, annulé)." };
+        const missing: string[] = [];
+        if (!clientName) missing.push("client_name");
+        if (!status) missing.push("status");
+        const questions: string[] = [];
+        if (!clientName) questions.push("👤 Quel est le *nom du client* ?");
+        if (!status) questions.push("📊 Quel *statut* ? (positif, négatif, r2, reporté, annulé)");
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_vente_status", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: missing }, createdAt: new Date().toISOString() }, customResponse: `📋 Pour modifier le statut, il me manque :\n\n${questions.join("\n")}` };
       }
 
       // Find client with fuzzy search
@@ -6715,17 +6884,11 @@ async function executeAction(
       const installDate = entities.date as string;
       
       if (!clientName) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Indique-moi le nom du client pour mettre à jour la vente.",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_vente_pipeline", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "📊 Pour mettre à jour la vente :\n\n👤 Quel est le *nom du client* ?" };
       }
       
       if (!pipelineStatus) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Je n'ai pas compris le statut. Précise : posé, payé, CQ fait, installation demain, annulé, etc.",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_vente_pipeline", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["pipeline_status"] }, createdAt: new Date().toISOString() }, customResponse: "📊 Pour mettre à jour la vente de ce client :\n\n📋 Quel *statut* ? (posé, payé, CQ fait, annulé, envoi pose...)" };
       }
       
       // Find client with fuzzy search
@@ -7160,10 +7323,7 @@ async function executeAction(
       const isNewClient = entities.is_new_client as boolean;
       
       if (!clientName) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Indique-moi le nom du client pour cette vente externe.",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "create_external_vente", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "📦 Pour créer la vente externe :\n\n👤 Quel est le *nom du client* ?" };
       }
       
       // First, try to find the client
@@ -7262,7 +7422,7 @@ async function executeAction(
       const stagingUrl = entities.staging_url as string || uploadedDocumentUrl;
       
       if (!stagingUrl && !uploadedDocumentUrl) {
-        return { actionTaken: "no_media", customResponse: "📎 Envoie-moi la *photo du ticket* ou du *justificatif* pour importer la note de frais." };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "import_facture", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["media"] }, createdAt: new Date().toISOString() }, customResponse: "🧾 Pour importer la note de frais :\n\n📎 Envoie-moi la *photo du ticket* ou du *justificatif*." };
       }
 
       // Use structured analysis result for finance data
@@ -8014,7 +8174,7 @@ async function executeAction(
     case "query_client_info": {
       const clientName = entities.client_name as string;
       if (!clientName) {
-        return { actionTaken: "missing_client_name" };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "query_client_info", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "🔍 Pour rechercher un client :\n\n👤 Quel est le *nom du client* ?" };
       }
 
       const searchResult = await findClientByName(supabase, userId, clientName);
@@ -8080,10 +8240,10 @@ async function executeAction(
       const notesAction = (entities.notes_action as string) || "append";
 
       if (!clientName) {
-        return { actionTaken: "missing_client_name", customResponse: "❌ Quel client ?" };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_client_notes", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "📝 Pour ajouter une note :\n\n👤 Quel est le *nom du client* ?" };
       }
       if (!notesContent) {
-        return { actionTaken: "missing_notes", customResponse: "❌ Quelle note veux-tu ajouter ?" };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_client_notes", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["notes_content"] }, createdAt: new Date().toISOString() }, customResponse: "📝 Pour ajouter une note au client :\n\n✏️ Quel est le *contenu de la note* à ajouter ?" };
       }
 
       const searchResult = await findClientByName(supabase, userId, clientName);
@@ -8623,10 +8783,7 @@ async function executeAction(
       const queryField = entities.query_field as string || null;
       
       if (!clientName) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Indique-moi le nom du client pour voir sa vente.",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "query_vente_detail", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "🔍 Pour consulter une vente :\n\n👤 Quel est le *nom du client* ?" };
       }
       
       // Find client with fuzzy search
@@ -8905,18 +9062,11 @@ async function executeAction(
       const newDate = entities.date as string;
       
       if (!clientName) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Indique-moi le nom du client pour modifier sa vente.",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_vente_data", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "✏️ Pour modifier une vente :\n\n👤 Quel est le *nom du client* ?" };
       }
       
-      // Check if at least one field to update
       if (!newAmount && !newPuissance && !newNotes && !newDate) {
-        return {
-          actionTaken: "missing_data",
-          customResponse: "❌ Que veux-tu modifier ? (prix, puissance, date pose, notes)",
-        };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_vente_data", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["fields_to_update"] }, createdAt: new Date().toISOString() }, customResponse: "✏️ Pour modifier la vente de ce client :\n\n📋 Que veux-tu changer ? (prix, puissance, date pose, notes)\nDonne-moi directement la valeur, ex: *8500€*, *6kWc*, *15/03/2026*" };
       }
       
       // Find client with fuzzy search
@@ -9300,7 +9450,7 @@ async function executeAction(
       const decomRaison = entities.decom_raison as string;
       
       if (!clientName) {
-        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "add_decom", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "💸 Pour ajouter une décom :\n\n👤 Quel est le *nom du client* ?" };
       }
       
       const searchResult = await findClientByName(supabase, userId, clientName);
@@ -9368,7 +9518,7 @@ async function executeAction(
     case "update_client_data": {
       const clientName = entities.client_name as string;
       if (!clientName) {
-        return { actionTaken: "missing_data", customResponse: "❌ Indique-moi le nom du client." };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_client_data", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["client_name"] }, createdAt: new Date().toISOString() }, customResponse: "👤 Pour modifier les infos client :\n\n👤 Quel est le *nom du client* ?" };
       }
       
       const newPhone = entities.new_phone as string;
@@ -9378,7 +9528,7 @@ async function executeAction(
       const newPostalCode = entities.new_postal_code as string;
       
       if (!newPhone && !newEmail && !newAddress && !newCity && !newPostalCode) {
-        return { actionTaken: "missing_data", customResponse: "❌ Que veux-tu modifier ? (téléphone, email, adresse, ville, code postal)" };
+        return { actionTaken: "collecting_missing_data", newPendingAction: { intent: "update_client_data", entities, workflowState: "collecting_missing_data" as WorkflowState, collectedData: { missingFields: ["fields_to_update"] }, createdAt: new Date().toISOString() }, customResponse: "✏️ Pour modifier les infos de ce client :\n\n📋 Que veux-tu changer ? (téléphone, email, adresse, ville, code postal)\nDonne-moi directement la nouvelle valeur." };
       }
       
       const searchResult = await findClientByName(supabase, userId, clientName);
