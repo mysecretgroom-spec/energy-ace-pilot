@@ -816,6 +816,45 @@ export type Database = {
         }
         Relationships: []
       }
+      data_estimateur_coefficients: {
+        Row: {
+          actif: boolean
+          categorie: string
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          unite: string
+          user_id: string | null
+          valeur: number
+        }
+        Insert: {
+          actif?: boolean
+          categorie: string
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          unite?: string
+          user_id?: string | null
+          valeur?: number
+        }
+        Update: {
+          actif?: boolean
+          categorie?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          unite?: string
+          user_id?: string | null
+          valeur?: number
+        }
+        Relationships: []
+      }
       data_financements: {
         Row: {
           actif: boolean
