@@ -40,6 +40,7 @@ import {
   Filter,
   Building2,
   Tag,
+  MessageCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -751,6 +752,53 @@ const CRM = () => {
                           <p className="text-xs text-muted-foreground">
                             {formatDate(client.created_at)}
                           </p>
+                          
+                          {/* Quick action buttons */}
+                          {(client.telephone || client.adresse || client.ville) && (
+                            <div className="flex items-center gap-1.5 pt-1">
+                              {client.telephone && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs gap-1"
+                                  onClick={(e) => { e.stopPropagation(); window.open(`tel:${client.telephone}`, "_self"); }}
+                                >
+                                  <Phone className="h-3 w-3" />
+                                  Appeler
+                                </Button>
+                              )}
+                              {client.telephone && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const clean = client.telephone!.replace(/\D/g, "");
+                                    const fr = clean.startsWith("0") ? `33${clean.slice(1)}` : clean;
+                                    window.open(`https://wa.me/${fr}`, "_blank");
+                                  }}
+                                >
+                                  <MessageCircle className="h-3 w-3" />
+                                </Button>
+                              )}
+                              {(client.adresse || client.ville) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const addr = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(",");
+                                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`, "_blank");
+                                  }}
+                                >
+                                  <MapPin className="h-3 w-3" />
+                                  GPS
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       </div>
