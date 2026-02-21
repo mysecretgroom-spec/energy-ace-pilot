@@ -703,7 +703,6 @@ const Finance = () => {
         .order("date_frais", { ascending: false });
 
       // Fetch frais for the selected week (may span different months)
-      // Include date_debut/date_fin to handle period-based expenses
       const { data: weekFrais } = await supabase
         .from("frais")
         .select("id, montant, date_frais, categorie, date_debut, date_fin")
@@ -711,8 +710,8 @@ const Finance = () => {
         .gte("date_frais", weekStartStr)
         .lte("date_frais", weekEndStr);
 
-      // Also fetch period-based expenses that overlap the selected week but have date_frais outside it
-      const { data: periodFrais } = await supabase
+      // Fetch period-based expenses that overlap the selected week but have date_frais outside it
+      const { data: periodFraisWeek } = await supabase
         .from("frais")
         .select("id, montant, date_frais, categorie, date_debut, date_fin")
         .eq("user_id", user.id)
@@ -720,6 +719,16 @@ const Finance = () => {
         .not("date_fin", "is", null)
         .lte("date_debut", weekEndStr)
         .gte("date_fin", weekStartStr);
+
+      // Fetch period-based expenses that overlap the selected month but have date_frais outside it
+      const { data: periodFraisMonth } = await supabase
+        .from("frais")
+        .select("id, montant, date_frais, categorie, date_debut, date_fin")
+        .eq("user_id", user.id)
+        .not("date_debut", "is", null)
+        .not("date_fin", "is", null)
+        .lte("date_debut", monthEndStr)
+        .gte("date_fin", monthStartStr);
 
       // Update all frais history for the collapsible list
       if (allHistoryFrais) {
@@ -752,29 +761,36 @@ const Finance = () => {
         };
 
         // Jour: frais du jour sélectionné (prorated for period expenses)
+        // Combine monthFrais + periodFraisMonth to catch period expenses from other months
         const dayStart = new Date(selectedDayStr);
         const dayEnd = new Date(selectedDayStr);
-        const jourTotal = monthFrais
+        const allDayFraisMap = new Map<string, any>();
+        monthFrais.forEach(f => allDayFraisMap.set(f.id, f));
+        (periodFraisMonth || []).forEach(f => allDayFraisMap.set(f.id, f));
+        const jourTotal = Array.from(allDayFraisMap.values())
           .filter(f => {
             if (f.date_frais === selectedDayStr) return true;
             // Include period expenses that cover this day
             if (f.date_debut && f.date_fin && (f.categorie === "location_vehicule" || f.categorie === "hotel")) {
-              return f.date_debut <= selectedDayStr && f.date_fin >= selectedDayStr && f.date_frais !== selectedDayStr;
+              return f.date_debut <= selectedDayStr && f.date_fin >= selectedDayStr;
             }
             return false;
           })
-          .reduce((sum, f) => sum + getProratedAmount(f, dayStart, dayEnd), 0);
+          .reduce((sum: number, f: any) => sum + getProratedAmount(f, dayStart, dayEnd), 0);
         
         // Semaine: combine regular week frais + period frais overlapping
         const allWeekFraisMap = new Map<string, any>();
         (weekFrais || []).forEach(f => allWeekFraisMap.set(f.id, f));
-        (periodFrais || []).forEach(f => allWeekFraisMap.set(f.id, f));
+        (periodFraisWeek || []).forEach(f => allWeekFraisMap.set(f.id, f));
         const semaineTotal = Array.from(allWeekFraisMap.values())
           .reduce((sum, f) => sum + getProratedAmount(f, weekStart, weekEnd), 0);
         
-        // Mois: prorated for period expenses
-        const moisTotal = monthFrais
-          .reduce((sum, f) => sum + getProratedAmount(f, monthStart, monthEnd), 0);
+        // Mois: combine monthFrais + periodFraisMonth for full coverage
+        const allMonthFraisMap = new Map<string, any>();
+        monthFrais.forEach(f => allMonthFraisMap.set(f.id, f));
+        (periodFraisMonth || []).forEach(f => allMonthFraisMap.set(f.id, f));
+        const moisTotal = Array.from(allMonthFraisMap.values())
+          .reduce((sum: number, f: any) => sum + getProratedAmount(f, monthStart, monthEnd), 0);
 
         setTotaux({
           jour: jourTotal,
