@@ -703,12 +703,23 @@ const Finance = () => {
         .order("date_frais", { ascending: false });
 
       // Fetch frais for the selected week (may span different months)
+      // Include date_debut/date_fin to handle period-based expenses
       const { data: weekFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais")
+        .select("id, montant, date_frais, categorie, date_debut, date_fin")
         .eq("user_id", user.id)
         .gte("date_frais", weekStartStr)
         .lte("date_frais", weekEndStr);
+
+      // Also fetch period-based expenses that overlap the selected week but have date_frais outside it
+      const { data: periodFrais } = await supabase
+        .from("frais")
+        .select("id, montant, date_frais, categorie, date_debut, date_fin")
+        .eq("user_id", user.id)
+        .not("date_debut", "is", null)
+        .not("date_fin", "is", null)
+        .lte("date_debut", weekEndStr)
+        .gte("date_fin", weekStartStr);
 
       // Update all frais history for the collapsible list
       if (allHistoryFrais) {
@@ -719,18 +730,51 @@ const Finance = () => {
         setAllFraisData(monthFrais);
         setFraisData(monthFrais.slice(0, 10));
 
-        // Jour: frais du jour sélectionné
+        // Helper: calculate prorated amount for a period-based expense within a date range
+        const getProratedAmount = (frais: { montant: number; date_debut: string | null; date_fin: string | null; categorie: string }, rangeStart: Date, rangeEnd: Date): number => {
+          const hasPeriod = frais.date_debut && frais.date_fin && 
+            (frais.categorie === "location_vehicule" || frais.categorie === "hotel");
+          
+          if (!hasPeriod || !frais.date_debut || !frais.date_fin) {
+            return Number(frais.montant);
+          }
+          
+          const periodStart = new Date(frais.date_debut);
+          const periodEnd = new Date(frais.date_fin);
+          const totalDays = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+          
+          // Overlap between period and range
+          const overlapStart = new Date(Math.max(periodStart.getTime(), rangeStart.getTime()));
+          const overlapEnd = new Date(Math.min(periodEnd.getTime(), rangeEnd.getTime()));
+          const overlapDays = Math.max(0, Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+          
+          return (Number(frais.montant) / totalDays) * overlapDays;
+        };
+
+        // Jour: frais du jour sélectionné (prorated for period expenses)
+        const dayStart = new Date(selectedDayStr);
+        const dayEnd = new Date(selectedDayStr);
         const jourTotal = monthFrais
-          .filter(f => f.date_frais === selectedDayStr)
-          .reduce((sum, f) => sum + Number(f.montant), 0);
+          .filter(f => {
+            if (f.date_frais === selectedDayStr) return true;
+            // Include period expenses that cover this day
+            if (f.date_debut && f.date_fin && (f.categorie === "location_vehicule" || f.categorie === "hotel")) {
+              return f.date_debut <= selectedDayStr && f.date_fin >= selectedDayStr && f.date_frais !== selectedDayStr;
+            }
+            return false;
+          })
+          .reduce((sum, f) => sum + getProratedAmount(f, dayStart, dayEnd), 0);
         
-        // Semaine: frais de la semaine sélectionnée
-        const semaineTotal = (weekFrais || [])
-          .reduce((sum, f) => sum + Number(f.montant), 0);
+        // Semaine: combine regular week frais + period frais overlapping
+        const allWeekFraisMap = new Map<string, any>();
+        (weekFrais || []).forEach(f => allWeekFraisMap.set(f.id, f));
+        (periodFrais || []).forEach(f => allWeekFraisMap.set(f.id, f));
+        const semaineTotal = Array.from(allWeekFraisMap.values())
+          .reduce((sum, f) => sum + getProratedAmount(f, weekStart, weekEnd), 0);
         
-        // Mois: tous les frais du mois sélectionné
+        // Mois: prorated for period expenses
         const moisTotal = monthFrais
-          .reduce((sum, f) => sum + Number(f.montant), 0);
+          .reduce((sum, f) => sum + getProratedAmount(f, monthStart, monthEnd), 0);
 
         setTotaux({
           jour: jourTotal,
@@ -1418,9 +1462,9 @@ const Finance = () => {
                                               <p className="text-xs text-muted-foreground">
                                                 {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
                                               </p>
-                                              {frais.categorie === "location_vehicule" && frais.date_debut && frais.date_fin && (
+                                              {(frais.categorie === "location_vehicule" || frais.categorie === "hotel") && frais.date_debut && frais.date_fin && (
                                                 <p className="text-xs text-primary mt-0.5">
-                                                  📅 Du {new Date(frais.date_debut).toLocaleDateString("fr-FR")} au {new Date(frais.date_fin).toLocaleDateString("fr-FR")} ({Math.ceil((new Date(frais.date_fin).getTime() - new Date(frais.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1}j)
+                                                  📅 Du {new Date(frais.date_debut).toLocaleDateString("fr-FR")} au {new Date(frais.date_fin).toLocaleDateString("fr-FR")} ({Math.ceil((new Date(frais.date_fin).getTime() - new Date(frais.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1}j • réparti)
                                                 </p>
                                               )}
                                             </div>

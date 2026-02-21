@@ -62,6 +62,8 @@ interface OCRResult {
   categorie: string | null;
   description: string | null;
   commercant: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
 }
 
 const categories = [
@@ -184,6 +186,8 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         if (result.categorie) setCategorie(result.categorie);
         if (result.description) setDescription(result.description);
         if (result.commercant) setCommercant(result.commercant);
+        if (result.date_debut) setDateDebut(result.date_debut);
+        if (result.date_fin) setDateFin(result.date_fin);
 
         toast.success("Facture analysée avec succès");
       } catch (err) {
@@ -232,8 +236,8 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         justificatif_url: receiptUrl,
       };
       
-      // Add rental period for location_vehicule
-      if (categorie === "location_vehicule") {
+      // Add rental/hotel period
+      if (categorie === "location_vehicule" || categorie === "hotel") {
         if (dateDebut) insertData.date_debut = dateDebut;
         if (dateFin) insertData.date_fin = dateFin;
       }
@@ -480,12 +484,12 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
               </div>
             </div>
 
-            {/* Rental period for location_vehicule */}
-            {categorie === "location_vehicule" && (
+            {/* Rental/hotel period */}
+            {(categorie === "location_vehicule" || categorie === "hotel") && (
               <div className="bg-primary/5 rounded-lg p-3 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <CarFront className="h-4 w-4 text-primary" />
-                  Période de location
+                  {categorie === "location_vehicule" ? <CarFront className="h-4 w-4 text-primary" /> : <Building2 className="h-4 w-4 text-primary" />}
+                  Période de couverture
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
