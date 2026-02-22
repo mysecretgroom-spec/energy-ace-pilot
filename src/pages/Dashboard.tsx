@@ -11,6 +11,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
+import { MultiSelectFilter, FilterOption } from "@/components/crm/MultiSelectFilter";
 
 import {
   TrendingUp, 
@@ -25,7 +26,8 @@ import {
   Clock,
   AlertCircle,
   Hotel,
-  Flame
+  Flame,
+  Building2,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -154,13 +156,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [ventesForCommission, setVentesForCommission] = useState<VenteForCommission[]>([]);
   const [rawRdvs, setRawRdvs] = useState<RawRdv[]>([]);
+  const [regies, setRegies] = useState<{ id: string; nom: string; couleur: string }[]>([]);
+  const [regieFilter, setRegieFilter] = useState<string[]>([]);
   
   // Dialog state
   const [statDialogOpen, setStatDialogOpen] = useState(false);
   const [statDialogType, setStatDialogType] = useState<StatDialogType>(null);
 
+  // Filter ventes by régie
+  const filteredVentesForCommission = useMemo(() => {
+    if (regieFilter.length === 0) return ventesForCommission;
+    return ventesForCommission.filter(v => v.regie_id && regieFilter.includes(v.regie_id));
+  }, [ventesForCommission, regieFilter]);
+
   // Use commission hook for accurate calculations
-  const { getCommission } = useVenteCommissions(ventesForCommission);
+  const { getCommission } = useVenteCommissions(filteredVentesForCommission);
 
   // Calculate commission stats from hook results
   const commissionData = useMemo(() => {
@@ -171,8 +181,7 @@ const Dashboard = () => {
     let commissionsEnAttente = 0;
     let commissionsHejja = 0;
 
-    ventesForCommission.forEach(vente => {
-      // Skip cancelled sales
+    filteredVentesForCommission.forEach(vente => {
       if (vente.status === "annulo") return;
       
       const comm = getCommission(vente.id);
@@ -180,31 +189,40 @@ const Dashboard = () => {
 
       const net = comm.commissionNette;
 
-      // Commissions HEJJA (retape sales)
       if (vente.is_retape) {
         commissionsHejja += net;
-        return; // Don't count in regular stats
+        return;
       }
 
-      // Commissions du mois (ventes signées ce mois)
       if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {
         commissionsMois += net;
       }
 
-      // Commissions en attente (non payées)
       if (vente.status !== "paye") {
         commissionsEnAttente += net;
       }
     });
 
     return { commissionsMois, commissionsEnAttente, commissionsHejja };
-  }, [ventesForCommission, getCommission]);
+  }, [filteredVentesForCommission, getCommission]);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
+      fetchRegies();
     }
-  }, [user]);
+  }, [user, regieFilter]);
+
+  const fetchRegies = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("regies")
+      .select("id, nom, couleur")
+      .eq("user_id", user.id)
+      .eq("actif", true)
+      .order("nom");
+    setRegies(data || []);
+  };
 
   const fetchDashboardData = async () => {
     if (!user) return;
@@ -239,7 +257,7 @@ const Dashboard = () => {
         // Ventes du mois et année - include client info
         supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
-        supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, clients(nom, prenom)").eq("user_id", user.id),
+        supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, regie_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
         supabase.from("clients").select("id, created_at").eq("user_id", user.id),
         // Placeholder for removed commissions query
@@ -281,11 +299,10 @@ const Dashboard = () => {
           .limit(1)
       ]);
 
-      // Process ventes
       const ventes = ventesRes.data || [];
       
       // Store ventes for commission calculation (exclude annulées)
-      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map((v: any) => ({
+      const allVentesForComm = ventes.filter(v => v.status !== 'annule').map((v: any) => ({
         id: v.id,
         montant_ht: v.montant_ht,
         montant_ttc: v.montant_ttc,
@@ -305,30 +322,38 @@ const Dashboard = () => {
         client_adresse: v.clients?.adresse || null,
         client_ville: v.clients?.ville || null,
         client_code_postal: v.clients?.code_postal || null,
-      })));
+      }));
+      setVentesForCommission(allVentesForComm);
       
-      const ventesMois = ventes.filter((v: any) => 
+      // Apply régie filter to stats calculations
+      const filteredVentes = regieFilter.length > 0
+        ? ventes.filter((v: any) => v.regie_id && regieFilter.includes(v.regie_id))
+        : ventes;
+
+      const ventesMois = filteredVentes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutMois) &&
         new Date(v.date_signature) <= new Date(finMois) &&
         v.status !== 'annule' &&
-        v.type_vente !== 'external_installation' // Exclure les installations externes du CA
+        v.type_vente !== 'external_installation'
       );
-      const ventesAnnee = ventes.filter((v: any) => 
+      const ventesAnnee = filteredVentes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutAnnee) &&
         new Date(v.date_signature) <= new Date(finAnnee) &&
         v.status !== 'annule' &&
-        v.type_vente !== 'external_installation' // Exclure les installations externes du CA
+        v.type_vente !== 'external_installation'
       );
-      // Ventes en cours = signées mais pas encore posées (signe -> envoi_pose)
       const enCoursStatuses = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
-      const ventesEnCours = ventes.filter((v: any) => 
+      const ventesEnCours = filteredVentes.filter((v: any) => 
         enCoursStatuses.includes(v.status) && v.status !== 'annule'
       );
 
-      // Process RDV
+      // Process RDV - also filter by régie
       const rdvs = rdvRes.data || [];
+      const filteredRdvs = regieFilter.length > 0
+        ? rdvs.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
+        : rdvs;
       
       // Store raw RDVs for dialog
       setRawRdvs(rdvs.map((r: any) => ({
@@ -340,8 +365,8 @@ const Dashboard = () => {
         client_id: r.client_id,
       })));
       
-      const rdvAujourd = rdvs.filter((r: any) => r.date_heure?.startsWith(aujourd)).length;
-      const rdvSemaine = rdvs.filter((r: any) => 
+      const rdvAujourd = filteredRdvs.filter((r: any) => r.date_heure?.startsWith(aujourd)).length;
+      const rdvSemaine = filteredRdvs.filter((r: any) => 
         new Date(r.date_heure) >= now && 
         new Date(r.date_heure) <= new Date(finSemaine)
       ).length;
@@ -362,7 +387,7 @@ const Dashboard = () => {
         ventesEnCours: ventesEnCours.length,
         rdvAujourd,
         rdvSemaine,
-        rdvTotal: rdvs.length,
+        rdvTotal: filteredRdvs.length,
         nouveauxClientsMois,
         totalClients: clients.length,
         commissionsMois: 0, // Will be calculated by hook
@@ -462,7 +487,7 @@ const Dashboard = () => {
     switch (statDialogType) {
       case 'ca':
       case 'ventes': {
-        const ventesMois = ventesForCommission.filter(v => 
+        const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
           !v.is_retape
@@ -495,7 +520,7 @@ const Dashboard = () => {
         };
       }
       case 'commissions': {
-        const ventesMois = ventesForCommission.filter(v => 
+        const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
           !v.is_retape
@@ -508,7 +533,7 @@ const Dashboard = () => {
         };
       }
       case 'commissionsAttente': {
-        const ventesNonPayees = ventesForCommission.filter(v => 
+        const ventesNonPayees = filteredVentesForCommission.filter(v => 
           v.status !== 'paye' && !v.is_retape
         );
         return {
@@ -519,7 +544,7 @@ const Dashboard = () => {
         };
       }
       case 'hejja': {
-        const ventesRetape = ventesForCommission.filter(v => v.is_retape);
+        const ventesRetape = filteredVentesForCommission.filter(v => v.is_retape);
         return {
           title: "Commissions HEJJA",
           subtitle: "Ventes Retape",
@@ -529,7 +554,7 @@ const Dashboard = () => {
       }
       case 'ventesEnCours': {
         const enCoursStatuses = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
-        const ventesEC = ventesForCommission.filter(v => 
+        const ventesEC = filteredVentesForCommission.filter(v => 
           enCoursStatuses.includes(v.status) && !v.is_retape
         );
         return {
@@ -541,7 +566,7 @@ const Dashboard = () => {
       }
       case 'caAnnee': {
         const debutAnnee = new Date(now.getFullYear(), 0, 1);
-        const ventesAnnee = ventesForCommission.filter(v => 
+        const ventesAnnee = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutAnnee &&
           !v.is_retape &&
@@ -557,7 +582,7 @@ const Dashboard = () => {
       default:
         return { title: "", items: [], total: undefined };
     }
-  }, [statDialogType, ventesForCommission, rawRdvs, getCommission, commissionData]);
+  }, [statDialogType, filteredVentesForCommission, rawRdvs, getCommission, commissionData]);
 
   const openBookingSearch = () => {
     const today = new Date();
@@ -631,6 +656,18 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Régie filter */}
+        {regies.length > 1 && (
+          <MultiSelectFilter
+            label="Régie"
+            icon={<Building2 className="h-4 w-4" />}
+            options={regies.map(r => ({ id: r.id, label: r.nom, color: r.couleur }))}
+            selected={regieFilter}
+            onChange={setRegieFilter}
+            placeholder="Toutes les régies"
+            className="w-full"
+          />
+        )}
 
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
