@@ -155,13 +155,14 @@ serve(async (req) => {
         message += motivations[Math.floor(Math.random() * motivations.length)];
 
         // Save to notifications table
-        await supabase.from("notifications").insert({
+        const { error: notifError } = await supabase.from("notifications").insert({
           user_id: userId,
-          type: "rappel",
+          type: "autre",
           titre: `📊 Récap semaine ${weekLabel}`,
           message,
           date_envoi: new Date().toISOString(),
         });
+        if (notifError) console.error("Notification insert error:", notifError);
 
         // Send via OneSignal if configured
         if (ONESIGNAL_APP_ID && ONESIGNAL_REST_API_KEY) {
