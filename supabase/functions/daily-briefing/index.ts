@@ -223,27 +223,28 @@ serve(async (req) => {
             if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
             if (!phone.startsWith("+")) phone = `+${phone}`;
 
-            // Truncate for WhatsApp 1500 char limit
-            let whatsappBody = `${briefingTitle}\n\n${briefingBody}`;
-            if (whatsappBody.length > 1500) {
-              whatsappBody = whatsappBody.slice(0, 1497) + "...";
-            }
+            // Split into multiple messages if needed (1500 char limit per WhatsApp message)
+            const fullBody = `${briefingTitle}\n\n${briefingBody}`;
+            const chunks = splitWhatsAppMessage(fullBody, 1500);
 
             const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-            const whatsappResp = await fetch(twilioUrl, {
-              method: "POST",
-              headers: {
-                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                From: TWILIO_WHATSAPP_NUMBER,
-                To: `whatsapp:${phone}`,
-                Body: whatsappBody,
-              }).toString(),
-            });
-            const whatsappRes = await whatsappResp.json();
-            console.log(`WhatsApp briefing sent to ${phone}:`, whatsappResp.ok, whatsappRes.sid || whatsappRes.message);
+            for (let ci = 0; ci < chunks.length; ci++) {
+              const chunkBody = chunks.length > 1 ? `(${ci + 1}/${chunks.length}) ${chunks[ci]}` : chunks[ci];
+              const whatsappResp = await fetch(twilioUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({
+                  From: TWILIO_WHATSAPP_NUMBER,
+                  To: `whatsapp:${phone}`,
+                  Body: chunkBody,
+                }).toString(),
+              });
+              const whatsappRes = await whatsappResp.json();
+              console.log(`WhatsApp briefing part ${ci + 1}/${chunks.length} sent to ${phone}:`, whatsappResp.ok, whatsappRes.sid || whatsappRes.message);
+            }
           }
         }
 
@@ -324,4 +325,36 @@ function buildRdvSummary(rdv: any): string | null {
   }
 
   return parts.length > 0 ? parts.join(" • ") : null;
+}
+
+/** Split a long message into chunks that respect WhatsApp's char limit, splitting on line breaks */
+function splitWhatsAppMessage(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text];
+  
+  const chunks: string[] = [];
+  const lines = text.split("\n");
+  let current = "";
+
+  for (const line of lines) {
+    // If adding this line would exceed the limit, push current chunk
+    if (current.length + line.length + 1 > maxLen && current.length > 0) {
+      chunks.push(current.trimEnd());
+      current = "";
+    }
+    // If a single line is longer than maxLen, force-split it
+    if (line.length > maxLen) {
+      if (current.length > 0) {
+        chunks.push(current.trimEnd());
+        current = "";
+      }
+      for (let i = 0; i < line.length; i += maxLen) {
+        chunks.push(line.slice(i, i + maxLen));
+      }
+    } else {
+      current += (current.length > 0 ? "\n" : "") + line;
+    }
+  }
+  if (current.length > 0) chunks.push(current.trimEnd());
+  
+  return chunks;
 }

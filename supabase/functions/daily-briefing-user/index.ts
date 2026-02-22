@@ -323,3 +323,33 @@ function buildRdvSummary(rdv: any): string | null {
 
   return parts.length > 0 ? parts.join(" • ") : null;
 }
+
+/** Split a long message into chunks that respect WhatsApp's char limit, splitting on line breaks */
+function splitWhatsAppMessage(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text];
+  
+  const chunks: string[] = [];
+  const lines = text.split("\n");
+  let current = "";
+
+  for (const line of lines) {
+    if (current.length + line.length + 1 > maxLen && current.length > 0) {
+      chunks.push(current.trimEnd());
+      current = "";
+    }
+    if (line.length > maxLen) {
+      if (current.length > 0) {
+        chunks.push(current.trimEnd());
+        current = "";
+      }
+      for (let i = 0; i < line.length; i += maxLen) {
+        chunks.push(line.slice(i, i + maxLen));
+      }
+    } else {
+      current += (current.length > 0 ? "\n" : "") + line;
+    }
+  }
+  if (current.length > 0) chunks.push(current.trimEnd());
+  
+  return chunks;
+}
