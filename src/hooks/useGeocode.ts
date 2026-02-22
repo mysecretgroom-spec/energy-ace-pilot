@@ -62,8 +62,17 @@ export async function geocodeAndUpdateClient(clientId: string, address: string) 
   return coords;
 }
 
-export async function geocodeAndUpdateRdv(rdvId: string, address: string) {
-  const coords = await geocodeAddress(address);
+export async function geocodeAndUpdateRdv(rdvId: string, address: string, city?: string, postalCode?: string) {
+  // Build full address with city and postal code for better accuracy
+  let fullAddress = address;
+  if (postalCode && !address.includes(postalCode)) {
+    fullAddress += ` ${postalCode}`;
+  }
+  if (city && !address.toUpperCase().includes(city.toUpperCase())) {
+    fullAddress += ` ${city}`;
+  }
+  
+  const coords = await geocodeAddress(fullAddress, city, postalCode);
   if (!coords) return null;
 
   const { error } = await supabase
