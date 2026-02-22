@@ -42,6 +42,7 @@ import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
+import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -196,6 +197,7 @@ const ClientDetailInner = () => {
   const { user } = useAuth();
   const { isActive: modeHejjaActive } = useHejjaMode();
   const { toast } = useToast();
+  const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
 
   const [client, setClient] = useState<Client | null>(null);
   const [rdvs, setRdvs] = useState<Rdv[]>([]);
@@ -696,40 +698,13 @@ const ClientDetailInner = () => {
                           variant="ghost" 
                           size="icon"
                           title="Télécharger le PDF"
+                          disabled={pdfDownloadLoading}
                           onClick={async (e) => {
                             e.stopPropagation();
-                            if (!etude.pdf_url) {
-                              toast({ title: "Aucun PDF disponible", description: "Ouvrez l'étude pour générer le PDF", variant: "destructive" });
-                              return;
-                            }
-                            try {
-                              const { data, error } = await supabase.storage
-                                .from("etudes-pdf")
-                                .createSignedUrl(etude.pdf_url, 60 * 60);
-                              if (error || !data?.signedUrl) {
-                                console.error("[PDF Download] Signed URL error:", error);
-                                toast({ title: "Erreur de téléchargement", description: error?.message || "URL introuvable", variant: "destructive" });
-                                return;
-                              }
-                              // Fetch blob to force download (cross-origin workaround)
-                              const response = await fetch(data.signedUrl);
-                              if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                              const blob = await response.blob();
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url;
-                              a.download = `Etude_${etude.product_type || "PV"}_${etude.puissance_kwc || ""}kWc.pdf`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              URL.revokeObjectURL(url);
-                            } catch (err) {
-                              console.error("[PDF Download] Error:", err);
-                              toast({ title: "Erreur de téléchargement", variant: "destructive" });
-                            }
+                            await downloadOrSharePdf(etude.id);
                           }}
                         >
-                          <Download className="h-4 w-4" />
+                          {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         </Button>
                         <Button 
                           variant="ghost" 

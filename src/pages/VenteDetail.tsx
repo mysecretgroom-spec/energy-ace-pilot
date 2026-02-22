@@ -33,6 +33,7 @@ import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { RegieSelector } from "@/components/planning/RegieSelector";
 import { VenteStatusTimeline } from "@/components/crm/VenteStatusTimeline";
+import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -116,6 +117,7 @@ const VenteDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { sendWhatsAppNotification } = useWhatsAppNotification();
+  const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vente, setVente] = useState<Vente | null>(null);
@@ -773,30 +775,10 @@ const VenteDetail = () => {
               variant="outline"
               size="icon"
               title="Télécharger le PDF de l'étude"
-              onClick={async () => {
-                const { data: etude } = await supabase
-                  .from("etudes")
-                  .select("pdf_url, product_type, puissance_kwc")
-                  .eq("id", vente.etude_id!)
-                  .maybeSingle();
-                if (!etude?.pdf_url) {
-                  toast.error("Aucun PDF disponible. Ouvrez l'étude pour le générer.");
-                  return;
-                }
-                const { data } = await supabase.storage
-                  .from("etudes-pdf")
-                  .createSignedUrl(etude.pdf_url, 60 * 60);
-                if (data?.signedUrl) {
-                  const a = document.createElement("a");
-                  a.href = data.signedUrl;
-                  a.download = `Etude_${etude.product_type || "PV"}_${etude.puissance_kwc || ""}kWc.pdf`;
-                  a.click();
-                } else {
-                  toast.error("Erreur de téléchargement");
-                }
-              }}
+              disabled={pdfDownloadLoading}
+              onClick={() => downloadOrSharePdf(vente.etude_id!)}
             >
-              <Download className="h-4 w-4" />
+              {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </Button>
           </div>
         )}
