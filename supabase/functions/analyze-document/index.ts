@@ -30,6 +30,8 @@ interface FinanceResult {
   tva: number | null;
   taux_tva: number | null;
   date: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
   fournisseur: string | null;
   description: string | null;
   categorie: string | null;
@@ -94,21 +96,28 @@ Champs à extraire:
 - tva: le montant de TVA total en euros si visible (nombre ou null)
 - taux_tva: le taux de TVA principal en % si visible (ex: 20 pour 20%)
 - date: la date au format YYYY-MM-DD
+- date_debut: date de début de la période au format YYYY-MM-DD (pour hôtel: check-in, pour location véhicule: début location). null si non applicable.
+- date_fin: date de fin de la période au format YYYY-MM-DD (pour hôtel: check-out, pour location véhicule: fin location). null si non applicable.
 - fournisseur: le nom du commerce/enseigne
 - description: courte description de la dépense principale ou "Achats multiples" si multi-catégorie
 - categorie: catégorie principale si mono-catégorie, sinon "autre"
 - error_message: si success=false, explique pourquoi
 
+IMPORTANT pour date_debut/date_fin: ces champs sont utiles pour les frais répartis sur plusieurs jours (hôtel, location véhicule). Si la facture indique une période (ex: "du 15/01 au 18/01", "3 nuits", "check-in/check-out"), extrais les dates. Sinon laisse null.
+
 Catégories valides: "carburant", "peage", "repas", "hotel", "parking", "train", "location_vehicule", "autre"
 
 Exemple MONO-CATÉGORIE:
-{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "date_debut": null, "date_fin": null, "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+
+Exemple HÔTEL avec période:
+{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 240.00, "montant_ht": 200.00, "tva": 40.00, "taux_tva": 20, "date": "2026-01-18", "date_debut": "2026-01-15", "date_fin": "2026-01-18", "fournisseur": "Ibis Budget", "description": "3 nuits", "categorie": "hotel"}
 
 Exemple MULTI-CATÉGORIE (station essence avec sandwich):
-{"success": true, "is_multi_category": true, "items": [{"montant_ttc": 45.00, "montant_ht": 37.50, "tva": 7.50, "taux_tva": 20, "categorie": "carburant", "description": "Gazole"}, {"montant_ttc": 8.50, "montant_ht": 8.10, "tva": 0.40, "taux_tva": 5.5, "categorie": "repas", "description": "Sandwich + boisson"}], "montant_ttc": 53.50, "date": "2026-01-21", "fournisseur": "Total Access", "description": "Achats multiples", "categorie": "autre"}
+{"success": true, "is_multi_category": true, "items": [{"montant_ttc": 45.00, "montant_ht": 37.50, "tva": 7.50, "taux_tva": 20, "categorie": "carburant", "description": "Gazole"}, {"montant_ttc": 8.50, "montant_ht": 8.10, "tva": 0.40, "taux_tva": 5.5, "categorie": "repas", "description": "Sandwich + boisson"}], "montant_ttc": 53.50, "date": "2026-01-21", "date_debut": null, "date_fin": null, "fournisseur": "Total Access", "description": "Achats multiples", "categorie": "autre"}
 
 Exemple échec:
-{"success": false, "is_multi_category": false, "items": [], "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue"}`;
+{"success": false, "is_multi_category": false, "items": [], "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "date_debut": null, "date_fin": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue"}`;
     } else {
       prompt = `Analyse cette image de document client et détermine son type.
 
@@ -206,6 +215,8 @@ Exemple échec:
           tva: parsed.tva ?? null,
           taux_tva: parsed.taux_tva ?? null,
           date: parsed.date ?? null,
+          date_debut: parsed.date_debut ?? null,
+          date_fin: parsed.date_fin ?? null,
           fournisseur: parsed.fournisseur ?? null,
           description: parsed.description ?? null,
           categorie: parsed.categorie ?? null,
