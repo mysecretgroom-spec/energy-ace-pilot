@@ -1,10 +1,4 @@
 import React, { useState, useCallback, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -12,15 +6,14 @@ import {
   ChevronRight,
   Download,
   X,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
+  Share2,
   Loader2,
   FileText,
   ExternalLink,
   ArrowRight,
 } from "lucide-react";
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
+import { toast } from "sonner";
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -58,12 +51,21 @@ export function DocumentPreview({
   }, [initialIndex]);
 
   useEffect(() => {
-    // Reset zoom and rotation when changing document
     setZoom(1);
     setRotation(0);
     setIsLoading(true);
     setError(false);
   }, [currentIndex]);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
 
   const getFileType = (url: string): "pdf" | "image" | "unknown" => {
     const lower = url.toLowerCase();
@@ -87,10 +89,6 @@ export function DocumentPreview({
     setCurrentIndex((prev) => (prev < documents.length - 1 ? prev + 1 : 0));
   }, [documents.length]);
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5));
-  const handleRotate = () => setRotation((prev) => (prev + 90) % 360);
-
   const handleDownload = () => {
     if (!currentDoc) return;
     const link = document.createElement("a");
@@ -100,6 +98,33 @@ export function DocumentPreview({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleShare = async () => {
+    if (!currentDoc) return;
+    try {
+      if (navigator.share) {
+        // Try sharing the URL first
+        await navigator.share({
+          title: currentDoc.nom,
+          url: currentDoc.url,
+        });
+      } else {
+        // Fallback: copy URL to clipboard
+        await navigator.clipboard.writeText(currentDoc.url);
+        toast.success("Lien copié dans le presse-papier");
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        // Fallback to clipboard
+        try {
+          await navigator.clipboard.writeText(currentDoc.url);
+          toast.success("Lien copié dans le presse-papier");
+        } catch {
+          toast.error("Impossible de partager");
+        }
+      }
+    }
   };
 
   const handleKeyDown = useCallback(
@@ -117,36 +142,42 @@ export function DocumentPreview({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  if (!currentDoc) return null;
+  if (!isOpen || !currentDoc) return null;
 
   const fileType = getFileType(currentDoc.url);
 
-  // Use Google Docs Viewer for PDF preview
   const getPdfViewerUrl = (url: string) => {
     return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 gap-0">
-        {/* Header - minimal */}
-        <DialogHeader className="p-4 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="truncate pr-4">{currentDoc.nom}</DialogTitle>
-              <p className="text-xs text-muted-foreground capitalize mt-1">
-                {currentDoc.type_document.replace(/_/g, " ")}
-                {documents.length > 1 && ` • ${currentIndex + 1} / ${documents.length}`}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
+    <>
+      {/* Fullscreen overlay */}
+      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-md flex-shrink-0">
+          <div className="flex-1 min-w-0 mr-4">
+            <h2 className="font-semibold text-foreground truncate text-sm">{currentDoc.nom}</h2>
+            <p className="text-xs text-muted-foreground capitalize">
+              {currentDoc.type_document.replace(/_/g, " ")}
+              {documents.length > 1 && ` • ${currentIndex + 1} / ${documents.length}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleShare}>
+              <Share2 className="h-4.5 w-4.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleDownload}>
+              <Download className="h-4.5 w-4.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onClose}>
               <X className="h-5 w-5" />
             </Button>
           </div>
-        </DialogHeader>
+        </div>
 
-        {/* Content */}
-        <div className="flex-1 relative overflow-hidden bg-muted/30 flex items-center justify-center min-h-0">
+        {/* Content area */}
+        <div className="flex-1 relative overflow-hidden flex items-center justify-center min-h-0">
           {/* Navigation buttons */}
           {documents.length > 1 && (
             <>
@@ -169,16 +200,8 @@ export function DocumentPreview({
             </>
           )}
 
-          {/* Floating Action Buttons */}
-          <div className="absolute bottom-6 right-6 z-20 flex gap-2">
-            <Button
-              variant="secondary"
-              className="shadow-lg gap-2"
-              onClick={handleDownload}
-            >
-              <Download className="h-4 w-4" />
-              Télécharger
-            </Button>
+          {/* Floating Action Button - Transfer */}
+          <div className="absolute bottom-6 right-6 z-20">
             <Button
               className="shadow-lg gap-2"
               onClick={() => setTransferDialogOpen(true)}
@@ -255,7 +278,7 @@ export function DocumentPreview({
 
         {/* Thumbnails bar for multiple documents */}
         {documents.length > 1 && (
-          <div className="border-t p-2 flex-shrink-0">
+          <div className="border-t p-2 flex-shrink-0 bg-background">
             <ScrollArea className="w-full">
               <div className="flex gap-2 pb-1">
                 {documents.map((doc, index) => (
@@ -285,7 +308,7 @@ export function DocumentPreview({
             </ScrollArea>
           </div>
         )}
-      </DialogContent>
+      </div>
 
       {/* Transfer Dialog */}
       <TransferDocumentsDialog
@@ -298,6 +321,6 @@ export function DocumentPreview({
           onClose();
         }}
       />
-    </Dialog>
+    </>
   );
 }
