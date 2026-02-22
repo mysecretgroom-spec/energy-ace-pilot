@@ -1,6 +1,12 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { Quad, WorkerResult } from "../types";
-import { isStable as checkStable } from "../utils/metrics";
+
+/** Number of frames to keep the last good quad visible when detection fails */
+const PERSIST_FRAMES = 12;
+/** Number of stable frames needed before declaring stable */
+const STABLE_THRESHOLD = 4;
+/** Max variance (px²) across recent quads to be considered stable */
+const STABILITY_VARIANCE = 10;
 
 interface WorkerPipelineResult {
   detectedQuad: Quad | null;
@@ -12,15 +18,35 @@ interface WorkerPipelineResult {
   applyFilter: (canvas: HTMLCanvasElement, preset: string) => Promise<{ pixels: Uint8ClampedArray; width: number; height: number }>;
 }
 
+function quadVariance(history: Quad[]): number {
+  if (history.length < 2) return Infinity;
+  const corners = ["topLeft", "topRight", "bottomRight", "bottomLeft"] as const;
+  let maxVar = 0;
+  for (const c of corners) {
+    const xs = history.map((q) => q[c].x);
+    const ys = history.map((q) => q[c].y);
+    const mean = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const variance = (arr: number[]) => {
+      const m = mean(arr);
+      return arr.reduce((s, v) => s + (v - m) ** 2, 0) / arr.length;
+    };
+    maxVar = Math.max(maxVar, variance(xs), variance(ys));
+  }
+  return maxVar;
+}
+
 export function useWorkerPipeline(): WorkerPipelineResult {
   const workerRef = useRef<Worker | null>(null);
-  const [detectedQuad, setDetectedQuad] = useState<Quad | null>(null);
+  const [displayQuad, setDisplayQuad] = useState<Quad | null>(null);
   const [confidence, setConfidence] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const quadHistory = useRef<Quad[]>([]);
   const [stable, setStable] = useState(false);
+
+  const quadHistory = useRef<Quad[]>([]);
+  const missCounter = useRef(0);
+  const lastGoodQuad = useRef<Quad | null>(null);
+  const lastGoodConfidence = useRef(0);
   const pendingCallbacks = useRef<Map<string, (result: any) => void>>(new Map());
-  const callIdRef = useRef(0);
 
   // Initialize worker
   useEffect(() => {
@@ -33,15 +59,44 @@ export function useWorkerPipeline(): WorkerPipelineResult {
       const msg = e.data;
 
       if (msg.type === "detect") {
-        setDetectedQuad(msg.quad);
-        setConfidence(msg.confidence);
         setIsProcessing(false);
 
-        if (msg.quad) {
+        if (msg.quad && msg.confidence > 0.25) {
+          // Good detection — reset miss counter, update history
+          missCounter.current = 0;
+          lastGoodQuad.current = msg.quad;
+          lastGoodConfidence.current = msg.confidence;
+
           quadHistory.current.push(msg.quad);
           if (quadHistory.current.length > 8) quadHistory.current.shift();
-          setStable(checkStable(quadHistory.current));
+
+          // Smooth: average last 3 quads for display
+          const recent = quadHistory.current.slice(-3);
+          const smoothed = smoothQuads(recent);
+          setDisplayQuad(smoothed);
+          setConfidence(msg.confidence);
+
+          // Stability check
+          if (quadHistory.current.length >= STABLE_THRESHOLD) {
+            const v = quadVariance(quadHistory.current.slice(-STABLE_THRESHOLD));
+            setStable(v < STABILITY_VARIANCE);
+          }
         } else {
+          // Detection failed — persist the last good quad for PERSIST_FRAMES
+          missCounter.current++;
+          if (missCounter.current < PERSIST_FRAMES && lastGoodQuad.current) {
+            // Keep showing last good quad with decaying confidence
+            const decay = 1 - missCounter.current / PERSIST_FRAMES;
+            setConfidence(lastGoodConfidence.current * decay);
+            // Don't change displayQuad — keep showing last good
+          } else {
+            // Too many misses — clear
+            setDisplayQuad(null);
+            setConfidence(0);
+            setStable(false);
+            quadHistory.current = [];
+            lastGoodQuad.current = null;
+          }
           setStable(false);
         }
       }
@@ -111,7 +166,7 @@ export function useWorkerPipeline(): WorkerPipelineResult {
   }, []);
 
   return {
-    detectedQuad,
+    detectedQuad: displayQuad,
     isStable: stable,
     confidence,
     isProcessing,
@@ -119,4 +174,18 @@ export function useWorkerPipeline(): WorkerPipelineResult {
     warpImage,
     applyFilter: applyFilterFn,
   };
+}
+
+/** Average multiple quads into one smoothed quad */
+function smoothQuads(quads: Quad[]): Quad {
+  if (quads.length === 1) return quads[0];
+  const corners = ["topLeft", "topRight", "bottomRight", "bottomLeft"] as const;
+  const result: any = {};
+  for (const c of corners) {
+    result[c] = {
+      x: quads.reduce((s, q) => s + q[c].x, 0) / quads.length,
+      y: quads.reduce((s, q) => s + q[c].y, 0) / quads.length,
+    };
+  }
+  return result as Quad;
 }

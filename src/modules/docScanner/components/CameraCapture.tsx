@@ -23,13 +23,14 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
   const [flashVisible, setFlashVisible] = useState(false);
   const detectionIntervalRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const captureCooldownRef = useRef(false);
 
   useEffect(() => {
     startCamera();
     return () => stopCamera();
   }, [startCamera, stopCamera]);
 
-  // Detection loop: ~4fps
+  // Detection loop: ~3.5fps
   useEffect(() => {
     if (!isReady) return;
     const run = () => {
@@ -41,15 +42,20 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         releaseCanvas(small);
       }
     };
-    detectionIntervalRef.current = window.setInterval(run, 280);
+    detectionIntervalRef.current = window.setInterval(run, 300);
     return () => {
       if (detectionIntervalRef.current) clearInterval(detectionIntervalRef.current);
     };
   }, [isReady, captureFrame, detectFromCanvas]);
 
   const handleCapture = useCallback(() => {
+    // Prevent double-tap and accidental rapid captures
+    if (captureCooldownRef.current) return;
+    captureCooldownRef.current = true;
+    setTimeout(() => { captureCooldownRef.current = false; }, 1200);
+
     const frame = captureFrame();
-    if (!frame) return;
+    if (!frame) { captureCooldownRef.current = false; return; }
     hapticFeedback("medium");
     setFlashVisible(true);
     setTimeout(() => setFlashVisible(false), 150);

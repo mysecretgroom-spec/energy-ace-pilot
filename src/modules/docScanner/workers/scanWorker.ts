@@ -231,7 +231,39 @@ function hysteresis(nms: Uint8Array, w: number, h: number, low: number, high: nu
   return out;
 }
 
-// ─── Contour detection (simplified) ───
+/** Merge contours that are spatially close — they likely belong to the same document edge */
+function mergeNearbyContours(contours: Point[][], threshold: number): Point[][] {
+  if (contours.length <= 1) return contours;
+
+  // Compute bounding box center for each contour
+  const centers = contours.map((c) => {
+    const xs = c.map((p) => p.x);
+    const ys = c.map((p) => p.y);
+    return {
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2,
+    };
+  });
+
+  const merged: boolean[] = new Array(contours.length).fill(false);
+  const result: Point[][] = [];
+
+  for (let i = 0; i < contours.length; i++) {
+    if (merged[i]) continue;
+    let group = [...contours[i]];
+    merged[i] = true;
+    for (let j = i + 1; j < contours.length; j++) {
+      if (merged[j]) continue;
+      const d = dist(centers[i], centers[j]);
+      if (d < threshold * 4) {
+        group = group.concat(contours[j]);
+        merged[j] = true;
+      }
+    }
+    result.push(group);
+  }
+  return result;
+}
 
 function findLargestQuadContour(edges: Uint8Array, w: number, h: number): Point[] | null {
   // Find connected components and their bounding contours
@@ -267,7 +299,7 @@ function findLargestQuadContour(edges: Uint8Array, w: number, h: number): Point[
         }
       }
 
-      if (component.length > 50) {
+      if (component.length > 30) {
         contours.push(component);
       }
     }
@@ -275,11 +307,14 @@ function findLargestQuadContour(edges: Uint8Array, w: number, h: number): Point[
 
   if (contours.length === 0) return null;
 
+  // Merge nearby contours that likely belong to the same document edge
+  const merged = mergeNearbyContours(contours, Math.min(w, h) * 0.05);
+
   // Find the contour with largest convex hull area
   let bestQuad: Point[] | null = null;
   let bestArea = 0;
 
-  for (const contour of contours) {
+  for (const contour of merged) {
     const hull = convexHull(contour);
     if (hull.length < 4) continue;
 
@@ -294,7 +329,7 @@ function findLargestQuadContour(edges: Uint8Array, w: number, h: number): Point[
     }
     area = Math.abs(area) / 2;
 
-    if (area > bestArea && area > w * h * 0.03) {
+    if (area > bestArea && area > w * h * 0.02) {
       bestArea = area;
       bestQuad = simplified;
     }
@@ -549,7 +584,10 @@ ctx.onmessage = (e: MessageEvent) => {
     const { magnitude, direction } = sobelEdges(blurred, width, height);
     const threshold = otsuThreshold(magnitude);
     const nms = nonMaxSuppression(magnitude, direction, width, height);
-    const edges = hysteresis(nms, width, height, threshold * 0.4, threshold);
+    // Lower hysteresis thresholds for better sensitivity
+    const lowT = Math.max(threshold * 0.3, 15);
+    const highT = Math.max(threshold * 0.7, 40);
+    const edges = hysteresis(nms, width, height, lowT, highT);
     const quadPoints = findLargestQuadContour(edges, width, height);
 
     if (quadPoints) {
