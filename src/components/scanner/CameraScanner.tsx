@@ -1,6 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, X, RotateCcw, AlertCircle, Upload, Zap, ZapOff, Undo2, Check } from "lucide-react";
+import {
+  Camera, X, RotateCcw, AlertCircle, Upload,
+  Zap, ZapOff, Undo2, Focus, Sun, SunDim,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 import { EdgeOverlay } from "./EdgeOverlay";
@@ -16,11 +19,15 @@ interface CameraScannerProps {
   onCapture: (imageData: string, detectedQuad?: DetectedQuad) => void;
   onCancel: () => void;
   pageCount: number;
-  /** New: multi-page mode — scanner handles pages internally */
   onMultiCapture?: (pages: CapturedPage[]) => void;
 }
 
 type CameraState = "requesting" | "active" | "error" | "denied";
+
+// Blur threshold — below this, image is too blurry
+const BLUR_THRESHOLD = 80;
+// Brightness thresholds
+const LOW_BRIGHTNESS = 60;
 
 function generateThumbnail(dataUrl: string, size = 80): Promise<string> {
   return new Promise((resolve) => {
@@ -32,6 +39,7 @@ function generateThumbnail(dataUrl: string, size = 80): Promise<string> {
       c.width = w; c.height = h;
       c.getContext("2d")!.drawImage(img, 0, 0, w, h);
       resolve(c.toDataURL("image/jpeg", 0.6));
+      c.width = 0; c.height = 0;
     };
     img.onerror = () => resolve(dataUrl);
     img.src = dataUrl;
@@ -52,23 +60,33 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
   const [capturedPages, setCapturedPages] = useState<CapturedPage[]>([]);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const captureCooldownRef = useRef(false);
 
-  // Real-time edge detection
-  const { detectedQuad, isStable, reset } = useRealtimeEdgeDetection({
+  // Real-time edge detection with Canny+Hough
+  const { detectedQuad, isStable, blurScore, brightness, reset } = useRealtimeEdgeDetection({
     videoRef,
     enabled: cameraState === "active" && !isCapturing,
     onStableDetection: (quad) => {
-      if (autoCapture && !isCapturing) {
+      // Auto-capture only if enabled AND image is sharp AND confidence high
+      if (autoCapture && !isCapturing && !captureCooldownRef.current &&
+          blurScore > BLUR_THRESHOLD && quad.confidence > 0.5) {
         performCapture(quad);
       }
     },
   });
+
+  const isBlurry = blurScore > 0 && blurScore < BLUR_THRESHOLD;
+  const isDark = brightness < LOW_BRIGHTNESS;
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    setTorchOn(false);
+    setTorchSupported(false);
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -84,6 +102,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         audio: false,
       });
       streamRef.current = stream;
+
+      // Check torch support
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities?.() as any;
+      if (caps?.torch) setTorchSupported(true);
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -119,6 +143,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
+  // Auto-enable torch in dark conditions
+  useEffect(() => {
+    if (torchSupported && isDark && !torchOn && streamRef.current) {
+      toggleTorch(true);
+    }
+  }, [isDark, torchSupported, torchOn]);
+
   const handleVideoMetadata = useCallback(() => {
     if (videoRef.current) {
       setVideoDimensions({
@@ -128,14 +159,30 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     }
   }, []);
 
+  const toggleTorch = useCallback(async (forceState?: boolean) => {
+    if (!streamRef.current) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    const newState = forceState ?? !torchOn;
+    try {
+      await (track as any).applyConstraints({ advanced: [{ torch: newState }] });
+      setTorchOn(newState);
+    } catch {
+      // torch not supported on this device
+    }
+  }, [torchOn]);
+
   /** Capture frame, auto-crop if quad detected, store as page */
   const performCapture = useCallback(async (quad?: DetectedQuad) => {
-    if (!videoRef.current || !canvasRef.current || isCapturing) return;
-    setIsCapturing(true);
+    if (!videoRef.current || !canvasRef.current || isCapturing || captureCooldownRef.current) return;
+    
+    // Cooldown to prevent burst captures
+    captureCooldownRef.current = true;
+    setTimeout(() => { captureCooldownRef.current = false; }, 1500);
 
+    setIsCapturing(true);
     if (navigator.vibrate) navigator.vibrate(50);
 
-    // Flash
+    // Flash effect
     const flash = document.createElement("div");
     flash.className = "fixed inset-0 bg-white z-[100] pointer-events-none";
     flash.style.animation = "flash 200ms ease-out";
@@ -179,11 +226,17 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
     setCapturedPages((prev) => [...prev, page]);
     setIsCapturing(false);
+    // Batch mode: stay on camera for next page
   }, [isCapturing, reset]);
 
   const handleManualCapture = useCallback(() => {
+    // Block capture if too blurry
+    if (isBlurry) {
+      toast({ title: "Image trop floue", description: "Stabilisez votre appareil", variant: "destructive" });
+      return;
+    }
     performCapture(detectedQuad || undefined);
-  }, [performCapture, detectedQuad]);
+  }, [performCapture, detectedQuad, isBlurry]);
 
   const handleUndo = useCallback(() => {
     setCapturedPages((prev) => prev.slice(0, -1));
@@ -194,7 +247,6 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     if (onMultiCapture && capturedPages.length > 0) {
       onMultiCapture(capturedPages);
     } else if (capturedPages.length > 0) {
-      // Fallback: send first page via legacy onCapture
       onCapture(capturedPages[0].imageData);
     }
   }, [stopCamera, onMultiCapture, onCapture, capturedPages]);
@@ -230,6 +282,46 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   }, []);
 
   const totalPages = pageCount + capturedPages.length;
+
+  // Status message for the detection badge
+  const getStatusBadge = () => {
+    if (isBlurry) {
+      return (
+        <div className="bg-red-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
+          <Focus className="w-3 h-3" />
+          Image floue — stabilisez
+        </div>
+      );
+    }
+    if (isDark) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
+          <SunDim className="w-3 h-3" />
+          Faible luminosité
+        </div>
+      );
+    }
+    if (isStable && detectedQuad && detectedQuad.confidence > 0.5) {
+      return (
+        <div className="bg-teal-500/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          Document détecté ✓
+        </div>
+      );
+    }
+    if (detectedQuad) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+          Détection... {Math.round(detectedQuad.confidence * 100)}%
+        </div>
+      );
+    }
+    return (
+      <div className="bg-black/50 text-white/70 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+        Placez le document dans le cadre
+      </div>
+    );
+  };
 
   // Error/denied states
   if (cameraState === "denied") {
@@ -285,14 +377,28 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
           <X className="h-6 w-6" />
         </Button>
         <div className="flex items-center gap-2">
+          {/* Auto-capture toggle */}
           <Button
             variant="ghost"
             size="icon"
             className={`text-white hover:bg-white/20 ${autoCapture ? "bg-teal-500/30" : ""}`}
             onClick={toggleAutoCapture}
+            title={autoCapture ? "Auto-capture ON" : "Auto-capture OFF"}
           >
             {autoCapture ? <Zap className="h-5 w-5 text-teal-400" /> : <ZapOff className="h-5 w-5" />}
           </Button>
+          {/* Torch toggle */}
+          {torchSupported && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`text-white hover:bg-white/20 ${torchOn ? "bg-amber-500/30" : ""}`}
+              onClick={() => toggleTorch()}
+              title="Flash"
+            >
+              {torchOn ? <Sun className="h-5 w-5 text-amber-400" /> : <SunDim className="h-5 w-5" />}
+            </Button>
+          )}
         </div>
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleSwitchCamera}>
           <RotateCcw className="h-5 w-5" />
@@ -322,19 +428,21 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
           />
         )}
 
-        {/* Guide when no detection */}
-        {!detectedQuad && cameraState === "active" && (
+        {/* Detection status badge */}
+        {cameraState === "active" && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20">
+            {getStatusBadge()}
+          </div>
+        )}
+
+        {/* Guide frame when no detection */}
+        {!detectedQuad && cameraState === "active" && !isBlurry && (
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute inset-8 sm:inset-16 border-2 border-white/30 border-dashed rounded-lg">
               <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-white/50 rounded-tl-lg" />
               <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-white/50 rounded-tr-lg" />
               <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-white/50 rounded-bl-lg" />
               <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-white/50 rounded-br-lg" />
-            </div>
-            <div className="absolute inset-x-0 top-1/3 text-center">
-              <p className="text-white/80 text-sm font-medium bg-black/30 px-4 py-2 rounded-full inline-block">
-                Placez le document dans le cadre
-              </p>
             </div>
           </div>
         )}
@@ -371,7 +479,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         <span className="text-teal-400 text-sm font-semibold tracking-wide">Scanner</span>
       </div>
 
-      {/* Footer controls — iOS style */}
+      {/* Footer controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-8 pb-10 pt-6 bg-gradient-to-t from-black/80 to-transparent">
         {/* Undo last page */}
         <button
@@ -382,19 +490,17 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
           <Undo2 className="h-7 w-7" />
         </button>
 
-        {/* Capture button — teal ring like iOS */}
+        {/* Capture button */}
         <button
           className={`relative h-[72px] w-[72px] rounded-full transition-all ${
             isCapturing ? "scale-90" : ""
-          }`}
+          } ${isBlurry ? "opacity-50" : ""}`}
           onClick={handleManualCapture}
           disabled={cameraState !== "active" || isCapturing}
         >
-          {/* Outer teal ring */}
           <span className={`absolute inset-0 rounded-full border-[4px] transition-colors ${
-            isStable ? "border-teal-400" : "border-white/60"
+            isStable && !isBlurry ? "border-teal-400" : isBlurry ? "border-red-400" : "border-white/60"
           }`} />
-          {/* Inner white circle */}
           <span className="absolute inset-[6px] rounded-full bg-white" />
         </button>
 

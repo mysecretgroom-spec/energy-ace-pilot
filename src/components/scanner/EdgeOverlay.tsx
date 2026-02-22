@@ -12,6 +12,7 @@ interface EdgeOverlayProps {
 
 const TEAL = "#2dd4bf";
 const TEAL_FILL = "rgba(45,212,191,0.12)";
+const STABLE_FILL = "rgba(45,212,191,0.20)";
 
 export function EdgeOverlay({
   quad,
@@ -58,35 +59,36 @@ export function EdgeOverlay({
       width={containerWidth}
       height={containerHeight}
     >
-      {/* Semi-transparent teal fill */}
+      {/* Semi-transparent fill — more opaque when stable */}
       <path
         d={pathD}
-        fill={TEAL_FILL}
+        fill={isStable ? STABLE_FILL : TEAL_FILL}
         stroke={TEAL}
-        strokeWidth={3}
+        strokeWidth={isStable ? 4 : 3}
         strokeLinejoin="round"
-        className="transition-all duration-150"
+        className="transition-all duration-200"
       />
 
-      {/* Corner dots */}
+      {/* Corner dots — larger when stable */}
       {[tl, tr, br, bl].map((point, i) => (
         <circle
           key={i}
           cx={point.x}
           cy={point.y}
-          r={8}
+          r={isStable ? 10 : 8}
           fill={TEAL}
           stroke="white"
           strokeWidth={2}
+          className="transition-all duration-200"
         />
       ))}
 
       {/* Stable indicator badge */}
       {isStable && (
         <g transform={`translate(${(tl.x + tr.x) / 2}, ${Math.max(tl.y, tr.y) - 28})`}>
-          <rect x={-50} y={-12} width={100} height={24} rx={12} fill={TEAL} />
+          <rect x={-60} y={-12} width={120} height={24} rx={12} fill={TEAL} />
           <text x={0} y={5} textAnchor="middle" fill="white" fontSize={11} fontWeight="600">
-            Prêt ✓
+            Prêt à capturer ✓
           </text>
         </g>
       )}
