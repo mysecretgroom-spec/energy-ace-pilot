@@ -283,7 +283,7 @@ export function ReviewDocument({
       return;
     }
 
-    if (!category) {
+    if (!category && context === "finance") {
       toast({
         title: "Erreur",
         description: "Veuillez sélectionner une catégorie",
@@ -364,7 +364,7 @@ export function ReviewDocument({
         .insert([{
           user_id: user.id,
           client_id: relatedClientId || "00000000-0000-0000-0000-000000000000",
-          type_document: context === "finance" ? "facture_frais" : (category as any),
+          type_document: context === "finance" ? "facture_frais" : ((category || "autre") as any),
           nom: title,
           url: fileUrl,
           context_source: context,
@@ -417,9 +417,24 @@ export function ReviewDocument({
           description: `${title} - ${montant.toFixed(2)} €`,
         });
       } else {
+        // Trigger AI classification in background if no category was manually set
+        if (context === "client_docs" && (!category || category === "autre") && docData?.id) {
+          try {
+            await supabase.from("background_jobs").insert({
+              user_id: user.id,
+              job_type: "ai_classify_document",
+              payload: { document_id: docData.id, client_id: relatedClientId },
+              priority: 5,
+            });
+          } catch (err) {
+            console.warn("Failed to queue AI classification:", err);
+          }
+        }
         toast({
           title: "Document enregistré",
-          description: title,
+          description: !category || category === "autre"
+            ? `${title} — classification IA en cours...`
+            : title,
         });
       }
 
@@ -593,21 +608,27 @@ export function ReviewDocument({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Catégorie *</Label>
+              <Label htmlFor="category">
+                Catégorie {context === "finance" ? "*" : ""}
+              </Label>
+              {context === "client_docs" && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  Optionnel — l'IA classifiera automatiquement le document
+                </p>
+              )}
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une catégorie" />
+                  <SelectValue placeholder={context === "client_docs" ? "Auto (classifié par l'IA)" : "Sélectionner une catégorie"} />
                 </SelectTrigger>
                 <SelectContent className="z-[70] bg-popover max-h-80">
                   {context === "finance" ? (
-                    // Simple list for finance categories
                     FINANCE_CATEGORIES.map((cat) => (
                       <SelectItem key={cat.value} value={cat.value}>
                         {cat.label}
                       </SelectItem>
                     ))
                   ) : (
-                    // Grouped categories for client documents
                     Array.from(getGroupedCategories().entries()).map(([groupName, cats]) => (
                       <SelectGroup key={groupName}>
                         <SelectLabel className="text-xs font-semibold text-muted-foreground">
