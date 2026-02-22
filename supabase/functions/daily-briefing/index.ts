@@ -22,7 +22,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all active users with profiles
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("user_id, first_name");
@@ -40,7 +39,6 @@ serve(async (req) => {
 
     for (const profile of profiles || []) {
       try {
-        // Get today's RDVs for this user
         const { data: rdvs, error: rdvsError } = await supabase
           .from("rdv")
           .select(`
@@ -51,12 +49,14 @@ serve(async (req) => {
               adresse,
               ville,
               code_postal,
-              telephone
+              telephone,
+              notes
             )
           `)
           .eq("user_id", profile.user_id)
           .gte("date_heure", todayStr)
           .lt("date_heure", tomorrowStr)
+          .not("status", "in", '("annule","reporte")')
           .order("date_heure", { ascending: true });
 
         if (rdvsError) {
@@ -64,28 +64,38 @@ serve(async (req) => {
           continue;
         }
 
-        // Skip if no RDVs today
         if (!rdvs || rdvs.length === 0) {
           console.log(`No RDVs today for user ${profile.user_id}`);
           continue;
         }
 
-        // Check for alerts
+        // Compute inter-RDV distances
+        const interDistances: { toCity: string; km: number; minutes: number }[] = [];
+        for (let i = 1; i < rdvs.length; i++) {
+          const prev = rdvs[i - 1];
+          const curr = rdvs[i];
+          if (prev.latitude && prev.longitude && curr.latitude && curr.longitude) {
+            const km = haversineKm(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+            const estimatedKm = Math.round(km * 1.3);
+            const estimatedMin = Math.round(estimatedKm / 60 * 60);
+            interDistances.push({
+              toCity: curr.clients?.ville || "?",
+              km: estimatedKm,
+              minutes: estimatedMin,
+            });
+          } else {
+            interDistances.push({ toCity: curr.clients?.ville || "?", km: 0, minutes: 0 });
+          }
+        }
+
+        // Alerts
         const alerts: string[] = [];
-        
-        // Check for pending status RDVs
-        const pendingRdvs = rdvs.filter(r => r.status === "a_confirmer");
-        if (pendingRdvs.length > 0) {
-          alerts.push(`⚠️ ${pendingRdvs.length} RDV à confirmer`);
-        }
-
-        // Check for RDVs without address
+        const pendingRdvs = rdvs.filter(r => r.status === "a_confirmer" || r.status === "nouveau");
+        if (pendingRdvs.length > 0) alerts.push(`⚠️ ${pendingRdvs.length} RDV à confirmer`);
         const noAddressRdvs = rdvs.filter(r => !r.adresse && !r.clients?.adresse);
-        if (noAddressRdvs.length > 0) {
-          alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
-        }
+        if (noAddressRdvs.length > 0) alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
 
-        // Calculate total distance
+        // Calculate totals
         const totalDistance = rdvs.reduce((sum, r) => sum + (r.distance_km || 0), 0);
         const totalTravelTime = rdvs.reduce((sum, r) => sum + (r.travel_time_minutes || 0), 0);
 
@@ -96,56 +106,60 @@ serve(async (req) => {
 
         let briefingTitle = `☀️ Bonjour ${firstName} !`;
         
-        let briefingBody = `📅 ${dayName} ${dateFormatted}\n`;
+        let briefingBody = `📅 ${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${dateFormatted}\n`;
         briefingBody += `📍 ${rdvs.length} RDV aujourd'hui`;
         
-        if (totalDistance > 0) {
-          briefingBody += ` • ${Math.round(totalDistance)} km`;
-        }
-        if (totalTravelTime > 0) {
-          briefingBody += ` • ${Math.round(totalTravelTime)} min de route`;
-        }
+        if (totalDistance > 0) briefingBody += ` • ${Math.round(totalDistance)} km`;
+        if (totalTravelTime > 0) briefingBody += ` • ~${Math.round(totalTravelTime)} min de route`;
         briefingBody += "\n\n";
 
-        // Add RDV details
-        for (const rdv of rdvs) {
+        // Alerts
+        if (alerts.length > 0) briefingBody += alerts.join("\n") + "\n\n";
+
+        // RDV details with inter-distances and summaries
+        for (let i = 0; i < rdvs.length; i++) {
+          const rdv = rdvs[i];
           const time = new Date(rdv.date_heure).toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
+            hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
           });
           const clientName = rdv.clients 
             ? `${rdv.clients.prenom || ""} ${rdv.clients.nom}`.trim()
             : "Client";
           const city = rdv.clients?.ville || "";
           
-          let rdvLine = `⏰ ${time} - ${clientName}`;
+          // Status icon
+          const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
+            rdv.status === "confirme" ? "✅ " : "";
+
+          let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
           if (city) rdvLine += ` (${city})`;
-          if (rdv.distance_km) rdvLine += ` • ${Math.round(rdv.distance_km)} km`;
-          
-          // Status indicator
-          if (rdv.status === "a_confirmer") {
-            rdvLine = "⚠️ " + rdvLine;
-          } else if (rdv.status === "confirme") {
-            rdvLine = "✅ " + rdvLine;
-          }
-          
           briefingBody += rdvLine + "\n";
+
+          // RDV summary from import
+          const summary = buildRdvSummary(rdv);
+          if (summary) {
+            briefingBody += `   📋 ${summary}\n`;
+          }
+
+          // Inter-RDV distance
+          if (i < rdvs.length - 1 && i < interDistances.length) {
+            const d = interDistances[i];
+            if (d.km > 0) {
+              briefingBody += `   🚗 → ${d.km} km • ~${d.minutes} min vers ${d.toCity}\n`;
+            }
+          }
+
+          briefingBody += "\n";
         }
 
-        // Add alerts
-        if (alerts.length > 0) {
-          briefingBody += "\n" + alerts.join("\n");
-        }
-
-        // Add motivational message
+        // Motivational
         const motivationalMessages = [
           "🚀 Bonne journée !",
           "💪 C'est parti !",
           "🔥 Aujourd'hui va être une bonne journée !",
           "✨ Faisons de cette journée un succès !",
         ];
-        const randomMotivation = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-        briefingBody += "\n\n" + randomMotivation;
+        briefingBody += motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
 
         // Send notification via OneSignal
         if (ONESIGNAL_APP_ID && ONESIGNAL_REST_API_KEY) {
@@ -181,7 +195,7 @@ serve(async (req) => {
           });
         }
 
-        // Also save to notifications table for in-app display
+        // Save to notifications table
         await supabase.from("notifications").insert({
           user_id: profile.user_id,
           type: "rappel",
@@ -190,7 +204,7 @@ serve(async (req) => {
           date_envoi: new Date().toISOString(),
         });
 
-        // Send via WhatsApp proactively if user has phone and setting enabled
+        // Send via WhatsApp
         const { data: userSettings } = await supabase
           .from("user_settings")
           .select("daily_briefing_whatsapp")
@@ -209,6 +223,12 @@ serve(async (req) => {
             if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
             if (!phone.startsWith("+")) phone = `+${phone}`;
 
+            // Truncate for WhatsApp 1500 char limit
+            let whatsappBody = `${briefingTitle}\n\n${briefingBody}`;
+            if (whatsappBody.length > 1500) {
+              whatsappBody = whatsappBody.slice(0, 1497) + "...";
+            }
+
             const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
             const whatsappResp = await fetch(twilioUrl, {
               method: "POST",
@@ -219,7 +239,7 @@ serve(async (req) => {
               body: new URLSearchParams({
                 From: TWILIO_WHATSAPP_NUMBER,
                 To: `whatsapp:${phone}`,
-                Body: `${briefingTitle}\n\n${briefingBody}`,
+                Body: whatsappBody,
               }).toString(),
             });
             const whatsappRes = await whatsappResp.json();
@@ -258,3 +278,50 @@ serve(async (req) => {
     );
   }
 });
+
+// --- Helpers ---
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Extract a concise summary from RDV commentaire + metadata (gmail import info) */
+function buildRdvSummary(rdv: any): string | null {
+  const parts: string[] = [];
+
+  if (rdv.type_projet && rdv.type_projet !== "photovoltaique") {
+    parts.push(rdv.type_projet.toUpperCase());
+  }
+
+  const meta = rdv.metadata as Record<string, any> | null;
+  if (meta) {
+    if (meta.source_regie) parts.push(`Régie: ${meta.source_regie}`);
+    if (meta.chauffage) parts.push(`Chauffage: ${meta.chauffage}`);
+    if (meta.equipements) parts.push(meta.equipements);
+    if (meta.revenus_fiscaux) parts.push(`RFR: ${meta.revenus_fiscaux}€`);
+    if (meta.nombre_personnes) parts.push(`${meta.nombre_personnes} pers.`);
+    if (meta.surface) parts.push(`${meta.surface}m²`);
+    if (meta.needs_completion) {
+      const missing = meta.missing_fields;
+      if (Array.isArray(missing) && missing.length > 0) {
+        parts.push(`⚠️ Manque: ${missing.join(", ")}`);
+      }
+    }
+  }
+
+  if (rdv.commentaire) {
+    const comment = rdv.commentaire.trim();
+    if (comment.length > 0) {
+      const short = comment.length > 100 ? comment.slice(0, 97) + "..." : comment;
+      parts.push(short);
+    }
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : null;
+}
