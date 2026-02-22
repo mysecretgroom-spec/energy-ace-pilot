@@ -324,32 +324,42 @@ function buildRdvSummary(rdv: any): string | null {
   return parts.length > 0 ? parts.join(" • ") : null;
 }
 
-/** Split a long message into chunks that respect WhatsApp's char limit, splitting on line breaks */
+/**
+ * Smart split for WhatsApp briefing messages.
+ * Splits on RDV blocks (delimited by double newlines) so each RDV stays intact.
+ */
 function splitWhatsAppMessage(text: string, maxLen: number): string[] {
   if (text.length <= maxLen) return [text];
-  
+
+  const blocks = text.split("\n\n");
   const chunks: string[] = [];
-  const lines = text.split("\n");
   let current = "";
 
-  for (const line of lines) {
-    if (current.length + line.length + 1 > maxLen && current.length > 0) {
+  for (const block of blocks) {
+    const candidate = current.length > 0 ? current + "\n\n" + block : block;
+    
+    if (candidate.length > maxLen && current.length > 0) {
       chunks.push(current.trimEnd());
-      current = "";
-    }
-    if (line.length > maxLen) {
-      if (current.length > 0) {
-        chunks.push(current.trimEnd());
-        current = "";
-      }
-      for (let i = 0; i < line.length; i += maxLen) {
-        chunks.push(line.slice(i, i + maxLen));
-      }
+      current = block;
     } else {
-      current += (current.length > 0 ? "\n" : "") + line;
+      current = candidate;
+    }
+
+    if (current.length > maxLen) {
+      const lines = current.split("\n");
+      current = "";
+      for (const line of lines) {
+        const lineCandidate = current.length > 0 ? current + "\n" + line : line;
+        if (lineCandidate.length > maxLen && current.length > 0) {
+          chunks.push(current.trimEnd());
+          current = line;
+        } else {
+          current = lineCandidate;
+        }
+      }
     }
   }
   if (current.length > 0) chunks.push(current.trimEnd());
-  
+
   return chunks;
 }
