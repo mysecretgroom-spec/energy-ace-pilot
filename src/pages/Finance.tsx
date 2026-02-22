@@ -245,6 +245,8 @@ const Finance = () => {
     categorie: "autre",
     description: "",
     date_frais: new Date().toISOString().split("T")[0],
+    date_debut: "",
+    date_fin: "",
   });
   
   // Edit/Delete state
@@ -257,6 +259,8 @@ const Finance = () => {
     categorie: "autre",
     description: "",
     date_frais: "",
+    date_debut: "",
+    date_fin: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -841,6 +845,8 @@ const Finance = () => {
         categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
         description: newFrais.description || null,
         date_frais: newFrais.date_frais,
+        date_debut: newFrais.date_debut || null,
+        date_fin: newFrais.date_fin || null,
       });
 
       if (error) throw error;
@@ -852,6 +858,8 @@ const Finance = () => {
         categorie: "autre",
         description: "",
         date_frais: new Date().toISOString().split("T")[0],
+        date_debut: "",
+        date_fin: "",
       });
     } catch (err) {
       console.error("Error adding frais:", err);
@@ -868,6 +876,8 @@ const Finance = () => {
       categorie: frais.categorie,
       description: frais.description || "",
       date_frais: frais.date_frais,
+      date_debut: frais.date_debut || "",
+      date_fin: frais.date_fin || "",
     });
     setEditDialogOpen(true);
   };
@@ -887,6 +897,8 @@ const Finance = () => {
           categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
           description: editForm.description || null,
           date_frais: editForm.date_frais,
+          date_debut: editForm.date_debut || null,
+          date_fin: editForm.date_fin || null,
         })
         .eq("id", editingFrais.id);
 
@@ -1608,6 +1620,32 @@ const Finance = () => {
                       onChange={(e) => setNewFrais(prev => ({ ...prev, date_frais: e.target.value }))}
                     />
                   </div>
+
+                  {(newFrais.categorie === "hotel" || newFrais.categorie === "location_vehicule") && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="date_debut">Date début</Label>
+                        <Input
+                          id="date_debut"
+                          type="date"
+                          value={newFrais.date_debut}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, date_debut: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date_fin">Date fin</Label>
+                        <Input
+                          id="date_fin"
+                          type="date"
+                          value={newFrais.date_fin}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, date_fin: e.target.value }))}
+                        />
+                      </div>
+                      <p className="col-span-2 text-xs text-muted-foreground">
+                        Le montant sera réparti au prorata sur la période
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="description">Description (optionnel)</Label>
@@ -1691,6 +1729,32 @@ const Finance = () => {
                       onChange={(e) => setEditForm(prev => ({ ...prev, date_frais: e.target.value }))}
                     />
                   </div>
+
+                  {(editForm.categorie === "hotel" || editForm.categorie === "location_vehicule") && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-date_debut">Date début</Label>
+                        <Input
+                          id="edit-date_debut"
+                          type="date"
+                          value={editForm.date_debut}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, date_debut: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-date_fin">Date fin</Label>
+                        <Input
+                          id="edit-date_fin"
+                          type="date"
+                          value={editForm.date_fin}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, date_fin: e.target.value }))}
+                        />
+                      </div>
+                      <p className="col-span-2 text-xs text-muted-foreground">
+                        Le montant sera réparti au prorata sur la période
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="edit-description">Description (optionnel)</Label>
