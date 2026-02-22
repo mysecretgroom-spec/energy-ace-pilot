@@ -47,7 +47,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [autoCapture, setAutoCapture] = useState(true);
+  const [autoCapture, setAutoCapture] = useState(false);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
