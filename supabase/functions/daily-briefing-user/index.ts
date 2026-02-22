@@ -34,32 +34,27 @@ serve(async (req) => {
 
     // Fetch everything in parallel
     const [profileRes, rdvsRes, ventesWeekRes, ventesMonthRes, rdvsWeekRes] = await Promise.all([
-      // User profile
       supabase.from("profiles").select("first_name").eq("user_id", userId).single(),
-      // Today's RDVs (exclude annulé & reporté)
       supabase
         .from("rdv")
-        .select(`*, clients (nom, prenom, adresse, ville, code_postal, telephone)`)
+        .select(`*, clients (nom, prenom, adresse, ville, code_postal, telephone, notes)`)
         .eq("user_id", userId)
         .gte("date_heure", todayStr)
         .lt("date_heure", tomorrowStr)
         .not("status", "in", '("annule","reporte")')
         .order("date_heure", { ascending: true }),
-      // Ventes this week (for CA tracking)
       supabase
         .from("ventes")
         .select("montant_ttc, puissance_kwc, product_type, status, created_at")
         .eq("user_id", userId)
         .gte("created_at", getMonday(today))
         .not("status", "eq", "annule"),
-      // Ventes this month
       supabase
         .from("ventes")
         .select("montant_ttc, puissance_kwc, status")
         .eq("user_id", userId)
         .gte("created_at", `${todayStr.slice(0, 7)}-01`)
         .not("status", "eq", "annule"),
-      // RDVs this week (for conversion rate)
       supabase
         .from("rdv")
         .select("status")
@@ -79,12 +74,31 @@ serve(async (req) => {
     const weekCA = ventesWeek.reduce((s, v) => s + (v.montant_ttc || 0), 0);
     const weekKwc = ventesWeek.reduce((s, v) => s + (v.puissance_kwc || 0), 0);
     const monthCA = ventesMonth.reduce((s, v) => s + (v.montant_ttc || 0), 0);
-    const weekSigned = ventesWeek.filter(v => v.status === "en_installation" || v.status === "installe" || v.status === "paye" || v.status === "attente_paiement").length;
+    const weekSigned = ventesWeek.filter(v => ["en_installation", "installe", "paye", "attente_paiement"].includes(v.status)).length;
 
     const weekRdvsDone = rdvsWeek.filter(r => ["signe", "negatif", "r2", "r2_prestudy"].includes(r.status)).length;
     const weekConversion = weekRdvsDone > 0 ? Math.round((weekSigned / weekRdvsDone) * 100) : null;
 
     const pendingPayment = ventesMonth.filter(v => v.status === "attente_paiement").length;
+
+    // --- Compute inter-RDV distances ---
+    const interDistances: { fromCity: string; toCity: string; km: number; minutes: number }[] = [];
+    for (let i = 1; i < rdvs.length; i++) {
+      const prev = rdvs[i - 1];
+      const curr = rdvs[i];
+      if (prev.latitude && prev.longitude && curr.latitude && curr.longitude) {
+        const km = haversineKm(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+        // Estimate driving time: ~1.3x straight-line, 60km/h average
+        const estimatedKm = Math.round(km * 1.3);
+        const estimatedMin = Math.round(estimatedKm / 60 * 60);
+        interDistances.push({
+          fromCity: prev.clients?.ville || "?",
+          toCity: curr.clients?.ville || "?",
+          km: estimatedKm,
+          minutes: estimatedMin,
+        });
+      }
+    }
 
     // --- Build briefing ---
     const firstName = profile?.first_name || "Commercial";
@@ -141,8 +155,9 @@ serve(async (req) => {
       if (noAddressRdvs.length > 0) alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
       if (alerts.length > 0) briefingBody += alerts.join("\n") + "\n\n";
 
-      // RDV list
-      for (const rdv of rdvs) {
+      // RDV list with inter-distances and summaries
+      for (let i = 0; i < rdvs.length; i++) {
+        const rdv = rdvs[i];
         const time = new Date(rdv.date_heure).toLocaleTimeString("fr-FR", {
           hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
         });
@@ -151,13 +166,27 @@ serve(async (req) => {
           : "Client";
         const city = rdv.clients?.ville || "";
 
-        let rdvLine = `⏰ ${time} - ${clientName}`;
-        if (city) rdvLine += ` (${city})`;
-
         // Status icon
         const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
           rdv.status === "confirme" ? "✅ " : "";
-        briefingBody += statusIcon + rdvLine + "\n";
+
+        let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
+        if (city) rdvLine += ` (${city})`;
+        briefingBody += rdvLine + "\n";
+
+        // RDV summary from import (commentaire + metadata)
+        const summary = buildRdvSummary(rdv);
+        if (summary) {
+          briefingBody += `   📋 ${summary}\n`;
+        }
+
+        // Inter-RDV distance to next
+        if (i < rdvs.length - 1 && i < interDistances.length) {
+          const d = interDistances[i];
+          briefingBody += `   🚗 → ${d.km} km • ~${d.minutes} min vers ${d.toCity}\n`;
+        }
+
+        briefingBody += "\n";
       }
     }
 
@@ -168,7 +197,7 @@ serve(async (req) => {
       "🔥 Aujourd'hui est une opportunité !",
       "✨ Transforme cette journée en succès !",
     ];
-    briefingBody += "\n" + motivational[Math.floor(Math.random() * motivational.length)];
+    briefingBody += motivational[Math.floor(Math.random() * motivational.length)];
 
     // Send OneSignal notification
     let notificationResult = null;
@@ -240,4 +269,57 @@ function formatEuro(amount: number): string {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Extract a concise summary from RDV commentaire + metadata (gmail import info) */
+function buildRdvSummary(rdv: any): string | null {
+  const parts: string[] = [];
+
+  // Type de projet
+  if (rdv.type_projet && rdv.type_projet !== "photovoltaique") {
+    parts.push(rdv.type_projet.toUpperCase());
+  }
+
+  // Extract key info from metadata (gmail import data)
+  const meta = rdv.metadata as Record<string, any> | null;
+  if (meta) {
+    // Source / régie
+    if (meta.source_regie) parts.push(`Régie: ${meta.source_regie}`);
+    // Type chauffage / équipements
+    if (meta.chauffage) parts.push(`Chauffage: ${meta.chauffage}`);
+    if (meta.equipements) parts.push(meta.equipements);
+    // Budget / revenus
+    if (meta.revenus_fiscaux) parts.push(`RFR: ${meta.revenus_fiscaux}€`);
+    if (meta.nombre_personnes) parts.push(`${meta.nombre_personnes} pers.`);
+    // Surface
+    if (meta.surface) parts.push(`${meta.surface}m²`);
+    // Missing fields warning
+    if (meta.needs_completion) {
+      const missing = meta.missing_fields;
+      if (Array.isArray(missing) && missing.length > 0) {
+        parts.push(`⚠️ Manque: ${missing.join(", ")}`);
+      }
+    }
+  }
+
+  // Commentaire (trimmed, first 100 chars)
+  if (rdv.commentaire) {
+    const comment = rdv.commentaire.trim();
+    if (comment.length > 0) {
+      const short = comment.length > 100 ? comment.slice(0, 97) + "..." : comment;
+      parts.push(short);
+    }
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : null;
 }
