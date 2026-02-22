@@ -5,53 +5,109 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface GeocodeRequest {
-  address: string;
-}
-
 interface GeocodeResponse {
   latitude: number;
   longitude: number;
   formatted_address?: string;
   corrected?: boolean;
-  approximate?: boolean; // true if geocoded by city/postal code only, not exact address
+  approximate?: boolean;
   original_address?: string;
   correction_applied?: string;
 }
 
-// Geocode an address using Nominatim
-async function geocodeWithNominatim(address: string): Promise<{ lat: number; lon: number; display_name: string } | null> {
-  const encodedAddress = encodeURIComponent(address);
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1&countrycodes=fr`,
-    {
-      headers: {
-        "User-Agent": "SolarFlow-CRM/1.0",
-      },
-    }
-  );
+interface NominatimResult {
+  lat: number;
+  lon: number;
+  display_name: string;
+  address?: {
+    postcode?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+  };
+}
 
+// Geocode with Nominatim, returning multiple results for validation
+async function geocodeNominatim(query: string, limit = 5): Promise<NominatimResult[]> {
+  const encoded = encodeURIComponent(query);
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=${limit}&countrycodes=fr&addressdetails=1`,
+    { headers: { "User-Agent": "SolarFlow-CRM/1.0" } }
+  );
   const data = await response.json();
+  if (!data || !Array.isArray(data)) return [];
+  return data.map((r: any) => ({
+    lat: parseFloat(r.lat),
+    lon: parseFloat(r.lon),
+    display_name: r.display_name,
+    address: r.address,
+  }));
+}
+
+// Extract the department prefix from a postal code (first 2 digits, or 3 for DOM-TOM)
+function getDepartment(postalCode: string): string {
+  if (postalCode.startsWith("97") || postalCode.startsWith("98")) return postalCode.substring(0, 3);
+  return postalCode.substring(0, 2);
+}
+
+// Check if a Nominatim result matches the expected postal code
+function matchesPostalCode(result: NominatimResult, expectedPostal: string): boolean {
+  const resultPostal = result.address?.postcode;
+  if (!resultPostal || !expectedPostal) return false;
+  // Exact match
+  if (resultPostal === expectedPostal) return true;
+  // Same department (first 2 digits) — close enough for nearby communes
+  return getDepartment(resultPostal) === getDepartment(expectedPostal);
+}
+
+// Check if the result's city name fuzzy-matches the expected city
+function matchesCity(result: NominatimResult, expectedCity: string): boolean {
+  if (!expectedCity) return false;
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_']/g, " ").trim();
+  const expected = normalize(expectedCity);
+  const candidates = [
+    result.address?.city,
+    result.address?.town,
+    result.address?.village,
+    result.address?.municipality,
+  ].filter(Boolean).map(c => normalize(c!));
   
-  if (data && data.length > 0) {
-    return {
-      lat: parseFloat(data[0].lat),
-      lon: parseFloat(data[0].lon),
-      display_name: data[0].display_name,
-    };
+  return candidates.some(c => c === expected || c.includes(expected) || expected.includes(c));
+}
+
+// Score a result: higher = better match to expected city/postal
+function scoreResult(result: NominatimResult, city?: string, postalCode?: string): number {
+  let score = 0;
+  if (postalCode) {
+    const resultPostal = result.address?.postcode;
+    if (resultPostal === postalCode) score += 100;
+    else if (resultPostal && getDepartment(resultPostal) === getDepartment(postalCode)) score += 50;
+    else score -= 200; // Wrong department = very bad
   }
-  
+  if (city && matchesCity(result, city)) score += 80;
+  return score;
+}
+
+// Pick the best result that matches city/postal constraints
+function pickBestResult(results: NominatimResult[], city?: string, postalCode?: string): NominatimResult | null {
+  if (results.length === 0) return null;
+  if (!city && !postalCode) return results[0]; // No constraints, take first
+
+  const scored = results.map(r => ({ result: r, score: scoreResult(r, city, postalCode) }));
+  scored.sort((a, b) => b.score - a.score);
+
+  // Only accept if the best has a reasonable score (at least matching department)
+  if (scored[0].score >= 50) return scored[0].result;
+
+  // If no good match, return null to trigger fallback
   return null;
 }
 
 // Use AI to correct the address
 async function correctAddressWithAI(address: string): Promise<{ correctedAddress: string; correction: string } | null> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  
-  if (!LOVABLE_API_KEY) {
-    console.log("[Geocode] LOVABLE_API_KEY not configured, skipping AI correction");
-    return null;
-  }
+  if (!LOVABLE_API_KEY) return null;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -65,93 +121,44 @@ async function correctAddressWithAI(address: string): Promise<{ correctedAddress
         messages: [
           {
             role: "system",
-            content: `Tu es un expert en adresses françaises. Quand une adresse ne peut pas être géocodée, tu dois analyser les erreurs possibles et proposer une correction.
-
-Erreurs courantes:
-- Fautes de frappe dans le nom de rue
-- Code postal incorrect ou inversé
-- Ville mal orthographiée
-- Rue qui n'existe pas dans cette ville
-- Abréviations mal comprises (Bd, Av, Rue, etc.)
-
-Tu dois retourner UNIQUEMENT un objet JSON valide avec:
-- "corrected_address": l'adresse corrigée complète
-- "correction": une brève explication de la correction
-
-Si tu ne peux pas corriger l'adresse, retourne null.`,
+            content: `Tu es un expert en adresses françaises. Corrige l'adresse pour qu'elle soit géocodable.
+Retourne UNIQUEMENT un JSON: {"corrected_address": "...", "correction": "..."}
+Si tu ne peux pas corriger, retourne null.`,
           },
           {
             role: "user",
-            content: `L'adresse suivante n'a pas pu être géocodée en France. Analyse et corrige si possible:
-
-"${address}"
-
-Retourne UNIQUEMENT le JSON, sans markdown ni explication.`,
+            content: `Adresse non trouvée: "${address}"\nRetourne UNIQUEMENT le JSON.`,
           },
         ],
         temperature: 0.1,
       }),
     });
-
-    if (!response.ok) {
-      console.error("[Geocode AI] API error:", response.status);
-      return null;
-    }
-
+    if (!response.ok) return null;
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-
-    if (!content) {
-      return null;
+    if (!content) return null;
+    const clean = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const parsed = JSON.parse(clean);
+    if (parsed?.corrected_address && parsed.corrected_address !== address) {
+      return { correctedAddress: parsed.corrected_address, correction: parsed.correction || "Correction auto" };
     }
-
-    // Parse JSON response
-    try {
-      // Remove potential markdown code blocks
-      const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const parsed = JSON.parse(cleanContent);
-      
-      if (parsed && parsed.corrected_address && parsed.corrected_address !== address) {
-        return {
-          correctedAddress: parsed.corrected_address,
-          correction: parsed.correction || "Correction automatique",
-        };
-      }
-    } catch (parseError) {
-      console.error("[Geocode AI] JSON parse error:", parseError, "Content:", content);
-    }
-
     return null;
-  } catch (error) {
-    console.error("[Geocode AI] Error:", error);
-    return null;
-  }
+  } catch { return null; }
 }
 
-// Build a simplified address with just city and postal code for fallback
-function buildCityFallbackAddress(address: string): string | null {
-  // Extract postal code (5 digits)
-  const postalCodeMatch = address.match(/\b(\d{5})\b/);
-  if (!postalCodeMatch) return null;
-  
-  const postalCode = postalCodeMatch[1];
-  
-  // Try to extract city name (usually after postal code or as last capitalized word group)
-  const parts = address.split(/[,\n]+/).map(p => p.trim()).filter(Boolean);
-  
-  // Look for the part containing the postal code and extract city
-  for (const part of parts) {
-    if (part.includes(postalCode)) {
-      // Extract city name after postal code
-      const afterPostal = part.split(postalCode)[1]?.trim();
-      if (afterPostal && afterPostal.length > 2) {
-        return `${postalCode} ${afterPostal}, France`;
-      }
-    }
-  }
-  
-  // Fallback: just use postal code
-  return `${postalCode}, France`;
+function makeResponse(result: NominatimResult, opts: Partial<GeocodeResponse> = {}): Response {
+  const body: GeocodeResponse = {
+    latitude: result.lat,
+    longitude: result.lon,
+    formatted_address: result.display_name,
+    corrected: false,
+    approximate: false,
+    ...opts,
+  };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
 }
 
 serve(async (req) => {
@@ -169,123 +176,107 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[Geocode] Trying to geocode: "${address}"`);
+    console.log(`[Geocode] Input: address="${address}" city="${city || ""}" cp="${postal_code || ""}"`);
 
-    // First attempt: geocode the original address
-    let geocodeResult = await geocodeWithNominatim(address);
+    // ──────────────────────────────────────────────────────────────
+    // Step 1: Full address search, validate against city/postal
+    // ──────────────────────────────────────────────────────────────
+    const fullResults = await geocodeNominatim(address);
+    const bestFull = pickBestResult(fullResults, city, postal_code);
 
-    if (geocodeResult) {
-      console.log(`[Geocode] Success on first attempt`);
-      const result: GeocodeResponse = {
-        latitude: geocodeResult.lat,
-        longitude: geocodeResult.lon,
-        formatted_address: geocodeResult.display_name,
-        corrected: false,
-        approximate: false,
-      };
-
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+    if (bestFull) {
+      console.log(`[Geocode] ✓ Full address match: ${bestFull.display_name}`);
+      return makeResponse(bestFull);
     }
 
-    console.log(`[Geocode] First attempt failed, trying AI correction...`);
-
-    // Second attempt: use AI to correct the address
-    const aiCorrection = await correctAddressWithAI(address);
-
-    if (aiCorrection) {
-      console.log(`[Geocode] AI suggested: "${aiCorrection.correctedAddress}" (${aiCorrection.correction})`);
+    // ──────────────────────────────────────────────────────────────
+    // Step 2: Try "street, city postal_code" structured query
+    // ──────────────────────────────────────────────────────────────
+    if (city && postal_code) {
+      // Extract street part (remove postal/city from address if present)
+      const streetPart = address
+        .replace(new RegExp(postal_code, "g"), "")
+        .replace(new RegExp(city, "gi"), "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
       
-      // Try geocoding the corrected address
-      geocodeResult = await geocodeWithNominatim(aiCorrection.correctedAddress);
+      if (streetPart.length > 3) {
+        const structured = `${streetPart}, ${postal_code} ${city}`;
+        console.log(`[Geocode] Trying structured: "${structured}"`);
+        const structuredResults = await geocodeNominatim(structured);
+        const bestStructured = pickBestResult(structuredResults, city, postal_code);
+        if (bestStructured) {
+          console.log(`[Geocode] ✓ Structured match: ${bestStructured.display_name}`);
+          return makeResponse(bestStructured, { corrected: true, correction_applied: "Recherche structurée ville+CP" });
+        }
+      }
+    }
 
-      if (geocodeResult) {
-        console.log(`[Geocode] Success with corrected address!`);
-        const result: GeocodeResponse = {
-          latitude: geocodeResult.lat,
-          longitude: geocodeResult.lon,
-          formatted_address: geocodeResult.display_name,
+    // ──────────────────────────────────────────────────────────────
+    // Step 3: AI correction attempt
+    // ──────────────────────────────────────────────────────────────
+    console.log(`[Geocode] Trying AI correction...`);
+    const aiCorrection = await correctAddressWithAI(address);
+    if (aiCorrection) {
+      console.log(`[Geocode] AI suggested: "${aiCorrection.correctedAddress}"`);
+      const aiResults = await geocodeNominatim(aiCorrection.correctedAddress);
+      const bestAi = pickBestResult(aiResults, city, postal_code);
+      if (bestAi) {
+        console.log(`[Geocode] ✓ AI-corrected match: ${bestAi.display_name}`);
+        return makeResponse(bestAi, {
           corrected: true,
-          approximate: false,
           original_address: address,
           correction_applied: aiCorrection.correction,
-        };
-
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
     }
 
-    // Third attempt: try with just city and postal code (simplified)
-    const postalCodeMatch = address.match(/\b(\d{5})\b/);
-    if (postalCodeMatch) {
-      const postalCode = postalCodeMatch[1];
-      const simplifiedAddress = address.replace(/^\d+\s*,?\s*/g, "").trim(); // Remove house number
-      
-      console.log(`[Geocode] Trying simplified: "${simplifiedAddress}"`);
-      geocodeResult = await geocodeWithNominatim(simplifiedAddress);
-      
-      if (geocodeResult) {
-        console.log(`[Geocode] Success with simplified address`);
-        const result: GeocodeResponse = {
-          latitude: geocodeResult.lat,
-          longitude: geocodeResult.lon,
-          formatted_address: geocodeResult.display_name,
-          corrected: true,
-          approximate: true, // Mark as approximate since we removed house number
-          original_address: address,
-          correction_applied: "Recherche simplifiée sans numéro de rue",
-        };
-
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
-      }
-    }
-
-    // Fourth attempt: Try city + postal code only (most approximate)
-    // Build from explicit params or extract from address
-    let cityFallback: string | null = null;
-    
+    // ──────────────────────────────────────────────────────────────
+    // Step 4: City + postal code only (approximate, prioritize city name)
+    // ──────────────────────────────────────────────────────────────
     if (city && postal_code) {
-      cityFallback = `${postal_code} ${city}, France`;
-    } else {
-      cityFallback = buildCityFallbackAddress(address);
-    }
-    
-    if (cityFallback) {
-      console.log(`[Geocode] Trying city fallback: "${cityFallback}"`);
-      geocodeResult = await geocodeWithNominatim(cityFallback);
-      
-      if (geocodeResult) {
-        console.log(`[Geocode] Success with city fallback`);
-        const result: GeocodeResponse = {
-          latitude: geocodeResult.lat,
-          longitude: geocodeResult.lon,
-          formatted_address: geocodeResult.display_name,
+      const cityQuery = `${city} ${postal_code}, France`;
+      console.log(`[Geocode] Trying city+CP: "${cityQuery}"`);
+      const cityResults = await geocodeNominatim(cityQuery);
+      const bestCity = pickBestResult(cityResults, city, postal_code);
+      if (bestCity) {
+        console.log(`[Geocode] ✓ City match: ${bestCity.display_name}`);
+        return makeResponse(bestCity, {
           corrected: true,
-          approximate: true, // This is an approximate location (city center)
+          approximate: true,
           original_address: address,
-          correction_applied: "Géolocalisation approximative par ville/code postal",
-        };
-
-        return new Response(JSON.stringify(result), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
+          correction_applied: "Géolocalisation par ville + code postal",
         });
       }
     }
 
-    console.log(`[Geocode] All attempts failed for: "${address}"`);
-    return new Response(JSON.stringify({ 
+    // ──────────────────────────────────────────────────────────────
+    // Step 5: Postal code only — any commune in the same code postal
+    // ──────────────────────────────────────────────────────────────
+    const postalMatch = (postal_code || address).match(/\b(\d{5})\b/);
+    if (postalMatch) {
+      const cp = postalMatch[1];
+      console.log(`[Geocode] Trying CP-only fallback: "${cp}"`);
+      const cpResults = await geocodeNominatim(`${cp}, France`);
+      if (cpResults.length > 0) {
+        // Take whichever is in the right department
+        const inDept = cpResults.find(r => r.address?.postcode && getDepartment(r.address.postcode) === getDepartment(cp));
+        const best = inDept || cpResults[0];
+        console.log(`[Geocode] ✓ CP fallback: ${best.display_name}`);
+        return makeResponse(best, {
+          corrected: true,
+          approximate: true,
+          original_address: address,
+          correction_applied: `Géolocalisation approximative par code postal ${cp}`,
+        });
+      }
+    }
+
+    console.log(`[Geocode] ✗ All attempts failed for: "${address}"`);
+    return new Response(JSON.stringify({
       error: "Address not found",
       original_address: address,
-      message: "Impossible de géocoder cette adresse même après correction IA"
+      message: "Impossible de géocoder cette adresse",
     }), {
       status: 404,
       headers: { "Content-Type": "application/json", ...corsHeaders },
