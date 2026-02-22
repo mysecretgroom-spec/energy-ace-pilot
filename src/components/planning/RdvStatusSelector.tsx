@@ -124,6 +124,7 @@ export function RdvStatusSelector({
     r2DateTime?: string | null;
     regieId?: string | null;
     cqTime?: string;
+    deferredStatus?: string;
   } | null>(null);
   const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
 
@@ -360,13 +361,14 @@ export function RdvStatusSelector({
       }
 
       setStatus(newStatus);
-      onStatusChange?.(newStatus);
       
       const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
       hapticSuccess();
       toast.success(`Statut changé en "${statusLabel}"`);
 
       // Show WhatsApp confirmation dialog (unless user disabled it)
+      // IMPORTANT: defer onStatusChange until after WhatsApp dialog is resolved
+      // to prevent parent re-render from unmounting this component
       const classification = statusToClassification[newStatus];
       if (classification && !skipWhatsAppPrompt) {
         setPendingWhatsApp({
@@ -374,8 +376,12 @@ export function RdvStatusSelector({
           r2DateTime: options?.r2DateTime || null,
           regieId: regieId || null,
           cqTime: options?.cqTime,
+          deferredStatus: newStatus,
         });
         setShowWhatsAppDialog(true);
+      } else {
+        // No WhatsApp dialog needed, notify parent immediately
+        onStatusChange?.(newStatus);
       }
     } catch (err) {
       console.error("Error updating status:", err);
@@ -388,6 +394,8 @@ export function RdvStatusSelector({
   const handleWhatsAppConfirm = async () => {
     if (!pendingWhatsApp || !user) return;
     
+    const deferredStatus = pendingWhatsApp.deferredStatus;
+    
     await sendWhatsAppNotification({
       clientName,
       clientPrenom,
@@ -399,12 +407,17 @@ export function RdvStatusSelector({
     });
     
     setPendingWhatsApp(null);
-    onWhatsAppComplete?.(); // Close parent menu after WhatsApp action
+    // Notify parent AFTER dialog is resolved so component stays mounted
+    if (deferredStatus) onStatusChange?.(deferredStatus as RdvStatus);
+    onWhatsAppComplete?.();
   };
 
   const handleWhatsAppCancel = () => {
+    const deferredStatus = pendingWhatsApp?.deferredStatus;
     setPendingWhatsApp(null);
-    onWhatsAppComplete?.(); // Close parent menu after user declines
+    // Notify parent AFTER dialog is resolved so component stays mounted
+    if (deferredStatus) onStatusChange?.(deferredStatus as RdvStatus);
+    onWhatsAppComplete?.();
   };
 
   const currentOption = statusOptions.find(s => s.value === status);
