@@ -89,15 +89,33 @@ export function DocumentPreview({
     setCurrentIndex((prev) => (prev < documents.length - 1 ? prev + 1 : 0));
   }, [documents.length]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!currentDoc) return;
-    const link = document.createElement("a");
-    link.href = currentDoc.url;
-    link.download = currentDoc.nom || "document";
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Fetch the file as blob for native share
+      const response = await fetch(currentDoc.url);
+      const blob = await response.blob();
+      const ext = currentDoc.url.toLowerCase().includes(".pdf") ? "pdf" : 
+                  currentDoc.url.toLowerCase().includes(".png") ? "png" : "jpg";
+      const filename = currentDoc.nom || `document.${ext}`;
+      const file = new File([blob], filename, { type: blob.type });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+      } else {
+        // Fallback: direct download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        toast.error("Impossible de télécharger");
+      }
+    }
   };
 
   const handleShare = async () => {
