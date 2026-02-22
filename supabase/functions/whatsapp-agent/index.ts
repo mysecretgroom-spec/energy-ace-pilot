@@ -186,6 +186,8 @@ interface PendingAction {
     factureFournisseur?: string;    // Fournisseur
     factureDescription?: string;    // Description
     factureCategorie?: string;      // Catégorie
+    factureDateDebut?: string;      // Date début période (hôtel, location)
+    factureDateFin?: string;        // Date fin période (hôtel, location)
     factureStorageUrl?: string;     // URL du fichier uploadé
     selectedClientId?: string | null;     // Client sélectionné pour le frais
     selectedClientName?: string | null;   // Nom du client sélectionné
@@ -352,6 +354,8 @@ interface FinanceAnalysisResult {
   tva: number | null;
   taux_tva: number | null;
   date: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
   fournisseur: string | null;
   description: string | null;
   categorie: string | null;
@@ -2992,6 +2996,8 @@ Champs à extraire:
 - tva: le montant de TVA total en euros si visible (nombre ou null)
 - taux_tva: le taux de TVA principal en % si visible (ex: 20 pour 20%)
 - date: la date au format YYYY-MM-DD
+- date_debut: date de début de période au format YYYY-MM-DD (hôtel: check-in, location: début). null si non applicable.
+- date_fin: date de fin de période au format YYYY-MM-DD (hôtel: check-out, location: fin). null si non applicable.
 - fournisseur: le nom du commerce/enseigne
 - description: courte description de la dépense principale ou "Achats multiples" si multi-catégorie
 - categorie: catégorie principale si mono-catégorie, sinon "autre"
@@ -3000,10 +3006,13 @@ Champs à extraire:
 Catégories valides: "carburant", "peage", "repas", "hotel", "parking", "train", "location_vehicule", "autre"
 
 Exemple MONO-CATÉGORIE:
-{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 54.60, "montant_ht": 45.50, "tva": 9.10, "taux_tva": 20, "date": "2026-01-21", "date_debut": null, "date_fin": null, "fournisseur": "Total", "description": "Plein essence", "categorie": "carburant"}
+
+Exemple HÔTEL avec période:
+{"success": true, "is_multi_category": false, "items": [], "montant_ttc": 240.00, "date": "2026-01-18", "date_debut": "2026-01-15", "date_fin": "2026-01-18", "fournisseur": "Ibis", "description": "3 nuits", "categorie": "hotel"}
 
 Exemple MULTI-CATÉGORIE (station essence avec sandwich):
-{"success": true, "is_multi_category": true, "items": [{"montant_ttc": 45.00, "montant_ht": 37.50, "tva": 7.50, "taux_tva": 20, "categorie": "carburant", "description": "Gazole"}, {"montant_ttc": 8.50, "montant_ht": 8.10, "tva": 0.40, "taux_tva": 5.5, "categorie": "repas", "description": "Sandwich + boisson"}], "montant_ttc": 53.50, "date": "2026-01-21", "fournisseur": "Total Access", "description": "Achats multiples", "categorie": "autre"}
+{"success": true, "is_multi_category": true, "items": [{"montant_ttc": 45.00, "montant_ht": 37.50, "tva": 7.50, "taux_tva": 20, "categorie": "carburant", "description": "Gazole"}, {"montant_ttc": 8.50, "montant_ht": 8.10, "tva": 0.40, "taux_tva": 5.5, "categorie": "repas", "description": "Sandwich + boisson"}], "montant_ttc": 53.50, "date": "2026-01-21", "date_debut": null, "date_fin": null, "fournisseur": "Total Access", "description": "Achats multiples", "categorie": "autre"}
 
 Exemple échec:
 {"success": false, "is_multi_category": false, "items": [], "montant_ttc": null, "montant_ht": null, "tva": null, "taux_tva": null, "date": null, "fournisseur": null, "description": null, "categorie": null, "error_message": "Image trop floue"}`;
@@ -4326,6 +4335,7 @@ async function handlePendingWorkflow(
           let responseMsg = `📝 *Récapitulatif:*\n\n`;
           responseMsg += `💰 Montant: *${montant.toLocaleString("fr-FR")}€*\n`;
           responseMsg += `📅 Date: ${dateStr}\n`;
+          if (collectedData.factureDateDebut && collectedData.factureDateFin) responseMsg += `📆 Période: du ${collectedData.factureDateDebut} au ${collectedData.factureDateFin}\n`;
           if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
           responseMsg += `📂 Catégorie: ${categorie}\n`;
           responseMsg += selectedClientName 
@@ -4416,6 +4426,7 @@ async function handlePendingWorkflow(
           let responseMsg = `📝 *Données mises à jour:*\n\n`;
           responseMsg += `💰 Montant TTC: *${montant.toLocaleString("fr-FR")}€*\n`;
           responseMsg += `📅 Date: ${dateStr}\n`;
+          if (collectedData.factureDateDebut && collectedData.factureDateFin) responseMsg += `📆 Période: du ${collectedData.factureDateDebut} au ${collectedData.factureDateFin}\n`;
           if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
           responseMsg += `📂 Catégorie: ${categorie}\n`;
           responseMsg += `\n*Confirmes-tu ?* (Oui/Non)`;
@@ -4557,6 +4568,8 @@ async function handlePendingWorkflow(
             description: description,
             justificatif_url: urlData?.publicUrl || collectedData.factureStorageUrl,
             ocr_data: ocrData,
+            date_debut: collectedData.factureDateDebut || null,
+            date_fin: collectedData.factureDateFin || null,
           })
           .select("id")
           .single();
@@ -4601,7 +4614,7 @@ async function handlePendingWorkflow(
           entityId: frais?.id,
           entityType: "frais",
           newPendingAction: null,
-          responseMessage: `✅ *Note de frais enregistrée !*\n\n💰 Montant: *${montant.toLocaleString("fr-FR")}€*\n📅 Date: ${dateStr}\n${fournisseur ? `🏢 ${fournisseur}\n` : ""}📂 ${categorie}`,
+          responseMessage: `✅ *Note de frais enregistrée !*\n\n💰 Montant: *${montant.toLocaleString("fr-FR")}€*\n📅 Date: ${dateStr}\n${collectedData.factureDateDebut && collectedData.factureDateFin ? `📆 Période: du ${collectedData.factureDateDebut} au ${collectedData.factureDateFin}\n` : ""}${fournisseur ? `🏢 ${fournisseur}\n` : ""}📂 ${categorie}`,
         };
         
       } catch (err) {
@@ -7443,9 +7456,14 @@ async function executeAction(
         fournisseur = fin.fournisseur || "";
         description = fin.description || `${fournisseur} - Import WhatsApp`;
         categorie = fin.categorie || "autre";
+        // Extract period dates for hotel/location_vehicule
+        var dateDebut: string | null = fin.date_debut || null;
+        var dateFin: string | null = fin.date_fin || null;
       } else {
         // Fallback to entities
         montant = entities.amount as number || 0;
+        var dateDebut: string | null = null;
+        var dateFin: string | null = null;
       }
 
       // Get original filename from mediaData
@@ -7486,6 +7504,7 @@ async function executeAction(
       if (montantHT) responseMsg += `💵 Montant HT: ${montantHT.toLocaleString("fr-FR")}€\n`;
       if (tva) responseMsg += `📋 TVA: ${tva.toLocaleString("fr-FR")}€\n`;
       responseMsg += `📅 Date: ${dateStr}\n`;
+      if (dateDebut && dateFin) responseMsg += `📆 Période: du ${dateDebut} au ${dateFin}\n`;
       if (fournisseur) responseMsg += `🏢 Fournisseur: ${fournisseur}\n`;
       responseMsg += `📂 Catégorie: ${categorie}\n\n`;
       responseMsg += `*Ces informations sont-elles correctes ?*\n`;
@@ -7512,6 +7531,8 @@ async function executeAction(
           factureFournisseur: fournisseur || undefined,
           factureDescription: description,
           factureCategorie: categorie,
+          factureDateDebut: dateDebut || undefined,
+          factureDateFin: dateFin || undefined,
           // No client suggestions - expenses are not linked to clients via agent
         },
         createdAt: new Date().toISOString(),
