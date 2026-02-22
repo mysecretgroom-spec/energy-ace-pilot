@@ -45,26 +45,34 @@ export function useSendWhatsAppPdfDoc() {
         throw new Error("Aucun PDF généré");
       }
 
-      // Step 2: Format phone number for wa.me
-      let phone = options.phoneNumber.replace(/[\s\-+]/g, "");
-      if (phone.startsWith("0")) {
-        phone = `33${phone.slice(1)}`;
-      }
-
-      // Step 3: Build WhatsApp message with PDF link
       const clientName = data.clientName || "";
       const docCount = data.documentsIncluded?.length || 0;
-      const msgText = options.message 
-        || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)\n\n${data.pdfUrl}`;
 
-      const encodedMsg = encodeURIComponent(msgText);
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
+      // Step 2: Download PDF and share as file via native Share API
+      const pdfResponse = await fetch(data.pdfUrl);
+      if (!pdfResponse.ok) throw new Error("Impossible de télécharger le PDF");
+      const pdfBlob = await pdfResponse.blob();
+      const safeName = `Dossier_${clientName.replace(/\s+/g, "_")}.pdf`;
+      const pdfFile = new File([pdfBlob], safeName, { type: "application/pdf" });
 
-      // Step 4: Open WhatsApp
-      window.open(whatsappUrl, "_blank");
+      if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Dossier ${clientName}`,
+          text: options.message || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)`,
+        });
+      } else {
+        // Fallback: télécharger le PDF directement
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = safeName;
+        a.click();
+        URL.revokeObjectURL(blobUrl);
+      }
 
-      toast.success("Dossier prêt à envoyer", {
-        description: `${docCount} documents (${data.pdfSizeMB} MB) — WhatsApp ouvert`,
+      toast.success("Dossier partagé", {
+        description: `${docCount} documents (${data.pdfSizeMB} MB)`,
       });
 
       const result: SendPdfDocResult = {
