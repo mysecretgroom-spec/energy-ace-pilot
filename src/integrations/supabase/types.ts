@@ -2498,6 +2498,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           metadata: Json | null
+          needs_reconfirmation: boolean
           parent_rdv_id: string | null
           r2_type: string | null
           regie_id: string | null
@@ -2526,6 +2527,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
+          needs_reconfirmation?: boolean
           parent_rdv_id?: string | null
           r2_type?: string | null
           regie_id?: string | null
@@ -2554,6 +2556,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           metadata?: Json | null
+          needs_reconfirmation?: boolean
           parent_rdv_id?: string | null
           r2_type?: string | null
           regie_id?: string | null

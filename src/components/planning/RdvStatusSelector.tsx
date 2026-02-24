@@ -271,6 +271,7 @@ export function RdvStatusSelector({
               r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
               regie_id: originalRdv.regie_id,
               parent_rdv_id: rdvId,
+              needs_reconfirmation: true,
             } as any);
 
           if (newRdvError) {

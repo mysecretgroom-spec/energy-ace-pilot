@@ -565,6 +565,16 @@ serve(async (req) => {
 
     console.log(`Created RDV (type=${typeRdv}): ${newRdv.id}`);
 
+    // ── CLEAR RECONFIRMATION FLAG ─────────────────────────────────────────────
+    // When a new email arrives for this client, clear needs_reconfirmation on existing RDVs
+    await supabase
+      .from("rdv")
+      .update({ needs_reconfirmation: false })
+      .eq("client_id", clientId)
+      .eq("user_id", user_id)
+      .eq("needs_reconfirmation", true)
+      .neq("id", newRdv.id);
+
     // ── GEOCODING ─────────────────────────────────────────────────────────────
     let geocodeInfo: { approximate?: boolean; corrected?: boolean } = {};
     if (validated.ADRESSE?.adresse || (validated.ADRESSE?.ville && validated.ADRESSE?.code_postal)) {

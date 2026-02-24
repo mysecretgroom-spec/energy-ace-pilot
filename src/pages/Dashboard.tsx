@@ -279,7 +279,7 @@ const Dashboard = () => {
         // Prochains RDV
         supabase.from("rdv")
           .select(`
-            id, date_heure, type_projet, status, type_rdv, etude_id, regie_id,
+            id, date_heure, type_projet, status, type_rdv, etude_id, regie_id, needs_reconfirmation,
             clients(id, nom, prenom, telephone, adresse, code_postal, ville),
             regies(nom, couleur)
           `)

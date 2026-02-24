@@ -1,4 +1,4 @@
-import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2, Copy } from "lucide-react";
+import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2, Copy, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ interface DayRdvCardProps {
     regieNom?: string | null;
     regieCouleur?: string | null;
     isDuplicateClient?: boolean;
+    needsReconfirmation?: boolean;
   };
   index: number;
   onRefresh: () => void;
@@ -101,6 +102,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
       <Card
         className={cn(
           "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
+          rdv.needsReconfirmation && "ring-2 ring-amber-400 border-amber-400",
           isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent",
           isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent",
           rdv.alert && !isExternalInstallation && !isR2 && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
@@ -112,7 +114,14 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
             <div className="flex-1 space-y-3">
               {/* Badges spéciaux */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Badge Régie */}
+                {/* Badge à confirmer */}
+                {rdv.needsReconfirmation && (
+                  <Badge className="bg-amber-400 hover:bg-amber-500 text-amber-950 text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm animate-pulse">
+                    <ShieldAlert className="h-3 w-3" />
+                    À confirmer
+                  </Badge>
+                )}
+                
                 {rdv.regieNom && (
                   <Badge 
                     className="text-xs px-2 py-0.5 flex items-center gap-1 rounded-full"

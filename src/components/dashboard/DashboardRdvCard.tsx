@@ -23,9 +23,10 @@
    telephone?: string | null;
    adresse?: string | null;
    code_postal?: string | null;
-   ville?: string | null;
- }
- 
+    ville?: string | null;
+    needs_reconfirmation?: boolean;
+  }
+  
  interface DashboardRdvCardProps {
    rdv: ProchainRdv;
    onRefresh?: () => void;
@@ -58,13 +59,15 @@
  
    return (
      <>
-        <div 
+       <div 
           className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all select-none ${
             isPressing 
               ? "bg-primary/20 scale-[0.98]" 
-              : isOngoing
-                ? "bg-primary/10 border border-primary/30"
-                : "bg-muted/50 hover:bg-muted"
+              : rdv.needs_reconfirmation
+                ? "bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-400"
+                : isOngoing
+                  ? "bg-primary/10 border border-primary/30"
+                  : "bg-muted/50 hover:bg-muted"
           }`}
           style={{ touchAction: "manipulation" }}
           {...handlers}
@@ -72,9 +75,10 @@
          <div className="flex items-center gap-3">
            {getStatusIcon(rdv.status)}
            <div>
-             <p className="font-medium text-sm">
-               {rdv.client_nom}
-               {isOngoing && <span className="ml-2 text-xs text-primary font-semibold">EN COURS</span>}
+              <p className="font-medium text-sm">
+                {rdv.client_nom}
+                {rdv.needs_reconfirmation && <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">À CONFIRMER</span>}
+                {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-xs text-primary font-semibold">EN COURS</span>}
              </p>
              <p className="text-xs text-muted-foreground">
                {format(rdvDate, "EEEE d MMM à HH:mm", { locale: fr })}
