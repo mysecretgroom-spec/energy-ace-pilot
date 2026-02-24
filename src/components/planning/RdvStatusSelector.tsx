@@ -1,13 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RdvStatus } from "@/components/ui/status-badge";
-import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 import { ProductType, PacSubtype } from "@/lib/productTypes";
 import { hapticSuccess } from "@/lib/haptics";
 
@@ -104,7 +102,6 @@ export function RdvStatusSelector({
     });
   }, [isRdvPast, currentStatus]);
   const { user } = useAuth();
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState<RdvStatus>(currentStatus);
   
@@ -116,37 +113,6 @@ export function RdvStatusSelector({
 
   // Signé dialog state
   const [showSigneDialog, setShowSigneDialog] = useState(false);
-
-  // WhatsApp confirm dialog state
-  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
-  const [pendingWhatsApp, setPendingWhatsApp] = useState<{
-    classification: string;
-    r2DateTime?: string | null;
-    regieId?: string | null;
-    cqTime?: string;
-    deferredStatus?: string;
-  } | null>(null);
-  const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
-
-  // Load user's WhatsApp prompt preference
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (!user) return;
-      
-      const { data } = await supabase
-        .from("settings_notifications")
-        .select("skip_whatsapp_prompt, whatsapp_enabled")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      if (data) {
-        // Skip prompt if user disabled it OR if WhatsApp is disabled entirely
-        setSkipWhatsAppPrompt(data.skip_whatsapp_prompt || !data.whatsapp_enabled);
-      }
-    };
-    
-    loadSettings();
-  }, [user]);
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
@@ -366,58 +332,14 @@ export function RdvStatusSelector({
       hapticSuccess();
       toast.success(`Statut changé en "${statusLabel}"`);
 
-      // Show WhatsApp confirmation dialog (unless user disabled it)
-      // IMPORTANT: defer onStatusChange until after WhatsApp dialog is resolved
-      // to prevent parent re-render from unmounting this component
-      const classification = statusToClassification[newStatus];
-      if (classification && !skipWhatsAppPrompt) {
-        setPendingWhatsApp({
-          classification,
-          r2DateTime: options?.r2DateTime || null,
-          regieId: regieId || null,
-          cqTime: options?.cqTime,
-          deferredStatus: newStatus,
-        });
-        setShowWhatsAppDialog(true);
-      } else {
-        // No WhatsApp dialog needed, notify parent immediately
-        onStatusChange?.(newStatus);
-      }
+      // Notify parent immediately
+      onStatusChange?.(newStatus);
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error("Erreur lors du changement de statut");
     } finally {
       setUpdating(false);
     }
-  };
-
-  const handleWhatsAppConfirm = async () => {
-    if (!pendingWhatsApp || !user) return;
-    
-    const deferredStatus = pendingWhatsApp.deferredStatus;
-    
-    await sendWhatsAppNotification({
-      clientName,
-      clientPrenom,
-      classification: pendingWhatsApp.classification,
-      userId: user.id,
-      r2DateTime: pendingWhatsApp.r2DateTime,
-      regieId: pendingWhatsApp.regieId,
-      cqTime: pendingWhatsApp.cqTime,
-    });
-    
-    setPendingWhatsApp(null);
-    // Notify parent AFTER dialog is resolved so component stays mounted
-    if (deferredStatus) onStatusChange?.(deferredStatus as RdvStatus);
-    onWhatsAppComplete?.();
-  };
-
-  const handleWhatsAppCancel = () => {
-    const deferredStatus = pendingWhatsApp?.deferredStatus;
-    setPendingWhatsApp(null);
-    // Notify parent AFTER dialog is resolved so component stays mounted
-    if (deferredStatus) onStatusChange?.(deferredStatus as RdvStatus);
-    onWhatsAppComplete?.();
   };
 
   const currentOption = statusOptions.find(s => s.value === status);
@@ -540,16 +462,6 @@ export function RdvStatusSelector({
         regieId={regieId}
         onConfirm={handleSigneConfirm}
         updating={updating}
-      />
-
-      {/* WhatsApp Confirm Dialog */}
-      <WhatsAppConfirmDialog
-        open={showWhatsAppDialog}
-        onOpenChange={setShowWhatsAppDialog}
-        onConfirm={handleWhatsAppConfirm}
-        onCancel={handleWhatsAppCancel}
-        clientName={[clientPrenom, clientName].filter(Boolean).join(" ")}
-        classification={pendingWhatsApp?.classification || "attente"}
       />
     </>
   );

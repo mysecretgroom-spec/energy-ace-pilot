@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
-import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
 
 type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
 
@@ -132,38 +130,6 @@ const venteStatusToClassification: Record<VenteStatus, string | null> = {
 export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
-  
-  // WhatsApp dialog state
-  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
-  const [pendingWhatsApp, setPendingWhatsApp] = useState<{
-    venteId: string;
-    clientName: string;
-    clientPrenom?: string;
-    classification: string;
-    regieId?: string | null;
-  } | null>(null);
-  const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
-
-  // Load WhatsApp settings
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (!user) return;
-      
-      const { data } = await supabase
-        .from("settings_notifications")
-        .select("skip_whatsapp_prompt, whatsapp_enabled")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      if (data) {
-        setSkipWhatsAppPrompt(data.skip_whatsapp_prompt || !data.whatsapp_enabled);
-      }
-    };
-    
-    loadSettings();
-  }, [user]);
-
   const handleDragStart = (e: React.DragEvent, venteId: string) => {
     e.dataTransfer.setData("venteId", venteId);
   };
@@ -195,41 +161,10 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
       
       toast.success("Statut mis à jour");
       onRefresh();
-
-      // Show WhatsApp dialog if classification exists for new status
-      const classification = venteStatusToClassification[newStatus];
-      if (classification && !skipWhatsAppPrompt && vente.client) {
-        setPendingWhatsApp({
-          venteId,
-          clientName: vente.client.nom,
-          clientPrenom: vente.client.prenom || undefined,
-          classification,
-          regieId: vente.regie_id || null,
-        });
-        setShowWhatsAppDialog(true);
-      }
     } catch (error) {
       console.error("Erreur mise à jour:", error);
       toast.error("Erreur lors de la mise à jour");
     }
-  };
-
-  const handleWhatsAppConfirm = async () => {
-    if (!pendingWhatsApp || !user) return;
-    
-    await sendWhatsAppNotification({
-      clientName: pendingWhatsApp.clientName,
-      clientPrenom: pendingWhatsApp.clientPrenom,
-      classification: pendingWhatsApp.classification,
-      userId: user.id,
-      regieId: pendingWhatsApp.regieId,
-    });
-    
-    setPendingWhatsApp(null);
-  };
-
-  const handleWhatsAppCancel = () => {
-    setPendingWhatsApp(null);
   };
 
   const getVentesByStatus = (status: VenteStatus) => {
@@ -466,15 +401,6 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         </div>
       )}
 
-      {/* WhatsApp Confirm Dialog */}
-      <WhatsAppConfirmDialog
-        open={showWhatsAppDialog}
-        onOpenChange={setShowWhatsAppDialog}
-        onConfirm={handleWhatsAppConfirm}
-        onCancel={handleWhatsAppCancel}
-        clientName={[pendingWhatsApp?.clientPrenom, pendingWhatsApp?.clientName].filter(Boolean).join(" ")}
-        classification={pendingWhatsApp?.classification || "positif"}
-      />
     </div>
   );
 });
