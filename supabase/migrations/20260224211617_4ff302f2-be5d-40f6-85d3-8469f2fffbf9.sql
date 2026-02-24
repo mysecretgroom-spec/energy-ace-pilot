@@ -1,0 +1,1 @@
+ALTER TABLE public.rdv ADD COLUMN needs_reconfirmation boolean NOT NULL DEFAULT false;

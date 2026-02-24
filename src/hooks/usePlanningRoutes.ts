@@ -16,6 +16,7 @@ interface RdvWithRoute {
   latitude?: number;
   longitude?: number;
   client_id: string;
+  needsReconfirmation?: boolean;
 }
 
 interface RouteInfo {
@@ -70,6 +71,7 @@ export function usePlanningRoutes(date: Date) {
           distance_km,
           travel_time_minutes,
           client_id,
+          needs_reconfirmation,
           clients!inner(nom, prenom)
         `)
         .eq("user_id", user.id)
@@ -164,6 +166,7 @@ export function usePlanningRoutes(date: Date) {
           latitude: rdv.latitude || undefined,
           longitude: rdv.longitude || undefined,
           client_id: rdv.client_id,
+          needsReconfirmation: rdv.needs_reconfirmation || false,
         });
       }
 
