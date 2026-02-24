@@ -63,8 +63,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
-import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
-import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
+
+import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { AutoSaveIndicator } from "@/components/ui/auto-save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useOfflineData } from "@/hooks/useOfflineData";
@@ -156,7 +156,7 @@ const EtudeForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
+  
   const clientId = searchParams.get("clientId") || searchParams.get("client");
   const rdvId = searchParams.get("rdvId") || searchParams.get("rdv");
   const etudeId = searchParams.get("etudeId") || searchParams.get("etude");
@@ -367,29 +367,6 @@ const EtudeForm = () => {
   // Aides manuelles HEJJA
   const [aidesManuelles, setAidesManuelles] = useState<AideManuelle[]>([]);
 
-  // WhatsApp confirmation dialog state
-  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
-  const [pendingWhatsAppData, setPendingWhatsAppData] = useState<{
-    clientName: string;
-    clientPrenom: string;
-    classification: string;
-    comment: string;
-    r2DateTime: string | null;
-    cqTime: string;
-    pdfData?: EtudeData;
-    venteDetails?: {
-      telephone?: string;
-      adresse?: string;
-      codePostal?: string;
-      ville?: string;
-      puissanceKwc?: number;
-      prixTTC?: number;
-      totalAides?: number;
-      primeAutoconsommation?: number;
-      ecoTva?: number;
-      productType?: string;
-    };
-  } | null>(null);
 
   // Data tables
   const [dataPsh, setDataPsh] = useState<DataPsh[]>([]);
@@ -1391,42 +1368,9 @@ const EtudeForm = () => {
         });
       }
       
-      // Proposer notification WhatsApp au confirmateur si classification définie
-      if (classification && classificationChanged) {
-        // Pour positif et r2_prestudy, générer et stocker le PDF avant l'envoi WhatsApp
-        let pdfDataForWhatsApp: EtudeData | undefined = undefined;
-        if (classification === "r2_prestudy" || classification === "positif") {
-          pdfDataForWhatsApp = buildPdfData() || undefined;
-          // Stocker le PDF dans le cloud pour accès futur
-          await generateAndStorePdf();
-        }
-        
-        // Build vente details for WhatsApp message
-        const venteDetailsForWhatsApp = calculatedResults ? {
-          telephone: clientTelephone || undefined,
-          adresse: clientAdresse || undefined,
-          codePostal: clientCodePostal || undefined,
-          ville: clientVille || undefined,
-          puissanceKwc: Number(puissanceKwc) || undefined,
-          prixTTC: calculatedResults.prixTotalHorsAides || undefined,
-          totalAides: calculatedResults.totalAides || undefined,
-          primeAutoconsommation: calculatedResults.primeAutoconsommation || undefined,
-          ecoTva: calculatedResults.ecoTva || undefined,
-          productType: productType || undefined,
-        } : undefined;
-        
-        // Stocker les données et afficher le dialog de confirmation
-        setPendingWhatsAppData({
-          clientName: clientName,
-          clientPrenom: clientPrenom || "",
-          classification: classification,
-          comment: classificationComment,
-          r2DateTime: r2DateTime,
-          cqTime: cqTime,
-          pdfData: pdfDataForWhatsApp,
-          venteDetails: venteDetailsForWhatsApp,
-        });
-        setShowWhatsAppDialog(true);
+      // Pour positif et r2_prestudy, stocker le PDF dans le cloud
+      if (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif")) {
+        await generateAndStorePdf();
       }
 
       // Créer une vente automatiquement si statut Positif et changement de classification
@@ -1754,53 +1698,6 @@ const EtudeForm = () => {
     numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation
   ]);
 
-  // Callback pour confirmer l'envoi WhatsApp
-  const handleWhatsAppConfirm = async () => {
-    if (!pendingWhatsAppData || !user) return;
-    
-    // If offline, queue the message
-    if (!isOnline) {
-      // Get confirmateur phone from settings/regie
-      const { data: confirmateur } = await supabase
-        .from("confirmateurs")
-        .select("telephone")
-        .eq("user_id", user.id)
-        .eq("actif", true)
-        .order("ordre_priorite", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      
-      if (confirmateur?.telephone) {
-        await queueWhatsAppMessage(
-          confirmateur.telephone,
-          `${pendingWhatsAppData.clientPrenom} ${pendingWhatsAppData.clientName} - ${pendingWhatsAppData.classification}`,
-          pendingWhatsAppData.classification
-        );
-      }
-      setPendingWhatsAppData(null);
-      return;
-    }
-    
-    await sendWhatsAppNotification({
-      clientName: pendingWhatsAppData.clientName,
-      clientPrenom: pendingWhatsAppData.clientPrenom,
-      classification: pendingWhatsAppData.classification,
-      comment: pendingWhatsAppData.comment,
-      r2DateTime: pendingWhatsAppData.r2DateTime,
-      userId: user.id,
-      cqTime: pendingWhatsAppData.cqTime,
-      pdfData: pendingWhatsAppData.pdfData,
-      regieId: regieId,
-      venteDetails: pendingWhatsAppData.venteDetails,
-    });
-    
-    setPendingWhatsAppData(null);
-  };
-
-  // Callback pour annuler l'envoi WhatsApp
-  const handleWhatsAppCancel = () => {
-    setPendingWhatsAppData(null);
-  };
 
   // Build PDF data (must be defined before hooks that use it)
   const buildPdfData = useCallback((): EtudeData | null => {
@@ -3247,6 +3144,37 @@ _Envoyé depuis DébalePro_`;
                   className="min-h-[80px]"
                 />
               </div>
+
+              {/* Bouton WhatsApp inline */}
+              {classification && (
+                <WhatsAppSendButton
+                  clientName={clientName}
+                  clientPrenom={clientPrenom || ""}
+                  classification={classification}
+                  comment={classificationComment}
+                  r2DateTime={
+                    (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
+                      ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
+                      : null
+                  }
+                  cqTime={cqTime}
+                  regieId={regieId}
+                  pdfData={buildPdfData() || undefined}
+                  venteDetails={calculatedResults ? {
+                    telephone: clientTelephone || undefined,
+                    adresse: clientAdresse || undefined,
+                    codePostal: clientCodePostal || undefined,
+                    ville: clientVille || undefined,
+                    puissanceKwc: Number(puissanceKwc) || undefined,
+                    prixTTC: calculatedResults.prixTotalHorsAides || undefined,
+                    totalAides: calculatedResults.totalAides || undefined,
+                    primeAutoconsommation: calculatedResults.primeAutoconsommation || undefined,
+                    ecoTva: calculatedResults.ecoTva || undefined,
+                    productType: productType || undefined,
+                  } : undefined}
+                  className="w-full"
+                />
+              )}
               
               {/* Historique des classifications */}
               {classificationHistory.length > 0 && (
@@ -3449,15 +3377,7 @@ _Envoyé depuis DébalePro_`;
         </Button>
       </div>
       
-      {/* Dialog de confirmation WhatsApp */}
-      <WhatsAppConfirmDialog
-        open={showWhatsAppDialog}
-        onOpenChange={setShowWhatsAppDialog}
-        onConfirm={handleWhatsAppConfirm}
-        onCancel={handleWhatsAppCancel}
-        clientName={[pendingWhatsAppData?.clientPrenom, pendingWhatsAppData?.clientName].filter(Boolean).join(" ") || ""}
-        classification={pendingWhatsAppData?.classification || ""}
-      />
+      {/* WhatsApp dialog removed - replaced by inline button */}
     </MobileLayout>
   );
 };

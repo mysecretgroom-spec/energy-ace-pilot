@@ -43,6 +43,7 @@ import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
+import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -624,6 +625,16 @@ const ClientDetailInner = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
+                        {rdv.status !== "nouveau" && (
+                          <WhatsAppSendButton
+                            clientName={client.nom}
+                            clientPrenom={client.prenom || undefined}
+                            classification={rdv.status}
+                            comment={rdv.commentaire || undefined}
+                            regieId={rdv.regie_id}
+                            compact
+                          />
+                        )}
                         <RdvStatusSelector
                           rdvId={rdv.id}
                           currentStatus={rdv.status}

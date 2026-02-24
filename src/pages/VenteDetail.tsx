@@ -27,8 +27,7 @@ import {
 import { Building2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
-import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
-import { WhatsAppConfirmDialog } from "@/components/notifications/WhatsAppConfirmDialog";
+import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
 import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { RegieSelector } from "@/components/planning/RegieSelector";
@@ -116,7 +115,7 @@ const VenteDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
+  
   const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -126,12 +125,7 @@ const VenteDetail = () => {
   const [regieId, setRegieId] = useState<string | null>(null);
   const [regieNom, setRegieNom] = useState<string | null>(null);
   const [regieCouleur, setRegieCouleur] = useState<string | null>(null);
-  // WhatsApp dialog state
-  const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
-  const [pendingWhatsApp, setPendingWhatsApp] = useState<{
-    classification: string;
-  } | null>(null);
-  const [skipWhatsAppPrompt, setSkipWhatsAppPrompt] = useState(false);
+  
   
   // Delete functionality
   const {
@@ -210,24 +204,7 @@ const VenteDetail = () => {
     }
   }, [id]);
 
-  // Load WhatsApp settings
-  useEffect(() => {
-    const loadWhatsAppSettings = async () => {
-      if (!user) return;
-      
-      const { data } = await supabase
-        .from("settings_notifications")
-        .select("skip_whatsapp_prompt, whatsapp_enabled")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      if (data) {
-        setSkipWhatsAppPrompt(data.skip_whatsapp_prompt || !data.whatsapp_enabled);
-      }
-    };
-    
-    loadWhatsAppSettings();
-  }, [user]);
+  
 
   // Auto-set installation date when status changes to "installe"
   const handleStatusChange = (newStatus: VenteStatus) => {
@@ -434,33 +411,8 @@ const VenteDetail = () => {
       typeInstallation,
     });
 
-    // Show WhatsApp dialog if status changed and has a classification
-    if (statusChanged && !skipWhatsAppPrompt) {
-      const classification = venteStatusToClassification[status];
-      if (classification) {
-        setPendingWhatsApp({ classification });
-        setShowWhatsAppDialog(true);
-      }
-    }
   };
 
-  const handleWhatsAppConfirm = async () => {
-    if (!pendingWhatsApp || !user || !client) return;
-    
-    await sendWhatsAppNotification({
-      clientName: client.nom,
-      clientPrenom: client.prenom || undefined,
-      classification: pendingWhatsApp.classification,
-      userId: user.id,
-      regieId: regieId,
-    });
-    
-    setPendingWhatsApp(null);
-  };
-
-  const handleWhatsAppCancel = () => {
-    setPendingWhatsApp(null);
-  };
 
   if (loading) {
     return (
@@ -757,6 +709,24 @@ const VenteDetail = () => {
           </CardContent>
         </Card>
 
+        {/* Bouton WhatsApp - visible quand statut != en_negociation */}
+        {status !== "en_negociation" && client && (
+          <WhatsAppSendButton
+            clientName={client.nom}
+            clientPrenom={client.prenom || undefined}
+            classification={venteStatusToClassification[status] || status}
+            comment={notes || undefined}
+            regieId={regieId}
+            venteDetails={{
+              telephone: client.telephone || undefined,
+              puissanceKwc: Number(puissanceKwc) || undefined,
+              prixTTC: Number(montantTtc) || undefined,
+              productType: typeInstallation || undefined,
+            }}
+            className="w-full"
+          />
+        )}
+
         {/* Status History Timeline */}
         <VenteStatusTimeline venteId={id!} />
 
@@ -791,15 +761,7 @@ const VenteDetail = () => {
         onSave={handleSave}
       />
 
-      {/* WhatsApp Confirm Dialog */}
-      <WhatsAppConfirmDialog
-        open={showWhatsAppDialog}
-        onOpenChange={setShowWhatsAppDialog}
-        onConfirm={handleWhatsAppConfirm}
-        onCancel={handleWhatsAppCancel}
-        clientName={[client?.prenom, client?.nom].filter(Boolean).join(" ")}
-        classification={pendingWhatsApp?.classification || "positif"}
-      />
+      {/* WhatsApp dialog removed - replaced by inline button */}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
