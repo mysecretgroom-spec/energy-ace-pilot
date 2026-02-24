@@ -1368,8 +1368,11 @@ const EtudeForm = () => {
         });
       }
       
-      // Pour positif et r2_prestudy, stocker le PDF dans le cloud
-      if (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif")) {
+      // Si "Terminé" cliqué (forceSync), toujours générer et stocker le PDF
+      if (forceSyncRef.current) {
+        await generateAndStorePdf();
+      } else if (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif")) {
+        // Sinon, stocker le PDF seulement pour positif et r2_prestudy
         await generateAndStorePdf();
       }
 
@@ -3157,10 +3160,10 @@ _Envoyé depuis DébalePro_`;
                       ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
                       : null
                   }
-                  cqTime={cqTime}
+                  cqTime={classification === "positif" ? cqTime : undefined}
                   regieId={regieId}
-                  pdfData={buildPdfData() || undefined}
-                  venteDetails={calculatedResults ? {
+                  pdfData={classification === "positif" ? (buildPdfData() || undefined) : undefined}
+                  venteDetails={classification === "positif" && calculatedResults ? {
                     telephone: clientTelephone || undefined,
                     adresse: clientAdresse || undefined,
                     codePostal: clientCodePostal || undefined,
