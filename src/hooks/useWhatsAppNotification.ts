@@ -312,8 +312,8 @@ export const useWhatsAppNotification = () => {
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-      // Partager le PDF uniquement pour "positif"/"signe" via Web Share API
-      if (classification === "positif" && pdfData) {
+      // Partager le PDF pour "positif" et "r2_prestudy" via Web Share API
+      if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
         try {
           const pdfBlob = await getEtudePdfBlob(pdfData);
           const fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;

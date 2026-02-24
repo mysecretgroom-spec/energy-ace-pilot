@@ -3162,7 +3162,7 @@ _Envoyé depuis DébalePro_`;
                   }
                   cqTime={classification === "positif" ? cqTime : undefined}
                   regieId={regieId}
-                  pdfData={classification === "positif" ? (buildPdfData() || undefined) : undefined}
+                  pdfData={(classification === "positif" || classification === "r2_prestudy") ? (buildPdfData() || undefined) : undefined}
                   venteDetails={classification === "positif" && calculatedResults ? {
                     telephone: clientTelephone || undefined,
                     adresse: clientAdresse || undefined,
