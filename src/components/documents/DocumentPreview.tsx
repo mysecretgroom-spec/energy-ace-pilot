@@ -218,6 +218,18 @@ export function DocumentPreview({
             </>
           )}
 
+          {/* Floating close button - always visible */}
+          <div className="absolute top-4 right-4 z-20">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-10 w-10 rounded-full shadow-lg bg-background/90 backdrop-blur-sm border"
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
           {/* Floating Action Button - Transfer */}
           <div className="absolute bottom-6 right-6 z-20">
             <Button
