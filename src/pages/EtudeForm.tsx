@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ArrowLeft,
   Sun,
@@ -46,6 +47,7 @@ import {
   Camera,
   ShieldOff,
   Cloud,
+  ChevronDown,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
@@ -3027,15 +3029,19 @@ _Envoyé depuis DébalePro_`;
           </Card>
         )}
 
-        {/* CLASSIFICATION DU DOSSIER - Disponible pour tous les types */}
-        {(calculatedResults || productType === "PAC" || productType === "ITE") && (
+        {/* CLASSIFICATION DU DOSSIER - Toujours disponible en collapse */}
+        <Collapsible>
           <Card className="shadow-card">
-            <CardHeader className="pb-2 bg-muted/50 px-3 sm:px-6 py-2 sm:py-3">
-              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
-                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                Classification
-              </CardTitle>
-            </CardHeader>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="pb-2 bg-muted/50 px-3 sm:px-6 py-2 sm:py-3 cursor-pointer hover:bg-muted/70 transition-colors">
+                <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                  <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                  Classification
+                  <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div>
                 <Label className="text-[10px] sm:text-xs">Statut</Label>
@@ -3225,8 +3231,9 @@ _Envoyé depuis DébalePro_`;
                 </div>
               )}
             </CardContent>
+            </CollapsibleContent>
           </Card>
-        )}
+        </Collapsible>
 
         {/* Preview PDF Dialog */}
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
