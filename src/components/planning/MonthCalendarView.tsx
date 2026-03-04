@@ -87,7 +87,7 @@ export function MonthCalendarView({
 
   const getStatusColor = (rdvs: RdvData[]) => {
     if (rdvs.some((r) => r.status === "signe")) return "bg-green-500";
-    if (rdvs.some((r) => r.status === "negatif" || r.status === "annule"))
+    if (rdvs.some((r) => r.status === "negatif" || r.status === "annule" || r.status === "porte"))
       return "bg-red-500";
     if (rdvs.some((r) => r.isR2)) return "bg-status-r2";
     if (rdvs.some((r) => r.typeRdv === "external_installation"))
@@ -115,7 +115,7 @@ export function MonthCalendarView({
           {week.map((day) => {
             const dayKey = format(day, "yyyy-MM-dd");
             const dayRdvs = rdvsByDay[dayKey] || [];
-            const activeRdvs = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte');
+            const activeRdvs = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte' && r.status !== 'porte');
             const isCurrentMonth = isSameMonth(day, currentDate);
             const isToday = isSameDay(day, today);
             const hasRdvs = activeRdvs.length > 0;

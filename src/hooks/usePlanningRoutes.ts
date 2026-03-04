@@ -101,14 +101,14 @@ export function usePlanningRoutes(date: Date) {
       rdvData.forEach(rdv => {
         if (postponedClientIds.includes(rdv.client_id) && 
             rdv.status !== "reporte" && 
-            rdv.status !== "annule") {
+            rdv.status !== "annule" && rdv.status !== "porte") {
           clientsWithFollowUp.add(rdv.client_id);
         }
       });
 
       // Filter: exclude annule, and exclude reporte if a follow-up exists
       const filteredRdvData = rdvData.filter(rdv => {
-        if (rdv.status === "annule") return false;
+        if (rdv.status === "annule" || rdv.status === "porte") return false;
         if (rdv.status === "reporte") {
           return !clientsWithFollowUp.has(rdv.client_id);
         }

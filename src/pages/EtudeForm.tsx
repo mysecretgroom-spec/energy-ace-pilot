@@ -1383,8 +1383,9 @@ const EtudeForm = () => {
           r2_prestudy: "r2_prestudy",
           annule: "annule",
           reporte: "reporte",
+          porte: "porte",
         };
-        const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | undefined;
+        const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | "porte" | undefined;
         if (rdvStatus && rdvId) {
           await supabase
             .from("rdv")

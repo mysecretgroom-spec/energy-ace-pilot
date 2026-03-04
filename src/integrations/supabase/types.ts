@@ -3821,6 +3821,7 @@ export type Database = {
         | "signe"
         | "negatif"
         | "annule"
+        | "porte"
       rdv_type: "standard" | "external_installation"
       vente_status:
         | "en_negociation"
@@ -4035,6 +4036,7 @@ export const Constants = {
         "signe",
         "negatif",
         "annule",
+        "porte",
       ],
       rdv_type: ["standard", "external_installation"],
       vente_status: [

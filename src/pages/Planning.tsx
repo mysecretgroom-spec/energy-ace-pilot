@@ -434,7 +434,8 @@ const Planning = () => {
         const clientId = (rdv.clients as { id: string }).id;
         if (postponedClientIds.includes(clientId) && 
             rdv.status !== "reporte" && 
-            rdv.status !== "annule") {
+            rdv.status !== "annule" &&
+            rdv.status !== "porte") {
           clientsWithFollowUp.add(clientId);
         }
       });
@@ -442,7 +443,7 @@ const Planning = () => {
       // Filter: exclude annule, and exclude reporte if a follow-up exists
       const filteredData = data.filter(rdv => {
         // Always exclude cancelled RDVs
-        if (rdv.status === "annule") return false;
+        if (rdv.status === "annule" || rdv.status === "porte") return false;
         
         // For postponed RDVs: hide if a follow-up RDV exists for this client
         if (rdv.status === "reporte") {
@@ -555,7 +556,7 @@ const Planning = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Car className="h-5 w-5" />
-              <span className="font-medium">{rdvListWithRoutes.filter(r => r.status !== 'annule' && r.status !== 'reporte').length} RDV</span>
+              <span className="font-medium">{rdvListWithRoutes.filter(r => r.status !== 'annule' && r.status !== 'reporte' && r.status !== 'porte').length} RDV</span>
             </div>
             {viewMode === "jour" && totalDistance > 0 && (
               <div className="flex items-center gap-2 text-primary font-medium text-sm">

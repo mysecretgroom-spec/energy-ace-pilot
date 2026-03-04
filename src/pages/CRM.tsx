@@ -333,7 +333,7 @@ const CRM = () => {
     
     // "Annulés" = all ventes are annulé OR RDV is annule/ni
     const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => isCancellationStatus(s));
-    const hasAnnuleRdv = rdvStatuses.some(s => ['annule', 'ni'].includes(s));
+    const hasAnnuleRdv = rdvStatuses.some(s => ['annule', 'porte', 'ni'].includes(s));
     if (allVentesAnnule || (hasAnnuleRdv && !hasActiveVente)) categories.push('annule');
     
     return categories;
@@ -355,8 +355,9 @@ const CRM = () => {
     if (rdvStatuses.includes('negatif')) return { label: 'Négatif', color: 'text-red-700 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/20' };
     
     const allVentesAnnule = venteStatuses.length > 0 && venteStatuses.every(s => isCancellationStatus(s));
-    const hasAnnuleRdv = rdvStatuses.includes('annule');
+    const hasAnnuleRdv = rdvStatuses.includes('annule') || rdvStatuses.includes('porte');
     if (allVentesAnnule || hasAnnuleRdv) return { label: 'Annulé', color: 'text-gray-700 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-500/20' };
+    if (rdvStatuses.includes('porte')) return { label: 'Porte', color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-100 dark:bg-amber-500/20' };
     
     return null;
   };
