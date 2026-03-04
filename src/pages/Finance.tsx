@@ -8,6 +8,12 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { fr as frLocale } from "date-fns/locale";
+import { DateRange } from "react-day-picker";
 import { BankImport } from "@/components/finance/BankImport";
 import { PlaidLink } from "@/components/finance/PlaidLink";
 import { MultiImportFlow } from "@/components/scanner";
@@ -62,6 +68,7 @@ import {
   Paperclip,
   Eye,
   Download,
+  CalendarRange,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -173,6 +180,7 @@ interface VenteForCommission {
 }
 
 type FinanceStatDialogType = 'enCours' | 'attenteFacturation' | 'aFacturer' | 'payees' | 'commissionsMois' | 'caMois' | 'signesMois' | 'annulees' | null;
+type FraisPeriod = 'jour' | 'semaine' | 'mois' | 'custom';
 
 const Finance = () => {
   const { user } = useAuth();
@@ -208,6 +216,11 @@ const Finance = () => {
     return sunday;
   });
   
+  // Period selection for chart/stats
+  const [selectedPeriod, setSelectedPeriod] = useState<FraisPeriod>('mois');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
+
   // Refresh key to force re-fetch of all data
   const [refreshKey, setRefreshKey] = useState(0);
   const triggerRefresh = () => setRefreshKey(k => k + 1);
@@ -328,6 +341,50 @@ const Finance = () => {
     // Sort years descending (most recent first)
     return Array.from(yearGroups.values()).sort((a, b) => b.year - a.year);
   }, [allFraisHistory]);
+
+
+  // Chart frais filtered by selected period
+  const chartFrais = useMemo(() => {
+    if (selectedPeriod === 'jour') {
+      const dayStr = formatLocalDate(selectedDate);
+      return allFraisHistory.filter(f => f.date_frais === dayStr);
+    }
+    if (selectedPeriod === 'semaine') {
+      const ws = new Date(selectedWeekStart);
+      ws.setHours(0, 0, 0, 0);
+      const we = new Date(ws);
+      we.setDate(ws.getDate() + 6);
+      const wsStr = formatLocalDate(ws);
+      const weStr = formatLocalDate(we);
+      return allFraisHistory.filter(f => f.date_frais >= wsStr && f.date_frais <= weStr);
+    }
+    if (selectedPeriod === 'custom' && customRange?.from) {
+      const fromStr = formatLocalDate(customRange.from);
+      const toStr = customRange.to ? formatLocalDate(customRange.to) : fromStr;
+      return allFraisHistory.filter(f => f.date_frais >= fromStr && f.date_frais <= toStr);
+    }
+    // 'mois' — default
+    return allFraisData;
+  }, [selectedPeriod, selectedDate, selectedWeekStart, customRange, allFraisHistory, allFraisData]);
+
+  // Chart period label
+  const chartPeriodLabel = useMemo(() => {
+    if (selectedPeriod === 'jour') {
+      return selectedDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+    }
+    if (selectedPeriod === 'semaine') {
+      const ws = new Date(selectedWeekStart);
+      const we = new Date(ws);
+      we.setDate(ws.getDate() + 6);
+      return `${format(ws, "d MMM", { locale: frLocale })} — ${format(we, "d MMM", { locale: frLocale })}`;
+    }
+    if (selectedPeriod === 'custom' && customRange?.from) {
+      const from = format(customRange.from, "d MMM", { locale: frLocale });
+      const to = customRange.to ? format(customRange.to, "d MMM yyyy", { locale: frLocale }) : from;
+      return `${from} — ${to}`;
+    }
+    return selectedDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  }, [selectedPeriod, selectedDate, selectedWeekStart, customRange]);
 
   // All months are collapsed by default - no initialization needed
 
@@ -1278,27 +1335,33 @@ const Finance = () => {
               </CardContent>
             </Card>
 
-            {/* Totaux jour/semaine/mois avec navigation */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Totaux jour/semaine/mois — cliquables pour filtrer le graphique */}
+            <div className="grid grid-cols-3 gap-2">
               {/* Jour avec navigation */}
-              <Card className="shadow-card">
+              <Card 
+                className={cn(
+                  "shadow-card cursor-pointer transition-all",
+                  selectedPeriod === 'jour' && "ring-2 ring-primary bg-primary/5"
+                )}
+                onClick={() => setSelectedPeriod('jour')}
+              >
                 <CardContent className="p-2 text-center space-y-1">
                   <div className="flex items-center justify-between">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigateDay(-1)}
+                      onClick={(e) => { e.stopPropagation(); navigateDay(-1); setSelectedPeriod('jour'); }}
                       className="h-6 w-6 p-0"
                     >
                       <ChevronLeft className="h-3 w-3" />
                     </Button>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className={cn("text-lg font-bold", selectedPeriod === 'jour' ? "text-primary" : "text-foreground")}>
                       {totaux.jour.toFixed(0)} €
                     </p>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigateDay(1)}
+                      onClick={(e) => { e.stopPropagation(); navigateDay(1); setSelectedPeriod('jour'); }}
                       className="h-6 w-6 p-0"
                       disabled={isToday}
                     >
@@ -1312,24 +1375,30 @@ const Finance = () => {
               </Card>
               
               {/* Semaine avec navigation */}
-              <Card className="shadow-card">
+              <Card 
+                className={cn(
+                  "shadow-card cursor-pointer transition-all",
+                  selectedPeriod === 'semaine' && "ring-2 ring-primary bg-primary/5"
+                )}
+                onClick={() => setSelectedPeriod('semaine')}
+              >
                 <CardContent className="p-2 text-center space-y-1">
                   <div className="flex items-center justify-between">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigateWeek(-1)}
+                      onClick={(e) => { e.stopPropagation(); navigateWeek(-1); setSelectedPeriod('semaine'); }}
                       className="h-6 w-6 p-0"
                     >
                       <ChevronLeft className="h-3 w-3" />
                     </Button>
-                    <p className="text-lg font-bold text-foreground">
+                    <p className={cn("text-lg font-bold", selectedPeriod === 'semaine' ? "text-primary" : "text-foreground")}>
                       {totaux.semaine.toFixed(0)} €
                     </p>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigateWeek(1)}
+                      onClick={(e) => { e.stopPropagation(); navigateWeek(1); setSelectedPeriod('semaine'); }}
                       className="h-6 w-6 p-0"
                       disabled={isCurrentWeek}
                     >
@@ -1342,10 +1411,16 @@ const Finance = () => {
                 </CardContent>
               </Card>
               
-              {/* Mois (total du mois sélectionné) */}
-              <Card className="shadow-card bg-primary/5 border-primary/20">
+              {/* Mois */}
+              <Card 
+                className={cn(
+                  "shadow-card cursor-pointer transition-all",
+                  selectedPeriod === 'mois' && "ring-2 ring-primary bg-primary/5"
+                )}
+                onClick={() => setSelectedPeriod('mois')}
+              >
                 <CardContent className="p-2 text-center space-y-1">
-                  <p className="text-lg font-bold text-primary pt-1">
+                  <p className={cn("text-lg font-bold pt-1", selectedPeriod === 'mois' ? "text-primary" : "text-foreground")}>
                     {totaux.mois.toFixed(0)} €
                   </p>
                   <p className="text-[10px] text-muted-foreground leading-tight capitalize">
@@ -1355,8 +1430,57 @@ const Finance = () => {
               </Card>
             </div>
 
-            {/* Expense Chart */}
-            <ExpenseChart frais={allFraisData} />
+            {/* Custom date range picker */}
+            <Popover open={customRangeOpen} onOpenChange={setCustomRangeOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={selectedPeriod === 'custom' ? 'default' : 'outline'}
+                  className={cn(
+                    "w-full gap-2 h-10",
+                    selectedPeriod === 'custom' && "bg-primary text-primary-foreground"
+                  )}
+                  onClick={() => {
+                    if (selectedPeriod === 'custom') {
+                      setCustomRangeOpen(true);
+                    } else {
+                      setSelectedPeriod('custom');
+                      setCustomRangeOpen(true);
+                    }
+                  }}
+                >
+                  <CalendarRange className="h-4 w-4" />
+                  {selectedPeriod === 'custom' && customRange?.from ? (
+                    <span className="text-sm">
+                      {format(customRange.from, "d MMM", { locale: frLocale })}
+                      {customRange.to && ` → ${format(customRange.to, "d MMM yyyy", { locale: frLocale })}`}
+                    </span>
+                  ) : (
+                    <span className="text-sm">Sélectionner une période</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <CalendarPicker
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(range) => {
+                    setCustomRange(range);
+                    setSelectedPeriod('custom');
+                    // Auto-close when both dates selected
+                    if (range?.from && range?.to) {
+                      setTimeout(() => setCustomRangeOpen(false), 300);
+                    }
+                  }}
+                  numberOfMonths={1}
+                  locale={frLocale}
+                  className={cn("p-3 pointer-events-auto")}
+                  disabled={(date) => date > new Date()}
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Expense Chart — filtered by period */}
+            <ExpenseChart frais={chartFrais} />
 
             {/* Actions - Stack on mobile */}
             <div className="space-y-2">
