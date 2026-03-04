@@ -1,0 +1,1 @@
+ALTER TABLE public.etudes ADD COLUMN active_products text[] DEFAULT ARRAY['PV']::text[];
