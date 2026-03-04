@@ -850,6 +850,7 @@ const ClientDetailInner = () => {
                     clientName={`${client?.prenom || ""} ${client?.nom || ""}`}
                     clientAddress={[client?.adresse, client?.code_postal, client?.ville].filter(Boolean).join(", ")}
                     clientId={id}
+                    etudeId={etudes.length > 0 ? etudes[0].id : undefined}
                     onDocumentsChange={fetchClientData}
                   />
                 )}

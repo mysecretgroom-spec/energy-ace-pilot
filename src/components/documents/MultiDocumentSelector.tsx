@@ -42,6 +42,7 @@ interface MultiDocumentSelectorProps {
   clientName: string;
   clientAddress?: string;
   clientId?: string;
+  etudeId?: string;
   onDocumentsChange?: () => void;
 }
 
@@ -102,6 +103,7 @@ export function MultiDocumentSelector({
   clientName,
   clientAddress,
   clientId,
+  etudeId,
   onDocumentsChange,
 }: MultiDocumentSelectorProps) {
   const { user } = useAuth();
@@ -205,7 +207,35 @@ export function MultiDocumentSelector({
           }
         } catch (error) {
           console.error(`Error processing document ${doc.nom}:`, error);
-          toast({ title: "Erreur", description: `Impossible de traiter: ${doc.nom}`, variant: "destructive" });
+        }
+      }
+
+      // Auto-include étude PDF if available
+      if (etudeId) {
+        try {
+          const { data: etude } = await supabase
+            .from("etudes")
+            .select("pdf_url")
+            .eq("id", etudeId)
+            .maybeSingle();
+
+          if (etude?.pdf_url) {
+            const { data: signed } = await supabase.storage
+              .from("etudes-pdf")
+              .createSignedUrl(etude.pdf_url, 3600);
+
+            if (signed?.signedUrl) {
+              const resp = await fetch(signed.signedUrl);
+              if (resp.ok) {
+                const arrayBuffer = await resp.arrayBuffer();
+                const etudePdfDoc = await PDFDocument.load(arrayBuffer);
+                const pages = await mergedPdf.copyPages(etudePdfDoc, etudePdfDoc.getPageIndices());
+                pages.forEach((page) => mergedPdf.addPage(page));
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Could not include étude PDF:", err);
         }
       }
 
@@ -213,17 +243,39 @@ export function MultiDocumentSelector({
 
       const pdfBytes = await mergedPdf.save();
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
 
-      const link = document.createElement("a");
-      link.href = url;
       const namePart = clientName.trim().replace(/\s+/g, "_");
-      const addressPart = clientAddress ? `, ${clientAddress}` : "";
-      link.download = `${namePart}${addressPart}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      const fileName = `Dossier_${namePart}.pdf`;
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      try {
+        if (navigator.share && navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: fileName });
+        } else {
+          // Fallback: direct download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      } catch (shareErr: any) {
+        if (shareErr?.name === "AbortError") {
+          // User cancelled share — not an error
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
 
       toast({ title: "PDF généré", description: `${mergedPdf.getPageCount()} page(s) dans le dossier` });
       setSelectedIds(new Set());
@@ -233,7 +285,7 @@ export function MultiDocumentSelector({
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedIds, orderedDocs, clientName]);
+  }, [selectedIds, orderedDocs, clientName, etudeId]);
 
   const handleDeleteDocument = useCallback(
     async (docId: string) => {
