@@ -59,6 +59,9 @@ import {
   Train,
   CarFront,
   RotateCcw,
+  Paperclip,
+  Eye,
+  Download,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -170,6 +173,8 @@ const Finance = () => {
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
   const [fraisData, setFraisData] = useState<FraisItem[]>([]);
   const [allFraisData, setAllFraisData] = useState<FraisItem[]>([]); // For current month stats/chart
   const [allFraisHistory, setAllFraisHistory] = useState<FraisItem[]>([]); // For history (all months)
@@ -1520,29 +1525,87 @@ const Finance = () => {
                                                 </p>
                                               )}
                                             </div>
-                                            <p className="font-semibold text-destructive whitespace-nowrap">
-                                              -{Number(frais.montant).toFixed(2)} €
-                                            </p>
-                                            <DropdownMenu>
-                                              <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                                                  <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => openEditDialog(frais)}>
-                                                  <Pencil className="h-4 w-4 mr-2" />
-                                                  Modifier
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem 
-                                                  onClick={() => openDeleteDialog(frais.id)}
-                                                  className="text-destructive focus:text-destructive"
+                                            <div className="flex items-center gap-1 shrink-0">
+                                              <p className="font-semibold text-destructive whitespace-nowrap text-sm">
+                                                -{Number(frais.montant).toFixed(2)} €
+                                              </p>
+                                              {frais.justificatif_url && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-8 w-8 shrink-0 text-primary"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const url = frais.justificatif_url!;
+                                                    const isPdf = url.includes(".pdf") || url.includes("application/pdf");
+                                                    if (url.startsWith("data:")) {
+                                                      setReceiptPreviewUrl(url);
+                                                    } else if (isPdf) {
+                                                      setReceiptPreviewUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
+                                                    } else {
+                                                      setReceiptPreviewUrl(url);
+                                                    }
+                                                    setReceiptPreviewOpen(true);
+                                                  }}
                                                 >
-                                                  <Trash2 className="h-4 w-4 mr-2" />
-                                                  Supprimer
-                                                </DropdownMenuItem>
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
+                                                  <Paperclip className="h-4 w-4" />
+                                                </Button>
+                                              )}
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                  {frais.justificatif_url && (
+                                                    <DropdownMenuItem onClick={async () => {
+                                                      try {
+                                                        const url = frais.justificatif_url!;
+                                                        let extension = "jpg";
+                                                        if (url.includes(".pdf") || url.startsWith("data:application/pdf")) extension = "pdf";
+                                                        else if (url.includes(".png") || url.startsWith("data:image/png")) extension = "png";
+                                                        const fileName = `facture_${frais.date_frais}_${categoryLabels[frais.categorie]}.${extension}`;
+                                                        if (url.startsWith("data:")) {
+                                                          const link = document.createElement("a");
+                                                          link.href = url;
+                                                          link.download = fileName;
+                                                          document.body.appendChild(link);
+                                                          link.click();
+                                                          document.body.removeChild(link);
+                                                        } else {
+                                                          const response = await fetch(url);
+                                                          const blob = await response.blob();
+                                                          const blobUrl = URL.createObjectURL(blob);
+                                                          const link = document.createElement("a");
+                                                          link.href = blobUrl;
+                                                          link.download = fileName;
+                                                          document.body.appendChild(link);
+                                                          link.click();
+                                                          document.body.removeChild(link);
+                                                          URL.revokeObjectURL(blobUrl);
+                                                        }
+                                                        toast.success("Téléchargement lancé");
+                                                      } catch { toast.error("Erreur de téléchargement"); }
+                                                    }}>
+                                                      <Download className="h-4 w-4 mr-2" />
+                                                      Télécharger la facture
+                                                    </DropdownMenuItem>
+                                                  )}
+                                                  <DropdownMenuItem onClick={() => openEditDialog(frais)}>
+                                                    <Pencil className="h-4 w-4 mr-2" />
+                                                    Modifier
+                                                  </DropdownMenuItem>
+                                                  <DropdownMenuItem 
+                                                    onClick={() => openDeleteDialog(frais.id)}
+                                                    className="text-destructive focus:text-destructive"
+                                                  >
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Supprimer
+                                                  </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
+                                            </div>
                                           </div>
                                         );
                                       })}
@@ -1839,6 +1902,30 @@ const Finance = () => {
         emptyMessage="Aucune vente"
         onRefresh={triggerRefresh}
       />
+
+      {/* Receipt Preview Dialog */}
+      <Dialog open={receiptPreviewOpen} onOpenChange={setReceiptPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] p-0">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>Aperçu de la facture</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 pt-2">
+            {receiptPreviewUrl?.startsWith("data:image") ? (
+              <img
+                src={receiptPreviewUrl}
+                alt="Facture"
+                className="w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            ) : receiptPreviewUrl ? (
+              <iframe
+                src={receiptPreviewUrl}
+                className="w-full h-[70vh] rounded-lg border"
+                title="Aperçu facture"
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
       </BlurOverlay>
     </MobileLayout>
   );
