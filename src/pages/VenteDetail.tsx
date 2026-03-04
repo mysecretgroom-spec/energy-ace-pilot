@@ -630,7 +630,14 @@ const VenteDetail = () => {
                   id="montantTtc"
                   type="number"
                   value={montantTtc}
-                  onChange={(e) => setMontantTtc(e.target.value ? Number(e.target.value) : "")}
+                  onChange={(e) => {
+                    const ttc = e.target.value ? Number(e.target.value) : "";
+                    setMontantTtc(ttc);
+                    if (typeof ttc === "number" && ttc > 0) {
+                      const tvaRate = (Number(puissanceKwc) || 0) <= 3 ? 10 : 20;
+                      setMontantHt(Math.round((ttc / (1 + tvaRate / 100)) * 100) / 100);
+                    }
+                  }}
                   placeholder="0"
                 />
               </div>
