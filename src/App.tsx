@@ -14,6 +14,7 @@ import { DailyBriefingProvider } from "@/components/notifications/DailyBriefingP
 import React, { Suspense, useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { Loader2 } from "lucide-react";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 // ─── Lazy-loaded pages for code-splitting ───
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -129,6 +130,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <AuthProvider>
               <HejjaModeProvider>
                 <InteractiveOnboardingProvider>
