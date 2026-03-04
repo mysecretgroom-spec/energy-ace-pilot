@@ -1423,6 +1423,7 @@ export type Database = {
       }
       etudes: {
         Row: {
+          active_products: string[] | null
           aides_manuelles: Json | null
           amperage_disjoncteur: number | null
           autoconsommation_kwh: number | null
@@ -1523,6 +1524,7 @@ export type Database = {
           verdict: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Insert: {
+          active_products?: string[] | null
           aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
@@ -1623,6 +1625,7 @@ export type Database = {
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
         }
         Update: {
+          active_products?: string[] | null
           aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null

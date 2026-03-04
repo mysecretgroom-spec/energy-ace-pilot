@@ -189,9 +189,12 @@ const EtudeForm = () => {
   const hasRestoredDraftRef = useRef(false);
   
   // ═══════════════════════════════════════════════════════════════════════════
-  // PRODUCT TYPE STATE - PV / PAC / ITE
+  // MULTI-PRODUCT STATE - PV / PAC / ITE
   // ═══════════════════════════════════════════════════════════════════════════
-  const [productType, setProductType] = useState<ProductType>("PV");
+  const [activeProducts, setActiveProducts] = useState<ProductType[]>(["PV"]);
+  const [currentTab, setCurrentTab] = useState<ProductType>("PV");
+  // productType is derived from currentTab for backward compatibility in calculations
+  const productType = currentTab;
   
   // Client info
   const [clientName, setClientName] = useState("");
@@ -466,7 +469,10 @@ const EtudeForm = () => {
     console.log("[EtudeForm] Restoring draft from sessionStorage");
     
     // Product type
-    if (draft.productType) setProductType(draft.productType);
+    if (draft.productType) {
+      setCurrentTab(draft.productType);
+      setActiveProducts(draft.activeProducts || [draft.productType]);
+    }
     
     // Common fields
     if (draft.consoAnnuelle !== undefined) setConsoAnnuelle(draft.consoAnnuelle);
@@ -758,7 +764,9 @@ const EtudeForm = () => {
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
       const loadedProductType = (etude.product_type as ProductType) || "PV";
-      setProductType(loadedProductType);
+      const loadedActiveProducts = (etude as any).active_products as ProductType[] || [loadedProductType];
+      setActiveProducts(loadedActiveProducts);
+      setCurrentTab(loadedActiveProducts[0]);
       
       // Consommation
       setConsoAnnuelle(etude.consommation_annuelle_kwh || 0);
@@ -830,9 +838,9 @@ const EtudeForm = () => {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // CHAMPS PAC
+      // CHAMPS PAC - Always load if data exists (multi-product support)
       // ═══════════════════════════════════════════════════════════════════════════
-      if (loadedProductType === "PAC") {
+      if (etude.pac_subtype || loadedActiveProducts.includes("PAC")) {
         setPacSubtype((etude.pac_subtype as "air_air" | "air_eau") || "air_eau");
         setPacSurfaceChauffee(etude.pac_surface_chauffee || "");
         setPacTypeEmetteurs(etude.pac_type_emetteurs || "");
@@ -851,9 +859,9 @@ const EtudeForm = () => {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // CHAMPS ITE
+      // CHAMPS ITE - Always load if data exists (multi-product support)
       // ═══════════════════════════════════════════════════════════════════════════
-      if (loadedProductType === "ITE") {
+      if (etude.ite_surface_isoler || loadedActiveProducts.includes("ITE")) {
         setIteSurfaceIsoler(etude.ite_surface_isoler || "");
         setIteTypeFacade(etude.ite_type_facade || "");
         setIteEpaisseurIsolant(etude.ite_epaisseur_isolant || 120);
@@ -1141,112 +1149,141 @@ const EtudeForm = () => {
   const handleSave = async () => {
     // Pour PV, calculatedResults est requis. Pour PAC/ITE, on sauvegarde directement
     if (!clientId || !user) return;
-    if (productType === "PV" && !calculatedResults) return;
+    const hasPV = activeProducts.includes("PV");
+    if (hasPV && !calculatedResults) return;
 
     setSaving(true);
+
+    const hasPAC = activeProducts.includes("PAC");
+    const hasITE = activeProducts.includes("ITE");
 
     const etudeData = {
       user_id: user.id,
       client_id: clientId,
       rdv_id: rdvId || null,
+      active_products: activeProducts,
       // ═══════════════════════════════════════════════════════════════════════════
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
-      product_type: productType,
+      product_type: activeProducts[0], // Primary product for backward compatibility
       // Consommation
       consommation_annuelle_kwh: consoAnnuelle || null,
       facture_annuelle_euros: Number(factureMensuelle || 0) * 12,
       // Visite technique - Toiture (PV)
-      ombre_toiture: productType === "PV" ? ombreToiture : null,
-      surface_toiture: productType === "PV" ? surfaceToiture : null,
-      type_toiture: productType === "PV" ? typeToiture : null,
-      etat_toiture: productType === "PV" ? etatToiture : null,
+      ombre_toiture: hasPV ? ombreToiture : null,
+      surface_toiture: hasPV ? surfaceToiture : null,
+      type_toiture: hasPV ? typeToiture : null,
+      etat_toiture: hasPV ? etatToiture : null,
       // Compteur électrique (PV)
-      type_compteur_electrique: productType === "PV" ? typeCompteurElectrique : null,
-      numero_pdl: productType === "PV" ? (numeroPdl || null) : null,
-      type_raccordement: productType === "PV" ? typeRaccordement : null,
+      type_compteur_electrique: hasPV ? typeCompteurElectrique : null,
+      numero_pdl: hasPV ? (numeroPdl || null) : null,
+      type_raccordement: hasPV ? typeRaccordement : null,
       // Tableau électrique (PV)
-      amperage_disjoncteur: productType === "PV" && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
-      emplacement_boitier: productType === "PV" ? (emplacementBoitier || null) : null,
+      amperage_disjoncteur: hasPV && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      emplacement_boitier: hasPV ? (emplacementBoitier || null) : null,
       // Résultat visite
       potentiel_faisabilite: potentielFaisabilite || null,
       // Préconisation PV
-      puissance_kwc: productType === "PV" && puissanceKwc ? Number(puissanceKwc) : null,
-      type_revente: productType === "PV" ? (typeRevente || null) : null,
-      support: productType === "PV" ? (supportInstallation || null) : null,
-      orientation: productType === "PV" ? (orientation || null) : null,
-      inclinaison: productType === "PV" && inclinaison ? Number(inclinaison) : null,
+      puissance_kwc: hasPV && puissanceKwc ? Number(puissanceKwc) : null,
+      type_revente: hasPV ? (typeRevente || null) : null,
+      support: hasPV ? (supportInstallation || null) : null,
+      orientation: hasPV ? (orientation || null) : null,
+      inclinaison: hasPV && inclinaison ? Number(inclinaison) : null,
       // Données techniques PV
-      surface_installation_m2: productType === "PV" && surfaceInstallation ? Number(surfaceInstallation) : null,
-      rendement_productivite: productType === "PV" && rendementProductivite ? Number(rendementProductivite) : null,
+      surface_installation_m2: hasPV && surfaceInstallation ? Number(surfaceInstallation) : null,
+      rendement_productivite: hasPV && rendementProductivite ? Number(rendementProductivite) : null,
       // Résultats calculs PV
-      production_annuelle_kwh: productType === "PV" ? calculatedResults.productionAnnuelle : null,
-      autoconsommation_pct: productType === "PV" ? calculatedResults.autoconsoPct : null,
-      surplus_production_kwh: productType === "PV" ? calculatedResults.surplusProduction : null,
-      revente_kwh: productType === "PV" ? calculatedResults.surplusProduction : null,
+      production_annuelle_kwh: hasPV && calculatedResults ? calculatedResults.productionAnnuelle : null,
+      autoconsommation_pct: hasPV && calculatedResults ? calculatedResults.autoconsoPct : null,
+      surplus_production_kwh: hasPV && calculatedResults ? calculatedResults.surplusProduction : null,
+      revente_kwh: hasPV && calculatedResults ? calculatedResults.surplusProduction : null,
       // ═══════════════════════════════════════════════════════════════════════════
       // CHAMPS PAC
       // ═══════════════════════════════════════════════════════════════════════════
-      pac_subtype: productType === "PAC" ? pacSubtype : null,
-      pac_surface_chauffee: productType === "PAC" && pacSurfaceChauffee ? Number(pacSurfaceChauffee) : null,
-      pac_type_emetteurs: productType === "PAC" ? pacTypeEmetteurs : null,
-      pac_nombre_unites_int: productType === "PAC" && pacNombreUnitesInt ? Number(pacNombreUnitesInt) : null,
-      pac_puissance_calorifique: productType === "PAC" && pacPuissanceCalorifique ? Number(pacPuissanceCalorifique) : null,
-      pac_cop: productType === "PAC" && pacCop ? Number(pacCop) : null,
-      pac_ecs_integre: productType === "PAC" ? pacEcsIntegre : null,
-      pac_volume_ballon: productType === "PAC" && pacVolumeBallon ? Number(pacVolumeBallon) : null,
-      pac_energie_actuelle: productType === "PAC" ? pacEnergieActuelle : null,
-      pac_conso_chauffage_kwh: productType === "PAC" && pacConsoChaufffageKwh ? Number(pacConsoChaufffageKwh) : null,
-      pac_economie_estimee: productType === "PAC" && pacEconomieEstimee ? Number(pacEconomieEstimee) : null,
-      pac_facture_chauffage_euros: productType === "PAC" && pacFactureChauffageEuros ? Number(pacFactureChauffageEuros) : null,
-      pac_facture_elec_euros: productType === "PAC" && pacFactureElecEuros ? Number(pacFactureElecEuros) : null,
-      pac_niveau_isolation: productType === "PAC" ? pacNiveauIsolation : null,
-      pac_prix_kwh_elec: productType === "PAC" && pacPrixKwhElec ? Number(pacPrixKwhElec) : null,
-      pac_besoins_chauffage_kwh: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.besoinsChauffageKwh : null,
-      pac_conso_elec_pac_kwh: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.consoElecPacKwh : null,
-      pac_surcout_elec_euros: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.surcoutElecEuros : null,
-      pac_economie_nette_euros: productType === "PAC" && pacEconomiesCalculees ? pacEconomiesCalculees.economieNetteEuros : null,
+      pac_subtype: hasPAC ? pacSubtype : null,
+      pac_surface_chauffee: hasPAC && pacSurfaceChauffee ? Number(pacSurfaceChauffee) : null,
+      pac_type_emetteurs: hasPAC ? pacTypeEmetteurs : null,
+      pac_nombre_unites_int: hasPAC && pacNombreUnitesInt ? Number(pacNombreUnitesInt) : null,
+      pac_puissance_calorifique: hasPAC && pacPuissanceCalorifique ? Number(pacPuissanceCalorifique) : null,
+      pac_cop: hasPAC && pacCop ? Number(pacCop) : null,
+      pac_ecs_integre: hasPAC ? pacEcsIntegre : null,
+      pac_volume_ballon: hasPAC && pacVolumeBallon ? Number(pacVolumeBallon) : null,
+      pac_energie_actuelle: hasPAC ? pacEnergieActuelle : null,
+      pac_conso_chauffage_kwh: hasPAC && pacConsoChaufffageKwh ? Number(pacConsoChaufffageKwh) : null,
+      pac_economie_estimee: hasPAC && pacEconomieEstimee ? Number(pacEconomieEstimee) : null,
+      pac_facture_chauffage_euros: hasPAC && pacFactureChauffageEuros ? Number(pacFactureChauffageEuros) : null,
+      pac_facture_elec_euros: hasPAC && pacFactureElecEuros ? Number(pacFactureElecEuros) : null,
+      pac_niveau_isolation: hasPAC ? pacNiveauIsolation : null,
+      pac_prix_kwh_elec: hasPAC && pacPrixKwhElec ? Number(pacPrixKwhElec) : null,
+      pac_besoins_chauffage_kwh: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.besoinsChauffageKwh : null,
+      pac_conso_elec_pac_kwh: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.consoElecPacKwh : null,
+      pac_surcout_elec_euros: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.surcoutElecEuros : null,
+      pac_economie_nette_euros: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.economieNetteEuros : null,
       // ═══════════════════════════════════════════════════════════════════════════
       // CHAMPS ITE
       // ═══════════════════════════════════════════════════════════════════════════
-      ite_surface_isoler: productType === "ITE" && iteSurfaceIsoler ? Number(iteSurfaceIsoler) : null,
-      ite_type_facade: productType === "ITE" ? iteTypeFacade : null,
-      ite_epaisseur_isolant: productType === "ITE" && iteEpaisseurIsolant ? Number(iteEpaisseurIsolant) : null,
-      ite_type_isolant: productType === "ITE" ? iteTypeIsolant : null,
-      ite_r_actuel: productType === "ITE" && iteRActuel ? Number(iteRActuel) : null,
-      ite_r_cible: productType === "ITE" && iteRCible ? Number(iteRCible) : null,
-      ite_nombre_facades: productType === "ITE" && iteNombreFacades ? Number(iteNombreFacades) : null,
-      ite_surface_ouvertures: productType === "ITE" && iteSurfaceOuvertures ? Number(iteSurfaceOuvertures) : null,
-      ite_finition: productType === "ITE" ? iteFinition : null,
-      ite_economie_chauffage_pct: productType === "ITE" && iteEconomieChauffagePct ? Number(iteEconomieChauffagePct) : null,
-      // Prix (adapté selon productType)
-      prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
+      ite_surface_isoler: hasITE && iteSurfaceIsoler ? Number(iteSurfaceIsoler) : null,
+      ite_type_facade: hasITE ? iteTypeFacade : null,
+      ite_epaisseur_isolant: hasITE && iteEpaisseurIsolant ? Number(iteEpaisseurIsolant) : null,
+      ite_type_isolant: hasITE ? iteTypeIsolant : null,
+      ite_r_actuel: hasITE && iteRActuel ? Number(iteRActuel) : null,
+      ite_r_cible: hasITE && iteRCible ? Number(iteRCible) : null,
+      ite_nombre_facades: hasITE && iteNombreFacades ? Number(iteNombreFacades) : null,
+      ite_surface_ouvertures: hasITE && iteSurfaceOuvertures ? Number(iteSurfaceOuvertures) : null,
+      ite_finition: hasITE ? iteFinition : null,
+      ite_economie_chauffage_pct: hasITE && iteEconomieChauffagePct ? Number(iteEconomieChauffagePct) : null,
+      // ═══════════════════════════════════════════════════════════════════════════
+      // PRIX COMBINÉ - Somme de tous les produits actifs
+      // ═══════════════════════════════════════════════════════════════════════════
+      prix_installation: (() => {
+        let total = 0;
+        if (hasPV && calculatedResults) total += calculatedResults.prixInstallation;
+        if (hasPAC && pacPrixManuel) total += Number(pacPrixManuel);
+        if (hasITE && itePrixManuel) total += Number(itePrixManuel);
+        return total || null;
+      })(),
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
       autre_surcout: autreSurcout,
-      prix_total: productType === "PV" ? calculatedResults?.prixTotalHorsAides : ((Number(pacPrixManuel) || Number(itePrixManuel) || 0) + autreSurcout),
-      // Aides
-      prime_autoconsommation: productType === "PV" ? calculatedResults?.primeAutoconsommation : null,
-      eco_tva: productType === "PV" ? calculatedResults?.ecoTva : (productType === "PAC" ? aidesPAC.ecoTva : aidesITE.ecoTva),
-      total_aides: productType === "PV" ? calculatedResults?.totalAides : 
-        (productType === "PAC" ? (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale) :
-        (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale)),
-      total_aides_deduites: productType === "PV" ? calculatedResults?.totalAidesDeduites : null,
+      prix_total: (() => {
+        let total = 0;
+        if (hasPV && calculatedResults) total += calculatedResults.prixTotalHorsAides;
+        if (hasPAC) total += (Number(pacPrixManuel) || 0);
+        if (hasITE) total += (Number(itePrixManuel) || 0);
+        return total + autreSurcout;
+      })(),
+      // Aides combinées
+      prime_autoconsommation: hasPV && calculatedResults ? calculatedResults.primeAutoconsommation : null,
+      eco_tva: (() => {
+        let total = 0;
+        if (hasPV && calculatedResults) total += calculatedResults.ecoTva;
+        if (hasPAC) total += aidesPAC.ecoTva;
+        if (hasITE) total += aidesITE.ecoTva;
+        return total;
+      })(),
+      total_aides: (() => {
+        let total = 0;
+        if (hasPV && calculatedResults) total += calculatedResults.totalAides;
+        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale);
+        if (hasITE) total += (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale);
+        return total;
+      })(),
+      total_aides_deduites: hasPV && calculatedResults ? calculatedResults.totalAidesDeduites : null,
       aides_manuelles: modeHejjaActive && aidesManuelles.length > 0 
         ? JSON.parse(JSON.stringify(aidesManuelles)) 
-        : (productType === "PAC" ? aidesPAC : productType === "ITE" ? aidesITE : null),
+        : (hasPAC ? aidesPAC : hasITE ? aidesITE : null),
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
-      mensualite_estimee: productType === "PV" ? calculatedResults?.mensualite : (mensualiteManuelle || null),
+      mensualite_estimee: hasPV && calculatedResults ? calculatedResults.mensualite : (mensualiteManuelle || null),
       // Rentabilité
-      economie_autoconso_mensuelle: productType === "PV" ? calculatedResults?.autoconsommationEuros : null,
-      revente_mensuelle_estimee: productType === "PV" ? calculatedResults?.reventeMensuelleEstimee : null,
-      resultat_transfert_charge: productType === "PV" ? calculatedResults?.resultatTransfertCharge : null,
-      resultat_mensuel: productType === "PV" ? calculatedResults?.resultatTransfertCharge : null,
-      verdict: productType === "PV" ? calculatedResults?.verdict : null,
+      economie_autoconso_mensuelle: hasPV && calculatedResults ? calculatedResults.autoconsommationEuros : null,
+      revente_mensuelle_estimee: hasPV && calculatedResults ? calculatedResults.reventeMensuelleEstimee : null,
+      resultat_transfert_charge: hasPV && calculatedResults ? calculatedResults.resultatTransfertCharge : null,
+      resultat_mensuel: hasPV && calculatedResults ? calculatedResults.resultatTransfertCharge : null,
+      verdict: hasPV && calculatedResults ? calculatedResults.verdict : null,
       mode_hejja_psh: modeHejjaPsh,
       mode_hejja_prix: modeHejjaPrix,
       classification: classification || null,
@@ -2026,9 +2063,10 @@ _Envoyé depuis DébalePro_`;
                 ÉTUDE ÉNERGÉTIQUE
               </h1>
               <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider truncate">
-                {productType === "PV" && "Photovoltaïque"}
-                {productType === "PAC" && "Pompe à Chaleur"}
-                {productType === "ITE" && "Isolation Thermique"}
+                {activeProducts.length > 1 
+                  ? activeProducts.map(p => p === "PV" ? "Photovoltaïque" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+                  : currentTab === "PV" ? "Photovoltaïque" : currentTab === "PAC" ? "Pompe à Chaleur" : "Isolation Thermique"
+                }
               </p>
             </div>
             <img 
@@ -2123,9 +2161,11 @@ _Envoyé depuis DébalePro_`;
           <Card className="shadow-card border-2 border-primary/30">
             <CardContent className="pt-3 sm:pt-4 pb-3 sm:pb-4">
               <ProductTypeSelector
-                value={productType}
-                onChange={setProductType}
-                disabled={isEditMode} // Ne pas changer le type en mode édition
+                activeProducts={activeProducts}
+                currentTab={currentTab}
+                onActiveProductsChange={setActiveProducts}
+                onTabChange={setCurrentTab}
+                disabled={isEditMode}
               />
             </CardContent>
           </Card>
@@ -2142,9 +2182,9 @@ _Envoyé depuis DébalePro_`;
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {/* CHAMPS SPÉCIFIQUES PAC */}
+          {/* CHAMPS SPÉCIFIQUES PAC - Shown when PAC is active AND current tab */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {productType === "PAC" && (
+          {activeProducts.includes("PAC") && currentTab === "PAC" && (
             <PACFields
               data={{
                 pacSubtype: pacSubtype,
@@ -2187,9 +2227,9 @@ _Envoyé depuis DébalePro_`;
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {/* CHAMPS SPÉCIFIQUES ITE */}
+          {/* CHAMPS SPÉCIFIQUES ITE - Shown when ITE is active AND current tab */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {productType === "ITE" && (
+          {activeProducts.includes("ITE") && currentTab === "ITE" && (
             <ITEFields
               data={{
                 iteSurfaceIsoler: iteSurfaceIsoler,
@@ -2225,7 +2265,7 @@ _Envoyé depuis DébalePro_`;
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* CHAMPS PV - VISITE TECHNIQUE TOITURE (seulement pour PV) */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {productType === "PV" && (
+          {activeProducts.includes("PV") && currentTab === "PV" && (
             <>
 
         {/* VISITE TECHNIQUE - TOITURE */}
@@ -2748,7 +2788,7 @@ _Envoyé depuis DébalePro_`;
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
 
         {/* Section Financière PAC */}
-        {productType === "PAC" && (
+        {activeProducts.includes("PAC") && currentTab === "PAC" && (
           <FinancialSectionPAC
             pacSubtype={pacSubtype}
             pacPuissance={Number(pacPuissanceCalorifique) || 0}
@@ -2781,7 +2821,7 @@ _Envoyé depuis DébalePro_`;
         )}
 
         {/* Section Financière ITE */}
-        {productType === "ITE" && (
+        {activeProducts.includes("ITE") && currentTab === "ITE" && (
           <FinancialSectionITE
             surfaceIsoler={Number(iteSurfaceIsoler) || 0}
             prixInstallation={(() => {
@@ -2811,7 +2851,7 @@ _Envoyé depuis DébalePro_`;
         )}
 
         {/* =============== PRÉ-ÉTUDE FINANCIÈRE PV =============== */}
-        {productType === "PV" && (
+        {activeProducts.includes("PV") && currentTab === "PV" && (
           <div className="pt-4">
             <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
               PRÉ-ÉTUDE FINANCIÈRE
@@ -2820,7 +2860,7 @@ _Envoyé depuis DébalePro_`;
         )}
 
         {/* PRIX & AIDES PV */}
-        {productType === "PV" && calculatedResults && (
+        {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && (
           <div className="grid grid-cols-2 gap-3">
             {/* PRIX */}
             <Card className="shadow-card">
@@ -2988,7 +3028,7 @@ _Envoyé depuis DébalePro_`;
         )}
 
         {/* RENTABILITÉ FINANCIÈRE PV */}
-        {productType === "PV" && calculatedResults && (
+        {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && (
           <Card className="shadow-card border-2 border-primary/50">
             <CardHeader className="pb-2 bg-primary/20 px-3 sm:px-6 py-2 sm:py-3">
               <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
@@ -3357,7 +3397,7 @@ _Envoyé depuis DébalePro_`;
               forceSyncRef.current = true;
               handleSave();
             }}
-            disabled={saving || (productType === "PV" && !calculatedResults)}
+            disabled={saving || (activeProducts.includes("PV") && !calculatedResults)}
             className="h-12 px-4 sm:h-14 sm:px-5 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95 bg-emerald-600 hover:bg-emerald-700"
             aria-label="Terminer et propager le statut"
           >
