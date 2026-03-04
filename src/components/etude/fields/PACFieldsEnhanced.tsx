@@ -47,6 +47,8 @@ interface PACFieldsEnhancedProps {
   };
   departement?: string;
   onChange: (field: string, value: unknown) => void;
+  /** Réduction des besoins chauffage grâce à l'ITE (0-100%) */
+  iteReductionPct?: number;
   onEconomiesCalculated?: (economies: {
     besoinsChauffageKwh: number;
     consoElecPacKwh: number;
@@ -79,7 +81,7 @@ const VOLUME_BALLON_OPTIONS = [
   { value: 300, label: "300L" },
 ];
 
-export const PACFieldsEnhanced = ({ data, departement, onChange, onEconomiesCalculated }: PACFieldsEnhancedProps) => {
+export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct = 0, onEconomiesCalculated }: PACFieldsEnhancedProps) => {
   const {
     isolationLevels,
     energiesPrix,
@@ -167,7 +169,9 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, onEconomiesCalc
   const besoinsKwhM2 = selectedIsolation?.besoins_kwh_m2_an || 120;
 
   // === CALCULS D'ÉCONOMIES ===
-  const besoinsChauffageKwh = surface * besoinsKwhM2;
+  const besoinsChauffageBrut = surface * besoinsKwhM2;
+  // Réduction ITE : si ITE active, les besoins chauffage diminuent
+  const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
   const consoElecPacKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
   const surcoutElecEuros = consoElecPacKwh * prixKwhElec;
   const economieNetteEuros = factureChauf - surcoutElecEuros;
