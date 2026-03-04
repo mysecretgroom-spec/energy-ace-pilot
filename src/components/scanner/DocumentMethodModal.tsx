@@ -36,6 +36,7 @@ export function DocumentMethodModal({
   onClose,
 }: DocumentMethodModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const externalFileInputRef = useRef<HTMLInputElement>(null);
   const nativeCaptureRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<ModalView>("main");
 
@@ -52,6 +53,16 @@ export function DocumentMethodModal({
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handleExternalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onFileImport(file);
+    }
+    if (externalFileInputRef.current) {
+      externalFileInputRef.current.value = "";
     }
   };
 
@@ -74,15 +85,7 @@ export function DocumentMethodModal({
   };
 
   const handleExternalAppScan = () => {
-    // Show instructions for using external scanner apps
-    const message = `Pour scanner avec une application externe :
-
-1. Ouvrez CamScanner, Adobe Scan ou l'app de scan de votre téléphone
-2. Scannez votre document
-3. Exportez-le en PDF ou image
-4. Revenez ici et utilisez "Importer un fichier"`;
-    
-    alert(message);
+    externalFileInputRef.current?.click();
   };
 
   const handleClose = () => {
@@ -199,9 +202,9 @@ export function DocumentMethodModal({
             <FileText className="h-6 w-6 text-blue-600" />
           </div>
           <div className="text-left">
-            <span className="text-sm font-medium block">Application externe</span>
+            <span className="text-sm font-medium block">Importer depuis une app</span>
             <span className="text-xs text-muted-foreground">
-              CamScanner, Adobe Scan...
+              CamScanner, Fichiers, Adobe Scan...
             </span>
           </div>
         </Button>
@@ -230,6 +233,14 @@ export function DocumentMethodModal({
           accept="image/*"
           capture="environment"
           onChange={handleNativeCaptureChange}
+          className="hidden"
+        />
+        {/* Hidden input for external app files (PDF from CamScanner, Files app, etc.) */}
+        <input
+          ref={externalFileInputRef}
+          type="file"
+          accept="application/pdf,image/jpeg,image/jpg,image/png,image/heic"
+          onChange={handleExternalFileChange}
           className="hidden"
         />
       </div>
