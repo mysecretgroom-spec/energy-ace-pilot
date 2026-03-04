@@ -567,7 +567,7 @@ const EtudeForm = () => {
     }
   };
 
-  // Recalculate when inputs change
+  // Recalculate when inputs change (including cross-product dependencies)
   useEffect(() => {
     if (puissanceKwc && consoAnnuelle) {
       calculateResults();
@@ -602,6 +602,9 @@ const EtudeForm = () => {
     dataFinancements,
     usePshCalculation,
     dataPsh,
+    // Cross-product: recalc PV when PAC economics change
+    activeProducts,
+    pacEconomiesCalculees,
   ]);
 
   // Reload bouquets when productType changes (to filter by product)
@@ -976,7 +979,13 @@ const EtudeForm = () => {
     if (!puissanceKwc || !consoAnnuelle) return;
 
     const puissance = Number(puissanceKwc);
-    const conso = Number(consoAnnuelle);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CALCUL CROISÉ: Si PAC active, ajouter sa consommation électrique au PV
+    // ═══════════════════════════════════════════════════════════════════════════
+    let conso = Number(consoAnnuelle);
+    if (activeProducts.includes("PAC") && pacEconomiesCalculees?.consoElecPacKwh) {
+      conso += pacEconomiesCalculees.consoElecPacKwh;
+    }
     const facture = Number(factureMensuelle || 0);
 
     // Get orientation coefficient (maintenant stocké dans rendementProductivite en %)
@@ -1743,11 +1752,19 @@ const EtudeForm = () => {
 
   // Build PDF data (must be defined before hooks that use it)
   const buildPdfData = useCallback((): EtudeData | null => {
-    if (!calculatedResults) return null;
+    // For multi-product, we can generate even without PV calculatedResults
+    const hasPV = activeProducts.includes("PV");
+    const hasPAC = activeProducts.includes("PAC");
+    const hasITE = activeProducts.includes("ITE");
+    
+    if (hasPV && !calculatedResults) return null;
     
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
     
     return {
+      // Multi-product
+      activeProducts,
+      
       clientNom: clientName,
       clientPrenom: clientPrenom,
       clientAdresse: clientAdresse,
@@ -1777,28 +1794,68 @@ const EtudeForm = () => {
       surfaceInstallation: Number(surfaceInstallation) || 0,
       heuresEnsoleillement: heuresEnsoleillement,
       rendementProductivite: Number(rendementProductivite) || 100,
-      productionAnnuelle: calculatedResults.productionAnnuelle,
-      surplusProduction: calculatedResults.surplusProduction,
-      autoconsoPct: calculatedResults.autoconsoPct,
-      prixInstallation: calculatedResults.prixInstallation,
+      productionAnnuelle: calculatedResults?.productionAnnuelle || 0,
+      surplusProduction: calculatedResults?.surplusProduction || 0,
+      autoconsoPct: calculatedResults?.autoconsoPct || 0,
+      prixInstallation: calculatedResults?.prixInstallation || 0,
       surcoutSupport: surcoutSupport,
       surcoutCompteur: surcoutCompteur,
       autreSurcout: autreSurcout,
-      prixTotalHorsAides: calculatedResults.prixTotalHorsAides,
-      primeAutoconsommation: calculatedResults.primeAutoconsommation,
-      ecoTva: calculatedResults.ecoTva,
-      totalAides: calculatedResults.totalAides,
-      totalAidesDeduites: calculatedResults.totalAidesDeduites,
+      prixTotalHorsAides: calculatedResults?.prixTotalHorsAides || 0,
+      primeAutoconsommation: calculatedResults?.primeAutoconsommation || 0,
+      ecoTva: calculatedResults?.ecoTva || 0,
+      totalAides: calculatedResults?.totalAides || 0,
+      totalAidesDeduites: calculatedResults?.totalAidesDeduites || 0,
       financementNom: selectedFinancement?.nom || "Non défini",
       tauxFinancement: selectedFinancement?.taux_effectif || 0,
       dureeMois: dureeMoisManuelle || 120,
-      mensualite: calculatedResults.mensualite,
-      autoconsommationEuros: calculatedResults.autoconsommationEuros,
-      reventeMensuelleEstimee: calculatedResults.reventeMensuelleEstimee,
-      resultatTransfertCharge: calculatedResults.resultatTransfertCharge,
-      verdict: calculatedResults.verdict || "invalide",
+      mensualite: calculatedResults?.mensualite || 0,
+      autoconsommationEuros: calculatedResults?.autoconsommationEuros || 0,
+      reventeMensuelleEstimee: calculatedResults?.reventeMensuelleEstimee || 0,
+      resultatTransfertCharge: calculatedResults?.resultatTransfertCharge || 0,
+      verdict: calculatedResults?.verdict || "invalide",
       classification: classification || undefined,
       classificationComment: classificationComment || undefined,
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // DONNÉES PAC
+      // ═══════════════════════════════════════════════════════════════════════════
+      pac: hasPAC ? {
+        subtype: pacSubtype,
+        surfaceChauffee: Number(pacSurfaceChauffee) || 0,
+        typeEmetteurs: pacTypeEmetteurs || "Non défini",
+        puissanceCalorifique: Number(pacPuissanceCalorifique) || 0,
+        cop: Number(pacCop) || 3.5,
+        ecsIntegre: pacEcsIntegre,
+        volumeBallon: Number(pacVolumeBallon) || 0,
+        energieActuelle: pacEnergieActuelle || "Non défini",
+        niveauIsolation: pacNiveauIsolation || "moyen",
+        prixInstallation: Number(pacPrixManuel) || 0,
+        aides: aidesPAC,
+        economies: pacEconomiesCalculees,
+        factureChauffage: Number(pacFactureChauffageEuros) || 0,
+        factureElec: Number(pacFactureElecEuros) || 0,
+        prixKwhElec: Number(pacPrixKwhElec) || 0.23,
+      } : undefined,
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // DONNÉES ITE
+      // ═══════════════════════════════════════════════════════════════════════════
+      ite: hasITE ? {
+        surfaceIsoler: Number(iteSurfaceIsoler) || 0,
+        typeFacade: iteTypeFacade || "Non défini",
+        epaisseurIsolant: Number(iteEpaisseurIsolant) || 120,
+        typeIsolant: iteTypeIsolant || "Non défini",
+        rActuel: Number(iteRActuel) || 0,
+        rCible: Number(iteRCible) || 3.7,
+        nombreFacades: Number(iteNombreFacades) || 1,
+        surfaceOuvertures: Number(iteSurfaceOuvertures) || 0,
+        finition: iteFinition || "Non défini",
+        economieChauffagePct: Number(iteEconomieChauffagePct) || 0,
+        factureChaufActuelle: Number(iteFactureChaufActuelle) || 0,
+        prixInstallation: Number(itePrixManuel) || 0,
+        aides: aidesITE,
+      } : undefined,
     };
   }, [
     calculatedResults, clientName, clientPrenom, clientAdresse, clientVille,
@@ -1808,7 +1865,13 @@ const EtudeForm = () => {
     potentielFaisabilite, consoAnnuelle, factureMensuelle, puissanceKwc,
     typeRevente, supportInstallation, surfaceInstallation, heuresEnsoleillement,
     rendementProductivite, surcoutSupport, surcoutCompteur, autreSurcout,
-    dataFinancements, financementId, dureeMoisManuelle, classification, classificationComment
+    dataFinancements, financementId, dureeMoisManuelle, classification, classificationComment,
+    activeProducts, pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacPuissanceCalorifique,
+    pacCop, pacEcsIntegre, pacVolumeBallon, pacEnergieActuelle, pacNiveauIsolation,
+    pacPrixManuel, aidesPAC, pacEconomiesCalculees, pacFactureChauffageEuros, pacFactureElecEuros,
+    pacPrixKwhElec, iteSurfaceIsoler, iteTypeFacade, iteEpaisseurIsolant, iteTypeIsolant,
+    iteRActuel, iteRCible, iteNombreFacades, iteSurfaceOuvertures, iteFinition,
+    iteEconomieChauffagePct, iteFactureChaufActuelle, itePrixManuel, aidesITE,
   ]);
 
   // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
@@ -3064,6 +3127,140 @@ _Envoyé depuis DébalePro_`;
                     {calculatedResults.resultatTransfertCharge >= 0 ? "+" : ""}{calculatedResults.resultatTransfertCharge.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
                   </span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {/* CROSS-PRODUCT INFO BANNER */}
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {activeProducts.includes("PV") && activeProducts.includes("PAC") && pacEconomiesCalculees && (
+          <Card className="shadow-card border border-blue-300 bg-blue-50/50">
+            <CardContent className="py-2 px-3 sm:px-4">
+              <div className="flex items-center gap-2 text-xs text-blue-700">
+                <Zap className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>Calcul croisé PV+PAC :</strong> La consommation de la PAC ({Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an) est ajoutée à la consommation PV pour un dimensionnement optimal.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {/* RÉCAPITULATIF GLOBAL MULTI-PRODUIT */}
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {activeProducts.length > 1 && (
+          <Card className="shadow-card border-2 border-[#000091]/30">
+            <CardHeader className="pb-2 bg-[#000091]/10 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-[#000091]">
+                <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                Récapitulatif Global ({activeProducts.join(" + ")})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+              {/* Prix par produit */}
+              <div className="space-y-1.5 text-xs sm:text-sm">
+                {activeProducts.includes("PV") && calculatedResults && (
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5">
+                      <Sun className="h-3.5 w-3.5 text-amber-500" /> PV
+                    </span>
+                    <span className="font-medium">{calculatedResults.prixTotalHorsAides.toLocaleString("fr-FR")}€</span>
+                  </div>
+                )}
+                {activeProducts.includes("PAC") && (
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5">
+                      <Gauge className="h-3.5 w-3.5 text-blue-500" /> PAC
+                    </span>
+                    <span className="font-medium">{(Number(pacPrixManuel) || 0).toLocaleString("fr-FR")}€</span>
+                  </div>
+                )}
+                {activeProducts.includes("ITE") && (
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1.5">
+                      <Home className="h-3.5 w-3.5 text-purple-500" /> ITE
+                    </span>
+                    <span className="font-medium">{(Number(itePrixManuel) || 0).toLocaleString("fr-FR")}€</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between items-center font-bold">
+                  <span>TOTAL PROJET</span>
+                  <span className="text-sm sm:text-base">
+                    {(() => {
+                      let total = 0;
+                      if (activeProducts.includes("PV") && calculatedResults) total += calculatedResults.prixTotalHorsAides;
+                      if (activeProducts.includes("PAC")) total += Number(pacPrixManuel) || 0;
+                      if (activeProducts.includes("ITE")) total += Number(itePrixManuel) || 0;
+                      return total.toLocaleString("fr-FR");
+                    })()}€
+                  </span>
+                </div>
+              </div>
+              
+              {/* Aides combinées */}
+              <div className="bg-emerald-50 rounded-lg p-2.5 sm:p-3">
+                <p className="text-[10px] sm:text-xs font-bold text-emerald-700 mb-1.5">AIDES CUMULÉES</p>
+                <div className="space-y-1 text-xs">
+                  {activeProducts.includes("PV") && calculatedResults && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>PV</span>
+                      <span>{calculatedResults.totalAides.toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("PAC") && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>PAC</span>
+                      <span>{(aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale).toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("ITE") && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>ITE</span>
+                      <span>{(aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale).toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  <Separator className="bg-emerald-200" />
+                  <div className="flex justify-between font-bold text-emerald-700">
+                    <span>TOTAL AIDES</span>
+                    <span>
+                      {(() => {
+                        let total = 0;
+                        if (activeProducts.includes("PV") && calculatedResults) total += calculatedResults.totalAides;
+                        if (activeProducts.includes("PAC")) total += aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+                        if (activeProducts.includes("ITE")) total += aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
+                        return total.toLocaleString("fr-FR");
+                      })()}€
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Coût net global */}
+              <div className="bg-primary/10 rounded-lg p-2.5 sm:p-3 text-center">
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Coût net après aides</p>
+                <p className="font-bold text-lg sm:text-xl text-primary">
+                  {(() => {
+                    let totalPrix = 0;
+                    let totalAides = 0;
+                    if (activeProducts.includes("PV") && calculatedResults) {
+                      totalPrix += calculatedResults.prixTotalHorsAides;
+                      totalAides += calculatedResults.totalAides;
+                    }
+                    if (activeProducts.includes("PAC")) {
+                      totalPrix += Number(pacPrixManuel) || 0;
+                      totalAides += aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+                    }
+                    if (activeProducts.includes("ITE")) {
+                      totalPrix += Number(itePrixManuel) || 0;
+                      totalAides += aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
+                    }
+                    return (totalPrix - totalAides).toLocaleString("fr-FR");
+                  })()}€
+                </p>
               </div>
             </CardContent>
           </Card>
