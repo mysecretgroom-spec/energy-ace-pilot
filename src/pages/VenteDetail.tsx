@@ -36,21 +36,10 @@ import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
+import { VENTE_STATUS_LABELS, VENTE_STATUS_COLORS, VENTE_STATUS_TO_WHATSAPP, VENTE_STATUS_OPTIONS, isCancellationStatus } from "@/lib/venteStatusConfig";
+
 // Map vente status to WhatsApp classification
-const venteStatusToClassification: Record<VenteStatus, string | null> = {
-  en_negociation: null, // Pas de notification
-  signe: "positif",
-  cq_a_faire: null,
-  cq_fait: null,
-  attente_financement: null,
-  envoi_pose: null,
-  en_installation: null,
-  installe: "installe", // Installation terminée - template spécifique
-  attente_paiement: null,
-  paye: "paye", // Paiement reçu - template spécifique
-  annule: "annule",
-  refus_financement: "annule",
-};
+const venteStatusToClassification = VENTE_STATUS_TO_WHATSAPP;
 
 interface Vente {
   id: string;
@@ -81,35 +70,9 @@ interface Client {
   email: string | null;
 }
 
-const statusLabels: Record<VenteStatus, string> = {
-  en_negociation: "En négociation",
-  signe: "Signé",
-  cq_a_faire: "CQ à faire",
-  cq_fait: "CQ fait",
-  attente_financement: "Attente financement",
-  envoi_pose: "Envoi en pose",
-  en_installation: "En installation",
-  installe: "Posé",
-  attente_paiement: "Attente paiement",
-  paye: "Payé",
-  annule: "Annulé",
-  refus_financement: "Refus financement",
-};
+const statusLabels = VENTE_STATUS_LABELS;
 
-const statusColors: Record<VenteStatus, string> = {
-  en_negociation: "bg-amber-500/10 text-amber-600 border-amber-200",
-  signe: "bg-blue-500/10 text-blue-600 border-blue-200",
-  cq_a_faire: "bg-orange-500/10 text-orange-600 border-orange-200",
-  cq_fait: "bg-cyan-500/10 text-cyan-600 border-cyan-200",
-  attente_financement: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
-  envoi_pose: "bg-indigo-500/10 text-indigo-600 border-indigo-200",
-  en_installation: "bg-purple-500/10 text-purple-600 border-purple-200",
-  installe: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-  attente_paiement: "bg-pink-500/10 text-pink-600 border-pink-200",
-  paye: "bg-green-500/10 text-green-600 border-green-200",
-  annule: "bg-red-500/10 text-red-600 border-red-200",
-  refus_financement: "bg-red-500/10 text-red-600 border-red-200",
-};
+const statusColors = VENTE_STATUS_COLORS;
 
 const VenteDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -576,6 +539,9 @@ const VenteDetail = () => {
                 <SelectItem value="paye">Payé</SelectItem>
                 <SelectItem value="annule">Annulé</SelectItem>
                 <SelectItem value="refus_financement">Refus financement</SelectItem>
+                <SelectItem value="inFinancable">Infinançable</SelectItem>
+                <SelectItem value="retracte">Rétracté</SelectItem>
+                <SelectItem value="refus_mairie_abf">Refus Mairie / ABF</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>

@@ -13,7 +13,7 @@ import {
   Building2,
 } from "lucide-react";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
+import { VenteStatus, VENTE_STATUS_LABELS, isCancellationStatus } from "@/lib/venteStatusConfig";
 
 interface Regie {
   id: string;
@@ -57,20 +57,7 @@ const STATUS_ORDER: VenteStatus[] = [
   'attente_paiement',
 ];
 
-const STATUS_LABELS: Record<VenteStatus, string> = {
-  en_negociation: 'En négociation',
-  signe: 'Signé',
-  cq_a_faire: 'CQ à faire',
-  cq_fait: 'CQ fait',
-  attente_financement: 'Attente financement',
-  envoi_pose: 'Envoi pose',
-  en_installation: 'En installation',
-  installe: 'Installé',
-  attente_paiement: 'Attente paiement',
-  paye: 'Payé',
-  annule: 'Annulé',
-  refus_financement: 'Refus financement',
-};
+const STATUS_LABELS = VENTE_STATUS_LABELS;
 
 interface VentesGroupedListProps {
   ventes: Vente[];
@@ -116,9 +103,9 @@ export const VentesGroupedList = memo(function VentesGroupedList({
   }
 
   // Split ventes into 3 buckets
-  const activeVentes = ventes.filter(v => v.status !== 'paye' && v.status !== 'annule' && v.status !== 'refus_financement');
+  const activeVentes = ventes.filter(v => v.status !== 'paye' && !isCancellationStatus(v.status));
   const payeVentes = ventes.filter(v => v.status === 'paye');
-  const annuleVentes = ventes.filter(v => v.status === 'annule' || v.status === 'refus_financement');
+  const annuleVentes = ventes.filter(v => isCancellationStatus(v.status));
 
   // Group active ventes by regie
   const regieGroups = new Map<string | null, Vente[]>();
