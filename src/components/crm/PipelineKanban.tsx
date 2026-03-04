@@ -1,8 +1,7 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -13,13 +12,24 @@ import {
   TrendingUp,
   XCircle,
   GripVertical,
-  ArrowRight,
   TrendingDown,
+  Target,
+  BarChart3,
+  AlertTriangle,
+  Ban,
+  ShieldX,
+  Undo2,
+  Building,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 
-import { VenteStatus, VENTE_STATUS_TO_WHATSAPP } from "@/lib/venteStatusConfig";
+import {
+  VenteStatus,
+  CANCELLATION_STATUSES,
+  VENTE_STATUS_LABELS,
+  isCancellationStatus,
+} from "@/lib/venteStatusConfig";
 
 interface Vente {
   id: string;
@@ -63,12 +73,41 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// Map vente status to WhatsApp classification
-const venteStatusToClassification = VENTE_STATUS_TO_WHATSAPP;
+const CANCELLATION_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  annule: { label: "Annulé", icon: <XCircle className="h-4 w-4" />, color: "text-red-500" },
+  refus_financement: { label: "Refus financement", icon: <Ban className="h-4 w-4" />, color: "text-red-600" },
+  inFinancable: { label: "Infinançable", icon: <ShieldX className="h-4 w-4" />, color: "text-red-700" },
+  retracte: { label: "Rétracté", icon: <Undo2 className="h-4 w-4" />, color: "text-orange-600" },
+  refus_mairie_abf: { label: "Refus Mairie / ABF", icon: <Building className="h-4 w-4" />, color: "text-amber-700" },
+};
 
 export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [rdvStats, setRdvStats] = useState<{ total: number; signe: number; negatif: number; annule: number; r2: number; reporte: number } | null>(null);
+
+  // Fetch RDV stats for performance index
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchRdvStats = async () => {
+      const { data, error } = await supabase
+        .from("rdv")
+        .select("status")
+        .eq("user_id", user.id);
+      if (error || !data) return;
+      const stats = { total: data.length, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0 };
+      data.forEach((r) => {
+        if (r.status === "signe") stats.signe++;
+        else if (r.status === "negatif") stats.negatif++;
+        else if (r.status === "annule") stats.annule++;
+        else if (r.status === "r2" || r.status === "r2_prestudy") stats.r2++;
+        else if (r.status === "reporte") stats.reporte++;
+      });
+      setRdvStats(stats);
+    };
+    fetchRdvStats();
+  }, [user?.id]);
+
   const handleDragStart = (e: React.DragEvent, venteId: string) => {
     e.dataTransfer.setData("venteId", venteId);
   };
@@ -80,24 +119,16 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
   const handleDrop = async (e: React.DragEvent, newStatus: VenteStatus) => {
     e.preventDefault();
     const venteId = e.dataTransfer.getData("venteId");
-    
     if (!venteId) return;
-
-    // Find the vente to get client info and previous status
     const vente = ventes.find(v => v.id === venteId);
-    if (!vente) return;
-    
-    const previousStatus = vente.status;
-    if (previousStatus === newStatus) return;
+    if (!vente || vente.status === newStatus) return;
 
     try {
       const { error } = await supabase
         .from("ventes")
         .update({ status: newStatus })
         .eq("id", venteId);
-
       if (error) throw error;
-      
       toast.success("Statut mis à jour");
       onRefresh();
     } catch (error) {
@@ -106,114 +137,146 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
     }
   };
 
-  const getVentesByStatus = (status: VenteStatus) => {
-    return ventes.filter(v => v.status === status);
-  };
+  const getVentesByStatus = (status: VenteStatus) => ventes.filter(v => v.status === status);
+  const getColumnTotal = (status: VenteStatus) => getVentesByStatus(status).reduce((sum, v) => sum + v.montant_ttc, 0);
 
-  const getColumnTotal = (status: VenteStatus) => {
-    return getVentesByStatus(status).reduce((sum, v) => sum + v.montant_ttc, 0);
-  };
+  // All ventes that entered the pipeline (signed or beyond, including cancelled)
+  const allPipelineVentes = ventes.filter(v => v.status !== 'en_negociation');
+  const cancelledVentes = ventes.filter(v => isCancellationStatus(v.status));
+  const activeVentes = allPipelineVentes.filter(v => !isCancellationStatus(v.status));
 
-  // Filter out cancelled sales for the pipeline
-  const activeVentes = ventes.filter(v => v.status !== 'annule');
-  const cancelledVentes = ventes.filter(v => v.status === 'annule');
-
-  // Calculate conversion stats
-  const conversionStats = pipelineColumns.map((col, index) => {
-    const currentCount = getVentesByStatus(col.status).length;
-    const currentValue = getColumnTotal(col.status);
-    const totalOpportunities = activeVentes.length;
-    const conversionFromStart = totalOpportunities > 0 
-      ? Math.round((currentCount / totalOpportunities) * 100) 
-      : 0;
-    
-    // Conversion to next stage
-    let conversionToNext = 0;
-    if (index < pipelineColumns.length - 1 && currentCount > 0) {
-      const nextStageCount = pipelineColumns
-        .slice(index + 1)
-        .reduce((sum, nextCol) => sum + getVentesByStatus(nextCol.status).length, 0);
-      conversionToNext = Math.round((nextStageCount / (currentCount + nextStageCount)) * 100) || 0;
-    }
-    
-    return {
-      ...col,
-      count: currentCount,
-      value: currentValue,
-      conversionFromStart,
-      conversionToNext,
-    };
-  });
-
-  // Calculate stage-to-stage conversion rates
-  const stageConversions = pipelineColumns.slice(0, -1).map((col, index) => {
-    const currentAndBeyond = pipelineColumns
-      .slice(index)
-      .reduce((sum, c) => sum + getVentesByStatus(c.status).length, 0);
-    const nextAndBeyond = pipelineColumns
-      .slice(index + 1)
-      .reduce((sum, c) => sum + getVentesByStatus(c.status).length, 0);
-    
-    const rate = currentAndBeyond > 0 
-      ? Math.round((nextAndBeyond / currentAndBeyond) * 100) 
-      : 0;
-    
-    return {
-      from: col.label,
-      to: pipelineColumns[index + 1].label,
-      rate,
-      fromColor: col.color,
-      toColor: pipelineColumns[index + 1].color,
-    };
-  });
-
-  // Overall conversion rate (from négociation to payé)
-  const negoCount = getVentesByStatus('en_negociation').length + 
-    getVentesByStatus('signe').length + 
-    getVentesByStatus('en_installation').length + 
-    getVentesByStatus('installe').length + 
-    getVentesByStatus('paye').length;
+  // TRUE conversion: signed that made it to payé vs total signed (including those that got cancelled)
+  const totalSigned = allPipelineVentes.length; // everyone who was at least signed
   const payeCount = getVentesByStatus('paye').length;
-  const overallConversion = negoCount > 0 ? Math.round((payeCount / negoCount) * 100) : 0;
+  const conversionRate = totalSigned > 0 ? Math.round((payeCount / totalSigned) * 100) : 0;
+  const cancellationRate = totalSigned > 0 ? Math.round((cancelledVentes.length / totalSigned) * 100) : 0;
+
+  // Cancellation breakdown
+  const cancellationBreakdown = CANCELLATION_STATUSES.map(status => ({
+    status,
+    count: getVentesByStatus(status).length,
+    value: getColumnTotal(status),
+    meta: CANCELLATION_META[status] || { label: status, icon: <XCircle className="h-4 w-4" />, color: "text-red-500" },
+  })).filter(b => b.count > 0);
+
+  const totalCancelledValue = cancelledVentes.reduce((sum, v) => sum + v.montant_ttc, 0);
+
+  // Performance index from RDV
+  const signeRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.signe / rdvStats.total) * 100) : 0;
+  const negRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.negatif / rdvStats.total) * 100) : 0;
+  const r2Rate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.r2 / rdvStats.total) * 100) : 0;
 
   return (
     <div className="space-y-4">
-      {/* Conversion Funnel Stats */}
+      {/* Commercial Performance Index */}
+      {rdvStats && rdvStats.total > 0 && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+          <CardHeader className="p-3 pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
+              Indice de performance commerciale
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 pt-0 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">{signeRate}%</p>
+                <p className="text-xs text-muted-foreground">Taux signature</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-muted-foreground">{rdvStats.total}</p>
+                <p className="text-xs text-muted-foreground">Total RDV</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <span>Signés</span>
+                </div>
+                <span className="font-medium">{rdvStats.signe} ({signeRate}%)</span>
+              </div>
+              <Progress value={signeRate} className="h-1.5 [&>div]:bg-green-500" />
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3 text-blue-500" />
+                  <span>R2 / Pré-étude</span>
+                </div>
+                <span className="font-medium">{rdvStats.r2} ({r2Rate}%)</span>
+              </div>
+              <Progress value={r2Rate} className="h-1.5 [&>div]:bg-blue-500" />
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <XCircle className="h-3 w-3 text-red-500" />
+                  <span>Négatifs</span>
+                </div>
+                <span className="font-medium">{rdvStats.negatif} ({negRate}%)</span>
+              </div>
+              <Progress value={negRate} className="h-1.5 [&>div]:bg-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Conversion & Cancellation Stats */}
       <Card>
         <CardHeader className="p-3 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <TrendingDown className="h-4 w-4 text-primary" />
-            Tunnel de conversion
+            <BarChart3 className="h-4 w-4 text-primary" />
+            Conversion & Annulations
           </CardTitle>
         </CardHeader>
         <CardContent className="p-3 pt-0 space-y-3">
-          {/* Overall conversion */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Taux global</span>
-            <span className="font-bold text-primary">{overallConversion}%</span>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center p-2 rounded-lg bg-green-500/10">
+              <p className="text-lg font-bold text-green-600">{conversionRate}%</p>
+              <p className="text-[10px] text-muted-foreground">Conversion</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-red-500/10">
+              <p className="text-lg font-bold text-red-600">{cancellationRate}%</p>
+              <p className="text-[10px] text-muted-foreground">Annulations</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-primary/10">
+              <p className="text-lg font-bold text-primary">{totalSigned}</p>
+              <p className="text-[10px] text-muted-foreground">Total pipeline</p>
+            </div>
           </div>
-          <Progress value={overallConversion} className="h-2" />
-          
-          {/* Stage-to-stage conversions */}
-          <div className="space-y-2 pt-2">
-            {stageConversions.map((conv, index) => (
-              <div key={index} className="flex items-center gap-2 text-xs">
-                <span className={`${conv.fromColor} font-medium truncate flex-1`}>
-                  {conv.from}
-                </span>
-                <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                <span className={`${conv.toColor} font-medium truncate flex-1`}>
-                  {conv.to}
-                </span>
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs ml-1 ${conv.rate >= 70 ? 'bg-green-100 text-green-700' : conv.rate >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}
-                >
-                  {conv.rate}%
-                </Badge>
+
+          {/* Cancellation breakdown by reason */}
+          {cancellationBreakdown.length > 0 && (
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Motifs d'annulation
+              </p>
+              {cancellationBreakdown.map((item) => {
+                const pct = cancelledVentes.length > 0 ? Math.round((item.count / cancelledVentes.length) * 100) : 0;
+                return (
+                  <div key={item.status} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className={`flex items-center gap-1.5 ${item.meta.color}`}>
+                        {item.meta.icon}
+                        <span className="font-medium">{item.meta.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{formatCurrency(item.value)}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 bg-red-100 text-red-700">
+                          {item.count} ({pct}%)
+                        </Badge>
+                      </div>
+                    </div>
+                    <Progress value={pct} className="h-1 [&>div]:bg-red-400" />
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between text-xs pt-1 border-t">
+                <span className="font-medium text-red-600">Total perdu</span>
+                <span className="font-bold text-red-600">{formatCurrency(totalCancelledValue)}</span>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -227,18 +290,18 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5">
           <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">Valeur totale</p>
+            <p className="text-xs text-muted-foreground">Valeur active</p>
             <p className="text-lg font-bold">{formatCurrency(activeVentes.reduce((sum, v) => sum + v.montant_ttc, 0))}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Kanban Board - Vertical Layout */}
+      {/* Kanban Board */}
       <div className="space-y-3">
         {pipelineColumns.map((column) => {
           const columnVentes = getVentesByStatus(column.status);
           const columnTotal = getColumnTotal(column.status);
-          
+
           return (
             <Card
               key={column.status}
@@ -310,7 +373,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         })}
       </div>
 
-      {/* Cancelled sales */}
+      {/* Cancelled sales with reason badges */}
       {cancelledVentes.length > 0 && (
         <div className="pt-4 border-t">
           <div className="flex items-center gap-2 mb-3">
@@ -320,26 +383,36 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
             </h3>
           </div>
           <div className="grid gap-2">
-            {cancelledVentes.slice(0, 3).map((vente) => (
-              <Card 
-                key={vente.id} 
-                className="bg-red-500/5 border-red-200 opacity-60 cursor-pointer hover:opacity-80"
-                onClick={() => navigate(`/ventes/${vente.id}`)}
-              >
-                <CardContent className="p-3 flex items-center justify-between">
-                  <span className="text-sm">
-                    {vente.client?.nom} {vente.client?.prenom || ""}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatCurrency(vente.montant_ttc)}
-                  </span>
-                </CardContent>
-              </Card>
-            ))}
+            {cancelledVentes.map((vente) => {
+              const meta = CANCELLATION_META[vente.status] || CANCELLATION_META.annule;
+              return (
+                <Card
+                  key={vente.id}
+                  className="bg-red-500/5 border-red-200 cursor-pointer hover:bg-red-500/10 transition-colors"
+                  onClick={() => navigate(`/ventes/${vente.id}`)}
+                >
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={meta.color}>{meta.icon}</span>
+                      <span className="text-sm truncate">
+                        {vente.client?.nom} {vente.client?.prenom || ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge variant="outline" className="text-[10px] border-red-200 text-red-600">
+                        {meta.label}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {formatCurrency(vente.montant_ttc)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
-
     </div>
   );
 });
