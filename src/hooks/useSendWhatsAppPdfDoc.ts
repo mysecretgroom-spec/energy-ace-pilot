@@ -49,29 +49,52 @@ export function useSendWhatsAppPdfDoc() {
       const docCount = data.documentsIncluded?.length || 0;
 
       // Step 2: Download PDF and share as file via native Share API
-      const pdfResponse = await fetch(data.pdfUrl);
-      if (!pdfResponse.ok) throw new Error("Impossible de télécharger le PDF");
-      const pdfBlob = await pdfResponse.blob();
+      let pdfBlob: Blob;
+      try {
+        const pdfResponse = await fetch(data.pdfUrl);
+        if (!pdfResponse.ok) throw new Error("Impossible de télécharger le PDF");
+        pdfBlob = await pdfResponse.blob();
+      } catch (fetchErr) {
+        console.error("PDF download failed:", fetchErr);
+        throw new Error("Échec du téléchargement du PDF");
+      }
+
       const safeName = `Dossier_${clientName.replace(/\s+/g, "_")}.pdf`;
       const pdfFile = new File([pdfBlob], safeName, { type: "application/pdf" });
 
-      if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Dossier ${clientName}`,
-          text: options.message || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)`,
-        });
-      } else {
-        // Fallback: télécharger le PDF directement
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = safeName;
-        a.click();
-        URL.revokeObjectURL(blobUrl);
+      try {
+        if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
+          await navigator.share({
+            files: [pdfFile],
+            title: `Dossier ${clientName}`,
+            text: options.message || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)`,
+          });
+        } else {
+          // Fallback: télécharger le PDF directement
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = safeName;
+          a.click();
+          URL.revokeObjectURL(blobUrl);
+        }
+      } catch (shareErr: any) {
+        // User cancelled the share sheet — not an error
+        if (shareErr?.name === "AbortError") {
+          console.log("[sendPdfDoc] Share cancelled by user");
+        } else {
+          // Fallback to download on share failure
+          console.warn("[sendPdfDoc] Share failed, falling back to download:", shareErr);
+          const blobUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = safeName;
+          a.click();
+          URL.revokeObjectURL(blobUrl);
+        }
       }
 
-      toast.success("Dossier partagé", {
+      toast.success("Dossier prêt", {
         description: `${docCount} documents (${data.pdfSizeMB} MB)`,
       });
 
