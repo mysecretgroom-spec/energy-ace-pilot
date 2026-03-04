@@ -114,6 +114,14 @@ const categoryColors: Record<string, { bg: string; text: string; icon: string }>
   autre: { bg: "bg-gray-100 dark:bg-gray-800/50", text: "text-gray-700 dark:text-gray-400", icon: "text-gray-500 dark:text-gray-400" },
 };
 
+/** Format a Date to YYYY-MM-DD using local timezone (avoids UTC shift from toISOString) */
+function formatLocalDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 interface FraisItem {
   id: string;
   montant: number;
@@ -249,7 +257,7 @@ const Finance = () => {
     montant: "",
     categorie: "autre",
     description: "",
-    date_frais: new Date().toISOString().split("T")[0],
+    date_frais: formatLocalDate(new Date()),
     date_debut: "",
     date_fin: "",
   });
@@ -286,7 +294,8 @@ const Finance = () => {
     const monthGroups: Map<string, { label: string; total: number; frais: FraisItem[]; year: number; month: number }> = new Map();
     
     allFraisHistory.forEach((frais) => {
-      const date = new Date(frais.date_frais);
+      const [y, m] = frais.date_frais.split("-").map(Number);
+      const date = new Date(y, m - 1, 1);
       const year = date.getFullYear();
       const month = date.getMonth();
       const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -690,19 +699,19 @@ const Finance = () => {
       // Mois sélectionné
       const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
       const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-      const monthStartStr = monthStart.toISOString().split("T")[0];
-      const monthEndStr = monthEnd.toISOString().split("T")[0];
+      const monthStartStr = formatLocalDate(monthStart);
+      const monthEndStr = formatLocalDate(monthEnd);
       
       // Jour sélectionné
-      const selectedDayStr = selectedDate.toISOString().split("T")[0];
+      const selectedDayStr = formatLocalDate(selectedDate);
       
       // Semaine sélectionnée (dimanche au samedi = 7 jours)
       const weekStart = new Date(selectedWeekStart);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6); // Dimanche + 6 jours = Samedi
-      const weekStartStr = weekStart.toISOString().split("T")[0];
-      const weekEndStr = weekEnd.toISOString().split("T")[0];
+      const weekStartStr = formatLocalDate(weekStart);
+      const weekEndStr = formatLocalDate(weekEnd);
 
       // Fetch objectif frais for selected month
       const { data: objectifData } = await supabase
@@ -772,6 +781,12 @@ const Finance = () => {
         setAllFraisData(monthFrais);
         setFraisData(monthFrais.slice(0, 10));
 
+        // Helper: parse YYYY-MM-DD as local date (not UTC)
+        const parseLocalDate = (dateStr: string): Date => {
+          const [y, m, d] = dateStr.split("-").map(Number);
+          return new Date(y, m - 1, d);
+        };
+
         // Helper: calculate prorated amount for a period-based expense within a date range
         const getProratedAmount = (frais: { montant: number; date_debut: string | null; date_fin: string | null; categorie: string }, rangeStart: Date, rangeEnd: Date): number => {
           const hasPeriod = frais.date_debut && frais.date_fin && 
@@ -781,8 +796,8 @@ const Finance = () => {
             return Number(frais.montant);
           }
           
-          const periodStart = new Date(frais.date_debut);
-          const periodEnd = new Date(frais.date_fin);
+          const periodStart = parseLocalDate(frais.date_debut);
+          const periodEnd = parseLocalDate(frais.date_fin);
           const totalDays = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
           
           // Overlap between period and range
@@ -795,8 +810,8 @@ const Finance = () => {
 
         // Jour: frais du jour sélectionné (prorated for period expenses)
         // Combine monthFrais + periodFraisMonth to catch period expenses from other months
-        const dayStart = new Date(selectedDayStr);
-        const dayEnd = new Date(selectedDayStr);
+        const dayStart = parseLocalDate(selectedDayStr);
+        const dayEnd = parseLocalDate(selectedDayStr);
         const allDayFraisMap = new Map<string, any>();
         monthFrais.forEach(f => allDayFraisMap.set(f.id, f));
         (periodFraisMonth || []).forEach(f => allDayFraisMap.set(f.id, f));
@@ -862,7 +877,7 @@ const Finance = () => {
         montant: "",
         categorie: "autre",
         description: "",
-        date_frais: new Date().toISOString().split("T")[0],
+        date_frais: formatLocalDate(new Date()),
         date_debut: "",
         date_fin: "",
       });
