@@ -426,13 +426,13 @@ const Finance = () => {
 
     // Pour le CA: exclure les installations externes
     const signedThisMonthForCA = ventesThisMonth.filter(v => 
-      !["en_negociation", "annule"].includes(v.status) &&
-      v.type_vente !== 'external_installation' // Exclure les installations externes du CA
+      !["en_negociation", "annule", "refus_financement", "inFinancable", "retracte", "refus_mairie_abf"].includes(v.status) &&
+      v.type_vente !== 'external_installation'
     );
     
     const signedPrevMonthForCA = ventesPrevMonth.filter(v => 
-      !["en_negociation", "annule"].includes(v.status) &&
-      v.type_vente !== 'external_installation' // Exclure les installations externes du CA
+      !["en_negociation", "annule", "refus_financement", "inFinancable", "retracte", "refus_mairie_abf"].includes(v.status) &&
+      v.type_vente !== 'external_installation'
     );
 
     const caMonth = signedThisMonthForCA.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0);

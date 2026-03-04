@@ -25,6 +25,9 @@ const STATUS_LABELS: Record<string, string> = {
   paye: "Payé",
   annule: "Annulé",
   refus_financement: "Refus financement",
+  inFinancable: "Infinançable",
+  retracte: "Rétracté",
+  refus_mairie_abf: "Refus Mairie / ABF",
 };
 
 interface VenteStatusTimelineProps {

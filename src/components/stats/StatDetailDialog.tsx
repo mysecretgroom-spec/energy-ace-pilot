@@ -41,22 +41,9 @@ export interface StatDetailItem {
   montantHt?: number;
 }
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
+import { VenteStatus, VENTE_STATUS_LABELS } from "@/lib/venteStatusConfig";
 
-const STATUS_LABELS: Record<VenteStatus, string> = {
-  en_negociation: "En négociation",
-  signe: "Signé",
-  cq_a_faire: "CQ à faire",
-  cq_fait: "CQ fait",
-  attente_financement: "Att. financement",
-  envoi_pose: "Envoi pose",
-  en_installation: "En installation",
-  installe: "Posé",
-  attente_paiement: "Att. paiement",
-  paye: "Payé",
-  annule: "Annulé",
-  refus_financement: "Refus financement",
-};
+const STATUS_LABELS = VENTE_STATUS_LABELS;
 
 interface StatDetailDialogProps {
   open: boolean;

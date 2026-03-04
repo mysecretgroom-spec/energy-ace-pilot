@@ -12,7 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-type VenteStatus = 'en_negociation' | 'signe' | 'cq_a_faire' | 'cq_fait' | 'attente_financement' | 'envoi_pose' | 'en_installation' | 'installe' | 'attente_paiement' | 'paye' | 'annule' | 'refus_financement';
+import { VenteStatus, VENTE_STATUS_OPTIONS } from "@/lib/venteStatusConfig";
 
 interface VenteSelectionBarProps {
   selectedIds: string[];
@@ -21,19 +21,7 @@ interface VenteSelectionBarProps {
   onGenerateInvoice: () => void;
 }
 
-const statusOptions: { value: VenteStatus; label: string }[] = [
-  { value: "en_negociation", label: "En négociation" },
-  { value: "signe", label: "Signé" },
-  { value: "cq_a_faire", label: "CQ à faire" },
-  { value: "cq_fait", label: "CQ fait" },
-  { value: "attente_financement", label: "Att. financement" },
-  { value: "envoi_pose", label: "Envoi en pose" },
-  { value: "installe", label: "Posé" },
-  { value: "attente_paiement", label: "Att. paiement" },
-  { value: "paye", label: "Payé" },
-  { value: "annule", label: "Annulé" },
-  { value: "refus_financement", label: "Refus financement" },
-];
+const statusOptions = VENTE_STATUS_OPTIONS;
 
 export const VenteSelectionBar = ({ 
   selectedIds, 
