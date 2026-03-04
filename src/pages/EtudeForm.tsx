@@ -1359,7 +1359,8 @@ const EtudeForm = () => {
       setSaving(false);
     } else {
       // Sauvegarder l'historique de classification si la classification a changé
-      const classificationChanged = forceSyncRef.current || classification !== originalClassification;
+      const wasForceSync = forceSyncRef.current;
+      const classificationChanged = wasForceSync || classification !== originalClassification;
       forceSyncRef.current = false;
       const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
         ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
@@ -1435,17 +1436,15 @@ const EtudeForm = () => {
         });
       }
       
-      // Si "Terminé" cliqué (forceSync), toujours générer et stocker le PDF
-      if (forceSyncRef.current) {
-        await generateAndStorePdf();
-      } else if (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif")) {
-        // Sinon, stocker le PDF seulement pour positif et r2_prestudy
-        await generateAndStorePdf();
+      // PDF generation: fire-and-forget (non-blocking)
+      const shouldGeneratePdf = wasForceSync || 
+        (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif"));
+      if (shouldGeneratePdf) {
+        generateAndStorePdf().catch(err => console.error("PDF generation error:", err));
       }
 
       // Créer une vente automatiquement si statut Positif et changement de classification
       if (classification === "positif" && classificationChanged && savedEtudeId && clientId) {
-        // Vérifier s'il existe déjà une vente pour cette étude
         const { data: existingVente } = await supabase
           .from("ventes")
           .select("id")
@@ -1453,7 +1452,6 @@ const EtudeForm = () => {
           .maybeSingle();
 
         if (!existingVente) {
-          // Créer la vente
           const { error: venteError } = await supabase.from("ventes").insert({
             user_id: user.id,
             client_id: clientId,
@@ -1461,7 +1459,7 @@ const EtudeForm = () => {
             montant_ht: calculatedResults?.prixTotalHorsAides || 0,
             montant_ttc: calculatedResults?.prixTotalHorsAides || 0,
             puissance_kwc: Number(puissanceKwc) || null,
-            nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5), // ~500W par panneau
+            nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5),
             type_installation: supportInstallation,
             status: "signe",
             date_signature: new Date().toISOString(),
@@ -1480,23 +1478,19 @@ const EtudeForm = () => {
       // Clear draft from sessionStorage after successful save
       clearDraft();
       setHasUnsavedChanges(false);
+      setOriginalClassification(classification);
       
-      // Afficher l'animation de succès
-      setShowSuccess(true);
+      // Update currentEtudeId for subsequent saves (stay on page)
+      if (savedEtudeId && !currentEtudeId) {
+        setCurrentEtudeId(savedEtudeId);
+      }
+      
+      // Show quick success feedback without navigating
       setSaving(false);
-      
       toast({
-        title: isEditMode ? "Étude modifiée" : "Étude créée",
-        description: isEditMode 
-          ? "L'étude a été mise à jour avec succès" 
-          : "L'étude a été enregistrée avec succès",
+        title: "✓ Enregistré",
+        description: shouldGeneratePdf ? "PDF en cours de génération en arrière-plan" : "Étude sauvegardée",
       });
-      
-      // Attendre l'animation avant de naviguer
-      setTimeout(() => {
-        setShowSuccess(false);
-        navigate(`/clients/${clientId}`);
-      }, 1500);
     }
   };
 
