@@ -58,6 +58,7 @@ const allStatusOptions: { value: RdvStatus; label: string; color: string; requir
   { value: "r2_prestudy", label: "R2 Pré-étude", color: "bg-indigo-500", requiresPastDate: true },
   { value: "signe", label: "Signé", color: "bg-green-500", requiresPastDate: true },
   { value: "negatif", label: "Négatif", color: "bg-red-500", requiresPastDate: true },
+  { value: "porte", label: "Porte", color: "bg-amber-700", requiresPastDate: true },
 ];
 
 // Map RDV status to WhatsApp classification (1:1 mapping for clarity)
@@ -69,6 +70,7 @@ const statusToClassification: Record<RdvStatus, string> = {
   signe: "positif",
   negatif: "negatif",
   annule: "annule",
+  porte: "annule",
 };
 
 export function RdvStatusSelector({
@@ -203,8 +205,8 @@ export function RdvStatusSelector({
 
       if (error) throw error;
 
-      // If annulé, cascade: also annul the parent RDV (R2/reporté chain)
-      if (newStatus === "annule") {
+      // If annulé or porte, cascade: also annul the parent RDV (R2/reporté chain)
+      if (newStatus === "annule" || newStatus === "porte") {
         // Check if this RDV has a parent (is a child R2/reporté)
         const { data: currentRdv } = await supabase
           .from("rdv")

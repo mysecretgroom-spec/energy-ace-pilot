@@ -84,7 +84,7 @@ const CANCELLATION_META: Record<string, { label: string; icon: React.ReactNode; 
 export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [rdvStats, setRdvStats] = useState<{ total: number; signe: number; negatif: number; annule: number; r2: number; reporte: number } | null>(null);
+  const [rdvStats, setRdvStats] = useState<{ total: number; signe: number; negatif: number; annule: number; r2: number; reporte: number; porte: number } | null>(null);
 
   // Fetch RDV stats for performance index
   useEffect(() => {
@@ -95,11 +95,12 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         .select("status")
         .eq("user_id", user.id);
       if (error || !data) return;
-      const stats = { total: data.length, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0 };
+      const stats = { total: data.length, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0, porte: 0 };
       data.forEach((r) => {
         if (r.status === "signe") stats.signe++;
         else if (r.status === "negatif") stats.negatif++;
         else if (r.status === "annule") stats.annule++;
+        else if (r.status === "porte") stats.porte++;
         else if (r.status === "r2" || r.status === "r2_prestudy") stats.r2++;
         else if (r.status === "reporte") stats.reporte++;
       });
@@ -165,6 +166,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
   const signeRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.signe / rdvStats.total) * 100) : 0;
   const negRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.negatif / rdvStats.total) * 100) : 0;
   const r2Rate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.r2 / rdvStats.total) * 100) : 0;
+  const porteRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.porte / rdvStats.total) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -215,6 +217,19 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                 <span className="font-medium">{rdvStats.negatif} ({negRate}%)</span>
               </div>
               <Progress value={negRate} className="h-1.5 [&>div]:bg-red-500" />
+
+              {rdvStats.porte > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1">
+                      <Ban className="h-3 w-3 text-amber-700" />
+                      <span>Porte</span>
+                    </div>
+                    <span className="font-medium">{rdvStats.porte} ({porteRate}%)</span>
+                  </div>
+                  <Progress value={porteRate} className="h-1.5 [&>div]:bg-amber-700" />
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

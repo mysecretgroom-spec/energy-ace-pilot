@@ -272,7 +272,7 @@ export function WeekCalendarView({
 
               {/* RDV count badge */}
               {(() => {
-                const activeCount = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte').length;
+                const activeCount = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte' && r.status !== 'porte').length;
                 return activeCount > 0 ? (
                   <div className="px-1 pb-1 text-center">
                     <Badge variant="secondary" className="text-[9px] h-4 px-1">

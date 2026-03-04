@@ -7,7 +7,8 @@ export type RdvStatus =
   | "r2_prestudy"
   | "signe"
   | "negatif"
-  | "annule";
+  | "annule"
+  | "porte";
 
 interface StatusBadgeProps {
   status: RdvStatus;
@@ -44,6 +45,10 @@ const statusConfig: Record<
   },
   annule: {
     label: "Annulé",
+    className: "badge-cancelled",
+  },
+  porte: {
+    label: "Porte",
     className: "badge-cancelled",
   },
 };
