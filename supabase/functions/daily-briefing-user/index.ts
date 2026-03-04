@@ -81,24 +81,30 @@ serve(async (req) => {
 
     const pendingPayment = ventesMonth.filter(v => v.status === "attente_paiement").length;
 
-    // --- Compute inter-RDV distances ---
+    // --- Compute inter-RDV distances using real routing (OSRM/Google) ---
     const interDistances: { fromCity: string; toCity: string; km: number; minutes: number }[] = [];
+    const routePromises: Promise<void>[] = [];
     for (let i = 1; i < rdvs.length; i++) {
       const prev = rdvs[i - 1];
       const curr = rdvs[i];
+      const idx = i - 1;
       if (prev.latitude && prev.longitude && curr.latitude && curr.longitude) {
-        const km = haversineKm(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
-        // Estimate driving time: ~1.3x straight-line, 60km/h average
-        const estimatedKm = Math.round(km * 1.3);
-        const estimatedMin = Math.round(estimatedKm / 60 * 60);
-        interDistances.push({
-          fromCity: prev.clients?.ville || "?",
-          toCity: curr.clients?.ville || "?",
-          km: estimatedKm,
-          minutes: estimatedMin,
-        });
+        routePromises.push(
+          fetchRealRoute(
+            { lat: prev.latitude, lon: prev.longitude },
+            { lat: curr.latitude, lon: curr.longitude }
+          ).then((route) => {
+            interDistances[idx] = {
+              fromCity: prev.clients?.ville || "?",
+              toCity: curr.clients?.ville || "?",
+              km: route.distance_km,
+              minutes: route.duration_minutes,
+            };
+          })
+        );
       }
     }
+    await Promise.all(routePromises);
 
     // --- Build briefing ---
     const firstName = profile?.first_name || "Commercial";
@@ -322,6 +328,38 @@ function buildRdvSummary(rdv: any): string | null {
   }
 
   return parts.length > 0 ? parts.join(" • ") : null;
+}
+
+/** Fetch real driving route via OSRM, fallback to haversine estimate */
+async function fetchRealRoute(
+  origin: { lat: number; lon: number },
+  destination: { lat: number; lon: number }
+): Promise<{ distance_km: number; duration_minutes: number }> {
+  try {
+    // Try OSRM first (free, no API key needed)
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${destination.lon},${destination.lat}?overview=false`;
+    const res = await fetch(osrmUrl, {
+      headers: { "User-Agent": "SolarFlow-CRM/1.0" },
+    });
+    const data = await res.json();
+    if (data.code === "Ok" && data.routes?.length > 0) {
+      const route = data.routes[0];
+      return {
+        distance_km: Math.round(route.distance / 100) / 10,
+        duration_minutes: Math.round(route.duration / 60),
+      };
+    }
+  } catch (e) {
+    console.warn("OSRM routing failed, using fallback:", e);
+  }
+
+  // Fallback: haversine * 1.3 at 50 km/h
+  const km = haversineKm(origin.lat, origin.lon, destination.lat, destination.lon);
+  const estimatedKm = Math.round(km * 1.3);
+  return {
+    distance_km: estimatedKm,
+    duration_minutes: Math.round((estimatedKm / 50) * 60),
+  };
 }
 
 /**
