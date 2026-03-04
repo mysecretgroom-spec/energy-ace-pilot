@@ -121,18 +121,30 @@ export function useExportMergedPdf() {
     const blob = await mergePdfs(documents, outputName);
     if (!blob) return;
 
-    if (navigator.share) {
-      try {
-        const file = new File([blob], `${outputName}.pdf`, { type: "application/pdf" });
+    const file = new File([blob], `${outputName}.pdf`, { type: "application/pdf" });
+
+    try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: outputName });
-      } catch {
-        // Fallback to download
+      } else {
+        // No share API — download directly
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = `${outputName}.pdf`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        // User cancelled — not an error
+        return;
+      }
+      // Fallback to download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${outputName}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   }, [mergePdfs]);
 
