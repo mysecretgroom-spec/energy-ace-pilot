@@ -605,6 +605,8 @@ const EtudeForm = () => {
     // Cross-product: recalc PV when PAC economics change
     activeProducts,
     pacEconomiesCalculees,
+    // Cross-product: recalc PV when ITE economy changes
+    iteEconomieChauffagePct,
   ]);
 
   // Reload bouquets when productType changes (to filter by product)
@@ -980,11 +982,22 @@ const EtudeForm = () => {
 
     const puissance = Number(puissanceKwc);
     // ═══════════════════════════════════════════════════════════════════════════
-    // CALCUL CROISÉ: Si PAC active, ajouter sa consommation électrique au PV
+    // CALCULS CROISÉS MULTI-PRODUITS
     // ═══════════════════════════════════════════════════════════════════════════
     let conso = Number(consoAnnuelle);
+    
+    // Si PAC active → ajouter sa consommation électrique (déjà réduite par ITE si applicable)
     if (activeProducts.includes("PAC") && pacEconomiesCalculees?.consoElecPacKwh) {
       conso += pacEconomiesCalculees.consoElecPacKwh;
+    }
+    
+    // Si ITE active → réduction directe de la consommation chauffage électrique
+    // (uniquement si pas de PAC, car avec PAC le calcul croisé ITE→PAC→PV est déjà fait)
+    if (activeProducts.includes("ITE") && !activeProducts.includes("PAC") && iteEconomieChauffagePct) {
+      const reductionPct = Number(iteEconomieChauffagePct) / 100;
+      // On estime que ~60% de la conso totale est liée au chauffage
+      const partChauffage = conso * 0.6;
+      conso -= partChauffage * reductionPct;
     }
     const facture = Number(factureMensuelle || 0);
 
@@ -2285,6 +2298,7 @@ _Envoyé depuis DébalePro_`;
                   case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
                 }
               }}
+              iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
             />
           )}
@@ -3135,13 +3149,56 @@ _Envoyé depuis DébalePro_`;
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
         {/* CROSS-PRODUCT INFO BANNER */}
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {/* Banner PV + PAC */}
         {activeProducts.includes("PV") && activeProducts.includes("PAC") && pacEconomiesCalculees && (
           <Card className="shadow-card border border-blue-300 bg-blue-50/50">
             <CardContent className="py-2 px-3 sm:px-4">
               <div className="flex items-center gap-2 text-xs text-blue-700">
                 <Zap className="h-3.5 w-3.5 shrink-0" />
                 <span>
-                  <strong>Calcul croisé PV+PAC :</strong> La consommation de la PAC ({Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an) est ajoutée à la consommation PV pour un dimensionnement optimal.
+                  <strong>PV ← PAC :</strong> La consommation de la PAC ({Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an) est ajoutée à la consommation PV pour un dimensionnement optimal.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Banner ITE + PAC */}
+        {activeProducts.includes("ITE") && activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && (
+          <Card className="shadow-card border border-orange-300 bg-orange-50/50">
+            <CardContent className="py-2 px-3 sm:px-4">
+              <div className="flex items-center gap-2 text-xs text-orange-700">
+                <Home className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>ITE → PAC :</strong> L'isolation réduit les besoins de chauffage de {Number(iteEconomieChauffagePct)}%, diminuant la consommation électrique de la PAC.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Banner ITE + PV (sans PAC) */}
+        {activeProducts.includes("ITE") && activeProducts.includes("PV") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && (
+          <Card className="shadow-card border border-emerald-300 bg-emerald-50/50">
+            <CardContent className="py-2 px-3 sm:px-4">
+              <div className="flex items-center gap-2 text-xs text-emerald-700">
+                <Home className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>ITE → PV :</strong> L'isolation réduit la consommation de chauffage de {Number(iteEconomieChauffagePct)}%, optimisant le dimensionnement photovoltaïque.
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Banner triple PV + PAC + ITE */}
+        {activeProducts.includes("PV") && activeProducts.includes("PAC") && activeProducts.includes("ITE") && Number(iteEconomieChauffagePct) > 0 && (
+          <Card className="shadow-card border border-primary/30 bg-primary/5">
+            <CardContent className="py-2 px-3 sm:px-4">
+              <div className="flex items-center gap-2 text-xs text-primary">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>Synergie triple :</strong> L'ITE réduit les besoins chauffage → la PAC consomme moins → le PV couvre davantage. Économies maximisées.
                 </span>
               </div>
             </CardContent>
@@ -3239,6 +3296,49 @@ _Envoyé depuis DébalePro_`;
                 </div>
               </div>
               
+              {/* Économies annuelles combinées */}
+              <div className="bg-amber-50 rounded-lg p-2.5 sm:p-3">
+                <p className="text-[10px] sm:text-xs font-bold text-amber-700 mb-1.5">ÉCONOMIES ANNUELLES COMBINÉES</p>
+                <div className="space-y-1 text-xs">
+                  {activeProducts.includes("PV") && calculatedResults && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>PV (gains autoconso + revente)</span>
+                      <span>{Math.round((calculatedResults.autoconsommationEuros + calculatedResults.reventeMensuelleEstimee) * 12).toLocaleString("fr-FR")}€/an</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("PAC") && pacEconomiesCalculees && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>PAC (économie nette chauffage)</span>
+                      <span>{Math.round(pacEconomiesCalculees.economieNetteEuros).toLocaleString("fr-FR")}€/an</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("ITE") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0 && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>ITE (réduction chauffage {Number(iteEconomieChauffagePct)}%)</span>
+                      <span>{Math.round(Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100).toLocaleString("fr-FR")}€/an</span>
+                    </div>
+                  )}
+                  <Separator className="bg-amber-200" />
+                  <div className="flex justify-between font-bold text-amber-700">
+                    <span>TOTAL ÉCONOMIES</span>
+                    <span>
+                      {(() => {
+                        let total = 0;
+                        if (activeProducts.includes("PV") && calculatedResults) total += (calculatedResults.autoconsommationEuros + calculatedResults.reventeMensuelleEstimee) * 12;
+                        if (activeProducts.includes("PAC") && pacEconomiesCalculees) total += pacEconomiesCalculees.economieNetteEuros;
+                        if (activeProducts.includes("ITE") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0) {
+                          // Ne pas doubler si PAC+ITE (l'économie ITE est déjà dans le calcul PAC)
+                          if (!activeProducts.includes("PAC")) {
+                            total += Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100;
+                          }
+                        }
+                        return Math.round(total).toLocaleString("fr-FR");
+                      })()}€/an
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Coût net global */}
               <div className="bg-primary/10 rounded-lg p-2.5 sm:p-3 text-center">
                 <p className="text-[10px] sm:text-xs text-muted-foreground">Coût net après aides</p>

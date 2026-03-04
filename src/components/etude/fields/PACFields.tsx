@@ -38,6 +38,8 @@ interface PACFieldsProps {
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
+  /** Réduction des besoins chauffage grâce à l'ITE (0-100%) */
+  iteReductionPct?: number;
   onEconomiesCalculated?: (economies: {
     besoinsChauffageKwh: number;
     consoElecPacKwh: number;
@@ -47,7 +49,7 @@ interface PACFieldsProps {
   }) => void;
 }
 
-export const PACFields = ({ data, onChange, calculatedCop, onEconomiesCalculated }: PACFieldsProps) => {
+export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated }: PACFieldsProps) => {
   const [isolationLevels, setIsolationLevels] = useState<IsolationLevel[]>([]);
   
   // Load isolation levels
@@ -78,7 +80,9 @@ export const PACFields = ({ data, onChange, calculatedCop, onEconomiesCalculated
   // ═══════════════════════════════════════════════════════════════════════════
   
   // 1. Besoins en chauffage annuels (kWh) basés sur surface et isolation
-  const besoinsChauffageKwh = surface * besoinsKwhM2;
+  const besoinsChauffageBrut = surface * besoinsKwhM2;
+  // Réduction ITE : si ITE active, les besoins chauffage diminuent
+  const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
   
   // 2. Consommation électrique PAC = Besoins / COP
   const consoElecPacKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
