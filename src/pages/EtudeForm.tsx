@@ -160,7 +160,9 @@ const EtudeForm = () => {
   const { toast } = useToast();
   
   const clientId = searchParams.get("clientId") || searchParams.get("client");
-  const rdvId = searchParams.get("rdvId") || searchParams.get("rdv");
+  const rdvIdFromUrl = searchParams.get("rdvId") || searchParams.get("rdv");
+  const [resolvedRdvId, setResolvedRdvId] = useState<string | null>(rdvIdFromUrl);
+  const rdvId = resolvedRdvId;
   const etudeId = searchParams.get("etudeId") || searchParams.get("etude");
   const isEditMode = !!etudeId;
 
@@ -765,6 +767,10 @@ const EtudeForm = () => {
 
     if (etude) {
       setCurrentEtudeId(etude.id);
+      // Resolve rdvId from étude if not in URL
+      if (!rdvIdFromUrl && etude.rdv_id) {
+        setResolvedRdvId(etude.rdv_id);
+      }
       // ═══════════════════════════════════════════════════════════════════════════
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
