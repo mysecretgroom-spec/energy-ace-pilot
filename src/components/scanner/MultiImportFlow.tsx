@@ -257,9 +257,10 @@ export function MultiImportFlow({
   const handleCarouselSave = useCallback(async () => {
     if (!user || !clientId) return;
 
-    const validDocs = carouselDocs.filter((d) => !!d.documentType);
+    // Allow docs without type - AI will classify them
+    const validDocs = carouselDocs;
     if (validDocs.length === 0) {
-      toast.error("Sélectionnez le type pour chaque document");
+      toast.error("Aucun document à enregistrer");
       return;
     }
 
@@ -324,19 +325,31 @@ export function MultiImportFlow({
 
             const signedUrl = await uploadDocumentToStorage(pdfBlob, user.id, "client_docs");
 
-            const { error } = await supabase.from("documents").insert({
+            const { data: insertedDoc, error } = await supabase.from("documents").insert({
               user_id: user.id,
               client_id: clientId,
               nom: docName,
               url: signedUrl,
-              type_document: docType,
+              type_document: docType as any,
               mime_type: "application/pdf",
               taille_bytes: pdfBlob.size,
               thumbnails_urls: thumbnailsForDb,
               context_source: "multi_import",
-            });
+            }).select("id").single();
 
             if (error) throw error;
+
+            // Queue AI classification if no type was manually selected
+            if (!doc.documentType && insertedDoc) {
+              await supabase.from("background_jobs").insert({
+                user_id: user.id,
+                job_type: "ai_classify_document",
+                payload: { documentId: insertedDoc.id, url: signedUrl },
+                status: "pending",
+                priority: 3,
+              });
+            }
+
             existing.push({ nom: docName, type_document: docType });
             return "saved" as const;
           })

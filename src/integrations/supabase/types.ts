@@ -3786,6 +3786,7 @@ export type Database = {
         | "attestation_retraite"
         | "attestation_invalidite"
         | "bilans"
+        | "multi_docs"
       etude_verdict: "valide" | "a_etudier" | "invalide"
       frais_categorie:
         | "carburant"
@@ -3997,6 +3998,7 @@ export const Constants = {
         "attestation_retraite",
         "attestation_invalidite",
         "bilans",
+        "multi_docs",
       ],
       etude_verdict: ["valide", "a_etudier", "invalide"],
       frais_categorie: [

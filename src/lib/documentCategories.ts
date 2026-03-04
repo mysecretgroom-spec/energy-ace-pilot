@@ -33,6 +33,7 @@ export type DocumentType =
   | "plan"
   | "assurance"
   | "facture_frais"
+  | "multi_docs"
   | "autre";
 
 export interface DocumentCategory {
@@ -76,6 +77,9 @@ export const CLIENT_DOC_CATEGORIES: DocumentCategory[] = [
   { value: "contrat", label: "Contrat", group: "Projet" },
   { value: "plan", label: "Plan", group: "Projet" },
   { value: "assurance", label: "Assurance", group: "Projet" },
+  
+  // Multi-documents
+  { value: "multi_docs", label: "Multi-documents", group: "Autre" },
   
   // Autre
   { value: "autre", label: "Autre justificatif", group: "Autre" },

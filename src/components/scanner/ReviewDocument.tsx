@@ -359,12 +359,15 @@ export function ReviewDocument({
       // Upload PDF to storage
       const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
       
+      const docType = context === "finance" ? "facture_frais" : (category || "autre");
+      const needsAiClassification = context === "client_docs" && !category;
+
       const { data: docData, error: docError } = await supabase
         .from("documents")
         .insert([{
           user_id: user.id,
           client_id: relatedClientId || "00000000-0000-0000-0000-000000000000",
-          type_document: context === "finance" ? "facture_frais" : ((category || "autre") as any),
+          type_document: docType as any,
           nom: title,
           url: fileUrl,
           context_source: context,
@@ -386,6 +389,17 @@ export function ReviewDocument({
         .single();
 
       if (docError) throw docError;
+
+      // Queue AI classification if no type was selected
+      if (needsAiClassification && docData) {
+        await supabase.from("background_jobs").insert({
+          user_id: user.id,
+          job_type: "ai_classify_document",
+          payload: { documentId: docData.id, url: fileUrl },
+          status: "pending",
+          priority: 3,
+        });
+      }
 
       // If finance context, create frais record
       if (context === "finance" && montant) {
