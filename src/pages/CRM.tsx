@@ -490,8 +490,8 @@ const CRM = () => {
     const regie = regies.find(r => r.id === v.regie_id);
     return !regie?.is_hejja;
   });
-  const totalCA = statsVentes.filter(v => v.status !== 'annule' && v.type_vente !== 'external_installation').reduce((sum, v) => sum + v.montant_ttc, 0);
-  const ventesSigned = statsVentes.filter(v => !['en_negociation', 'annule'].includes(v.status) && v.type_vente !== 'external_installation').length;
+  const totalCA = statsVentes.filter(v => !isCancellationStatus(v.status) && v.type_vente !== 'external_installation').reduce((sum, v) => sum + v.montant_ttc, 0);
+  const ventesSigned = statsVentes.filter(v => v.status !== 'en_negociation' && !isCancellationStatus(v.status) && v.type_vente !== 'external_installation').length;
   
   // Commission HEJJA: sum of retape commissions
   const hejjaVentes = ventes.filter(v => v.is_retape || regies.find(r => r.id === v.regie_id)?.is_hejja);

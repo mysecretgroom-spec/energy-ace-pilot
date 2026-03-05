@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { isCancellationStatus } from "@/lib/venteStatusConfig";
 import { format } from "date-fns";
 import { fr as frLocale } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
@@ -497,12 +498,12 @@ const Finance = () => {
 
     // Pour le CA: exclure les installations externes
     const signedThisMonthForCA = ventesThisMonth.filter(v => 
-      !["en_negociation", "annule", "refus_financement", "inFinancable", "retracte", "refus_mairie_abf"].includes(v.status) &&
+      v.status !== 'en_negociation' && !isCancellationStatus(v.status) &&
       v.type_vente !== 'external_installation'
     );
     
     const signedPrevMonthForCA = ventesPrevMonth.filter(v => 
-      !["en_negociation", "annule", "refus_financement", "inFinancable", "retracte", "refus_mairie_abf"].includes(v.status) &&
+      v.status !== 'en_negociation' && !isCancellationStatus(v.status) &&
       v.type_vente !== 'external_installation'
     );
 

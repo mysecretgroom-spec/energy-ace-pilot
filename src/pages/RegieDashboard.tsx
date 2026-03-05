@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Wallet,
 } from "lucide-react";
+import { isCancellationStatus } from "@/lib/venteStatusConfig";
 
 interface RegieData {
   id: string;
@@ -207,7 +208,7 @@ const RegieDashboard = () => {
       })));
 
       // Store ventes for commission calculation (exclude annulées)
-      setVentesForCommission(ventes.filter(v => v.status !== 'annule').map(v => ({
+      setVentesForCommission(ventes.filter(v => !isCancellationStatus(v.status)).map(v => ({
         id: v.id,
         montant_ht: v.montant_ht,
         montant_ttc: v.montant_ttc,
@@ -227,9 +228,9 @@ const RegieDashboard = () => {
         ["en_installation", "envoi_pose", "installe", "attente_paiement"].includes(v.status)
       ).length;
       const payes = ventes.filter(v => v.status === "paye").length;
-      const annules = ventes.filter(v => v.status === "annule").length;
+      const annules = ventes.filter(v => isCancellationStatus(v.status)).length;
 
-      const ventesActives = ventes.filter(v => v.status !== "annule");
+      const ventesActives = ventes.filter(v => !isCancellationStatus(v.status));
       const caTotal = ventesActives.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
       const caMois = ventesMoisData.reduce((sum, v) => sum + (v.montant_ttc || 0), 0);
 
@@ -268,7 +269,7 @@ const RegieDashboard = () => {
     let payees = 0;    // paye
 
     ventesForCommission.forEach(vente => {
-      if (vente.status === "annule") return;
+      if (isCancellationStatus(vente.status)) return;
       
       const comm = getCommission(vente.id);
       if (!comm) return;
@@ -377,7 +378,7 @@ const RegieDashboard = () => {
       case "payes":
         return allVentes.filter(v => v.status === "paye").map(formatVenteItem);
       case "annules":
-        return allVentes.filter(v => v.status === "annule").map(formatVenteItem);
+        return allVentes.filter(v => isCancellationStatus(v.status)).map(formatVenteItem);
       case "commEnAttente":
         return allVentes
           .filter(v => ["signe", "attente_financement", "cq_a_faire", "cq_fait"].includes(v.status))

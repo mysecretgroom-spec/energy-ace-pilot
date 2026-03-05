@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { hapticFeedback } from "@/lib/haptics";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { VenteStatus, VENTE_STATUS_LABELS } from "@/lib/venteStatusConfig";
+import { VenteStatus, VENTE_STATUS_LABELS, isCancellationStatus } from "@/lib/venteStatusConfig";
 
 const PIPELINE_ORDER: VenteStatus[] = [
   'en_negociation',
@@ -47,7 +47,7 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
   const isHorizontal = useRef<boolean | null>(null);
   const threshold = 80;
 
-  if (selectionMode || vente.status === 'annule' || vente.status === 'refus_financement' || vente.status === 'paye') {
+  if (selectionMode || isCancellationStatus(vente.status) || vente.status === 'paye') {
     return (
       <VenteCard
         vente={vente}
