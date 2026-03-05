@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Home, Layers, Paintbrush, TrendingDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Home, Layers, Paintbrush, TrendingDown, Link2 } from "lucide-react";
 import { ITE_OPTIONS, calculateR } from "@/lib/productTypes";
 
 interface ITEFieldsProps {
@@ -21,9 +22,13 @@ interface ITEFieldsProps {
   };
   onChange: (field: string, value: any) => void;
   isolantLambda?: number;
+  /** PAC is also active in this multi-product study */
+  linkedPacActive?: boolean;
+  /** Heating bill from PAC (synced) */
+  linkedPacFactureChauffage?: number;
 }
 
-export const ITEFields = ({ data, onChange, isolantLambda = 0.038 }: ITEFieldsProps) => {
+export const ITEFields = ({ data, onChange, isolantLambda = 0.038, linkedPacActive, linkedPacFactureChauffage }: ITEFieldsProps) => {
   // Calculer le R cible basé sur l'épaisseur et le lambda
   const calculatedR = data.iteEpaisseurIsolant 
     ? calculateR(isolantLambda, Number(data.iteEpaisseurIsolant))
@@ -207,6 +212,12 @@ export const ITEFields = ({ data, onChange, isolantLambda = 0.038 }: ITEFieldsPr
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingDown className="h-4 w-4 text-orange-600" />
             Facture de chauffage
+            {linkedPacActive && (
+              <Badge variant="outline" className="text-[10px] ml-auto border-blue-300 text-blue-600 bg-blue-50">
+                <Link2 className="h-3 w-3 mr-1" />
+                Synchronisé PAC
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -218,9 +229,16 @@ export const ITEFields = ({ data, onChange, isolantLambda = 0.038 }: ITEFieldsPr
               onChange={(e) => onChange("iteFactureChaufActuelle", e.target.value ? Number(e.target.value) : "")}
               placeholder="1800"
             />
-            <p className="text-xs text-muted-foreground">
-              Gaz, fioul, électricité ou bois pour le chauffage
-            </p>
+            {linkedPacActive ? (
+              <p className="text-xs text-blue-600 flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                Partagé avec l'onglet PAC — toute modification sera reflétée dans les deux études
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Gaz, fioul, électricité ou bois pour le chauffage
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
