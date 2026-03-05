@@ -54,6 +54,7 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       clientsClaim: true,
       skipWaiting: false,
+        importScripts: ["https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js"],
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/supabase/, /^\/~oauth/],

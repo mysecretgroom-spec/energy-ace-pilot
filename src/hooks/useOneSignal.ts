@@ -74,8 +74,10 @@ export function useOneSignal() {
         await OneSignal.init({
           appId: appId,
           allowLocalhostAsSecureOrigin: true,
+          // Use the Workbox-generated SW which now imports OneSignal SDK
           serviceWorkerParam: { scope: "/" },
-          serviceWorkerPath: "/OneSignalSDKWorker.js",
+          serviceWorkerPath: "/sw.js",
+          serviceWorkerUpdaterPath: "/sw.js",
           notifyButton: {
             enable: false, // We'll use our own UI
           },
