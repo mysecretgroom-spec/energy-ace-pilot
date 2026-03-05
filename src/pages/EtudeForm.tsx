@@ -3121,60 +3121,153 @@ _Envoyé depuis DébalePro_`;
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
-        {/* CROSS-PRODUCT INFO BANNER */}
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
-        {/* Banner PV + PAC */}
-        {activeProducts.includes("PV") && activeProducts.includes("PAC") && pacEconomiesCalculees && (
-          <Card className="shadow-card border border-blue-300 bg-blue-50/50">
-            <CardContent className="py-2 px-3 sm:px-4">
-              <div className="flex items-center gap-2 text-xs text-blue-700">
-                <Zap className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  <strong>PV ← PAC :</strong> La consommation de la PAC ({Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an) est ajoutée à la consommation PV pour un dimensionnement optimal.
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* SYNERGIES MULTI-PRODUITS — Visualisation détaillée des dépendances */}
+        {/* ═══════════════════════════════════════════════════════════════════════════ */}
+        {activeProducts.length > 1 && (
+          <Card className="shadow-card border-2 border-dashed border-primary/30 overflow-hidden">
+            <CardHeader className="pb-2 bg-gradient-to-r from-primary/10 via-blue-50 to-orange-50 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-primary">
+                <ShieldCheck className="h-4 w-4" />
+                Synergies entre produits
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-3 px-3 sm:px-6">
+              {/* ITE → PAC : réduction des besoins de chauffage */}
+              {activeProducts.includes("ITE") && activeProducts.includes("PAC") && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Home className="h-4 w-4 text-orange-600" />
+                      <span className="text-xs font-bold text-orange-700">ITE</span>
+                    </div>
+                    <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
+                      <div className="h-px flex-1 bg-orange-300" />
+                      <span className="text-[10px] font-semibold text-orange-500 whitespace-nowrap px-1">alimente</span>
+                      <div className="h-px flex-1 bg-orange-300" />
+                      <span className="text-orange-400">→</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Gauge className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-bold text-blue-700">PAC</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Réduction déperditions (ITE)</span>
+                      <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct) || 0}%</span>
+                    </div>
+                    {pacEconomiesCalculees && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Besoins chauffage après ITE</span>
+                          <span className="font-medium">{Math.round(pacEconomiesCalculees.besoinsChauffageKwh).toLocaleString("fr-FR")} kWh/an</span>
+                        </div>
+                        <div className="flex justify-between text-green-600">
+                          <span>→ Conso PAC réduite</span>
+                          <span className="font-bold">{Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an</span>
+                        </div>
+                      </>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-orange-100">
+                      L'isolation diminue les pertes thermiques, réduisant la puissance et la consommation électrique de la PAC.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-        {/* Banner ITE + PAC */}
-        {activeProducts.includes("ITE") && activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && (
-          <Card className="shadow-card border border-orange-300 bg-orange-50/50">
-            <CardContent className="py-2 px-3 sm:px-4">
-              <div className="flex items-center gap-2 text-xs text-orange-700">
-                <Home className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  <strong>ITE → PAC :</strong> L'isolation réduit les besoins de chauffage de {Number(iteEconomieChauffagePct)}%, diminuant la consommation électrique de la PAC.
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              {/* PAC → PV : injection de la conso PAC dans le dimensionnement PV */}
+              {activeProducts.includes("PAC") && activeProducts.includes("PV") && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Gauge className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-bold text-blue-700">PAC</span>
+                    </div>
+                    <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
+                      <div className="h-px flex-1 bg-blue-300" />
+                      <span className="text-[10px] font-semibold text-blue-500 whitespace-nowrap px-1">alimente</span>
+                      <div className="h-px flex-1 bg-blue-300" />
+                      <span className="text-blue-400">→</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-600">PV</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                    {pacEconomiesCalculees && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Conso élec PAC</span>
+                          <span className="font-bold text-blue-600">+{Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Conso foyer initiale</span>
+                          <span className="font-medium">{Number(consoAnnuelle).toLocaleString("fr-FR")} kWh/an</span>
+                        </div>
+                        <div className="flex justify-between text-primary font-bold border-t border-blue-100 pt-1">
+                          <span>= Conso totale pour PV</span>
+                          <span>{Math.round(Number(consoAnnuelle) + pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an</span>
+                        </div>
+                      </>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-blue-100">
+                      La conso électrique de la PAC est ajoutée au besoin du foyer pour dimensionner le PV et maximiser l'autoconsommation.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-        {/* Banner ITE + PV (sans PAC) */}
-        {activeProducts.includes("ITE") && activeProducts.includes("PV") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && (
-          <Card className="shadow-card border border-emerald-300 bg-emerald-50/50">
-            <CardContent className="py-2 px-3 sm:px-4">
-              <div className="flex items-center gap-2 text-xs text-emerald-700">
-                <Home className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  <strong>ITE → PV :</strong> L'isolation réduit la consommation de chauffage de {Number(iteEconomieChauffagePct)}%, optimisant le dimensionnement photovoltaïque.
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              {/* ITE → PV (sans PAC) */}
+              {activeProducts.includes("ITE") && activeProducts.includes("PV") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Home className="h-4 w-4 text-orange-600" />
+                      <span className="text-xs font-bold text-orange-700">ITE</span>
+                    </div>
+                    <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
+                      <div className="h-px flex-1 bg-emerald-300" />
+                      <span className="text-[10px] font-semibold text-emerald-500 whitespace-nowrap px-1">optimise</span>
+                      <div className="h-px flex-1 bg-emerald-300" />
+                      <span className="text-emerald-400">→</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-600">PV</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Réduction chauffage (ITE)</span>
+                      <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Part chauffage estimée</span>
+                      <span className="font-medium">~60% de la conso</span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span>→ Conso réduite pour PV</span>
+                      <span className="font-bold">-{Math.round(Number(consoAnnuelle) * 0.6 * Number(iteEconomieChauffagePct) / 100).toLocaleString("fr-FR")} kWh/an</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-emerald-100">
+                      L'isolation réduit la consommation de chauffage, permettant un dimensionnement PV plus adapté au besoin réel.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-        {/* Banner triple PV + PAC + ITE */}
-        {activeProducts.includes("PV") && activeProducts.includes("PAC") && activeProducts.includes("ITE") && Number(iteEconomieChauffagePct) > 0 && (
-          <Card className="shadow-card border border-primary/30 bg-primary/5">
-            <CardContent className="py-2 px-3 sm:px-4">
-              <div className="flex items-center gap-2 text-xs text-primary">
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  <strong>Synergie triple :</strong> L'ITE réduit les besoins chauffage → la PAC consomme moins → le PV couvre davantage. Économies maximisées.
-                </span>
-              </div>
+              {/* Résumé chaîne de dépendance triple */}
+              {activeProducts.includes("ITE") && activeProducts.includes("PAC") && activeProducts.includes("PV") && (
+                <div className="bg-primary/5 rounded-lg p-2.5 border border-primary/20">
+                  <p className="text-[10px] sm:text-xs text-center text-primary font-medium">
+                    <strong>Chaîne complète :</strong> ITE réduit déperditions (-{Number(iteEconomieChauffagePct) || 0}%) → PAC consomme moins
+                    {pacEconomiesCalculees ? ` (${Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""} → PV dimensionné sur conso réelle
+                    {pacEconomiesCalculees ? ` (${Math.round(Number(consoAnnuelle) + pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
