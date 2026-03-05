@@ -48,6 +48,7 @@ import {
   ShieldOff,
   Cloud,
   ChevronDown,
+  Link2,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
@@ -1008,6 +1009,41 @@ const EtudeForm = () => {
       setPacFactureChauffageEuros(iteFactureChaufActuelle);
     }
   }, [iteFactureChaufActuelle]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYNC PV ↔ PAC : Facture élec & prix kWh
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Initial propagation when activating PV+PAC
+  useEffect(() => {
+    if (activeProducts.includes("PV") && activeProducts.includes("PAC")) {
+      const factureAnnuelle = Number(factureMensuelle || 0) * 12;
+      if (factureMensuelle && !pacFactureElecEuros) {
+        setPacFactureElecEuros(factureAnnuelle);
+      } else if (pacFactureElecEuros && !factureMensuelle) {
+        setFactureMensuelle(Math.round(Number(pacFactureElecEuros) / 12));
+      }
+    }
+  }, [activeProducts.length]);
+
+  // PV facture → PAC facture élec
+  useEffect(() => {
+    if (activeProducts.includes("PV") && activeProducts.includes("PAC") && factureMensuelle) {
+      const annuel = Number(factureMensuelle) * 12;
+      setPacFactureElecEuros(annuel);
+      // Also sync prix kWh if we can compute it
+      if (consoAnnuelle && Number(consoAnnuelle) > 0) {
+        const prixKwh = Math.round((annuel / Number(consoAnnuelle)) * 10000) / 10000;
+        setPacPrixKwhElec(prixKwh);
+      }
+    }
+  }, [factureMensuelle, consoAnnuelle]);
+
+  // PAC facture élec → PV facture mensuelle
+  useEffect(() => {
+    if (activeProducts.includes("PV") && activeProducts.includes("PAC") && pacFactureElecEuros && !factureMensuelle) {
+      setFactureMensuelle(Math.round(Number(pacFactureElecEuros) / 12));
+    }
+  }, [pacFactureElecEuros]);
 
   const calculateResults = () => {
     if (!puissanceKwc || !consoAnnuelle) return;
@@ -2302,6 +2338,7 @@ _Envoyé depuis DébalePro_`;
               onEconomiesCalculated={setPacEconomiesCalculees}
               linkedIteActive={activeProducts.includes("ITE")}
               iteEconomiePct={Number(iteEconomieChauffagePct) || 0}
+              linkedPvActive={activeProducts.includes("PV")}
             />
           )}
 
@@ -2613,12 +2650,34 @@ _Envoyé depuis DébalePro_`;
         {/* CONSOMMATIONS */}
         <Card className="shadow-card">
           <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
-            <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
-              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" />
-              Consommations
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" />
+                Consommations
+              </CardTitle>
+              {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && (
+                <Badge variant="outline" className="text-[10px] h-5 border-blue-300 text-blue-600 bg-blue-50">
+                  <Link2 className="h-3 w-3 mr-1" />
+                  Partagé {activeProducts.filter(p => p !== "PV").join(" + ")}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+            {/* Sync info banner */}
+            {activeProducts.includes("PAC") && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-[10px] sm:text-xs text-blue-700 flex items-center gap-2">
+                <Link2 className="h-3.5 w-3.5 shrink-0" />
+                <span>La facture électrique et le prix du kWh sont synchronisés avec l'onglet PAC</span>
+              </div>
+            )}
+            {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-[10px] sm:text-xs text-orange-700 flex items-center gap-2">
+                <Home className="h-3.5 w-3.5 shrink-0" />
+                <span>L'ITE réduit les besoins en chauffage, impactant le dimensionnement PV</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
                 <Label className="text-[10px] sm:text-xs">Conso. annuelle</Label>
@@ -2634,7 +2693,10 @@ _Envoyé depuis DébalePro_`;
                 </div>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Facture/mois</Label>
+                <Label className="text-[10px] sm:text-xs flex items-center gap-1">
+                  Facture/mois
+                  {activeProducts.includes("PAC") && <Link2 className="h-2.5 w-2.5 text-blue-500" />}
+                </Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
@@ -2650,7 +2712,12 @@ _Envoyé depuis DébalePro_`;
             {/* Prix unitaire calculé */}
             {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
               <div className="bg-muted/50 rounded-lg p-2 text-center">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Prix kWh</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  Prix kWh
+                  {activeProducts.includes("PAC") && (
+                    <span className="text-blue-500 ml-1">→ PAC</span>
+                  )}
+                </p>
                 <p className="font-bold text-sm sm:text-base text-primary">
                   {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                 </p>
@@ -2660,21 +2727,37 @@ _Envoyé depuis DébalePro_`;
               </div>
             )}
 
+            {/* Impact multi-produit sur le dimensionnement */}
+            {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && consoAnnuelle && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 space-y-1">
+                <p className="text-[10px] sm:text-xs font-medium text-primary flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  Impact sur le dimensionnement PV
+                </p>
+                {activeProducts.includes("PAC") && pacEconomiesCalculees?.consoElecPacKwh ? (
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    + {Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an (conso PAC ajoutée)
+                  </p>
+                ) : null}
+                {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && iteEconomieChauffagePct ? (
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    − {Math.round(Number(consoAnnuelle) * 0.6 * (Number(iteEconomieChauffagePct) / 100)).toLocaleString("fr-FR")} kWh/an (économies ITE sur chauffage)
+                  </p>
+                ) : null}
+              </div>
+            )}
+
             {/* Estimateur de consommation simplifié */}
             <ConsumptionEstimator
               productType={productType}
               onApply={(result) => {
-                if (productType === "PV") {
-                  setConsoAnnuelle(result.consoElecKwh);
-                  setFactureMensuelle(result.factureMensuelleElec);
-                } else if (productType === "PAC") {
-                  setConsoAnnuelle(result.consoElecKwh);
-                  setFactureMensuelle(result.factureMensuelleElec);
+                setConsoAnnuelle(result.consoElecKwh);
+                setFactureMensuelle(result.factureMensuelleElec);
+                if (activeProducts.includes("PAC")) {
                   if (result.consoChaufffageKwh) setPacConsoChaufffageKwh(result.consoChaufffageKwh);
                   if (result.factureChaufMensuelle) setPacFactureChauffageEuros(result.factureChaufMensuelle);
-                } else {
-                  setConsoAnnuelle(result.consoElecKwh);
-                  setFactureMensuelle(result.factureMensuelleElec);
+                }
+                if (activeProducts.includes("ITE")) {
                   if (result.factureChaufMensuelle) setIteFactureChaufActuelle(result.factureChaufMensuelle);
                 }
               }}

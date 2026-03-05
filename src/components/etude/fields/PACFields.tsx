@@ -52,9 +52,11 @@ interface PACFieldsProps {
   linkedIteActive?: boolean;
   /** % d'économie chauffage calculé par l'ITE */
   iteEconomiePct?: number;
+  /** PV est aussi actif dans cette étude multi-produit */
+  linkedPvActive?: boolean;
 }
 
-export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated, linkedIteActive, iteEconomiePct }: PACFieldsProps) => {
+export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated, linkedIteActive, iteEconomiePct, linkedPvActive }: PACFieldsProps) => {
   const [isolationLevels, setIsolationLevels] = useState<IsolationLevel[]>([]);
   
   // Load isolation levels
@@ -321,6 +323,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
               <Label className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-yellow-500" />
                 Électricité actuelle (€/an)
+                {linkedPvActive && <Link2 className="h-3 w-3 text-blue-500" />}
               </Label>
               <Input
                 type="number"
@@ -328,9 +331,16 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                 onChange={(e) => onChange("pacFactureElecEuros", e.target.value ? Number(e.target.value) : "")}
                 placeholder="1200"
               />
-              <p className="text-xs text-muted-foreground">
-                Hors chauffage actuel
-              </p>
+              {linkedPvActive ? (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <Link2 className="h-3 w-3" />
+                  Synchronisé avec la facture PV (×12)
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Hors chauffage actuel
+                </p>
+              )}
             </div>
           </div>
 
@@ -339,6 +349,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
             <Label className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-amber-500" />
               Prix du kWh électrique (€)
+              {linkedPvActive && <Link2 className="h-3 w-3 text-blue-500" />}
             </Label>
             <Input
               type="number"
@@ -347,9 +358,16 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
               onChange={(e) => onChange("pacPrixKwhElec", e.target.value ? Number(e.target.value) : "")}
               placeholder="0.23"
             />
-            <p className="text-xs text-muted-foreground">
-              Prix moyen du kWh sur la facture du client
-            </p>
+            {linkedPvActive ? (
+              <p className="text-xs text-blue-600 flex items-center gap-1">
+                <Link2 className="h-3 w-3" />
+                Calculé depuis conso & facture PV
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Prix moyen du kWh sur la facture du client
+              </p>
+            )}
           </div>
 
           {(factureChauf > 0 || factureElec > 0) && (
