@@ -67,6 +67,34 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+const resolveDocumentUrl = async (url: string): Promise<string> => {
+  // If it's a data URL, return as-is
+  if (url.startsWith("data:")) return url;
+
+  // If it's a Supabase storage public URL, create a signed URL for reliable access
+  if (url.includes("supabase.co/storage/v1/object/public/")) {
+    try {
+      const urlParts = url.split("/storage/v1/object/public/");
+      if (urlParts.length === 2) {
+        const [bucket, ...pathParts] = urlParts[1].split("/");
+        const path = decodeURIComponent(pathParts.join("/"));
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+        if (data?.signedUrl) return data.signedUrl;
+      }
+    } catch (err) {
+      console.warn("Failed to create signed URL, using original:", err);
+    }
+  }
+
+  // If it's not a full URL, treat as storage path
+  if (!url.startsWith("http")) {
+    const { data } = supabase.storage.from("documents").getPublicUrl(url);
+    return data.publicUrl;
+  }
+
+  return url;
+};
+
 const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
   if (url.startsWith("data:")) {
     const base64 = url.split(",")[1];
@@ -78,15 +106,18 @@ const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
     return bytes.buffer;
   }
 
+  // Resolve URL first (signed URLs for Supabase storage)
+  const resolvedUrl = await resolveDocumentUrl(url);
+
   try {
-    const response = await fetch(url, { mode: "cors" });
+    const response = await fetch(resolvedUrl, { mode: "cors" });
     if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
     return response.arrayBuffer();
   } catch (corsError) {
     console.warn("CORS issue, trying XHR...", corsError);
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("GET", url, true);
+      xhr.open("GET", resolvedUrl, true);
       xhr.responseType = "arraybuffer";
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
@@ -186,10 +217,13 @@ export function MultiDocumentSelector({
       const mergedPdf = await PDFDocument.create();
       const selectedDocs = orderedDocs.filter((d) => selectedIds.has(d.id));
 
+      let failedDocs: string[] = [];
       for (const doc of selectedDocs) {
         const fileType = getFileType(doc.url);
         try {
+          console.log(`[MergedPDF] Processing "${doc.nom}" (type: ${fileType}, url: ${doc.url.substring(0, 80)}...)`);
           const arrayBuffer = await fetchAsArrayBuffer(doc.url);
+          console.log(`[MergedPDF] Fetched "${doc.nom}": ${arrayBuffer.byteLength} bytes`);
 
           if (fileType === "pdf") {
             const pdfDoc = await PDFDocument.load(arrayBuffer);
@@ -202,12 +236,27 @@ export function MultiDocumentSelector({
                 ? await mergedPdf.embedPng(arrayBuffer)
                 : await mergedPdf.embedJpg(arrayBuffer);
 
-            const page = mergedPdf.addPage([image.width, image.height]);
-            page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+            // Fit to A4 with margins instead of raw pixel size
+            const A4_W = 595, A4_H = 842, MARGIN = 20;
+            const scale = Math.min((A4_W - 2 * MARGIN) / image.width, (A4_H - 2 * MARGIN) / image.height, 1);
+            const sw = image.width * scale, sh = image.height * scale;
+            const page = mergedPdf.addPage([A4_W, A4_H]);
+            page.drawImage(image, { x: (A4_W - sw) / 2, y: A4_H - MARGIN - sh, width: sw, height: sh });
+          } else {
+            console.warn(`[MergedPDF] Unknown file type for "${doc.nom}", skipping`);
+            failedDocs.push(doc.nom);
           }
         } catch (error) {
-          console.error(`Error processing document ${doc.nom}:`, error);
+          console.error(`[MergedPDF] Error processing "${doc.nom}":`, error);
+          failedDocs.push(doc.nom);
         }
+      }
+
+      if (failedDocs.length > 0) {
+        sonnerToast.warning(`${failedDocs.length} document(s) non inclus`, {
+          description: failedDocs.join(", "),
+          duration: 5000,
+        });
       }
 
       // Auto-include étude PDF if available
