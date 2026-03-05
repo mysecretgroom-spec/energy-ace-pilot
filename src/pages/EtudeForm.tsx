@@ -1180,6 +1180,11 @@ const EtudeForm = () => {
     const hasPV = activeProducts.includes("PV");
     if (hasPV && !calculatedResults) return;
 
+    // Cancel any pending auto-save to avoid contention
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
     setSaving(true);
 
     const hasPAC = activeProducts.includes("PAC");
@@ -1327,22 +1332,20 @@ const EtudeForm = () => {
     let error: Error | null = null;
 
     if (isEditMode && currentEtudeId) {
-      // UPDATE existing étude
+      // UPDATE existing étude — no need to re-fetch data
       const result = await supabase
         .from("etudes")
         .update(etudeData)
-        .eq("id", currentEtudeId)
-        .select()
-        .single();
+        .eq("id", currentEtudeId);
       
       error = result.error;
       savedEtudeId = currentEtudeId;
     } else {
-      // INSERT new étude
+      // INSERT new étude — only fetch the id
       const result = await supabase
         .from("etudes")
         .insert(etudeData)
-        .select()
+        .select("id")
         .single();
       
       error = result.error;
@@ -1557,7 +1560,7 @@ const EtudeForm = () => {
         if (currentEtudeId) {
           await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
         } else {
-          const { data } = await supabase.from("etudes").insert(etudeData).select().single();
+          const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
           if (data) {
             setCurrentEtudeId(data.id);
           }
