@@ -113,7 +113,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
           stats.annule++;
           if (!r.is_r2) stats.nonFait++;
         }
-        else if (r.status === "porte") stats.porte++;
+        else if (r.status === "porte") { stats.porte++; stats.nonFait++; }
         else if (r.status === "r2" || r.status === "r2_prestudy") {
           stats.r2++;
           if (r.client_id) r2ClientIds.push(r.client_id);
