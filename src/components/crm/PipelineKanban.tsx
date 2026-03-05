@@ -84,7 +84,7 @@ const CANCELLATION_META: Record<string, { label: string; icon: React.ReactNode; 
 export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [rdvStats, setRdvStats] = useState<{ total: number; signe: number; negatif: number; annule: number; r2: number; reporte: number; porte: number } | null>(null);
+  const [rdvStats, setRdvStats] = useState<{ total: number; totalEffectif: number; signe: number; negatif: number; annule: number; r2: number; reporte: number; porte: number; nonFait: number } | null>(null);
 
   // Fetch RDV stats for performance index
   useEffect(() => {
@@ -92,18 +92,28 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
     const fetchRdvStats = async () => {
       const { data, error } = await supabase
         .from("rdv")
-        .select("status")
+        .select("status, is_r2")
         .eq("user_id", user.id);
       if (error || !data) return;
-      const stats = { total: data.length, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0, porte: 0 };
+      const stats = { total: data.length, totalEffectif: 0, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0, porte: 0, nonFait: 0 };
       data.forEach((r) => {
         if (r.status === "signe") stats.signe++;
         else if (r.status === "negatif") stats.negatif++;
-        else if (r.status === "annule") stats.annule++;
+        else if (r.status === "annule") {
+          stats.annule++;
+          // RDV annulés non-R2 = non fait
+          if (!r.is_r2) stats.nonFait++;
+        }
         else if (r.status === "porte") stats.porte++;
         else if (r.status === "r2" || r.status === "r2_prestudy") stats.r2++;
-        else if (r.status === "reporte") stats.reporte++;
+        else if (r.status === "reporte") {
+          stats.reporte++;
+          // RDV reportés non-R2 = non fait
+          if (!r.is_r2) stats.nonFait++;
+        }
       });
+      // Total effectif = RDV réellement effectués (total - non fait)
+      stats.totalEffectif = stats.total - stats.nonFait;
       setRdvStats(stats);
     };
     fetchRdvStats();
@@ -162,11 +172,13 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
 
   const totalCancelledValue = cancelledVentes.reduce((sum, v) => sum + v.montant_ttc, 0);
 
-  // Performance index from RDV
-  const signeRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.signe / rdvStats.total) * 100) : 0;
-  const negRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.negatif / rdvStats.total) * 100) : 0;
-  const r2Rate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.r2 / rdvStats.total) * 100) : 0;
-  const porteRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.porte / rdvStats.total) * 100) : 0;
+  // Performance index from RDV — based on effective RDV (excluding annulé/reporté non-R2)
+  const totalEffectif = rdvStats?.totalEffectif || 0;
+  const signeRate = totalEffectif > 0 ? Math.round((rdvStats!.signe / totalEffectif) * 100) : 0;
+  const negRate = totalEffectif > 0 ? Math.round((rdvStats!.negatif / totalEffectif) * 100) : 0;
+  const r2Rate = totalEffectif > 0 ? Math.round((rdvStats!.r2 / totalEffectif) * 100) : 0;
+  const porteRate = totalEffectif > 0 ? Math.round((rdvStats!.porte / totalEffectif) * 100) : 0;
+  const nonFaitRate = rdvStats && rdvStats.total > 0 ? Math.round((rdvStats.nonFait / rdvStats.total) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -180,14 +192,18 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
             </CardTitle>
           </CardHeader>
           <CardContent className="p-3 pt-0 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
                 <p className="text-2xl font-bold text-primary">{signeRate}%</p>
                 <p className="text-xs text-muted-foreground">Taux signature</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-muted-foreground">{rdvStats.total}</p>
-                <p className="text-xs text-muted-foreground">Total RDV</p>
+                <p className="text-2xl font-bold text-muted-foreground">{totalEffectif}</p>
+                <p className="text-xs text-muted-foreground">RDV effectués</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-orange-500">{rdvStats.nonFait}</p>
+                <p className="text-xs text-muted-foreground">Non faits</p>
               </div>
             </div>
             <div className="space-y-2">
@@ -230,7 +246,23 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                   <Progress value={porteRate} className="h-1.5 [&>div]:bg-amber-700" />
                 </>
               )}
+
+              {rdvStats.nonFait > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-orange-500" />
+                      <span>Non faits (annulés/reportés)</span>
+                    </div>
+                    <span className="font-medium">{rdvStats.nonFait} ({nonFaitRate}% du total)</span>
+                  </div>
+                  <Progress value={nonFaitRate} className="h-1.5 [&>div]:bg-orange-500" />
+                </>
+              )}
             </div>
+            <p className="text-[10px] text-muted-foreground pt-1 border-t">
+              Total: {rdvStats.total} RDV • Effectués: {totalEffectif} • Non faits: {rdvStats.nonFait} (hors R2)
+            </p>
           </CardContent>
         </Card>
       )}
