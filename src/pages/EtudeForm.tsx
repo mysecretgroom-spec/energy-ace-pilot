@@ -981,7 +981,33 @@ const EtudeForm = () => {
     }
   }, [puissanceKwc]);
 
-  // Rien à faire ici maintenant - le taux vient de dataFinancements
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SYNC CHAMPS PARTAGÉS MULTI-PRODUITS
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Sync PAC facture chauffage → ITE facture chauffage (et inversement)
+  useEffect(() => {
+    if (activeProducts.includes("PAC") && activeProducts.includes("ITE")) {
+      if (pacFactureChauffageEuros && !iteFactureChaufActuelle) {
+        setIteFactureChaufActuelle(pacFactureChauffageEuros);
+      } else if (iteFactureChaufActuelle && !pacFactureChauffageEuros) {
+        setPacFactureChauffageEuros(iteFactureChaufActuelle);
+      }
+    }
+  }, [activeProducts.length]); // Only on product activation change
+
+  // Keep them in sync when one changes (PAC → ITE)
+  useEffect(() => {
+    if (activeProducts.includes("PAC") && activeProducts.includes("ITE") && pacFactureChauffageEuros) {
+      setIteFactureChaufActuelle(pacFactureChauffageEuros);
+    }
+  }, [pacFactureChauffageEuros]);
+
+  // Keep them in sync when one changes (ITE → PAC)
+  useEffect(() => {
+    if (activeProducts.includes("PAC") && activeProducts.includes("ITE") && iteFactureChaufActuelle) {
+      setPacFactureChauffageEuros(iteFactureChaufActuelle);
+    }
+  }, [iteFactureChaufActuelle]);
 
   const calculateResults = () => {
     if (!puissanceKwc || !consoAnnuelle) return;
@@ -2274,6 +2300,8 @@ _Envoyé depuis DébalePro_`;
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
+              linkedIteActive={activeProducts.includes("ITE")}
+              iteEconomiePct={Number(iteEconomieChauffagePct) || 0}
             />
           )}
 
@@ -2310,6 +2338,8 @@ _Envoyé depuis DébalePro_`;
                   case "iteFactureChaufActuelle": setIteFactureChaufActuelle(value as number | ""); break;
                 }
               }}
+              linkedPacActive={activeProducts.includes("PAC")}
+              linkedPacFactureChauffage={activeProducts.includes("PAC") ? Number(pacFactureChauffageEuros) || 0 : undefined}
             />
           )}
 

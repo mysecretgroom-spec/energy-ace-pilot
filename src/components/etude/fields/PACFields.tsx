@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, Link2 } from "lucide-react";
 import { PAC_OPTIONS, PacSubtype } from "@/lib/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -47,9 +48,13 @@ interface PACFieldsProps {
     economieNetteEuros: number;
     economieNetteMessage: number;
   }) => void;
+  /** ITE est aussi active dans cette étude multi-produit */
+  linkedIteActive?: boolean;
+  /** % d'économie chauffage calculé par l'ITE */
+  iteEconomiePct?: number;
 }
 
-export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated }: PACFieldsProps) => {
+export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated, linkedIteActive, iteEconomiePct }: PACFieldsProps) => {
   const [isolationLevels, setIsolationLevels] = useState<IsolationLevel[]>([]);
   
   // Load isolation levels
@@ -274,9 +279,21 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
           <CardTitle className="flex items-center gap-2 text-base">
             <Flame className="h-4 w-4 text-orange-600" />
             Factures énergétiques actuelles
+            {linkedIteActive && (
+              <Badge variant="outline" className="text-[10px] ml-auto border-orange-300 text-orange-600 bg-orange-50">
+                <Link2 className="h-3 w-3 mr-1" />
+                Synchronisé ITE
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {linkedIteActive && iteReductionPct > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700 flex items-center gap-2">
+              <Home className="h-4 w-4 shrink-0" />
+              <span>L'ITE réduit les besoins chauffage de <strong>{iteEconomiePct || iteReductionPct}%</strong> — calcul PAC ajusté automatiquement</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
@@ -289,9 +306,16 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                 onChange={(e) => onChange("pacFactureChauffageEuros", e.target.value ? Number(e.target.value) : "")}
                 placeholder="1800"
               />
-              <p className="text-xs text-muted-foreground">
-                Gaz, fioul ou propane (sera supprimé)
-              </p>
+              {linkedIteActive ? (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <Link2 className="h-3 w-3" />
+                  Partagé avec l'onglet ITE
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Gaz, fioul ou propane (sera supprimé)
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
