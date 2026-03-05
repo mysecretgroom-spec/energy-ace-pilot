@@ -19,10 +19,10 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
   const [showFireAnimation, setShowFireAnimation] = useState(false);
   const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
 
-  // Fixed default: bottom-right, 16px from right edge, 160px from bottom
+  // Fixed default: bottom-right, above bottom nav (80px nav + 16px gap)
   const defaultHejjaPos = {
     x: typeof window !== "undefined" ? window.innerWidth - 56 : 200,
-    y: typeof window !== "undefined" ? window.innerHeight - 160 : 500,
+    y: typeof window !== "undefined" ? window.innerHeight - 96 - 48 : 500,
   };
 
   const {
