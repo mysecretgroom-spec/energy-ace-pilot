@@ -61,7 +61,7 @@ export function PageManager({
 
   if (pages.length === 0) {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-muted-foreground mb-4">Aucune page scannée</p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onCancel}>
@@ -77,7 +77,7 @@ export function PageManager({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-background flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <Button variant="ghost" size="icon" onClick={onCancel}>

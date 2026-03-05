@@ -326,7 +326,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   // Error/denied states
   if (cameraState === "denied") {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Accès caméra refusé</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
@@ -345,7 +345,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   if (cameraState === "error") {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Caméra non disponible</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
@@ -363,7 +363,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
       <style>{`
         @keyframes flash {
           0% { opacity: 0.8; }

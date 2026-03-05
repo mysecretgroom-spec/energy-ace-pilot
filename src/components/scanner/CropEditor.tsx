@@ -556,7 +556,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const displayImageSrc = enhancedImage || imageData;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/80">
         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onCancel}>

@@ -1039,7 +1039,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
 
       {/* Selection bar fixed at bottom */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-20 left-0 right-0 z-50 px-4">
+        <div className="fixed bottom-20 left-0 right-0 z-[65] px-4">
           <Card className="bg-amber-600 text-white shadow-xl border-0">
             <CardContent className="p-3">
               <div className="flex items-center justify-between gap-2">
