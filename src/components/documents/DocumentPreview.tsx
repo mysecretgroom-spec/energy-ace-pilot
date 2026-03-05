@@ -196,13 +196,13 @@ export function DocumentPreview({
 
         {/* Content area */}
         <div className="flex-1 relative overflow-hidden flex items-center justify-center min-h-0">
-          {/* Navigation buttons */}
+          {/* Navigation buttons - above iframe */}
           {documents.length > 1 && (
             <>
               <Button
                 variant="secondary"
                 size="icon"
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 shadow-lg"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 shadow-lg pointer-events-auto"
                 onClick={handlePrev}
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -210,7 +210,7 @@ export function DocumentPreview({
               <Button
                 variant="secondary"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 shadow-lg"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 shadow-lg pointer-events-auto"
                 onClick={handleNext}
               >
                 <ChevronRight className="h-5 w-5" />
@@ -218,8 +218,8 @@ export function DocumentPreview({
             </>
           )}
 
-          {/* Floating close button - always visible */}
-          <div className="absolute top-4 right-4 z-20">
+          {/* Floating close button - always visible, above iframe */}
+          <div className="absolute top-4 right-4 z-30 pointer-events-auto">
             <Button
               variant="secondary"
               size="icon"
@@ -230,8 +230,8 @@ export function DocumentPreview({
             </Button>
           </div>
 
-          {/* Floating Action Button - Transfer */}
-          <div className="absolute bottom-6 right-6 z-20">
+          {/* Floating Action Button - Transfer, above iframe */}
+          <div className="absolute bottom-6 right-6 z-30 pointer-events-auto">
             <Button
               className="shadow-lg gap-2"
               onClick={() => setTransferDialogOpen(true)}
