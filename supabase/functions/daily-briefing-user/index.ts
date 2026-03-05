@@ -37,7 +37,7 @@ serve(async (req) => {
       supabase.from("profiles").select("first_name").eq("user_id", userId).single(),
       supabase
         .from("rdv")
-        .select(`*, clients (nom, prenom, adresse, ville, code_postal, telephone, notes)`)
+        .select(`*, clients (nom, prenom, adresse, ville, code_postal, telephone, notes, latitude, longitude)`)
         .eq("user_id", userId)
         .gte("date_heure", todayStr)
         .lt("date_heure", tomorrowStr)
@@ -81,19 +81,25 @@ serve(async (req) => {
 
     const pendingPayment = ventesMonth.filter(v => v.status === "attente_paiement").length;
 
-    // --- Compute inter-RDV distances using real routing (OSRM/Google) ---
+    // --- Compute inter-RDV distances using real routing (OSRM) ---
+    // Helper: get best available coordinates for an RDV (RDV coords > client coords)
+    const getCoords = (rdv: any): { lat: number; lon: number } | null => {
+      if (rdv.latitude && rdv.longitude) return { lat: Number(rdv.latitude), lon: Number(rdv.longitude) };
+      if (rdv.clients?.latitude && rdv.clients?.longitude) return { lat: Number(rdv.clients.latitude), lon: Number(rdv.clients.longitude) };
+      return null;
+    };
+
     const interDistances: { fromCity: string; toCity: string; km: number; minutes: number }[] = [];
     const routePromises: Promise<void>[] = [];
     for (let i = 1; i < rdvs.length; i++) {
       const prev = rdvs[i - 1];
       const curr = rdvs[i];
+      const prevCoords = getCoords(prev);
+      const currCoords = getCoords(curr);
       const idx = i - 1;
-      if (prev.latitude && prev.longitude && curr.latitude && curr.longitude) {
+      if (prevCoords && currCoords) {
         routePromises.push(
-          fetchRealRoute(
-            { lat: prev.latitude, lon: prev.longitude },
-            { lat: curr.latitude, lon: curr.longitude }
-          ).then((route) => {
+          fetchRealRoute(prevCoords, currCoords).then((route) => {
             interDistances[idx] = {
               fromCity: prev.clients?.ville || "?",
               toCity: curr.clients?.ville || "?",
@@ -105,6 +111,16 @@ serve(async (req) => {
       }
     }
     await Promise.all(routePromises);
+
+    // Sum inter-RDV distances for the total
+    let totalInterKm = 0;
+    let totalInterMinutes = 0;
+    for (const d of interDistances) {
+      if (d) {
+        totalInterKm += d.km;
+        totalInterMinutes += d.minutes;
+      }
+    }
 
     // --- Build briefing ---
     const firstName = profile?.first_name || "Commercial";
@@ -145,12 +161,9 @@ serve(async (req) => {
     if (rdvs.length === 0) {
       briefingBody += "🎉 Aucun RDV actif aujourd'hui.\nIdéal pour prospecter ou relancer des dossiers en cours !\n";
     } else {
-      const totalDistance = rdvs.reduce((sum, r) => sum + (r.distance_km || 0), 0);
-      const totalTravelTime = rdvs.reduce((sum, r) => sum + (r.travel_time_minutes || 0), 0);
-
       briefingBody += `📍 *${rdvs.length} RDV aujourd'hui*`;
-      if (totalDistance > 0) briefingBody += ` • ${Math.round(totalDistance)} km`;
-      if (totalTravelTime > 0) briefingBody += ` • ~${Math.round(totalTravelTime)} min route`;
+      if (totalInterKm > 0) briefingBody += ` • ${Math.round(totalInterKm)} km`;
+      if (totalInterMinutes > 0) briefingBody += ` • ~${totalInterMinutes} min route`;
       briefingBody += "\n\n";
 
       // Alerts
