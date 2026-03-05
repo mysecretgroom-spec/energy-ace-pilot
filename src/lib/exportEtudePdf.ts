@@ -342,7 +342,6 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     body: [
       ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
       ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
-      ["", "", "", ""],
       ["", "", "Support d'installation", data.supportInstallation],
     ],
     theme: "striped",
