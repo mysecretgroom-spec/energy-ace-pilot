@@ -344,29 +344,80 @@ const Finance = () => {
   }, [allFraisHistory]);
 
 
-  // Chart frais filtered by selected period
+  // Helper: parse YYYY-MM-DD as local date (not UTC)
+  const parseLocalDateStatic = (dateStr: string): Date => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  // Helper: calculate prorated amount for a period-based expense within a date range
+  const getProratedAmountStatic = (frais: { montant: number; date_debut: string | null; date_fin: string | null; categorie: string }, rangeStart: Date, rangeEnd: Date): number => {
+    const hasPeriod = frais.date_debut && frais.date_fin && 
+      (frais.categorie === "location_vehicule" || frais.categorie === "hotel");
+    
+    if (!hasPeriod || !frais.date_debut || !frais.date_fin) {
+      return Number(frais.montant);
+    }
+    
+    const periodStart = parseLocalDateStatic(frais.date_debut);
+    const periodEnd = parseLocalDateStatic(frais.date_fin);
+    const totalDays = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    
+    const overlapStart = new Date(Math.max(periodStart.getTime(), rangeStart.getTime()));
+    const overlapEnd = new Date(Math.min(periodEnd.getTime(), rangeEnd.getTime()));
+    const overlapDays = Math.max(0, Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+    
+    return (Number(frais.montant) / totalDays) * overlapDays;
+  };
+
+  // Helper: get frais relevant to a date range (by date_frais OR by period overlap), with prorated montant
+  const getFraisForRange = (rangeStartStr: string, rangeEndStr: string): { montant: number; categorie: string }[] => {
+    const rangeStart = parseLocalDateStatic(rangeStartStr);
+    const rangeEnd = parseLocalDateStatic(rangeEndStr);
+    const seen = new Map<string, boolean>();
+    const result: { montant: number; categorie: string }[] = [];
+
+    for (const f of allFraisHistory) {
+      if (seen.has(f.id)) continue;
+      
+      const inRange = f.date_frais >= rangeStartStr && f.date_frais <= rangeEndStr;
+      const isPeriod = f.date_debut && f.date_fin && (f.categorie === "location_vehicule" || f.categorie === "hotel");
+      const periodOverlaps = isPeriod && f.date_debut! <= rangeEndStr && f.date_fin! >= rangeStartStr;
+
+      if (inRange || periodOverlaps) {
+        seen.set(f.id, true);
+        const prorated = getProratedAmountStatic(f, rangeStart, rangeEnd);
+        if (prorated > 0) {
+          result.push({ montant: Math.round(prorated * 100) / 100, categorie: f.categorie });
+        }
+      }
+    }
+    return result;
+  };
+
+  // Chart frais filtered by selected period (with proration for period expenses)
   const chartFrais = useMemo(() => {
     if (selectedPeriod === 'jour') {
       const dayStr = formatLocalDate(selectedDate);
-      return allFraisHistory.filter(f => f.date_frais === dayStr);
+      return getFraisForRange(dayStr, dayStr);
     }
     if (selectedPeriod === 'semaine') {
       const ws = new Date(selectedWeekStart);
       ws.setHours(0, 0, 0, 0);
       const we = new Date(ws);
       we.setDate(ws.getDate() + 6);
-      const wsStr = formatLocalDate(ws);
-      const weStr = formatLocalDate(we);
-      return allFraisHistory.filter(f => f.date_frais >= wsStr && f.date_frais <= weStr);
+      return getFraisForRange(formatLocalDate(ws), formatLocalDate(we));
     }
     if (selectedPeriod === 'custom' && customRange?.from) {
       const fromStr = formatLocalDate(customRange.from);
       const toStr = customRange.to ? formatLocalDate(customRange.to) : fromStr;
-      return allFraisHistory.filter(f => f.date_frais >= fromStr && f.date_frais <= toStr);
+      return getFraisForRange(fromStr, toStr);
     }
     // 'mois' — default
-    return allFraisData;
-  }, [selectedPeriod, selectedDate, selectedWeekStart, customRange, allFraisHistory, allFraisData]);
+    const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    return getFraisForRange(formatLocalDate(monthStart), formatLocalDate(monthEnd));
+  }, [selectedPeriod, selectedDate, selectedWeekStart, customRange, allFraisHistory]);
 
   // Chart period label
   const chartPeriodLabel = useMemo(() => {
