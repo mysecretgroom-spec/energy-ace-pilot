@@ -490,7 +490,7 @@ export function ReviewDocument({
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center">
+      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Génération du PDF...</p>
       </div>
@@ -498,7 +498,7 @@ export function ReviewDocument({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-background flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b">
         <Button variant="ghost" size="icon" onClick={onCancel}>

@@ -815,7 +815,7 @@ export function AgentChat() {
             exit={{ opacity: 0, y: 100, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={cn(
-              "fixed z-50 bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden",
+              "fixed z-[65] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden",
               isExpanded
                 ? "inset-2 sm:inset-4 md:inset-8"
                 : "bottom-[calc(72px+env(safe-area-inset-bottom)+0.5rem)] right-2 left-2 sm:right-4 sm:left-auto sm:w-[400px] md:w-[420px] h-[55vh] sm:h-[60vh] max-h-[500px]"

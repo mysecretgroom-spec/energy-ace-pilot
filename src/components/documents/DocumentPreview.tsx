@@ -257,7 +257,7 @@ export function DocumentPreview({
   return (
     <>
       {/* Fullscreen overlay */}
-      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+      <div className="fixed inset-0 z-[70] bg-background/95 backdrop-blur-sm flex flex-col">
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-md flex-shrink-0">
           <div className="flex-1 min-w-0 mr-4">
