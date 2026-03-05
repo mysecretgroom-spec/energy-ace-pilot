@@ -623,7 +623,7 @@ const Planning = () => {
               <Plus className="h-6 w-6" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md p-0 overflow-hidden">
+          <DialogContent className="max-w-md p-0 max-h-[90vh] overflow-y-auto">
             <QuickRdvForm
               defaultDate={currentDate}
               onSuccess={() => {
