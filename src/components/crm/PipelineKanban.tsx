@@ -92,21 +92,35 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
     const fetchRdvStats = async () => {
       const { data, error } = await supabase
         .from("rdv")
-        .select("status, is_r2, client_id")
+        .select("status, is_r2, client_id, date_heure")
         .eq("user_id", user.id);
       if (error || !data) return;
 
       const stats = { total: data.length, totalEffectif: 0, signe: 0, negatif: 0, annule: 0, r2: 0, r2Signe: 0, reporte: 0, porte: 0, nonFait: 0 };
       
-      // Collect client_ids that have a signed RDV
+      // Build per-client date index: for each client, collect all RDV dates
+      const clientRdvDates = new Map<string, Date[]>();
       const clientsWithSignature = new Set<string>();
-      data.forEach((r) => {
+      data.forEach((r: any) => {
+        if (r.client_id && r.date_heure) {
+          const dates = clientRdvDates.get(r.client_id) || [];
+          dates.push(new Date(r.date_heure));
+          clientRdvDates.set(r.client_id, dates);
+        }
         if (r.status === "signe" && r.client_id) clientsWithSignature.add(r.client_id);
       });
 
+      // Check if client has a later RDV after the given date
+      const hasLaterRdv = (clientId: string | null, dateHeure: string | null): boolean => {
+        if (!clientId || !dateHeure) return false;
+        const refDate = new Date(dateHeure);
+        const dates = clientRdvDates.get(clientId) || [];
+        return dates.some(d => d.getTime() > refDate.getTime());
+      };
+
       const r2ClientIds: string[] = [];
 
-      data.forEach((r) => {
+      data.forEach((r: any) => {
         if (r.status === "signe") stats.signe++;
         else if (r.status === "negatif") stats.negatif++;
         else if (r.status === "annule") {
@@ -120,7 +134,8 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         }
         else if (r.status === "reporte") {
           stats.reporte++;
-          if (!r.is_r2) stats.nonFait++;
+          // Only count as "non fait" if no subsequent RDV exists for same client
+          if (!r.is_r2 && !hasLaterRdv(r.client_id, r.date_heure)) stats.nonFait++;
         }
       });
 
