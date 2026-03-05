@@ -144,6 +144,14 @@ const CRM = () => {
   const [saving, setSaving] = useState(false);
   const [selectedVenteIds, setSelectedVenteIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
+  
+  // New client dialog
+  const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
+  const [newClientSaving, setNewClientSaving] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    nom: "", prenom: "", telephone: "", email: "",
+    adresse: "", code_postal: "", ville: "", notes: "", regie_id: "",
+  });
 
   // Use the commissions hook
   const { getCommission } = useVenteCommissions(ventes);
@@ -413,6 +421,44 @@ const CRM = () => {
     return filtered.sort((a, b) => getCategorySortPriority(a.id) - getCategorySortPriority(b.id));
   }, [clients, modeHejjaActive, clientRegieFilters, clientCategoryFilters, searchQuery, clientRdvStatuses, clientVenteStatuses]);
 
+  const handleCreateClient = async () => {
+    if (!user || !newClientForm.nom.trim()) {
+      toast.error("Le nom est obligatoire");
+      return;
+    }
+    if (!newClientForm.regie_id) {
+      toast.error("La régie est obligatoire");
+      return;
+    }
+    setNewClientSaving(true);
+    try {
+      const { data, error } = await supabase.from("clients").insert({
+        user_id: user.id,
+        nom: newClientForm.nom.trim(),
+        prenom: newClientForm.prenom.trim() || null,
+        telephone: newClientForm.telephone.trim() || null,
+        email: newClientForm.email.trim() || null,
+        adresse: newClientForm.adresse.trim() || null,
+        code_postal: newClientForm.code_postal.trim() || null,
+        ville: newClientForm.ville.trim() || null,
+        notes: newClientForm.notes.trim() || null,
+        regie_id: newClientForm.regie_id,
+        source: "manual",
+      }).select("id").single();
+      if (error) throw error;
+      toast.success("Client créé");
+      setNewClientDialogOpen(false);
+      setNewClientForm({ nom: "", prenom: "", telephone: "", email: "", adresse: "", code_postal: "", ville: "", notes: "", regie_id: "" });
+      fetchClients();
+      if (data?.id) navigate(`/clients/${data.id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de la création du client");
+    } finally {
+      setNewClientSaving(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -666,7 +712,7 @@ const CRM = () => {
                 {showActiveOnly && " actif" + (filteredClients.length > 1 ? "s" : "")}
                 {clientCategoryFilters.length > 0 && ` • ${clientCategoryFilters.length} filtre${clientCategoryFilters.length > 1 ? 's' : ''}`}
               </span>
-              <Button size="sm" className="bg-gradient-hero gap-1">
+              <Button size="sm" className="bg-gradient-hero gap-1" onClick={() => setNewClientDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Nouveau
               </Button>
@@ -1247,6 +1293,76 @@ const CRM = () => {
       </div>
       </PullToRefreshContainer>
       </BlurOverlay>
+
+      {/* New Client Dialog */}
+      <Dialog open={newClientDialogOpen} onOpenChange={setNewClientDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nouveau client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Prénom</Label>
+                <Input value={newClientForm.prenom} onChange={e => setNewClientForm(p => ({ ...p, prenom: e.target.value }))} placeholder="Prénom" />
+              </div>
+              <div>
+                <Label>Nom *</Label>
+                <Input value={newClientForm.nom} onChange={e => setNewClientForm(p => ({ ...p, nom: e.target.value }))} placeholder="Nom" />
+              </div>
+            </div>
+            <div>
+              <Label>Téléphone</Label>
+              <Input value={newClientForm.telephone} onChange={e => setNewClientForm(p => ({ ...p, telephone: e.target.value }))} placeholder="06 00 00 00 00" type="tel" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input value={newClientForm.email} onChange={e => setNewClientForm(p => ({ ...p, email: e.target.value }))} placeholder="email@exemple.com" type="email" />
+            </div>
+            <div>
+              <Label>Adresse</Label>
+              <Input value={newClientForm.adresse} onChange={e => setNewClientForm(p => ({ ...p, adresse: e.target.value }))} placeholder="Adresse" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Code postal</Label>
+                <Input value={newClientForm.code_postal} onChange={e => setNewClientForm(p => ({ ...p, code_postal: e.target.value }))} placeholder="75000" />
+              </div>
+              <div>
+                <Label>Ville</Label>
+                <Input value={newClientForm.ville} onChange={e => setNewClientForm(p => ({ ...p, ville: e.target.value }))} placeholder="Ville" />
+              </div>
+            </div>
+            <div>
+              <Label>Régie *</Label>
+              <Select value={newClientForm.regie_id} onValueChange={v => setNewClientForm(p => ({ ...p, regie_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner une régie" /></SelectTrigger>
+                <SelectContent>
+                  {regies.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: r.couleur }} />
+                        {r.nom}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={newClientForm.notes} onChange={e => setNewClientForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes..." rows={2} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setNewClientDialogOpen(false)}>Annuler</Button>
+              <Button onClick={handleCreateClient} disabled={newClientSaving || !newClientForm.nom.trim() || !newClientForm.regie_id}>
+                {newClientSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                Créer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MobileLayout>
   );
 };
