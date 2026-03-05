@@ -116,13 +116,13 @@ async function generatePdfFromEtude(etude: any, client: any): Promise<Blob> {
 
 async function uploadGeneratedPdf(blob: Blob, etude: any, client: any) {
   try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const safeName = `${client.prenom || ""}_${client.nom || ""}`.replace(/[^a-zA-Z0-9_-]/g, "_");
-    const fileName = `${etude.user_id}/${etude.id}/${safeName}_${timestamp}.pdf`;
+    // Use a stable filename (no timestamp) so upsert replaces the old file
+    const fileName = `${etude.user_id}/${etude.id}/${safeName}.pdf`;
 
     const { data, error } = await supabase.storage
       .from("etudes-pdf")
-      .upload(fileName, blob, { contentType: "application/pdf", upsert: false });
+      .upload(fileName, blob, { contentType: "application/pdf", upsert: true });
 
     if (!error && data) {
       await supabase
