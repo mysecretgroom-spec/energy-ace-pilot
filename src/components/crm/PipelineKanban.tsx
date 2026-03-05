@@ -84,7 +84,7 @@ const CANCELLATION_META: Record<string, { label: string; icon: React.ReactNode; 
 export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }: PipelineKanbanProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [rdvStats, setRdvStats] = useState<{ total: number; totalEffectif: number; signe: number; negatif: number; annule: number; r2: number; reporte: number; porte: number; nonFait: number } | null>(null);
+  const [rdvStats, setRdvStats] = useState<{ total: number; totalEffectif: number; signe: number; negatif: number; annule: number; r2: number; r2Signe: number; reporte: number; porte: number; nonFait: number } | null>(null);
 
   // Fetch RDV stats for performance index
   useEffect(() => {
@@ -92,27 +92,41 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
     const fetchRdvStats = async () => {
       const { data, error } = await supabase
         .from("rdv")
-        .select("status, is_r2")
+        .select("status, is_r2, client_id")
         .eq("user_id", user.id);
       if (error || !data) return;
-      const stats = { total: data.length, totalEffectif: 0, signe: 0, negatif: 0, annule: 0, r2: 0, reporte: 0, porte: 0, nonFait: 0 };
+
+      const stats = { total: data.length, totalEffectif: 0, signe: 0, negatif: 0, annule: 0, r2: 0, r2Signe: 0, reporte: 0, porte: 0, nonFait: 0 };
+      
+      // Collect client_ids that have a signed RDV
+      const clientsWithSignature = new Set<string>();
+      data.forEach((r) => {
+        if (r.status === "signe" && r.client_id) clientsWithSignature.add(r.client_id);
+      });
+
+      const r2ClientIds: string[] = [];
+
       data.forEach((r) => {
         if (r.status === "signe") stats.signe++;
         else if (r.status === "negatif") stats.negatif++;
         else if (r.status === "annule") {
           stats.annule++;
-          // RDV annulés non-R2 = non fait
           if (!r.is_r2) stats.nonFait++;
         }
         else if (r.status === "porte") stats.porte++;
-        else if (r.status === "r2" || r.status === "r2_prestudy") stats.r2++;
+        else if (r.status === "r2" || r.status === "r2_prestudy") {
+          stats.r2++;
+          if (r.client_id) r2ClientIds.push(r.client_id);
+        }
         else if (r.status === "reporte") {
           stats.reporte++;
-          // RDV reportés non-R2 = non fait
           if (!r.is_r2) stats.nonFait++;
         }
       });
-      // Total effectif = RDV réellement effectués (total - non fait)
+
+      // R2 → signature: R2 clients who also have a signed RDV
+      stats.r2Signe = r2ClientIds.filter(cid => clientsWithSignature.has(cid)).length;
+
       stats.totalEffectif = stats.total - stats.nonFait;
       setRdvStats(stats);
     };
@@ -224,6 +238,14 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                 <span className="font-medium">{rdvStats.r2} ({r2Rate}%)</span>
               </div>
               <Progress value={r2Rate} className="h-1.5 [&>div]:bg-blue-500" />
+              {rdvStats.r2 > 0 && (
+                <div className="flex items-center justify-between text-[11px] pl-4 text-muted-foreground">
+                  <span>↳ R2 → Signé</span>
+                  <span className="font-medium text-green-600">
+                    {rdvStats.r2Signe}/{rdvStats.r2} ({Math.round((rdvStats.r2Signe / rdvStats.r2) * 100)}%)
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1">
