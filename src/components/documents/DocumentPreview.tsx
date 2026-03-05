@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -43,6 +48,10 @@ export function DocumentPreview({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [pdfPageCount, setPdfPageCount] = useState(0);
+  const [currentPdfPage, setCurrentPdfPage] = useState(1);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
 
   const currentDoc = documents[currentIndex];
 
@@ -55,6 +64,9 @@ export function DocumentPreview({
     setRotation(0);
     setIsLoading(true);
     setError(false);
+    setPdfPageCount(0);
+    setCurrentPdfPage(1);
+    pdfDocRef.current = null;
   }, [currentIndex]);
 
   // Lock body scroll when open
@@ -66,6 +78,82 @@ export function DocumentPreview({
     }
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
+
+  // Resolve Supabase storage URLs to signed URLs for reliable access
+  const resolveUrl = useCallback(async (url: string): Promise<string> => {
+    if (url.includes("supabase.co/storage/v1/object/public/")) {
+      try {
+        const urlParts = url.split("/storage/v1/object/public/");
+        if (urlParts.length === 2) {
+          const [bucket, ...pathParts] = urlParts[1].split("/");
+          const path = decodeURIComponent(pathParts.join("/"));
+          const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+          if (data?.signedUrl) return data.signedUrl;
+        }
+      } catch (err) {
+        console.warn("Failed to create signed URL:", err);
+      }
+    }
+    if (!url.startsWith("http")) {
+      const { data } = supabase.storage.from("documents").getPublicUrl(url);
+      return data.publicUrl;
+    }
+    return url;
+  }, []);
+
+  // Render a PDF page to canvas
+  const renderPdfPage = useCallback(async (pdf: pdfjsLib.PDFDocumentProxy, pageNum: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    try {
+      const page = await pdf.getPage(pageNum);
+      const containerWidth = canvas.parentElement?.clientWidth || window.innerWidth;
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const scale = Math.min((containerWidth - 32) / unscaledViewport.width, 2);
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    } catch (err) {
+      console.error("Error rendering PDF page:", err);
+    }
+  }, []);
+
+  // Load PDF when document changes
+  useEffect(() => {
+    if (!currentDoc || getFileType(currentDoc.url) !== "pdf") return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resolvedUrl = await resolveUrl(currentDoc.url);
+        const pdf = await pdfjsLib.getDocument(resolvedUrl).promise;
+        if (cancelled) return;
+        pdfDocRef.current = pdf;
+        setPdfPageCount(pdf.numPages);
+        setCurrentPdfPage(1);
+        await renderPdfPage(pdf, 1);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error loading PDF:", err);
+        if (!cancelled) {
+          setIsLoading(false);
+          setError(true);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [currentIndex, currentDoc?.url]);
+
+  // Re-render when PDF page changes
+  useEffect(() => {
+    if (pdfDocRef.current && currentPdfPage > 0) {
+      renderPdfPage(pdfDocRef.current, currentPdfPage);
+    }
+  }, [currentPdfPage, renderPdfPage]);
 
   const getFileType = (url: string): "pdf" | "image" | "unknown" => {
     const lower = url.toLowerCase();
@@ -164,9 +252,7 @@ export function DocumentPreview({
 
   const fileType = getFileType(currentDoc.url);
 
-  const getPdfViewerUrl = (url: string) => {
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-  };
+  // Removed: getPdfViewerUrl no longer needed
 
   return (
     <>
@@ -279,18 +365,40 @@ export function DocumentPreview({
             </div>
           )}
 
-          {/* PDF preview using Google Docs Viewer */}
+          {/* PDF preview using pdfjs-dist canvas */}
           {fileType === "pdf" && !error && (
-            <iframe
-              src={getPdfViewerUrl(currentDoc.url)}
-              className="w-full h-full border-0"
-              title={currentDoc.nom}
-              onLoad={() => setIsLoading(false)}
-              onError={() => {
-                setIsLoading(false);
-                setError(true);
-              }}
-            />
+            <div className="w-full h-full flex flex-col items-center overflow-auto p-4">
+              <canvas
+                ref={canvasRef}
+                className="max-w-full shadow-lg rounded"
+                style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+              />
+              {pdfPageCount > 1 && (
+                <div className="flex items-center gap-3 mt-3 bg-background/80 backdrop-blur-sm rounded-full px-4 py-2 shadow border">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={currentPdfPage <= 1}
+                    onClick={() => setCurrentPdfPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium">
+                    {currentPdfPage} / {pdfPageCount}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={currentPdfPage >= pdfPageCount}
+                    onClick={() => setCurrentPdfPage((p) => Math.min(pdfPageCount, p + 1))}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Unknown file type */}
