@@ -27,29 +27,10 @@ export function useEtudePdfDownload() {
       const client = etude.clients as any;
       const filename = `Etude_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
 
-      if (etude.pdf_url) {
-        // Try to get existing PDF from storage
-        const { data: signed, error: sErr } = await supabase.storage
-          .from("etudes-pdf")
-          .createSignedUrl(etude.pdf_url, 3600);
-
-        if (!sErr && signed?.signedUrl) {
-          const resp = await fetch(signed.signedUrl);
-          if (resp.ok) {
-            blob = await resp.blob();
-          } else {
-            // Signed URL failed, regenerate
-            blob = await generatePdfFromEtude(etude, client);
-          }
-        } else {
-          blob = await generatePdfFromEtude(etude, client);
-        }
-      } else {
-        // No PDF exists, generate it
-        blob = await generatePdfFromEtude(etude, client);
-        // Upload for future use
-        await uploadGeneratedPdf(blob, etude, client);
-      }
+      // Always regenerate PDF from current template to ensure latest changes
+      blob = await generatePdfFromEtude(etude, client);
+      // Upload/replace for future use
+      await uploadGeneratedPdf(blob, etude, client);
 
       // Share or download
       const file = new File([blob], filename, { type: "application/pdf" });
