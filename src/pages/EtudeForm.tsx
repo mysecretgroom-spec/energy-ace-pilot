@@ -1358,140 +1358,110 @@ const EtudeForm = () => {
       });
       setSaving(false);
     } else {
-      // Sauvegarder l'historique de classification si la classification a changé
+      // === Post-save: run all side-effects in parallel (non-blocking) ===
       const wasForceSync = forceSyncRef.current;
       const classificationChanged = wasForceSync || classification !== originalClassification;
       forceSyncRef.current = false;
       const r2DateTime = (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
         ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
         : null;
-      
-      if (classification && savedEtudeId && classificationChanged) {
-        await supabase.from("etudes_classification_history").insert({
-          etude_id: savedEtudeId,
-          user_id: user.id,
-          classification: classification,
-          comment: classificationComment || null,
-          r2_date_heure: r2DateTime,
-        });
 
-        // Synchroniser le statut du RDV associé
-        const classificationToRdvStatus: Record<string, string> = {
-          positif: "signe",
-          negatif: "negatif",
-          r2: "r2",
-          r2_prestudy: "r2_prestudy",
-          annule: "annule",
-          reporte: "reporte",
-          porte: "porte",
-        };
-        const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | "porte" | undefined;
-        if (rdvStatus && rdvId) {
-          await supabase
-            .from("rdv")
-            .update({ status: rdvStatus })
-            .eq("id", rdvId);
-        }
-      }
-      
-      // Créer automatiquement un RDV R2 si une date est définie
-      if ((classification === "r2" || classification === "r2_prestudy") && r2DateTime && savedEtudeId) {
-        // Vérifier s'il existe déjà un RDV R2 pour cette étude
-        const { data: existingR2Rdv } = await supabase
-          .from("rdv")
-          .select("id")
-          .eq("etude_id", savedEtudeId)
-          .eq("is_r2", true)
-          .maybeSingle();
-        
-        if (existingR2Rdv) {
-          // Mettre à jour le RDV existant
-          await supabase
-            .from("rdv")
-            .update({
-              date_heure: r2DateTime,
-              r2_type: classification,
-              status: "nouveau",
-            })
-            .eq("id", existingR2Rdv.id);
-        } else {
-          // Créer un nouveau RDV R2
-          await supabase.from("rdv").insert({
-            user_id: user.id,
-            client_id: clientId,
-            etude_id: savedEtudeId,
-            date_heure: r2DateTime,
-            duree_minutes: 90,
-            type_projet: "photovoltaique",
-            status: "nouveau",
-            source: "r2_etude",
-            is_r2: true,
-            r2_type: classification,
-            commentaire: `R2 ${classification === "r2_prestudy" ? "Pré-étude" : ""} - ${classificationComment || "Suivi étude"}`,
-          });
-        }
-        
-        toast({
-          title: "RDV R2 créé",
-          description: `Un rendez-vous R2 a été planifié pour le ${format(new Date(r2DateTime), "dd/MM/yyyy 'à' HH:mm")}`,
-        });
-      }
-      
-      // PDF generation: fire-and-forget (non-blocking)
+      // Show success immediately — don't wait for side-effects
       const shouldGeneratePdf = wasForceSync || 
         (classification && classificationChanged && (classification === "r2_prestudy" || classification === "positif"));
-      if (shouldGeneratePdf) {
-        generateAndStorePdf().catch(err => console.error("PDF generation error:", err));
-      }
-
-      // Créer une vente automatiquement si statut Positif et changement de classification
-      if (classification === "positif" && classificationChanged && savedEtudeId && clientId) {
-        const { data: existingVente } = await supabase
-          .from("ventes")
-          .select("id")
-          .eq("etude_id", savedEtudeId)
-          .maybeSingle();
-
-        if (!existingVente) {
-          const { error: venteError } = await supabase.from("ventes").insert({
-            user_id: user.id,
-            client_id: clientId,
-            etude_id: savedEtudeId,
-            montant_ht: calculatedResults?.prixTotalHorsAides || 0,
-            montant_ttc: calculatedResults?.prixTotalHorsAides || 0,
-            puissance_kwc: Number(puissanceKwc) || null,
-            nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5),
-            type_installation: supportInstallation,
-            status: "signe",
-            date_signature: new Date().toISOString(),
-            notes: classificationComment || "Vente créée automatiquement depuis étude positive",
-          });
-
-          if (!venteError) {
-            toast({
-              title: "Vente créée",
-              description: `Une vente de ${(calculatedResults?.prixTotalHorsAides || 0).toLocaleString("fr-FR")}€ a été enregistrée`,
-            });
-          }
-        }
-      }
       
-      // Clear draft from sessionStorage after successful save
+      // Clear draft & update state right away
       clearDraft();
       setHasUnsavedChanges(false);
       setOriginalClassification(classification);
-      
-      // Update currentEtudeId for subsequent saves (stay on page)
       if (savedEtudeId && !currentEtudeId) {
         setCurrentEtudeId(savedEtudeId);
       }
-      
-      // Show quick success feedback without navigating
       setSaving(false);
       toast({
         title: "✓ Enregistré",
         description: shouldGeneratePdf ? "PDF en cours de génération en arrière-plan" : "Étude sauvegardée",
       });
+
+      // Fire-and-forget: all post-save operations run in parallel
+      const postSaveOps: Promise<void>[] = [];
+
+      // 1. Classification history + RDV status sync
+      if (classification && savedEtudeId && classificationChanged) {
+        postSaveOps.push(
+          Promise.resolve(supabase.from("etudes_classification_history").insert({
+            etude_id: savedEtudeId,
+            user_id: user.id,
+            classification: classification,
+            comment: classificationComment || null,
+            r2_date_heure: r2DateTime,
+          })).then(() => {})
+        );
+
+        const classificationToRdvStatus: Record<string, string> = {
+          positif: "signe", negatif: "negatif", r2: "r2", r2_prestudy: "r2_prestudy",
+          annule: "annule", reporte: "reporte", porte: "porte",
+        };
+        const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | "porte" | undefined;
+        if (rdvStatus && rdvId) {
+          postSaveOps.push(
+            Promise.resolve(supabase.from("rdv").update({ status: rdvStatus }).eq("id", rdvId)).then(() => {})
+          );
+        }
+      }
+
+      // 2. R2 RDV creation/update
+      if ((classification === "r2" || classification === "r2_prestudy") && r2DateTime && savedEtudeId) {
+        postSaveOps.push((async () => {
+          const { data: existingR2Rdv } = await supabase
+            .from("rdv").select("id").eq("etude_id", savedEtudeId).eq("is_r2", true).maybeSingle();
+          
+          if (existingR2Rdv) {
+            await supabase.from("rdv").update({
+              date_heure: r2DateTime, r2_type: classification, status: "nouveau",
+            }).eq("id", existingR2Rdv.id);
+          } else {
+            await supabase.from("rdv").insert({
+              user_id: user.id, client_id: clientId, etude_id: savedEtudeId,
+              date_heure: r2DateTime, duree_minutes: 90, type_projet: "photovoltaique",
+              status: "nouveau", source: "r2_etude", is_r2: true, r2_type: classification,
+              commentaire: `R2 ${classification === "r2_prestudy" ? "Pré-étude" : ""} - ${classificationComment || "Suivi étude"}`,
+            });
+          }
+          toast({ title: "RDV R2 créé", description: `RDV R2 planifié le ${format(new Date(r2DateTime), "dd/MM/yyyy 'à' HH:mm")}` });
+        })());
+      }
+
+      // 3. Auto-create vente if positif
+      if (classification === "positif" && classificationChanged && savedEtudeId && clientId) {
+        postSaveOps.push((async () => {
+          const { data: existingVente } = await supabase
+            .from("ventes").select("id").eq("etude_id", savedEtudeId).maybeSingle();
+          if (!existingVente) {
+            const { error: venteError } = await supabase.from("ventes").insert({
+              user_id: user.id, client_id: clientId, etude_id: savedEtudeId,
+              montant_ht: calculatedResults?.prixTotalHorsAides || 0,
+              montant_ttc: calculatedResults?.prixTotalHorsAides || 0,
+              puissance_kwc: Number(puissanceKwc) || null,
+              nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5),
+              type_installation: supportInstallation, status: "signe",
+              date_signature: new Date().toISOString(),
+              notes: classificationComment || "Vente créée automatiquement depuis étude positive",
+            });
+            if (!venteError) {
+              toast({ title: "Vente créée", description: `Vente de ${(calculatedResults?.prixTotalHorsAides || 0).toLocaleString("fr-FR")}€ enregistrée` });
+            }
+          }
+        })());
+      }
+
+      // 4. PDF generation (fire-and-forget)
+      if (shouldGeneratePdf) {
+        postSaveOps.push(generateAndStorePdf().catch(err => console.error("PDF generation error:", err)).then(() => {}));
+      }
+
+      // Run all in parallel, log errors but don't block
+      Promise.allSettled(postSaveOps).catch(err => console.error("Post-save side-effects error:", err));
     }
   };
 
