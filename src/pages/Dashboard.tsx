@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useVenteCommissions } from "@/hooks/useVenteCommissions";
 import { StatDetailDialog, StatDetailItem } from "@/components/stats/StatDetailDialog";
 import { MultiSelectFilter, FilterOption } from "@/components/crm/MultiSelectFilter";
+import { isCancellationStatus } from "@/lib/venteStatusConfig";
 
 import {
   TrendingUp, 
@@ -302,7 +303,7 @@ const Dashboard = () => {
       const ventes = ventesRes.data || [];
       
       // Store ventes for commission calculation (exclude annulées)
-      const allVentesForComm = ventes.filter(v => v.status !== 'annule').map((v: any) => ({
+      const allVentesForComm = ventes.filter(v => !isCancellationStatus(v.status)).map((v: any) => ({
         id: v.id,
         montant_ht: v.montant_ht,
         montant_ttc: v.montant_ttc,
@@ -334,19 +335,19 @@ const Dashboard = () => {
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutMois) &&
         new Date(v.date_signature) <= new Date(finMois) &&
-        v.status !== 'annule' &&
+        !isCancellationStatus(v.status) &&
         v.type_vente !== 'external_installation'
       );
       const ventesAnnee = filteredVentes.filter((v: any) => 
         v.date_signature && 
         new Date(v.date_signature) >= new Date(debutAnnee) &&
         new Date(v.date_signature) <= new Date(finAnnee) &&
-        v.status !== 'annule' &&
+        !isCancellationStatus(v.status) &&
         v.type_vente !== 'external_installation'
       );
       const enCoursStatuses = ['signe', 'cq_a_faire', 'cq_fait', 'attente_financement', 'envoi_pose'];
       const ventesEnCours = filteredVentes.filter((v: any) => 
-        enCoursStatuses.includes(v.status) && v.status !== 'annule'
+        enCoursStatuses.includes(v.status) && !isCancellationStatus(v.status)
       );
 
       // Process RDV - also filter by régie
