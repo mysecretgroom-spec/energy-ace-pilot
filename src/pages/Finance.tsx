@@ -492,8 +492,8 @@ const Finance = () => {
 
         setRawVentes(ventes || []);
         
-        // Prepare data for commission hook (exclude cancelled)
-        setVentesForCommission((ventes || []).filter((v: any) => v.status !== 'annule').map((v: any) => ({
+        // Prepare data for commission hook (exclude all cancellation statuses)
+        setVentesForCommission((ventes || []).filter((v: any) => !isCancellationStatus(v.status)).map((v: any) => ({
           id: v.id,
           montant_ht: v.montant_ht,
           montant_ttc: v.montant_ttc,
@@ -563,7 +563,7 @@ const Finance = () => {
 
     // Pour les commissions: INCLURE les installations externes (elles génèrent des commissions)
     const signedThisMonthForComm = ventesThisMonth.filter(v => 
-      !["en_negociation", "annule"].includes(v.status)
+      v.status !== 'en_negociation' && !isCancellationStatus(v.status)
     );
     const commissionsMonth = signedThisMonthForComm.reduce((sum, v) => {
       const comm = getCommission(v.id);
@@ -656,13 +656,25 @@ const Finance = () => {
     const now = new Date();
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     
-    const filterByType = (statuses: string[], dateFilter?: 'recent' | 'old') => {
+    // Mirrors the exact same logic as venteStatsComputed for attente/aFacturer split
+    const filterAttenteFacturation = () => {
       return ventesForCommission.filter(v => {
-        if (!statuses.includes(v.status)) return false;
-        if (dateFilter === 'recent') return !v.date_installation_reelle || new Date(v.date_installation_reelle) > twoWeeksAgo;
-        if (dateFilter === 'old') return v.date_installation_reelle && new Date(v.date_installation_reelle) <= twoWeeksAgo;
-        return true;
+        if (!["installe", "attente_paiement"].includes(v.status)) return false;
+        if (!v.date_installation_reelle) return v.status !== "attente_paiement";
+        return new Date(v.date_installation_reelle) > twoWeeksAgo;
       });
+    };
+    
+    const filterAFacturer = () => {
+      return ventesForCommission.filter(v => {
+        if (!["installe", "attente_paiement"].includes(v.status)) return false;
+        if (!v.date_installation_reelle) return v.status === "attente_paiement";
+        return new Date(v.date_installation_reelle) <= twoWeeksAgo;
+      });
+    };
+
+    const filterByStatus = (statuses: string[]) => {
+      return ventesForCommission.filter(v => statuses.includes(v.status));
     };
     
     const mapToItems = (ventes: typeof ventesForCommission) => ventes.map(v => {
@@ -690,23 +702,21 @@ const Finance = () => {
     
     switch (financeStatDialogType) {
       case 'enCours':
-        const enCours = filterByType(["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"]);
+        const enCours = filterByStatus(["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"]);
         return { title: "En cours", subtitle: "Non posé", items: mapToItems(enCours), total: venteStats?.comEnCours };
       case 'attenteFacturation':
-        const attente = filterByType(["installe", "attente_paiement"], 'recent');
-        return { title: "En attente de facturation", subtitle: "Posé < 2 semaines", items: mapToItems(attente), total: venteStats?.comAttenteFacturation };
+        return { title: "En attente de facturation", subtitle: "Posé < 2 semaines", items: mapToItems(filterAttenteFacturation()), total: venteStats?.comAttenteFacturation };
       case 'aFacturer':
-        const aFact = filterByType(["installe", "attente_paiement"], 'old');
-        return { title: "Attente de paiement", subtitle: "Posé ≥ 2 semaines", items: mapToItems(aFact), total: venteStats?.comAFacturer };
+        return { title: "Attente de paiement", subtitle: "Posé ≥ 2 semaines", items: mapToItems(filterAFacturer()), total: venteStats?.comAFacturer };
       case 'payees':
-        const payees = filterByType(["paye"]);
+        const payees = filterByStatus(["paye"]);
         return { title: "Payées", subtitle: "Commissions encaissées", items: mapToItems(payees), total: venteStats?.comPayees };
       case 'commissionsMois': {
         const now2 = new Date();
         const startOfMonthComm = new Date(now2.getFullYear(), now2.getMonth(), 1);
         const ventesCommMois = ventesForCommission.filter(v => 
           v.date_signature && new Date(v.date_signature) >= startOfMonthComm &&
-          !["en_negociation", "annule"].includes(v.status)
+          v.status !== 'en_negociation'
         );
         return { title: "Commissions ce mois", subtitle: "HT", items: mapToItems(ventesCommMois), total: venteStats?.commissionsMonth };
       }
@@ -715,7 +725,7 @@ const Finance = () => {
         const startOfMonthCA = new Date(now3.getFullYear(), now3.getMonth(), 1);
         const ventesCaMois = ventesForCommission.filter(v => 
           v.date_signature && new Date(v.date_signature) >= startOfMonthCA &&
-          !["en_negociation", "annule"].includes(v.status) &&
+          v.status !== 'en_negociation' &&
           v.type_vente !== 'external_installation'
         );
         return { 
@@ -748,7 +758,7 @@ const Finance = () => {
         const startOfMonthSig = new Date(now4.getFullYear(), now4.getMonth(), 1);
         const ventesSignesMois = ventesForCommission.filter(v => 
           v.date_signature && new Date(v.date_signature) >= startOfMonthSig &&
-          !["en_negociation", "annule"].includes(v.status) &&
+          v.status !== 'en_negociation' &&
           v.type_vente !== 'external_installation'
         );
         return { 
