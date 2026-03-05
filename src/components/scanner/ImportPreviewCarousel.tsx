@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -31,6 +31,10 @@ import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./serv
 import useEmblaCarousel from "embla-carousel-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 export interface ImportedDoc {
   id: string;
@@ -80,6 +84,72 @@ async function applyFilter(imageData: string, filterId: FilterId): Promise<strin
   if (filterId === "bw") return convertToBlackAndWhite(imageData);
   if (filterId === "sharp") return enhanceImage(imageData, { contrast: 110, sharpen: true });
   return imageData;
+}
+
+// Small component to render PDF first page preview
+function PdfPagePreview({ file, rotation, onDelete }: { file: File; rotation: number; onDelete: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        if (cancelled) return;
+        const page = await pdf.getPage(1);
+        const unscaled = page.getViewport({ scale: 1 });
+        const scale = Math.min(600 / unscaled.width, 800 / unscaled.height, 2);
+        const viewport = page.getViewport({ scale });
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d")!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (!cancelled) setLoading(false);
+      } catch (err) {
+        console.error("PDF preview error:", err);
+        if (!cancelled) { setLoading(false); setFailed(true); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [file]);
+
+  if (failed) {
+    return (
+      <div className="w-64 h-80 bg-neutral-800 rounded-lg flex items-center justify-center border border-white/10">
+        <div className="text-center text-white/50">
+          <Upload className="h-10 w-10 mx-auto mb-2" />
+          <p className="text-sm">{file.name}</p>
+          <p className="text-xs mt-1">PDF</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        className="absolute top-2 left-2 z-10 bg-black/60 rounded-full p-1.5"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-4 w-4 text-white/80" />
+      </button>
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 text-white/50 animate-spin" />
+        </div>
+      )}
+      <canvas
+        ref={canvasRef}
+        className="max-w-full max-h-[55vh] object-contain rounded-lg shadow-2xl"
+        style={{ transform: `rotate(${rotation}deg)` }}
+      />
+    </div>
+  );
 }
 
 export function ImportPreviewCarousel({
@@ -257,37 +327,31 @@ export function ImportPreviewCarousel({
               const displaySrc = doc.processedPreview || doc.preview;
               const isImg = displaySrc && displaySrc !== "/placeholder.svg";
               return (
-                <div
-                  key={doc.id}
-                  className="flex-[0_0_100%] min-w-0 h-full flex items-center justify-center p-3"
-                >
-                  {isImg ? (
-                    <div className="relative">
-                      {/* Delete button on image corner */}
-                      <button
-                        className="absolute top-2 left-2 z-10 bg-black/60 rounded-full p-1.5"
-                        onClick={handleDeleteCurrent}
-                      >
-                        <Trash2 className="h-4 w-4 text-white/80" />
-                      </button>
-                      <img
-                        src={displaySrc}
-                        alt={doc.description || doc.file.name}
-                        className="max-w-full max-h-[55vh] object-contain rounded-lg shadow-2xl"
-                        style={{ transform: `rotate(${doc.rotation}deg)` }}
-                        draggable={false}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-64 h-80 bg-neutral-800 rounded-lg flex items-center justify-center border border-white/10">
-                      <div className="text-center text-white/50">
-                        <Upload className="h-10 w-10 mx-auto mb-2" />
-                        <p className="text-sm">{doc.file.name}</p>
-                        <p className="text-xs mt-1">PDF</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                 <div
+                   key={doc.id}
+                   className="flex-[0_0_100%] min-w-0 h-full flex items-center justify-center p-3"
+                 >
+                   {isImg ? (
+                     <div className="relative">
+                       {/* Delete button on image corner */}
+                       <button
+                         className="absolute top-2 left-2 z-10 bg-black/60 rounded-full p-1.5"
+                         onClick={handleDeleteCurrent}
+                       >
+                         <Trash2 className="h-4 w-4 text-white/80" />
+                       </button>
+                       <img
+                         src={displaySrc}
+                         alt={doc.description || doc.file.name}
+                         className="max-w-full max-h-[55vh] object-contain rounded-lg shadow-2xl"
+                         style={{ transform: `rotate(${doc.rotation}deg)` }}
+                         draggable={false}
+                       />
+                     </div>
+                   ) : (
+                     <PdfPagePreview file={doc.file} rotation={doc.rotation} onDelete={handleDeleteCurrent} />
+                   )}
+                 </div>
               );
             })}
           </div>
@@ -498,15 +562,15 @@ export function ImportPreviewCarousel({
             <span className="text-[10px]">Remplacer</span>
           </button>
 
-          {/* Save FAB */}
+          {/* Save FAB — always enabled, AI classifies untyped docs */}
           <button
             className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
-              allTyped && !isSaving
+              !isSaving
                 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                 : "bg-white/10 text-white/30"
             }`}
             onClick={onSave}
-            disabled={isSaving || !allTyped}
+            disabled={isSaving}
           >
             {isSaving ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -520,7 +584,7 @@ export function ImportPreviewCarousel({
         <p className="text-center text-[10px] text-white/30 px-4">
           {allTyped
             ? `${documents.length} document${documents.length > 1 ? "s" : ""} prêt${documents.length > 1 ? "s" : ""}`
-            : `${typedCount}/${documents.length} typé${typedCount > 1 ? "s" : ""} — sélectionnez le type pour chaque doc`
+            : `${typedCount}/${documents.length} typé${typedCount > 1 ? "s" : ""} — les non-typés seront classés par IA`
           }
         </p>
       </div>
