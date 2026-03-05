@@ -64,11 +64,42 @@ function compressImageForPdf(imageBytes: Uint8Array, isPng: boolean): Uint8Array
 // WhatsApp file size limit (16MB, target 14MB safe margin)
 const MAX_PDF_SIZE_BYTES = 14 * 1024 * 1024;
 
+// Resolve a URL or storage path to a fetchable signed URL
+async function resolveStorageUrl(
+  urlOrPath: string,
+  supabase: any,
+  supabaseUrl: string,
+  bucket = "etudes-pdf"
+): Promise<string> {
+  // Already a full URL
+  if (urlOrPath.startsWith("http://") || urlOrPath.startsWith("https://")) {
+    // If it's a Supabase storage URL without a token, create a signed URL
+    if (urlOrPath.includes("/storage/v1/object/public/") && !urlOrPath.includes("token=")) {
+      const urlParts = urlOrPath.split("/storage/v1/object/public/");
+      if (urlParts.length === 2) {
+        const [bucketName, ...pathParts] = urlParts[1].split("/");
+        const path = pathParts.join("/");
+        const { data } = await supabase.storage.from(bucketName).createSignedUrl(path, 3600);
+        if (data?.signedUrl) return data.signedUrl;
+      }
+    }
+    return urlOrPath;
+  }
+
+  // It's a storage path (e.g. "userId/etudeId/file.pdf") — generate a signed URL
+  const { data } = await supabase.storage.from(bucket).createSignedUrl(urlOrPath, 3600);
+  if (data?.signedUrl) return data.signedUrl;
+
+  // Fallback: construct a public URL
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${urlOrPath}`;
+  return publicUrl;
+}
+
 // Fetch file from URL and return as Uint8Array
 async function fetchFileAsBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch file: ${response.statusText}`);
+    throw new Error(`Failed to fetch file: ${response.status} ${response.statusText} — ${url}`);
   }
   const arrayBuffer = await response.arrayBuffer();
   return new Uint8Array(arrayBuffer);
@@ -181,8 +212,10 @@ serve(async (req) => {
     // Process etude PDF first if exists
     if (etudePdfUrl) {
       try {
-        console.log("Adding etude PDF...");
-        const pdfBytes = await fetchFileAsBytes(etudePdfUrl);
+        console.log("Adding etude PDF...", etudePdfUrl);
+        const resolvedEtudeUrl = await resolveStorageUrl(etudePdfUrl, supabase, supabaseUrl, "etudes-pdf");
+        console.log("Resolved etude URL:", resolvedEtudeUrl);
+        const pdfBytes = await fetchFileAsBytes(resolvedEtudeUrl);
         const pdf = await PDFDocument.load(pdfBytes);
         const pages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
         pages.forEach(page => mergedPdf.addPage(page));
@@ -198,22 +231,9 @@ serve(async (req) => {
       try {
         console.log(`Processing document: ${doc.nom}`);
         
-        // Get signed URL if needed
-        let fileUrl = doc.url;
-        if (doc.url.includes("supabase") && !doc.url.includes("token=")) {
-          // Extract bucket and path from URL
-          const urlParts = doc.url.split("/storage/v1/object/public/");
-          if (urlParts.length === 2) {
-            const [bucket, ...pathParts] = urlParts[1].split("/");
-            const path = pathParts.join("/");
-            const { data: signedData } = await supabase.storage
-              .from(bucket)
-              .createSignedUrl(path, 3600);
-            if (signedData?.signedUrl) {
-              fileUrl = signedData.signedUrl;
-            }
-          }
-        }
+        // Resolve URL (handles storage paths, public URLs, and signed URLs)
+        const fileUrl = await resolveStorageUrl(doc.url, supabase, supabaseUrl, "documents");
+        console.log(`  Resolved URL for ${doc.nom}: ${fileUrl.substring(0, 80)}...`);
 
         const fileBytes = await fetchFileAsBytes(fileUrl);
 
