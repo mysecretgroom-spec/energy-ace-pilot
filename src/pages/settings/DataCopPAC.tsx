@@ -139,7 +139,7 @@ const DataCopPAC = () => {
         }
       }
 
-      toast.success("Données sauvegardées");
+      // Silent save
       fetchData();
     } catch (error) {
       console.error("Erreur sauvegarde:", error);
