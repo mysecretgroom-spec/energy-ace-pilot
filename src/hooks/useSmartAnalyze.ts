@@ -95,7 +95,7 @@ export function useSmartAnalyze(options: UseSmartAnalyzeOptions = {}) {
         const parts: string[] = [];
         if (analysisResult.document_type) parts.push(analysisResult.description || analysisResult.document_type);
         if (analysisResult.fields?.nom) parts.push(analysisResult.fields.nom);
-        toast.success(`Analyse IA : ${parts.join(" — ") || "terminée"}`);
+        // Silent - results are shown inline in the UI
       }
 
       return analysisResult;
