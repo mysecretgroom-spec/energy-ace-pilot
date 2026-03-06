@@ -170,7 +170,7 @@ export const WhatsAppTemplates = () => {
       console.error("Error saving template:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Modèle enregistré");
+      // Silent save
     }
 
     setSaving(null);

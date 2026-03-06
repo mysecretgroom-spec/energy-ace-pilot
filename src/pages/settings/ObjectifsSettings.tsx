@@ -168,7 +168,7 @@ const ObjectifsSettings = () => {
       console.error("Error saving objectifs:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Objectifs enregistrés");
+      // Silent save
       setOriginalObjectifs({ ...objectifs });
     }
 

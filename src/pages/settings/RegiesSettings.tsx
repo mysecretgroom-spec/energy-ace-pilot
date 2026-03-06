@@ -471,7 +471,7 @@ const RegiesSettings = () => {
       
       setSelectedRegie({ ...selectedRegie, siret });
       setRegies(regies.map(r => r.id === selectedRegie.id ? { ...r, siret } : r));
-      toast.success("SIRET mis à jour");
+      // Silent save
     } catch (error) {
       console.error("Error updating SIRET:", error);
       toast.error("Erreur lors de la mise à jour");
@@ -581,7 +581,7 @@ const RegiesSettings = () => {
         .update({ is_principal: true })
         .eq("id", contactId);
 
-      toast.success("Contact principal mis à jour");
+      // Silent save
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
       console.error("Error setting principal:", error);

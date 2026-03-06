@@ -76,9 +76,7 @@ const WorkingDaysSettings = () => {
     setSaving(false);
     
     if (success) {
-      toast.success("Jours travaillés enregistrés", {
-        description: "Le planning sera mis à jour"
-      });
+      // Silent save
       setHasChanges(false);
     } else {
       toast.error("Erreur lors de l'enregistrement");
