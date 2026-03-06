@@ -118,7 +118,7 @@ export default function GmailAutoSync() {
 
       if (error) throw error;
 
-      toast.success("Paramètres enregistrés");
+      // Silent save
       setOriginalSettings({ ...settings });
     } catch (error) {
       console.error("Error saving settings:", error);

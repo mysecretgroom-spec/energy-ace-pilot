@@ -67,7 +67,7 @@ export function WhatsAppStep() {
       toast.error("Erreur lors de la sauvegarde");
     } else {
       setSaved(true);
-      toast.success("Paramètres WhatsApp enregistrés");
+      // Silent save
     }
 
     setSaving(false);

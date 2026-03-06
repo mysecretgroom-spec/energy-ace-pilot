@@ -85,7 +85,7 @@ const AgentNotificationsSettings = () => {
     if (error) {
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Préférences enregistrées");
+      // Silent save
       setOriginal({ ...settings });
     }
     setSaving(false);

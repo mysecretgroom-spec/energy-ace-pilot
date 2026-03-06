@@ -559,7 +559,7 @@ export function MultiDocumentSelector({
         savedCount++;
       }
 
-      sonnerToast.success(`${savedCount} document${savedCount > 1 ? "s" : ""} mis à jour`);
+      // Silent save
       setShowEditCarousel(false);
       setEditCarouselDocs([]);
       setSelectedIds(new Set());

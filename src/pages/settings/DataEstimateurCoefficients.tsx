@@ -131,7 +131,7 @@ const DataEstimateurCoefficients = () => {
           await supabase.from("data_estimateur_coefficients").update(payload).eq("id", item.id);
         }
       }
-      toast.success("Coefficients sauvegardés");
+      // Silent save
       fetchData();
     } catch (error) {
       console.error("Erreur sauvegarde:", error);
