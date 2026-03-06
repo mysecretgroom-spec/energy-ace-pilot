@@ -111,7 +111,7 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
         
         // Optimistic update: show success immediately
         const previousStatus = vente.status;
-        toast.success(`→ ${STATUS_LABELS[newStatus]}`);
+        // Silent - visual card update is enough
         onRefresh?.();
         
         const updateData: any = { status: newStatus };
