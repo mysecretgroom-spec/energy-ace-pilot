@@ -123,7 +123,7 @@ const DataEnergiesPrix = () => {
           await supabase.from("data_energies_prix").update(payload).eq("id", item.id);
         }
       }
-      toast.success("Données sauvegardées");
+      // Silent save
       fetchData();
     } catch (error) {
       console.error("Erreur sauvegarde:", error);

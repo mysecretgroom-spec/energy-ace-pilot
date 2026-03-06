@@ -134,9 +134,7 @@ export function useGmailSync() {
         if (result.updated > 0) parts.push(`${result.updated} mis à jour`);
         if (result.errors > 0) parts.push(`${result.errors} erreur(s)`);
         
-        toast.success("Synchronisation terminée", {
-          description: parts.join(", ")
-        });
+        // Silent sync success
       }
 
       return result;

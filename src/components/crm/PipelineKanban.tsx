@@ -169,7 +169,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
         .update({ status: newStatus })
         .eq("id", venteId);
       if (error) throw error;
-      toast.success("Statut mis à jour");
+      // Silent - visual kanban update is enough
       onRefresh();
     } catch (error) {
       console.error("Erreur mise à jour:", error);

@@ -135,7 +135,7 @@ export default function AdminSupport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
-      toast.success("Statut mis à jour");
+      // Silent save
     },
   });
 

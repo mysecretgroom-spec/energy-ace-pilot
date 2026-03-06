@@ -82,7 +82,7 @@ const VentesSettings = () => {
         }, { onConflict: "user_id" });
 
       if (error) throw error;
-      toast.success("Paramètres enregistrés");
+      // Silent save
       setOriginal({ transitionWeeks, relanceEnabled, relanceDelayDays, weeklyRecapEnabled });
     } catch (error) {
       console.error("Error saving settings:", error);

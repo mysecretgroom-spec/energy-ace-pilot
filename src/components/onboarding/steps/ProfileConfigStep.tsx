@@ -70,7 +70,7 @@ export function ProfileConfigStep({ onComplete }: ProfileConfigStepProps) {
 
       if (error) throw error;
 
-      toast.success("Profil enregistré ✓");
+      // Silent save
       onComplete();
     } catch (error) {
       console.error("Error saving profile:", error);

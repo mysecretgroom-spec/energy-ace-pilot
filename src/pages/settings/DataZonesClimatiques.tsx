@@ -123,7 +123,7 @@ const DataZonesClimatiques = () => {
           await supabase.from("data_zones_climatiques").update(payload).eq("id", item.id);
         }
       }
-      toast.success("Données sauvegardées");
+      // Silent save
       fetchData();
     } catch (error) {
       console.error("Erreur sauvegarde:", error);

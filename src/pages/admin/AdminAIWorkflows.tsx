@@ -231,7 +231,7 @@ export default function AdminAIWorkflows() {
             : w
         )
       );
-      toast.success("Workflow mis à jour");
+      // Silent save
       setEditDialogOpen(false);
     }
     setSaving(false);

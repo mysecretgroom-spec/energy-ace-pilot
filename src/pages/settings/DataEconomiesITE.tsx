@@ -120,7 +120,7 @@ const DataEconomiesITE = () => {
           await supabase.from("data_ite_economies").update(payload).eq("id", item.id);
         }
       }
-      toast.success("Données sauvegardées");
+      // Silent save
       fetchData();
     } catch (error) {
       console.error("Erreur sauvegarde:", error);

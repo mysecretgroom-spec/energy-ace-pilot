@@ -84,7 +84,7 @@ export const NotificationSettings = () => {
       console.error("Error saving settings:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Préférences enregistrées");
+      // Silent save
       setOriginalSettings({ ...settings });
     }
     

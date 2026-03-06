@@ -106,7 +106,7 @@ export const PushNotificationSettings = () => {
       console.error("Error saving preferences:", error);
       toast.error("Erreur lors de la sauvegarde");
     } else {
-      toast.success("Préférences enregistrées");
+      // Silent save
     }
     
     setSaving(false);

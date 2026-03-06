@@ -175,7 +175,7 @@ const DataAides = () => {
         }
       }
 
-      toast.success("Modifications enregistrées");
+      // Silent save
       fetchData();
     } catch (error: any) {
       console.error("Erreur sauvegarde:", error);

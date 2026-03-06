@@ -330,7 +330,7 @@ export function WorkflowCanvas({
 
     onNodesChange(dbNodes.map((n) => (n.id === updatedNode.id ? updatedNode : n)));
     setEditDialogOpen(false);
-    toast.success('Nœud mis à jour');
+    // Silent save
   };
 
   return (
