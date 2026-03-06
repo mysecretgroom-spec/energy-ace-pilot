@@ -86,7 +86,7 @@ export default function AdminFeatures() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-feature-requests"] });
-      toast.success("Statut mis à jour");
+      // Silent save
     },
   });
 
