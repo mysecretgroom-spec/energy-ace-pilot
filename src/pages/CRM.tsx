@@ -446,7 +446,7 @@ const CRM = () => {
         source: "manual",
       }).select("id").single();
       if (error) throw error;
-      toast.success("Client créé");
+      // Silent - navigates to client page
       setNewClientDialogOpen(false);
       setNewClientForm({ nom: "", prenom: "", telephone: "", email: "", adresse: "", code_postal: "", ville: "", notes: "", regie_id: "" });
       fetchClients();
