@@ -603,12 +603,7 @@ const CRM = () => {
 
       if (error) throw error;
 
-      const regieInfo = regieId ? regies.find(r => r.id === regieId) : null;
-      toast.success(
-        regieInfo 
-          ? `Vente créée (Régie: ${regieInfo.nom})` 
-          : "Vente créée avec succès"
-      );
+      // Silent - list refreshes visually
       setDialogOpen(false);
       setPrefilledClientName(null);
       setFormData({
