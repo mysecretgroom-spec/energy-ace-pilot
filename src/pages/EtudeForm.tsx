@@ -549,10 +549,7 @@ const EtudeForm = () => {
     // Mark restoration complete after a delay
     markRestorationComplete();
     
-    toast({
-      title: "Brouillon restauré",
-      description: "Vos données précédentes ont été récupérées",
-    });
+    // Silent restoration - no toast needed
   };
 
   // Load default CQ time from settings
@@ -1443,10 +1440,7 @@ const EtudeForm = () => {
         setCurrentEtudeId(savedEtudeId);
       }
       setSaving(false);
-      toast({
-        title: "✓ Enregistré",
-        description: shouldGeneratePdf ? "PDF en cours de génération en arrière-plan" : "Étude sauvegardée",
-      });
+      // Silent save confirmation - the AutoSaveIndicator already shows status
 
       // Fire-and-forget: all post-save operations run in parallel
       const postSaveOps: Promise<void>[] = [];
@@ -1493,7 +1487,7 @@ const EtudeForm = () => {
               commentaire: `R2 ${classification === "r2_prestudy" ? "Pré-étude" : ""} - ${classificationComment || "Suivi étude"}`,
             });
           }
-          toast({ title: "RDV R2 créé", description: `RDV R2 planifié le ${format(new Date(r2DateTime), "dd/MM/yyyy 'à' HH:mm")}` });
+          // R2 RDV created silently
         })());
       }
 
@@ -1514,7 +1508,7 @@ const EtudeForm = () => {
               notes: classificationComment || "Vente créée automatiquement depuis étude positive",
             });
             if (!venteError) {
-              toast({ title: "Vente créée", description: `Vente de ${(calculatedResults?.prixTotalHorsAides || 0).toLocaleString("fr-FR")}€ enregistrée` });
+              // Vente created silently
             }
           }
         })());

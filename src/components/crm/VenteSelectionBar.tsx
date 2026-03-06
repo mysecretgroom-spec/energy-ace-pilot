@@ -44,7 +44,7 @@ export const VenteSelectionBar = ({
 
       if (error) throw error;
 
-      toast.success(`${selectedIds.length} vente(s) mise(s) à jour`);
+      // Silent - list refreshes visually
       setNewStatus("");
       onClear();
       onRefresh();

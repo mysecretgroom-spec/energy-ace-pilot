@@ -102,7 +102,7 @@ export const EditClientDialog = ({
 
       if (error) throw error;
 
-      toast.success("Client mis à jour");
+      // Silent success - dialog closing is enough feedback
       onSuccess();
       onOpenChange(false);
     } catch (error) {

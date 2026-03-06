@@ -280,14 +280,14 @@ export function RdvStatusSelector({
             console.error("Error creating new RDV:", newRdvError);
             toast.error("Erreur lors de la création du nouveau RDV");
           } else {
-            toast.success(isR2 ? "RDV R2 créé avec succès" : "Nouveau RDV reporté créé avec succès");
+            // Silent success
           }
 
           if (newRdvError) {
             console.error("Error creating new RDV:", newRdvError);
             toast.error("Erreur lors de la création du nouveau RDV");
           } else {
-            toast.success(isR2 ? "RDV R2 créé avec succès" : "Nouveau RDV reporté créé avec succès");
+            // Silent success
           }
         }
       }
@@ -325,15 +325,14 @@ export function RdvStatusSelector({
           console.error("Error creating vente:", venteError);
           toast.error("Erreur lors de la création de la vente");
         } else {
-          toast.success(`Vente ${productType} créée avec succès`);
+          // Silent success - status badge update is visible
         }
       }
 
       setStatus(newStatus);
       
-      const statusLabel = statusOptions.find(s => s.value === newStatus)?.label;
       hapticSuccess();
-      toast.success(`Statut changé en "${statusLabel}"`);
+      // Silent success - visual status change is enough feedback
 
       // Notify parent immediately
       onStatusChange?.(newStatus);
