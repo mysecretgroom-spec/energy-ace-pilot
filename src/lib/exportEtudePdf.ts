@@ -311,7 +311,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: 14, right: pageWidth / 2 + 2 },
+    margin: { left: 14, right: pageWidth / 2 + 2, bottom: 25 },
   });
   const leftY = (doc as any).lastAutoTable.finalY;
   
@@ -329,7 +329,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: pageWidth / 2 + 2, right: 14 },
+    margin: { left: pageWidth / 2 + 2, right: 14, bottom: 25 },
   });
   yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
   
@@ -354,11 +354,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 4;
-  
-  // Production
+    margin: { left: 14, right: 14, bottom: 25 },
   autoTable(doc, {
     startY: yPos,
     head: [["Estimation de Production", "", "", ""]],
@@ -371,9 +367,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 6;
+    margin: { left: 14, right: 14, bottom: 25 },
   
   // Analyse financière
   doc.setFillColor(...bleuMarianne);
@@ -399,11 +393,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 4;
-  
-  // Financement & Rentabilité
+    margin: { left: 14, right: 14, bottom: 25 },
   
   autoTable(doc, {
     startY: yPos,
@@ -419,9 +409,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
-  });
-  yPos = (doc as any).lastAutoTable.finalY + 8;
+    margin: { left: 14, right: 14, bottom: 25 },
   
   // Verdict
   let verdictColor = successColor;
