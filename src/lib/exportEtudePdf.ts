@@ -727,7 +727,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos, franceRenovBase64, ministereBase64);
+    yPos = drawPvPage(doc, data, yPos);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
