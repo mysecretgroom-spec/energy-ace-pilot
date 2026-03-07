@@ -275,7 +275,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
@@ -401,7 +401,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   const pageHeight = doc.internal.pageSize.getHeight();
   if (yPos + 65 > pageHeight - 25) {
     doc.addPage();
-    drawHeader(doc, data, franceRenovBase64, "INSTALLATION PHOTOVOLTAÏQUE");
+    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE");
     yPos = 42;
   }
   
