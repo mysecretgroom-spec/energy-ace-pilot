@@ -281,7 +281,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string, ministereBase64?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
@@ -407,7 +407,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
   const pageHeight = doc.internal.pageSize.getHeight();
   if (yPos + 65 > pageHeight - 25) {
     doc.addPage();
-    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE");
+    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE", ministereBase64);
     yPos = 42;
   }
   
@@ -728,12 +728,12 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   // ═══════════════════════════════════════════════════════════════════════
   // PAGE 1: Header + Bénéficiaire + PV (or first product)
   // ═══════════════════════════════════════════════════════════════════════
-  drawHeader(doc, data, franceRenovBase64, subtitle);
+  drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
   let yPos = 42;
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos, franceRenovBase64);
+    yPos = drawPvPage(doc, data, yPos, franceRenovBase64, ministereBase64);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
@@ -742,7 +742,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR");
+      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
       yPos = 42;
     }
     yPos = drawPacPage(doc, data, yPos);
@@ -754,7 +754,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   if (data.ite) {
     if (products.includes("PV") || data.pac) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE");
+      drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
       yPos = 42;
     }
     yPos = drawItePage(doc, data, yPos);
@@ -765,7 +765,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   // ═══════════════════════════════════════════════════════════════════════
   if (isMulti) {
     doc.addPage();
-    drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL");
+    drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
     
@@ -795,7 +795,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     // Single product: classification on same page
     if (yPos > doc.internal.pageSize.getHeight() - 60) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, subtitle);
+      drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
       yPos = 42;
     }
     doc.setFillColor(...grisClair);
