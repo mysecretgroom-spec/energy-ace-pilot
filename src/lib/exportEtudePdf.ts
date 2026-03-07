@@ -281,7 +281,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string, ministereBase64?: string): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
