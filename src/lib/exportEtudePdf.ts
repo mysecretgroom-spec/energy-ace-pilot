@@ -281,7 +281,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string, ministereBase64?: string): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
@@ -311,7 +311,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: 14, right: pageWidth / 2 + 2 },
+    margin: { left: 14, right: pageWidth / 2 + 2, bottom: 25 },
   });
   const leftY = (doc as any).lastAutoTable.finalY;
   
@@ -329,7 +329,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: pageWidth / 2 + 2, right: 14 },
+    margin: { left: pageWidth / 2 + 2, right: 14, bottom: 25 },
   });
   yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
   
@@ -354,7 +354,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: 25 },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
@@ -371,7 +371,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: 25 },
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
   
@@ -399,18 +399,11 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: 25 },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Financement & Rentabilité — check page overflow (table ~35 + verdict ~30 = ~65)
-  const pageHeight = doc.internal.pageSize.getHeight();
-  if (yPos + 65 > pageHeight - 25) {
-    doc.addPage();
-    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE", ministereBase64);
-    yPos = 42;
-  }
-  
+  // Financement & Rentabilité
   autoTable(doc, {
     startY: yPos,
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
@@ -425,7 +418,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: 25 },
   });
   yPos = (doc as any).lastAutoTable.finalY + 8;
   
@@ -733,7 +726,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos, franceRenovBase64, ministereBase64);
+    yPos = drawPvPage(doc, data, yPos);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
