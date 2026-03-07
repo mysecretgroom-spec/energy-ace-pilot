@@ -715,7 +715,9 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   const isMulti = products.length > 1;
   
   let franceRenovBase64 = "";
+  let ministereBase64 = "";
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
   
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
