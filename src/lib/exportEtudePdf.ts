@@ -403,13 +403,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Financement & Rentabilité — check page overflow (table ~35 + verdict ~30 = ~65)
-  const pageHeight = doc.internal.pageSize.getHeight();
-  if (yPos + 65 > pageHeight - 25) {
-    doc.addPage();
-    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE", ministereBase64);
-    yPos = 42;
-  }
+  // Financement & Rentabilité
   
   autoTable(doc, {
     startY: yPos,
