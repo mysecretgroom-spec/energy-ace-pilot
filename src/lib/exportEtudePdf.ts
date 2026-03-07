@@ -275,7 +275,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, franceRenovBase64?: string): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
@@ -397,7 +397,14 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Financement & Rentabilité
+  // Financement & Rentabilité — check page overflow (table ~35 + verdict ~30 = ~65)
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (yPos + 65 > pageHeight - 25) {
+    doc.addPage();
+    drawHeader(doc, data, franceRenovBase64 || "", "INSTALLATION PHOTOVOLTAÏQUE");
+    yPos = 42;
+  }
+  
   autoTable(doc, {
     startY: yPos,
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
@@ -718,7 +725,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos);
+    yPos = drawPvPage(doc, data, yPos, franceRenovBase64);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
