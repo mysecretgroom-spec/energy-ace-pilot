@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
+import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.svg";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -181,7 +182,7 @@ const iteColor: [number, number, number] = [168, 85, 247]; // purple
 // HEADER & FOOTER helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subtitle: string) => {
+const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subtitle: string, ministereBase64?: string) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   
   // Tricolor band
@@ -203,10 +204,15 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.setFontSize(12);
   doc.text(subtitle, pageWidth / 2, 22, { align: "center" });
   
+  // Ministère logo top-right
+  if (ministereBase64) {
+    try { doc.addImage(ministereBase64, "PNG", pageWidth - 55, 4, 40, 28); } catch {}
+  }
+  
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grisTexte);
-  doc.text(`Date: ${data.dateEtude}`, pageWidth - 14, 15, { align: "right" });
+  doc.text(`Date: ${data.dateEtude}`, pageWidth - 14, 34, { align: "right" });
   
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.5);
