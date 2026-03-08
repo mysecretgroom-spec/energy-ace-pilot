@@ -952,12 +952,10 @@ const Finance = () => {
         const semaineTotal = Array.from(allWeekFraisMap.values())
           .reduce((sum, f) => sum + getProratedAmount(f, weekStart, weekEnd), 0);
         
-        // Mois: combine monthFrais + periodFraisMonth for full coverage
-        const allMonthFraisMap = new Map<string, any>();
-        monthFrais.forEach(f => allMonthFraisMap.set(f.id, f));
-        (periodFraisMonth || []).forEach(f => allMonthFraisMap.set(f.id, f));
-        const moisTotal = Array.from(allMonthFraisMap.values())
-          .reduce((sum: number, f: any) => sum + getProratedAmount(f, monthStart, monthEnd), 0);
+        // Mois: sum raw montant of all frais whose date_frais falls in the selected month
+        // This matches the history breakdown the user sees
+        const moisTotal = monthFrais
+          .reduce((sum: number, f: any) => sum + Number(f.montant), 0);
 
         setTotaux({
           jour: jourTotal,
