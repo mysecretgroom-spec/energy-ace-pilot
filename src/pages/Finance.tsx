@@ -207,15 +207,14 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // La semaine de frais va du lundi au dimanche (7 jours, format FR)
+  // La semaine de frais va du dimanche au samedi (format israélien)
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
-    // Reculer jusqu'au lundi précédent (dimanche = reculer de 6 jours)
-    const monday = new Date(now);
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    monday.setDate(now.getDate() - daysToMonday);
-    return monday;
+    // Reculer jusqu'au dimanche précédent (ou aujourd'hui si dimanche)
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - dayOfWeek);
+    return sunday;
   });
   
   // Period selection for chart/stats
@@ -257,14 +256,13 @@ const Finance = () => {
   const isCurrentWeek = (() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    // Calculer le lundi de la semaine courante (format FR)
-    const currentMonday = new Date(now);
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    currentMonday.setDate(now.getDate() - daysToMonday);
-    currentMonday.setHours(0, 0, 0, 0);
-    const selectedMondayCopy = new Date(selectedWeekStart);
-    selectedMondayCopy.setHours(0, 0, 0, 0);
-    return currentMonday.getTime() === selectedMondayCopy.getTime();
+    // Calculer le dimanche de la semaine courante (format israélien)
+    const currentSunday = new Date(now);
+    currentSunday.setDate(now.getDate() - dayOfWeek);
+    currentSunday.setHours(0, 0, 0, 0);
+    const selectedSundayCopy = new Date(selectedWeekStart);
+    selectedSundayCopy.setHours(0, 0, 0, 0);
+    return currentSunday.getTime() === selectedSundayCopy.getTime();
   })();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
