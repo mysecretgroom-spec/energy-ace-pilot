@@ -256,14 +256,13 @@ const Finance = () => {
   const isCurrentWeek = (() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    // Calculer le lundi de la semaine courante (format FR)
-    const currentMonday = new Date(now);
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    currentMonday.setDate(now.getDate() - daysToMonday);
-    currentMonday.setHours(0, 0, 0, 0);
-    const selectedMondayCopy = new Date(selectedWeekStart);
-    selectedMondayCopy.setHours(0, 0, 0, 0);
-    return currentMonday.getTime() === selectedMondayCopy.getTime();
+    // Calculer le dimanche de la semaine courante (format israélien)
+    const currentSunday = new Date(now);
+    currentSunday.setDate(now.getDate() - dayOfWeek);
+    currentSunday.setHours(0, 0, 0, 0);
+    const selectedSundayCopy = new Date(selectedWeekStart);
+    selectedSundayCopy.setHours(0, 0, 0, 0);
+    return currentSunday.getTime() === selectedSundayCopy.getTime();
   })();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
