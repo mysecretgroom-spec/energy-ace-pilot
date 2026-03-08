@@ -207,14 +207,15 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // La semaine de frais va du dimanche au samedi (7 jours)
+  // La semaine de frais va du lundi au dimanche (7 jours, format FR)
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
-    // Reculer jusqu'au dimanche précédent (ou aujourd'hui si dimanche)
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - dayOfWeek);
-    return sunday;
+    // Reculer jusqu'au lundi précédent (dimanche = reculer de 6 jours)
+    const monday = new Date(now);
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    monday.setDate(now.getDate() - daysToMonday);
+    return monday;
   });
   
   // Period selection for chart/stats
