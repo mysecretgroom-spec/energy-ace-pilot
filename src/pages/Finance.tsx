@@ -1830,7 +1830,7 @@ const Finance = () => {
                   Ajouter frais manuel
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+               <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Ajouter un frais</DialogTitle>
                 </DialogHeader>
