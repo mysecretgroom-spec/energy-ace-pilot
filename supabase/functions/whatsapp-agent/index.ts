@@ -6978,8 +6978,8 @@ async function executeAction(
         updateData.date_installation_reelle = new Date().toISOString().split("T")[0];
       }
       
-      // If installation date mentioned (e.g., "installation demain")
-      if (installDate && (pipelineStatus === "envoi_pose" || pipelineStatus === "en_installation")) {
+      // If installation date mentioned, set date_installation_prevue for relevant statuses
+      if (installDate && ["envoi_pose", "en_installation", "cq_fait", "attente_financement"].includes(pipelineStatus)) {
         updateData.date_installation_prevue = installDate;
       }
       
