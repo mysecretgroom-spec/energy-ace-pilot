@@ -9393,11 +9393,10 @@ async function executeAction(
           periodLabel = "Aujourd'hui";
           break;
         case "week":
-          // Start from Monday of current week
-          const dayOfWeek = now.getDay();
-          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          // Sunday-Saturday (Israeli style)
+          const dayOfWeekF = now.getDay(); // 0=dimanche
           startDate = new Date(now);
-          startDate.setDate(now.getDate() - diffToMonday);
+          startDate.setDate(now.getDate() - dayOfWeekF);
           startDate.setHours(0, 0, 0, 0);
           periodLabel = "Cette semaine";
           break;
