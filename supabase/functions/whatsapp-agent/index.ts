@@ -5717,7 +5717,7 @@ INTENTIONS DISPONIBLES:
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe. Si le RDV est DÉJÀ signé (une vente existe), ce changement de statut sera automatiquement redirigé vers la VENTE (pipeline).
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
-- update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
+- update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement). Inclut les expressions d'installation prévue: "X instal prévu le Y", "X installation demain", "X pose le 15" → pipeline_status="envoi_pose" + date=YYYY-MM-DD. "X posé" ou "X installé" (PASSÉ, c'est fait) → pipeline_status="installe"
 - import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
 - query_commissions: "mes coms", "combien je gagne", "bilan semaine", "bilan mois", "frais et commissions de la semaine/mois" → Si period=week ou month: BILAN COMPLET (frais + signatures en cours + installations + balance nette). Sans period: vue globale commissions (totaux uniquement)
 - query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
