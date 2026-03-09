@@ -9340,7 +9340,14 @@ async function executeAction(
       
       if (newDate) {
         updateData.date_installation_prevue = newDate;
-        changes.push(`Date pose: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
+        changes.push(`Date pose prévue: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
+        
+        // Auto-change status to envoi_pose if vente is still in pre-installation stages
+        const preInstallStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "en_negociation"];
+        if (preInstallStatuses.includes(vente.status)) {
+          updateData.status = "envoi_pose";
+          changes.push("Statut → Envoi pose");
+        }
       }
       
       // Update vente
