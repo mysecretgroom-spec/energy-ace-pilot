@@ -5717,7 +5717,7 @@ INTENTIONS DISPONIBLES:
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe. Si le RDV est DÉJÀ signé (une vente existe), ce changement de statut sera automatiquement redirigé vers la VENTE (pipeline).
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
-- update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
+- update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement). Inclut les expressions d'installation prévue: "X instal prévu le Y", "X installation demain", "X pose le 15" → pipeline_status="envoi_pose" + date=YYYY-MM-DD. "X posé" ou "X installé" (PASSÉ, c'est fait) → pipeline_status="installe"
 - import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
 - query_commissions: "mes coms", "combien je gagne", "bilan semaine", "bilan mois", "frais et commissions de la semaine/mois" → Si period=week ou month: BILAN COMPLET (frais + signatures en cours + installations + balance nette). Sans period: vue globale commissions (totaux uniquement)
 - query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
@@ -6978,8 +6978,8 @@ async function executeAction(
         updateData.date_installation_reelle = new Date().toISOString().split("T")[0];
       }
       
-      // If installation date mentioned (e.g., "installation demain")
-      if (installDate && (pipelineStatus === "envoi_pose" || pipelineStatus === "en_installation")) {
+      // If installation date mentioned, set date_installation_prevue for relevant statuses
+      if (installDate && ["envoi_pose", "en_installation", "cq_fait", "attente_financement"].includes(pipelineStatus)) {
         updateData.date_installation_prevue = installDate;
       }
       
@@ -7022,7 +7022,7 @@ async function executeAction(
         actionTaken: "vente_pipeline_updated",
         entityId: vente.id,
         entityType: "vente",
-        customResponse: `✅ Vente ${clientFullName} mise à jour: ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation_reelle ? ` (posé le ${updateData.date_installation_reelle})` : ""}${updateData.date_installation_prevue ? ` (prévu le ${updateData.date_installation_prevue})` : ""}`,
+        customResponse: `✅ Vente *${clientFullName}* → ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation_reelle ? `\n📅 Posé le ${new Date(updateData.date_installation_reelle).toLocaleDateString("fr-FR")}` : ""}${updateData.date_installation_prevue ? `\n📅 Installation prévue le ${new Date(updateData.date_installation_prevue).toLocaleDateString("fr-FR")}` : ""}`,
       };
     }
 
@@ -9340,7 +9340,14 @@ async function executeAction(
       
       if (newDate) {
         updateData.date_installation_prevue = newDate;
-        changes.push(`Date pose: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
+        changes.push(`Date pose prévue: ${new Date(newDate).toLocaleDateString("fr-FR")}`);
+        
+        // Auto-change status to envoi_pose if vente is still in pre-installation stages
+        const preInstallStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "en_negociation"];
+        if (preInstallStatuses.includes(vente.status)) {
+          updateData.status = "envoi_pose";
+          changes.push("Statut → Envoi pose");
+        }
       }
       
       // Update vente
