@@ -5719,7 +5719,7 @@ INTENTIONS DISPONIBLES:
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
 - update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
 - import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
-- query_commissions: "mes coms", "combien je gagne" → Vue globale commissions (totaux uniquement)
+- query_commissions: "mes coms", "combien je gagne", "bilan semaine", "bilan mois", "frais et commissions de la semaine/mois" → Si period=week ou month: BILAN COMPLET (frais + signatures en cours + installations + balance nette). Sans period: vue globale commissions (totaux uniquement)
 - query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
 - query_ventes_en_cours: "dossiers en cours", "ventes en cours", "mes en cours" → Liste DÉTAILLÉE des ventes signées non encore posées avec NOM PRÉNOM + COMMISSION pour chaque
 - query_ventes_by_filter: "ventes posées", "ventes payées", "ventes signées", "posés < 2 sem", "par régie X" → Liste filtrée avec Entity: filter_type (poses, payees, signees, poses_recentes, par_regie)
