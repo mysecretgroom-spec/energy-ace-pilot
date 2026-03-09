@@ -5719,7 +5719,7 @@ INTENTIONS DISPONIBLES:
   Note: "absent" sera interprété comme "negatif", "positif" sera interprété comme "signe"
 - update_vente_pipeline: Pipeline vente existante (posé/installe, payé, CQ fait, annulé, attente_paiement)
 - import_facture: Note de frais (ticket, carburant, péage) — Les documents clients (CNI, RIB) doivent être importés via l'app
-- query_commissions: "mes coms", "combien je gagne" → Vue globale commissions (totaux uniquement)
+- query_commissions: "mes coms", "combien je gagne", "bilan semaine", "bilan mois", "frais et commissions de la semaine/mois" → Si period=week ou month: BILAN COMPLET (frais + signatures en cours + installations + balance nette). Sans period: vue globale commissions (totaux uniquement)
 - query_ventes_a_facturer: "dossiers à facturer", "ventes à facturer", "facturables", "du sûr" → Liste DÉTAILLÉE des ventes prêtes à facturer (posées >= 2 sem OU attente_paiement) avec NOM PRÉNOM + COMMISSION pour chaque
 - query_ventes_en_cours: "dossiers en cours", "ventes en cours", "mes en cours" → Liste DÉTAILLÉE des ventes signées non encore posées avec NOM PRÉNOM + COMMISSION pour chaque
 - query_ventes_by_filter: "ventes posées", "ventes payées", "ventes signées", "posés < 2 sem", "par régie X" → Liste filtrée avec Entity: filter_type (poses, payees, signees, poses_recentes, par_regie)
@@ -7548,30 +7548,209 @@ async function executeAction(
     }
 
     case "query_commissions": {
+      // Check if period filtering is requested
+      const commPeriod = (entities.period as string) || null;
+      
+      if (commPeriod && (commPeriod === "week" || commPeriod === "month")) {
+        // ═══════════════════════════════════════════════════════════════════════
+        // PERIOD-FILTERED COMMISSIONS: signatures & installations of the period
+        // ═══════════════════════════════════════════════════════════════════════
+        const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+        
+        const now = new Date();
+        let periodStart: Date;
+        let periodLabel = "";
+        
+        if (commPeriod === "week") {
+          // Sunday-Saturday (Israeli style)
+          const dayOfWeek = now.getDay(); // 0=dimanche
+          periodStart = new Date(now);
+          periodStart.setDate(now.getDate() - dayOfWeek);
+          periodStart.setHours(0, 0, 0, 0);
+          periodLabel = "Cette semaine";
+        } else {
+          periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          periodLabel = "Ce mois";
+        }
+        
+        const periodStartStr = periodStart.toISOString();
+        
+        // Fetch ventes signed in the period (potential commissions from signatures)
+        const { data: signedVentes } = await supabase
+          .from("ventes")
+          .select(`
+            id, montant_ttc, montant_ht, puissance_kwc, date_signature, status,
+            type_vente, decom_montant, regie_id,
+            clients(nom, prenom),
+            regies(part_survente_pct)
+          `)
+          .eq("user_id", userId)
+          .not("status", "eq", "annule")
+          .gte("date_signature", periodStartStr.split("T")[0]);
+        
+        // Fetch ventes installed in the period (upcoming commissions)
+        const { data: installedVentes } = await supabase
+          .from("ventes")
+          .select(`
+            id, montant_ttc, montant_ht, puissance_kwc, date_installation_reelle, status,
+            type_vente, decom_montant, regie_id,
+            clients(nom, prenom),
+            regies(part_survente_pct)
+          `)
+          .eq("user_id", userId)
+          .not("status", "eq", "annule")
+          .gte("date_installation_reelle", periodStartStr.split("T")[0]);
+        
+        // Calculate commissions for signed ventes (still in pipeline, not yet installed)
+        const signaturesInPeriod: Array<{ clientName: string; commission: number; status: string }> = [];
+        let totalSignatures = 0;
+        const signedIds = new Set<string>();
+        
+        for (const v of signedVentes || []) {
+          signedIds.add(v.id);
+          const isExternal = v.type_vente === "external_installation";
+          // deno-lint-ignore no-explicit-any
+          const regie = v.regies as any;
+          const partSurvente = regie?.part_survente_pct || 50;
+          
+          const { commission } = calculateCommission({
+            montantTTC: v.montant_ttc || 0,
+            montantHT: v.montant_ht || 0,
+            puissanceKwc: v.puissance_kwc || 0,
+            isExternal,
+            decomMontant: v.decom_montant || 0,
+            regieId: v.regie_id,
+            globalBouquets,
+            regieBouquetsMap,
+            partSurventePct: partSurvente,
+          });
+          
+          // deno-lint-ignore no-explicit-any
+          const client = v.clients as any;
+          const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+          signaturesInPeriod.push({ clientName, commission: Math.round(commission), status: v.status });
+          totalSignatures += commission;
+        }
+        
+        // Calculate commissions for installed ventes (upcoming/confirmed)
+        const installationsInPeriod: Array<{ clientName: string; commission: number; datePose: string }> = [];
+        let totalInstallations = 0;
+        
+        for (const v of installedVentes || []) {
+          // Skip if already counted in signatures to avoid double-reporting note
+          const isExternal = v.type_vente === "external_installation";
+          // deno-lint-ignore no-explicit-any
+          const regie = v.regies as any;
+          const partSurvente = regie?.part_survente_pct || 50;
+          
+          const { commission } = calculateCommission({
+            montantTTC: v.montant_ttc || 0,
+            montantHT: v.montant_ht || 0,
+            puissanceKwc: v.puissance_kwc || 0,
+            isExternal,
+            decomMontant: v.decom_montant || 0,
+            regieId: v.regie_id,
+            globalBouquets,
+            regieBouquetsMap,
+            partSurventePct: partSurvente,
+          });
+          
+          // deno-lint-ignore no-explicit-any
+          const client = v.clients as any;
+          const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+          installationsInPeriod.push({
+            clientName,
+            commission: Math.round(commission),
+            datePose: v.date_installation_reelle || "",
+          });
+          totalInstallations += commission;
+        }
+        
+        // Also fetch frais for the period
+        const { data: fraisData } = await supabase
+          .from("frais")
+          .select("montant, categorie")
+          .eq("user_id", userId)
+          .gte("date_frais", periodStart.toISOString().split("T")[0])
+          .lte("date_frais", now.toISOString().split("T")[0]);
+        
+        const totalFrais = (fraisData || []).reduce((sum: number, f: { montant: number | null }) => sum + (f.montant || 0), 0);
+        const fraisByCategory: Record<string, number> = {};
+        for (const f of fraisData || []) {
+          const cat = f.categorie;
+          fraisByCategory[cat] = (fraisByCategory[cat] || 0) + (f.montant || 0);
+        }
+        
+        const categoryLabels: Record<string, string> = {
+          carburant: "⛽", repas: "🍽️", hotel: "🏨", peage: "🛣️",
+          parking: "🅿️", train: "🚂", location_vehicule: "🚗", autre: "📦",
+        };
+        
+        // Build comprehensive response
+        let responseMsg = `📊 *BILAN ${periodLabel.toUpperCase()}*\n\n`;
+        
+        // Section 1: Frais
+        responseMsg += `💳 *Frais: ${totalFrais.toFixed(2)}€*`;
+        if (Object.keys(fraisByCategory).length > 0) {
+          const catParts = Object.entries(fraisByCategory)
+            .sort((a, b) => b[1] - a[1])
+            .map(([cat, total]) => `${categoryLabels[cat] || "📦"}${total.toFixed(0)}€`)
+            .join(" ");
+          responseMsg += ` (${catParts})`;
+        }
+        responseMsg += "\n\n";
+        
+        // Section 2: Commissions potentielles (signatures en cours)
+        responseMsg += `✍️ *Signatures: ${signaturesInPeriod.length}* → *${Math.round(totalSignatures).toLocaleString("fr-FR")}€*\n`;
+        if (signaturesInPeriod.length > 0) {
+          for (const s of signaturesInPeriod.slice(0, 15)) {
+            responseMsg += `  • ${s.clientName}: *${s.commission.toLocaleString("fr-FR")}€*\n`;
+          }
+          if (signaturesInPeriod.length > 15) {
+            responseMsg += `  ... +${signaturesInPeriod.length - 15} autres\n`;
+          }
+        }
+        responseMsg += "\n";
+        
+        // Section 3: Commissions à venir (installations)
+        responseMsg += `🔧 *Installations: ${installationsInPeriod.length}* → *${Math.round(totalInstallations).toLocaleString("fr-FR")}€*\n`;
+        if (installationsInPeriod.length > 0) {
+          for (const inst of installationsInPeriod.slice(0, 15)) {
+            const dateStr = inst.datePose ? new Date(inst.datePose).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            responseMsg += `  • ${inst.clientName}: *${inst.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+          }
+          if (installationsInPeriod.length > 15) {
+            responseMsg += `  ... +${installationsInPeriod.length - 15} autres\n`;
+          }
+        }
+        responseMsg += "\n";
+        
+        // Net balance
+        const netBalance = Math.round(totalSignatures + totalInstallations) - totalFrais;
+        responseMsg += `💶 *Balance nette: ${netBalance >= 0 ? "+" : ""}${netBalance.toFixed(0)}€*`;
+        
+        return {
+          actionTaken: "query_commissions_period_result",
+          entityType: "commissions",
+          customResponse: responseMsg,
+        };
+      }
+      
       // ═══════════════════════════════════════════════════════════════════════
-      // UTILISE RPC PARTAGÉE : get_commissions_by_category
+      // DEFAULT: Global commissions view (no period filter)
       // ═══════════════════════════════════════════════════════════════════════
       const { data: commData, error: commError } = await supabase
         .rpc("get_commissions_by_category", { p_user_id: userId });
 
       if (commError) {
         console.error("RPC get_commissions_by_category error:", commError);
-        // Fallback to legacy approach
         const { globalBouquets, regieBouquetsMap } = await loadBouquetsForCommissions(supabase);
         
         const { data: ventes, error: ventesError } = await supabase
           .from("ventes")
           .select(`
-            id,
-            montant_ttc,
-            montant_ht,
-            puissance_kwc,
-            date_installation_reelle,
-            status,
-            type_vente,
-            decom_montant,
-            regie_id,
-            regies(part_survente_pct)
+            id, montant_ttc, montant_ht, puissance_kwc, date_installation_reelle, status,
+            type_vente, decom_montant, regie_id, regies(part_survente_pct)
           `)
           .eq("user_id", userId)
           .not("status", "eq", "annule");
@@ -7632,7 +7811,6 @@ async function executeAction(
         };
       }
 
-      // Utilise les données de la RPC
       const responseData = {
         en_cours: { total: Math.round(commData?.en_cours || 0) },
         a_facturer: { total: Math.round(commData?.a_facturer || 0) },
@@ -9215,11 +9393,10 @@ async function executeAction(
           periodLabel = "Aujourd'hui";
           break;
         case "week":
-          // Start from Monday of current week
-          const dayOfWeek = now.getDay();
-          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          // Sunday-Saturday (Israeli style)
+          const dayOfWeekF = now.getDay(); // 0=dimanche
           startDate = new Date(now);
-          startDate.setDate(now.getDate() - diffToMonday);
+          startDate.setDate(now.getDate() - dayOfWeekF);
           startDate.setHours(0, 0, 0, 0);
           periodLabel = "Cette semaine";
           break;
@@ -9327,10 +9504,10 @@ async function executeAction(
           periodLabel = "Aujourd'hui";
           break;
         case "week":
-          const dayOfWeek = now.getDay();
-          const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          // Sunday-Saturday (Israeli style)
+          const dayOfWeekD = now.getDay(); // 0=dimanche
           startDate = new Date(now);
-          startDate.setDate(now.getDate() - diffToMonday);
+          startDate.setDate(now.getDate() - dayOfWeekD);
           startDate.setHours(0, 0, 0, 0);
           periodLabel = "Cette semaine";
           break;
