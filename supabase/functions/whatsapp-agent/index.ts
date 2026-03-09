@@ -7022,7 +7022,7 @@ async function executeAction(
         actionTaken: "vente_pipeline_updated",
         entityId: vente.id,
         entityType: "vente",
-        customResponse: `✅ Vente ${clientFullName} mise à jour: ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation_reelle ? ` (posé le ${updateData.date_installation_reelle})` : ""}${updateData.date_installation_prevue ? ` (prévu le ${updateData.date_installation_prevue})` : ""}`,
+        customResponse: `✅ Vente *${clientFullName}* → ${statusLabels[pipelineStatus] || pipelineStatus}${updateData.date_installation_reelle ? `\n📅 Posé le ${new Date(updateData.date_installation_reelle).toLocaleDateString("fr-FR")}` : ""}${updateData.date_installation_prevue ? `\n📅 Installation prévue le ${new Date(updateData.date_installation_prevue).toLocaleDateString("fr-FR")}` : ""}`,
       };
     }
 
