@@ -392,54 +392,65 @@ serve(async (req) => {
       if (intent === "nouveau_rdv" && validated.RDV?.date) {
         const rdvDate = validated.RDV.date;
         
-        // Look for an existing R2 RDV for this client (any date — the R2 might have been
-        // scheduled for a different date and this email confirms/updates it)
-        const { data: r2Rdvs } = await supabase
+        // Look for an existing R2/R2_prestudy or Reporté RDV for this client
+        // If found, this email is a confirmation — update instead of creating a duplicate
+        const { data: pendingRdvs } = await supabase
           .from("rdv")
           .select("id, date_heure, status, needs_reconfirmation")
           .eq("client_id", clientId)
           .eq("user_id", user_id)
-          .in("status", ["r2", "r2_prestudy"])
+          .in("status", ["r2", "r2_prestudy", "reporte"])
           .order("date_heure", { ascending: false })
           .limit(1);
 
-        if (r2Rdvs && r2Rdvs.length > 0) {
-          const r2Rdv = r2Rdvs[0];
+        if (pendingRdvs && pendingRdvs.length > 0) {
+          const pendingRdv = pendingRdvs[0];
+          const isR2 = pendingRdv.status === "r2" || pendingRdv.status === "r2_prestudy";
+          const isReporte = pendingRdv.status === "reporte";
           const newDateHeure = buildDateHeure(validated.RDV?.date, validated.RDV?.heure);
+          const intentLabel = isR2 ? "R2" : "Reporté";
+          const actionType = isR2 ? "rdv_r2_confirmed" : "rdv_reporte_confirmed";
+          const emailIntent = isR2 ? "r2_confirmation" : "reporte_confirmation";
           
-          console.log(`R2 confirmation detected: updating existing R2 RDV ${r2Rdv.id} for client ${clientId}`);
+          console.log(`${intentLabel} confirmation detected: updating existing ${intentLabel} RDV ${pendingRdv.id} for client ${clientId}`);
           
-          // Update the existing R2 with the confirmed date/time and clear reconfirmation flag
+          // For reporté RDVs, reset status to "nouveau" since it's being rescheduled
+          const updateData: Record<string, unknown> = {
+            date_heure: newDateHeure,
+            needs_reconfirmation: false,
+            commentaire: validated.RDV?.commentaire || null,
+            metadata: {
+              ai_extracted: true,
+              extraction_date: new Date().toISOString(),
+              email_intent: emailIntent,
+              [`${isR2 ? "r2" : "reporte"}_confirmed_from_email`]: true,
+            },
+          };
+          
+          if (isReporte) {
+            updateData.status = "nouveau";
+          }
+          
           await supabase
             .from("rdv")
-            .update({
-              date_heure: newDateHeure,
-              needs_reconfirmation: false,
-              commentaire: validated.RDV?.commentaire || null,
-              metadata: {
-                ai_extracted: true,
-                extraction_date: new Date().toISOString(),
-                email_intent: "r2_confirmation",
-                r2_confirmed_from_email: true,
-              },
-            })
-            .eq("id", r2Rdv.id);
+            .update(updateData)
+            .eq("id", pendingRdv.id);
 
           // Log the confirmation
           await supabase.from("historique_actions").insert({
             user_id,
             client_id: clientId,
-            action_type: "rdv_r2_confirmed",
-            description: `R2 confirmé par email (${sender_email?.slice(0, 100) || "email"}) — RDV mis à jour au ${rdvDate}`,
+            action_type: actionType,
+            description: `${intentLabel} confirmé par email (${sender_email?.slice(0, 100) || "email"}) — RDV mis à jour au ${rdvDate}`,
           });
 
           return new Response(
             JSON.stringify({
               success: true,
-              action: "r2_confirmed",
+              action: isR2 ? "r2_confirmed" : "reporte_confirmed",
               client_id: clientId,
-              rdv_id: r2Rdv.id,
-              reason: "RDV R2 existant confirmé et mis à jour",
+              rdv_id: pendingRdv.id,
+              reason: `RDV ${intentLabel} existant confirmé et mis à jour`,
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
