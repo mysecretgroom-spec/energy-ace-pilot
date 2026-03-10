@@ -103,8 +103,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
         className={cn(
           "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
           rdv.needsReconfirmation && "ring-2 ring-amber-400 border-amber-400",
-          isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent",
-          isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent",
+          isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
+          isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
           rdv.alert && !isExternalInstallation && !isR2 && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
         )}
       >
