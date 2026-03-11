@@ -1458,7 +1458,7 @@ const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?:
   return yPos;
 };
 
-const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.pac) return yStart;
   const pac = data.pac;
   let yPos = yStart;
