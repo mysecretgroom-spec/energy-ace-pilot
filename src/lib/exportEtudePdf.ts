@@ -914,6 +914,22 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     drawFooter(doc, data, i, totalPages);
   }
   
+  // Last page: logos bar (France Rénov, Ministère, Enedis)
+  doc.setPage(totalPages);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const logoH = 12;
+  const logoW = 30;
+  const logoY = pageHeight - 18; // just above tricolor bar
+  const totalLogosWidth = logoW * 3 + 16; // 3 logos + 2 gaps of 8
+  const startX = (pageWidth - totalLogosWidth) / 2;
+  
+  try {
+    if (franceRenovBase64) doc.addImage(franceRenovBase64, "PNG", startX, logoY, logoW, logoH);
+    if (ministereBase64) doc.addImage(ministereBase64, "PNG", startX + logoW + 8, logoY, logoW, logoH);
+    if (enedisBase64) doc.addImage(enedisBase64, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
+  } catch {}
+  
   return doc;
 };
 
