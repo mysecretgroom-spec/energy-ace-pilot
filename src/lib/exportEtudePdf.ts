@@ -1739,7 +1739,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     doc.addPage();
     drawCepcHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 38;
-    yPos = drawCepcGlobalSummary(doc, data, yPos);
+    yPos = drawCepcGlobalSummary(doc, data, yPos, cepcCtx);
   }
 
   // CLASSIFICATION & OBSERVATIONS
