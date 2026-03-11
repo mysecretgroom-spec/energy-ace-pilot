@@ -588,6 +588,25 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                       </span>
                       <span className="text-[10px] font-semibold text-primary">{kwh.toLocaleString("fr-FR")} kWh/an</span>
                     </div>
+                    {/* Piscine mode selector */}
+                    {cfg.id === "piscine" && (
+                      <div>
+                        <Label className="text-[9px] text-muted-foreground">Mode</Label>
+                        <Select
+                          value={cfg.details.mode === 1 ? "filtree_seule" : "chauffee_filtree"}
+                          onValueChange={v => updateApplianceDetail(cfg.id, "mode", v === "filtree_seule" ? 1 : 0)}
+                        >
+                          <SelectTrigger className="h-6 sm:h-7 text-[10px] sm:text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PISCINE_MODES.map(m => (
+                              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-1.5">
                       {def.detailFields.map(field => (
                         <div key={field.key}>
