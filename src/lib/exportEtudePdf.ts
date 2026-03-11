@@ -436,6 +436,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
   // Coefficients de déperdition PV
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   autoTable(doc, {
     startY: yPos,
     head: [["Coefficients de déperdition PV", "Valeur", "Impact sur la production", ""]],
