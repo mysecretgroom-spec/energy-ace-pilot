@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.png";
+import enedisLogo from "@/assets/logos/enedis.png";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -808,6 +809,14 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.text(`Conclusion : ${classificationLabels[data.classification || ""] || data.classification || ""}`, 14, yPos);
   yPos += 6;
 
+  // Avis favorable
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(...bleuMarianne);
+  doc.text("Avis favorable sous réserve de la réintégration des aides acquises dans le plan de financement.", 14, yPos);
+  doc.setTextColor(...grisTexte);
+  yPos += 6;
+
   if (data.classificationComment) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
@@ -829,8 +838,10 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   
   let franceRenovBase64 = "";
   let ministereBase64 = "";
+  let enedisBase64 = "";
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
   
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
@@ -902,6 +913,22 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     doc.setPage(i);
     drawFooter(doc, data, i, totalPages);
   }
+  
+  // Last page: logos bar (France Rénov, Ministère, Enedis)
+  doc.setPage(totalPages);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const logoH = 12;
+  const logoW = 30;
+  const logoY = pageHeight - 18; // just above tricolor bar
+  const totalLogosWidth = logoW * 3 + 16; // 3 logos + 2 gaps of 8
+  const startX = (pageWidth - totalLogosWidth) / 2;
+  
+  try {
+    if (franceRenovBase64) doc.addImage(franceRenovBase64, "PNG", startX, logoY, logoW, logoH);
+    if (ministereBase64) doc.addImage(ministereBase64, "PNG", startX + logoW + 8, logoY, logoW, logoH);
+    if (enedisBase64) doc.addImage(enedisBase64, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
+  } catch {}
   
   return doc;
 };
