@@ -1517,7 +1517,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   return (doc as any).lastAutoTable.finalY + 6;
 };
 
-const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.ite) return yStart;
   const ite = data.ite;
   let yPos = yStart;
