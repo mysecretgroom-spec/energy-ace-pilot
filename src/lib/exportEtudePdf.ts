@@ -221,7 +221,7 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.line(14, 36, pageWidth - 14, 36);
 };
 
-const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
+const FOOTER_ZONE = 56; // reserved height at bottom for footer + logos on last page
 const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
 
 interface PageContext {
@@ -253,8 +253,8 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
   // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 12;
-    const logoY = pageHeight - 42;
+    const logoH = 16;
+    const logoY = pageHeight - 52;
     // Each logo has different natural proportions — use individual widths
     const frW = 28;  // France Rénov': roughly square-ish
     const minW = 34;  // Ministère: wider text block
