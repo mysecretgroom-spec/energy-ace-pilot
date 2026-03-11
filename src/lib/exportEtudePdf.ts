@@ -392,6 +392,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
   
   // Préconisation
+  if (ctx) yPos = ensureSpace(ctx, yPos, 40);
   doc.setFillColor(...bleuMarianne);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
