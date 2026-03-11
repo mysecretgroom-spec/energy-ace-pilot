@@ -1163,6 +1163,9 @@ const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, 
   doc.line(14, 32, pageWidth - 14, 32);
 };
 
+// Wire up forward reference for ensureSpace
+_drawCepcHeaderFn = drawCepcHeader;
+
 const drawCepcSectionBar = (doc: jsPDF, title: string, yPos: number, color?: [number, number, number]): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   doc.setFillColor(...(color || cepcGris));
