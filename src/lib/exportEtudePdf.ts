@@ -230,6 +230,7 @@ interface PageContext {
   franceRenovBase64: string;
   ministereBase64: string;
   subtitle: string;
+  headerStyle?: "standard" | "cepc";
 }
 
 /**
@@ -241,8 +242,13 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
   const available = pageHeight - FOOTER_ZONE_NORMAL - yPos;
   if (available < requiredHeight) {
     ctx.doc.addPage();
-    drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
-    return 42;
+    if (ctx.headerStyle === "cepc") {
+      drawCepcHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+      return 38;
+    } else {
+      drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+      return 42;
+    }
   }
   return yPos;
 };
