@@ -1095,7 +1095,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
       drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
       yPos = 42;
     }
-    yPos = drawItePage(doc, data, yPos);
+    yPos = drawItePage(doc, data, yPos, pvCtx);
   }
 
   // RÉCAP GLOBAL (multi-product only)
