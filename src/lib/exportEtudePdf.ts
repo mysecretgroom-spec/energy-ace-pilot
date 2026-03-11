@@ -578,28 +578,29 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PAC
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.pac) return yStart;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pac = data.pac;
   let yPos = yStart;
   
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   doc.setFillColor(...pacColor);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("POMPE À CHALEUR (PAC)", 16, yPos + 5);
+  doc.text("POMPE A CHALEUR (PAC)", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Caractéristiques PAC", "", "Performance", ""]],
+    head: [["Caracteristiques PAC", "", "Performance", ""]],
     body: [
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
-      ["Surface chauffée", `${pac.surfaceChauffee} m²`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
-      ["Type émetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Énergie actuelle", pac.energieActuelle, "ECS intégré", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Surface chauffee", `${pac.surfaceChauffee} m2`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
+      ["Type emetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
+      ["Energie actuelle", pac.energieActuelle, "ECS integre", pac.ecsIntegre ? "Oui" : "Non"],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -609,15 +610,16 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Économies PAC
+  // Economies PAC
   if (pac.economies) {
+    if (ctx) yPos = ensureSpace(ctx, yPos, 35);
     autoTable(doc, {
       startY: yPos,
-      head: [["Bilan Énergétique PAC", "", "", ""]],
+      head: [["Bilan Energetique PAC", "", "", ""]],
       body: [
         ["Besoins chauffage", `${formatNumber(pac.economies.besoinsChauffageKwh)} kWh`, "Facture chauffage actuelle", formatEuros(pac.factureChauffage)],
-        ["Conso élec PAC", `${formatNumber(pac.economies.consoElecPacKwh)} kWh`, "Surcoût élec PAC", formatEuros(pac.economies.surcoutElecEuros)],
-        ["", "", "ÉCONOMIE NETTE ANNUELLE", formatEuros(pac.economies.economieNetteEuros)],
+        ["Conso elec PAC", `${formatNumber(pac.economies.consoElecPacKwh)} kWh`, "Surcout elec PAC", formatEuros(pac.economies.surcoutElecEuros)],
+        ["", "", "ECONOMIE NETTE ANNUELLE", formatEuros(pac.economies.economieNetteEuros)],
       ],
       theme: "striped",
       headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -630,16 +632,17 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   }
   
   // Financier PAC
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
     body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
+      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
       ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
+      ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
       ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
+      ["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
