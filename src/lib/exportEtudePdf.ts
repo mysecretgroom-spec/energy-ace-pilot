@@ -930,28 +930,14 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     yPos = drawResultatEtude(doc, data, yPos);
   }
   
-  // Add footers to all pages
+  // Add footers to all pages (logos only on last page)
   const totalPages = doc.getNumberOfPages();
+  const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    drawFooter(doc, data, i, totalPages);
+    drawFooter(doc, data, i, totalPages, i === totalPages, logos);
   }
   
-  // Last page: logos bar (France Rénov, Ministère, Enedis)
-  doc.setPage(totalPages);
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const logoH = 12;
-  const logoW = 30;
-  const logoY = pageHeight - 18; // just above tricolor bar
-  const totalLogosWidth = logoW * 3 + 16; // 3 logos + 2 gaps of 8
-  const startX = (pageWidth - totalLogosWidth) / 2;
-  
-  try {
-    if (franceRenovBase64) doc.addImage(franceRenovBase64, "PNG", startX, logoY, logoW, logoH);
-    if (ministereBase64) doc.addImage(ministereBase64, "PNG", startX + logoW + 8, logoY, logoW, logoH);
-    if (enedisBase64) doc.addImage(enedisBase64, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
-  } catch {}
   
   return doc;
 };
