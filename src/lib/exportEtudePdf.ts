@@ -1012,43 +1012,189 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAIN GENERATOR
+// PRÉ-ÉTUDE GENERATOR (lightweight: bénéficiaire + préconisation + financier + verdict)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
+const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   const doc = new jsPDF();
   const products = data.activeProducts || ["PV"];
   const isMulti = products.length > 1;
-  
+
   let franceRenovBase64 = "";
   let ministereBase64 = "";
   let enedisBase64 = "";
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
   try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
-  
+
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
-    : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE" 
+    : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
     : products[0] === "PAC" ? "POMPE À CHALEUR"
     : "ISOLATION THERMIQUE";
-  
+
   const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // PAGE 1: Header + Bénéficiaire + PV (or first product)
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // Header + Bénéficiaire
+  drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — " + subtitle, ministereBase64);
+  let yPos = 42;
+  yPos = drawBeneficiaire(doc, data, yPos);
+
+  // Préconisation (simplified — no diagnostic, no coefficients)
+  if (products.includes("PV")) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    // Préconisation section only
+    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
+    doc.setFillColor(...bleuMarianne);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("PRÉCONISATION D'INSTALLATION", 16, yPos + 5);
+    yPos += 9;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [[`Consommation${data.consoIsEstimated ? " (Estimatif)" : " (Relevé)"}`, "", "Installation Recommandée", ""]],
+      body: [
+        ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
+        ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
+        ["", "", "Support", data.supportInstallation],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+
+    // Analyse financière
+    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 80);
+    doc.setFillColor(...bleuMarianne);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("ANALYSE FINANCIÈRE", 16, yPos + 5);
+    yPos += 9;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Investissement", "", "Aides Financières", ""]],
+      body: [
+        ["Installation TTC", formatEuros(data.prixInstallation), "Prime autoconsommation", formatEuros(data.primeAutoconsommation)],
+        ["Surcoûts", formatEuros(data.surcoutSupport + data.surcoutCompteur + data.autreSurcout), "Éco-participation TVA", formatEuros(data.ecoTva)],
+        ["COÛT TOTAL BRUT", formatEuros(data.prixTotalHorsAides), "TOTAL AIDES", formatEuros(data.totalAides)],
+        ["", "", "COÛT NET", formatEuros(data.totalAidesDeduites)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
+      didParseCell: (cellData) => { if (cellData.row.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+
+    // Rentabilité
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Financement", "", "Rentabilité Mensuelle", ""]],
+      body: [
+        ["Solution", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
+        ["Mensualité", formatEuros(data.mensualite), "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+        ["Durée", `${data.dureeMois} mois`, "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
+      didParseCell: (cellData) => { if (cellData.row.index === 2 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 8;
+
+    // Verdict box
+    let verdictColor = successColor;
+    let verdictText = "PROJET VIABLE";
+    if (data.verdict === "a_etudier") { verdictColor = warningColor; verdictText = "À APPROFONDIR"; }
+    else if (data.verdict === "invalide") { verdictColor = dangerColor; verdictText = "NON RECOMMANDÉ"; }
+
+    doc.setFillColor(...verdictColor);
+    doc.roundedRect(pageWidth / 2 - 40, yPos, 80, 14, 2, 2, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(verdictText, pageWidth / 2, yPos + 9, { align: "center" });
+    yPos += 20;
+  }
+
+  // PAC summary if multi
+  if (data.pac) {
+    if (products.includes("PV")) {
+      doc.addPage();
+      drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — PAC", ministereBase64);
+      yPos = 42;
+    }
+    yPos = drawPacPage(doc, data, yPos);
+  }
+
+  // ITE summary if multi
+  if (data.ite) {
+    if (products.includes("PV") || data.pac) {
+      doc.addPage();
+      drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — ITE", ministereBase64);
+      yPos = 42;
+    }
+    yPos = drawItePage(doc, data, yPos);
+  }
+
+  // Footers
+  const totalPages = doc.getNumberOfPages();
+  const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    drawFooter(doc, data, i, totalPages, i === totalPages, logos);
+  }
+
+  return doc;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RÉSULTAT COMPLET GENERATOR (full: all sections + formal result page)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
+  const doc = new jsPDF();
+  const products = data.activeProducts || ["PV"];
+  const isMulti = products.length > 1;
+
+  let franceRenovBase64 = "";
+  let ministereBase64 = "";
+  let enedisBase64 = "";
+  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+
+  const subtitle = isMulti
+    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+    : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
+    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : "ISOLATION THERMIQUE";
+
+  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
+
+  // PAGE 1: Header + Bénéficiaire + PV diagnostic complet
   drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
   let yPos = 42;
   yPos = drawBeneficiaire(doc, data, yPos);
-  
+
   if (products.includes("PV")) {
     yPos = drawPvPage(doc, data, yPos, pvCtx);
   }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // PAGE PAC (new page if multi)
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // PAGE PAC
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
@@ -1057,10 +1203,8 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     }
     yPos = drawPacPage(doc, data, yPos);
   }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // PAGE ITE (new page if multi)
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // PAGE ITE
   if (data.ite) {
     if (products.includes("PV") || data.pac) {
       doc.addPage();
@@ -1069,53 +1213,94 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     }
     yPos = drawItePage(doc, data, yPos);
   }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // RÉCAP GLOBAL (only for multi-product)
-  // ═══════════════════════════════════════════════════════════════════════
+
+  // RÉCAP GLOBAL (multi-product only)
   if (isMulti) {
     doc.addPage();
     drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
   }
-  
-  // ═══════════════════════════════════════════════════════════════════════
-  // RÉSULTAT D'ÉTUDE — always on dedicated last page
-  // ═══════════════════════════════════════════════════════════════════════
-  if (data.classification) {
-    // Always start on a dedicated new page for the formal result
-    doc.addPage();
-    drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
-    yPos = 42;
-    yPos = drawResultatEtude(doc, data, yPos);
+
+  // NOTES & CLASSIFICATION (extra section for Résultat)
+  if (data.classification || data.classificationComment) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
+    doc.setFillColor(...bleuMarianne);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("CLASSIFICATION & OBSERVATIONS", 16, yPos + 5);
+    yPos += 10;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Élément", "Détail"]],
+      body: [
+        ["Classification interne", data.classification || "Non classifié"],
+        ["Observations techniques", data.classificationComment || "Aucune observation"],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 2, textColor: grisTexte },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 6;
   }
-  
-  // Add footers to all pages (logos only on last page)
+
+  // RÉSULTAT D'ÉTUDE — always on dedicated last page
+  doc.addPage();
+  drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
+  yPos = 42;
+  yPos = drawResultatEtude(doc, data, yPos);
+
+  // Footers
   const totalPages = doc.getNumberOfPages();
   const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     drawFooter(doc, data, i, totalPages, i === totalPages, logos);
   }
-  
-  
+
   return doc;
 };
 
-export const exportEtudePdf = async (data: EtudeData): Promise<void> => {
-  const doc = await generatePdfDoc(data);
-  const fileName = `Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Pré-étude (lightweight) — téléchargeable depuis le formulaire d'étude */
+export const exportPreEtudePdf = async (data: EtudeData): Promise<void> => {
+  const doc = await generatePreEtudePdf(data);
+  const fileName = `PreEtude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
 };
 
-export const getEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
-  const doc = await generatePdfDoc(data);
+export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
+  const doc = await generatePreEtudePdf(data);
   return doc.output("blob");
 };
 
+/** Résultat d'étude (complet) — téléchargeable depuis la fiche client */
+export const exportResultatPdf = async (data: EtudeData): Promise<void> => {
+  const doc = await generateResultatPdf(data);
+  const fileName = `Resultat_Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+  doc.save(fileName);
+};
+
+export const getResultatPdfBlob = async (data: EtudeData): Promise<Blob> => {
+  const doc = await generateResultatPdf(data);
+  return doc.output("blob");
+};
+
+// Legacy aliases (kept for backward compatibility)
+export const exportEtudePdf = exportPreEtudePdf;
+export const getEtudePdfBlob = getPreEtudePdfBlob;
+
 export const getEtudePdfDataUrl = async (data: EtudeData): Promise<string> => {
-  const doc = await generatePdfDoc(data);
+  const doc = await generatePreEtudePdf(data);
   return doc.output("datauristring");
 };
 

@@ -1,17 +1,19 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getEtudePdfBlob, EtudeData } from "@/lib/exportEtudePdf";
+import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData } from "@/lib/exportEtudePdf";
 import { toast } from "sonner";
+
+type PdfMode = "pre-etude" | "resultat";
 
 /**
  * Hook to download/share an étude PDF.
- * If pdf_url exists → fetch from storage.
- * If not → generate on the fly from DB data, upload, then share.
+ * mode = "pre-etude" → lightweight version (from étude form)
+ * mode = "resultat" → full formal version (from client detail)
  */
 export function useEtudePdfDownload() {
   const [loading, setLoading] = useState(false);
 
-  const downloadOrShare = useCallback(async (etudeId: string) => {
+  const downloadOrShare = useCallback(async (etudeId: string, mode: PdfMode = "pre-etude") => {
     setLoading(true);
     try {
       // 1. Fetch étude row
@@ -23,14 +25,17 @@ export function useEtudePdfDownload() {
 
       if (eErr || !etude) throw new Error("Étude introuvable");
 
-      let blob: Blob;
       const client = etude.clients as any;
-      const filename = `Etude_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
+      const prefix = mode === "resultat" ? "Resultat" : "PreEtude";
+      const filename = `${prefix}_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
 
-      // Always regenerate PDF from current template to ensure latest changes
-      blob = await generatePdfFromEtude(etude, client);
-      // Upload/replace for future use
-      await uploadGeneratedPdf(blob, etude, client);
+      // Generate PDF based on mode
+      const blob = await generatePdfFromEtude(etude, client, mode);
+      
+      // Upload/replace for future use (only for pre-etude to keep backward compat)
+      if (mode === "pre-etude") {
+        await uploadGeneratedPdf(blob, etude, client);
+      }
 
       // Share or download
       const file = new File([blob], filename, { type: "application/pdf" });
@@ -57,7 +62,7 @@ export function useEtudePdfDownload() {
   return { downloadOrShare, loading };
 }
 
-async function generatePdfFromEtude(etude: any, client: any): Promise<Blob> {
+async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode): Promise<Blob> {
   const pdfData: EtudeData = {
     clientNom: client.nom || "",
     clientPrenom: client.prenom || "",
@@ -111,13 +116,13 @@ async function generatePdfFromEtude(etude: any, client: any): Promise<Blob> {
     classification: etude.classification || undefined,
     classificationComment: etude.classification_comment || undefined,
   };
-  return getEtudePdfBlob(pdfData);
+
+  return mode === "resultat" ? getResultatPdfBlob(pdfData) : getPreEtudePdfBlob(pdfData);
 }
 
 async function uploadGeneratedPdf(blob: Blob, etude: any, client: any) {
   try {
     const safeName = `${client.prenom || ""}_${client.nom || ""}`.replace(/[^a-zA-Z0-9_-]/g, "_");
-    // Use a stable filename (no timestamp) so upsert replaces the old file
     const fileName = `${etude.user_id}/${etude.id}/${safeName}.pdf`;
 
     const { data, error } = await supabase.storage
