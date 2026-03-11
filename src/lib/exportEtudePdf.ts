@@ -1012,7 +1012,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PRÉ-ÉTUDE GENERATOR (lightweight: bénéficiaire + préconisation + financier + verdict)
+// PRÉ-ÉTUDE GENERATOR (ancien format complet: diagnostic + préco + financier + verdict)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
@@ -1035,157 +1035,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
 
   const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
 
-  // Header + Bénéficiaire
-  drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — " + subtitle, ministereBase64);
-  let yPos = 42;
-  yPos = drawBeneficiaire(doc, data, yPos);
-
-  // Préconisation (simplified — no diagnostic, no coefficients)
-  if (products.includes("PV")) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    // Préconisation section only
-    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
-    doc.setFillColor(...bleuMarianne);
-    doc.rect(14, yPos, pageWidth - 28, 7, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("PRÉCONISATION D'INSTALLATION", 16, yPos + 5);
-    yPos += 9;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [[`Consommation${data.consoIsEstimated ? " (Estimatif)" : " (Relevé)"}`, "", "Installation Recommandée", ""]],
-      body: [
-        ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
-        ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
-        ["", "", "Support", data.supportInstallation],
-      ],
-      theme: "striped",
-      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
-      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
-      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 4;
-
-    // Analyse financière
-    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 80);
-    doc.setFillColor(...bleuMarianne);
-    doc.rect(14, yPos, pageWidth - 28, 7, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("ANALYSE FINANCIÈRE", 16, yPos + 5);
-    yPos += 9;
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Investissement", "", "Aides Financières", ""]],
-      body: [
-        ["Installation TTC", formatEuros(data.prixInstallation), "Prime autoconsommation", formatEuros(data.primeAutoconsommation)],
-        ["Surcoûts", formatEuros(data.surcoutSupport + data.surcoutCompteur + data.autreSurcout), "Éco-participation TVA", formatEuros(data.ecoTva)],
-        ["COÛT TOTAL BRUT", formatEuros(data.prixTotalHorsAides), "TOTAL AIDES", formatEuros(data.totalAides)],
-        ["", "", "COÛT NET", formatEuros(data.totalAidesDeduites)],
-      ],
-      theme: "striped",
-      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
-      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
-      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-      didParseCell: (cellData) => { if (cellData.row.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 4;
-
-    // Rentabilité
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Financement", "", "Rentabilité Mensuelle", ""]],
-      body: [
-        ["Solution", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
-        ["Mensualité", formatEuros(data.mensualite), "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
-        ["Durée", `${data.dureeMois} mois`, "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
-      ],
-      theme: "striped",
-      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
-      styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
-      columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-      didParseCell: (cellData) => { if (cellData.row.index === 2 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 8;
-
-    // Verdict box
-    let verdictColor = successColor;
-    let verdictText = "PROJET VIABLE";
-    if (data.verdict === "a_etudier") { verdictColor = warningColor; verdictText = "À APPROFONDIR"; }
-    else if (data.verdict === "invalide") { verdictColor = dangerColor; verdictText = "NON RECOMMANDÉ"; }
-
-    doc.setFillColor(...verdictColor);
-    doc.roundedRect(pageWidth / 2 - 40, yPos, 80, 14, 2, 2, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text(verdictText, pageWidth / 2, yPos + 9, { align: "center" });
-    yPos += 20;
-  }
-
-  // PAC summary if multi
-  if (data.pac) {
-    if (products.includes("PV")) {
-      doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — PAC", ministereBase64);
-      yPos = 42;
-    }
-    yPos = drawPacPage(doc, data, yPos);
-  }
-
-  // ITE summary if multi
-  if (data.ite) {
-    if (products.includes("PV") || data.pac) {
-      doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "PRÉ-ÉTUDE — ITE", ministereBase64);
-      yPos = 42;
-    }
-    yPos = drawItePage(doc, data, yPos);
-  }
-
-  // Footers
-  const totalPages = doc.getNumberOfPages();
-  const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    drawFooter(doc, data, i, totalPages, i === totalPages, logos);
-  }
-
-  return doc;
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RÉSULTAT COMPLET GENERATOR (full: all sections + formal result page)
-// ═══════════════════════════════════════════════════════════════════════════
-
-const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
-  const doc = new jsPDF();
-  const products = data.activeProducts || ["PV"];
-  const isMulti = products.length > 1;
-
-  let franceRenovBase64 = "";
-  let ministereBase64 = "";
-  let enedisBase64 = "";
-  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
-  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
-  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
-
-  const subtitle = isMulti
-    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
-    : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
-    : products[0] === "PAC" ? "POMPE À CHALEUR"
-    : "ISOLATION THERMIQUE";
-
-  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
-
-  // PAGE 1: Header + Bénéficiaire + PV diagnostic complet
+  // PAGE 1: Header + Bénéficiaire + PV sections (old format)
   drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
   let yPos = 42;
   yPos = drawBeneficiaire(doc, data, yPos);
@@ -1222,7 +1072,107 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     yPos = drawGlobalSummary(doc, data, yPos);
   }
 
-  // NOTES & CLASSIFICATION (extra section for Résultat)
+  // Classification section if available (old format included it)
+  if (data.classification || data.classificationComment) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
+    doc.setFillColor(...bleuMarianne);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("STATUT DU DOSSIER", 16, yPos + 5);
+    yPos += 10;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Élément", "Détail"]],
+      body: [
+        ["Classification", data.classification || "Non classifié"],
+        ["Commentaire", data.classificationComment || "Aucun commentaire"],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+      styles: { fontSize: 8, cellPadding: 2, textColor: grisTexte },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 6;
+  }
+
+  // Footers
+  const totalPages = doc.getNumberOfPages();
+  const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    drawFooter(doc, data, i, totalPages, i === totalPages, logos);
+  }
+
+  return doc;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RÉSULTAT D'ÉTUDE GENERATOR (ultra-complet + page formelle CEPC)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
+  const doc = new jsPDF();
+  const products = data.activeProducts || ["PV"];
+  const isMulti = products.length > 1;
+
+  let franceRenovBase64 = "";
+  let ministereBase64 = "";
+  let enedisBase64 = "";
+  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+
+  const subtitle = isMulti
+    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+    : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
+    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : "ISOLATION THERMIQUE";
+
+  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
+
+  // PAGE 1: Header + Bénéficiaire + Full PV diagnostic
+  drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
+  let yPos = 42;
+  yPos = drawBeneficiaire(doc, data, yPos);
+
+  if (products.includes("PV")) {
+    yPos = drawPvPage(doc, data, yPos, pvCtx);
+  }
+
+  // PAGE PAC
+  if (data.pac) {
+    if (products.includes("PV")) {
+      doc.addPage();
+      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      yPos = 42;
+    }
+    yPos = drawPacPage(doc, data, yPos);
+  }
+
+  // PAGE ITE
+  if (data.ite) {
+    if (products.includes("PV") || data.pac) {
+      doc.addPage();
+      drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
+      yPos = 42;
+    }
+    yPos = drawItePage(doc, data, yPos);
+  }
+
+  // RÉCAP GLOBAL (multi-product only)
+  if (isMulti) {
+    doc.addPage();
+    drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
+    yPos = 42;
+    yPos = drawGlobalSummary(doc, data, yPos);
+  }
+
+  // CLASSIFICATION & OBSERVATIONS
   if (data.classification || data.classificationComment) {
     const pageWidth = doc.internal.pageSize.getWidth();
     if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
@@ -1250,7 +1200,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     yPos = (doc as any).lastAutoTable.finalY + 6;
   }
 
-  // RÉSULTAT D'ÉTUDE — always on dedicated last page
+  // RÉSULTAT D'ÉTUDE — page formelle dédiée (style CEPC)
   doc.addPage();
   drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
   yPos = 42;
@@ -1271,7 +1221,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
 // PUBLIC API
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Pré-étude (lightweight) — téléchargeable depuis le formulaire d'étude */
+/** Pré-étude (ancien format complet) — téléchargeable depuis le formulaire d'étude */
 export const exportPreEtudePdf = async (data: EtudeData): Promise<void> => {
   const doc = await generatePreEtudePdf(data);
   const fileName = `PreEtude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
@@ -1283,7 +1233,7 @@ export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
   return doc.output("blob");
 };
 
-/** Résultat d'étude (complet) — téléchargeable depuis la fiche client */
+/** Résultat d'étude (ultra-complet + formel) — téléchargeable depuis la fiche client */
 export const exportResultatPdf = async (data: EtudeData): Promise<void> => {
   const doc = await generateResultatPdf(data);
   const fileName = `Resultat_Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
@@ -1295,7 +1245,7 @@ export const getResultatPdfBlob = async (data: EtudeData): Promise<Blob> => {
   return doc.output("blob");
 };
 
-// Legacy aliases (kept for backward compatibility)
+// Legacy aliases (backward compatibility — maps to pré-étude = ancien format)
 export const exportEtudePdf = exportPreEtudePdf;
 export const getEtudePdfBlob = getPreEtudePdfBlob;
 
