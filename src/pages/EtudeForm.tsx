@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
-import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.svg";
+import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.png";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

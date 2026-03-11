@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 // Import logos
 import logoFranceRenov from "@/assets/logos/france-renov.png";
-import logoMinistere from "@/assets/logos/ministere-transition-energetique.svg";
+import logoMinistere from "@/assets/logos/ministere-transition-energetique.png";
 import logoRgeEcoArtisan from "@/assets/logos/rge-eco-artisan-new.png";
 import logoQualipac from "@/assets/logos/qualipac.png";
 import logoQualipv from "@/assets/logos/qualipv.png";
