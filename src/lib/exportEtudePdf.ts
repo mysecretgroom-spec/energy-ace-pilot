@@ -833,7 +833,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
         }
       }
     },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE },
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
 
