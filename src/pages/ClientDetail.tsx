@@ -708,14 +708,26 @@ const ClientDetailInner = () => {
                         <Button 
                           variant="ghost" 
                           size="icon"
-                          title="Télécharger le PDF"
+                          title="Télécharger la Pré-étude"
                           disabled={pdfDownloadLoading}
                           onClick={async (e) => {
                             e.stopPropagation();
-                            await downloadOrSharePdf(etude.id);
+                            await downloadOrSharePdf(etude.id, "pre-etude");
                           }}
                         >
                           {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          title="Télécharger le Résultat d'étude (complet)"
+                          disabled={pdfDownloadLoading}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await downloadOrSharePdf(etude.id, "resultat");
+                          }}
+                        >
+                          {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                         </Button>
                         <Button 
                           variant="ghost" 
