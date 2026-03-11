@@ -922,6 +922,8 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     : products[0] === "PAC" ? "POMPE À CHALEUR"
     : "ISOLATION THERMIQUE";
   
+  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
+  
   // ═══════════════════════════════════════════════════════════════════════
   // PAGE 1: Header + Bénéficiaire + PV (or first product)
   // ═══════════════════════════════════════════════════════════════════════
@@ -930,7 +932,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos);
+    yPos = drawPvPage(doc, data, yPos, pvCtx);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
