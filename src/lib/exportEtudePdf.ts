@@ -439,7 +439,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   doc.setTextColor(...grisTexte);
   const rendementText = `Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const maxTextWidth = pageWidth - 28; // 14mm margins each side
+  const maxTextWidth = doc.internal.pageSize.getWidth() - 28;
   const lines = doc.splitTextToSize(rendementText, maxTextWidth);
   doc.text(lines, 14, yPos + 3);
   yPos += 3 + lines.length * 3.5;
