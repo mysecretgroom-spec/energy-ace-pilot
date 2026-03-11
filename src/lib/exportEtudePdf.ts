@@ -832,18 +832,18 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTAT D'ÉTUDE
 // ═══════════════════════════════════════════════════════════════════════════
-const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
 
-  // ── Title centered, large, official ──
+  // -- Title centered, large, official --
   doc.setTextColor(...bleuMarianne);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("RÉSULTAT D'ÉTUDE DE FAISABILITÉ", pageWidth / 2, yPos + 6, { align: "center" });
+  doc.text("RESULTAT D'ETUDE DE FAISABILITE", pageWidth / 2, yPos + 6, { align: "center" });
   yPos += 14;
 
-  // ── Congratulations banner (like CEPC) ──
+  // -- Congratulations banner (like CEPC) --
   const autofinancementValid = data.resultatTransfertCharge >= 0;
   const bannerColor: [number, number, number] = autofinancementValid ? [240, 249, 244] : [254, 242, 242];
   const bannerBorder: [number, number, number] = autofinancementValid ? [34, 197, 94] : [239, 68, 68];
@@ -854,39 +854,39 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setLineWidth(0.5);
   doc.roundedRect(14, yPos, pageWidth - 28, 18, 1.5, 1.5, "FD");
 
-  // Check icon
+  // Check icon - use simple ASCII instead of Unicode symbols
   doc.setFontSize(14);
   doc.setTextColor(...bannerIconColor);
-  doc.text(autofinancementValid ? "✓" : "✗", 22, yPos + 8);
+  doc.text(autofinancementValid ? "V" : "X", 22, yPos + 8);
 
   // Banner text
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...grisTexte);
   const bannerTitle = autofinancementValid
-    ? "Le projet répond aux critères de faisabilité technique et financière."
-    : "Le projet nécessite une analyse complémentaire avant mise en œuvre.";
+    ? "Le projet repond aux criteres de faisabilite technique et financiere."
+    : "Le projet necessite une analyse complementaire avant mise en oeuvre.";
   doc.text(bannerTitle, 30, yPos + 7);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text(`Étude réalisée le ${data.dateEtude} pour le bénéficiaire ${data.clientPrenom} ${data.clientNom}.`, 30, yPos + 13);
+  doc.text(`Etude realisee le ${data.dateEtude} pour le beneficiaire ${data.clientPrenom} ${data.clientNom}.`, 30, yPos + 13);
   yPos += 24;
 
-  // ── Structured data boxes (like CEPC table) ──
+  // -- Structured data boxes (like CEPC table) --
   const autoconsoValid = data.autoconsoPct > 0;
 
-  // Box row 1 — two columns
+  // Box row 1 - two columns
   const boxW = (pageWidth - 28 - 6) / 2;
   const boxH = 16;
 
-  // Left box: Bénéficiaire
+  // Left box: Beneficiaire
   doc.setDrawColor(200, 205, 212);
   doc.setLineWidth(0.2);
   doc.line(14, yPos, 14 + boxW, yPos);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text("Bénéficiaire", 14, yPos + 4);
+  doc.text("Beneficiaire", 14, yPos + 4);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...grisTexte);
@@ -901,16 +901,16 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text("Votre résultat", rightX, yPos + 4);
+  doc.text("Votre resultat", rightX, yPos + 4);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...(autofinancementValid ? [22, 101, 52] as [number, number, number] : [185, 28, 28] as [number, number, number]));
-  doc.text(autofinancementValid ? "Favorable" : "À approfondir", rightX, yPos + 11);
+  doc.text(autofinancementValid ? "Favorable" : "A approfondir", rightX, yPos + 11);
   yPos += boxH + 4;
 
-  // Box row 2 — four columns
+  // Box row 2 - four columns
   const col4W = (pageWidth - 28 - 18) / 4;
-  const labels2 = ["Puissance préconisée", "Résultat mensuel", "Taux autoconsommation", "Coût net estimé"];
+  const labels2 = ["Puissance preconisee", "Resultat mensuel", "Taux autoconsommation", "Cout net estime"];
   const values2 = [
     `${data.puissanceKwc} kWc`,
     `${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}`,
@@ -933,39 +933,40 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   }
   yPos += 16;
 
-  // ── Section "VOTRE RÉSULTAT" header bar (like CEPC) ──
+  // -- Section "VOTRE RESULTAT" header bar (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 60);
   doc.setFillColor(240, 242, 245);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(...bleuMarianne);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("VOTRE RÉSULTAT", 16, yPos + 5);
+  doc.text("VOTRE RESULTAT", 16, yPos + 5);
   yPos += 10;
 
   // Validation criteria table
   autoTable(doc, {
     startY: yPos,
-    head: [["Critère de validation", "Statut", "Détail"]],
+    head: [["Critere de validation", "Statut", "Detail"]],
     body: [
       [
-        "Autoconsommation énergétique",
-        autoconsoValid ? "VALIDÉ" : "NON VALIDÉ",
-        `Taux : ${formatNumber(data.autoconsoPct, 1)}%  —  Gain : ${formatEuros(data.autoconsommationEuros)}/mois`,
+        "Autoconsommation energetique",
+        autoconsoValid ? "VALIDE" : "NON VALIDE",
+        `Taux : ${formatNumber(data.autoconsoPct, 1)}% - Gain : ${formatEuros(data.autoconsommationEuros)}/mois`,
       ],
       [
         "Autofinancement de l'installation",
-        autofinancementValid ? "VALIDÉ" : "NON VALIDÉ",
-        `Résultat : ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois  —  Mensualité : ${formatEuros(data.mensualite)}/mois`,
+        autofinancementValid ? "VALIDE" : "NON VALIDE",
+        `Resultat : ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois - Mensualite : ${formatEuros(data.mensualite)}/mois`,
       ],
       [
         "Non-opposition ABF",
         "CONFORME",
-        "Architecte des Bâtiments de France — Aucune restriction identifiée",
+        "Architecte des Batiments de France - Aucune restriction identifiee",
       ],
       [
-        "Conformité urbanistique",
+        "Conformite urbanistique",
         "CONFORME",
-        "Déclaration préalable de travaux — Réglementation respectée",
+        "Declaration prealable de travaux - Reglementation respectee",
       ],
     ],
     theme: "plain",
@@ -993,9 +994,9 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
     didParseCell: (cellData) => {
       if (cellData.column.index === 1 && cellData.section === "body") {
         const val = String(cellData.cell.raw);
-        if (val === "VALIDÉ" || val === "CONFORME") {
+        if (val === "VALIDE" || val === "CONFORME") {
           cellData.cell.styles.textColor = [22, 101, 52];
-        } else if (val === "NON VALIDÉ") {
+        } else if (val === "NON VALIDE") {
           cellData.cell.styles.textColor = [185, 28, 28];
         }
       }
@@ -1004,26 +1005,28 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── Formal body text paragraphs (like CEPC) ──
+  // -- Formal body text paragraphs (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...grisTexte);
 
-  const para1 = "Le présent document, accompagné de l'ensemble des pièces justificatives du dossier, " +
-    "atteste de la faisabilité technique et financière du projet d'installation sur le territoire du bénéficiaire, " +
-    "sous réserve de la réintégration des aides acquises dans le plan de financement.";
+  const para1 = "Le present document, accompagne de l'ensemble des pieces justificatives du dossier, " +
+    "atteste de la faisabilite technique et financiere du projet d'installation sur le territoire du beneficiaire, " +
+    "sous reserve de la reintegration des aides acquises dans le plan de financement.";
   const lines1 = doc.splitTextToSize(para1, pageWidth - 28);
   doc.text(lines1, 14, yPos);
   yPos += lines1.length * 3.5 + 3;
 
-  const para2 = "Les estimations de production et d'économies présentées dans cette étude sont calculées " +
-    "sur la base des données fournies par le bénéficiaire et des conditions d'ensoleillement propres à la zone géographique. " +
-    "Les résultats réels pourront varier selon les conditions climatiques effectives et l'évolution des tarifs énergétiques.";
+  const para2 = "Les estimations de production et d'economies presentees dans cette etude sont calculees " +
+    "sur la base des donnees fournies par le beneficiaire et des conditions d'ensoleillement propres a la zone geographique. " +
+    "Les resultats reels pourront varier selon les conditions climatiques effectives et l'evolution des tarifs energetiques.";
   const lines2 = doc.splitTextToSize(para2, pageWidth - 28);
   doc.text(lines2, 14, yPos);
   yPos += lines2.length * 3.5 + 5;
 
-  // ── "RENSEIGNEMENTS" section (like CEPC) ──
+  // -- "RENSEIGNEMENTS" section (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   doc.setFillColor(240, 242, 245);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(...bleuMarianne);
@@ -1035,11 +1038,11 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grisTexte);
-  doc.text("→  Sur www.france-renov.gouv.fr", 16, yPos);
+  doc.text("-> Sur www.france-renov.gouv.fr", 16, yPos);
   yPos += 4;
-  doc.text("→  Auprès de votre conseiller France Rénov' ou de votre espace territorial.", 16, yPos);
+  doc.text("-> Aupres de votre conseiller France Renov' ou de votre espace territorial.", 16, yPos);
   yPos += 4;
-  doc.text("→  Pour toute question relative aux aides financières et aux démarches administratives.", 16, yPos);
+  doc.text("-> Pour toute question relative aux aides financieres et aux demarches administratives.", 16, yPos);
   yPos += 6;
 
   return yPos;
