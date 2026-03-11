@@ -286,6 +286,28 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
 // Forward reference holder — set later when drawCepcHeader is defined
 let _drawCepcHeaderFn: typeof drawHeader | null = null;
 
+/**
+ * Monkey-patch doc.text and doc.splitTextToSize to auto-sanitize
+ * all strings, preventing broken character spacing from Unicode chars
+ * that jsPDF's built-in Helvetica can't properly measure.
+ */
+const patchDocTextMethods = (doc: jsPDF) => {
+  const originalText = doc.text.bind(doc);
+  (doc as any).text = (text: any, x: number, y: number, options?: any) => {
+    if (typeof text === "string") {
+      text = sanitizePdfText(text);
+    } else if (Array.isArray(text)) {
+      text = text.map((t: any) => typeof t === "string" ? sanitizePdfText(t) : t);
+    }
+    return originalText(text, x, y, options);
+  };
+
+  const originalSplit = doc.splitTextToSize.bind(doc);
+  (doc as any).splitTextToSize = (text: string, maxWidth: number, options?: any) => {
+    return originalSplit(sanitizePdfText(text), maxWidth, options);
+  };
+};
+
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
