@@ -1498,6 +1498,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
     yPos = (doc as any).lastAutoTable.finalY + 4;
   }
 
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
   autoTable(doc, {
     startY: yPos,
