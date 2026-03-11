@@ -304,18 +304,34 @@ let _drawCepcHeaderFn: typeof drawHeader | null = null;
  */
 const patchDocTextMethods = (doc: jsPDF) => {
   const originalText = doc.text.bind(doc);
-  (doc as any).text = (text: any, x: number, y: number, options?: any) => {
-    if (typeof text === "string") {
-      text = sanitizePdfText(text);
-    } else if (Array.isArray(text)) {
-      text = text.map((t: any) => typeof t === "string" ? sanitizePdfText(t) : t);
+  (doc as any).text = (...args: any[]) => {
+    if (args.length > 0) {
+      const textArg = args[0];
+
+      if (typeof textArg === "string" || typeof textArg === "number") {
+        args[0] = sanitizePdfText(textArg);
+      } else if (Array.isArray(textArg)) {
+        args[0] = textArg.map((item: any) => {
+          if (Array.isArray(item)) {
+            return item.map((nested: any) =>
+              typeof nested === "string" || typeof nested === "number" ? sanitizePdfText(nested) : nested
+            );
+          }
+          return typeof item === "string" || typeof item === "number" ? sanitizePdfText(item) : item;
+        });
+      }
     }
-    return originalText(text, x, y, options);
+
+    return originalText(...args);
   };
 
   const originalSplit = doc.splitTextToSize.bind(doc);
-  (doc as any).splitTextToSize = (text: string, maxWidth: number, options?: any) => {
-    return originalSplit(sanitizePdfText(text), maxWidth, options);
+  (doc as any).splitTextToSize = (text: unknown, maxWidth: number, options?: any) => {
+    const safeText = Array.isArray(text)
+      ? text.map((t) => sanitizePdfText(t))
+      : sanitizePdfText(text);
+
+    return originalSplit(safeText as any, maxWidth, options);
   };
 };
 
