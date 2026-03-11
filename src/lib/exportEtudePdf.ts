@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
-import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.svg";
+import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.png";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
