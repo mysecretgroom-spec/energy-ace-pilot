@@ -1518,6 +1518,10 @@ const EtudeForm = () => {
       // 4. PDF generation (fire-and-forget)
       if (shouldGeneratePdf) {
         postSaveOps.push(generateAndStorePdf().catch(err => console.error("PDF generation error:", err)).then(() => {}));
+        // 5. Generate Résultat d'étude PDF when "Terminé" is used
+        if (wasForceSync) {
+          postSaveOps.push(generateAndStoreResultatPdf().catch(err => console.error("Résultat PDF generation error:", err)).then(() => {}));
+        }
       }
 
       // Run all in parallel, log errors but don't block
