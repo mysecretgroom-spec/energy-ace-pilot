@@ -700,6 +700,95 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RÉSULTAT D'ÉTUDE
+// ═══════════════════════════════════════════════════════════════════════════
+const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPos = yStart;
+
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RÉSULTAT D'ÉTUDE", 16, yPos + 5);
+  yPos += 9;
+
+  const classificationLabels: Record<string, string> = {
+    positif: "POSITIF - Projet validé et signé",
+    negatif: "NÉGATIF - Projet non retenu",
+    r2: "R2 - Second rendez-vous programmé",
+    r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
+  };
+
+  // Validation checks
+  const autoconsoValid = data.autoconsoPct > 0;
+  const autofinancementValid = data.resultatTransfertCharge >= 0;
+  const check = "✓";
+  const cross = "✗";
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Critère de validation", "Statut", "Détail", ""]],
+    body: [
+      [
+        "Autoconsommation",
+        autoconsoValid ? `${check} Validé` : `${cross} Non validé`,
+        `Taux: ${formatNumber(data.autoconsoPct, 1)}%`,
+        `Gain: ${formatEuros(data.autoconsommationEuros)}/mois`,
+      ],
+      [
+        "Autofinancement",
+        autofinancementValid ? `${check} Validé` : `${cross} Non validé`,
+        `Résultat: ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois`,
+        `Mensualité: ${formatEuros(data.mensualite)}/mois`,
+      ],
+      [
+        "Non-opposition ABF",
+        `${check} Conforme`,
+        "Architecte des Bâtiments de France",
+        "",
+      ],
+      [
+        "Urbanisme",
+        `${check} Conforme`,
+        "Déclaration préalable de travaux",
+        "",
+      ],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+    didParseCell: (cellData) => {
+      if (cellData.column.index === 1 && cellData.section === "body") {
+        const val = String(cellData.cell.raw);
+        if (val.includes(check)) cellData.cell.styles.textColor = [22, 163, 74]; // green
+        else if (val.includes(cross)) cellData.cell.styles.textColor = [220, 38, 38]; // red
+        cellData.cell.styles.fontStyle = "bold";
+      }
+    },
+    margin: { left: 14, right: 14, bottom: 25 },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Classification label
+  doc.setTextColor(...grisTexte);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Conclusion : ${classificationLabels[data.classification || ""] || data.classification || ""}`, 14, yPos);
+  yPos += 6;
+
+  if (data.classificationComment) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.text(`Note : ${data.classificationComment}`, 14, yPos);
+    yPos += 5;
+  }
+
+  return yPos;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN GENERATOR
 // ═══════════════════════════════════════════════════════════════════════════
 
