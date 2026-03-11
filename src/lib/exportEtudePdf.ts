@@ -750,7 +750,7 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
         cellData.cell.styles.fillColor = resultatGlobal >= 0 ? [220, 252, 231] : [254, 226, 226];
       }
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 8;
