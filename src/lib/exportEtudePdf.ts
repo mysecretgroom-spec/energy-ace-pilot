@@ -763,54 +763,18 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
     
-    // Classification on recap page
+    // Résultat d'étude on recap page
     if (data.classification) {
-      doc.setFillColor(...grisClair);
-      doc.rect(14, yPos, doc.internal.pageSize.getWidth() - 28, 7, "F");
-      doc.setTextColor(...bleuMarianne);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("STATUT DU DOSSIER", 16, yPos + 5);
-      yPos += 10;
-      
-      const classificationLabels: Record<string, string> = {
-        positif: "POSITIF - Projet validé et signé",
-        negatif: "NÉGATIF - Projet non retenu",
-        r2: "R2 - Second rendez-vous programmé",
-        r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
-      };
-      
-      doc.setTextColor(...grisTexte);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
+      yPos = drawResultatEtude(doc, data, yPos);
     }
   } else if (data.classification) {
     // Single product: classification on same page
-    if (yPos > doc.internal.pageSize.getHeight() - 60) {
+    if (yPos > doc.internal.pageSize.getHeight() - 90) {
       doc.addPage();
       drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
       yPos = 42;
     }
-    doc.setFillColor(...grisClair);
-    doc.rect(14, yPos, doc.internal.pageSize.getWidth() - 28, 7, "F");
-    doc.setTextColor(...bleuMarianne);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("STATUT DU DOSSIER", 16, yPos + 5);
-    yPos += 10;
-    
-    const classificationLabels: Record<string, string> = {
-      positif: "POSITIF - Projet validé et signé",
-      negatif: "NÉGATIF - Projet non retenu",
-      r2: "R2 - Second rendez-vous programmé",
-      r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
-    };
-    
-    doc.setTextColor(...grisTexte);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
+    yPos = drawResultatEtude(doc, data, yPos);
   }
   
   // Add footers to all pages
