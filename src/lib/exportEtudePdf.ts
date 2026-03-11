@@ -366,7 +366,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     body: [
       ["Surface panneaux", `${data.surfaceInstallation} m²`, "Point de Production Minimal", `${formatNumber(data.productionAnnuelle)} kWh`],
       ["Ensoleillement zone", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus revendable", `${formatNumber(data.surplusProduction)} kWh`],
-      ["Rendement système", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
+      ["Rendement orientation", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
@@ -374,7 +374,37 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     margin: { left: 14, right: 14, bottom: 25 },
   });
-  yPos = (doc as any).lastAutoTable.finalY + 6;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Coefficients de déperdition PV
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Coefficients de déperdition PV", "Valeur", "Impact sur la production", ""]],
+    body: [
+      ["Rendement modules (vs STC)", "80,2%", "Efficacité réelle des panneaux", "−19,8%"],
+      ["Pertes câblage DC/AC", "98,9%", "Résistance des câbles", "−1,1%"],
+      ["Rendement onduleur", "96,5%", "Conversion DC → AC", "−3,5%"],
+      ["Pertes température", "95,0%", "Échauffement des cellules", "−5,0%"],
+      ["Pertes salissure/poussière", "98,0%", "Encrassement panneaux", "−2,0%"],
+      ["Pertes ombrage partiel", "97,0%", "Ombres portées ponctuelles", "−3,0%"],
+      ["Pertes mismatch", "98,0%", "Disparité entre modules", "−2,0%"],
+      ["Dégradation annuelle", "99,5%", "Vieillissement cellules (~0,5%/an)", "−0,5%"],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 7, fontStyle: "bold" },
+    styles: { fontSize: 7, cellPadding: 1.2, textColor: grisTexte },
+    columnStyles: { 1: { halign: "right" }, 3: { halign: "right", textColor: [220, 38, 38] } },
+    margin: { left: 14, right: 14, bottom: 25 },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 2;
+
+  // Rendement global combiné
+  const rendementGlobal = (0.802 * 0.989 * 0.965 * 0.95 * 0.98 * 0.97 * 0.98 * 0.995 * 100).toFixed(1);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...grisTexte);
+  doc.text(`Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`, 14, yPos + 3);
+  yPos += 8;
   
   // Analyse financière
   doc.setFillColor(...bleuMarianne);
