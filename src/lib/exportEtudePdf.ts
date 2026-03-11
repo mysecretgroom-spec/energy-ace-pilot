@@ -802,19 +802,113 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
 
-  // Header bar
-  doc.setFillColor(...bleuMarianne);
-  doc.rect(14, yPos, pageWidth - 28, 8, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
+  // ── Title centered, large, official ──
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("RÉSULTAT D'ÉTUDE", 16, yPos + 5.5);
+  doc.text("RÉSULTAT D'ÉTUDE DE FAISABILITÉ", pageWidth / 2, yPos + 6, { align: "center" });
+  yPos += 14;
+
+  // ── Congratulations banner (like CEPC) ──
+  const autofinancementValid = data.resultatTransfertCharge >= 0;
+  const bannerColor: [number, number, number] = autofinancementValid ? [240, 249, 244] : [254, 242, 242];
+  const bannerBorder: [number, number, number] = autofinancementValid ? [34, 197, 94] : [239, 68, 68];
+  const bannerIconColor: [number, number, number] = autofinancementValid ? [22, 163, 74] : [220, 38, 38];
+
+  doc.setFillColor(...bannerColor);
+  doc.setDrawColor(...bannerBorder);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(14, yPos, pageWidth - 28, 18, 1.5, 1.5, "FD");
+
+  // Check icon
+  doc.setFontSize(14);
+  doc.setTextColor(...bannerIconColor);
+  doc.text(autofinancementValid ? "✓" : "✗", 22, yPos + 8);
+
+  // Banner text
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...grisTexte);
+  const bannerTitle = autofinancementValid
+    ? "Le projet répond aux critères de faisabilité technique et financière."
+    : "Le projet nécessite une analyse complémentaire avant mise en œuvre.";
+  doc.text(bannerTitle, 30, yPos + 7);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Étude réalisée le ${data.dateEtude} pour le bénéficiaire ${data.clientPrenom} ${data.clientNom}.`, 30, yPos + 13);
+  yPos += 24;
+
+  // ── Structured data boxes (like CEPC table) ──
+  const autoconsoValid = data.autoconsoPct > 0;
+
+  // Box row 1 — two columns
+  const boxW = (pageWidth - 28 - 6) / 2;
+  const boxH = 16;
+
+  // Left box: Bénéficiaire
+  doc.setDrawColor(200, 205, 212);
+  doc.setLineWidth(0.2);
+  doc.line(14, yPos, 14 + boxW, yPos);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text("Bénéficiaire", 14, yPos + 4);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...grisTexte);
+  doc.text(`${data.clientPrenom} ${data.clientNom}`.toUpperCase(), 14, yPos + 10);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, yPos + 14);
+
+  // Right box: Verdict
+  const rightX = 14 + boxW + 6;
+  doc.line(rightX, yPos, rightX + boxW, yPos);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text("Votre résultat", rightX, yPos + 4);
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...(autofinancementValid ? [22, 101, 52] as [number, number, number] : [185, 28, 28] as [number, number, number]));
+  doc.text(autofinancementValid ? "Favorable" : "À approfondir", rightX, yPos + 11);
+  yPos += boxH + 4;
+
+  // Box row 2 — four columns
+  const col4W = (pageWidth - 28 - 18) / 4;
+  const labels2 = ["Puissance préconisée", "Résultat mensuel", "Taux autoconsommation", "Coût net estimé"];
+  const values2 = [
+    `${data.puissanceKwc} kWc`,
+    `${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}`,
+    `${formatNumber(data.autoconsoPct, 1)}%`,
+    formatEuros(data.totalAidesDeduites),
+  ];
+  doc.setDrawColor(200, 205, 212);
+  for (let i = 0; i < 4; i++) {
+    const x = 14 + i * (col4W + 6);
+    doc.setLineWidth(0.2);
+    doc.line(x, yPos, x + col4W, yPos);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text(labels2[i], x, yPos + 4);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...grisTexte);
+    doc.text(values2[i], x, yPos + 10);
+  }
+  yPos += 16;
+
+  // ── Section "VOTRE RÉSULTAT" header bar (like CEPC) ──
+  doc.setFillColor(240, 242, 245);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("VOTRE RÉSULTAT", 16, yPos + 5);
   yPos += 10;
 
-  // Validation checks
-  const autoconsoValid = data.autoconsoPct > 0;
-  const autofinancementValid = data.resultatTransfertCharge >= 0;
-
+  // Validation criteria table
   autoTable(doc, {
     startY: yPos,
     head: [["Critère de validation", "Statut", "Détail"]],
@@ -866,9 +960,9 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
       if (cellData.column.index === 1 && cellData.section === "body") {
         const val = String(cellData.cell.raw);
         if (val === "VALIDÉ" || val === "CONFORME") {
-          cellData.cell.styles.textColor = [22, 101, 52]; // dark green
+          cellData.cell.styles.textColor = [22, 101, 52];
         } else if (val === "NON VALIDÉ") {
-          cellData.cell.styles.textColor = [185, 28, 28]; // dark red
+          cellData.cell.styles.textColor = [185, 28, 28];
         }
       }
     },
@@ -876,26 +970,43 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  // Separator line
-  doc.setDrawColor(...bleuMarianne);
-  doc.setLineWidth(0.4);
-  doc.line(14, yPos, pageWidth - 14, yPos);
-  yPos += 5;
-
-  // Avis favorable — formal statement
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...bleuMarianne);
-  doc.text("AVIS FAVORABLE", 14, yPos);
+  // ── Formal body text paragraphs (like CEPC) ──
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...grisTexte);
-  yPos += 5;
-  const avisText = "Sous réserve de la réintégration des aides acquises dans le plan de financement, " +
-    "le projet est jugé conforme aux critères techniques et financiers requis pour sa mise en œuvre.";
-  const avisLines = doc.splitTextToSize(avisText, pageWidth - 28);
-  doc.text(avisLines, 14, yPos);
-  yPos += avisLines.length * 3.5 + 3;
+
+  const para1 = "Le présent document, accompagné de l'ensemble des pièces justificatives du dossier, " +
+    "atteste de la faisabilité technique et financière du projet d'installation sur le territoire du bénéficiaire, " +
+    "sous réserve de la réintégration des aides acquises dans le plan de financement.";
+  const lines1 = doc.splitTextToSize(para1, pageWidth - 28);
+  doc.text(lines1, 14, yPos);
+  yPos += lines1.length * 3.5 + 3;
+
+  const para2 = "Les estimations de production et d'économies présentées dans cette étude sont calculées " +
+    "sur la base des données fournies par le bénéficiaire et des conditions d'ensoleillement propres à la zone géographique. " +
+    "Les résultats réels pourront varier selon les conditions climatiques effectives et l'évolution des tarifs énergétiques.";
+  const lines2 = doc.splitTextToSize(para2, pageWidth - 28);
+  doc.text(lines2, 14, yPos);
+  yPos += lines2.length * 3.5 + 5;
+
+  // ── "RENSEIGNEMENTS" section (like CEPC) ──
+  doc.setFillColor(240, 242, 245);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("RENSEIGNEMENTS", 16, yPos + 5);
+  yPos += 10;
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...grisTexte);
+  doc.text("→  Sur www.france-renov.gouv.fr", 16, yPos);
+  yPos += 4;
+  doc.text("→  Auprès de votre conseiller France Rénov' ou de votre espace territorial.", 16, yPos);
+  yPos += 4;
+  doc.text("→  Pour toute question relative aux aides financières et aux démarches administratives.", 16, yPos);
+  yPos += 6;
 
   return yPos;
 };
@@ -973,13 +1084,10 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   // RÉSULTAT D'ÉTUDE — always on dedicated last page
   // ═══════════════════════════════════════════════════════════════════════
   if (data.classification) {
-    // Always start on a new page for a clean, official layout
-    const remainingSpace = doc.internal.pageSize.getHeight() - FOOTER_ZONE - yPos;
-    if (remainingSpace < 80) {
-      doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, isMulti ? "RÉCAPITULATIF GLOBAL" : subtitle, ministereBase64);
-      yPos = 42;
-    }
+    // Always start on a dedicated new page for the formal result
+    doc.addPage();
+    drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
+    yPos = 42;
     yPos = drawResultatEtude(doc, data, yPos);
   }
   
