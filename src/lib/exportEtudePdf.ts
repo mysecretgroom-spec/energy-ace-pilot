@@ -74,6 +74,7 @@ interface EtudeData {
   // Consommation
   consoAnnuelle: number;
   factureMensuelle: number;
+  consoIsEstimated?: boolean;
   
   // Préconisation
   bouquetNom: string;
