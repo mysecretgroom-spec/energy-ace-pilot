@@ -221,25 +221,34 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.line(14, 36, pageWidth - 14, 36);
 };
 
+const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
+const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
+
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Last page: logos bar above footer text
+  // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 10;
-    const logoW = 28;
-    const logoY = pageHeight - 35; // well above footer line
-    const totalLogosWidth = logoW * 3 + 16;
+    const logoH = 12;
+    const logoW = 32;
+    const logoY = pageHeight - 40;
+    const totalLogosWidth = logoW * 3 + 20;
     const startX = (pageWidth - totalLogosWidth) / 2;
+
+    // Subtle separator above logos
+    doc.setDrawColor(200, 205, 212);
+    doc.setLineWidth(0.2);
+    doc.line(startX, logoY - 3, startX + totalLogosWidth, logoY - 3);
+
     try {
       if (logos.franceRenov) doc.addImage(logos.franceRenov, "PNG", startX, logoY, logoW, logoH);
-      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 8, logoY, logoW, logoH);
-      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
+      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 10, logoY, logoW, logoH);
+      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 10) * 2, logoY, logoW, logoH);
     } catch {}
   }
 
-  const footerY = pageHeight - 20;
+  const footerY = pageHeight - 24;
   
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.3);
@@ -248,12 +257,14 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
   doc.setTextColor(...grisTexte);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.text(`${data.clientPrenom} ${data.clientNom} - ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
+  doc.text(`${data.clientPrenom} ${data.clientNom} — ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
   doc.setFontSize(6);
+  doc.setFont("helvetica", "italic");
   doc.text("Ce document est une étude préliminaire de faisabilité et ne constitue pas un engagement contractuel.", pageWidth / 2, footerY + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
   doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - 14, footerY + 13, { align: "right" });
   
-  // Bottom tricolor
+  // Bottom tricolor band
   doc.setFillColor(...bleuMarianne);
   doc.rect(0, pageHeight - 3, pageWidth / 3, 3, "F");
   doc.setFillColor(255, 255, 255);
@@ -289,7 +300,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
     theme: "plain",
     styles: { fontSize: 9, cellPadding: 2, textColor: grisTexte },
     columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 6;
@@ -328,7 +339,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: 14, right: pageWidth / 2 + 2, bottom: 25 },
+    margin: { left: 14, right: pageWidth / 2 + 2, bottom: FOOTER_ZONE_NORMAL },
   });
   const leftY = (doc as any).lastAutoTable.finalY;
   
@@ -346,7 +357,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: pageWidth / 2 + 2, right: 14, bottom: 25 },
+    margin: { left: pageWidth / 2 + 2, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
   
@@ -371,7 +382,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
@@ -388,7 +399,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
@@ -410,7 +421,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 7, fontStyle: "bold" },
     styles: { fontSize: 7, cellPadding: 1.2, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right", textColor: [220, 38, 38] } },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 2;
 
@@ -446,7 +457,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
@@ -465,7 +476,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 8;
   
@@ -527,7 +538,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
@@ -546,7 +557,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
       styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
       columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
       didParseCell: (cellData) => { if (cellData.row.index === 2 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-      margin: { left: 14, right: 14 },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
     });
     yPos = (doc as any).lastAutoTable.finalY + 4;
   }
@@ -568,7 +579,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 6;
@@ -605,7 +616,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
@@ -628,7 +639,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 6;
@@ -697,7 +708,7 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
         cellData.cell.styles.fillColor = [230, 240, 255];
       }
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
   
@@ -739,7 +750,7 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
         cellData.cell.styles.fillColor = resultatGlobal >= 0 ? [220, 252, 231] : [254, 226, 226];
       }
     },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 8;
@@ -822,7 +833,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
         }
       }
     },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE },
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
 
@@ -915,16 +926,17 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
-    
-    // Résultat d'étude on recap page
-    if (data.classification) {
-      yPos = drawResultatEtude(doc, data, yPos);
-    }
-  } else if (data.classification) {
-    // Single product: classification on same page
-    if (yPos > doc.internal.pageSize.getHeight() - 90) {
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÉSULTAT D'ÉTUDE — always on dedicated last page
+  // ═══════════════════════════════════════════════════════════════════════
+  if (data.classification) {
+    // Always start on a new page for a clean, official layout
+    const remainingSpace = doc.internal.pageSize.getHeight() - FOOTER_ZONE - yPos;
+    if (remainingSpace < 80) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
+      drawHeader(doc, data, franceRenovBase64, isMulti ? "RÉCAPITULATIF GLOBAL" : subtitle, ministereBase64);
       yPos = 42;
     }
     yPos = drawResultatEtude(doc, data, yPos);
