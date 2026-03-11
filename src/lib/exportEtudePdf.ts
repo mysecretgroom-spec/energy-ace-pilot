@@ -300,7 +300,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
     theme: "plain",
     styles: { fontSize: 9, cellPadding: 2, textColor: grisTexte },
     columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 6;
