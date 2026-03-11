@@ -421,7 +421,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 7, fontStyle: "bold" },
     styles: { fontSize: 7, cellPadding: 1.2, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right", textColor: [220, 38, 38] } },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 2;
 
