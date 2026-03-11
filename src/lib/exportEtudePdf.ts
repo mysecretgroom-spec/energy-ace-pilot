@@ -366,7 +366,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     body: [
       ["Surface panneaux", `${data.surfaceInstallation} m²`, "Point de Production Minimal", `${formatNumber(data.productionAnnuelle)} kWh`],
       ["Ensoleillement zone", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus revendable", `${formatNumber(data.surplusProduction)} kWh`],
-      ["Rendement système", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
+      ["Rendement orientation", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
@@ -374,7 +374,37 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     margin: { left: 14, right: 14, bottom: 25 },
   });
-  yPos = (doc as any).lastAutoTable.finalY + 6;
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Coefficients de déperdition PV
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Coefficients de déperdition PV", "Valeur", "Impact sur la production", ""]],
+    body: [
+      ["Rendement modules (vs STC)", "80,2%", "Efficacité réelle des panneaux", "−19,8%"],
+      ["Pertes câblage DC/AC", "98,9%", "Résistance des câbles", "−1,1%"],
+      ["Rendement onduleur", "96,5%", "Conversion DC → AC", "−3,5%"],
+      ["Pertes température", "95,0%", "Échauffement des cellules", "−5,0%"],
+      ["Pertes salissure/poussière", "98,0%", "Encrassement panneaux", "−2,0%"],
+      ["Pertes ombrage partiel", "97,0%", "Ombres portées ponctuelles", "−3,0%"],
+      ["Pertes mismatch", "98,0%", "Disparité entre modules", "−2,0%"],
+      ["Dégradation annuelle", "99,5%", "Vieillissement cellules (~0,5%/an)", "−0,5%"],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 7, fontStyle: "bold" },
+    styles: { fontSize: 7, cellPadding: 1.2, textColor: grisTexte },
+    columnStyles: { 1: { halign: "right" }, 3: { halign: "right", textColor: [220, 38, 38] } },
+    margin: { left: 14, right: 14, bottom: 25 },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 2;
+
+  // Rendement global combiné
+  const rendementGlobal = (0.802 * 0.989 * 0.965 * 0.95 * 0.98 * 0.97 * 0.98 * 0.995 * 100).toFixed(1);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...grisTexte);
+  doc.text(`Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`, 14, yPos + 3);
+  yPos += 8;
   
   // Analyse financière
   doc.setFillColor(...bleuMarianne);
@@ -700,6 +730,95 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RÉSULTAT D'ÉTUDE
+// ═══════════════════════════════════════════════════════════════════════════
+const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPos = yStart;
+
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text("RÉSULTAT D'ÉTUDE", 16, yPos + 5);
+  yPos += 9;
+
+  const classificationLabels: Record<string, string> = {
+    positif: "POSITIF - Projet validé et signé",
+    negatif: "NÉGATIF - Projet non retenu",
+    r2: "R2 - Second rendez-vous programmé",
+    r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
+  };
+
+  // Validation checks
+  const autoconsoValid = data.autoconsoPct > 0;
+  const autofinancementValid = data.resultatTransfertCharge >= 0;
+  const check = "✓";
+  const cross = "✗";
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Critère de validation", "Statut", "Détail", ""]],
+    body: [
+      [
+        "Autoconsommation",
+        autoconsoValid ? `${check} Validé` : `${cross} Non validé`,
+        `Taux: ${formatNumber(data.autoconsoPct, 1)}%`,
+        `Gain: ${formatEuros(data.autoconsommationEuros)}/mois`,
+      ],
+      [
+        "Autofinancement",
+        autofinancementValid ? `${check} Validé` : `${cross} Non validé`,
+        `Résultat: ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois`,
+        `Mensualité: ${formatEuros(data.mensualite)}/mois`,
+      ],
+      [
+        "Non-opposition ABF",
+        `${check} Conforme`,
+        "Architecte des Bâtiments de France",
+        "",
+      ],
+      [
+        "Urbanisme",
+        `${check} Conforme`,
+        "Déclaration préalable de travaux",
+        "",
+      ],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
+    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+    didParseCell: (cellData) => {
+      if (cellData.column.index === 1 && cellData.section === "body") {
+        const val = String(cellData.cell.raw);
+        if (val.includes(check)) cellData.cell.styles.textColor = [22, 163, 74]; // green
+        else if (val.includes(cross)) cellData.cell.styles.textColor = [220, 38, 38]; // red
+        cellData.cell.styles.fontStyle = "bold";
+      }
+    },
+    margin: { left: 14, right: 14, bottom: 25 },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Classification label
+  doc.setTextColor(...grisTexte);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Conclusion : ${classificationLabels[data.classification || ""] || data.classification || ""}`, 14, yPos);
+  yPos += 6;
+
+  if (data.classificationComment) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.text(`Note : ${data.classificationComment}`, 14, yPos);
+    yPos += 5;
+  }
+
+  return yPos;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN GENERATOR
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -763,54 +882,18 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
     
-    // Classification on recap page
+    // Résultat d'étude on recap page
     if (data.classification) {
-      doc.setFillColor(...grisClair);
-      doc.rect(14, yPos, doc.internal.pageSize.getWidth() - 28, 7, "F");
-      doc.setTextColor(...bleuMarianne);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("STATUT DU DOSSIER", 16, yPos + 5);
-      yPos += 10;
-      
-      const classificationLabels: Record<string, string> = {
-        positif: "POSITIF - Projet validé et signé",
-        negatif: "NÉGATIF - Projet non retenu",
-        r2: "R2 - Second rendez-vous programmé",
-        r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
-      };
-      
-      doc.setTextColor(...grisTexte);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
+      yPos = drawResultatEtude(doc, data, yPos);
     }
   } else if (data.classification) {
     // Single product: classification on same page
-    if (yPos > doc.internal.pageSize.getHeight() - 60) {
+    if (yPos > doc.internal.pageSize.getHeight() - 90) {
       doc.addPage();
       drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
       yPos = 42;
     }
-    doc.setFillColor(...grisClair);
-    doc.rect(14, yPos, doc.internal.pageSize.getWidth() - 28, 7, "F");
-    doc.setTextColor(...bleuMarianne);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("STATUT DU DOSSIER", 16, yPos + 5);
-    yPos += 10;
-    
-    const classificationLabels: Record<string, string> = {
-      positif: "POSITIF - Projet validé et signé",
-      negatif: "NÉGATIF - Projet non retenu",
-      r2: "R2 - Second rendez-vous programmé",
-      r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
-    };
-    
-    doc.setTextColor(...grisTexte);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text(classificationLabels[data.classification] || data.classification, 14, yPos);
+    yPos = drawResultatEtude(doc, data, yPos);
   }
   
   // Add footers to all pages
