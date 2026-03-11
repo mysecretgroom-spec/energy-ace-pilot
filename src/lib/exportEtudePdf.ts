@@ -1642,7 +1642,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
 
   // Override PageContext to use CEPC header
   const cepcCtx: PageContext = {
-    doc, data, franceRenovBase64, ministereBase64, subtitle,
+    doc, data, franceRenovBase64, ministereBase64, subtitle, headerStyle: "cepc",
   };
   // Monkey-patch ensureSpace to use CEPC header
   const cepcEnsureSpace = (yPos: number, requiredHeight: number): number => {
