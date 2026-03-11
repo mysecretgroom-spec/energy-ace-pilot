@@ -1084,13 +1084,10 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   // RÉSULTAT D'ÉTUDE — always on dedicated last page
   // ═══════════════════════════════════════════════════════════════════════
   if (data.classification) {
-    // Always start on a new page for a clean, official layout
-    const remainingSpace = doc.internal.pageSize.getHeight() - FOOTER_ZONE - yPos;
-    if (remainingSpace < 80) {
-      doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, isMulti ? "RÉCAPITULATIF GLOBAL" : subtitle, ministereBase64);
-      yPos = 42;
-    }
+    // Always start on a dedicated new page for the formal result
+    doc.addPage();
+    drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
+    yPos = 42;
     yPos = drawResultatEtude(doc, data, yPos);
   }
   
