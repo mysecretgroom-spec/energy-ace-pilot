@@ -137,7 +137,11 @@ interface EtudeData {
  * jsPDF's built-in Helvetica has broken metrics for many Unicode chars,
  * causing abnormal character spacing.
  */
-const sanitizePdfText = (text: string): string => {
+const sanitizePdfText = (input: unknown): string => {
+  if (input === null || input === undefined) return "";
+
+  const text = typeof input === "string" ? input : String(input);
+
   return text
     // Replace all Unicode whitespace variants with regular space
     .replace(/[\u00A0\u202F\u2009\u200A\u2007\u2008\u200B\u200C\u200D\uFEFF]/g, " ")
