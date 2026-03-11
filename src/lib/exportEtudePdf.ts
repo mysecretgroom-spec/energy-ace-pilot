@@ -469,7 +469,8 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   doc.text(lines, 14, yPos + 3);
   yPos += 3 + lines.length * 3.5;
   
-  // Analyse financière
+  // Analyse financière — need space for header + investment table + financement + verdict (~120mm)
+  if (ctx) yPos = ensureSpace(ctx, yPos, 120);
   doc.setFillColor(...bleuMarianne);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
