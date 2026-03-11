@@ -339,7 +339,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" } },
-    margin: { left: 14, right: pageWidth / 2 + 2, bottom: 25 },
+    margin: { left: 14, right: pageWidth / 2 + 2, bottom: FOOTER_ZONE_NORMAL },
   });
   const leftY = (doc as any).lastAutoTable.finalY;
   
