@@ -1721,7 +1721,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
       drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
       yPos = 38;
     }
-    yPos = drawCepcPacPage(doc, data, yPos);
+    yPos = drawCepcPacPage(doc, data, yPos, cepcCtx);
   }
 
   // PAGE ITE
