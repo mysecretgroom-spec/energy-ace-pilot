@@ -1562,7 +1562,7 @@ const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   return (doc as any).lastAutoTable.finalY + 6;
 };
 
-const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const products = data.activeProducts || ["PV"];
   if (products.length <= 1) return yStart;
