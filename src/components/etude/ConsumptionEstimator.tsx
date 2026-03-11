@@ -62,6 +62,11 @@ interface ApplianceDef {
   detailFields: ApplianceDetailField[];
 }
 
+const PISCINE_MODES = [
+  { value: "chauffee_filtree", label: "Chauffée + Filtrée" },
+  { value: "filtree_seule", label: "Filtrée uniquement" },
+];
+
 const APPLIANCE_DEFS: ApplianceDef[] = [
   {
     id: "piscine",
