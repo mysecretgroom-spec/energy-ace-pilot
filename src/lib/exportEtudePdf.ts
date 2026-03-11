@@ -785,32 +785,33 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   yPos = (doc as any).lastAutoTable.finalY + 6;
   
   // Combined economies
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   let totalEconomiesMensuelles = 0;
   const ecoRows: string[][] = [];
   
   if (products.includes("PV")) {
     const pvEco = data.autoconsommationEuros + data.reventeMensuelleEstimee;
     totalEconomiesMensuelles += pvEco;
-    ecoRows.push(["☀️ PV - Autoconsommation + Revente", formatEuros(pvEco) + "/mois"]);
+    ecoRows.push(["PV - Autoconsommation + Revente", formatEuros(pvEco) + "/mois"]);
   }
   if (data.pac?.economies) {
     const pacEcoMensuel = data.pac.economies.economieNetteEuros / 12;
     totalEconomiesMensuelles += pacEcoMensuel;
-    ecoRows.push(["🌡️ PAC - Économie chauffage", formatEuros(pacEcoMensuel) + "/mois"]);
+    ecoRows.push(["PAC - Economie chauffage", formatEuros(pacEcoMensuel) + "/mois"]);
   }
   if (data.ite) {
     const iteEcoMensuel = (data.ite.factureChaufActuelle * data.ite.economieChauffagePct / 100) / 12;
     totalEconomiesMensuelles += iteEcoMensuel;
-    ecoRows.push(["🧱 ITE - Réduction facture chauffage", formatEuros(iteEcoMensuel) + "/mois"]);
+    ecoRows.push(["ITE - Reduction facture chauffage", formatEuros(iteEcoMensuel) + "/mois"]);
   }
   
-  ecoRows.push(["Mensualité financement", `-${formatEuros(data.mensualite)}/mois`]);
+  ecoRows.push(["Mensualite financement", `-${formatEuros(data.mensualite)}/mois`]);
   const resultatGlobal = totalEconomiesMensuelles - data.mensualite;
-  ecoRows.push(["RÉSULTAT MENSUEL GLOBAL", `${resultatGlobal >= 0 ? "+" : ""}${formatEuros(resultatGlobal)}/mois`]);
+  ecoRows.push(["RESULTAT MENSUEL GLOBAL", `${resultatGlobal >= 0 ? "+" : ""}${formatEuros(resultatGlobal)}/mois`]);
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Économies Combinées", "Montant"]],
+    head: [["Economies Combinees", "Montant"]],
     body: ecoRows,
     theme: "striped",
     headStyles: { fillColor: successColor, textColor: [255, 255, 255], fontSize: 9, fontStyle: "bold" },
