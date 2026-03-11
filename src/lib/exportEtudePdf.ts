@@ -521,12 +521,12 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   // Verdict
   if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   let verdictColor = successColor;
-  let verdictText = "PROJET VIABLE";
-  let verdictDesc = "Les conditions techniques et financières sont favorables";
+  let verdictText = "TENDANCE FAVORABLE";
+  let verdictDesc = "Les indicateurs suggèrent des conditions propices à la réalisation du projet";
   if (data.verdict === "a_etudier") {
-    verdictColor = warningColor; verdictText = "À APPROFONDIR"; verdictDesc = "Une analyse complémentaire est recommandée";
+    verdictColor = warningColor; verdictText = "À APPROFONDIR"; verdictDesc = "Une analyse complémentaire est recommandée avant toute décision";
   } else if (data.verdict === "invalide") {
-    verdictColor = dangerColor; verdictText = "NON RECOMMANDÉ"; verdictDesc = "Les conditions actuelles ne permettent pas une rentabilité satisfaisante";
+    verdictColor = dangerColor; verdictText = "RÉSERVES IDENTIFIÉES"; verdictDesc = "Les conditions actuelles ne permettent pas de conclure favorablement";
   }
   
   doc.setDrawColor(...verdictColor);
