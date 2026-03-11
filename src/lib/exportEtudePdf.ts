@@ -658,29 +658,30 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE ITE
 // ═══════════════════════════════════════════════════════════════════════════
-const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.ite) return yStart;
   const pageWidth = doc.internal.pageSize.getWidth();
   const ite = data.ite;
   let yPos = yStart;
   
+  if (ctx) yPos = ensureSpace(ctx, yPos, 55);
   doc.setFillColor(...iteColor);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("ISOLATION THERMIQUE EXTÉRIEURE (ITE)", 16, yPos + 5);
+  doc.text("ISOLATION THERMIQUE EXTERIEURE (ITE)", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Caractéristiques ITE", "", "Performance Thermique", ""]],
+    head: [["Caracteristiques ITE", "", "Performance Thermique", ""]],
     body: [
-      ["Surface à isoler", `${ite.surfaceIsoler} m²`, "R actuel", `${ite.rActuel} m².K/W`],
-      ["Type de façade", ite.typeFacade, "R cible", `${ite.rCible} m².K/W`],
-      ["Isolant", ite.typeIsolant, "Épaisseur", `${ite.epaisseurIsolant} mm`],
-      ["Nombre de façades", `${ite.nombreFacades}`, "Finition", ite.finition],
-      ["Surface ouvertures", `${ite.surfaceOuvertures} m²`, "Économie chauffage", `${ite.economieChauffagePct}%`],
+      ["Surface a isoler", `${ite.surfaceIsoler} m2`, "R actuel", `${ite.rActuel} m2.K/W`],
+      ["Type de facade", ite.typeFacade, "R cible", `${ite.rCible} m2.K/W`],
+      ["Isolant", ite.typeIsolant, "Epaisseur", `${ite.epaisseurIsolant} mm`],
+      ["Nombre de facades", `${ite.nombreFacades}`, "Finition", ite.finition],
+      ["Surface ouvertures", `${ite.surfaceOuvertures} m2`, "Economie chauffage", `${ite.economieChauffagePct}%`],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
@@ -691,18 +692,19 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Financier ITE
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesIte = ite.aides.maPrimeRenov + ite.aides.cee + ite.aides.ecoTva + ite.aides.aideLocale;
   const economieAnnuelle = ite.factureChaufActuelle * (ite.economieChauffagePct / 100);
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Investissement ITE", "", "Aides & Économies ITE", ""]],
+    head: [["Investissement ITE", "", "Aides & Economies ITE", ""]],
     body: [
-      ["Prix installation", formatEuros(ite.prixInstallation), "MaPrimeRénov'", formatEuros(ite.aides.maPrimeRenov)],
+      ["Prix installation", formatEuros(ite.prixInstallation), "MaPrimeRenov'", formatEuros(ite.aides.maPrimeRenov)],
       ["", "", "CEE", formatEuros(ite.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(ite.aides.ecoTva)],
+      ["", "", "Eco TVA", formatEuros(ite.aides.ecoTva)],
       ["Facture chauffage actuelle", formatEuros(ite.factureChaufActuelle), "TOTAL AIDES ITE", formatEuros(totalAidesIte)],
-      ["Économie annuelle estimée", formatEuros(economieAnnuelle), "COÛT NET ITE", formatEuros(ite.prixInstallation - totalAidesIte)],
+      ["Economie annuelle estimee", formatEuros(economieAnnuelle), "COUT NET ITE", formatEuros(ite.prixInstallation - totalAidesIte)],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
