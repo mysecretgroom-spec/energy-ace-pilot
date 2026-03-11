@@ -62,6 +62,11 @@ interface ApplianceDef {
   detailFields: ApplianceDetailField[];
 }
 
+const PISCINE_MODES = [
+  { value: "chauffee_filtree", label: "Chauffée + Filtrée" },
+  { value: "filtree_seule", label: "Filtrée uniquement" },
+];
+
 const APPLIANCE_DEFS: ApplianceDef[] = [
   {
     id: "piscine",
@@ -195,7 +200,12 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
     const count = details.count || 1;
     switch (id) {
       case "piscine": {
-        const kwhPerM3 = coefficients.piscine_kwh_m3 || 90;
+        const mode = details.mode || 0; // 0 = chauffee_filtree, 1 = filtree_seule
+        // Chauffée + filtrée : ~90 kWh/m³/an (chauffage + pompe filtration)
+        // Filtrée uniquement : ~45 kWh/m³/an (pompe filtration seule)
+        const kwhPerM3Heated = coefficients.piscine_kwh_m3 || 90;
+        const kwhPerM3FilterOnly = coefficients.piscine_filtree_kwh_m3 || 45;
+        const kwhPerM3 = mode === 1 ? kwhPerM3FilterOnly : kwhPerM3Heated;
         return Math.round((details.volume_m3 || 50) * kwhPerM3 * count);
       }
       case "jacuzzi": {
@@ -578,6 +588,25 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                       </span>
                       <span className="text-[10px] font-semibold text-primary">{kwh.toLocaleString("fr-FR")} kWh/an</span>
                     </div>
+                    {/* Piscine mode selector */}
+                    {cfg.id === "piscine" && (
+                      <div>
+                        <Label className="text-[9px] text-muted-foreground">Mode</Label>
+                        <Select
+                          value={cfg.details.mode === 1 ? "filtree_seule" : "chauffee_filtree"}
+                          onValueChange={v => updateApplianceDetail(cfg.id, "mode", v === "filtree_seule" ? 1 : 0)}
+                        >
+                          <SelectTrigger className="h-6 sm:h-7 text-[10px] sm:text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PISCINE_MODES.map(m => (
+                              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-1.5">
                       {def.detailFields.map(field => (
                         <div key={field.key}>
