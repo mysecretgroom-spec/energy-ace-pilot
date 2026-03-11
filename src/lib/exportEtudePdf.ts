@@ -1085,7 +1085,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
       drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
       yPos = 42;
     }
-    yPos = drawPacPage(doc, data, yPos);
+    yPos = drawPacPage(doc, data, yPos, pvCtx);
   }
 
   // PAGE ITE
