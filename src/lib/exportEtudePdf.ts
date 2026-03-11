@@ -1103,7 +1103,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
     doc.addPage();
     drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
-    yPos = drawGlobalSummary(doc, data, yPos);
+    yPos = drawGlobalSummary(doc, data, yPos, pvCtx);
   }
 
   // Classification section if available (old format included it)
