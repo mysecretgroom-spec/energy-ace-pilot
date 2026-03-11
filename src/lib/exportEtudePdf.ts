@@ -1273,9 +1273,17 @@ const drawCepcFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages
   doc.text(`${data.clientPrenom} ${data.clientNom} — ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
   doc.setFontSize(6);
   doc.setFont("helvetica", "italic");
-  doc.text("Avis favorable sous réserve de la réintégration des aides acquises dans le plan de financement.", pageWidth / 2, footerY + 9, { align: "center" });
+  doc.text("Avis favorable sous reserve de la reintegration des aides acquises dans le plan de financement.", pageWidth / 2, footerY + 9, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - 14, footerY + 13, { align: "right" });
+
+  // Disclaimer on last page only
+  if (isLastPage) {
+    doc.setFontSize(5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(160, 160, 160);
+    doc.text("Ce document est fourni a titre informatif et ne constitue en aucun cas un engagement contractuel. Les donnees presentees sont indicatives.", pageWidth / 2, footerY + 17, { align: "center" });
+  }
 
   // Bottom thin line (Marianne blue)
   doc.setFillColor(...bleuMarianne);
