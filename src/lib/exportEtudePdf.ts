@@ -616,7 +616,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
