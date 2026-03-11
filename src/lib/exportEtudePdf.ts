@@ -1481,6 +1481,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
   if (pac.economies) {
+    if (ctx) yPos = ensureSpace(ctx, yPos, 35);
     autoTable(doc, {
       startY: yPos,
       head: [["Bilan Énergétique PAC", "", "", ""]],
