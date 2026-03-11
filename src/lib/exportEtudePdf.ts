@@ -230,6 +230,7 @@ interface PageContext {
   franceRenovBase64: string;
   ministereBase64: string;
   subtitle: string;
+  headerStyle?: "standard" | "cepc";
 }
 
 /**
@@ -241,11 +242,20 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
   const available = pageHeight - FOOTER_ZONE_NORMAL - yPos;
   if (available < requiredHeight) {
     ctx.doc.addPage();
-    drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
-    return 42;
+    if (ctx.headerStyle === "cepc") {
+      // CEPC header drawn via deferred call to avoid forward reference
+      _drawCepcHeaderFn?.(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+      return 38;
+    } else {
+      drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+      return 42;
+    }
   }
   return yPos;
 };
+
+// Forward reference holder — set later when drawCepcHeader is defined
+let _drawCepcHeaderFn: typeof drawHeader | null = null;
 
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -1153,6 +1163,9 @@ const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, 
   doc.line(14, 32, pageWidth - 14, 32);
 };
 
+// Wire up forward reference for ensureSpace
+_drawCepcHeaderFn = drawCepcHeader;
+
 const drawCepcSectionBar = (doc: jsPDF, title: string, yPos: number, color?: [number, number, number]): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   doc.setFillColor(...(color || cepcGris));
@@ -1636,7 +1649,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
 
   // Override PageContext to use CEPC header
   const cepcCtx: PageContext = {
-    doc, data, franceRenovBase64, ministereBase64, subtitle,
+    doc, data, franceRenovBase64, ministereBase64, subtitle, headerStyle: "cepc",
   };
   // Monkey-patch ensureSpace to use CEPC header
   const cepcEnsureSpace = (yPos: number, requiredHeight: number): number => {
