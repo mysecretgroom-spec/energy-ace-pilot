@@ -221,9 +221,24 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.line(14, 36, pageWidth - 14, 36);
 };
 
-const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number) => {
+const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Last page: logos bar above footer text
+  if (isLastPage && logos) {
+    const logoH = 10;
+    const logoW = 28;
+    const logoY = pageHeight - 35; // well above footer line
+    const totalLogosWidth = logoW * 3 + 16;
+    const startX = (pageWidth - totalLogosWidth) / 2;
+    try {
+      if (logos.franceRenov) doc.addImage(logos.franceRenov, "PNG", startX, logoY, logoW, logoH);
+      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 8, logoY, logoW, logoH);
+      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
+    } catch {}
+  }
+
   const footerY = pageHeight - 20;
   
   doc.setDrawColor(...bleuMarianne);
