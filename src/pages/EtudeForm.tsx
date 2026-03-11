@@ -2748,6 +2748,7 @@ _Envoyé depuis DébalePro_`;
               onApply={(result) => {
                 setConsoAnnuelle(result.consoElecKwh);
                 setFactureMensuelle(result.factureMensuelleElec);
+                setConsoIsEstimated(true);
                 if (activeProducts.includes("PAC")) {
                   if (result.consoChaufffageKwh) setPacConsoChaufffageKwh(result.consoChaufffageKwh);
                   if (result.factureChaufMensuelle) setPacFactureChauffageEuros(result.factureChaufMensuelle);
