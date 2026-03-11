@@ -499,6 +499,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Financement & Rentabilité
+  if (ctx) yPos = ensureSpace(ctx, yPos, 65);
   autoTable(doc, {
     startY: yPos,
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
