@@ -233,6 +233,7 @@ const EtudeForm = () => {
   // === CONSOMMATIONS ===
   const [consoAnnuelle, setConsoAnnuelle] = useState<number | "">("");
   const [factureMensuelle, setFactureMensuelle] = useState<number | "">("");
+  const [consoIsEstimated, setConsoIsEstimated] = useState(false);
 
   // === PRÉCONISATION ===
   const [bouquetId, setBouquetId] = useState("");
