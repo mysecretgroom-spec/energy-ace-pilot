@@ -243,7 +243,8 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
   if (available < requiredHeight) {
     ctx.doc.addPage();
     if (ctx.headerStyle === "cepc") {
-      drawCepcHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+      // CEPC header drawn via deferred call to avoid forward reference
+      _drawCepcHeaderFn?.(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
       return 38;
     } else {
       drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
@@ -252,6 +253,9 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
   }
   return yPos;
 };
+
+// Forward reference holder — set later when drawCepcHeader is defined
+let _drawCepcHeaderFn: typeof drawHeader | null = null;
 
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
