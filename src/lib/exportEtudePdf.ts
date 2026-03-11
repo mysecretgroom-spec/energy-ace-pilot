@@ -1542,6 +1542,7 @@ const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesIte = ite.aides.maPrimeRenov + ite.aides.cee + ite.aides.ecoTva + ite.aides.aideLocale;
   const economieAnnuelle = ite.factureChaufActuelle * (ite.economieChauffagePct / 100);
 
