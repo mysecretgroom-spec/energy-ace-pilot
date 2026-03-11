@@ -434,11 +434,15 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
 
   // Rendement global combiné
   const rendementGlobal = (0.802 * 0.989 * 0.965 * 0.95 * 0.98 * 0.97 * 0.98 * 0.995 * 100).toFixed(1);
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(...grisTexte);
-  doc.text(`Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`, 14, yPos + 3);
-  yPos += 8;
+  const rendementText = `Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const maxTextWidth = pageWidth - 28; // 14mm margins each side
+  const lines = doc.splitTextToSize(rendementText, maxTextWidth);
+  doc.text(lines, 14, yPos + 3);
+  yPos += 3 + lines.length * 3.5;
   
   // Analyse financière
   doc.setFillColor(...bleuMarianne);
