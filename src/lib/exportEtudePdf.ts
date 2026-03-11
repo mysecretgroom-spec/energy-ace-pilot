@@ -131,19 +131,48 @@ interface EtudeData {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Sanitize text for jsPDF: replace ALL non-ASCII whitespace, invisible chars,
+ * and problematic Unicode with safe ASCII equivalents.
+ * jsPDF's built-in Helvetica has broken metrics for many Unicode chars,
+ * causing abnormal character spacing.
+ */
+const sanitizePdfText = (text: string): string => {
+  return text
+    // Replace all Unicode whitespace variants with regular space
+    .replace(/[\u00A0\u202F\u2009\u200A\u2007\u2008\u200B\u200C\u200D\uFEFF]/g, " ")
+    // Replace em/en dashes with simple hyphens
+    .replace(/[\u2013\u2014]/g, "-")
+    // Replace curly quotes with straight quotes
+    .replace(/[\u2018\u2019\u201A]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    // Replace ellipsis
+    .replace(/\u2026/g, "...")
+    // Replace minus sign with hyphen
+    .replace(/\u2212/g, "-")
+    // Replace multiplication sign
+    .replace(/\u00D7/g, "x")
+    // Replace bullet
+    .replace(/\u2022/g, "-")
+    // Collapse multiple spaces
+    .replace(/ {2,}/g, " ");
+};
+
 const formatEuros = (value: number): string => {
-  return new Intl.NumberFormat("fr-FR", {
+  const raw = new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
-  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
+  }).format(value);
+  return sanitizePdfText(raw);
 };
 
 const formatNumber = (value: number, decimals: number = 0): string => {
-  return new Intl.NumberFormat("fr-FR", {
+  const raw = new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
+  }).format(value);
+  return sanitizePdfText(raw);
 };
 
 const loadImageAsBase64 = async (url: string): Promise<string> => {
