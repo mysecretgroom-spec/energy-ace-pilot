@@ -233,6 +233,7 @@ const EtudeForm = () => {
   // === CONSOMMATIONS ===
   const [consoAnnuelle, setConsoAnnuelle] = useState<number | "">("");
   const [factureMensuelle, setFactureMensuelle] = useState<number | "">("");
+  const [consoIsEstimated, setConsoIsEstimated] = useState(false);
 
   // === PRÉCONISATION ===
   const [bouquetId, setBouquetId] = useState("");
@@ -1830,6 +1831,7 @@ const EtudeForm = () => {
       potentielFaisabilite: potentielFaisabilite || "Non défini",
       consoAnnuelle: Number(consoAnnuelle) || 0,
       factureMensuelle: Number(factureMensuelle) || 0,
+      consoIsEstimated,
       bouquetNom: `${puissanceKwc} kWc`,
       puissanceKwc: Number(puissanceKwc) || 0,
       typeRevente: typeRevente || "Non défini",
@@ -2680,7 +2682,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="11600"
                     value={consoAnnuelle}
-                    onChange={(e) => setConsoAnnuelle(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
@@ -2696,7 +2698,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="230"
                     value={factureMensuelle}
-                    onChange={(e) => setFactureMensuelle(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
@@ -2747,6 +2749,7 @@ _Envoyé depuis DébalePro_`;
               onApply={(result) => {
                 setConsoAnnuelle(result.consoElecKwh);
                 setFactureMensuelle(result.factureMensuelleElec);
+                setConsoIsEstimated(true);
                 if (activeProducts.includes("PAC")) {
                   if (result.consoChaufffageKwh) setPacConsoChaufffageKwh(result.consoChaufffageKwh);
                   if (result.factureChaufMensuelle) setPacFactureChauffageEuros(result.factureChaufMensuelle);
