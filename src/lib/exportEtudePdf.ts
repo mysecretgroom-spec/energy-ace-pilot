@@ -737,92 +737,100 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
 
+  // Header bar
   doc.setFillColor(...bleuMarianne);
-  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.rect(14, yPos, pageWidth - 28, 8, "F");
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("RÉSULTAT D'ÉTUDE", 16, yPos + 5);
-  yPos += 9;
-
-  const classificationLabels: Record<string, string> = {
-    positif: "POSITIF - Projet validé et signé",
-    negatif: "NÉGATIF - Projet non retenu",
-    r2: "R2 - Second rendez-vous programmé",
-    r2_prestudy: "R2 PRÉ-ÉTUDE - En cours d'analyse",
-  };
+  doc.text("RÉSULTAT D'ÉTUDE", 16, yPos + 5.5);
+  yPos += 10;
 
   // Validation checks
   const autoconsoValid = data.autoconsoPct > 0;
   const autofinancementValid = data.resultatTransfertCharge >= 0;
-  const check = "✓";
-  const cross = "✗";
 
   autoTable(doc, {
     startY: yPos,
-    head: [["Critère de validation", "Statut", "Détail", ""]],
+    head: [["Critère de validation", "Statut", "Détail"]],
     body: [
       [
-        "Autoconsommation",
-        autoconsoValid ? `${check} Validé` : `${cross} Non validé`,
-        `Taux: ${formatNumber(data.autoconsoPct, 1)}%`,
-        `Gain: ${formatEuros(data.autoconsommationEuros)}/mois`,
+        "Autoconsommation énergétique",
+        autoconsoValid ? "VALIDÉ" : "NON VALIDÉ",
+        `Taux : ${formatNumber(data.autoconsoPct, 1)}%  —  Gain : ${formatEuros(data.autoconsommationEuros)}/mois`,
       ],
       [
-        "Autofinancement",
-        autofinancementValid ? `${check} Validé` : `${cross} Non validé`,
-        `Résultat: ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois`,
-        `Mensualité: ${formatEuros(data.mensualite)}/mois`,
+        "Autofinancement de l'installation",
+        autofinancementValid ? "VALIDÉ" : "NON VALIDÉ",
+        `Résultat : ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois  —  Mensualité : ${formatEuros(data.mensualite)}/mois`,
       ],
       [
         "Non-opposition ABF",
-        `${check} Conforme`,
-        "Architecte des Bâtiments de France",
-        "",
+        "CONFORME",
+        "Architecte des Bâtiments de France — Aucune restriction identifiée",
       ],
       [
-        "Urbanisme",
-        `${check} Conforme`,
-        "Déclaration préalable de travaux",
-        "",
+        "Conformité urbanistique",
+        "CONFORME",
+        "Déclaration préalable de travaux — Réglementation respectée",
       ],
     ],
-    theme: "striped",
-    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
-    styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
+    theme: "plain",
+    headStyles: {
+      fillColor: [240, 242, 245],
+      textColor: bleuMarianne,
+      fontSize: 8,
+      fontStyle: "bold",
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      lineWidth: 0.2,
+      lineColor: [200, 205, 212],
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+      textColor: grisTexte,
+      lineWidth: 0.1,
+      lineColor: [220, 225, 230],
+    },
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 55 },
+      1: { cellWidth: 30, halign: "center", fontStyle: "bold" },
+      2: { cellWidth: "auto" },
+    },
     didParseCell: (cellData) => {
       if (cellData.column.index === 1 && cellData.section === "body") {
         const val = String(cellData.cell.raw);
-        if (val.includes(check)) cellData.cell.styles.textColor = [22, 163, 74]; // green
-        else if (val.includes(cross)) cellData.cell.styles.textColor = [220, 38, 38]; // red
-        cellData.cell.styles.fontStyle = "bold";
+        if (val === "VALIDÉ" || val === "CONFORME") {
+          cellData.cell.styles.textColor = [22, 101, 52]; // dark green
+        } else if (val === "NON VALIDÉ") {
+          cellData.cell.styles.textColor = [185, 28, 28]; // dark red
+        }
       }
     },
     margin: { left: 14, right: 14, bottom: 25 },
   });
-  yPos = (doc as any).lastAutoTable.finalY + 4;
+  yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  // Classification label
-  doc.setTextColor(...grisTexte);
-  doc.setFontSize(9);
+  // Separator line
+  doc.setDrawColor(...bleuMarianne);
+  doc.setLineWidth(0.4);
+  doc.line(14, yPos, pageWidth - 14, yPos);
+  yPos += 5;
+
+  // Avis favorable — formal statement
   doc.setFont("helvetica", "bold");
-  doc.text(`Conclusion : ${classificationLabels[data.classification || ""] || data.classification || ""}`, 14, yPos);
-  yPos += 6;
-
-  // Avis favorable
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(...bleuMarianne);
-  doc.text("Avis favorable sous réserve de la réintégration des aides acquises dans le plan de financement.", 14, yPos);
+  doc.text("AVIS FAVORABLE", 14, yPos);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
   doc.setTextColor(...grisTexte);
-  yPos += 6;
-
-  if (data.classificationComment) {
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8);
-    doc.text(`Note : ${data.classificationComment}`, 14, yPos);
-    yPos += 5;
-  }
+  yPos += 5;
+  const avisText = "Sous réserve de la réintégration des aides acquises dans le plan de financement, " +
+    "le projet est jugé conforme aux critères techniques et financiers requis pour sa mise en œuvre.";
+  const avisLines = doc.splitTextToSize(avisText, pageWidth - 28);
+  doc.text(avisLines, 14, yPos);
+  yPos += avisLines.length * 3.5 + 3;
 
   return yPos;
 };
