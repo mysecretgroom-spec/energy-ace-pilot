@@ -253,8 +253,8 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
   // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 12;
-    const logoY = pageHeight - 42;
+    const logoH = 16;
+    const logoY = pageHeight - 52;
     // Each logo has different natural proportions — use individual widths
     const frW = 28;  // France Rénov': roughly square-ish
     const minW = 34;  // Ministère: wider text block
