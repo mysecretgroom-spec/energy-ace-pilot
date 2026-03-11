@@ -639,7 +639,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
   return (doc as any).lastAutoTable.finalY + 6;
