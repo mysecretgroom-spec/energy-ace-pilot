@@ -131,19 +131,55 @@ interface EtudeData {
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Sanitize text for jsPDF: replace ALL non-ASCII whitespace, invisible chars,
+ * and problematic Unicode with safe ASCII equivalents.
+ * jsPDF's built-in Helvetica has broken metrics for many Unicode chars,
+ * causing abnormal character spacing.
+ */
+const sanitizePdfText = (text: string): string => {
+  return text
+    // Replace all Unicode whitespace variants with regular space
+    .replace(/[\u00A0\u202F\u2009\u200A\u2007\u2008\u200B\u200C\u200D\uFEFF]/g, " ")
+    // Replace em/en dashes with simple hyphens
+    .replace(/[\u2013\u2014]/g, "-")
+    // Replace arrows with ->
+    .replace(/[\u2192\u2190\u2191\u2193\u21D2]/g, "->")
+    // Replace curly quotes with straight quotes
+    .replace(/[\u2018\u2019\u201A]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    // Replace ellipsis
+    .replace(/\u2026/g, "...")
+    // Replace minus sign with hyphen
+    .replace(/\u2212/g, "-")
+    // Replace multiplication sign
+    .replace(/\u00D7/g, "x")
+    // Replace bullet
+    .replace(/\u2022/g, "-")
+    // Replace check/cross marks
+    .replace(/[\u2713\u2714\u2705\u2611]/g, "V")
+    .replace(/[\u2717\u2718\u274C\u2612]/g, "X")
+    // Strip emojis (supplementary plane characters)
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, "")
+    // Collapse multiple spaces
+    .replace(/ {2,}/g, " ");
+};
+
 const formatEuros = (value: number): string => {
-  return new Intl.NumberFormat("fr-FR", {
+  const raw = new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
-  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
+  }).format(value);
+  return sanitizePdfText(raw);
 };
 
 const formatNumber = (value: number, decimals: number = 0): string => {
-  return new Intl.NumberFormat("fr-FR", {
+  const raw = new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value).replace(/\u00A0/g, " ").replace(/\u202F/g, " ");
+  }).format(value);
+  return sanitizePdfText(raw);
 };
 
 const loadImageAsBase64 = async (url: string): Promise<string> => {
@@ -256,6 +292,28 @@ const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): nu
 
 // Forward reference holder — set later when drawCepcHeader is defined
 let _drawCepcHeaderFn: typeof drawHeader | null = null;
+
+/**
+ * Monkey-patch doc.text and doc.splitTextToSize to auto-sanitize
+ * all strings, preventing broken character spacing from Unicode chars
+ * that jsPDF's built-in Helvetica can't properly measure.
+ */
+const patchDocTextMethods = (doc: jsPDF) => {
+  const originalText = doc.text.bind(doc);
+  (doc as any).text = (text: any, x: number, y: number, options?: any) => {
+    if (typeof text === "string") {
+      text = sanitizePdfText(text);
+    } else if (Array.isArray(text)) {
+      text = text.map((t: any) => typeof t === "string" ? sanitizePdfText(t) : t);
+    }
+    return originalText(text, x, y, options);
+  };
+
+  const originalSplit = doc.splitTextToSize.bind(doc);
+  (doc as any).splitTextToSize = (text: string, maxWidth: number, options?: any) => {
+    return originalSplit(sanitizePdfText(text), maxWidth, options);
+  };
+};
 
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -527,28 +585,29 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PAC
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.pac) return yStart;
   const pageWidth = doc.internal.pageSize.getWidth();
   const pac = data.pac;
   let yPos = yStart;
   
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   doc.setFillColor(...pacColor);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("POMPE À CHALEUR (PAC)", 16, yPos + 5);
+  doc.text("POMPE A CHALEUR (PAC)", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Caractéristiques PAC", "", "Performance", ""]],
+    head: [["Caracteristiques PAC", "", "Performance", ""]],
     body: [
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
-      ["Surface chauffée", `${pac.surfaceChauffee} m²`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
-      ["Type émetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Énergie actuelle", pac.energieActuelle, "ECS intégré", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Surface chauffee", `${pac.surfaceChauffee} m2`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
+      ["Type emetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
+      ["Energie actuelle", pac.energieActuelle, "ECS integre", pac.ecsIntegre ? "Oui" : "Non"],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -558,15 +617,16 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
-  // Économies PAC
+  // Economies PAC
   if (pac.economies) {
+    if (ctx) yPos = ensureSpace(ctx, yPos, 35);
     autoTable(doc, {
       startY: yPos,
-      head: [["Bilan Énergétique PAC", "", "", ""]],
+      head: [["Bilan Energetique PAC", "", "", ""]],
       body: [
         ["Besoins chauffage", `${formatNumber(pac.economies.besoinsChauffageKwh)} kWh`, "Facture chauffage actuelle", formatEuros(pac.factureChauffage)],
-        ["Conso élec PAC", `${formatNumber(pac.economies.consoElecPacKwh)} kWh`, "Surcoût élec PAC", formatEuros(pac.economies.surcoutElecEuros)],
-        ["", "", "ÉCONOMIE NETTE ANNUELLE", formatEuros(pac.economies.economieNetteEuros)],
+        ["Conso elec PAC", `${formatNumber(pac.economies.consoElecPacKwh)} kWh`, "Surcout elec PAC", formatEuros(pac.economies.surcoutElecEuros)],
+        ["", "", "ECONOMIE NETTE ANNUELLE", formatEuros(pac.economies.economieNetteEuros)],
       ],
       theme: "striped",
       headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -579,16 +639,17 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   }
   
   // Financier PAC
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
     body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
+      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
       ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
+      ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
       ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
+      ["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -604,29 +665,30 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE ITE
 // ═══════════════════════════════════════════════════════════════════════════
-const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.ite) return yStart;
   const pageWidth = doc.internal.pageSize.getWidth();
   const ite = data.ite;
   let yPos = yStart;
   
+  if (ctx) yPos = ensureSpace(ctx, yPos, 55);
   doc.setFillColor(...iteColor);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("ISOLATION THERMIQUE EXTÉRIEURE (ITE)", 16, yPos + 5);
+  doc.text("ISOLATION THERMIQUE EXTERIEURE (ITE)", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Caractéristiques ITE", "", "Performance Thermique", ""]],
+    head: [["Caracteristiques ITE", "", "Performance Thermique", ""]],
     body: [
-      ["Surface à isoler", `${ite.surfaceIsoler} m²`, "R actuel", `${ite.rActuel} m².K/W`],
-      ["Type de façade", ite.typeFacade, "R cible", `${ite.rCible} m².K/W`],
-      ["Isolant", ite.typeIsolant, "Épaisseur", `${ite.epaisseurIsolant} mm`],
-      ["Nombre de façades", `${ite.nombreFacades}`, "Finition", ite.finition],
-      ["Surface ouvertures", `${ite.surfaceOuvertures} m²`, "Économie chauffage", `${ite.economieChauffagePct}%`],
+      ["Surface a isoler", `${ite.surfaceIsoler} m2`, "R actuel", `${ite.rActuel} m2.K/W`],
+      ["Type de facade", ite.typeFacade, "R cible", `${ite.rCible} m2.K/W`],
+      ["Isolant", ite.typeIsolant, "Epaisseur", `${ite.epaisseurIsolant} mm`],
+      ["Nombre de facades", `${ite.nombreFacades}`, "Finition", ite.finition],
+      ["Surface ouvertures", `${ite.surfaceOuvertures} m2`, "Economie chauffage", `${ite.economieChauffagePct}%`],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
@@ -637,18 +699,19 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Financier ITE
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesIte = ite.aides.maPrimeRenov + ite.aides.cee + ite.aides.ecoTva + ite.aides.aideLocale;
   const economieAnnuelle = ite.factureChaufActuelle * (ite.economieChauffagePct / 100);
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Investissement ITE", "", "Aides & Économies ITE", ""]],
+    head: [["Investissement ITE", "", "Aides & Economies ITE", ""]],
     body: [
-      ["Prix installation", formatEuros(ite.prixInstallation), "MaPrimeRénov'", formatEuros(ite.aides.maPrimeRenov)],
+      ["Prix installation", formatEuros(ite.prixInstallation), "MaPrimeRenov'", formatEuros(ite.aides.maPrimeRenov)],
       ["", "", "CEE", formatEuros(ite.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(ite.aides.ecoTva)],
+      ["", "", "Eco TVA", formatEuros(ite.aides.ecoTva)],
       ["Facture chauffage actuelle", formatEuros(ite.factureChaufActuelle), "TOTAL AIDES ITE", formatEuros(totalAidesIte)],
-      ["Économie annuelle estimée", formatEuros(economieAnnuelle), "COÛT NET ITE", formatEuros(ite.prixInstallation - totalAidesIte)],
+      ["Economie annuelle estimee", formatEuros(economieAnnuelle), "COUT NET ITE", formatEuros(ite.prixInstallation - totalAidesIte)],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: iteColor, fontSize: 8, fontStyle: "bold" },
@@ -664,7 +727,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉCAP GLOBAL MULTI-PRODUIT
 // ═══════════════════════════════════════════════════════════════════════════
-const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const products = data.activeProducts || ["PV"];
   if (products.length <= 1) return yStart;
@@ -729,32 +792,33 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
   yPos = (doc as any).lastAutoTable.finalY + 6;
   
   // Combined economies
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   let totalEconomiesMensuelles = 0;
   const ecoRows: string[][] = [];
   
   if (products.includes("PV")) {
     const pvEco = data.autoconsommationEuros + data.reventeMensuelleEstimee;
     totalEconomiesMensuelles += pvEco;
-    ecoRows.push(["☀️ PV - Autoconsommation + Revente", formatEuros(pvEco) + "/mois"]);
+    ecoRows.push(["PV - Autoconsommation + Revente", formatEuros(pvEco) + "/mois"]);
   }
   if (data.pac?.economies) {
     const pacEcoMensuel = data.pac.economies.economieNetteEuros / 12;
     totalEconomiesMensuelles += pacEcoMensuel;
-    ecoRows.push(["🌡️ PAC - Économie chauffage", formatEuros(pacEcoMensuel) + "/mois"]);
+    ecoRows.push(["PAC - Economie chauffage", formatEuros(pacEcoMensuel) + "/mois"]);
   }
   if (data.ite) {
     const iteEcoMensuel = (data.ite.factureChaufActuelle * data.ite.economieChauffagePct / 100) / 12;
     totalEconomiesMensuelles += iteEcoMensuel;
-    ecoRows.push(["🧱 ITE - Réduction facture chauffage", formatEuros(iteEcoMensuel) + "/mois"]);
+    ecoRows.push(["ITE - Reduction facture chauffage", formatEuros(iteEcoMensuel) + "/mois"]);
   }
   
-  ecoRows.push(["Mensualité financement", `-${formatEuros(data.mensualite)}/mois`]);
+  ecoRows.push(["Mensualite financement", `-${formatEuros(data.mensualite)}/mois`]);
   const resultatGlobal = totalEconomiesMensuelles - data.mensualite;
-  ecoRows.push(["RÉSULTAT MENSUEL GLOBAL", `${resultatGlobal >= 0 ? "+" : ""}${formatEuros(resultatGlobal)}/mois`]);
+  ecoRows.push(["RESULTAT MENSUEL GLOBAL", `${resultatGlobal >= 0 ? "+" : ""}${formatEuros(resultatGlobal)}/mois`]);
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Économies Combinées", "Montant"]],
+    head: [["Economies Combinees", "Montant"]],
     body: ecoRows,
     theme: "striped",
     headStyles: { fillColor: successColor, textColor: [255, 255, 255], fontSize: 9, fontStyle: "bold" },
@@ -775,18 +839,18 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number 
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉSULTAT D'ÉTUDE
 // ═══════════════════════════════════════════════════════════════════════════
-const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
 
-  // ── Title centered, large, official ──
+  // -- Title centered, large, official --
   doc.setTextColor(...bleuMarianne);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("RÉSULTAT D'ÉTUDE DE FAISABILITÉ", pageWidth / 2, yPos + 6, { align: "center" });
+  doc.text("RESULTAT D'ETUDE DE FAISABILITE", pageWidth / 2, yPos + 6, { align: "center" });
   yPos += 14;
 
-  // ── Congratulations banner (like CEPC) ──
+  // -- Congratulations banner (like CEPC) --
   const autofinancementValid = data.resultatTransfertCharge >= 0;
   const bannerColor: [number, number, number] = autofinancementValid ? [240, 249, 244] : [254, 242, 242];
   const bannerBorder: [number, number, number] = autofinancementValid ? [34, 197, 94] : [239, 68, 68];
@@ -797,39 +861,39 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setLineWidth(0.5);
   doc.roundedRect(14, yPos, pageWidth - 28, 18, 1.5, 1.5, "FD");
 
-  // Check icon
+  // Check icon - use simple ASCII instead of Unicode symbols
   doc.setFontSize(14);
   doc.setTextColor(...bannerIconColor);
-  doc.text(autofinancementValid ? "✓" : "✗", 22, yPos + 8);
+  doc.text(autofinancementValid ? "V" : "X", 22, yPos + 8);
 
   // Banner text
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...grisTexte);
   const bannerTitle = autofinancementValid
-    ? "Le projet répond aux critères de faisabilité technique et financière."
-    : "Le projet nécessite une analyse complémentaire avant mise en œuvre.";
+    ? "Le projet repond aux criteres de faisabilite technique et financiere."
+    : "Le projet necessite une analyse complementaire avant mise en oeuvre.";
   doc.text(bannerTitle, 30, yPos + 7);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.text(`Étude réalisée le ${data.dateEtude} pour le bénéficiaire ${data.clientPrenom} ${data.clientNom}.`, 30, yPos + 13);
+  doc.text(`Etude realisee le ${data.dateEtude} pour le beneficiaire ${data.clientPrenom} ${data.clientNom}.`, 30, yPos + 13);
   yPos += 24;
 
-  // ── Structured data boxes (like CEPC table) ──
+  // -- Structured data boxes (like CEPC table) --
   const autoconsoValid = data.autoconsoPct > 0;
 
-  // Box row 1 — two columns
+  // Box row 1 - two columns
   const boxW = (pageWidth - 28 - 6) / 2;
   const boxH = 16;
 
-  // Left box: Bénéficiaire
+  // Left box: Beneficiaire
   doc.setDrawColor(200, 205, 212);
   doc.setLineWidth(0.2);
   doc.line(14, yPos, 14 + boxW, yPos);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text("Bénéficiaire", 14, yPos + 4);
+  doc.text("Beneficiaire", 14, yPos + 4);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...grisTexte);
@@ -844,16 +908,16 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text("Votre résultat", rightX, yPos + 4);
+  doc.text("Votre resultat", rightX, yPos + 4);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...(autofinancementValid ? [22, 101, 52] as [number, number, number] : [185, 28, 28] as [number, number, number]));
-  doc.text(autofinancementValid ? "Favorable" : "À approfondir", rightX, yPos + 11);
+  doc.text(autofinancementValid ? "Favorable" : "A approfondir", rightX, yPos + 11);
   yPos += boxH + 4;
 
-  // Box row 2 — four columns
+  // Box row 2 - four columns
   const col4W = (pageWidth - 28 - 18) / 4;
-  const labels2 = ["Puissance préconisée", "Résultat mensuel", "Taux autoconsommation", "Coût net estimé"];
+  const labels2 = ["Puissance preconisee", "Resultat mensuel", "Taux autoconsommation", "Cout net estime"];
   const values2 = [
     `${data.puissanceKwc} kWc`,
     `${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}`,
@@ -876,39 +940,40 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   }
   yPos += 16;
 
-  // ── Section "VOTRE RÉSULTAT" header bar (like CEPC) ──
+  // -- Section "VOTRE RESULTAT" header bar (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 60);
   doc.setFillColor(240, 242, 245);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(...bleuMarianne);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("VOTRE RÉSULTAT", 16, yPos + 5);
+  doc.text("VOTRE RESULTAT", 16, yPos + 5);
   yPos += 10;
 
   // Validation criteria table
   autoTable(doc, {
     startY: yPos,
-    head: [["Critère de validation", "Statut", "Détail"]],
+    head: [["Critere de validation", "Statut", "Detail"]],
     body: [
       [
-        "Autoconsommation énergétique",
-        autoconsoValid ? "VALIDÉ" : "NON VALIDÉ",
-        `Taux : ${formatNumber(data.autoconsoPct, 1)}%  —  Gain : ${formatEuros(data.autoconsommationEuros)}/mois`,
+        "Autoconsommation energetique",
+        autoconsoValid ? "VALIDE" : "NON VALIDE",
+        `Taux : ${formatNumber(data.autoconsoPct, 1)}% - Gain : ${formatEuros(data.autoconsommationEuros)}/mois`,
       ],
       [
         "Autofinancement de l'installation",
-        autofinancementValid ? "VALIDÉ" : "NON VALIDÉ",
-        `Résultat : ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois  —  Mensualité : ${formatEuros(data.mensualite)}/mois`,
+        autofinancementValid ? "VALIDE" : "NON VALIDE",
+        `Resultat : ${data.resultatTransfertCharge >= 0 ? "+" : ""}${formatEuros(data.resultatTransfertCharge)}/mois - Mensualite : ${formatEuros(data.mensualite)}/mois`,
       ],
       [
         "Non-opposition ABF",
         "CONFORME",
-        "Architecte des Bâtiments de France — Aucune restriction identifiée",
+        "Architecte des Batiments de France - Aucune restriction identifiee",
       ],
       [
-        "Conformité urbanistique",
+        "Conformite urbanistique",
         "CONFORME",
-        "Déclaration préalable de travaux — Réglementation respectée",
+        "Declaration prealable de travaux - Reglementation respectee",
       ],
     ],
     theme: "plain",
@@ -936,9 +1001,9 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
     didParseCell: (cellData) => {
       if (cellData.column.index === 1 && cellData.section === "body") {
         const val = String(cellData.cell.raw);
-        if (val === "VALIDÉ" || val === "CONFORME") {
+        if (val === "VALIDE" || val === "CONFORME") {
           cellData.cell.styles.textColor = [22, 101, 52];
-        } else if (val === "NON VALIDÉ") {
+        } else if (val === "NON VALIDE") {
           cellData.cell.styles.textColor = [185, 28, 28];
         }
       }
@@ -947,26 +1012,28 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   });
   yPos = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── Formal body text paragraphs (like CEPC) ──
+  // -- Formal body text paragraphs (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...grisTexte);
 
-  const para1 = "Le présent document, accompagné de l'ensemble des pièces justificatives du dossier, " +
-    "atteste de la faisabilité technique et financière du projet d'installation sur le territoire du bénéficiaire, " +
-    "sous réserve de la réintégration des aides acquises dans le plan de financement.";
+  const para1 = "Le present document, accompagne de l'ensemble des pieces justificatives du dossier, " +
+    "atteste de la faisabilite technique et financiere du projet d'installation sur le territoire du beneficiaire, " +
+    "sous reserve de la reintegration des aides acquises dans le plan de financement.";
   const lines1 = doc.splitTextToSize(para1, pageWidth - 28);
   doc.text(lines1, 14, yPos);
   yPos += lines1.length * 3.5 + 3;
 
-  const para2 = "Les estimations de production et d'économies présentées dans cette étude sont calculées " +
-    "sur la base des données fournies par le bénéficiaire et des conditions d'ensoleillement propres à la zone géographique. " +
-    "Les résultats réels pourront varier selon les conditions climatiques effectives et l'évolution des tarifs énergétiques.";
+  const para2 = "Les estimations de production et d'economies presentees dans cette etude sont calculees " +
+    "sur la base des donnees fournies par le beneficiaire et des conditions d'ensoleillement propres a la zone geographique. " +
+    "Les resultats reels pourront varier selon les conditions climatiques effectives et l'evolution des tarifs energetiques.";
   const lines2 = doc.splitTextToSize(para2, pageWidth - 28);
   doc.text(lines2, 14, yPos);
   yPos += lines2.length * 3.5 + 5;
 
-  // ── "RENSEIGNEMENTS" section (like CEPC) ──
+  // -- "RENSEIGNEMENTS" section (like CEPC) --
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   doc.setFillColor(240, 242, 245);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(...bleuMarianne);
@@ -978,11 +1045,11 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grisTexte);
-  doc.text("→  Sur www.france-renov.gouv.fr", 16, yPos);
+  doc.text("-> Sur www.france-renov.gouv.fr", 16, yPos);
   yPos += 4;
-  doc.text("→  Auprès de votre conseiller France Rénov' ou de votre espace territorial.", 16, yPos);
+  doc.text("-> Aupres de votre conseiller France Renov' ou de votre espace territorial.", 16, yPos);
   yPos += 4;
-  doc.text("→  Pour toute question relative aux aides financières et aux démarches administratives.", 16, yPos);
+  doc.text("-> Pour toute question relative aux aides financieres et aux demarches administratives.", 16, yPos);
   yPos += 6;
 
   return yPos;
@@ -994,6 +1061,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
 
 const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   const doc = new jsPDF();
+  patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];
   const isMulti = products.length > 1;
 
@@ -1028,7 +1096,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
       drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
       yPos = 42;
     }
-    yPos = drawPacPage(doc, data, yPos);
+    yPos = drawPacPage(doc, data, yPos, pvCtx);
   }
 
   // PAGE ITE
@@ -1038,7 +1106,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
       drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
       yPos = 42;
     }
-    yPos = drawItePage(doc, data, yPos);
+    yPos = drawItePage(doc, data, yPos, pvCtx);
   }
 
   // RÉCAP GLOBAL (multi-product only)
@@ -1046,7 +1114,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
     doc.addPage();
     drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
-    yPos = drawGlobalSummary(doc, data, yPos);
+    yPos = drawGlobalSummary(doc, data, yPos, pvCtx);
   }
 
   // Classification section if available (old format included it)
@@ -1390,7 +1458,7 @@ const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?:
   return yPos;
 };
 
-const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.pac) return yStart;
   const pac = data.pac;
   let yPos = yStart;
@@ -1413,6 +1481,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number =>
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
   if (pac.economies) {
+    if (ctx) yPos = ensureSpace(ctx, yPos, 35);
     autoTable(doc, {
       startY: yPos,
       head: [["Bilan Énergétique PAC", "", "", ""]],
@@ -1429,6 +1498,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number =>
     yPos = (doc as any).lastAutoTable.finalY + 4;
   }
 
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
   autoTable(doc, {
     startY: yPos,
@@ -1449,7 +1519,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number =>
   return (doc as any).lastAutoTable.finalY + 6;
 };
 
-const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   if (!data.ite) return yStart;
   const ite = data.ite;
   let yPos = yStart;
@@ -1472,6 +1542,7 @@ const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number): number =>
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   const totalAidesIte = ite.aides.maPrimeRenov + ite.aides.cee + ite.aides.ecoTva + ite.aides.aideLocale;
   const economieAnnuelle = ite.factureChaufActuelle * (ite.economieChauffagePct / 100);
 
@@ -1494,7 +1565,7 @@ const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number): number =>
   return (doc as any).lastAutoTable.finalY + 6;
 };
 
-const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const products = data.activeProducts || ["PV"];
   if (products.length <= 1) return yStart;
@@ -1598,6 +1669,7 @@ const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): num
 
 const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   const doc = new jsPDF();
+  patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];
   const isMulti = products.length > 1;
 
@@ -1652,7 +1724,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
       drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
       yPos = 38;
     }
-    yPos = drawCepcPacPage(doc, data, yPos);
+    yPos = drawCepcPacPage(doc, data, yPos, cepcCtx);
   }
 
   // PAGE ITE
@@ -1662,7 +1734,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
       drawCepcHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
       yPos = 38;
     }
-    yPos = drawCepcItePage(doc, data, yPos);
+    yPos = drawCepcItePage(doc, data, yPos, cepcCtx);
   }
 
   // RÉCAP GLOBAL
@@ -1670,7 +1742,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     doc.addPage();
     drawCepcHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 38;
-    yPos = drawCepcGlobalSummary(doc, data, yPos);
+    yPos = drawCepcGlobalSummary(doc, data, yPos, cepcCtx);
   }
 
   // CLASSIFICATION & OBSERVATIONS
@@ -1696,7 +1768,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   doc.addPage();
   drawCepcHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
   yPos = 38;
-  yPos = drawResultatEtude(doc, data, yPos);
+  yPos = drawResultatEtude(doc, data, yPos, cepcCtx);
 
   // CEPC Footers
   const totalPages = doc.getNumberOfPages();
