@@ -838,8 +838,10 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   
   let franceRenovBase64 = "";
   let ministereBase64 = "";
+  let enedisBase64 = "";
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
   
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
