@@ -1831,6 +1831,7 @@ const EtudeForm = () => {
       potentielFaisabilite: potentielFaisabilite || "Non défini",
       consoAnnuelle: Number(consoAnnuelle) || 0,
       factureMensuelle: Number(factureMensuelle) || 0,
+      consoIsEstimated,
       bouquetNom: `${puissanceKwc} kWc`,
       puissanceKwc: Number(puissanceKwc) || 0,
       typeRevente: typeRevente || "Non défini",
