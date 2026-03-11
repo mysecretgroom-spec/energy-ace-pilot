@@ -926,16 +926,17 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
     yPos = 42;
     yPos = drawGlobalSummary(doc, data, yPos);
-    
-    // Résultat d'étude on recap page
-    if (data.classification) {
-      yPos = drawResultatEtude(doc, data, yPos);
-    }
-  } else if (data.classification) {
-    // Single product: classification on same page
-    if (yPos > doc.internal.pageSize.getHeight() - 90) {
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════
+  // RÉSULTAT D'ÉTUDE — always on dedicated last page
+  // ═══════════════════════════════════════════════════════════════════════
+  if (data.classification) {
+    // Always start on a new page for a clean, official layout
+    const remainingSpace = doc.internal.pageSize.getHeight() - FOOTER_ZONE - yPos;
+    if (remainingSpace < 80) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
+      drawHeader(doc, data, franceRenovBase64, isMulti ? "RÉCAPITULATIF GLOBAL" : subtitle, ministereBase64);
       yPos = 42;
     }
     yPos = drawResultatEtude(doc, data, yPos);
