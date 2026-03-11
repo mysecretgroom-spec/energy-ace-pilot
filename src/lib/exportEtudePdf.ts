@@ -221,7 +221,7 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.line(14, 36, pageWidth - 14, 36);
 };
 
-const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
+const FOOTER_ZONE = 56; // reserved height at bottom for footer + logos on last page
 const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
 
 interface PageContext {
