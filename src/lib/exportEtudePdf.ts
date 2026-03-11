@@ -143,6 +143,8 @@ const sanitizePdfText = (text: string): string => {
     .replace(/[\u00A0\u202F\u2009\u200A\u2007\u2008\u200B\u200C\u200D\uFEFF]/g, " ")
     // Replace em/en dashes with simple hyphens
     .replace(/[\u2013\u2014]/g, "-")
+    // Replace arrows with ->
+    .replace(/[\u2192\u2190\u2191\u2193\u21D2]/g, "->")
     // Replace curly quotes with straight quotes
     .replace(/[\u2018\u2019\u201A]/g, "'")
     .replace(/[\u201C\u201D\u201E]/g, '"')
@@ -154,6 +156,11 @@ const sanitizePdfText = (text: string): string => {
     .replace(/\u00D7/g, "x")
     // Replace bullet
     .replace(/\u2022/g, "-")
+    // Replace check/cross marks
+    .replace(/[\u2713\u2714\u2705\u2611]/g, "V")
+    .replace(/[\u2717\u2718\u274C\u2612]/g, "X")
+    // Strip emojis (supplementary plane characters)
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, "")
     // Collapse multiple spaces
     .replace(/ {2,}/g, " ");
 };
