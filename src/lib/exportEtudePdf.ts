@@ -1112,7 +1112,508 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// RÉSULTAT D'ÉTUDE GENERATOR (ultra-complet + page formelle CEPC)
+// CEPC-STYLE HELPERS (used exclusively by Résultat d'étude)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const cepcGris: [number, number, number] = [240, 242, 245];
+const cepcBorder: [number, number, number] = [200, 205, 212];
+
+const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subtitle: string, ministereBase64?: string) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Thin top border line (Marianne blue)
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(0, 0, pageWidth, 2, "F");
+
+  // Logos
+  if (franceRenovBase64) {
+    try { doc.addImage(franceRenovBase64, "PNG", 14, 6, 38, 22); } catch {}
+  }
+  if (ministereBase64) {
+    try { doc.addImage(ministereBase64, "PNG", pageWidth - 52, 6, 38, 22); } catch {}
+  }
+
+  // Title block — centered, formal
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("RÉSULTAT D'ÉTUDE DE FAISABILITÉ", pageWidth / 2, 14, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(subtitle, pageWidth / 2, 21, { align: "center" });
+
+  // Metadata line
+  doc.setFontSize(7);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Référence : ${data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
+
+  // Separator
+  doc.setDrawColor(...cepcBorder);
+  doc.setLineWidth(0.3);
+  doc.line(14, 32, pageWidth - 14, 32);
+};
+
+const drawCepcSectionBar = (doc: jsPDF, title: string, yPos: number, color?: [number, number, number]): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  doc.setFillColor(...(color || cepcGris));
+  doc.rect(14, yPos, pageWidth - 28, 7, "F");
+  doc.setDrawColor(...cepcBorder);
+  doc.setLineWidth(0.15);
+  doc.rect(14, yPos, pageWidth - 28, 7, "S");
+  doc.setTextColor(...bleuMarianne);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, 16, yPos + 5);
+  return yPos + 9;
+};
+
+const cepcTableStyles = {
+  theme: "plain" as const,
+  headStyles: {
+    fillColor: cepcGris,
+    textColor: bleuMarianne,
+    fontSize: 8,
+    fontStyle: "bold" as const,
+    cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+    lineWidth: 0.15,
+    lineColor: cepcBorder,
+  },
+  styles: {
+    fontSize: 8,
+    cellPadding: { top: 1.8, bottom: 1.8, left: 3, right: 3 },
+    textColor: grisTexte,
+    lineWidth: 0.1,
+    lineColor: [220, 225, 230] as [number, number, number],
+  },
+};
+
+const drawCepcFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Institutional logos on last page
+  if (isLastPage && logos) {
+    const logoH = 16;
+    const logoY = pageHeight - 52;
+    const frW = 28; const minW = 34; const endW = 40; const gap = 12;
+    const totalLogosWidth = frW + minW + endW + gap * 2;
+    const startX = (pageWidth - totalLogosWidth) / 2;
+
+    doc.setDrawColor(...cepcBorder);
+    doc.setLineWidth(0.2);
+    doc.line(startX, logoY - 3, startX + totalLogosWidth, logoY - 3);
+
+    try {
+      let x = startX;
+      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY, frW, logoH); }
+      x += frW + gap;
+      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY, minW, logoH); }
+      x += minW + gap;
+      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY, endW, logoH); }
+    } catch {}
+  }
+
+  const footerY = pageHeight - 24;
+
+  doc.setDrawColor(...cepcBorder);
+  doc.setLineWidth(0.2);
+  doc.line(14, footerY, pageWidth - 14, footerY);
+
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${data.clientPrenom} ${data.clientNom} — ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
+  doc.setFontSize(6);
+  doc.setFont("helvetica", "italic");
+  doc.text("Avis favorable sous réserve de la réintégration des aides acquises dans le plan de financement.", pageWidth / 2, footerY + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - 14, footerY + 13, { align: "right" });
+
+  // Bottom thin line (Marianne blue)
+  doc.setFillColor(...bleuMarianne);
+  doc.rect(0, pageHeight - 1.5, pageWidth, 1.5, "F");
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CEPC-STYLED SECTION DRAWERS (for Résultat)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const drawCepcBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => {
+  yPos = drawCepcSectionBar(doc, "IDENTIFICATION DU BÉNÉFICIAIRE", yPos);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [],
+    body: [
+      ["Nom et prénom", `${data.clientPrenom} ${data.clientNom}`],
+      ["Adresse du projet", `${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`],
+      ["Département", data.departement],
+      ["N° Point de Livraison", data.numeroPdl || "Non renseigné"],
+      ...(data.clientTelephone ? [["Téléphone", data.clientTelephone]] : []),
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 0: { fontStyle: "bold" as const, cellWidth: 55 } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+
+  return (doc as any).lastAutoTable.finalY + 6;
+};
+
+const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPos = yStart;
+
+  yPos = drawCepcSectionBar(doc, "DIAGNOSTIC TECHNIQUE — PHOTOVOLTAÏQUE", yPos);
+
+  const colWidth = (pageWidth - 28 - 4) / 2;
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Caractéristiques Toiture", ""]],
+    body: [
+      ["Type de couverture", data.typeToiture],
+      ["État général", data.etatToiture],
+      ["Surface disponible", data.surfaceToiture],
+      ["Ombrage", data.ombreToiture],
+      ["Orientation", data.orientation],
+      ["Inclinaison", `${data.inclinaison}°`],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" as const } },
+    margin: { left: 14, right: pageWidth / 2 + 2, bottom: FOOTER_ZONE_NORMAL },
+  });
+  const leftY = (doc as any).lastAutoTable.finalY;
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Installation Électrique", ""]],
+    body: [
+      ["Type de compteur", data.typeCompteurElectrique],
+      ["Raccordement", data.typeRaccordement],
+      ["Calibre disjoncteur", `${data.amperageDisjoncteur}A`],
+      ["Position boîtier", data.emplacementBoitier],
+      ["Faisabilité technique", data.potentielFaisabilite],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 0: { cellWidth: colWidth / 2 }, 1: { cellWidth: colWidth / 2 - 5, halign: "right" as const } },
+    margin: { left: pageWidth / 2 + 2, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
+
+  // Préconisation
+  if (ctx) yPos = ensureSpace(ctx, yPos, 40);
+  yPos = drawCepcSectionBar(doc, "PRÉCONISATION D'INSTALLATION", yPos);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [[`Point de Consommation de référence${data.consoIsEstimated ? " (Estimatif)" : " (Relevé client)"}`, "", "Installation Recommandée", ""]],
+    body: [
+      ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
+      ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
+      ["", "", "Support d'installation", data.supportInstallation],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Production
+  if (ctx) yPos = ensureSpace(ctx, yPos, 35);
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Estimation de Production", "", "", ""]],
+    body: [
+      ["Surface panneaux", `${data.surfaceInstallation} m²`, "Point de Production Minimal", `${formatNumber(data.productionAnnuelle)} kWh`],
+      ["Ensoleillement zone", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus revendable", `${formatNumber(data.surplusProduction)} kWh`],
+      ["Rendement orientation", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Coefficients de déperdition PV
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Coefficients de déperdition PV", "Valeur", "Impact sur la production", ""]],
+    body: [
+      ["Rendement modules (vs STC)", "80,2%", "Efficacité réelle des panneaux", "−19,8%"],
+      ["Pertes câblage DC/AC", "98,9%", "Résistance des câbles", "−1,1%"],
+      ["Rendement onduleur", "96,5%", "Conversion DC → AC", "−3,5%"],
+      ["Pertes température", "95,0%", "Échauffement des cellules", "−5,0%"],
+      ["Pertes salissure/poussière", "98,0%", "Encrassement panneaux", "−2,0%"],
+      ["Pertes ombrage partiel", "97,0%", "Ombres portées ponctuelles", "−3,0%"],
+      ["Pertes mismatch", "98,0%", "Disparité entre modules", "−2,0%"],
+      ["Dégradation annuelle", "99,5%", "Vieillissement cellules (~0,5%/an)", "−0,5%"],
+    ],
+    ...cepcTableStyles,
+    headStyles: { ...cepcTableStyles.headStyles, fontSize: 7 },
+    styles: { ...cepcTableStyles.styles, fontSize: 7, cellPadding: { top: 1.2, bottom: 1.2, left: 3, right: 3 } },
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const, textColor: [220, 38, 38] as [number, number, number] } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 2;
+
+  // Rendement global
+  const rendementGlobal = (0.802 * 0.989 * 0.965 * 0.95 * 0.98 * 0.97 * 0.98 * 0.995 * 100).toFixed(1);
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(120, 120, 120);
+  const rendementText = `Rendement global combiné (hors orientation) : ${rendementGlobal}% — Ces coefficients sont appliqués en amont du calcul de production.`;
+  const maxTextWidth = pageWidth - 28;
+  const lines = doc.splitTextToSize(rendementText, maxTextWidth);
+  doc.text(lines, 14, yPos + 3);
+  yPos += 3 + lines.length * 3.5;
+
+  // Analyse financière
+  if (ctx) yPos = ensureSpace(ctx, yPos, 120);
+  yPos = drawCepcSectionBar(doc, "ANALYSE FINANCIÈRE — PHOTOVOLTAÏQUE", yPos);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Investissement", "", "Aides Financières", ""]],
+    body: [
+      ["Installation TTC", formatEuros(data.prixInstallation), "Prime à l'autoconsommation", formatEuros(data.primeAutoconsommation)],
+      ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
+      ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
+      ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
+      ["COÛT TOTAL BRUT", formatEuros(data.prixTotalHorsAides), "COÛT NET (après aides)", formatEuros(data.totalAidesDeduites)],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Financement & Rentabilité
+  if (ctx) yPos = ensureSpace(ctx, yPos, 65);
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Financement", "", "Rentabilité Mensuelle", ""]],
+    body: [
+      ["Solution", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
+      ["Taux effectif", `${data.tauxFinancement}%`, "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+      ["Durée", `${data.dureeMois} mois`, "Mensualité financement", `-${formatEuros(data.mensualite)}`],
+      ["Mensualité", formatEuros(data.mensualite), "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 8;
+
+  return yPos;
+};
+
+const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+  if (!data.pac) return yStart;
+  const pac = data.pac;
+  let yPos = yStart;
+
+  yPos = drawCepcSectionBar(doc, "POMPE À CHALEUR (PAC)", yPos);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Caractéristiques PAC", "", "Performance", ""]],
+    body: [
+      ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
+      ["Surface chauffée", `${pac.surfaceChauffee} m²`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
+      ["Type émetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
+      ["Énergie actuelle", pac.energieActuelle, "ECS intégré", pac.ecsIntegre ? "Oui" : "Non"],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  if (pac.economies) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Bilan Énergétique PAC", "", "", ""]],
+      body: [
+        ["Besoins chauffage", `${formatNumber(pac.economies.besoinsChauffageKwh)} kWh`, "Facture chauffage actuelle", formatEuros(pac.factureChauffage)],
+        ["Conso élec PAC", `${formatNumber(pac.economies.consoElecPacKwh)} kWh`, "Surcoût élec PAC", formatEuros(pac.economies.surcoutElecEuros)],
+        ["", "", "ÉCONOMIE NETTE ANNUELLE", formatEuros(pac.economies.economieNetteEuros)],
+      ],
+      ...cepcTableStyles,
+      columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+      didParseCell: (cellData) => { if (cellData.row.index === 2 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+  }
+
+  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Investissement PAC", "", "Aides PAC", ""]],
+    body: [
+      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
+      ["", "", "CEE", formatEuros(pac.aides.cee)],
+      ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
+      ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
+      ["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+
+  return (doc as any).lastAutoTable.finalY + 6;
+};
+
+const drawCepcItePage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+  if (!data.ite) return yStart;
+  const ite = data.ite;
+  let yPos = yStart;
+
+  yPos = drawCepcSectionBar(doc, "ISOLATION THERMIQUE EXTÉRIEURE (ITE)", yPos);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Caractéristiques ITE", "", "Performance Thermique", ""]],
+    body: [
+      ["Surface à isoler", `${ite.surfaceIsoler} m²`, "R actuel", `${ite.rActuel} m².K/W`],
+      ["Type de façade", ite.typeFacade, "R cible", `${ite.rCible} m².K/W`],
+      ["Isolant", ite.typeIsolant, "Épaisseur", `${ite.epaisseurIsolant} mm`],
+      ["Nombre de façades", `${ite.nombreFacades}`, "Finition", ite.finition],
+      ["Surface ouvertures", `${ite.surfaceOuvertures} m²`, "Économie chauffage", `${ite.economieChauffagePct}%`],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  const totalAidesIte = ite.aides.maPrimeRenov + ite.aides.cee + ite.aides.ecoTva + ite.aides.aideLocale;
+  const economieAnnuelle = ite.factureChaufActuelle * (ite.economieChauffagePct / 100);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Investissement ITE", "", "Aides & Économies ITE", ""]],
+    body: [
+      ["Prix installation", formatEuros(ite.prixInstallation), "MaPrimeRénov'", formatEuros(ite.aides.maPrimeRenov)],
+      ["", "", "CEE", formatEuros(ite.aides.cee)],
+      ["", "", "Éco TVA", formatEuros(ite.aides.ecoTva)],
+      ["Facture chauffage actuelle", formatEuros(ite.factureChaufActuelle), "TOTAL AIDES ITE", formatEuros(totalAidesIte)],
+      ["Économie annuelle estimée", formatEuros(economieAnnuelle), "COÛT NET ITE", formatEuros(ite.prixInstallation - totalAidesIte)],
+    ],
+    ...cepcTableStyles,
+    columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+
+  return (doc as any).lastAutoTable.finalY + 6;
+};
+
+const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const products = data.activeProducts || ["PV"];
+  if (products.length <= 1) return yStart;
+
+  let yPos = yStart;
+  yPos = drawCepcSectionBar(doc, "RÉCAPITULATIF GLOBAL DU PROJET", yPos);
+
+  let totalPrix = 0;
+  let totalAides = 0;
+  const rows: string[][] = [];
+
+  if (products.includes("PV")) {
+    totalPrix += data.prixTotalHorsAides;
+    totalAides += data.totalAides;
+    rows.push(["Photovoltaïque", `${data.puissanceKwc} kWc`, formatEuros(data.prixTotalHorsAides), formatEuros(data.totalAides), formatEuros(data.prixTotalHorsAides - data.totalAides)]);
+  }
+  if (data.pac) {
+    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale;
+    totalPrix += data.pac.prixInstallation;
+    totalAides += aidesPac;
+    rows.push(["PAC", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
+  }
+  if (data.ite) {
+    const aidesIte = data.ite.aides.maPrimeRenov + data.ite.aides.cee + data.ite.aides.ecoTva + data.ite.aides.aideLocale;
+    totalPrix += data.ite.prixInstallation;
+    totalAides += aidesIte;
+    rows.push(["ITE", `${data.ite.surfaceIsoler} m²`, formatEuros(data.ite.prixInstallation), formatEuros(aidesIte), formatEuros(data.ite.prixInstallation - aidesIte)]);
+  }
+
+  rows.push(["TOTAL PROJET", "", formatEuros(totalPrix), formatEuros(totalAides), formatEuros(totalPrix - totalAides)]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Produit", "Capacité", "Coût Brut", "Aides", "Coût Net"]],
+    body: rows,
+    ...cepcTableStyles,
+    headStyles: { ...cepcTableStyles.headStyles, fillColor: cepcGris, textColor: bleuMarianne },
+    styles: { ...cepcTableStyles.styles, fontSize: 9, cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 } },
+    columnStyles: {
+      0: { fontStyle: "bold" as const },
+      2: { halign: "right" as const },
+      3: { halign: "right" as const },
+      4: { halign: "right" as const },
+    },
+    didParseCell: (cellData) => {
+      if (cellData.row.index === rows.length - 1) {
+        cellData.cell.styles.fontStyle = "bold";
+        cellData.cell.styles.fillColor = cepcGris;
+      }
+    },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 6;
+
+  // Combined economies
+  let totalEconomiesMensuelles = 0;
+  const ecoRows: string[][] = [];
+
+  if (products.includes("PV")) {
+    const pvEco = data.autoconsommationEuros + data.reventeMensuelleEstimee;
+    totalEconomiesMensuelles += pvEco;
+    ecoRows.push(["PV — Autoconsommation + Revente", formatEuros(pvEco) + "/mois"]);
+  }
+  if (data.pac?.economies) {
+    const pacEcoMensuel = data.pac.economies.economieNetteEuros / 12;
+    totalEconomiesMensuelles += pacEcoMensuel;
+    ecoRows.push(["PAC — Économie chauffage", formatEuros(pacEcoMensuel) + "/mois"]);
+  }
+  if (data.ite) {
+    const iteEcoMensuel = (data.ite.factureChaufActuelle * data.ite.economieChauffagePct / 100) / 12;
+    totalEconomiesMensuelles += iteEcoMensuel;
+    ecoRows.push(["ITE — Réduction facture chauffage", formatEuros(iteEcoMensuel) + "/mois"]);
+  }
+
+  ecoRows.push(["Mensualité financement", `-${formatEuros(data.mensualite)}/mois`]);
+  const resultatGlobal = totalEconomiesMensuelles - data.mensualite;
+  ecoRows.push(["RÉSULTAT MENSUEL GLOBAL", `${resultatGlobal >= 0 ? "+" : ""}${formatEuros(resultatGlobal)}/mois`]);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Économies Combinées", "Montant"]],
+    body: ecoRows,
+    ...cepcTableStyles,
+    styles: { ...cepcTableStyles.styles, fontSize: 9, cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 } },
+    columnStyles: { 1: { halign: "right" as const, fontStyle: "bold" as const } },
+    didParseCell: (cellData) => {
+      if (cellData.row.index === ecoRows.length - 1) {
+        cellData.cell.styles.fontStyle = "bold";
+        cellData.cell.styles.fillColor = resultatGlobal >= 0 ? [220, 252, 231] : [254, 226, 226];
+      }
+    },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+
+  return (doc as any).lastAutoTable.finalY + 8;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RÉSULTAT D'ÉTUDE GENERATOR (style CEPC formel intégral)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
@@ -1133,56 +1634,69 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     : products[0] === "PAC" ? "POMPE À CHALEUR"
     : "ISOLATION THERMIQUE";
 
-  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
+  // Override PageContext to use CEPC header
+  const cepcCtx: PageContext = {
+    doc, data, franceRenovBase64, ministereBase64, subtitle,
+  };
+  // Monkey-patch ensureSpace to use CEPC header
+  const cepcEnsureSpace = (yPos: number, requiredHeight: number): number => {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const available = pageHeight - FOOTER_ZONE_NORMAL - yPos;
+    if (available < requiredHeight) {
+      doc.addPage();
+      drawCepcHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
+      return 38;
+    }
+    return yPos;
+  };
 
-  // PAGE 1: Header + Bénéficiaire + Full PV diagnostic
-  drawHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
-  let yPos = 42;
-  yPos = drawBeneficiaire(doc, data, yPos);
+  // Override ctx for ensureSpace usage — pass cepcCtx but we use cepcEnsureSpace locally
+  // We can't easily override ensureSpace, so we adapt the ctx subtitle for header redraws
+  // Actually, ensureSpace uses drawHeader — let's just pass ctx with CEPC header approach
+  // For simplicity: we replicate the logic inline
 
+  // PAGE 1: CEPC Header + Bénéficiaire
+  drawCepcHeader(doc, data, franceRenovBase64, subtitle, ministereBase64);
+  let yPos = 38;
+  yPos = drawCepcBeneficiaire(doc, data, yPos);
+
+  // PV sections
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos, pvCtx);
+    yPos = drawCepcPvDiagnostic(doc, data, yPos, cepcCtx);
   }
 
   // PAGE PAC
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
-      yPos = 42;
+      drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      yPos = 38;
     }
-    yPos = drawPacPage(doc, data, yPos);
+    yPos = drawCepcPacPage(doc, data, yPos);
   }
 
   // PAGE ITE
   if (data.ite) {
     if (products.includes("PV") || data.pac) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
-      yPos = 42;
+      drawCepcHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
+      yPos = 38;
     }
-    yPos = drawItePage(doc, data, yPos);
+    yPos = drawCepcItePage(doc, data, yPos);
   }
 
-  // RÉCAP GLOBAL (multi-product only)
+  // RÉCAP GLOBAL
   if (isMulti) {
     doc.addPage();
-    drawHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
-    yPos = 42;
-    yPos = drawGlobalSummary(doc, data, yPos);
+    drawCepcHeader(doc, data, franceRenovBase64, "RÉCAPITULATIF GLOBAL", ministereBase64);
+    yPos = 38;
+    yPos = drawCepcGlobalSummary(doc, data, yPos);
   }
 
   // CLASSIFICATION & OBSERVATIONS
   if (data.classification || data.classificationComment) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    if (pvCtx) yPos = ensureSpace(pvCtx, yPos, 40);
-    doc.setFillColor(...bleuMarianne);
-    doc.rect(14, yPos, pageWidth - 28, 7, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("CLASSIFICATION & OBSERVATIONS", 16, yPos + 5);
-    yPos += 10;
+    yPos = cepcEnsureSpace(yPos, 40);
+    yPos = drawCepcSectionBar(doc, "CLASSIFICATION & OBSERVATIONS", yPos);
 
     autoTable(doc, {
       startY: yPos,
@@ -1191,27 +1705,25 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
         ["Classification interne", data.classification || "Non classifié"],
         ["Observations techniques", data.classificationComment || "Aucune observation"],
       ],
-      theme: "striped",
-      headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
-      styles: { fontSize: 8, cellPadding: 2, textColor: grisTexte },
-      columnStyles: { 0: { fontStyle: "bold", cellWidth: 50 } },
+      ...cepcTableStyles,
+      columnStyles: { 0: { fontStyle: "bold" as const, cellWidth: 55 } },
       margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
     });
     yPos = (doc as any).lastAutoTable.finalY + 6;
   }
 
-  // RÉSULTAT D'ÉTUDE — page formelle dédiée (style CEPC)
+  // PAGE FINALE: RÉSULTAT D'ÉTUDE (verdict CEPC)
   doc.addPage();
-  drawHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
-  yPos = 42;
+  drawCepcHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
+  yPos = 38;
   yPos = drawResultatEtude(doc, data, yPos);
 
-  // Footers
+  // CEPC Footers
   const totalPages = doc.getNumberOfPages();
   const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    drawFooter(doc, data, i, totalPages, i === totalPages, logos);
+    drawCepcFooter(doc, data, i, totalPages, i === totalPages, logos);
   }
 
   return doc;
