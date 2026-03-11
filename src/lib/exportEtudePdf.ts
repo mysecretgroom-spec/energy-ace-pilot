@@ -809,6 +809,14 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
   doc.text(`Conclusion : ${classificationLabels[data.classification || ""] || data.classification || ""}`, 14, yPos);
   yPos += 6;
 
+  // Avis favorable
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(...bleuMarianne);
+  doc.text("Avis favorable sous réserve de la réintégration des aides acquises dans le plan de financement.", 14, yPos);
+  doc.setTextColor(...grisTexte);
+  yPos += 6;
+
   if (data.classificationComment) {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
