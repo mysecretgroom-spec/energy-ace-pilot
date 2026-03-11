@@ -1045,6 +1045,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number): number 
 
 const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   const doc = new jsPDF();
+  patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];
   const isMulti = products.length > 1;
 
