@@ -224,6 +224,29 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
 const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
 const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
 
+interface PageContext {
+  doc: jsPDF;
+  data: EtudeData;
+  franceRenovBase64: string;
+  ministereBase64: string;
+  subtitle: string;
+}
+
+/**
+ * Check if there's enough vertical space for a section.
+ * If not, add a new page with header and return the new yPos.
+ */
+const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): number => {
+  const pageHeight = ctx.doc.internal.pageSize.getHeight();
+  const available = pageHeight - FOOTER_ZONE_NORMAL - yPos;
+  if (available < requiredHeight) {
+    ctx.doc.addPage();
+    drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+    return 42;
+  }
+  return yPos;
+};
+
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -316,7 +339,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
@@ -369,6 +392,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = Math.max(leftY, (doc as any).lastAutoTable.finalY) + 6;
   
   // Préconisation
+  if (ctx) yPos = ensureSpace(ctx, yPos, 40);
   doc.setFillColor(...bleuMarianne);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
@@ -394,6 +418,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Production
+  if (ctx) yPos = ensureSpace(ctx, yPos, 35);
   autoTable(doc, {
     startY: yPos,
     head: [["Estimation de Production", "", "", ""]],
@@ -411,6 +436,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
   // Coefficients de déperdition PV
+  if (ctx) yPos = ensureSpace(ctx, yPos, 50);
   autoTable(doc, {
     startY: yPos,
     head: [["Coefficients de déperdition PV", "Valeur", "Impact sur la production", ""]],
@@ -443,7 +469,8 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   doc.text(lines, 14, yPos + 3);
   yPos += 3 + lines.length * 3.5;
   
-  // Analyse financière
+  // Analyse financière — need space for header + investment table + financement + verdict (~120mm)
+  if (ctx) yPos = ensureSpace(ctx, yPos, 120);
   doc.setFillColor(...bleuMarianne);
   doc.rect(14, yPos, pageWidth - 28, 7, "F");
   doc.setTextColor(255, 255, 255);
@@ -472,6 +499,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Financement & Rentabilité
+  if (ctx) yPos = ensureSpace(ctx, yPos, 65);
   autoTable(doc, {
     startY: yPos,
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
@@ -491,6 +519,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   yPos = (doc as any).lastAutoTable.finalY + 8;
   
   // Verdict
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   let verdictColor = successColor;
   let verdictText = "PROJET VIABLE";
   let verdictDesc = "Les conditions techniques et financières sont favorables";
@@ -893,6 +922,8 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
     : products[0] === "PAC" ? "POMPE À CHALEUR"
     : "ISOLATION THERMIQUE";
   
+  const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
+  
   // ═══════════════════════════════════════════════════════════════════════
   // PAGE 1: Header + Bénéficiaire + PV (or first product)
   // ═══════════════════════════════════════════════════════════════════════
@@ -901,7 +932,7 @@ const generatePdfDoc = async (data: EtudeData): Promise<jsPDF> => {
   yPos = drawBeneficiaire(doc, data, yPos);
   
   if (products.includes("PV")) {
-    yPos = drawPvPage(doc, data, yPos);
+    yPos = drawPvPage(doc, data, yPos, pvCtx);
   }
   
   // ═══════════════════════════════════════════════════════════════════════
