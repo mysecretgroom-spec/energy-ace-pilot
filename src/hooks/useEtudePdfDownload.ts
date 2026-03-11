@@ -51,8 +51,12 @@ export function useEtudePdfDownload() {
       }
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
-        console.error("[PDF Download]", err);
-        toast.error("Erreur lors du téléchargement du PDF");
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const errStack = err instanceof Error ? err.stack : "";
+        console.error("[PDF Download] Error:", errMsg);
+        console.error("[PDF Download] Stack:", errStack);
+        console.error("[PDF Download] Full error:", err);
+        toast.error(`Erreur PDF: ${errMsg?.substring(0, 80) || "inconnue"}`);
       }
     } finally {
       setLoading(false);
