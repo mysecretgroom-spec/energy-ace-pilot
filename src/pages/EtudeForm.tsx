@@ -1920,7 +1920,7 @@ const EtudeForm = () => {
   ]);
 
   // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
-  const { generateAndStorePdf } = useEtudePdfAutoSave({
+  const { generateAndStorePdf, generateAndStoreResultatPdf } = useEtudePdfAutoSave({
     etudeId: currentEtudeId,
     clientName,
     clientPrenom,
