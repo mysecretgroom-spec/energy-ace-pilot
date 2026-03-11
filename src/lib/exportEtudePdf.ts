@@ -221,25 +221,34 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.line(14, 36, pageWidth - 14, 36);
 };
 
+const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
+const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
+
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Last page: logos bar above footer text
+  // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 10;
-    const logoW = 28;
-    const logoY = pageHeight - 35; // well above footer line
-    const totalLogosWidth = logoW * 3 + 16;
+    const logoH = 12;
+    const logoW = 32;
+    const logoY = pageHeight - 40;
+    const totalLogosWidth = logoW * 3 + 20;
     const startX = (pageWidth - totalLogosWidth) / 2;
+
+    // Subtle separator above logos
+    doc.setDrawColor(200, 205, 212);
+    doc.setLineWidth(0.2);
+    doc.line(startX, logoY - 3, startX + totalLogosWidth, logoY - 3);
+
     try {
       if (logos.franceRenov) doc.addImage(logos.franceRenov, "PNG", startX, logoY, logoW, logoH);
-      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 8, logoY, logoW, logoH);
-      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 8) * 2, logoY, logoW, logoH);
+      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 10, logoY, logoW, logoH);
+      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 10) * 2, logoY, logoW, logoH);
     } catch {}
   }
 
-  const footerY = pageHeight - 20;
+  const footerY = pageHeight - 24;
   
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.3);
@@ -248,12 +257,14 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
   doc.setTextColor(...grisTexte);
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.text(`${data.clientPrenom} ${data.clientNom} - ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
+  doc.text(`${data.clientPrenom} ${data.clientNom} — ${data.clientAdresse}, ${data.clientCodePostal} ${data.clientVille}`, 14, footerY + 4);
   doc.setFontSize(6);
+  doc.setFont("helvetica", "italic");
   doc.text("Ce document est une étude préliminaire de faisabilité et ne constitue pas un engagement contractuel.", pageWidth / 2, footerY + 9, { align: "center" });
+  doc.setFont("helvetica", "normal");
   doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - 14, footerY + 13, { align: "right" });
   
-  // Bottom tricolor
+  // Bottom tricolor band
   doc.setFillColor(...bleuMarianne);
   doc.rect(0, pageHeight - 3, pageWidth / 3, 3, "F");
   doc.setFillColor(255, 255, 255);
