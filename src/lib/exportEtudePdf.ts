@@ -1758,7 +1758,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   doc.addPage();
   drawCepcHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
   yPos = 38;
-  yPos = drawResultatEtude(doc, data, yPos);
+  yPos = drawResultatEtude(doc, data, yPos, cepcCtx);
 
   // CEPC Footers
   const totalPages = doc.getNumberOfPages();
