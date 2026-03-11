@@ -224,6 +224,29 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
 const FOOTER_ZONE = 42; // reserved height at bottom for footer + logos on last page
 const FOOTER_ZONE_NORMAL = 28; // reserved height on non-last pages
 
+interface PageContext {
+  doc: jsPDF;
+  data: EtudeData;
+  franceRenovBase64: string;
+  ministereBase64: string;
+  subtitle: string;
+}
+
+/**
+ * Check if there's enough vertical space for a section.
+ * If not, add a new page with header and return the new yPos.
+ */
+const ensureSpace = (ctx: PageContext, yPos: number, requiredHeight: number): number => {
+  const pageHeight = ctx.doc.internal.pageSize.getHeight();
+  const available = pageHeight - FOOTER_ZONE_NORMAL - yPos;
+  if (available < requiredHeight) {
+    ctx.doc.addPage();
+    drawHeader(ctx.doc, ctx.data, ctx.franceRenovBase64, ctx.subtitle, ctx.ministereBase64);
+    return 42;
+  }
+  return yPos;
+};
+
 const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: number, isLastPage = false, logos?: { franceRenov: string; ministere: string; enedis: string }) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
