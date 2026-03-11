@@ -476,7 +476,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
     didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
-    margin: { left: 14, right: 14, bottom: 25 },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 8;
   
