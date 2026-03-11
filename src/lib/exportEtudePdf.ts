@@ -344,7 +344,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
   
   autoTable(doc, {
     startY: yPos,
-    head: [["Consommation Actuelle", "", "Installation Recommandée", ""]],
+    head: [["Point de Consommation de référence", "", "Installation Recommandée", ""]],
     body: [
       ["Consommation annuelle", `${formatNumber(data.consoAnnuelle)} kWh`, "Configuration", data.bouquetNom],
       ["Facture mensuelle moy.", formatEuros(data.factureMensuelle), "Puissance crête", `${data.puissanceKwc} kWc`],
@@ -363,7 +363,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
     startY: yPos,
     head: [["Estimation de Production", "", "", ""]],
     body: [
-      ["Surface panneaux", `${data.surfaceInstallation} m²`, "Production annuelle", `${formatNumber(data.productionAnnuelle)} kWh`],
+      ["Surface panneaux", `${data.surfaceInstallation} m²`, "Point de Production Minimal", `${formatNumber(data.productionAnnuelle)} kWh`],
       ["Ensoleillement zone", `${formatNumber(data.heuresEnsoleillement)} h/an`, "Surplus revendable", `${formatNumber(data.surplusProduction)} kWh`],
       ["Rendement système", `${data.rendementProductivite}%`, "Taux autoconsommation", `${formatNumber(data.autoconsoPct, 1)}%`],
     ],
