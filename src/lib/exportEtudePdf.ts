@@ -1731,7 +1731,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
       drawCepcHeader(doc, data, franceRenovBase64, "ISOLATION THERMIQUE EXTÉRIEURE", ministereBase64);
       yPos = 38;
     }
-    yPos = drawCepcItePage(doc, data, yPos);
+    yPos = drawCepcItePage(doc, data, yPos, cepcCtx);
   }
 
   // RÉCAP GLOBAL
