@@ -231,9 +231,13 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
   // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
     const logoH = 12;
-    const logoW = 32;
-    const logoY = pageHeight - 40;
-    const totalLogosWidth = logoW * 3 + 20;
+    const logoY = pageHeight - 42;
+    // Each logo has different natural proportions — use individual widths
+    const frW = 28;  // France Rénov': roughly square-ish
+    const minW = 34;  // Ministère: wider text block
+    const endW = 40;  // Enedis: wide horizontal logo — must not be squeezed
+    const gap = 12;
+    const totalLogosWidth = frW + minW + endW + gap * 2;
     const startX = (pageWidth - totalLogosWidth) / 2;
 
     // Subtle separator above logos
@@ -242,9 +246,12 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
     doc.line(startX, logoY - 3, startX + totalLogosWidth, logoY - 3);
 
     try {
-      if (logos.franceRenov) doc.addImage(logos.franceRenov, "PNG", startX, logoY, logoW, logoH);
-      if (logos.ministere) doc.addImage(logos.ministere, "PNG", startX + logoW + 10, logoY, logoW, logoH);
-      if (logos.enedis) doc.addImage(logos.enedis, "PNG", startX + (logoW + 10) * 2, logoY, logoW, logoH);
+      let x = startX;
+      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY, frW, logoH); }
+      x += frW + gap;
+      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY, minW, logoH); }
+      x += minW + gap;
+      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY, endW, logoH); }
     } catch {}
   }
 
