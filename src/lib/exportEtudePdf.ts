@@ -519,6 +519,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   yPos = (doc as any).lastAutoTable.finalY + 8;
   
   // Verdict
+  if (ctx) yPos = ensureSpace(ctx, yPos, 30);
   let verdictColor = successColor;
   let verdictText = "PROJET VIABLE";
   let verdictDesc = "Les conditions techniques et financières sont favorables";
