@@ -418,6 +418,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
   yPos = (doc as any).lastAutoTable.finalY + 4;
   
   // Production
+  if (ctx) yPos = ensureSpace(ctx, yPos, 35);
   autoTable(doc, {
     startY: yPos,
     head: [["Estimation de Production", "", "", ""]],
