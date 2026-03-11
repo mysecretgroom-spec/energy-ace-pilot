@@ -2682,7 +2682,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="11600"
                     value={consoAnnuelle}
-                    onChange={(e) => setConsoAnnuelle(e.target.value ? Number(e.target.value) : "")}
+                    onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
