@@ -339,7 +339,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
 // ═══════════════════════════════════════════════════════════════════════════
 // PAGE PV
 // ═══════════════════════════════════════════════════════════════════════════
-const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = yStart;
   
