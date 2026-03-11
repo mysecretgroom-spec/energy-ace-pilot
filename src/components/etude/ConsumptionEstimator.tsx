@@ -200,7 +200,12 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
     const count = details.count || 1;
     switch (id) {
       case "piscine": {
-        const kwhPerM3 = coefficients.piscine_kwh_m3 || 90;
+        const mode = details.mode || 0; // 0 = chauffee_filtree, 1 = filtree_seule
+        // Chauffée + filtrée : ~90 kWh/m³/an (chauffage + pompe filtration)
+        // Filtrée uniquement : ~45 kWh/m³/an (pompe filtration seule)
+        const kwhPerM3Heated = coefficients.piscine_kwh_m3 || 90;
+        const kwhPerM3FilterOnly = coefficients.piscine_filtree_kwh_m3 || 45;
+        const kwhPerM3 = mode === 1 ? kwhPerM3FilterOnly : kwhPerM3Heated;
         return Math.round((details.volume_m3 || 50) * kwhPerM3 * count);
       }
       case "jacuzzi": {
