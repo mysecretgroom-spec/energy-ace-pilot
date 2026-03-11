@@ -720,7 +720,7 @@ const drawItePage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
 // ═══════════════════════════════════════════════════════════════════════════
 // RÉCAP GLOBAL MULTI-PRODUIT
 // ═══════════════════════════════════════════════════════════════════════════
-const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number): number => {
+const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext): number => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const products = data.activeProducts || ["PV"];
   if (products.length <= 1) return yStart;
