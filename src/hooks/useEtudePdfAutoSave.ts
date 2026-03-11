@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { EtudeData, getEtudePdfBlob } from "@/lib/exportEtudePdf";
+import { EtudeData, getEtudePdfBlob, getResultatPdfBlob } from "@/lib/exportEtudePdf";
 import { toast } from "sonner";
 
 interface UseEtudePdfAutoSaveProps {
@@ -14,6 +14,7 @@ interface UseEtudePdfAutoSaveProps {
 
 interface UseEtudePdfAutoSaveReturn {
   generateAndStorePdf: () => Promise<string | null>;
+  generateAndStoreResultatPdf: () => Promise<string | null>;
   getLatestPdfUrl: () => Promise<string | null>;
   lastPdfUrl: string | null;
 }
@@ -98,6 +99,50 @@ export const useEtudePdfAutoSave = ({
     }
   }, [etudeId, userId, clientName, clientPrenom, buildPdfData]);
 
+  // Generate Résultat d'étude PDF (CEPC formal) and upload
+  const generateAndStoreResultatPdf = useCallback(async (): Promise<string | null> => {
+    if (!etudeId || !userId) {
+      console.log("[PDF Résultat] No etudeId or userId, skipping");
+      return null;
+    }
+
+    const pdfData = buildPdfData();
+    if (!pdfData) {
+      console.log("[PDF Résultat] No PDF data available, skipping");
+      return null;
+    }
+
+    try {
+      console.log("[PDF Résultat] Generating Résultat d'étude PDF...");
+      const pdfBlob = await getResultatPdfBlob(pdfData);
+
+      const safeName = `${clientPrenom}_${clientName}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const fileName = `${userId}/${etudeId}/Resultat_${safeName}.pdf`;
+
+      // Upload (upsert to always keep latest version)
+      const { data, error } = await supabase.storage
+        .from("etudes-pdf")
+        .upload(fileName, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (error) {
+        if (error.message?.includes("Bucket not found")) {
+          console.log("[PDF Résultat] Bucket not found, PDF not stored");
+          return null;
+        }
+        throw error;
+      }
+
+      console.log("[PDF Résultat] Résultat PDF generated and stored:", data.path);
+      return data.path;
+    } catch (error) {
+      console.error("[PDF Résultat] Error generating/storing Résultat PDF:", error);
+      return null;
+    }
+  }, [etudeId, userId, clientName, clientPrenom, buildPdfData]);
+
   // Get latest PDF URL from storage
   const getLatestPdfUrl = useCallback(async (): Promise<string | null> => {
     if (!etudeId || !userId) return null;
@@ -155,6 +200,7 @@ export const useEtudePdfAutoSave = ({
 
   return {
     generateAndStorePdf,
+    generateAndStoreResultatPdf,
     getLatestPdfUrl,
     lastPdfUrl: lastPdfUrlRef.current,
   };

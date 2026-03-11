@@ -1518,6 +1518,10 @@ const EtudeForm = () => {
       // 4. PDF generation (fire-and-forget)
       if (shouldGeneratePdf) {
         postSaveOps.push(generateAndStorePdf().catch(err => console.error("PDF generation error:", err)).then(() => {}));
+        // 5. Generate Résultat d'étude PDF when "Terminé" is used
+        if (wasForceSync) {
+          postSaveOps.push(generateAndStoreResultatPdf().catch(err => console.error("Résultat PDF generation error:", err)).then(() => {}));
+        }
       }
 
       // Run all in parallel, log errors but don't block
@@ -1920,7 +1924,7 @@ const EtudeForm = () => {
   ]);
 
   // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
-  const { generateAndStorePdf } = useEtudePdfAutoSave({
+  const { generateAndStorePdf, generateAndStoreResultatPdf } = useEtudePdfAutoSave({
     etudeId: currentEtudeId,
     clientName,
     clientPrenom,
