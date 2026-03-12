@@ -1484,6 +1484,7 @@ export type Database = {
           pac_surface_chauffee: number | null
           pac_type_emetteurs: string | null
           pac_volume_ballon: number | null
+          param_overrides: Json | null
           pdf_generated_at: string | null
           pdf_url: string | null
           photo_compteur: string | null
@@ -1585,6 +1586,7 @@ export type Database = {
           pac_surface_chauffee?: number | null
           pac_type_emetteurs?: string | null
           pac_volume_ballon?: number | null
+          param_overrides?: Json | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
           photo_compteur?: string | null
@@ -1686,6 +1688,7 @@ export type Database = {
           pac_surface_chauffee?: number | null
           pac_type_emetteurs?: string | null
           pac_volume_ballon?: number | null
+          param_overrides?: Json | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
           photo_compteur?: string | null
