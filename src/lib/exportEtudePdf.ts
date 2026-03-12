@@ -255,7 +255,8 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grisTexte);
-  doc.text(`Date: ${data.dateEtude}`, pageWidth - 14, 34, { align: "right" });
+  const refLine = data.referenceEtude ? `Réf: ${data.referenceEtude}  |  ` : "";
+  doc.text(`${refLine}Date: ${data.dateEtude}`, pageWidth - 14, 34, { align: "right" });
   
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.5);
