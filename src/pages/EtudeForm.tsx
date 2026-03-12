@@ -1809,9 +1809,11 @@ const EtudeForm = () => {
     
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
     
+    const refId = (currentEtudeId || etudeId || localEtudeId || "").substring(0, 8).toUpperCase();
     return {
       // Multi-product
       activeProducts,
+      referenceEtude: refId ? `PE-${refId}` : undefined,
       
       clientNom: clientName,
       clientPrenom: clientPrenom,
