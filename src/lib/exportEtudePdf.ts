@@ -383,14 +383,20 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
   // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 16;
+    const maxLogoH = 16;
     const logoY = pageHeight - 52;
-    // Each logo has different natural proportions — use individual widths
-    const frW = 28;  // France Rénov': roughly square-ish
-    const minW = 34;  // Ministère: wider text block
-    const endW = 40;  // Enedis: wide horizontal logo — must not be squeezed
     const gap = 12;
-    const totalLogosWidth = frW + minW + endW + gap * 2;
+
+    // Compute aspect-ratio-preserving dimensions for each logo
+    const frNat = _logoSizes.franceRenov || { w: 1, h: 1 };
+    const minNat = _logoSizes.ministere || { w: 1, h: 1 };
+    const endNat = _logoSizes.enedis || { w: 1, h: 1 };
+
+    const frFit = fitImage(frNat.w, frNat.h, 45, maxLogoH);
+    const minFit = fitImage(minNat.w, minNat.h, 45, maxLogoH);
+    const endFit = fitImage(endNat.w, endNat.h, 50, maxLogoH);
+
+    const totalLogosWidth = frFit.w + minFit.w + endFit.w + gap * 2;
     const startX = (pageWidth - totalLogosWidth) / 2;
 
     // Subtle separator above logos
@@ -400,11 +406,11 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
     try {
       let x = startX;
-      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY, frW, logoH); }
-      x += frW + gap;
-      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY, minW, logoH); }
-      x += minW + gap;
-      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY, endW, logoH); }
+      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY + (maxLogoH - frFit.h) / 2, frFit.w, frFit.h); }
+      x += frFit.w + gap;
+      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY + (maxLogoH - minFit.h) / 2, minFit.w, minFit.h); }
+      x += minFit.w + gap;
+      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY + (maxLogoH - endFit.h) / 2, endFit.w, endFit.h); }
     } catch {}
   }
 
