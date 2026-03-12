@@ -32,6 +32,7 @@ interface DocumentItem {
   id: string;
   nom: string;
   url: string;
+  mime_type?: string | null;
   type_document: string;
   created_at: string;
   thumbnails_urls?: string[] | null;
@@ -46,16 +47,20 @@ interface MultiDocumentSelectorProps {
   onDocumentsChange?: () => void;
 }
 
-const getFileType = (url: string): "pdf" | "image" | "unknown" => {
-  const lower = url.toLowerCase();
-  if (lower.includes(".pdf") || lower.includes("application/pdf")) return "pdf";
-  if (
-    lower.includes(".jpg") ||
-    lower.includes(".jpeg") ||
-    lower.includes(".png") ||
-    lower.includes("image/")
-  )
+const getFileType = (
+  input: string | Pick<DocumentItem, "url" | "nom" | "mime_type">
+): "pdf" | "image" | "unknown" => {
+  const asDoc = typeof input === "string" ? { url: input, nom: "", mime_type: "" } : input;
+
+  const mime = (asDoc.mime_type || "").toLowerCase();
+  if (mime.includes("application/pdf")) return "pdf";
+  if (mime.startsWith("image/")) return "image";
+
+  const lower = `${asDoc.url} ${asDoc.nom}`.toLowerCase();
+  if (lower.includes(".pdf")) return "pdf";
+  if (lower.includes(".jpg") || lower.includes(".jpeg") || lower.includes(".png") || lower.includes("image/")) {
     return "image";
+  }
   return "unknown";
 };
 
@@ -71,24 +76,34 @@ const resolveDocumentUrl = async (url: string): Promise<string> => {
   // If it's a data URL, return as-is
   if (url.startsWith("data:")) return url;
 
-  // If it's a Supabase storage public URL, create a signed URL for reliable access
-  if (url.includes("supabase.co/storage/v1/object/public/")) {
+  // If it's a Supabase storage URL, create a signed URL for reliable access
+  if (url.includes("/storage/v1/object/")) {
     try {
-      const urlParts = url.split("/storage/v1/object/public/");
-      if (urlParts.length === 2) {
-        const [bucket, ...pathParts] = urlParts[1].split("/");
-        const path = decodeURIComponent(pathParts.join("/"));
-        const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-        if (data?.signedUrl) return data.signedUrl;
+      const parsed = new URL(url);
+      const match = parsed.pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+
+      if (match) {
+        const [, bucket, rawPath] = match;
+        const decodedPath = decodeURIComponent(rawPath).split("?")[0].replace(/^\/+/, "");
+        const pathCandidates = decodedPath.startsWith(`${bucket}/`)
+          ? [decodedPath, decodedPath.slice(bucket.length + 1)]
+          : [decodedPath];
+
+        for (const path of pathCandidates) {
+          if (!path) continue;
+          const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+          if (!error && data?.signedUrl) return data.signedUrl;
+        }
       }
     } catch (err) {
-      console.warn("Failed to create signed URL, using original:", err);
+      console.warn("Failed to normalize storage URL, using original:", err);
     }
   }
 
-  // If it's not a full URL, treat as storage path
+  // If it's not a full URL, treat as storage path in documents bucket
   if (!url.startsWith("http")) {
-    const { data } = supabase.storage.from("documents").getPublicUrl(url);
+    const cleanedPath = url.replace(/^\/+/, "").replace(/^documents\//, "");
+    const { data } = supabase.storage.from("documents").getPublicUrl(cleanedPath);
     return data.publicUrl;
   }
 
@@ -219,7 +234,7 @@ export function MultiDocumentSelector({
 
       let failedDocs: string[] = [];
       for (const doc of selectedDocs) {
-        const fileType = getFileType(doc.url);
+        const fileType = getFileType(doc);
         try {
           console.log(`[MergedPDF] Processing "${doc.nom}" (type: ${fileType}, url: ${doc.url.substring(0, 80)}...)`);
           const arrayBuffer = await fetchAsArrayBuffer(doc.url);
@@ -452,7 +467,7 @@ export function MultiDocumentSelector({
           idMap.set(carouselId, doc.id);
 
           let preview = "";
-          const fileType = getFileType(doc.url);
+          const fileType = getFileType(doc);
 
           if (fileType === "image") {
             // Fetch image as data URL
