@@ -283,9 +283,13 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.setFontSize(12);
   doc.text(subtitle, pageWidth / 2, 22, { align: "center" });
   
-  // Ministère logo top-right
+  // Ministère logo top-right (preserve aspect ratio)
   if (ministereBase64) {
-    try { doc.addImage(ministereBase64, "PNG", pageWidth - 55, 4, 40, 28); } catch {}
+    try {
+      const nat = _logoSizes.ministere || { w: 1, h: 1 };
+      const fit = fitImage(nat.w, nat.h, 40, 28);
+      doc.addImage(ministereBase64, "PNG", pageWidth - 14 - fit.w, 4 + (28 - fit.h) / 2, fit.w, fit.h);
+    } catch {}
   }
   
   doc.setFontSize(8);
