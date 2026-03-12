@@ -47,12 +47,16 @@ interface MultiDocumentSelectorProps {
   onDocumentsChange?: () => void;
 }
 
-const getFileType = (doc: Pick<DocumentItem, "url" | "nom" | "mime_type">): "pdf" | "image" | "unknown" => {
-  const mime = (doc.mime_type || "").toLowerCase();
+const getFileType = (
+  input: string | Pick<DocumentItem, "url" | "nom" | "mime_type">
+): "pdf" | "image" | "unknown" => {
+  const asDoc = typeof input === "string" ? { url: input, nom: "", mime_type: "" } : input;
+
+  const mime = (asDoc.mime_type || "").toLowerCase();
   if (mime.includes("application/pdf")) return "pdf";
   if (mime.startsWith("image/")) return "image";
 
-  const lower = `${doc.url} ${doc.nom}`.toLowerCase();
+  const lower = `${asDoc.url} ${asDoc.nom}`.toLowerCase();
   if (lower.includes(".pdf")) return "pdf";
   if (lower.includes(".jpg") || lower.includes(".jpeg") || lower.includes(".png") || lower.includes("image/")) {
     return "image";
