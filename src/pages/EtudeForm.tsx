@@ -190,6 +190,7 @@ const EtudeForm = () => {
   const isInitializedRef = useRef(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRestoredDraftRef = useRef(false);
+  const hasManualOverridesRef = useRef(false);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // MULTI-PRODUCT STATE - PV / PAC / ITE
@@ -820,6 +821,17 @@ const EtudeForm = () => {
       // Modes
       setModeHejjaPsh(etude.mode_hejja_psh ?? true);
       setModeHejjaPrix(etude.mode_hejja_prix || false);
+      // Restore manual parameter overrides
+      const overrides = (etude as any).param_overrides;
+      if (overrides) {
+        if (typeof overrides.heuresEnsoleillement === "number") {
+          setHeuresEnsoleillement(overrides.heuresEnsoleillement);
+          hasManualOverridesRef.current = true;
+        }
+        if (typeof overrides.usePshCalculation === "boolean") {
+          setUsePshCalculation(overrides.usePshCalculation);
+        }
+      }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
         const financement = financements.find(f => f.nom === etude.mode_financement);
@@ -898,15 +910,20 @@ const EtudeForm = () => {
   };
 
   // Mise à jour automatique quand le département change
+  // Skip if manual overrides were loaded from a saved etude
   useEffect(() => {
     console.log("[DEBUG] useEffect département:", departement, "| dataPsh.length:", dataPsh.length);
     if (departement && dataPsh.length > 0) {
       const pshData = dataPsh.find((p) => p.department_code === departement);
       console.log("[DEBUG] PSH trouvé pour", departement, ":", pshData);
-      if (pshData) {
+      if (pshData && !hasManualOverridesRef.current) {
         setHeuresEnsoleillement(pshData.heures_ensoleillement_annuel || 2890);
-      } else {
+      } else if (!pshData) {
         console.log("[DEBUG] Aucun PSH trouvé! Codes disponibles:", dataPsh.map(p => p.department_code).slice(0, 10));
+      }
+      // Reset the flag after first load so future department changes still auto-update
+      if (hasManualOverridesRef.current) {
+        hasManualOverridesRef.current = false;
       }
     }
   }, [departement, dataPsh]);
@@ -1379,6 +1396,11 @@ const EtudeForm = () => {
       verdict: hasPV && calculatedResults ? calculatedResults.verdict : null,
       mode_hejja_psh: modeHejjaPsh,
       mode_hejja_prix: modeHejjaPrix,
+      // Manual parameter overrides (per-etude)
+      param_overrides: {
+        heuresEnsoleillement,
+        usePshCalculation,
+      } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
       classification_updated_at: classification ? new Date().toISOString() : null,
