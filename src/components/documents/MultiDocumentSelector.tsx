@@ -230,7 +230,7 @@ export function MultiDocumentSelector({
 
       let failedDocs: string[] = [];
       for (const doc of selectedDocs) {
-        const fileType = getFileType(doc.url);
+        const fileType = getFileType(doc);
         try {
           console.log(`[MergedPDF] Processing "${doc.nom}" (type: ${fileType}, url: ${doc.url.substring(0, 80)}...)`);
           const arrayBuffer = await fetchAsArrayBuffer(doc.url);

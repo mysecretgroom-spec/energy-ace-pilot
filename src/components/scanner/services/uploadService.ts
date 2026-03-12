@@ -4,6 +4,11 @@ import type { DocumentContext } from "../types";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
 const MAX_RETRIES = 3;
 
+function normalizeStoragePath(path: string, bucket: string): string {
+  const cleaned = decodeURIComponent(path).split("?")[0].replace(/^\/+/, "");
+  return cleaned.startsWith(`${bucket}/`) ? cleaned.slice(bucket.length + 1) : cleaned;
+}
+
 async function uploadWithXHR(
   bucket: string,
   filePath: string,
@@ -105,12 +110,13 @@ export async function uploadDocumentToStorage(
   console.log(`[uploadService] Uploading to receipts/${fileName} (${sizeMB} MB)`);
 
   const data = await uploadWithRetry(fileName, pdfBlob, session.access_token);
+  const normalizedPath = normalizeStoragePath(data.path, "receipts");
 
-  console.log("[uploadService] Upload successful, path:", data.path);
+  console.log("[uploadService] Upload successful, path:", normalizedPath);
 
   const { data: urlData } = supabase.storage
     .from("receipts")
-    .getPublicUrl(data.path);
+    .getPublicUrl(normalizedPath);
 
   if (!urlData?.publicUrl) {
     throw new Error("Failed to generate document URL");
