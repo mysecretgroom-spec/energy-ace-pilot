@@ -45,6 +45,7 @@ interface IteData {
 interface EtudeData {
   // Multi-product
   activeProducts?: string[];
+  referenceEtude?: string;
   
   // Client
   clientNom: string;
@@ -254,7 +255,8 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...grisTexte);
-  doc.text(`Date: ${data.dateEtude}`, pageWidth - 14, 34, { align: "right" });
+  const refLine = data.referenceEtude ? `Réf: ${data.referenceEtude}  |  ` : "";
+  doc.text(`${refLine}Date: ${data.dateEtude}`, pageWidth - 14, 34, { align: "right" });
   
   doc.setDrawColor(...bleuMarianne);
   doc.setLineWidth(0.5);
@@ -1210,7 +1212,7 @@ const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, 
   // Metadata line
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text(`Référence : ${data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
+  doc.text(`Référence : ${data.referenceEtude || data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
 
   // Separator
   doc.setDrawColor(...cepcBorder);

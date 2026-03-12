@@ -67,7 +67,9 @@ export function useEtudePdfDownload() {
 }
 
 async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode): Promise<Blob> {
+  const refId = (etude.id || "").substring(0, 8).toUpperCase();
   const pdfData: EtudeData = {
+    referenceEtude: refId ? `PE-${refId}` : undefined,
     clientNom: client.nom || "",
     clientPrenom: client.prenom || "",
     clientAdresse: client.adresse || "",
