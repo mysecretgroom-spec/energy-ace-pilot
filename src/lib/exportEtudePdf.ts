@@ -45,6 +45,7 @@ interface IteData {
 interface EtudeData {
   // Multi-product
   activeProducts?: string[];
+  referenceEtude?: string;
   
   // Client
   clientNom: string;
