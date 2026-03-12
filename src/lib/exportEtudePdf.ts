@@ -1212,7 +1212,10 @@ const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, 
   // Metadata line
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text(`Référence : ${data.referenceEtude || data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
+  const refPart = data.referenceEtude ? `Réf : ${data.referenceEtude}` : "";
+  const pdlPart = data.numeroPdl ? `PDL : ${data.numeroPdl}` : "";
+  const headerParts = [refPart, pdlPart, `Date : ${data.dateEtude}`, `Département : ${data.departement}`].filter(Boolean).join("  |  ");
+  doc.text(headerParts, pageWidth / 2, 28, { align: "center" });
 
   // Separator
   doc.setDrawColor(...cepcBorder);
