@@ -467,7 +467,7 @@ export function MultiDocumentSelector({
           idMap.set(carouselId, doc.id);
 
           let preview = "";
-          const fileType = getFileType(doc.url);
+          const fileType = getFileType(doc);
 
           if (fileType === "image") {
             // Fetch image as data URL
