@@ -222,6 +222,38 @@ const pacColor: [number, number, number] = [59, 130, 246]; // blue
 const iteColor: [number, number, number] = [168, 85, 247]; // purple
 
 // ═══════════════════════════════════════════════════════════════════════════
+// IMAGE DIMENSION HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Get natural width/height of a base64 image */
+function getImageNaturalSize(base64: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => resolve({ w: 1, h: 1 });
+    img.src = base64;
+  });
+}
+
+/** Scale image to fit within maxW x maxH while preserving aspect ratio */
+function fitImage(naturalW: number, naturalH: number, maxW: number, maxH: number): { w: number; h: number } {
+  const ratio = Math.min(maxW / naturalW, maxH / naturalH);
+  return { w: naturalW * ratio, h: naturalH * ratio };
+}
+
+// Cached natural sizes (populated once at PDF generation time)
+let _logoSizes: Record<string, { w: number; h: number }> = {};
+
+async function preloadLogoSizes(logos: { franceRenov: string; ministere: string; enedis: string }) {
+  const [fr, min, end] = await Promise.all([
+    logos.franceRenov ? getImageNaturalSize(logos.franceRenov) : { w: 1, h: 1 },
+    logos.ministere ? getImageNaturalSize(logos.ministere) : { w: 1, h: 1 },
+    logos.enedis ? getImageNaturalSize(logos.enedis) : { w: 1, h: 1 },
+  ]);
+  _logoSizes = { franceRenov: fr, ministere: min, enedis: end };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HEADER & FOOTER helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -237,7 +269,11 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.rect(6, 0, 3, 35, "F");
   
   if (franceRenovBase64) {
-    try { doc.addImage(franceRenovBase64, "PNG", 14, 4, 45, 28); } catch {}
+    try {
+      const nat = _logoSizes.franceRenov || { w: 1, h: 1 };
+      const fit = fitImage(nat.w, nat.h, 45, 28);
+      doc.addImage(franceRenovBase64, "PNG", 14, 4 + (28 - fit.h) / 2, fit.w, fit.h);
+    } catch {}
   }
   
   doc.setTextColor(...bleuMarianne);
@@ -247,9 +283,13 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.setFontSize(12);
   doc.text(subtitle, pageWidth / 2, 22, { align: "center" });
   
-  // Ministère logo top-right
+  // Ministère logo top-right (preserve aspect ratio)
   if (ministereBase64) {
-    try { doc.addImage(ministereBase64, "PNG", pageWidth - 55, 4, 40, 28); } catch {}
+    try {
+      const nat = _logoSizes.ministere || { w: 1, h: 1 };
+      const fit = fitImage(nat.w, nat.h, 40, 28);
+      doc.addImage(ministereBase64, "PNG", pageWidth - 14 - fit.w, 4 + (28 - fit.h) / 2, fit.w, fit.h);
+    } catch {}
   }
   
   doc.setFontSize(8);
@@ -343,14 +383,20 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
   // Last page: institutional logos bar above footer
   if (isLastPage && logos) {
-    const logoH = 16;
+    const maxLogoH = 16;
     const logoY = pageHeight - 52;
-    // Each logo has different natural proportions — use individual widths
-    const frW = 28;  // France Rénov': roughly square-ish
-    const minW = 34;  // Ministère: wider text block
-    const endW = 40;  // Enedis: wide horizontal logo — must not be squeezed
     const gap = 12;
-    const totalLogosWidth = frW + minW + endW + gap * 2;
+
+    // Compute aspect-ratio-preserving dimensions for each logo
+    const frNat = _logoSizes.franceRenov || { w: 1, h: 1 };
+    const minNat = _logoSizes.ministere || { w: 1, h: 1 };
+    const endNat = _logoSizes.enedis || { w: 1, h: 1 };
+
+    const frFit = fitImage(frNat.w, frNat.h, 45, maxLogoH);
+    const minFit = fitImage(minNat.w, minNat.h, 45, maxLogoH);
+    const endFit = fitImage(endNat.w, endNat.h, 50, maxLogoH);
+
+    const totalLogosWidth = frFit.w + minFit.w + endFit.w + gap * 2;
     const startX = (pageWidth - totalLogosWidth) / 2;
 
     // Subtle separator above logos
@@ -360,11 +406,11 @@ const drawFooter = (doc: jsPDF, data: EtudeData, pageNum: number, totalPages: nu
 
     try {
       let x = startX;
-      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY, frW, logoH); }
-      x += frW + gap;
-      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY, minW, logoH); }
-      x += minW + gap;
-      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY, endW, logoH); }
+      if (logos.franceRenov) { doc.addImage(logos.franceRenov, "PNG", x, logoY + (maxLogoH - frFit.h) / 2, frFit.w, frFit.h); }
+      x += frFit.w + gap;
+      if (logos.ministere) { doc.addImage(logos.ministere, "PNG", x, logoY + (maxLogoH - minFit.h) / 2, minFit.w, minFit.h); }
+      x += minFit.w + gap;
+      if (logos.enedis) { doc.addImage(logos.enedis, "PNG", x, logoY + (maxLogoH - endFit.h) / 2, endFit.w, endFit.h); }
     } catch {}
   }
 
@@ -1093,6 +1139,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
   try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
@@ -1712,6 +1759,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
   try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
