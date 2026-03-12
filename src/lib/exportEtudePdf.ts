@@ -1045,9 +1045,9 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   doc.text(lines1, 14, yPos);
   yPos += lines1.length * 3.5 + 3;
 
-  const para2 = "Les estimations de production et d'economies presentees dans cette etude sont calculees " +
-    "sur la base des donnees fournies par le beneficiaire et des conditions d'ensoleillement propres a la zone geographique. " +
-    "Les resultats reels pourront varier selon les conditions climatiques effectives et l'evolution des tarifs energetiques.";
+  const para2 = "Les estimations de production et d'economies presentees dans cette etude sont basees " +
+    "sur les donnees meteorologiques relevees lors du passage du drone HAPS (High-Altitude Pseudo-Satellite) " +
+    "et sur les habitudes de consommation du foyer relevees grace a leur numero de Point de Livraison (PDL).";
   const lines2 = doc.splitTextToSize(para2, pageWidth - 28);
   doc.text(lines2, 14, yPos);
   yPos += lines2.length * 3.5 + 5;
