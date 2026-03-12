@@ -269,7 +269,11 @@ const drawHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subt
   doc.rect(6, 0, 3, 35, "F");
   
   if (franceRenovBase64) {
-    try { doc.addImage(franceRenovBase64, "PNG", 14, 4, 45, 28); } catch {}
+    try {
+      const nat = _logoSizes.franceRenov || { w: 1, h: 1 };
+      const fit = fitImage(nat.w, nat.h, 45, 28);
+      doc.addImage(franceRenovBase64, "PNG", 14, 4 + (28 - fit.h) / 2, fit.w, fit.h);
+    } catch {}
   }
   
   doc.setTextColor(...bleuMarianne);
