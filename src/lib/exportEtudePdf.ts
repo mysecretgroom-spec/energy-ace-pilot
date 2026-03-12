@@ -222,6 +222,38 @@ const pacColor: [number, number, number] = [59, 130, 246]; // blue
 const iteColor: [number, number, number] = [168, 85, 247]; // purple
 
 // ═══════════════════════════════════════════════════════════════════════════
+// IMAGE DIMENSION HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Get natural width/height of a base64 image */
+function getImageNaturalSize(base64: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => resolve({ w: 1, h: 1 });
+    img.src = base64;
+  });
+}
+
+/** Scale image to fit within maxW x maxH while preserving aspect ratio */
+function fitImage(naturalW: number, naturalH: number, maxW: number, maxH: number): { w: number; h: number } {
+  const ratio = Math.min(maxW / naturalW, maxH / naturalH);
+  return { w: naturalW * ratio, h: naturalH * ratio };
+}
+
+// Cached natural sizes (populated once at PDF generation time)
+let _logoSizes: Record<string, { w: number; h: number }> = {};
+
+async function preloadLogoSizes(logos: { franceRenov: string; ministere: string; enedis: string }) {
+  const [fr, min, end] = await Promise.all([
+    logos.franceRenov ? getImageNaturalSize(logos.franceRenov) : { w: 1, h: 1 },
+    logos.ministere ? getImageNaturalSize(logos.ministere) : { w: 1, h: 1 },
+    logos.enedis ? getImageNaturalSize(logos.enedis) : { w: 1, h: 1 },
+  ]);
+  _logoSizes = { franceRenov: fr, ministere: min, enedis: end };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HEADER & FOOTER helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
