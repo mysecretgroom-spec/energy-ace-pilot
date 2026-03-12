@@ -910,15 +910,20 @@ const EtudeForm = () => {
   };
 
   // Mise à jour automatique quand le département change
+  // Skip if manual overrides were loaded from a saved etude
   useEffect(() => {
     console.log("[DEBUG] useEffect département:", departement, "| dataPsh.length:", dataPsh.length);
     if (departement && dataPsh.length > 0) {
       const pshData = dataPsh.find((p) => p.department_code === departement);
       console.log("[DEBUG] PSH trouvé pour", departement, ":", pshData);
-      if (pshData) {
+      if (pshData && !hasManualOverridesRef.current) {
         setHeuresEnsoleillement(pshData.heures_ensoleillement_annuel || 2890);
-      } else {
+      } else if (!pshData) {
         console.log("[DEBUG] Aucun PSH trouvé! Codes disponibles:", dataPsh.map(p => p.department_code).slice(0, 10));
+      }
+      // Reset the flag after first load so future department changes still auto-update
+      if (hasManualOverridesRef.current) {
+        hasManualOverridesRef.current = false;
       }
     }
   }, [departement, dataPsh]);
