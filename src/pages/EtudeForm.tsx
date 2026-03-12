@@ -820,6 +820,17 @@ const EtudeForm = () => {
       // Modes
       setModeHejjaPsh(etude.mode_hejja_psh ?? true);
       setModeHejjaPrix(etude.mode_hejja_prix || false);
+      // Restore manual parameter overrides
+      const overrides = (etude as any).param_overrides;
+      if (overrides) {
+        if (typeof overrides.heuresEnsoleillement === "number") {
+          setHeuresEnsoleillement(overrides.heuresEnsoleillement);
+          hasManualOverridesRef.current = true;
+        }
+        if (typeof overrides.usePshCalculation === "boolean") {
+          setUsePshCalculation(overrides.usePshCalculation);
+        }
+      }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
         const financement = financements.find(f => f.nom === etude.mode_financement);
