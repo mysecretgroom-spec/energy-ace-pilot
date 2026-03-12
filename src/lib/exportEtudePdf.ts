@@ -1211,7 +1211,7 @@ const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, 
   // Metadata line
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text(`Référence : ${data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
+  doc.text(`Référence : ${data.referenceEtude || data.numeroPdl || "—"}  |  Date : ${data.dateEtude}  |  Département : ${data.departement}`, pageWidth / 2, 28, { align: "center" });
 
   // Separator
   doc.setDrawColor(...cepcBorder);
