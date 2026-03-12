@@ -1759,6 +1759,7 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
   try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
   try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
