@@ -1773,17 +1773,16 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
     yPos = drawCepcGlobalSummary(doc, data, yPos, cepcCtx);
   }
 
-  // CLASSIFICATION & OBSERVATIONS
-  if (data.classification || data.classificationComment) {
-    yPos = cepcEnsureSpace(yPos, 40);
-    yPos = drawCepcSectionBar(doc, "CLASSIFICATION & OBSERVATIONS", yPos);
+  // CLASSIFICATION (sans commentaire technicien dans le doc Résultat)
+  if (data.classification) {
+    yPos = cepcEnsureSpace(yPos, 30);
+    yPos = drawCepcSectionBar(doc, "CLASSIFICATION", yPos);
 
     autoTable(doc, {
       startY: yPos,
       head: [["Élément", "Détail"]],
       body: [
         ["Classification interne", data.classification || "Non classifié"],
-        ["Observations techniques", data.classificationComment || "Aucune observation"],
       ],
       ...cepcTableStyles,
       columnStyles: { 0: { fontStyle: "bold" as const, cellWidth: 55 } },
