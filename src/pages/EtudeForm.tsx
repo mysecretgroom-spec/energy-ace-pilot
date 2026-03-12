@@ -1379,6 +1379,11 @@ const EtudeForm = () => {
       verdict: hasPV && calculatedResults ? calculatedResults.verdict : null,
       mode_hejja_psh: modeHejjaPsh,
       mode_hejja_prix: modeHejjaPrix,
+      // Manual parameter overrides (per-etude)
+      param_overrides: {
+        heuresEnsoleillement,
+        usePshCalculation,
+      } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
       classification_updated_at: classification ? new Date().toISOString() : null,
