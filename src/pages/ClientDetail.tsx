@@ -521,9 +521,10 @@ const ClientDetailInner = () => {
 
         {/* Onglets */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="rdv">RDV ({rdvs.length})</TabsTrigger>
+            <TabsTrigger value="ventes">Ventes ({ventes.length})</TabsTrigger>
             <TabsTrigger value="etudes">Études ({etudes.length})</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Photos ({documents.length})</TabsTrigger>
           </TabsList>
