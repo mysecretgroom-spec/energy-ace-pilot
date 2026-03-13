@@ -4564,7 +4564,7 @@ async function handlePendingWorkflow(
             user_id: userId,
             categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "train" | "location_vehicule" | "autre",
             montant: montant,
-            date_frais: dateStr,
+            date_frais: (() => { const today = new Date().toISOString().split('T')[0]; return dateStr > today ? today : dateStr; })(),
             description: description,
             justificatif_url: urlData?.publicUrl || collectedData.factureStorageUrl,
             ocr_data: ocrData,

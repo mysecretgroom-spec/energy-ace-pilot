@@ -222,7 +222,7 @@ Retourne uniquement les données trouvées avec certitude.`
         montant: ocrData.montant_ttc,
         categorie: ocrData.categorie,
         description: ocrData.fournisseur,
-        date_frais: ocrData.date || new Date().toISOString().split('T')[0],
+        date_frais: (() => { const d = ocrData.date || new Date().toISOString().split('T')[0]; const today = new Date().toISOString().split('T')[0]; return d > today ? today : d; })(),
         ocr_data: ocrData
       })
       .eq("id", fraisId);

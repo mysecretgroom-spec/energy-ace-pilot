@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -407,7 +408,7 @@ export function ReviewDocument({
         const { error: fraisError } = await supabase.from("frais").insert([{
           user_id: user.id,
           montant,
-          date_frais: date,
+          date_frais: clampDateToToday(date),
           categorie: category as any,
           description: fournisseur || title,
           document_id: docData.id,

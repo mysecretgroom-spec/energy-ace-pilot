@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
+import { clampDateToToday } from "@/lib/dateValidation";
 import {
   Dialog,
   DialogContent,
@@ -599,7 +600,7 @@ export function MultiImportFlow({
         const { error } = await supabase.from("frais").insert({
           user_id: user.id,
           montant: importedFile.montant_ttc!,
-          date_frais: importedFile.date || new Date().toISOString().split("T")[0],
+          date_frais: clampDateToToday(importedFile.date),
           categorie: (importedFile.categorie || "autre") as any,
           description: importedFile.description || importedFile.fournisseur,
           justificatif_url: signedUrl,
