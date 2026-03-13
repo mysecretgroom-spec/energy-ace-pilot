@@ -95,6 +95,7 @@ type Intent =
   | "select_choice"        // Réponse à un sondage de choix (numéro ou texte)
   | "select_regie"         // Réponse à un sondage de sélection de régie
   | "multi_request"        // Message contenant plusieurs demandes distinctes
+  | "undo_last_action"     // Annuler/défaire la dernière action effectuée
   | "conversation"
   | "unknown";
 
