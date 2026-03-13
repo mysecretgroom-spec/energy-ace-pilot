@@ -310,6 +310,25 @@ const ClientDetailInner = () => {
     setDocuments((docsResult.data as Document[]) || []);
     setHistorique((histResult.data as HistoriqueAction[]) || []);
 
+    // Map ventes with client info embedded
+    const ventesData = (ventesResult.data || []).map((v: any) => ({
+      ...v,
+      client: { id: clientData.id, nom: clientData.nom, prenom: clientData.prenom },
+    })) as ClientVente[];
+    setVentes(ventesData);
+
+    // Fetch regies for ventes
+    const regieIds = [...new Set(ventesData.map(v => v.regie_id).filter(Boolean))] as string[];
+    if (regieIds.length > 0) {
+      const { data: regiesData } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .in("id", regieIds);
+      setVentesRegies((regiesData || []) as ClientRegie2[]);
+    } else {
+      setVentesRegies([]);
+    }
+
     setLoading(false);
   };
 
