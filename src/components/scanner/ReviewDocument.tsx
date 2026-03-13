@@ -407,7 +407,7 @@ export function ReviewDocument({
         const { error: fraisError } = await supabase.from("frais").insert([{
           user_id: user.id,
           montant,
-          date_frais: date,
+          date_frais: clampDateToToday(date),
           categorie: category as any,
           description: fournisseur || title,
           document_id: docData.id,

@@ -981,7 +981,7 @@ const Finance = () => {
         montant: parseFloat(newFrais.montant),
         categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
         description: newFrais.description || null,
-        date_frais: newFrais.date_frais,
+        date_frais: clampDateToToday(newFrais.date_frais),
         date_debut: newFrais.date_debut || null,
         date_fin: newFrais.date_fin || null,
       });

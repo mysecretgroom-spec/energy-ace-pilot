@@ -291,7 +291,7 @@ export function BankImport({ onSuccess, onCancel }: BankImportProps) {
       const fraisToInsert = selectedExpenses.map(t => ({
         user_id: user.id,
         montant: t.amount,
-        date_frais: t.date,
+        date_frais: clampDateToToday(t.date),
         categorie: (t.category || "autre") as "carburant" | "peage" | "repas" | "hotel" | "parking" | "autre",
         description: t.description,
         ocr_data: {

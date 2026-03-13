@@ -223,7 +223,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
       const insertData: any = {
         user_id: user.id,
         montant: parseFloat(montantTTC),
-        date_frais: dateFrais,
+        date_frais: clampDateToToday(dateFrais),
         categorie: categorie as "carburant" | "peage" | "repas" | "hotel" | "parking" | "train" | "location_vehicule" | "autre",
         description: commercant ? `${commercant} - ${description}` : description || null,
         ocr_data: {
