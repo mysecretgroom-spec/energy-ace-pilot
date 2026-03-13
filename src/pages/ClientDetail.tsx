@@ -43,6 +43,7 @@ import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
+import { ResultatPdfChoiceDialog } from "@/components/etude/ResultatPdfChoiceDialog";
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { VenteCard } from "@/components/crm/VenteCard";
 import { VenteStatus } from "@/lib/venteStatusConfig";
