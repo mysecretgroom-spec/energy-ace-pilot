@@ -28,6 +28,15 @@ export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: Re
     <>
       <Dialog open={open && !showPinDialog} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="sm:max-w-md">
+          <DialogClose asChild>
+            <button
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fermer</span>
+            </button>
+          </DialogClose>
           <DialogHeader>
             <DialogTitle className="text-center">Résultat d'étude</DialogTitle>
             <DialogDescription className="text-center">
