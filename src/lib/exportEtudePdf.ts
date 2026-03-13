@@ -1881,14 +1881,14 @@ export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
 };
 
 /** Résultat d'étude (ultra-complet + formel) — téléchargeable depuis la fiche client */
-export const exportResultatPdf = async (data: EtudeData): Promise<void> => {
-  const doc = await generateResultatPdf(data);
+export const exportResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<void> => {
+  const doc = await generateResultatPdf(data, options);
   const fileName = `Resultat_Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
 };
 
-export const getResultatPdfBlob = async (data: EtudeData): Promise<Blob> => {
-  const doc = await generateResultatPdf(data);
+export const getResultatPdfBlob = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<Blob> => {
+  const doc = await generateResultatPdf(data, options);
   return doc.output("blob");
 };
 
