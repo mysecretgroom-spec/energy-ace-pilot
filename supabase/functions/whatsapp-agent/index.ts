@@ -1627,7 +1627,82 @@ async function getPreviousData(
   }
 }
 
-serve(async (req) => {
+// Undo the last agent action by restoring previous_data
+// deno-lint-ignore no-explicit-any
+async function undoLastAction(
+  supabase: any,
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data: lastAction, error: fetchError } = await supabase
+      .from("whatsapp_agent_actions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_undone", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError || !lastAction) {
+      return { success: false, message: "❌ Aucune action récente à annuler." };
+    }
+
+    const actionAge = Date.now() - new Date(lastAction.created_at).getTime();
+    if (actionAge > 3600000) {
+      return { success: false, message: "❌ La dernière action date de plus d'une heure, impossible de l'annuler." };
+    }
+
+    const previousData = lastAction.previous_data;
+    if (!previousData) {
+      return { success: false, message: `❌ Impossible d'annuler cette action (${lastAction.description}) : pas de données de restauration.` };
+    }
+
+    const targetTable = lastAction.target_table;
+    const targetId = lastAction.target_id;
+
+    if (lastAction.action_type === "delete_rdv" || lastAction.action_type === "delete") {
+      const { error: insertError } = await supabase.from(targetTable).insert(previousData);
+      if (insertError) {
+        return { success: false, message: `❌ Erreur lors de la restauration : ${insertError.message}` };
+      }
+    } else {
+      const fieldsToRestore: Record<string, unknown> = {};
+      const changedFields = Object.keys(lastAction.action_data || {});
+      
+      if (changedFields.length > 0) {
+        for (const field of changedFields) {
+          fieldsToRestore[field] = previousData[field] ?? null;
+        }
+      } else {
+        for (const [key, value] of Object.entries(previousData)) {
+          if (!["id", "user_id", "created_at"].includes(key)) {
+            fieldsToRestore[key] = value;
+          }
+        }
+      }
+
+      const { error: updateError } = await supabase.from(targetTable).update(fieldsToRestore).eq("id", targetId);
+      if (updateError) {
+        return { success: false, message: `❌ Erreur lors de l'annulation : ${updateError.message}` };
+      }
+    }
+
+    await supabase
+      .from("whatsapp_agent_actions")
+      .update({ is_undone: true, undone_at: new Date().toISOString() })
+      .eq("id", lastAction.id);
+
+    return { 
+      success: true, 
+      message: `✅ Action annulée !\n\n🔄 *${lastAction.description}*\n\n↩️ Les données ont été restaurées.` 
+    };
+  } catch (error) {
+    console.error("Undo error:", error);
+    return { success: false, message: "❌ Erreur inattendue lors de l'annulation." };
+  }
+}
+
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
