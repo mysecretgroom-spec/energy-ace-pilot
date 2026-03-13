@@ -240,6 +240,7 @@ const ClientDetailInner = () => {
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [destinationPhone, setDestinationPhone] = useState("");
   const [clientRegie, setClientRegie] = useState<ClientRegie | null>(null);
+  const [resultatPdfDialogEtudeId, setResultatPdfDialogEtudeId] = useState<string | null>(null);
 
   // WhatsApp PDF sending
   const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
