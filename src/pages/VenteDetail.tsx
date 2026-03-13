@@ -785,6 +785,20 @@ const VenteDetail = () => {
         description="Cette action est irréversible. La vente sera définitivement supprimée."
         isLoading={isDeleting}
       />
+
+      {/* Décom Dialog */}
+      <DecomDialog
+        venteId={id!}
+        clientName={client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client"}
+        currentDecom={decomMontant}
+        currentRaison={decomRaison}
+        open={decomDialogOpen}
+        onOpenChange={setDecomDialogOpen}
+        onSaved={() => {
+          setDecomDialogOpen(false);
+          loadVente();
+        }}
+      />
     </MobileLayout>
   );
 };
