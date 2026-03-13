@@ -44,6 +44,8 @@ import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
+import { VenteCard } from "@/components/crm/VenteCard";
+import { VenteStatus } from "@/lib/venteStatusConfig";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -192,6 +194,27 @@ interface HistoriqueAction {
   created_at: string;
 }
 
+interface ClientVente {
+  id: string;
+  numero_contrat: string | null;
+  date_signature: string | null;
+  montant_ht: number;
+  montant_ttc: number;
+  puissance_kwc: number | null;
+  status: VenteStatus;
+  type_vente?: 'standard' | 'external_installation';
+  decom_montant?: number | null;
+  decom_raison?: string | null;
+  regie_id?: string | null;
+  client: { id: string; nom: string; prenom: string | null } | null;
+}
+
+interface ClientRegie2 {
+  id: string;
+  nom: string;
+  couleur: string;
+}
+
 const ClientDetailInner = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -205,6 +228,8 @@ const ClientDetailInner = () => {
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [historique, setHistorique] = useState<HistoriqueAction[]>([]);
+  const [ventes, setVentes] = useState<ClientVente[]>([]);
+  const [ventesRegies, setVentesRegies] = useState<ClientRegie2[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
   const [showMultiImport, setShowMultiImport] = useState(false);
@@ -264,7 +289,7 @@ const ClientDetailInner = () => {
     });
 
     // Parallel fetch all related data at once
-    const [regieResult, rdvResult, etudesResult, docsResult, histResult] = await Promise.all([
+    const [regieResult, rdvResult, etudesResult, docsResult, histResult, ventesResult] = await Promise.all([
       clientData.regie_id
         ? supabase.from("regies").select("id, nom, couleur").eq("id", clientData.regie_id).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -272,6 +297,7 @@ const ClientDetailInner = () => {
       supabase.from("etudes").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       supabase.from("documents").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       supabase.from("historique_actions").select("*").eq("client_id", id).order("created_at", { ascending: false }).limit(20),
+      supabase.from("ventes").select("id, numero_contrat, date_signature, montant_ht, montant_ttc, puissance_kwc, status, type_vente, decom_montant, decom_raison, regie_id").eq("client_id", id).order("date_signature", { ascending: false }),
     ]);
 
     setClientRegie(regieResult.data as ClientRegie | null);
@@ -283,6 +309,25 @@ const ClientDetailInner = () => {
     setEtudes((etudesResult.data as Etude[]) || []);
     setDocuments((docsResult.data as Document[]) || []);
     setHistorique((histResult.data as HistoriqueAction[]) || []);
+
+    // Map ventes with client info embedded
+    const ventesData = (ventesResult.data || []).map((v: any) => ({
+      ...v,
+      client: { id: clientData.id, nom: clientData.nom, prenom: clientData.prenom },
+    })) as ClientVente[];
+    setVentes(ventesData);
+
+    // Fetch regies for ventes
+    const regieIds = [...new Set(ventesData.map(v => v.regie_id).filter(Boolean))] as string[];
+    if (regieIds.length > 0) {
+      const { data: regiesData } = await supabase
+        .from("regies")
+        .select("id, nom, couleur")
+        .in("id", regieIds);
+      setVentesRegies((regiesData || []) as ClientRegie2[]);
+    } else {
+      setVentesRegies([]);
+    }
 
     setLoading(false);
   };
@@ -476,9 +521,10 @@ const ClientDetailInner = () => {
 
         {/* Onglets */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="rdv">RDV ({rdvs.length})</TabsTrigger>
+            <TabsTrigger value="ventes">Ventes ({ventes.length})</TabsTrigger>
             <TabsTrigger value="etudes">Études ({etudes.length})</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Photos ({documents.length})</TabsTrigger>
           </TabsList>
@@ -663,6 +709,30 @@ const ClientDetailInner = () => {
                     )}
                   </CardContent>
                 </Card>
+              ))
+            )}
+          </TabsContent>
+
+          {/* Tab Ventes */}
+          <TabsContent value="ventes" className="space-y-3 mt-4">
+            {ventes.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center">
+                  <Euro className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucune vente pour ce client</p>
+                </CardContent>
+              </Card>
+            ) : (
+              ventes.map((vente) => (
+                <VenteCard
+                  key={vente.id}
+                  vente={vente}
+                  regies={ventesRegies}
+                  selectionMode={false}
+                  isSelected={false}
+                  onClick={() => navigate(`/ventes/${vente.id}`)}
+                  onRefresh={fetchClientData}
+                />
               ))
             )}
           </TabsContent>
