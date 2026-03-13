@@ -90,6 +90,9 @@ const VenteDetail = () => {
   const [regieId, setRegieId] = useState<string | null>(null);
   const [regieNom, setRegieNom] = useState<string | null>(null);
   const [regieCouleur, setRegieCouleur] = useState<string | null>(null);
+  const [decomMontant, setDecomMontant] = useState<number>(0);
+  const [decomRaison, setDecomRaison] = useState<string | null>(null);
+  const [decomDialogOpen, setDecomDialogOpen] = useState(false);
   
   
   // Delete functionality
