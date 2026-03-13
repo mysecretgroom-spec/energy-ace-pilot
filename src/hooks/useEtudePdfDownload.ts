@@ -123,7 +123,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     classificationComment: etude.classification_comment || undefined,
   };
 
-  return mode === "resultat" ? getResultatPdfBlob(pdfData) : getPreEtudePdfBlob(pdfData);
+  return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
 }
 
 async function uploadGeneratedPdf(blob: Blob, etude: any, client: any) {
