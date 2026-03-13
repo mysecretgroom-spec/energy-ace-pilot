@@ -9833,6 +9833,11 @@ async function executeAction(
         customResponse: `✅ Client *${matchedClient.fullName}* mis à jour:\n${changes.join("\n")}` };
     }
 
+    case "undo_last_action": {
+      const result = await undoLastAction(supabase, userId);
+      return { actionTaken: result.success ? "action_undone" : "undo_failed", customResponse: result.message };
+    }
+
     case "query_regie_info": {
       const regieName = entities.regie_name as string || entities.client_name as string;
       
