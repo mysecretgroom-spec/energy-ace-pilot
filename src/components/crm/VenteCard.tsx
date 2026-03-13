@@ -94,10 +94,12 @@ const statusConfig: Record<VenteStatus, { label: string; color: string; icon: Re
 };
 
 const formatCurrency = (amount: number) => {
+  const hasDecimals = amount % 1 !== 0;
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 0
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
   }).format(amount);
 };
 
