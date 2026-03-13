@@ -43,6 +43,7 @@ import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
+import { ResultatPdfChoiceDialog } from "@/components/etude/ResultatPdfChoiceDialog";
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { VenteCard } from "@/components/crm/VenteCard";
 import { VenteStatus } from "@/lib/venteStatusConfig";
@@ -239,6 +240,7 @@ const ClientDetailInner = () => {
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [destinationPhone, setDestinationPhone] = useState("");
   const [clientRegie, setClientRegie] = useState<ClientRegie | null>(null);
+  const [resultatPdfDialogEtudeId, setResultatPdfDialogEtudeId] = useState<string | null>(null);
 
   // WhatsApp PDF sending
   const { sendPdfDoc, isSending: isSendingDoc } = useSendWhatsAppPdfDoc();
@@ -792,9 +794,9 @@ const ClientDetailInner = () => {
                           size="icon"
                           title="Télécharger le Résultat d'étude (complet)"
                           disabled={pdfDownloadLoading}
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
-                            await downloadOrSharePdf(etude.id, "resultat");
+                            setResultatPdfDialogEtudeId(etude.id);
                           }}
                         >
                           {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
@@ -1006,6 +1008,18 @@ const ClientDetailInner = () => {
             isLoading={isDeleting}
           />
         )}
+
+        <ResultatPdfChoiceDialog
+          open={!!resultatPdfDialogEtudeId}
+          onClose={() => setResultatPdfDialogEtudeId(null)}
+          onChoose={async (showLogos) => {
+            if (resultatPdfDialogEtudeId) {
+              setResultatPdfDialogEtudeId(null);
+              await downloadOrSharePdf(resultatPdfDialogEtudeId, "resultat", { showLogos });
+            }
+          }}
+          loading={pdfDownloadLoading}
+        />
       </div>
     </MobileLayout>
   );

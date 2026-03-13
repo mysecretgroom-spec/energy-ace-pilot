@@ -1747,7 +1747,8 @@ const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?
 // RÉSULTAT D'ÉTUDE GENERATOR (style CEPC formel intégral)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
+const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<jsPDF> => {
+  const showLogos = options?.showLogos ?? true;
   const doc = new jsPDF();
   patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];
@@ -1756,9 +1757,11 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   let franceRenovBase64 = "";
   let ministereBase64 = "";
   let enedisBase64 = "";
-  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
-  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
-  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  if (showLogos) {
+    try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+    try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+    try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  }
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
@@ -1878,14 +1881,14 @@ export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
 };
 
 /** Résultat d'étude (ultra-complet + formel) — téléchargeable depuis la fiche client */
-export const exportResultatPdf = async (data: EtudeData): Promise<void> => {
-  const doc = await generateResultatPdf(data);
+export const exportResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<void> => {
+  const doc = await generateResultatPdf(data, options);
   const fileName = `Resultat_Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
   doc.save(fileName);
 };
 
-export const getResultatPdfBlob = async (data: EtudeData): Promise<Blob> => {
-  const doc = await generateResultatPdf(data);
+export const getResultatPdfBlob = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<Blob> => {
+  const doc = await generateResultatPdf(data, options);
   return doc.output("blob");
 };
 
