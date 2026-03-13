@@ -980,7 +980,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...(autofinancementValid ? [22, 101, 52] as [number, number, number] : [185, 28, 28] as [number, number, number]));
-  doc.text(autofinancementValid ? "Favorable" : "A approfondir", rightX, yPos + 11);
+  doc.text(autofinancementValid ? "Favorable" : "Defavorable", rightX, yPos + 11);
   yPos += boxH + 4;
 
   // Box row 2 - four columns
