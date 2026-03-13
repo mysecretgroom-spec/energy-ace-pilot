@@ -68,9 +68,10 @@ export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: Re
 
       <PinDialog
         open={showPinDialog}
-        onClose={() => setShowPinDialog(false)}
+        onOpenChange={setShowPinDialog}
         onSuccess={handlePinSuccess}
         title="Code HEJJA requis"
+        description="Entrez le code PIN pour générer la version avec logos"
       />
     </>
   );
