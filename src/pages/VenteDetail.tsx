@@ -34,6 +34,7 @@ import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { RegieSelector } from "@/components/planning/RegieSelector";
 import { VenteStatusTimeline } from "@/components/crm/VenteStatusTimeline";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
+import { DecomDialog } from "@/components/crm/DecomDialog";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
