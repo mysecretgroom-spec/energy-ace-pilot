@@ -95,6 +95,7 @@ type Intent =
   | "select_choice"        // Réponse à un sondage de choix (numéro ou texte)
   | "select_regie"         // Réponse à un sondage de sélection de régie
   | "multi_request"        // Message contenant plusieurs demandes distinctes
+  | "undo_last_action"     // Annuler/défaire la dernière action effectuée
   | "conversation"
   | "unknown";
 
@@ -1626,7 +1627,82 @@ async function getPreviousData(
   }
 }
 
-serve(async (req) => {
+// Undo the last agent action by restoring previous_data
+// deno-lint-ignore no-explicit-any
+async function undoLastAction(
+  supabase: any,
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { data: lastAction, error: fetchError } = await supabase
+      .from("whatsapp_agent_actions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_undone", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError || !lastAction) {
+      return { success: false, message: "❌ Aucune action récente à annuler." };
+    }
+
+    const actionAge = Date.now() - new Date(lastAction.created_at).getTime();
+    if (actionAge > 3600000) {
+      return { success: false, message: "❌ La dernière action date de plus d'une heure, impossible de l'annuler." };
+    }
+
+    const previousData = lastAction.previous_data;
+    if (!previousData) {
+      return { success: false, message: `❌ Impossible d'annuler cette action (${lastAction.description}) : pas de données de restauration.` };
+    }
+
+    const targetTable = lastAction.target_table;
+    const targetId = lastAction.target_id;
+
+    if (lastAction.action_type === "delete_rdv" || lastAction.action_type === "delete") {
+      const { error: insertError } = await supabase.from(targetTable).insert(previousData);
+      if (insertError) {
+        return { success: false, message: `❌ Erreur lors de la restauration : ${insertError.message}` };
+      }
+    } else {
+      const fieldsToRestore: Record<string, unknown> = {};
+      const changedFields = Object.keys(lastAction.action_data || {});
+      
+      if (changedFields.length > 0) {
+        for (const field of changedFields) {
+          fieldsToRestore[field] = previousData[field] ?? null;
+        }
+      } else {
+        for (const [key, value] of Object.entries(previousData)) {
+          if (!["id", "user_id", "created_at"].includes(key)) {
+            fieldsToRestore[key] = value;
+          }
+        }
+      }
+
+      const { error: updateError } = await supabase.from(targetTable).update(fieldsToRestore).eq("id", targetId);
+      if (updateError) {
+        return { success: false, message: `❌ Erreur lors de l'annulation : ${updateError.message}` };
+      }
+    }
+
+    await supabase
+      .from("whatsapp_agent_actions")
+      .update({ is_undone: true, undone_at: new Date().toISOString() })
+      .eq("id", lastAction.id);
+
+    return { 
+      success: true, 
+      message: `✅ Action annulée !\n\n🔄 *${lastAction.description}*\n\n↩️ Les données ont été restaurées.` 
+    };
+  } catch (error) {
+    console.error("Undo error:", error);
+    return { success: false, message: "❌ Erreur inattendue lors de l'annulation." };
+  }
+}
+
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -5739,6 +5815,7 @@ INTENTIONS DISPONIBLES:
 - add_decom: "décom Dupont 200€", "ajoute décom X", "décommission", "enlève la décom" → Ajouter/modifier/supprimer une décommission sur une vente. Entities: client_name, decom_montant, decom_raison
 - update_client_data: "change le tel de X", "modifie email de X", "nouvelle adresse X" → Modifier téléphone, email, adresse d'un client. Entities: client_name, new_phone, new_email, new_address, new_city, new_postal_code
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
+- undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
@@ -9754,6 +9831,11 @@ async function executeAction(
       
       return { actionTaken: "client_updated", entityId: matchedClient.id, entityType: "client",
         customResponse: `✅ Client *${matchedClient.fullName}* mis à jour:\n${changes.join("\n")}` };
+    }
+
+    case "undo_last_action": {
+      const result = await undoLastAction(supabase, userId);
+      return { actionTaken: result.success ? "action_undone" : "undo_failed", customResponse: result.message };
     }
 
     case "query_regie_info": {
