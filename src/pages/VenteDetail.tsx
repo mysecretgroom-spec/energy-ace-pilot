@@ -204,6 +204,8 @@ const VenteDetail = () => {
 
     setVente(venteData);
     setRegieId(venteData.regie_id || null);
+    setDecomMontant(venteData.decom_montant || 0);
+    setDecomRaison(venteData.decom_raison || null);
 
     // Fetch regie info
     if (venteData.regie_id) {
