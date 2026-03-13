@@ -1008,6 +1008,18 @@ const ClientDetailInner = () => {
             isLoading={isDeleting}
           />
         )}
+
+        <ResultatPdfChoiceDialog
+          open={!!resultatPdfDialogEtudeId}
+          onClose={() => setResultatPdfDialogEtudeId(null)}
+          onChoose={async (showLogos) => {
+            if (resultatPdfDialogEtudeId) {
+              setResultatPdfDialogEtudeId(null);
+              await downloadOrSharePdf(resultatPdfDialogEtudeId, "resultat", { showLogos });
+            }
+          }}
+          loading={pdfDownloadLoading}
+        />
       </div>
     </MobileLayout>
   );
