@@ -940,7 +940,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   doc.setTextColor(...grisTexte);
   const bannerTitle = autofinancementValid
     ? "Le projet repond aux criteres de faisabilite technique et financiere."
-    : "Le projet necessite une analyse complementaire avant mise en oeuvre.";
+    : "Le projet ne repond pas aux criteres de faisabilite technique et financiere.";
   doc.text(bannerTitle, 30, yPos + 7);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
