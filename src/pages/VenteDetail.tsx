@@ -674,6 +674,39 @@ const VenteDetail = () => {
           </CardContent>
         </Card>
 
+        {/* Décom section */}
+        <Card className={decomMontant > 0 ? "border-destructive/30 bg-destructive/5" : ""}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MinusCircle className="h-4 w-4" />
+                Décommission
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDecomDialogOpen(true)}
+              >
+                {decomMontant > 0 ? "Modifier" : "Ajouter"}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {decomMontant > 0 && (
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Montant</span>
+                <span className="font-semibold text-destructive">-{decomMontant.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} € HT</span>
+              </div>
+              {decomRaison && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">Raison</span>
+                  <span className="text-sm text-right">{decomRaison}</span>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
         {/* Notes */}
         <Card>
           <CardHeader className="pb-2">
