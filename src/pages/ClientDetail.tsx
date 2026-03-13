@@ -794,9 +794,9 @@ const ClientDetailInner = () => {
                           size="icon"
                           title="Télécharger le Résultat d'étude (complet)"
                           disabled={pdfDownloadLoading}
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
-                            await downloadOrSharePdf(etude.id, "resultat");
+                            setResultatPdfDialogEtudeId(etude.id);
                           }}
                         >
                           {pdfDownloadLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
