@@ -44,6 +44,8 @@ import { useSendWhatsAppPdfDoc } from "@/hooks/useSendWhatsAppPdfDoc";
 import { RdvStatusSelector } from "@/components/planning/RdvStatusSelector";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
+import { VenteCard } from "@/components/crm/VenteCard";
+import { VenteStatus } from "@/lib/venteStatusConfig";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
