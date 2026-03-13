@@ -919,7 +919,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   yPos += 14;
 
   // -- Congratulations banner (like CEPC) --
-  const autofinancementValid = data.resultatTransfertCharge >= 0;
+  const autofinancementValid = data.resultatTransfertCharge >= 0 && data.autoconsoPct >= 100;
   const bannerColor: [number, number, number] = autofinancementValid ? [240, 249, 244] : [254, 242, 242];
   const bannerBorder: [number, number, number] = autofinancementValid ? [34, 197, 94] : [239, 68, 68];
   const bannerIconColor: [number, number, number] = autofinancementValid ? [22, 163, 74] : [220, 38, 38];
