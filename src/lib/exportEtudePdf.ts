@@ -1747,7 +1747,8 @@ const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?
 // RÉSULTAT D'ÉTUDE GENERATOR (style CEPC formel intégral)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
+const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<jsPDF> => {
+  const showLogos = options?.showLogos ?? true;
   const doc = new jsPDF();
   patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];
@@ -1756,9 +1757,11 @@ const generateResultatPdf = async (data: EtudeData): Promise<jsPDF> => {
   let franceRenovBase64 = "";
   let ministereBase64 = "";
   let enedisBase64 = "";
-  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
-  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
-  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  if (showLogos) {
+    try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+    try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+    try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  }
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
