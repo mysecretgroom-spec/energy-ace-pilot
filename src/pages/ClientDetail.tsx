@@ -713,6 +713,30 @@ const ClientDetailInner = () => {
             )}
           </TabsContent>
 
+          {/* Tab Ventes */}
+          <TabsContent value="ventes" className="space-y-3 mt-4">
+            {ventes.length === 0 ? (
+              <Card className="shadow-card">
+                <CardContent className="p-6 text-center">
+                  <Euro className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Aucune vente pour ce client</p>
+                </CardContent>
+              </Card>
+            ) : (
+              ventes.map((vente) => (
+                <VenteCard
+                  key={vente.id}
+                  vente={vente}
+                  regies={ventesRegies}
+                  selectionMode={false}
+                  isSelected={false}
+                  onClick={() => navigate(`/ventes/${vente.id}`)}
+                  onRefresh={fetchClientData}
+                />
+              ))
+            )}
+          </TabsContent>
+
           {/* Tab Études */}
           <TabsContent value="etudes" className="space-y-3 mt-4">
             <Button className="w-full bg-gradient-hero gap-2" onClick={() => navigate(`/etude/new?client=${id}`)}>
