@@ -5740,6 +5740,7 @@ INTENTIONS DISPONIBLES:
 - add_decom: "décom Dupont 200€", "ajoute décom X", "décommission", "enlève la décom" → Ajouter/modifier/supprimer une décommission sur une vente. Entities: client_name, decom_montant, decom_raison
 - update_client_data: "change le tel de X", "modifie email de X", "nouvelle adresse X" → Modifier téléphone, email, adresse d'un client. Entities: client_name, new_phone, new_email, new_address, new_city, new_postal_code
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
+- undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
