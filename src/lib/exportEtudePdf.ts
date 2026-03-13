@@ -948,7 +948,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   yPos += 24;
 
   // -- Structured data boxes (like CEPC table) --
-  const autoconsoValid = data.autoconsoPct > 0;
+  const autoconsoValid = data.autoconsoPct >= 100;
 
   // Box row 1 - two columns
   const boxW = (pageWidth - 28 - 6) / 2;
