@@ -13,7 +13,7 @@ type PdfMode = "pre-etude" | "resultat";
 export function useEtudePdfDownload() {
   const [loading, setLoading] = useState(false);
 
-  const downloadOrShare = useCallback(async (etudeId: string, mode: PdfMode = "pre-etude") => {
+  const downloadOrShare = useCallback(async (etudeId: string, mode: PdfMode = "pre-etude", options?: { showLogos?: boolean }) => {
     setLoading(true);
     try {
       // 1. Fetch étude row
@@ -30,7 +30,7 @@ export function useEtudePdfDownload() {
       const filename = `${prefix}_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
 
       // Generate PDF based on mode
-      const blob = await generatePdfFromEtude(etude, client, mode);
+      const blob = await generatePdfFromEtude(etude, client, mode, options);
       
       // Upload/replace for future use (only for pre-etude to keep backward compat)
       if (mode === "pre-etude") {
