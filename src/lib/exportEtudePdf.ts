@@ -919,7 +919,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   yPos += 14;
 
   // -- Congratulations banner (like CEPC) --
-  const autofinancementValid = data.resultatTransfertCharge >= 0;
+  const autofinancementValid = data.resultatTransfertCharge >= 0 && data.autoconsoPct >= 100;
   const bannerColor: [number, number, number] = autofinancementValid ? [240, 249, 244] : [254, 242, 242];
   const bannerBorder: [number, number, number] = autofinancementValid ? [34, 197, 94] : [239, 68, 68];
   const bannerIconColor: [number, number, number] = autofinancementValid ? [22, 163, 74] : [220, 38, 38];
@@ -940,7 +940,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   doc.setTextColor(...grisTexte);
   const bannerTitle = autofinancementValid
     ? "Le projet repond aux criteres de faisabilite technique et financiere."
-    : "Le projet necessite une analyse complementaire avant mise en oeuvre.";
+    : "Le projet ne repond pas aux criteres de faisabilite technique et financiere.";
   doc.text(bannerTitle, 30, yPos + 7);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
@@ -948,7 +948,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   yPos += 24;
 
   // -- Structured data boxes (like CEPC table) --
-  const autoconsoValid = data.autoconsoPct > 0;
+  const autoconsoValid = data.autoconsoPct >= 100;
 
   // Box row 1 - two columns
   const boxW = (pageWidth - 28 - 6) / 2;
@@ -980,7 +980,7 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...(autofinancementValid ? [22, 101, 52] as [number, number, number] : [185, 28, 28] as [number, number, number]));
-  doc.text(autofinancementValid ? "Favorable" : "A approfondir", rightX, yPos + 11);
+  doc.text(autofinancementValid ? "Favorable" : "Defavorable", rightX, yPos + 11);
   yPos += boxH + 4;
 
   // Box row 2 - four columns
