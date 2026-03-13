@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Trash2,
   Download,
+  MinusCircle,
 } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
