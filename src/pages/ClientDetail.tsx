@@ -194,6 +194,27 @@ interface HistoriqueAction {
   created_at: string;
 }
 
+interface ClientVente {
+  id: string;
+  numero_contrat: string | null;
+  date_signature: string | null;
+  montant_ht: number;
+  montant_ttc: number;
+  puissance_kwc: number | null;
+  status: VenteStatus;
+  type_vente?: 'standard' | 'external_installation';
+  decom_montant?: number | null;
+  decom_raison?: string | null;
+  regie_id?: string | null;
+  client: { id: string; nom: string; prenom: string | null } | null;
+}
+
+interface ClientRegie2 {
+  id: string;
+  nom: string;
+  couleur: string;
+}
+
 const ClientDetailInner = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
