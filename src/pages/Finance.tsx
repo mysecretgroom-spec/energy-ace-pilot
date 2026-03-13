@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { clampDateToToday } from "@/lib/dateValidation";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { BlurOverlay } from "@/components/layout/BlurOverlay";
 import { Card, CardContent } from "@/components/ui/card";
