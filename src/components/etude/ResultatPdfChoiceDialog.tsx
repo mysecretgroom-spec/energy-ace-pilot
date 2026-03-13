@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DialogClose } from "@/components/ui/dialog";
 import { PinDialog } from "@/components/auth/PinDialog";
-import { FileText, ShieldCheck, ShieldOff } from "lucide-react";
+import { FileText, ShieldCheck, ShieldOff, X } from "lucide-react";
 
 interface ResultatPdfChoiceDialogProps {
   open: boolean;
