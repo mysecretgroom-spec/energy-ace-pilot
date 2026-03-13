@@ -228,6 +228,8 @@ const ClientDetailInner = () => {
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [historique, setHistorique] = useState<HistoriqueAction[]>([]);
+  const [ventes, setVentes] = useState<ClientVente[]>([]);
+  const [ventesRegies, setVentesRegies] = useState<ClientRegie2[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
   const [showMultiImport, setShowMultiImport] = useState(false);
