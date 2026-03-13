@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Trash2,
   Download,
+  MinusCircle,
 } from "lucide-react";
 import { Building2 } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
@@ -33,6 +34,7 @@ import { useDeleteEntity } from "@/hooks/useDeleteEntity";
 import { RegieSelector } from "@/components/planning/RegieSelector";
 import { VenteStatusTimeline } from "@/components/crm/VenteStatusTimeline";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
+import { DecomDialog } from "@/components/crm/DecomDialog";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -88,6 +90,9 @@ const VenteDetail = () => {
   const [regieId, setRegieId] = useState<string | null>(null);
   const [regieNom, setRegieNom] = useState<string | null>(null);
   const [regieCouleur, setRegieCouleur] = useState<string | null>(null);
+  const [decomMontant, setDecomMontant] = useState<number>(0);
+  const [decomRaison, setDecomRaison] = useState<string | null>(null);
+  const [decomDialogOpen, setDecomDialogOpen] = useState(false);
   
   
   // Delete functionality
@@ -199,6 +204,8 @@ const VenteDetail = () => {
 
     setVente(venteData);
     setRegieId(venteData.regie_id || null);
+    setDecomMontant(venteData.decom_montant || 0);
+    setDecomRaison(venteData.decom_raison || null);
 
     // Fetch regie info
     if (venteData.regie_id) {
@@ -667,6 +674,39 @@ const VenteDetail = () => {
           </CardContent>
         </Card>
 
+        {/* Décom section */}
+        <Card className={decomMontant > 0 ? "border-destructive/30 bg-destructive/5" : ""}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MinusCircle className="h-4 w-4" />
+                Décommission
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDecomDialogOpen(true)}
+              >
+                {decomMontant > 0 ? "Modifier" : "Ajouter"}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {decomMontant > 0 && (
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Montant</span>
+                <span className="font-semibold text-destructive">-{decomMontant.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} € HT</span>
+              </div>
+              {decomRaison && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">Raison</span>
+                  <span className="text-sm text-right">{decomRaison}</span>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
         {/* Notes */}
         <Card>
           <CardHeader className="pb-2">
@@ -744,6 +784,20 @@ const VenteDetail = () => {
         title="Supprimer cette vente ?"
         description="Cette action est irréversible. La vente sera définitivement supprimée."
         isLoading={isDeleting}
+      />
+
+      {/* Décom Dialog */}
+      <DecomDialog
+        venteId={id!}
+        clientName={client ? `${client.prenom || ""} ${client.nom}`.trim() : "Client"}
+        currentDecom={decomMontant}
+        currentRaison={decomRaison}
+        open={decomDialogOpen}
+        onOpenChange={setDecomDialogOpen}
+        onSaved={() => {
+          setDecomDialogOpen(false);
+          loadVente();
+        }}
       />
     </MobileLayout>
   );
