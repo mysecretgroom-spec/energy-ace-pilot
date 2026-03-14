@@ -192,26 +192,34 @@ serve(async (req) => {
         if (whatsAppProfile?.phone) {
           const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
           const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-          const TWILIO_WHATSAPP_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
+          const TWILIO_WHATSAPP_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM") || Deno.env.get("TWILIO_WHATSAPP_NUMBER");
 
           if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_FROM) {
             let phone = whatsAppProfile.phone.replace(/\D/g, "");
             if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
             if (!phone.startsWith("+")) phone = `+${phone}`;
 
+            // Smart chunking for WhatsApp (1500 char limit)
+            const chunks = splitWhatsAppMessage(message, 1500);
+
             const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
-            await fetch(twilioUrl, {
-              method: "POST",
-              headers: {
-                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                From: TWILIO_WHATSAPP_FROM,
-                To: `whatsapp:${phone}`,
-                Body: message,
-              }).toString(),
-            });
+            for (let ci = 0; ci < chunks.length; ci++) {
+              const chunkBody = chunks.length > 1 ? `(${ci + 1}/${chunks.length}) ${chunks[ci]}` : chunks[ci];
+              const whatsappResp = await fetch(twilioUrl, {
+                method: "POST",
+                headers: {
+                  Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({
+                  From: TWILIO_WHATSAPP_FROM,
+                  To: `whatsapp:${phone}`,
+                  Body: chunkBody,
+                }).toString(),
+              });
+              const whatsappRes = await whatsappResp.json();
+              console.log(`WhatsApp recap part ${ci + 1}/${chunks.length} sent to ${phone}:`, whatsappResp.ok, whatsappRes.sid || whatsappRes.message);
+            }
           }
         }
 
@@ -234,3 +242,43 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Smart split for WhatsApp messages.
+ * Splits on logical blocks (delimited by double newlines) so each block stays intact.
+ */
+function splitWhatsAppMessage(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text];
+
+  const blocks = text.split("\n\n");
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const block of blocks) {
+    const candidate = current.length > 0 ? current + "\n\n" + block : block;
+    
+    if (candidate.length > maxLen && current.length > 0) {
+      chunks.push(current.trimEnd());
+      current = block;
+    } else {
+      current = candidate;
+    }
+
+    if (current.length > maxLen) {
+      const lines = current.split("\n");
+      current = "";
+      for (const line of lines) {
+        const lineCandidate = current.length > 0 ? current + "\n" + line : line;
+        if (lineCandidate.length > maxLen && current.length > 0) {
+          chunks.push(current.trimEnd());
+          current = line;
+        } else {
+          current = lineCandidate;
+        }
+      }
+    }
+  }
+  if (current.length > 0) chunks.push(current.trimEnd());
+
+  return chunks;
+}

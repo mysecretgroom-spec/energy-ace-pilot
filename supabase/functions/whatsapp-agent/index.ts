@@ -10172,6 +10172,122 @@ async function executeAction(
       return { actionTaken: "query_client_full_result", entityType: "client_full", entityId: matchedClient.id, customResponse: sections.join("\n") };
     }
 
+    case "query_stats": {
+      const period = (entities.period as string) || "month";
+      
+      const now = new Date();
+      let startDate: Date;
+      let endDate = new Date(now);
+      endDate.setHours(23, 59, 59, 999);
+      let periodLabel = "";
+      
+      // Previous period for trends
+      let prevStartDate: Date;
+      let prevEndDate: Date;
+      
+      switch (period) {
+        case "today":
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          periodLabel = "Aujourd'hui";
+          prevStartDate = new Date(startDate);
+          prevStartDate.setDate(prevStartDate.getDate() - 1);
+          prevEndDate = new Date(startDate);
+          break;
+        case "week": {
+          const dayOfWeek = now.getDay(); // 0=dimanche
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Monday
+          startDate.setHours(0, 0, 0, 0);
+          periodLabel = "Cette semaine";
+          prevStartDate = new Date(startDate);
+          prevStartDate.setDate(prevStartDate.getDate() - 7);
+          prevEndDate = new Date(startDate);
+          break;
+        }
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          periodLabel = "Ce mois";
+          prevStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          prevEndDate = new Date(startDate);
+      }
+      
+      const startStr = startDate.toISOString();
+      const endStr = endDate.toISOString();
+      const prevStartStr = prevStartDate.toISOString();
+      const prevEndStr = prevEndDate.toISOString();
+      
+      // Fetch data in parallel: current + previous period
+      const [rdvsRes, prevRdvsRes, ventesRes, prevVentesRes] = await Promise.all([
+        supabase.from("rdv").select("id, status, type_rdv")
+          .eq("user_id", userId).gte("date_heure", startStr).lt("date_heure", endStr),
+        supabase.from("rdv").select("id, status")
+          .eq("user_id", userId).gte("date_heure", prevStartStr).lt("date_heure", prevEndStr),
+        supabase.from("ventes").select("id, montant_ttc, montant_ht, puissance_kwc, status, type_vente")
+          .eq("user_id", userId).neq("type_vente", "external_installation").neq("status", "annule")
+          .gte("date_signature", startStr.split("T")[0]).lte("date_signature", endStr.split("T")[0]),
+        supabase.from("ventes").select("id, montant_ttc")
+          .eq("user_id", userId).neq("type_vente", "external_installation").neq("status", "annule")
+          .gte("date_signature", prevStartStr.split("T")[0]).lt("date_signature", prevEndStr.split("T")[0]),
+      ]);
+      
+      const rdvs = rdvsRes.data || [];
+      const prevRdvs = prevRdvsRes.data || [];
+      const ventes = ventesRes.data || [];
+      const prevVentes = prevVentesRes.data || [];
+      
+      const totalRdv = rdvs.length;
+      const signeRdv = rdvs.filter((r: { status: string }) => r.status === "signe").length;
+      const negatifRdv = rdvs.filter((r: { status: string }) => r.status === "negatif").length;
+      const r2Rdv = rdvs.filter((r: { status: string }) => r.status === "r2" || r.status === "r2_prestudy").length;
+      const annuleRdv = rdvs.filter((r: { status: string }) => r.status === "annule").length;
+      const tauxTransfo = totalRdv > 0 ? Math.round((signeRdv / totalRdv) * 100) : 0;
+      
+      const prevTotalRdv = prevRdvs.length;
+      const prevSigneRdv = prevRdvs.filter((r: { status: string }) => r.status === "signe").length;
+      const prevTauxTransfo = prevTotalRdv > 0 ? Math.round((prevSigneRdv / prevTotalRdv) * 100) : 0;
+      
+      const ventesCount = ventes.length;
+      const totalCA = ventes.reduce((sum: number, v: { montant_ttc: number | null }) => sum + (v.montant_ttc || 0), 0);
+      const totalKwc = ventes.reduce((sum: number, v: { puissance_kwc: number | null }) => sum + (v.puissance_kwc || 0), 0);
+      
+      const prevVentesCount = prevVentes.length;
+      const prevTotalCA = prevVentes.reduce((sum: number, v: { montant_ttc: number | null }) => sum + (v.montant_ttc || 0), 0);
+      
+      // Trend helper
+      const trend = (current: number, previous: number): string => {
+        if (previous === 0 && current === 0) return "";
+        if (previous === 0) return " ↑";
+        const diff = Math.round(((current - previous) / previous) * 100);
+        if (diff > 0) return ` ↑+${diff}%`;
+        if (diff < 0) return ` ↓${diff}%`;
+        return " ═";
+      };
+      
+      // Build message
+      let responseMsg = `📊 *STATS ${periodLabel.toUpperCase()}*\n\n`;
+      
+      responseMsg += `📅 *RDV effectués :* ${totalRdv}${trend(totalRdv, prevTotalRdv)}\n`;
+      if (signeRdv > 0) responseMsg += `✅ Signés : ${signeRdv}${trend(signeRdv, prevSigneRdv)}\n`;
+      if (negatifRdv > 0) responseMsg += `❌ Négatifs : ${negatifRdv}\n`;
+      if (r2Rdv > 0) responseMsg += `🔄 R2 : ${r2Rdv}\n`;
+      if (annuleRdv > 0) responseMsg += `🚫 Annulés : ${annuleRdv}\n`;
+      responseMsg += `📈 Taux de transformation : *${tauxTransfo}%*${trend(tauxTransfo, prevTauxTransfo)}\n\n`;
+      
+      if (ventesCount > 0) {
+        responseMsg += `💰 *Ventes signées :* ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
+        responseMsg += `💶 CA total : *${totalCA.toLocaleString("fr-FR")}€ TTC*${trend(totalCA, prevTotalCA)}\n`;
+        responseMsg += `⚡ Puissance : ${totalKwc.toFixed(1)} kWc\n`;
+      } else {
+        responseMsg += `💰 Aucune vente signée sur cette période\n`;
+      }
+      
+      return {
+        actionTaken: "query_stats_result",
+        entityType: "stats",
+        customResponse: responseMsg,
+      };
+    }
+
     case "coaching_performance": {
       const period = (entities.period as string) || "month";
       
