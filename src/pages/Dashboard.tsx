@@ -281,7 +281,7 @@ const Dashboard = () => {
         supabase.from("rdv")
           .select(`
             id, date_heure, type_projet, status, type_rdv, etude_id, regie_id, needs_reconfirmation,
-            clients(id, nom, prenom, telephone, adresse, code_postal, ville),
+            clients(id, nom, prenom, telephone, adresse, code_postal, ville, regie_id, regies(nom, couleur)),
             regies(nom, couleur)
           `)
           .eq("user_id", user.id)
