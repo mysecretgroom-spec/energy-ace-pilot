@@ -1962,6 +1962,14 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
     yPos = (doc as any).lastAutoTable.finalY + 6;
   }
 
+  // PROJECTION 10 ANS (CEPC style)
+  if (data.projection10ans && data.projection10ans.length > 0) {
+    doc.addPage();
+    drawCepcHeader(doc, data, franceRenovBase64, "PROJECTION DES GAINS", ministereBase64);
+    yPos = 38;
+    yPos = drawProjection10Ans(doc, data, yPos, cepcCtx, "cepc");
+  }
+
   // PAGE FINALE: RÉSULTAT D'ÉTUDE (verdict CEPC)
   doc.addPage();
   drawCepcHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
