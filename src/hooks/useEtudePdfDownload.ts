@@ -130,7 +130,8 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   const projection10ans: { annee: number; prixKwhElec: number; gainAnnuel: number; gainCumule: number }[] = [];
   let cumulGain = 0;
   for (let i = 1; i <= 10; i++) {
-    const multiplicateur = Math.pow(1 + tauxAugmentation / 100, i);
+    // Année 1 = prix actuel, inflation à partir de l'année 2
+    const multiplicateur = Math.pow(1 + tauxAugmentation / 100, i - 1);
     const prixKwh = prixKwhActuel * multiplicateur;
     const gainAnnuel = gainAnnuelBase * multiplicateur;
     cumulGain += gainAnnuel;
