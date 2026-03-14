@@ -630,6 +630,7 @@ const VenteDetail = () => {
               <p className="text-xs text-muted-foreground">
                 Un RDV d'installation sera automatiquement créé sur le planning
               </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="dateInstallationReelle">Date de pose</Label>
               <Input
