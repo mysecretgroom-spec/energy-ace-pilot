@@ -78,6 +78,7 @@ export function useSaasAccess() {
     subscription,
     isLoading: isLoadingAccess || isLoadingSubscription,
     daysLeftInTrial,
+    isBetaTester,
     isInTrial,
     isActive,
     isPaywall,
