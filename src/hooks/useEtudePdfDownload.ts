@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData } from "@/lib/exportEtudePdf";
+import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } from "@/lib/exportEtudePdf";
 import { toast } from "sonner";
 
 type PdfMode = "pre-etude" | "resultat";
@@ -68,7 +68,27 @@ export function useEtudePdfDownload() {
 
 async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, options?: { showLogos?: boolean }): Promise<Blob> {
   const refId = (etude.id || "").substring(0, 8).toUpperCase();
+  const paramOverrides = (etude.param_overrides || {}) as any;
+  
+  // Récupération fiable des valeurs de rentabilité
+  const autoconsommationEuros = etude.economie_autoconso_mensuelle || etude.gain_autoconso_euros || 0;
+  const reventeMensuelleEstimee = etude.revente_mensuelle_estimee || 0;
+  const mensualite = etude.mensualite_estimee || 0;
+  
+  // Recalculer le résultat pour garantir la cohérence affichée
+  // (autoconso + revente - mensualité = résultat)
+  const resultatTransfertCharge = autoconsommationEuros + reventeMensuelleEstimee - mensualite;
+
+  // Déterminer les produits actifs
+  const activeProducts: string[] = etude.active_products || ["PV"];
+  
+  // Déterminer si la consommation est estimée
+  const consoIsEstimated = paramOverrides.consoIsEstimated ?? 
+    (etude.consommation_annuelle_kwh && !etude.numero_pdl ? true : false);
+
   const pdfData: EtudeData = {
+    // Multi-product
+    activeProducts,
     referenceEtude: refId ? `PE-${refId}` : undefined,
     clientNom: client.nom || "",
     clientPrenom: client.prenom || "",
@@ -92,12 +112,13 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     potentielFaisabilite: etude.potentiel_faisabilite || "Non défini",
     consoAnnuelle: etude.consommation_annuelle_kwh || 0,
     factureMensuelle: etude.facture_annuelle_euros ? etude.facture_annuelle_euros / 12 : 0,
+    consoIsEstimated,
     bouquetNom: `${etude.puissance_kwc || 0} kWc`,
     puissanceKwc: etude.puissance_kwc || 0,
     typeRevente: etude.type_revente || "Non défini",
     supportInstallation: etude.support || "Non défini",
     surfaceInstallation: etude.surface_installation_m2 || 0,
-    heuresEnsoleillement: (etude.param_overrides as any)?.heuresEnsoleillement || 1000,
+    heuresEnsoleillement: paramOverrides.heuresEnsoleillement || 1000,
     rendementProductivite: etude.rendement_productivite || 100,
     productionAnnuelle: etude.production_annuelle_kwh || 0,
     surplusProduction: etude.surplus_production_kwh || 0,
@@ -114,16 +135,77 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     financementNom: etude.mode_financement || "Non défini",
     tauxFinancement: etude.taux_financement || 0,
     dureeMois: etude.duree_financement_mois || 120,
-    mensualite: etude.mensualite_estimee || 0,
-    autoconsommationEuros: etude.economie_autoconso_mensuelle || etude.gain_autoconso_euros || 0,
-    reventeMensuelleEstimee: etude.revente_mensuelle_estimee || 0,
-    resultatTransfertCharge: etude.resultat_transfert_charge || 0,
+    mensualite,
+    autoconsommationEuros,
+    reventeMensuelleEstimee,
+    resultatTransfertCharge,
     verdict: etude.verdict || "invalide",
     classification: etude.classification || undefined,
     classificationComment: etude.classification_comment || undefined,
+    
+    // Multi-product PAC data
+    pac: activeProducts.includes("PAC") ? buildPacData(etude) : undefined,
+    // Multi-product ITE data
+    ite: activeProducts.includes("ITE") ? buildIteData(etude) : undefined,
   };
 
   return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
+}
+
+function buildPacData(etude: any) {
+  const aidesManuelles = etude.aides_manuelles || {};
+  return {
+    subtype: (etude.pac_subtype || "air_eau") as "air_air" | "air_eau",
+    surfaceChauffee: etude.pac_surface_chauffee || 0,
+    typeEmetteurs: etude.pac_type_emetteurs || "Non défini",
+    puissanceCalorifique: etude.pac_puissance_calorifique || 0,
+    cop: etude.pac_cop || 3.5,
+    ecsIntegre: etude.pac_ecs_integre || false,
+    volumeBallon: etude.pac_volume_ballon || 0,
+    energieActuelle: etude.pac_energie_actuelle || "Non défini",
+    niveauIsolation: etude.pac_niveau_isolation || "moyen",
+    prixInstallation: etude.prix_installation || 0,
+    aides: {
+      maPrimeRenov: aidesManuelles.maPrimeRenov || 0,
+      cee: aidesManuelles.cee || 0,
+      ecoTva: aidesManuelles.ecoTva || 0,
+      aideLocale: aidesManuelles.aideLocale || 0,
+    },
+    economies: etude.pac_besoins_chauffage_kwh ? {
+      besoinsChauffageKwh: etude.pac_besoins_chauffage_kwh || 0,
+      consoElecPacKwh: etude.pac_conso_elec_pac_kwh || 0,
+      surcoutElecEuros: etude.pac_surcout_elec_euros || 0,
+      economieNetteEuros: etude.pac_economie_nette_euros || 0,
+      economieNetteMessage: etude.pac_economie_nette_euros || 0,
+    } : null,
+    factureChauffage: etude.pac_facture_chauffage_euros || 0,
+    factureElec: etude.pac_facture_elec_euros || 0,
+    prixKwhElec: etude.pac_prix_kwh_elec || 0.23,
+  };
+}
+
+function buildIteData(etude: any) {
+  const aidesManuelles = etude.aides_manuelles || {};
+  return {
+    surfaceIsoler: etude.ite_surface_isoler || 0,
+    typeFacade: etude.ite_type_facade || "Non défini",
+    epaisseurIsolant: etude.ite_epaisseur_isolant || 120,
+    typeIsolant: etude.ite_type_isolant || "Non défini",
+    rActuel: etude.ite_r_actuel || 0,
+    rCible: etude.ite_r_cible || 3.7,
+    nombreFacades: etude.ite_nombre_facades || 1,
+    surfaceOuvertures: etude.ite_surface_ouvertures || 0,
+    finition: etude.ite_finition || "Non défini",
+    economieChauffagePct: etude.ite_economie_chauffage_pct || 0,
+    factureChaufActuelle: etude.pac_facture_chauffage_euros || 0,
+    prixInstallation: etude.prix_installation || 0,
+    aides: {
+      maPrimeRenov: aidesManuelles.maPrimeRenov || 0,
+      cee: aidesManuelles.cee || 0,
+      ecoTva: aidesManuelles.ecoTva || 0,
+      aideLocale: aidesManuelles.aideLocale || 0,
+    },
+  };
 }
 
 async function uploadGeneratedPdf(blob: Blob, etude: any, client: any) {
