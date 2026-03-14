@@ -110,6 +110,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
       
       if (match) {
         tauxAugmentation = match.taux_augmentation_annuel;
+        sourceEvolutionPrix = match.description || "";
         const labels: Record<string, string> = {
           electricite: "Électricité", gaz: "Gaz naturel", fioul: "Fioul",
           propane: "Propane", bois: "Bois/Granulés"
