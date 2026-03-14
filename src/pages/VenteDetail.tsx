@@ -112,6 +112,8 @@ const VenteDetail = () => {
   const [numeroContrat, setNumeroContrat] = useState("");
   const [status, setStatus] = useState<VenteStatus>("en_negociation");
   const [dateSignature, setDateSignature] = useState("");
+  const [dateInstallationPrevue, setDateInstallationPrevue] = useState("");
+  const [heureInstallationPrevue, setHeureInstallationPrevue] = useState("08:00");
   const [dateInstallationReelle, setDateInstallationReelle] = useState("");
   const [montantHt, setMontantHt] = useState<number | "">("");
   const [montantTtc, setMontantTtc] = useState<number | "">("");
@@ -134,6 +136,8 @@ const VenteDetail = () => {
     numeroContrat: "",
     status: "en_negociation" as VenteStatus,
     dateSignature: "",
+    dateInstallationPrevue: "",
+    heureInstallationPrevue: "08:00",
     dateInstallationReelle: "",
     montantHt: "" as number | "",
     montantTtc: "" as number | "",
@@ -150,6 +154,8 @@ const VenteDetail = () => {
       numeroContrat !== originalValues.numeroContrat ||
       status !== originalValues.status ||
       dateSignature !== originalValues.dateSignature ||
+      dateInstallationPrevue !== originalValues.dateInstallationPrevue ||
+      heureInstallationPrevue !== originalValues.heureInstallationPrevue ||
       dateInstallationReelle !== originalValues.dateInstallationReelle ||
       montantHt !== originalValues.montantHt ||
       montantTtc !== originalValues.montantTtc ||
@@ -160,8 +166,8 @@ const VenteDetail = () => {
       typeInstallation !== originalValues.typeInstallation
     );
   }, [
-    numeroContrat, status, dateSignature, dateInstallationReelle,
-    montantHt, montantTtc, montantAcompte, montantSolde, notes,
+    numeroContrat, status, dateSignature, dateInstallationPrevue, heureInstallationPrevue,
+    dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
     puissanceKwc, typeInstallation,
     originalValues
   ]);
@@ -225,6 +231,8 @@ const VenteDetail = () => {
 
     const newNumeroContrat = venteData.numero_contrat || "";
     const newStatus = venteData.status || "en_negociation";
+    const newDateInstallationPrevue = venteData.date_installation_prevue || "";
+    const newHeureInstallationPrevue = (venteData as any).heure_installation_prevue?.slice(0, 5) || "08:00";
     const newDateInstallationReelle = venteData.date_installation_reelle || "";
     const newMontantHt = venteData.montant_ht || "";
     const newMontantTtc = venteData.montant_ttc || "";
@@ -237,6 +245,8 @@ const VenteDetail = () => {
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
     setPreviousStatus(newStatus);
+    setDateInstallationPrevue(newDateInstallationPrevue);
+    setHeureInstallationPrevue(newHeureInstallationPrevue);
     setDateInstallationReelle(newDateInstallationReelle);
     setMontantHt(newMontantHt);
     setMontantTtc(newMontantTtc);
@@ -271,6 +281,8 @@ const VenteDetail = () => {
       numeroContrat: newNumeroContrat,
       status: newStatus,
       dateSignature: finalDateSignature,
+      dateInstallationPrevue: newDateInstallationPrevue,
+      heureInstallationPrevue: newHeureInstallationPrevue,
       dateInstallationReelle: newDateInstallationReelle,
       montantHt: newMontantHt,
       montantTtc: newMontantTtc,
@@ -343,6 +355,8 @@ const VenteDetail = () => {
         numero_contrat: numeroContrat || null,
         status,
         date_signature: dateSignature || null,
+        date_installation_prevue: dateInstallationPrevue || null,
+        heure_installation_prevue: heureInstallationPrevue || "08:00",
         date_installation_reelle: dateInstallationReelle || null,
         montant_ht: montantHt || null,
         montant_ttc: montantTtc || null,
@@ -352,7 +366,7 @@ const VenteDetail = () => {
         puissance_kwc: puissanceKwc || null,
         nombre_panneaux: nombrePanneaux || null,
         type_installation: typeInstallation || null,
-      })
+      } as any)
       .eq("id", id);
 
     setSaving(false);
@@ -371,6 +385,8 @@ const VenteDetail = () => {
       numeroContrat,
       status,
       dateSignature,
+      dateInstallationPrevue,
+      heureInstallationPrevue,
       dateInstallationReelle,
       montantHt,
       montantTtc,
@@ -594,6 +610,25 @@ const VenteDetail = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Calculée auto. depuis le RDV (R2 si présent, sinon date initiale)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Installation prévue</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  value={dateInstallationPrevue}
+                  onChange={(e) => setDateInstallationPrevue(e.target.value)}
+                  placeholder="Date"
+                />
+                <Input
+                  type="time"
+                  value={heureInstallationPrevue}
+                  onChange={(e) => setHeureInstallationPrevue(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Un RDV d'installation sera automatiquement créé sur le planning
               </p>
             </div>
             <div className="space-y-2">
