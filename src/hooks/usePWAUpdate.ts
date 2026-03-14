@@ -7,6 +7,7 @@ const MIN_EFFECTIVE_TYPE_FOR_UPDATE = ['4g', '3g'];
 
 // Version key to detect stale SWs from old deployments
 const SW_VERSION_KEY = 'pwa-sw-version';
+declare const __APP_VERSION__: string;
 const CURRENT_SW_VERSION = __APP_VERSION__;
 
 function hasGoodConnection(): boolean {
