@@ -45,6 +45,8 @@ interface IteData {
 interface ProjectionAnnuelle {
   annee: number;
   prixKwhElec: number;
+  coutAnnuelProjecte: number;
+  coutAugmentation: number;
   gainAnnuel: number;
   gainCumule: number;
 }
