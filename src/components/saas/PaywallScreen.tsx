@@ -41,6 +41,16 @@ export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: Payw
                 Veuillez régulariser votre situation pour continuer.
               </p>
             </>
+          ) : neverHadTrial ? (
+            <>
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                <Lock className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold">Accès en attente de validation</h1>
+              <p className="text-muted-foreground">
+                Votre compte a bien été créé. Un administrateur doit valider votre accès ou vous pouvez souscrire un abonnement directement.
+              </p>
+            </>
           ) : (
             <>
               <h1 className="text-2xl font-bold">Votre essai est terminé</h1>
