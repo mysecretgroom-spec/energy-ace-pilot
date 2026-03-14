@@ -2,44 +2,25 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "./AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
-  Search,
-  Loader2,
-  Users,
-  AlertTriangle,
-  Shield,
-  Star,
-  ExternalLink,
-  Eye,
+  Search, Loader2, Users, AlertTriangle, Shield, Star, ExternalLink, Eye, Calendar,
 } from "lucide-react";
-import { format, differenceInDays } from "date-fns";
+import { format, differenceInDays, addDays, addMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
 
@@ -58,14 +39,24 @@ interface AdminUser {
   subscription_status: string | null;
   current_period_end: string | null;
   past_due_since: string | null;
+  beta_expires_at: string | null;
 }
 
 type FilterType = "all" | "trial" | "active" | "paywall" | "blocked" | "beta" | "past_due";
+
+const BETA_DURATION_OPTIONS = [
+  { label: "7 jours", days: 7 },
+  { label: "14 jours", days: 14 },
+  { label: "1 mois", months: 1 },
+  { label: "3 mois", months: 3 },
+  { label: "Permanent", days: 0 },
+];
 
 export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [betaDuration, setBetaDuration] = useState("14");
   const queryClient = useQueryClient();
 
   const { data: users, isLoading } = useQuery({
@@ -78,16 +69,17 @@ export default function AdminUsers() {
   });
 
   const toggleBetaMutation = useMutation({
-    mutationFn: async ({ userId, isBeta }: { userId: string; isBeta: boolean }) => {
+    mutationFn: async ({ userId, isBeta, expiresAt }: { userId: string; isBeta: boolean; expiresAt: string | null }) => {
       const { error } = await supabase.rpc("toggle_beta_tester" as any, {
         p_target_user_id: userId,
         p_is_beta: isBeta,
+        p_beta_expires_at: expiresAt,
       });
       if (error) throw error;
     },
     onSuccess: (_, { isBeta }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-users-overview"] });
-      toast.success(isBeta ? "Utilisateur ajouté aux bêta-testeurs" : "Bêta-testeur retiré");
+      toast.success(isBeta ? "Bêta-testeur activé" : "Bêta-testeur désactivé");
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
@@ -107,14 +99,32 @@ export default function AdminUsers() {
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
 
+  const computeExpiresAt = (durationKey: string): string | null => {
+    const now = new Date();
+    switch (durationKey) {
+      case "7": return addDays(now, 7).toISOString();
+      case "14": return addDays(now, 14).toISOString();
+      case "30": return addMonths(now, 1).toISOString();
+      case "90": return addMonths(now, 3).toISOString();
+      case "0": return null; // permanent
+      default: return addDays(now, 14).toISOString();
+    }
+  };
+
+  const handleToggleBeta = (user: AdminUser, checked: boolean) => {
+    const expiresAt = checked ? computeExpiresAt(betaDuration) : null;
+    toggleBetaMutation.mutate({ userId: user.user_id, isBeta: checked, expiresAt });
+    if (selectedUser?.user_id === user.user_id) {
+      setSelectedUser({ ...user, is_beta_tester: checked, beta_expires_at: expiresAt });
+    }
+  };
+
   const filteredUsers = users?.filter((user) => {
     const matchesSearch =
       user.email?.toLowerCase().includes(search.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(search.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(search.toLowerCase());
-
     if (!matchesSearch) return false;
-
     switch (filter) {
       case "trial": return user.app_access === "trial";
       case "active": return user.app_access === "active" && !user.is_beta_tester;
@@ -137,7 +147,15 @@ export default function AdminUsers() {
 
   const getAccessBadge = (user: AdminUser) => {
     if (user.is_beta_tester) {
-      return <Badge className="bg-purple-500 text-white"><Star className="h-3 w-3 mr-1" />Bêta</Badge>;
+      const isTemp = !!user.beta_expires_at;
+      const expired = isTemp && new Date(user.beta_expires_at!) < new Date();
+      if (expired) return <Badge variant="destructive"><Star className="h-3 w-3 mr-1" />Bêta expiré</Badge>;
+      return (
+        <Badge className="bg-purple-500 text-white">
+          <Star className="h-3 w-3 mr-1" />
+          Bêta {isTemp ? "temp." : ""}
+        </Badge>
+      );
     }
     switch (user.app_access) {
       case "trial": return <Badge variant="secondary">Trial</Badge>;
@@ -160,6 +178,15 @@ export default function AdminUsers() {
   };
 
   const getDaysInfo = (user: AdminUser) => {
+    if (user.is_beta_tester && user.beta_expires_at) {
+      const days = differenceInDays(new Date(user.beta_expires_at), new Date());
+      if (days < 0) return <span className="text-destructive text-xs font-medium">Bêta expiré</span>;
+      if (days <= 3) return <span className="text-orange-500 text-xs font-medium">{days}j bêta restants ⚠️</span>;
+      return <span className="text-purple-500 text-xs">{days}j bêta restants</span>;
+    }
+    if (user.is_beta_tester) {
+      return <span className="text-purple-500 text-xs">Permanent</span>;
+    }
     if (user.app_access === "trial" && user.trial_ends_at) {
       const days = differenceInDays(new Date(user.trial_ends_at), new Date());
       if (days < 0) return <span className="text-destructive text-xs">Expiré</span>;
@@ -188,42 +215,21 @@ export default function AdminUsers() {
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter("all")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">Total</p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter("trial")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">{stats.trial}</p>
-              <p className="text-xs text-muted-foreground">En Trial</p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter("active")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-              <p className="text-xs text-muted-foreground">Actifs</p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter("beta")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-purple-600">{stats.beta}</p>
-              <p className="text-xs text-muted-foreground">Bêta</p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors border-orange-500/30" onClick={() => setFilter("past_due")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">{stats.pastDue}</p>
-              <p className="text-xs text-muted-foreground">Impayés</p>
-            </CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter("paywall")}>
-            <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-yellow-600">{stats.paywall}</p>
-              <p className="text-xs text-muted-foreground">Paywall</p>
-            </CardContent>
-          </Card>
+          {[
+            { key: "all" as FilterType, label: "Total", value: stats.total, color: "" },
+            { key: "trial" as FilterType, label: "En Trial", value: stats.trial, color: "text-blue-600" },
+            { key: "active" as FilterType, label: "Actifs", value: stats.active, color: "text-green-600" },
+            { key: "beta" as FilterType, label: "Bêta", value: stats.beta, color: "text-purple-600" },
+            { key: "past_due" as FilterType, label: "Impayés", value: stats.pastDue, color: "text-orange-600" },
+            { key: "paywall" as FilterType, label: "Paywall", value: stats.paywall, color: "text-yellow-600" },
+          ].map((s) => (
+            <Card key={s.key} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilter(s.key)}>
+              <CardContent className="p-4 text-center">
+                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Filters */}
@@ -232,17 +238,10 @@ export default function AdminUsers() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par nom ou email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
+                <Input placeholder="Rechercher par nom ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
               </div>
               <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filtre" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtre" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous ({stats.total})</SelectItem>
                   <SelectItem value="trial">Trial ({stats.trial})</SelectItem>
@@ -257,9 +256,7 @@ export default function AdminUsers() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -277,26 +274,15 @@ export default function AdminUsers() {
                   <TableBody>
                     {filteredUsers?.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          Aucun utilisateur trouvé
-                        </TableCell>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Aucun utilisateur trouvé</TableCell>
                       </TableRow>
                     )}
                     {filteredUsers?.map((user) => (
-                      <TableRow
-                        key={user.user_id}
-                        className={
-                          user.subscription_status === "past_due"
-                            ? "bg-orange-50/50 dark:bg-orange-950/10"
-                            : ""
-                        }
-                      >
+                      <TableRow key={user.user_id} className={user.subscription_status === "past_due" ? "bg-orange-50/50 dark:bg-orange-950/10" : ""}>
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {user.first_name || user.last_name
-                                ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                                : "—"}
+                              {user.first_name || user.last_name ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "—"}
                             </div>
                             <div className="text-sm text-muted-foreground">{user.email}</div>
                           </div>
@@ -307,12 +293,7 @@ export default function AdminUsers() {
                         <TableCell>
                           <Switch
                             checked={user.is_beta_tester}
-                            onCheckedChange={(checked) =>
-                              toggleBetaMutation.mutate({
-                                userId: user.user_id,
-                                isBeta: checked,
-                              })
-                            }
+                            onCheckedChange={(checked) => handleToggleBeta(user, checked)}
                             disabled={toggleBetaMutation.isPending}
                           />
                         </TableCell>
@@ -320,11 +301,7 @@ export default function AdminUsers() {
                           {format(new Date(user.created_at), "dd MMM yyyy", { locale: fr })}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSelectedUser(user)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => setSelectedUser(user)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -346,9 +323,7 @@ export default function AdminUsers() {
               <Shield className="h-5 w-5" />
               Détail Utilisateur
             </DialogTitle>
-            <DialogDescription>
-              {selectedUser?.email}
-            </DialogDescription>
+            <DialogDescription>{selectedUser?.email}</DialogDescription>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-6">
@@ -363,9 +338,7 @@ export default function AdminUsers() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Inscrit le</p>
-                  <p className="font-medium">
-                    {format(new Date(selectedUser.created_at), "dd MMMM yyyy", { locale: fr })}
-                  </p>
+                  <p className="font-medium">{format(new Date(selectedUser.created_at), "dd MMMM yyyy", { locale: fr })}</p>
                 </div>
               </div>
 
@@ -382,25 +355,18 @@ export default function AdminUsers() {
                 {selectedUser.trial_ends_at && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Fin de trial</span>
-                    <span className="text-sm font-medium">
-                      {format(new Date(selectedUser.trial_ends_at), "dd MMM yyyy", { locale: fr })}
-                    </span>
+                    <span className="text-sm font-medium">{format(new Date(selectedUser.trial_ends_at), "dd MMM yyyy", { locale: fr })}</span>
                   </div>
                 )}
                 {selectedUser.current_period_end && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Fin de période</span>
-                    <span className="text-sm font-medium">
-                      {format(new Date(selectedUser.current_period_end), "dd MMM yyyy", { locale: fr })}
-                    </span>
+                    <span className="text-sm font-medium">{format(new Date(selectedUser.current_period_end), "dd MMM yyyy", { locale: fr })}</span>
                   </div>
                 )}
                 {selectedUser.past_due_since && (
                   <div className="flex items-center justify-between text-orange-600">
-                    <span className="text-sm flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Impayé depuis
-                    </span>
+                    <span className="text-sm flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Impayé depuis</span>
                     <span className="text-sm font-bold">
                       {format(new Date(selectedUser.past_due_since), "dd MMM yyyy", { locale: fr })}
                       {" "}({differenceInDays(new Date(), new Date(selectedUser.past_due_since))}j)
@@ -410,55 +376,79 @@ export default function AdminUsers() {
                 {selectedUser.stripe_customer_id && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Stripe Customer</span>
-                    <a
-                      href={`https://dashboard.stripe.com/customers/${selectedUser.stripe_customer_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-mono text-primary flex items-center gap-1 hover:underline"
-                    >
-                      {selectedUser.stripe_customer_id.slice(0, 18)}...
-                      <ExternalLink className="h-3 w-3" />
+                    <a href={`https://dashboard.stripe.com/customers/${selectedUser.stripe_customer_id}`} target="_blank" rel="noopener noreferrer"
+                      className="text-xs font-mono text-primary flex items-center gap-1 hover:underline">
+                      {selectedUser.stripe_customer_id.slice(0, 18)}...<ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
                 )}
               </div>
 
+              {/* Beta Tester Section */}
               <div className="space-y-3 border rounded-lg p-4">
-                <h4 className="font-semibold text-sm">Actions Admin</h4>
+                <h4 className="font-semibold text-sm flex items-center gap-2">
+                  <Star className="h-4 w-4 text-purple-500" />
+                  Bêta-testeur
+                </h4>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Bêta-testeur</p>
-                    <p className="text-xs text-muted-foreground">Accès gratuit permanent</p>
+                    <p className="text-sm font-medium">Activer le mode bêta</p>
+                    <p className="text-xs text-muted-foreground">Accès gratuit pendant la durée choisie</p>
                   </div>
                   <Switch
                     checked={selectedUser.is_beta_tester}
-                    onCheckedChange={(checked) => {
-                      toggleBetaMutation.mutate({
-                        userId: selectedUser.user_id,
-                        isBeta: checked,
-                      });
-                      setSelectedUser({ ...selectedUser, is_beta_tester: checked });
-                    }}
+                    onCheckedChange={(checked) => handleToggleBeta(selectedUser, checked)}
                   />
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Modifier l'accès</p>
-                    <p className="text-xs text-muted-foreground">Changer le statut manuellement</p>
+
+                {!selectedUser.is_beta_tester && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Durée du bêta</Label>
+                    <Select value={betaDuration} onValueChange={setBetaDuration}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BETA_DURATION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.label} value={String(opt.days ?? opt.months! * 30)}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                )}
+
+                {selectedUser.is_beta_tester && selectedUser.beta_expires_at && (
+                  <div className="flex items-center justify-between bg-purple-50 dark:bg-purple-950/20 rounded-md p-3">
+                    <span className="text-sm flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Expire le
+                    </span>
+                    <span className="text-sm font-bold text-purple-600">
+                      {format(new Date(selectedUser.beta_expires_at), "dd MMM yyyy", { locale: fr })}
+                      {" "}({differenceInDays(new Date(selectedUser.beta_expires_at), new Date())}j)
+                    </span>
+                  </div>
+                )}
+
+                {selectedUser.is_beta_tester && !selectedUser.beta_expires_at && (
+                  <div className="bg-purple-50 dark:bg-purple-950/20 rounded-md p-3">
+                    <span className="text-sm text-purple-600 font-medium">✨ Accès permanent</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-4">
+                <h4 className="font-semibold text-sm">Modifier l'accès</h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Changer le statut manuellement</p>
                   <Select
                     value={selectedUser.app_access || "trial"}
                     onValueChange={(v) => {
-                      updateAccessMutation.mutate({
-                        userId: selectedUser.user_id,
-                        access: v,
-                      });
+                      updateAccessMutation.mutate({ userId: selectedUser.user_id, access: v });
                       setSelectedUser({ ...selectedUser, app_access: v });
                     }}
                   >
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="trial">Trial</SelectItem>
                       <SelectItem value="active">Actif</SelectItem>

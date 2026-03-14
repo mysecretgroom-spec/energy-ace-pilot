@@ -11,6 +11,7 @@ interface SaasAccessState {
   trial_ends_at: string;
   app_access: AppAccess;
   is_beta_tester: boolean;
+  beta_expires_at: string | null;
 }
 
 interface SaasSubscription {
