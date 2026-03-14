@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface PaywallScreenProps {
   isBlocked?: boolean;
   daysLeft?: number;
+  neverHadTrial?: boolean;
 }
 
 const MONTHLY_LINK = "https://buy.stripe.com/5kQfZa7Dfchb9Et7Oc7ok01";
