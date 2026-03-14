@@ -76,7 +76,6 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   const mensualite = etude.mensualite_estimee || 0;
   
   // Recalculer le résultat pour garantir la cohérence affichée
-  // (autoconso + revente - mensualité = résultat)
   const resultatTransfertCharge = autoconsommationEuros + reventeMensuelleEstimee - mensualite;
 
   // Déterminer les produits actifs
@@ -85,6 +84,63 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   // Déterminer si la consommation est estimée
   const consoIsEstimated = paramOverrides.consoIsEstimated ?? 
     (etude.consommation_annuelle_kwh && !etude.numero_pdl ? true : false);
+
+  // ── Projection 10 ans ──
+  // Déterminer l'énergie de référence (PAC = énergie actuelle, sinon électricité)
+  const typeEnergieRef = activeProducts.includes("PAC") && etude.pac_energie_actuelle
+    ? etude.pac_energie_actuelle.toLowerCase()
+    : "electricite";
+
+  // Charger le taux d'augmentation depuis la table paramétrable
+  let tauxAugmentation = 4; // default
+  let typeEnergieLabel = "Électricité";
+  try {
+    const { data: evolutionData } = await supabase
+      .from("data_evolution_prix_energie")
+      .select("*")
+      .eq("actif", true)
+      .order("user_id", { ascending: false, nullsFirst: false });
+    
+    if (evolutionData && evolutionData.length > 0) {
+      // Find matching energy type (user-specific first, then global)
+      const match = evolutionData.find((e: any) => 
+        e.type_energie.toLowerCase().includes(typeEnergieRef.replace(/[éè]/g, "e"))
+      ) || evolutionData.find((e: any) => e.type_energie === "electricite");
+      
+      if (match) {
+        tauxAugmentation = match.taux_augmentation_annuel;
+        const labels: Record<string, string> = {
+          electricite: "Électricité", gaz: "Gaz naturel", fioul: "Fioul",
+          propane: "Propane", bois: "Bois/Granulés"
+        };
+        typeEnergieLabel = labels[match.type_energie] || match.type_energie;
+      }
+    }
+  } catch (e) {
+    console.warn("[PDF] Could not fetch evolution data, using defaults", e);
+  }
+
+  // Calculer le gain annuel de base
+  const gainAnnuelBase = (autoconsommationEuros + reventeMensuelleEstimee) * 12;
+  
+  // Prix kWh de référence actuel
+  const prixKwhActuel = etude.pac_prix_kwh_elec || 0.2516; // tarif réglementé 2026
+
+  // Construire la projection sur 10 ans
+  const projection10ans: { annee: number; prixKwhElec: number; gainAnnuel: number; gainCumule: number }[] = [];
+  let cumulGain = 0;
+  for (let i = 1; i <= 10; i++) {
+    const multiplicateur = Math.pow(1 + tauxAugmentation / 100, i);
+    const prixKwh = prixKwhActuel * multiplicateur;
+    const gainAnnuel = gainAnnuelBase * multiplicateur;
+    cumulGain += gainAnnuel;
+    projection10ans.push({
+      annee: i,
+      prixKwhElec: Math.round(prixKwh * 10000) / 10000,
+      gainAnnuel: Math.round(gainAnnuel * 100) / 100,
+      gainCumule: Math.round(cumulGain * 100) / 100,
+    });
+  }
 
   const pdfData: EtudeData = {
     // Multi-product
@@ -147,6 +203,11 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     pac: activeProducts.includes("PAC") ? buildPacData(etude) : undefined,
     // Multi-product ITE data
     ite: activeProducts.includes("ITE") ? buildIteData(etude) : undefined,
+    
+    // Projection 10 ans
+    projection10ans,
+    tauxAugmentationEnergie: tauxAugmentation,
+    typeEnergieReference: typeEnergieLabel,
   };
 
   return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
