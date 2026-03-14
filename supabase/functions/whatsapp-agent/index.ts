@@ -6102,7 +6102,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     new_email: { type: "string", description: "New email for client update" },
                     new_address: { type: "string", description: "New address for client update" },
                     new_city: { type: "string", description: "New city for client update" },
-                    new_postal_code: { type: "string", description: "New postal code for client update" }
+                    new_postal_code: { type: "string", description: "New postal code for client update" },
+                    ticket_subject: { type: "string", description: "Short subject for support ticket (max 100 chars)" },
+                    ticket_message: { type: "string", description: "Detailed description of the issue/bug/feedback for support ticket" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
