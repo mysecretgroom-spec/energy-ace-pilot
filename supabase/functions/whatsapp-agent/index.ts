@@ -9670,6 +9670,56 @@ async function executeAction(
       };
     }
 
+    case "create_support_ticket": {
+      const ticketSubject = (entities.ticket_subject as string) || "";
+      const ticketMessage = (entities.ticket_message as string) || "";
+      
+      if (!ticketSubject || !ticketMessage) {
+        return {
+          actionTaken: "collecting_missing_data",
+          newPendingAction: {
+            intent: "create_support_ticket",
+            entities,
+            workflowState: "collecting_missing_data" as WorkflowState,
+            collectedData: {
+              missingFields: [
+                ...(!ticketSubject ? ["ticket_subject"] : []),
+                ...(!ticketMessage ? ["ticket_message"] : []),
+              ],
+            },
+            createdAt: new Date().toISOString(),
+          },
+          customResponse: !ticketSubject
+            ? "🎫 Pour créer ton ticket de support :\n\n📌 Quel est le *sujet* de ton problème ? (en quelques mots)"
+            : "📝 Peux-tu *décrire le problème* en détail ? (ce qui se passe, quand ça arrive, etc.)",
+        };
+      }
+      
+      // Create the support ticket via RPC
+      const { data: ticketId, error: ticketError } = await supabase.rpc(
+        "create_support_ticket",
+        {
+          p_subject: ticketSubject.substring(0, 200),
+          p_message: ticketMessage.substring(0, 2000),
+        }
+      );
+      
+      if (ticketError) {
+        console.error("Error creating support ticket:", ticketError);
+        return {
+          actionTaken: "error",
+          customResponse: "❌ Erreur lors de la création du ticket. Réessaie ou crée-le directement depuis l'app dans *Support*.",
+        };
+      }
+      
+      return {
+        actionTaken: "support_ticket_created",
+        entityType: "support_ticket",
+        entityId: ticketId,
+        customResponse: `✅ *Ticket de support créé !*\n\n📌 Sujet: ${ticketSubject}\n📝 ${ticketMessage.substring(0, 100)}${ticketMessage.length > 100 ? "..." : ""}\n\nNotre équipe va traiter ta demande. Tu peux suivre l'avancement dans l'onglet *Support* de l'app.`,
+      };
+    }
+
     case "user_feedback": {
       const feedbackType = (entities.feedback_type as string) || "preference";
       const feedbackKey = (entities.feedback_key as string) || "general";
