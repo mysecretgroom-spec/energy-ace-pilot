@@ -457,33 +457,32 @@ const EtudeForm = () => {
       if (etudeId) {
         await loadExistingEtude(financements);
       } else if (clientId && user) {
-        // Check if an existing étude already exists for this client
-        // to avoid creating duplicates — reuse the most recent one
-        const { data: existingEtude } = await supabase
+        // Check if existing études already exist for this client
+        const { data: existingEtudes } = await supabase
           .from("etudes")
-          .select("id")
+          .select("id, product_type, active_products, numero_pdl")
           .eq("client_id", clientId)
           .eq("user_id", user.id)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .order("updated_at", { ascending: false });
         
-        if (existingEtude) {
-          // Reuse existing étude instead of creating a new one
-          console.log("[EtudeForm] Réutilisation de l'étude existante:", existingEtude.id);
-          setCurrentEtudeId(existingEtude.id);
-          // Load it like an edit
-          const { data: fullEtude } = await supabase
-            .from("etudes")
-            .select("*")
-            .eq("id", existingEtude.id)
-            .maybeSingle();
-          if (fullEtude) {
-            // Restore form state from existing étude — delegate to loadExistingEtude logic
-            // by temporarily setting the URL param equivalent
-            navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${existingEtude.id}`, { replace: true });
-            return; // Will re-init with etudeId set
+        if (existingEtudes && existingEtudes.length > 0) {
+          // Find the most recent étude (same product or any)
+          const latestEtude = existingEtudes[0];
+          
+          // If the latest étude has no PDL, redirect to it — user must fill PDL before creating another
+          if (!latestEtude.numero_pdl) {
+            console.log("[EtudeForm] Étude existante sans PDL, redirection pour compléter:", latestEtude.id);
+            toast({
+              title: "Étude existante détectée",
+              description: "Veuillez renseigner le N° PDL avant de pouvoir créer une nouvelle étude pour ce client.",
+              variant: "default",
+            });
+            navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${latestEtude.id}`, { replace: true });
+            return;
           }
+          
+          // All existing études have a PDL — allow creating a new one (different house)
+          console.log("[EtudeForm] Toutes les études existantes ont un PDL, création autorisée");
         }
       }
       
