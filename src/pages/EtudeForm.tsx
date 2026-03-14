@@ -4,6 +4,7 @@ import ministereTransitionLogo from "@/assets/logos/ministere-transition-energet
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,9 +173,10 @@ const EtudeForm = () => {
   const [saving, setSaving] = useState(false);
   const [currentEtudeId, setCurrentEtudeId] = useState<string | null>(etudeId);
   const [originalClassification, setOriginalClassification] = useState<string>("");
-  const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
+  const [localEtudeId, setLocalEtudeId] = useState<string | null>(null);
+  const [existingEtudePrompt, setExistingEtudePrompt] = useState<{ etudeId: string; productType: string } | null>(null);
   const forceSyncRef = useRef(false);
-  const isInsertingRef = useRef(false); // Guard against concurrent inserts creating duplicates
+  const isInsertingRef = useRef(false);
   
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
@@ -466,23 +468,12 @@ const EtudeForm = () => {
           .order("updated_at", { ascending: false });
         
         if (existingEtudes && existingEtudes.length > 0) {
-          // Find the most recent étude (same product or any)
           const latestEtude = existingEtudes[0];
-          
-          // If the latest étude has no PDL, redirect to it — user must fill PDL before creating another
-          if (!latestEtude.numero_pdl) {
-            console.log("[EtudeForm] Étude existante sans PDL, redirection pour compléter:", latestEtude.id);
-            toast({
-              title: "Étude existante détectée",
-              description: "Veuillez renseigner le N° PDL avant de pouvoir créer une nouvelle étude pour ce client.",
-              variant: "default",
-            });
-            navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${latestEtude.id}`, { replace: true });
-            return;
-          }
-          
-          // All existing études have a PDL — allow creating a new one (different house)
-          console.log("[EtudeForm] Toutes les études existantes ont un PDL, création autorisée");
+          // Show prompt: is this a different house or the same?
+          setExistingEtudePrompt({
+            etudeId: latestEtude.id,
+            productType: latestEtude.product_type || "PV",
+          });
         }
       }
       
@@ -2216,6 +2207,45 @@ _Envoyé depuis DébalePro_`;
 
   return (
     <MobileLayout>
+      {/* Dialog: étude existante détectée */}
+      <AlertDialog open={!!existingEtudePrompt} onOpenChange={(open) => { if (!open) setExistingEtudePrompt(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Home className="h-5 w-5 text-primary" />
+              Étude existante détectée
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Une étude existe déjà pour ce client. Souhaitez-vous la continuer ou créer une nouvelle étude pour une autre maison ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (existingEtudePrompt) {
+                  navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${existingEtudePrompt.etudeId}`, { replace: true });
+                }
+                setExistingEtudePrompt(null);
+              }}
+            >
+              Continuer l'étude existante
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setExistingEtudePrompt(null);
+                // Allow creating a new study — form stays empty
+              }}
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Nouvelle maison (autre étude)
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Overlay de succès avec animation */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
