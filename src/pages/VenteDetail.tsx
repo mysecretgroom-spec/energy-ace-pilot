@@ -154,6 +154,8 @@ const VenteDetail = () => {
       numeroContrat !== originalValues.numeroContrat ||
       status !== originalValues.status ||
       dateSignature !== originalValues.dateSignature ||
+      dateInstallationPrevue !== originalValues.dateInstallationPrevue ||
+      heureInstallationPrevue !== originalValues.heureInstallationPrevue ||
       dateInstallationReelle !== originalValues.dateInstallationReelle ||
       montantHt !== originalValues.montantHt ||
       montantTtc !== originalValues.montantTtc ||
@@ -164,8 +166,8 @@ const VenteDetail = () => {
       typeInstallation !== originalValues.typeInstallation
     );
   }, [
-    numeroContrat, status, dateSignature, dateInstallationReelle,
-    montantHt, montantTtc, montantAcompte, montantSolde, notes,
+    numeroContrat, status, dateSignature, dateInstallationPrevue, heureInstallationPrevue,
+    dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
     puissanceKwc, typeInstallation,
     originalValues
   ]);
