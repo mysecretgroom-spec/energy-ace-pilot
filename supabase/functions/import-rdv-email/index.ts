@@ -633,6 +633,31 @@ serve(async (req) => {
 
     console.log(`Created RDV (type=${typeRdv}): ${newRdv.id}`);
 
+    // ── AUTO-SET date_installation_prevue ON VENTE ─────────────────────────────
+    // When an installation email is received, update the vente with the planned date
+    if (intent === "installation" && validated.RDV?.date) {
+      const { data: venteForClient } = await supabase
+        .from("ventes")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("user_id", user_id)
+        .not("status", "in", '("annule","paye")')
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (venteForClient) {
+        await supabase
+          .from("ventes")
+          .update({
+            date_installation_prevue: validated.RDV.date,
+            heure_installation_prevue: validated.RDV.heure || "08:00",
+          })
+          .eq("id", venteForClient.id);
+        console.log(`Updated vente ${venteForClient.id} with installation date ${validated.RDV.date}`);
+      }
+    }
+
     // ── CLEAR RECONFIRMATION FLAG ─────────────────────────────────────────────
     // When a new email arrives for this client, clear needs_reconfirmation on existing RDVs
     await supabase
