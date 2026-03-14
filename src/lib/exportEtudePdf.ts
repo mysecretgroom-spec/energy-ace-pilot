@@ -1321,6 +1321,14 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
     yPos = (doc as any).lastAutoTable.finalY + 6;
   }
 
+  // PROJECTION 10 ANS
+  if (data.projection10ans && data.projection10ans.length > 0) {
+    doc.addPage();
+    drawHeader(doc, data, franceRenovBase64, "PROJECTION 10 ANS", ministereBase64);
+    yPos = 42;
+    yPos = drawProjection10Ans(doc, data, yPos, pvCtx, "standard");
+  }
+
   // Footers
   const totalPages = doc.getNumberOfPages();
   const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
