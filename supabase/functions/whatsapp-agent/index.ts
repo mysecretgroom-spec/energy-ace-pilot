@@ -87,6 +87,7 @@ type Intent =
   | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
   | "coaching_performance" // Analyse des performances et conseils personnalisés
+  | "create_support_ticket" // Créer un ticket de support/signaler un bug ou problème
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
