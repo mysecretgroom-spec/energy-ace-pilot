@@ -1415,7 +1415,16 @@ const EtudeForm = () => {
     let error: Error | null = null;
 
     if (isEditMode && currentEtudeId) {
-      // UPDATE existing étude — no need to re-fetch data
+      // UPDATE existing étude
+      const result = await supabase
+        .from("etudes")
+        .update(etudeData)
+        .eq("id", currentEtudeId);
+      
+      error = result.error;
+      savedEtudeId = currentEtudeId;
+    } else if (currentEtudeId) {
+      // Auto-save already created it, just update
       const result = await supabase
         .from("etudes")
         .update(etudeData)
@@ -1424,15 +1433,20 @@ const EtudeForm = () => {
       error = result.error;
       savedEtudeId = currentEtudeId;
     } else {
-      // INSERT new étude — only fetch the id
-      const result = await supabase
-        .from("etudes")
-        .insert(etudeData)
-        .select("id")
-        .single();
-      
-      error = result.error;
-      savedEtudeId = result.data?.id || null;
+      // INSERT new étude with guard
+      isInsertingRef.current = true;
+      try {
+        const result = await supabase
+          .from("etudes")
+          .insert(etudeData)
+          .select("id")
+          .single();
+        
+        error = result.error;
+        savedEtudeId = result.data?.id || null;
+      } finally {
+        isInsertingRef.current = false;
+      }
     }
 
     if (error) {
