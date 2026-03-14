@@ -59,13 +59,10 @@ export function usePullToRefresh({
       setRefreshing(true);
       setPullDistance(threshold * 0.6);
       try {
-        // Trigger PWA update check alongside data refresh
+        // Trigger PWA update check alongside data refresh (don't force SKIP_WAITING here)
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.getRegistration().then((reg) => {
-            if (reg) {
-              reg.update();
-              if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
+            if (reg) reg.update();
           });
         }
         await onRefresh();
