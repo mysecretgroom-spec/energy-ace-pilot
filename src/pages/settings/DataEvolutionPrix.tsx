@@ -76,7 +76,22 @@ const DataEvolutionPrix = () => {
   };
 
   const handleChange = (id: string, field: keyof EvolutionData, value: any) => {
-    setData(prev => prev.map(item => item.id === id ? { ...item, [field]: value, isModified: true } : item));
+    setData(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      // If editing a global item, clone it as a personal override
+      if (item.isGlobal && !item.isNew) {
+        return {
+          ...item,
+          id: `new-${Date.now()}`,
+          user_id: user?.id || null,
+          isGlobal: false,
+          isNew: true,
+          isModified: true,
+          [field]: value,
+        };
+      }
+      return { ...item, [field]: value, isModified: true };
+    }));
     setHasChanges(true);
   };
 
