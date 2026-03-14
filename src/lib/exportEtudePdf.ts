@@ -232,8 +232,6 @@ const warningColor: [number, number, number] = [234, 179, 8];
 const dangerColor: [number, number, number] = [239, 68, 68];
 const pacColor: [number, number, number] = [59, 130, 246]; // blue
 const iteColor: [number, number, number] = [168, 85, 247]; // purple
-const cepcGris: [number, number, number] = [240, 242, 245];
-const cepcBorder: [number, number, number] = [200, 205, 212];
 const iteColor: [number, number, number] = [168, 85, 247]; // purple
 
 // ═══════════════════════════════════════════════════════════════════════════
