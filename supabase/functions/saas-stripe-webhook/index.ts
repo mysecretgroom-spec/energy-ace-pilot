@@ -114,6 +114,10 @@ serve(async (req) => {
         });
 
         console.log(`User ${userId} activated`);
+
+        // Send WhatsApp alert to admin
+        await notifyAdminNewSubscription(supabase, userId, session);
+
         break;
       }
 
