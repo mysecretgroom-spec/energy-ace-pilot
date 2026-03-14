@@ -355,6 +355,8 @@ const VenteDetail = () => {
         numero_contrat: numeroContrat || null,
         status,
         date_signature: dateSignature || null,
+        date_installation_prevue: dateInstallationPrevue || null,
+        heure_installation_prevue: heureInstallationPrevue || "08:00",
         date_installation_reelle: dateInstallationReelle || null,
         montant_ht: montantHt || null,
         montant_ttc: montantTtc || null,
@@ -364,7 +366,7 @@ const VenteDetail = () => {
         puissance_kwc: puissanceKwc || null,
         nombre_panneaux: nombrePanneaux || null,
         type_installation: typeInstallation || null,
-      })
+      } as any)
       .eq("id", id);
 
     setSaving(false);
