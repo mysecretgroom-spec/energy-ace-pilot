@@ -5707,6 +5707,8 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
       return "💳 Je récupère tes frais...";
     case "import_facture":
       return "🧾 Je traite ta note de frais...";
+    case "create_support_ticket":
+      return "🎫 Je crée ton ticket de support...";
     case "user_feedback":
       return "✅ C'est noté !";
     case "conversation":
