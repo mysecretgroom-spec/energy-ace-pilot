@@ -184,7 +184,7 @@ const DataEvolutionPrix = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
+                        <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} />
                         {!item.isGlobal && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}>
                             <Trash2 className="h-4 w-4" />
