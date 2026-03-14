@@ -5819,6 +5819,7 @@ INTENTIONS DISPONIBLES:
 - update_client_data: "change le tel de X", "modifie email de X", "nouvelle adresse X" → Modifier téléphone, email, adresse d'un client. Entities: client_name, new_phone, new_email, new_address, new_city, new_postal_code
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
+- create_support_ticket: "j'ai un bug", "problème avec l'app", "ça ne marche pas", "signaler un souci", "je veux remonter un problème", "ticket support", "l'app plante", "erreur dans l'app" → Créer un ticket de support. Entities: ticket_subject (sujet court), ticket_message (description détaillée du problème)
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
