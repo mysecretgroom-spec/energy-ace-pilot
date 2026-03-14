@@ -66,11 +66,12 @@ export function useSaasAccess() {
     ? Math.max(0, Math.ceil((new Date(accessState.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
+  const isBetaTester = accessState?.is_beta_tester === true;
   const isInTrial = accessState?.app_access === "trial";
   const isActive = accessState?.app_access === "active";
-  const isPaywall = accessState?.app_access === "paywall";
-  const isBlocked = accessState?.app_access === "blocked";
-  const hasAccess = isInTrial || isActive;
+  const isPaywall = !isBetaTester && accessState?.app_access === "paywall";
+  const isBlocked = !isBetaTester && accessState?.app_access === "blocked";
+  const hasAccess = isBetaTester || isInTrial || isActive;
 
   return {
     accessState,
