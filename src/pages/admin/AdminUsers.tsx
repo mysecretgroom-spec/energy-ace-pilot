@@ -57,6 +57,7 @@ export default function AdminUsers() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [betaDuration, setBetaDuration] = useState("14");
+  const [trialDays, setTrialDays] = useState("15");
   const queryClient = useQueryClient();
 
   const { data: users, isLoading } = useQuery({
