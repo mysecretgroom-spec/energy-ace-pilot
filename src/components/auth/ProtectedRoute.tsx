@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
+  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial, neverHadTrial } = useSaasAccess();
 
   if (loading || isSaasLoading) {
     return (
