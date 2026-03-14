@@ -115,7 +115,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     tauxFinancement: etude.taux_financement || 0,
     dureeMois: etude.duree_financement_mois || 120,
     mensualite: etude.mensualite_estimee || 0,
-    autoconsommationEuros: etude.gain_autoconso_euros || 0,
+    autoconsommationEuros: etude.economie_autoconso_mensuelle || etude.gain_autoconso_euros || 0,
     reventeMensuelleEstimee: etude.revente_mensuelle_estimee || 0,
     resultatTransfertCharge: etude.resultat_transfert_charge || 0,
     verdict: etude.verdict || "invalide",
