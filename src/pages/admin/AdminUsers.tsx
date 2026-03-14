@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
-  Search, Loader2, Users, AlertTriangle, Shield, Star, ExternalLink, Eye, Calendar,
+  Search, Loader2, Users, AlertTriangle, Shield, Star, ExternalLink, Eye, Calendar, Clock,
 } from "lucide-react";
 import { format, differenceInDays, addDays, addMonths } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -57,6 +57,7 @@ export default function AdminUsers() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [betaDuration, setBetaDuration] = useState("14");
+  const [trialDays, setTrialDays] = useState("15");
   const queryClient = useQueryClient();
 
   const { data: users, isLoading } = useQuery({
@@ -97,6 +98,22 @@ export default function AdminUsers() {
       toast.success("Accès mis à jour");
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
+  });
+
+  const grantTrialMutation = useMutation({
+    mutationFn: async ({ userId, days }: { userId: string; days: number }) => {
+      const { error } = await supabase.rpc("admin_grant_trial" as any, {
+        p_target_user_id: userId,
+        p_trial_days: days,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users-overview"] });
+      toast.success("Essai accordé avec succès ✅");
+      setSelectedUser(null);
+    },
+    onError: () => toast.error("Erreur lors de l'attribution de l'essai"),
   });
 
   const computeExpiresAt = (durationKey: string): string | null => {
@@ -436,6 +453,35 @@ export default function AdminUsers() {
                   </div>
                 )}
               </div>
+
+              {/* Grant Trial Section */}
+              {selectedUser.app_access === "paywall" && !selectedUser.is_beta_tester && (
+                <div className="space-y-3 border rounded-lg p-4 border-primary/30 bg-primary/5">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Accorder un essai gratuit
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <Select value={trialDays} onValueChange={setTrialDays}>
+                      <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7">7 jours</SelectItem>
+                        <SelectItem value="15">15 jours</SelectItem>
+                        <SelectItem value="30">30 jours</SelectItem>
+                        <SelectItem value="60">60 jours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() => grantTrialMutation.mutate({ userId: selectedUser.user_id, days: parseInt(trialDays) })}
+                      disabled={grantTrialMutation.isPending}
+                      size="sm"
+                    >
+                      {grantTrialMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Accorder l'essai
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3 border rounded-lg p-4">
                 <h4 className="font-semibold text-sm">Modifier l'accès</h4>

@@ -8,12 +8,13 @@ import { useAuth } from "@/hooks/useAuth";
 interface PaywallScreenProps {
   isBlocked?: boolean;
   daysLeft?: number;
+  neverHadTrial?: boolean;
 }
 
 const MONTHLY_LINK = "https://buy.stripe.com/5kQfZa7Dfchb9Et7Oc7ok01";
 const ANNUAL_LINK = "https://buy.stripe.com/cNieV66zb2GBdUJecA7ok02";
 
-export function PaywallScreen({ isBlocked = false }: PaywallScreenProps) {
+export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: PaywallScreenProps) {
   const { user } = useAuth();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
@@ -38,6 +39,16 @@ export function PaywallScreen({ isBlocked = false }: PaywallScreenProps) {
               <p className="text-muted-foreground">
                 Votre compte a été suspendu en raison d'un impayé. 
                 Veuillez régulariser votre situation pour continuer.
+              </p>
+            </>
+          ) : neverHadTrial ? (
+            <>
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
+                <Lock className="h-8 w-8 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold">Accès en attente de validation</h1>
+              <p className="text-muted-foreground">
+                Votre compte a bien été créé. Un administrateur doit valider votre accès ou vous pouvez souscrire un abonnement directement.
               </p>
             </>
           ) : (
