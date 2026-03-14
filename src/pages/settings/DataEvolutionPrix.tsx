@@ -200,7 +200,7 @@ const DataEvolutionPrix = () => {
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground">Taux annuel (%)</label>
-                        <Input type="number" step="0.1" value={item.taux_augmentation_annuel} onChange={(e) => handleChange(item.id, "taux_augmentation_annuel", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-bold text-red-600" disabled={item.isGlobal} />
+                        <Input type="number" step="0.1" value={item.taux_augmentation_annuel} onChange={(e) => handleChange(item.id, "taux_augmentation_annuel", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-bold text-destructive" />
                       </div>
                     </div>
 
