@@ -1173,8 +1173,8 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
-    const sourceLabel = data.sourceEvolutionPrix ? ` (${sanitizePdfText(data.sourceEvolutionPrix)})` : " (CRE, INSEE)";
-    doc.text(sanitizePdfText(`Hypothese : hausse annuelle de ${data.tauxAugmentationEnergie}%${sourceLabel}`), 16, yPos);
+    const sourceLabel = data.sourceEvolutionPrix ? ` - ${sanitizePdfText(data.sourceEvolutionPrix)}` : "";
+    doc.text(sanitizePdfText(`Base de calcul : augmentation annuelle de ${data.tauxAugmentationEnergie}% du prix de l'energie${sourceLabel}`), 16, yPos);
     yPos += 5;
   }
 
