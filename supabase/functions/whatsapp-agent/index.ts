@@ -5919,6 +5919,7 @@ RÈGLES CRITIQUES:
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
 14. Pour "mes régies" / "infos régie X" → query_regie_info
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
+16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
 🔧 VENTES EXTERNES (create_external_vente):
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
