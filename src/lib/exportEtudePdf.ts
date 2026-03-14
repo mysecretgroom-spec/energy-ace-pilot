@@ -45,6 +45,8 @@ interface IteData {
 interface ProjectionAnnuelle {
   annee: number;
   prixKwhElec: number;
+  coutAnnuelProjecte: number;
+  coutAugmentation: number;
   gainAnnuel: number;
   gainCumule: number;
 }
@@ -1180,7 +1182,8 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   const rows: string[][] = data.projection10ans.map((p) => [
     `Année ${p.annee}`,
     formatEuros(p.prixKwhElec) + "/kWh",
-    formatEuros(p.gainAnnuel),
+    formatEuros(p.coutAnnuelProjecte),
+    p.coutAugmentation > 0 ? `+${formatEuros(p.coutAugmentation)}` : formatEuros(p.coutAugmentation),
     formatEuros(p.gainCumule),
   ]);
 
@@ -1188,35 +1191,36 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
     headStyles: {
       fillColor: cepcGris as [number, number, number],
       textColor: bleuMarianne,
-      fontSize: 8,
+      fontSize: 7.5,
       fontStyle: "bold" as const,
-      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
       lineWidth: 0.2,
       lineColor: cepcBorder as [number, number, number],
     },
     styles: {
-      fontSize: 7.5,
-      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+      fontSize: 7,
+      cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
       textColor: grisTexte as [number, number, number],
       lineWidth: 0.1,
       lineColor: [220, 225, 230] as [number, number, number],
     },
   } : {
-    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" as const },
-    styles: { fontSize: 7.5, cellPadding: 1.5, textColor: grisTexte },
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 7.5, fontStyle: "bold" as const },
+    styles: { fontSize: 7, cellPadding: 1.5, textColor: grisTexte },
   };
 
   autoTable(doc, {
     startY: yPos,
-    head: [["Période", "Prix kWh projeté", "Gain annuel", "Gain cumulé"]],
+    head: [["Période", "Prix kWh", "Coût annuel", "Surcoût vs aujourd'hui", "Gain cumulé"]],
     body: rows,
     theme: style === "cepc" ? "plain" : "striped",
     ...tableStyles,
     columnStyles: {
-      0: { cellWidth: 35 },
+      0: { cellWidth: 28 },
       1: { halign: "right" as const },
       2: { halign: "right" as const },
-      3: { halign: "right" as const, fontStyle: "bold" as const },
+      3: { halign: "right" as const, textColor: [220, 38, 38] as [number, number, number] },
+      4: { halign: "right" as const, fontStyle: "bold" as const },
     },
     didParseCell: (cellData) => {
       // Highlight last row

@@ -128,18 +128,26 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   // Prix kWh de référence actuel
   const prixKwhActuel = etude.pac_prix_kwh_elec || 0.2516; // tarif réglementé 2026
 
+  // Coût annuel actuel (basé sur la conso estimée)
+  const consoAnnuelleKwh = etude.consommation_annuelle_kwh || 0;
+  const coutAnnuelActuel = consoAnnuelleKwh * prixKwhActuel;
+
   // Construire la projection sur 10 ans
-  const projection10ans: { annee: number; prixKwhElec: number; gainAnnuel: number; gainCumule: number }[] = [];
+  const projection10ans: { annee: number; prixKwhElec: number; coutAnnuelProjecte: number; coutAugmentation: number; gainAnnuel: number; gainCumule: number }[] = [];
   let cumulGain = 0;
   for (let i = 1; i <= 10; i++) {
     // Année 1 = prix actuel, inflation à partir de l'année 2
     const multiplicateur = Math.pow(1 + tauxAugmentation / 100, i - 1);
     const prixKwh = prixKwhActuel * multiplicateur;
+    const coutAnnuelProjecte = consoAnnuelleKwh * prixKwh;
+    const coutAugmentation = coutAnnuelProjecte - coutAnnuelActuel;
     const gainAnnuel = gainAnnuelBase * multiplicateur;
     cumulGain += gainAnnuel;
     projection10ans.push({
       annee: i,
       prixKwhElec: Math.round(prixKwh * 10000) / 10000,
+      coutAnnuelProjecte: Math.round(coutAnnuelProjecte * 100) / 100,
+      coutAugmentation: Math.round(coutAugmentation * 100) / 100,
       gainAnnuel: Math.round(gainAnnuel * 100) / 100,
       gainCumule: Math.round(cumulGain * 100) / 100,
     });
