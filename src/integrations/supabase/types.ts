@@ -855,6 +855,36 @@ export type Database = {
         }
         Relationships: []
       }
+      data_evolution_prix_energie: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          id: string
+          taux_augmentation_annuel: number
+          type_energie: string
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          taux_augmentation_annuel?: number
+          type_energie: string
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          taux_augmentation_annuel?: number
+          type_energie?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_financements: {
         Row: {
           actif: boolean
