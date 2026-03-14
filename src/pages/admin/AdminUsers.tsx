@@ -100,6 +100,22 @@ export default function AdminUsers() {
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
 
+  const grantTrialMutation = useMutation({
+    mutationFn: async ({ userId, days }: { userId: string; days: number }) => {
+      const { error } = await supabase.rpc("admin_grant_trial" as any, {
+        p_target_user_id: userId,
+        p_trial_days: days,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users-overview"] });
+      toast.success("Essai accordé avec succès ✅");
+      setSelectedUser(null);
+    },
+    onError: () => toast.error("Erreur lors de l'attribution de l'essai"),
+  });
+
   const computeExpiresAt = (durationKey: string): string | null => {
     const now = new Date();
     switch (durationKey) {
