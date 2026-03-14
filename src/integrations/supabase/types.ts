@@ -3537,6 +3537,7 @@ export type Database = {
         Args: never
         Returns: {
           app_access: string
+          beta_expires_at: string
           created_at: string
           current_period_end: string
           email: string
@@ -3702,10 +3703,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: {
           app_access: string
+          beta_expires_at: string
           is_beta_tester: boolean
           trial_ends_at: string
           trial_started_at: string
-          updated_at: string
           user_id: string
         }[]
       }

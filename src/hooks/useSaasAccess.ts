@@ -11,6 +11,7 @@ interface SaasAccessState {
   trial_ends_at: string;
   app_access: AppAccess;
   is_beta_tester: boolean;
+  beta_expires_at: string | null;
 }
 
 interface SaasSubscription {
@@ -66,10 +67,13 @@ export function useSaasAccess() {
     ? Math.max(0, Math.ceil((new Date(accessState.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
-  const isBetaTester = accessState?.is_beta_tester === true;
+  const isBetaExpired = accessState?.is_beta_tester === true 
+    && accessState?.beta_expires_at 
+    && new Date(accessState.beta_expires_at) < new Date();
+  const isBetaTester = accessState?.is_beta_tester === true && !isBetaExpired;
   const isInTrial = accessState?.app_access === "trial";
   const isActive = accessState?.app_access === "active";
-  const isPaywall = !isBetaTester && accessState?.app_access === "paywall";
+  const isPaywall = !isBetaTester && (accessState?.app_access === "paywall" || !!isBetaExpired);
   const isBlocked = !isBetaTester && accessState?.app_access === "blocked";
   const hasAccess = isBetaTester || isInTrial || isActive;
 
