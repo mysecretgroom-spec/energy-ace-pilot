@@ -467,23 +467,12 @@ const EtudeForm = () => {
           .order("updated_at", { ascending: false });
         
         if (existingEtudes && existingEtudes.length > 0) {
-          // Find the most recent étude (same product or any)
           const latestEtude = existingEtudes[0];
-          
-          // If the latest étude has no PDL, redirect to it — user must fill PDL before creating another
-          if (!latestEtude.numero_pdl) {
-            console.log("[EtudeForm] Étude existante sans PDL, redirection pour compléter:", latestEtude.id);
-            toast({
-              title: "Étude existante détectée",
-              description: "Veuillez renseigner le N° PDL avant de pouvoir créer une nouvelle étude pour ce client.",
-              variant: "default",
-            });
-            navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${latestEtude.id}`, { replace: true });
-            return;
-          }
-          
-          // All existing études have a PDL — allow creating a new one (different house)
-          console.log("[EtudeForm] Toutes les études existantes ont un PDL, création autorisée");
+          // Show prompt: is this a different house or the same?
+          setExistingEtudePrompt({
+            etudeId: latestEtude.id,
+            productType: latestEtude.product_type || "PV",
+          });
         }
       }
       
