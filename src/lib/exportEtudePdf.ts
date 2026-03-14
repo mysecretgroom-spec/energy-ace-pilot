@@ -138,6 +138,7 @@ interface EtudeData {
   projection10ans?: ProjectionAnnuelle[];
   tauxAugmentationEnergie?: number;
   typeEnergieReference?: string;
+  sourceEvolutionPrix?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
