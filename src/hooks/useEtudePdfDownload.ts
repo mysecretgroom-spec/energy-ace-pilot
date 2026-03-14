@@ -94,6 +94,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   // Charger le taux d'augmentation depuis la table paramétrable
   let tauxAugmentation = 4; // default
   let typeEnergieLabel = "Électricité";
+  let sourceEvolutionPrix = "";
   try {
     const { data: evolutionData } = await supabase
       .from("data_evolution_prix_energie")
