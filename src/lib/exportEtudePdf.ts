@@ -1345,8 +1345,8 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
 // CEPC-STYLE HELPERS (used exclusively by Résultat d'étude)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const cepcGris: [number, number, number] = [240, 242, 245];
-const cepcBorder: [number, number, number] = [200, 205, 212];
+
+
 
 const drawCepcHeader = (doc: jsPDF, data: EtudeData, franceRenovBase64: string, subtitle: string, ministereBase64?: string) => {
   const pageWidth = doc.internal.pageSize.getWidth();
