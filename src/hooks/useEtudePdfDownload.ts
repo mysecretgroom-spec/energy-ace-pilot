@@ -94,6 +94,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
   // Charger le taux d'augmentation depuis la table paramétrable
   let tauxAugmentation = 4; // default
   let typeEnergieLabel = "Électricité";
+  let sourceEvolutionPrix = "";
   try {
     const { data: evolutionData } = await supabase
       .from("data_evolution_prix_energie")
@@ -109,6 +110,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
       
       if (match) {
         tauxAugmentation = match.taux_augmentation_annuel;
+        sourceEvolutionPrix = match.description || "";
         const labels: Record<string, string> = {
           electricite: "Électricité", gaz: "Gaz naturel", fioul: "Fioul",
           propane: "Propane", bois: "Bois/Granulés"
@@ -209,6 +211,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     projection10ans,
     tauxAugmentationEnergie: tauxAugmentation,
     typeEnergieReference: typeEnergieLabel,
+    sourceEvolutionPrix,
   };
 
   return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);

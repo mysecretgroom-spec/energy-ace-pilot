@@ -138,6 +138,7 @@ interface EtudeData {
   projection10ans?: ProjectionAnnuelle[];
   tauxAugmentationEnergie?: number;
   typeEnergieReference?: string;
+  sourceEvolutionPrix?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1162,9 +1163,18 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   const typeLabel = data.typeEnergieReference ? ` (${data.typeEnergieReference})` : "";
-  const tauxLabel = data.tauxAugmentationEnergie ? ` - Hausse ${data.tauxAugmentationEnergie}%/an` : "";
-  doc.text(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}${tauxLabel}`, 16, yPos + 5);
+  doc.text(sanitizePdfText(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}`), 16, yPos + 5);
   yPos += 9;
+
+  // Sub-header with rate + source
+  if (data.tauxAugmentationEnergie) {
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 100, 100);
+    const sourceLabel = data.sourceEvolutionPrix ? ` (${sanitizePdfText(data.sourceEvolutionPrix)})` : " (CRE, INSEE)";
+    doc.text(sanitizePdfText(`Hypothese : hausse annuelle de ${data.tauxAugmentationEnergie}%${sourceLabel}`), 16, yPos);
+    yPos += 5;
+  }
 
   // Build table rows
   const rows: string[][] = data.projection10ans.map((p) => [
@@ -1223,10 +1233,10 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(120, 120, 120);
-  doc.text(
-    "Projection basee sur le taux d'augmentation annuel moyen constate (sources: CRE, INSEE). Valeurs indicatives, non contractuelles.",
-    14, yPos
-  );
+  const sourceNote = data.sourceEvolutionPrix
+    ? sanitizePdfText(`Source: ${data.sourceEvolutionPrix}. Valeurs indicatives, non contractuelles.`)
+    : "Projection basee sur les augmentations annoncees. Valeurs indicatives, non contractuelles.";
+  doc.text(sourceNote, 14, yPos);
   yPos += 6;
 
   return yPos;
