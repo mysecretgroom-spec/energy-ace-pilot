@@ -174,6 +174,7 @@ const EtudeForm = () => {
   const [originalClassification, setOriginalClassification] = useState<string>("");
   const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
   const forceSyncRef = useRef(false);
+  const isInsertingRef = useRef(false); // Guard against concurrent inserts creating duplicates
   
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
