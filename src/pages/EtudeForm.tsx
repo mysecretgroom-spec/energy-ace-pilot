@@ -174,6 +174,7 @@ const EtudeForm = () => {
   const [originalClassification, setOriginalClassification] = useState<string>("");
   const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
   const forceSyncRef = useRef(false);
+  const isInsertingRef = useRef(false); // Guard against concurrent inserts creating duplicates
   
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
@@ -1414,7 +1415,16 @@ const EtudeForm = () => {
     let error: Error | null = null;
 
     if (isEditMode && currentEtudeId) {
-      // UPDATE existing étude — no need to re-fetch data
+      // UPDATE existing étude
+      const result = await supabase
+        .from("etudes")
+        .update(etudeData)
+        .eq("id", currentEtudeId);
+      
+      error = result.error;
+      savedEtudeId = currentEtudeId;
+    } else if (currentEtudeId) {
+      // Auto-save already created it, just update
       const result = await supabase
         .from("etudes")
         .update(etudeData)
@@ -1423,15 +1433,20 @@ const EtudeForm = () => {
       error = result.error;
       savedEtudeId = currentEtudeId;
     } else {
-      // INSERT new étude — only fetch the id
-      const result = await supabase
-        .from("etudes")
-        .insert(etudeData)
-        .select("id")
-        .single();
-      
-      error = result.error;
-      savedEtudeId = result.data?.id || null;
+      // INSERT new étude with guard
+      isInsertingRef.current = true;
+      try {
+        const result = await supabase
+          .from("etudes")
+          .insert(etudeData)
+          .select("id")
+          .single();
+        
+        error = result.error;
+        savedEtudeId = result.data?.id || null;
+      } finally {
+        isInsertingRef.current = false;
+      }
     }
 
     if (error) {
@@ -1635,6 +1650,9 @@ const EtudeForm = () => {
     const etudeData = buildEtudeData();
     if (!etudeData) return;
 
+    // Prevent concurrent inserts that create duplicate études
+    if (!currentEtudeId && isInsertingRef.current) return;
+
     setAutoSaveStatus(prev => ({ ...prev, isSaving: true }));
 
     try {
@@ -1643,9 +1661,14 @@ const EtudeForm = () => {
         if (currentEtudeId) {
           await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
         } else {
-          const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
-          if (data) {
-            setCurrentEtudeId(data.id);
+          isInsertingRef.current = true;
+          try {
+            const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
+            if (data) {
+              setCurrentEtudeId(data.id);
+            }
+          } finally {
+            isInsertingRef.current = false;
           }
         }
       } else {
@@ -1667,6 +1690,7 @@ const EtudeForm = () => {
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Auto-save error:", error);
+      isInsertingRef.current = false;
       setAutoSaveStatus(prev => ({ ...prev, isSaving: false }));
     }
   }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline, clearDraft, setHasUnsavedChanges]);
