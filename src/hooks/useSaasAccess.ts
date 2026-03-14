@@ -10,6 +10,7 @@ interface SaasAccessState {
   trial_started_at: string;
   trial_ends_at: string;
   app_access: AppAccess;
+  is_beta_tester: boolean;
 }
 
 interface SaasSubscription {
