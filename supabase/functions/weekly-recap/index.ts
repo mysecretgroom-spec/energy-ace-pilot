@@ -242,3 +242,43 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Smart split for WhatsApp messages.
+ * Splits on logical blocks (delimited by double newlines) so each block stays intact.
+ */
+function splitWhatsAppMessage(text: string, maxLen: number): string[] {
+  if (text.length <= maxLen) return [text];
+
+  const blocks = text.split("\n\n");
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const block of blocks) {
+    const candidate = current.length > 0 ? current + "\n\n" + block : block;
+    
+    if (candidate.length > maxLen && current.length > 0) {
+      chunks.push(current.trimEnd());
+      current = block;
+    } else {
+      current = candidate;
+    }
+
+    if (current.length > maxLen) {
+      const lines = current.split("\n");
+      current = "";
+      for (const line of lines) {
+        const lineCandidate = current.length > 0 ? current + "\n" + line : line;
+        if (lineCandidate.length > maxLen && current.length > 0) {
+          chunks.push(current.trimEnd());
+          current = line;
+        } else {
+          current = lineCandidate;
+        }
+      }
+    }
+  }
+  if (current.length > 0) chunks.push(current.trimEnd());
+
+  return chunks;
+}
