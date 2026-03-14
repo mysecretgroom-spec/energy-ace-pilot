@@ -203,6 +203,7 @@ const App = () => {
                       <Route path="/admin/features" element={<AdminFeatures />} />
                       <Route path="/admin/ai-workflows" element={<AdminAIWorkflows />} />
                       <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+                      <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>
