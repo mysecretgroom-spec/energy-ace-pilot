@@ -1233,10 +1233,10 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.setFontSize(6.5);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(120, 120, 120);
-  doc.text(
-    "Projection basee sur le taux d'augmentation annuel moyen constate (sources: CRE, INSEE). Valeurs indicatives, non contractuelles.",
-    14, yPos
-  );
+  const sourceNote = data.sourceEvolutionPrix
+    ? sanitizePdfText(`Source: ${data.sourceEvolutionPrix}. Valeurs indicatives, non contractuelles.`)
+    : "Projection basee sur les augmentations annoncees. Valeurs indicatives, non contractuelles.";
+  doc.text(sourceNote, 14, yPos);
   yPos += 6;
 
   return yPos;
