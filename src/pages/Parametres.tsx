@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 // Données communes
 const dataSharedItems = [
   { icon: Flame, label: "Prix énergies fossiles", description: "Gaz, fioul, propane, bois", path: "/parametres/data-energies-prix" },
+  { icon: TrendingUp, label: "Évolution prix énergie", description: "Taux augmentation annuel sur 10 ans", path: "/parametres/data-evolution-prix" },
   { icon: MapPin, label: "Zones climatiques (DJU)", description: "Besoins chauffage par région", path: "/parametres/data-zones-climatiques" },
   { icon: Settings2, label: "Coefficients estimateur", description: "ECS, élec base, appareils", path: "/parametres/data-estimateur" },
 ];
