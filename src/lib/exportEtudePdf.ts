@@ -1929,29 +1929,8 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
     yPos = drawCepcGlobalSummary(doc, data, yPos, cepcCtx);
   }
 
-  // CLASSIFICATION (sans commentaire technicien dans le doc Résultat)
-  if (data.classification) {
-    yPos = cepcEnsureSpace(yPos, 30);
-    yPos = drawCepcSectionBar(doc, "CLASSIFICATION", yPos);
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [["Élément", "Détail"]],
-      body: [
-        ["Classification interne", data.classification || "Non classifié"],
-      ],
-      ...cepcTableStyles,
-      columnStyles: { 0: { fontStyle: "bold" as const, cellWidth: 55 } },
-      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 6;
-  }
-
-  // PROJECTION 10 ANS (CEPC style)
+  // PROJECTION 10 ANS (directement après l'analyse financière)
   if (data.projection10ans && data.projection10ans.length > 0) {
-    doc.addPage();
-    drawCepcHeader(doc, data, franceRenovBase64, "PROJECTION DES GAINS", ministereBase64);
-    yPos = 38;
     yPos = drawProjection10Ans(doc, data, yPos, cepcCtx, "cepc");
   }
 
