@@ -5942,7 +5942,7 @@ RÈGLES CRITIQUES:
 
 ⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data
+- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data, create_support_ticket
 - FORMAT OBLIGATOIRE du responseMessage:
   📋 *[TYPE ACTION]*
   • Client: [Nom complet]
