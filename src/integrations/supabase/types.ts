@@ -3523,6 +3523,12 @@ export type Database = {
           user_id: string
         }[]
       }
+      find_user_by_stripe_customer: {
+        Args: { p_stripe_customer_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       get_all_feature_requests: {
         Args: never
         Returns: {
@@ -3774,6 +3780,16 @@ export type Database = {
       }
       update_ticket_status: {
         Args: { p_status: string; p_ticket_id: string }
+        Returns: undefined
+      }
+      upsert_saas_subscription: {
+        Args: {
+          p_current_period_end?: string
+          p_status?: string
+          p_stripe_customer_id: string
+          p_stripe_subscription_id?: string
+          p_user_id: string
+        }
         Returns: undefined
       }
       upsert_subscription_plan: {
