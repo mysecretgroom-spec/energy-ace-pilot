@@ -14,7 +14,7 @@ interface PaywallScreenProps {
 const MONTHLY_LINK = "https://buy.stripe.com/5kQfZa7Dfchb9Et7Oc7ok01";
 const ANNUAL_LINK = "https://buy.stripe.com/cNieV66zb2GBdUJecA7ok02";
 
-export function PaywallScreen({ isBlocked = false }: PaywallScreenProps) {
+export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: PaywallScreenProps) {
   const { user } = useAuth();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
