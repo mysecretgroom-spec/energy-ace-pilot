@@ -456,6 +456,35 @@ const EtudeForm = () => {
       }
       if (etudeId) {
         await loadExistingEtude(financements);
+      } else if (clientId && user) {
+        // Check if an existing étude already exists for this client
+        // to avoid creating duplicates — reuse the most recent one
+        const { data: existingEtude } = await supabase
+          .from("etudes")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (existingEtude) {
+          // Reuse existing étude instead of creating a new one
+          console.log("[EtudeForm] Réutilisation de l'étude existante:", existingEtude.id);
+          setCurrentEtudeId(existingEtude.id);
+          // Load it like an edit
+          const { data: fullEtude } = await supabase
+            .from("etudes")
+            .select("*")
+            .eq("id", existingEtude.id)
+            .maybeSingle();
+          if (fullEtude) {
+            // Restore form state from existing étude — delegate to loadExistingEtude logic
+            // by temporarily setting the URL param equivalent
+            navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${existingEtude.id}`, { replace: true });
+            return; // Will re-init with etudeId set
+          }
+        }
       }
       
       // Try to restore draft from sessionStorage (only if not editing existing etude)
