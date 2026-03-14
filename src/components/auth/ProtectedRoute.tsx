@@ -32,7 +32,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Show paywall for users with expired trial or blocked accounts
   if (isPaywall || isBlocked) {
-    return <PaywallScreen isBlocked={isBlocked} daysLeft={0} />;
+    return <PaywallScreen isBlocked={isBlocked} daysLeft={0} neverHadTrial={neverHadTrial} />;
   }
 
   return (
