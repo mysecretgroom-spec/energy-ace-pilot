@@ -1636,6 +1636,9 @@ const EtudeForm = () => {
     const etudeData = buildEtudeData();
     if (!etudeData) return;
 
+    // Prevent concurrent inserts that create duplicate études
+    if (!currentEtudeId && isInsertingRef.current) return;
+
     setAutoSaveStatus(prev => ({ ...prev, isSaving: true }));
 
     try {
@@ -1644,9 +1647,14 @@ const EtudeForm = () => {
         if (currentEtudeId) {
           await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
         } else {
-          const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
-          if (data) {
-            setCurrentEtudeId(data.id);
+          isInsertingRef.current = true;
+          try {
+            const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
+            if (data) {
+              setCurrentEtudeId(data.id);
+            }
+          } finally {
+            isInsertingRef.current = false;
           }
         }
       } else {
@@ -1668,6 +1676,7 @@ const EtudeForm = () => {
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Auto-save error:", error);
+      isInsertingRef.current = false;
       setAutoSaveStatus(prev => ({ ...prev, isSaving: false }));
     }
   }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline, clearDraft, setHasUnsavedChanges]);
