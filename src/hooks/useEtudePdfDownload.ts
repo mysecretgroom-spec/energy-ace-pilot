@@ -97,7 +97,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     typeRevente: etude.type_revente || "Non défini",
     supportInstallation: etude.support || "Non défini",
     surfaceInstallation: etude.surface_installation_m2 || 0,
-    heuresEnsoleillement: etude.rendement_productivite || 1000,
+    heuresEnsoleillement: (etude.param_overrides as any)?.heuresEnsoleillement || 1000,
     rendementProductivite: etude.rendement_productivite || 100,
     productionAnnuelle: etude.production_annuelle_kwh || 0,
     surplusProduction: etude.surplus_production_kwh || 0,
