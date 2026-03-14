@@ -87,6 +87,7 @@ type Intent =
   | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
   | "coaching_performance" // Analyse des performances et conseils personnalisés
+  | "create_support_ticket" // Créer un ticket de support/signaler un bug ou problème
   | "user_feedback"        // Correction ou préférence utilisateur à mémoriser
   | "confirm_action"       // Confirmer une action en attente (oui/ok/confirme)
   | "cancel_action"        // Annuler une action en attente (non/annule)
@@ -5706,6 +5707,8 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
       return "💳 Je récupère tes frais...";
     case "import_facture":
       return "🧾 Je traite ta note de frais...";
+    case "create_support_ticket":
+      return "🎫 Je crée ton ticket de support...";
     case "user_feedback":
       return "✅ C'est noté !";
     case "conversation":
@@ -5816,6 +5819,7 @@ INTENTIONS DISPONIBLES:
 - update_client_data: "change le tel de X", "modifie email de X", "nouvelle adresse X" → Modifier téléphone, email, adresse d'un client. Entities: client_name, new_phone, new_email, new_address, new_city, new_postal_code
 - update_vente_data: Modifier les données d'une vente (prix, puissance, dates, technicien, commentaires) → Ex: "Dupont prix 18000", "Martin 9kWc"
 - undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
+- create_support_ticket: "j'ai un bug", "problème avec l'app", "ça ne marche pas", "signaler un souci", "je veux remonter un problème", "ticket support", "l'app plante", "erreur dans l'app" → Créer un ticket de support. Entities: ticket_subject (sujet court), ticket_message (description détaillée du problème)
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
 - conversation: salutations simples
 - unknown: non compris
@@ -5915,6 +5919,7 @@ RÈGLES CRITIQUES:
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
 14. Pour "mes régies" / "infos régie X" → query_regie_info
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
+16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
 🔧 VENTES EXTERNES (create_external_vente):
 - Une vente externe = installation faite par un tiers (pas tes propres dossiers)
@@ -5937,7 +5942,7 @@ RÈGLES CRITIQUES:
 
 ⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
 - Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data
+- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data, create_support_ticket
 - FORMAT OBLIGATOIRE du responseMessage:
   📋 *[TYPE ACTION]*
   • Client: [Nom complet]
@@ -6057,7 +6062,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "create_support_ticket", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -6098,7 +6103,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     new_email: { type: "string", description: "New email for client update" },
                     new_address: { type: "string", description: "New address for client update" },
                     new_city: { type: "string", description: "New city for client update" },
-                    new_postal_code: { type: "string", description: "New postal code for client update" }
+                    new_postal_code: { type: "string", description: "New postal code for client update" },
+                    ticket_subject: { type: "string", description: "Short subject for support ticket (max 100 chars)" },
+                    ticket_message: { type: "string", description: "Detailed description of the issue/bug/feedback for support ticket" }
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -9661,6 +9668,56 @@ async function executeAction(
         actionTaken: "query_frais_detail_result",
         entityType: "frais_detail",
         customResponse: responseMsg,
+      };
+    }
+
+    case "create_support_ticket": {
+      const ticketSubject = (entities.ticket_subject as string) || "";
+      const ticketMessage = (entities.ticket_message as string) || "";
+      
+      if (!ticketSubject || !ticketMessage) {
+        return {
+          actionTaken: "collecting_missing_data",
+          newPendingAction: {
+            intent: "create_support_ticket",
+            entities,
+            workflowState: "collecting_missing_data" as WorkflowState,
+            collectedData: {
+              missingFields: [
+                ...(!ticketSubject ? ["ticket_subject"] : []),
+                ...(!ticketMessage ? ["ticket_message"] : []),
+              ],
+            },
+            createdAt: new Date().toISOString(),
+          },
+          customResponse: !ticketSubject
+            ? "🎫 Pour créer ton ticket de support :\n\n📌 Quel est le *sujet* de ton problème ? (en quelques mots)"
+            : "📝 Peux-tu *décrire le problème* en détail ? (ce qui se passe, quand ça arrive, etc.)",
+        };
+      }
+      
+      // Create the support ticket via RPC
+      const { data: ticketId, error: ticketError } = await supabase.rpc(
+        "create_support_ticket",
+        {
+          p_subject: ticketSubject.substring(0, 200),
+          p_message: ticketMessage.substring(0, 2000),
+        }
+      );
+      
+      if (ticketError) {
+        console.error("Error creating support ticket:", ticketError);
+        return {
+          actionTaken: "error",
+          customResponse: "❌ Erreur lors de la création du ticket. Réessaie ou crée-le directement depuis l'app dans *Support*.",
+        };
+      }
+      
+      return {
+        actionTaken: "support_ticket_created",
+        entityType: "support_ticket",
+        entityId: ticketId,
+        customResponse: `✅ *Ticket de support créé !*\n\n📌 Sujet: ${ticketSubject}\n📝 ${ticketMessage.substring(0, 100)}${ticketMessage.length > 100 ? "..." : ""}\n\nNotre équipe va traiter ta demande. Tu peux suivre l'avancement dans l'onglet *Support* de l'app.`,
       };
     }
 
