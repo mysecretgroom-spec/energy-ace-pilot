@@ -41,3 +41,12 @@ verify_jwt = false
 
 [functions.enhance-document-image]
 verify_jwt = false
+
+[functions.saas-stripe-webhook]
+verify_jwt = false
+
+[functions.saas-check-trial-expiry]
+verify_jwt = false
+
+[functions.saas-billing-delinquency-check]
+verify_jwt = false

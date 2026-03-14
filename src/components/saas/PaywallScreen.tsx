@@ -3,34 +3,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Loader2, Lock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PaywallScreenProps {
   isBlocked?: boolean;
   daysLeft?: number;
 }
 
-export function PaywallScreen({ isBlocked = false, daysLeft = 0 }: PaywallScreenProps) {
-  const [isLoading, setIsLoading] = useState(false);
+const MONTHLY_LINK = "https://buy.stripe.com/MONTHLY_PLACEHOLDER";
+const ANNUAL_LINK = "https://buy.stripe.com/ANNUAL_PLACEHOLDER";
 
-  const handleSubscribe = async () => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("saas-create-checkout-session", {
-        body: {},
-      });
+export function PaywallScreen({ isBlocked = false }: PaywallScreenProps) {
+  const { user } = useAuth();
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
-      if (error) throw error;
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSubscribe = () => {
+    const baseUrl = billingCycle === "monthly" ? MONTHLY_LINK : ANNUAL_LINK;
+    const params = new URLSearchParams();
+    if (user?.email) params.set("prefilled_email", user.email);
+    if (user?.id) params.set("client_reference_id", user.id);
+    window.location.href = `${baseUrl}?${params.toString()}`;
   };
 
   return (
@@ -67,52 +59,70 @@ export function PaywallScreen({ isBlocked = false, daysLeft = 0 }: PaywallScreen
             <CardDescription>Accès complet à toutes les fonctionnalités</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Billing cycle toggle */}
+            <div className="flex items-center justify-center gap-2 bg-muted rounded-lg p-1">
+              <button
+                onClick={() => setBillingCycle("monthly")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  billingCycle === "monthly"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Mensuel
+              </button>
+              <button
+                onClick={() => setBillingCycle("annual")}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  billingCycle === "annual"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+              >
+                Annuel
+                <Badge variant="default" className="ml-1.5 text-[10px] px-1.5 py-0">-16%</Badge>
+              </button>
+            </div>
+
             <div className="text-center">
-              <span className="text-4xl font-bold">29€</span>
-              <span className="text-muted-foreground">/mois</span>
+              {billingCycle === "monthly" ? (
+                <>
+                  <span className="text-4xl font-bold">55,26€</span>
+                  <span className="text-muted-foreground">/mois</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-bold">555,26€</span>
+                  <span className="text-muted-foreground">/an</span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    soit 46,27€/mois
+                  </p>
+                </>
+              )}
             </div>
 
             <ul className="space-y-3">
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Gestion complète du planning</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Suivi CRM et ventes</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Synchronisation Gmail automatique</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Gestion des frais et commissions</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Notifications push</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-500" />
-                <span>Support prioritaire</span>
-              </li>
+              {[
+                "Gestion complète du planning",
+                "Suivi CRM et ventes",
+                "Synchronisation Gmail automatique",
+                "Gestion des frais et commissions",
+                "Notifications push",
+                "Support prioritaire",
+              ].map((feature) => (
+                <li key={feature} className="flex items-center gap-2">
+                  <Check className="h-5 w-5 text-green-500" />
+                  <span>{feature}</span>
+                </li>
+              ))}
             </ul>
 
             <Button 
               className="w-full" 
               size="lg"
               onClick={handleSubscribe}
-              disabled={isLoading}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Redirection...
-                </>
-              ) : (
-                "S'abonner maintenant"
-              )}
+              S'abonner maintenant
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
