@@ -169,6 +169,7 @@ const App = () => {
                       <Route path="/parametres/data-murs-ite" element={<ProtectedRoute><DataMursITE /></ProtectedRoute>} />
                       <Route path="/parametres/data-economies-ite" element={<ProtectedRoute><DataEconomiesITE /></ProtectedRoute>} />
                       <Route path="/parametres/data-estimateur" element={<ProtectedRoute><DataEstimateurCoefficients /></ProtectedRoute>} />
+                      <Route path="/parametres/data-evolution-prix" element={<ProtectedRoute><DataEvolutionPrix /></ProtectedRoute>} />
                       <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                       <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
