@@ -1136,6 +1136,101 @@ const drawResultatEtude = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PROJECTION 10 ANS - GAINS CUMULÉS
+// ═══════════════════════════════════════════════════════════════════════════
+const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageContext, style: "standard" | "cepc" = "standard"): number => {
+  if (!data.projection10ans || data.projection10ans.length === 0) return yStart;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPos = yStart;
+
+  const headerColor = style === "cepc" ? cepcGris : bleuMarianne;
+  const textColor = style === "cepc" ? bleuMarianne : [255, 255, 255] as [number, number, number];
+
+  // Section header
+  if (ctx) yPos = ensureSpace(ctx, yPos, 80);
+  if (style === "cepc") {
+    doc.setFillColor(...cepcGris);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(...bleuMarianne);
+  } else {
+    doc.setFillColor(...bleuMarianne);
+    doc.rect(14, yPos, pageWidth - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+  }
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  const typeLabel = data.typeEnergieReference ? ` (${data.typeEnergieReference})` : "";
+  const tauxLabel = data.tauxAugmentationEnergie ? ` - Hausse ${data.tauxAugmentationEnergie}%/an` : "";
+  doc.text(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}${tauxLabel}`, 16, yPos + 5);
+  yPos += 9;
+
+  // Build table rows
+  const rows: string[][] = data.projection10ans.map((p) => [
+    `Année ${p.annee}`,
+    formatEuros(p.prixKwhElec) + "/kWh",
+    formatEuros(p.gainAnnuel),
+    formatEuros(p.gainCumule),
+  ]);
+
+  const tableStyles = style === "cepc" ? {
+    headStyles: {
+      fillColor: cepcGris as [number, number, number],
+      textColor: bleuMarianne,
+      fontSize: 8,
+      fontStyle: "bold" as const,
+      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
+      lineWidth: 0.2,
+      lineColor: cepcBorder as [number, number, number],
+    },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: { top: 1.5, bottom: 1.5, left: 3, right: 3 },
+      textColor: grisTexte as [number, number, number],
+      lineWidth: 0.1,
+      lineColor: [220, 225, 230] as [number, number, number],
+    },
+  } : {
+    headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" as const },
+    styles: { fontSize: 7.5, cellPadding: 1.5, textColor: grisTexte },
+  };
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [["Période", "Prix kWh projeté", "Gain annuel", "Gain cumulé"]],
+    body: rows,
+    theme: style === "cepc" ? "plain" : "striped",
+    ...tableStyles,
+    columnStyles: {
+      0: { cellWidth: 35 },
+      1: { halign: "right" as const },
+      2: { halign: "right" as const },
+      3: { halign: "right" as const, fontStyle: "bold" as const },
+    },
+    didParseCell: (cellData) => {
+      // Highlight last row
+      if (cellData.row.index === rows.length - 1) {
+        cellData.cell.styles.fontStyle = "bold";
+        cellData.cell.styles.fillColor = [220, 252, 231];
+      }
+    },
+    margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+  });
+  yPos = (doc as any).lastAutoTable.finalY + 4;
+
+  // Source note
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    "Projection basee sur le taux d'augmentation annuel moyen constate (sources: CRE, INSEE). Valeurs indicatives, non contractuelles.",
+    14, yPos
+  );
+  yPos += 6;
+
+  return yPos;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PRÉ-ÉTUDE GENERATOR (ancien format complet: diagnostic + préco + financier + verdict)
 // ═══════════════════════════════════════════════════════════════════════════
 
