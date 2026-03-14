@@ -1672,6 +1672,9 @@ const EtudeForm = () => {
     // Prevent concurrent inserts that create duplicate études
     if (!currentEtudeId && isInsertingRef.current) return;
 
+    // Don't auto-save while the "existing study" prompt is showing — wait for user choice
+    if (existingEtudePrompt) return;
+
     setAutoSaveStatus(prev => ({ ...prev, isSaving: true }));
 
     try {
