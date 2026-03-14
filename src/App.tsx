@@ -87,6 +87,7 @@ const AdminFeatures = React.lazy(() => import("./pages/admin/AdminFeatures"));
 const AdminAuditLogs = React.lazy(() => import("./pages/admin/AdminAuditLogs"));
 const AdminPlans = React.lazy(() => import("./pages/admin/AdminPlans"));
 const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows"));
+const AdminUsers = React.lazy(() => import("./pages/admin/AdminUsers"));
 
 // ─── QueryClient with optimized defaults + offline-first ───
 const queryClient = new QueryClient({
