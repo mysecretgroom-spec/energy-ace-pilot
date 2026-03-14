@@ -172,9 +172,10 @@ const EtudeForm = () => {
   const [saving, setSaving] = useState(false);
   const [currentEtudeId, setCurrentEtudeId] = useState<string | null>(etudeId);
   const [originalClassification, setOriginalClassification] = useState<string>("");
-  const [localEtudeId, setLocalEtudeId] = useState<string | null>(null); // For offline mode
+  const [localEtudeId, setLocalEtudeId] = useState<string | null>(null);
+  const [existingEtudePrompt, setExistingEtudePrompt] = useState<{ etudeId: string; productType: string } | null>(null);
   const forceSyncRef = useRef(false);
-  const isInsertingRef = useRef(false); // Guard against concurrent inserts creating duplicates
+  const isInsertingRef = useRef(false);
   
   // Offline data support
   const { isOnline, saveEtudeOffline, queueWhatsAppMessage } = useOfflineData();
