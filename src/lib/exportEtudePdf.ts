@@ -1168,15 +1168,12 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.text(sanitizePdfText(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}`), 16, yPos + 5);
   yPos += 9;
 
-  // Sub-header with rate + source
-  if (data.tauxAugmentationEnergie) {
-    doc.setFontSize(7.5);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(100, 100, 100);
-    const sourceLabel = data.sourceEvolutionPrix ? ` - ${sanitizePdfText(data.sourceEvolutionPrix)}` : "";
-    doc.text(sanitizePdfText(`Base de calcul : augmentation annuelle de ${data.tauxAugmentationEnergie}% du prix de l'energie${sourceLabel}`), 16, yPos);
-    yPos += 5;
-  }
+  // Sub-header with source
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(100, 100, 100);
+  doc.text(sanitizePdfText("D'apres les augmentations prevues sur 10 ans (source : Commission de Regulation de l'Energie - CRE)"), 16, yPos);
+  yPos += 5;
 
   // Build table rows
   const rows: string[][] = data.projection10ans.map((p) => [
