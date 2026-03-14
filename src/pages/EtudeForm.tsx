@@ -2207,6 +2207,45 @@ _Envoyé depuis DébalePro_`;
 
   return (
     <MobileLayout>
+      {/* Dialog: étude existante détectée */}
+      <AlertDialog open={!!existingEtudePrompt} onOpenChange={(open) => { if (!open) setExistingEtudePrompt(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Home className="h-5 w-5 text-primary" />
+              Étude existante détectée
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Une étude existe déjà pour ce client. Souhaitez-vous la continuer ou créer une nouvelle étude pour une autre maison ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (existingEtudePrompt) {
+                  navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${existingEtudePrompt.etudeId}`, { replace: true });
+                }
+                setExistingEtudePrompt(null);
+              }}
+            >
+              Continuer l'étude existante
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setExistingEtudePrompt(null);
+                // Allow creating a new study — form stays empty
+              }}
+            >
+              <Home className="h-4 w-4 mr-2" />
+              Nouvelle maison (autre étude)
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Overlay de succès avec animation */}
       {showSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
