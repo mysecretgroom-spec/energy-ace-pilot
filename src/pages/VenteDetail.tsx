@@ -613,6 +613,24 @@ const VenteDetail = () => {
               </p>
             </div>
             <div className="space-y-2">
+              <Label>Installation prévue</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  value={dateInstallationPrevue}
+                  onChange={(e) => setDateInstallationPrevue(e.target.value)}
+                  placeholder="Date"
+                />
+                <Input
+                  type="time"
+                  value={heureInstallationPrevue}
+                  onChange={(e) => setHeureInstallationPrevue(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Un RDV d'installation sera automatiquement créé sur le planning
+              </p>
+            <div className="space-y-2">
               <Label htmlFor="dateInstallationReelle">Date de pose</Label>
               <Input
                 id="dateInstallationReelle"
