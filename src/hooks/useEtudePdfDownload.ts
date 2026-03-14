@@ -211,6 +211,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     projection10ans,
     tauxAugmentationEnergie: tauxAugmentation,
     typeEnergieReference: typeEnergieLabel,
+    sourceEvolutionPrix,
   };
 
   return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
