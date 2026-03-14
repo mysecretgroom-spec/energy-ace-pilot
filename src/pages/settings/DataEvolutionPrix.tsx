@@ -76,7 +76,22 @@ const DataEvolutionPrix = () => {
   };
 
   const handleChange = (id: string, field: keyof EvolutionData, value: any) => {
-    setData(prev => prev.map(item => item.id === id ? { ...item, [field]: value, isModified: true } : item));
+    setData(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      // If editing a global item, clone it as a personal override
+      if (item.isGlobal && !item.isNew) {
+        return {
+          ...item,
+          id: `new-${Date.now()}`,
+          user_id: user?.id || null,
+          isGlobal: false,
+          isNew: true,
+          isModified: true,
+          [field]: value,
+        };
+      }
+      return { ...item, [field]: value, isModified: true };
+    }));
     setHasChanges(true);
   };
 
@@ -169,7 +184,7 @@ const DataEvolutionPrix = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
+                        <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} />
                         {!item.isGlobal && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}>
                             <Trash2 className="h-4 w-4" />
@@ -181,17 +196,17 @@ const DataEvolutionPrix = () => {
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground">Type d'énergie</label>
-                        <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" />
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground">Taux annuel (%)</label>
-                        <Input type="number" step="0.1" value={item.taux_augmentation_annuel} onChange={(e) => handleChange(item.id, "taux_augmentation_annuel", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-bold text-red-600" disabled={item.isGlobal} />
+                        <Input type="number" step="0.1" value={item.taux_augmentation_annuel} onChange={(e) => handleChange(item.id, "taux_augmentation_annuel", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-bold text-destructive" />
                       </div>
                     </div>
 
                     <div>
                       <label className="text-[10px] text-muted-foreground">Description / Source</label>
-                      <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                      <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" />
                     </div>
 
                     {/* Mini preview: projection on 10 years */}
