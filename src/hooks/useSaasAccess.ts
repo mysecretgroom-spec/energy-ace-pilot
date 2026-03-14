@@ -92,6 +92,7 @@ export function useSaasAccess() {
     isPaywall,
     isBlocked,
     hasAccess,
+    neverHadTrial: !!neverHadTrial,
     appAccess: accessState?.app_access as AppAccess | undefined,
     subscriptionStatus: subscription?.status as SubscriptionStatus | undefined,
   };
