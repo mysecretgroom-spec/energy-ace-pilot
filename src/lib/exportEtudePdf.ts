@@ -42,6 +42,13 @@ interface IteData {
   aides: { maPrimeRenov: number; cee: number; ecoTva: number; aideLocale: number };
 }
 
+interface ProjectionAnnuelle {
+  annee: number;
+  prixKwhElec: number;
+  gainAnnuel: number;
+  gainCumule: number;
+}
+
 interface EtudeData {
   // Multi-product
   activeProducts?: string[];
@@ -126,6 +133,11 @@ interface EtudeData {
   // Multi-product data
   pac?: PacData;
   ite?: IteData;
+  
+  // Projection 10 ans
+  projection10ans?: ProjectionAnnuelle[];
+  tauxAugmentationEnergie?: number;
+  typeEnergieReference?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
