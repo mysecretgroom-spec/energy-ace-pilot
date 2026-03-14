@@ -281,6 +281,8 @@ const VenteDetail = () => {
       numeroContrat: newNumeroContrat,
       status: newStatus,
       dateSignature: finalDateSignature,
+      dateInstallationPrevue: newDateInstallationPrevue,
+      heureInstallationPrevue: newHeureInstallationPrevue,
       dateInstallationReelle: newDateInstallationReelle,
       montantHt: newMontantHt,
       montantTtc: newMontantTtc,
