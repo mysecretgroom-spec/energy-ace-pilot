@@ -483,7 +483,8 @@ export default function AdminUsers() {
                 </div>
               )}
 
-
+              <div className="space-y-3 border rounded-lg p-4">
+                <h4 className="font-semibold text-sm">Modifier l'accès</h4>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">Changer le statut manuellement</p>
                   <Select
