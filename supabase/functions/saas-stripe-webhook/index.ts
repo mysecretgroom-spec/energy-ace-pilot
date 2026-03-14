@@ -265,3 +265,55 @@ serve(async (req) => {
     );
   }
 });
+
+async function notifyAdminNewSubscription(supabase: any, userId: string, session: any) {
+  try {
+    const ADMIN_WHATSAPP = Deno.env.get("ADMIN_WHATSAPP_NUMBER");
+    const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const TWILIO_WHATSAPP_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM") || Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+
+    if (!ADMIN_WHATSAPP || !TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_WHATSAPP_FROM) {
+      console.log("Admin WhatsApp notification skipped: missing config");
+      return;
+    }
+
+    // Get user info
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("first_name, last_name, phone")
+      .eq("user_id", userId)
+      .single();
+
+    const { data: saasUser } = await supabase.rpc("get_saas_users" as any);
+    const userEmail = saasUser?.find((u: any) => u.user_id === userId)?.email || "inconnu";
+
+    const name = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "Utilisateur";
+    const amount = session.amount_total ? `${(session.amount_total / 100).toFixed(2)}€` : "N/A";
+
+    const message = `🎉 *NOUVEL ABONNEMENT !*\n\n👤 ${name}\n📧 ${userEmail}\n📱 ${profile?.phone || "N/A"}\n💰 Montant: ${amount}\n🕐 ${new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`;
+
+    let phone = ADMIN_WHATSAPP.replace(/\D/g, "");
+    if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
+    if (!phone.startsWith("+")) phone = `+${phone}`;
+
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+    const resp = await fetch(twilioUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        From: TWILIO_WHATSAPP_FROM,
+        To: `whatsapp:${phone}`,
+        Body: message,
+      }).toString(),
+    });
+
+    const result = await resp.json();
+    console.log("Admin WhatsApp notification:", resp.ok ? "sent" : "failed", result.sid || result.message);
+  } catch (err) {
+    console.error("Admin notification error:", err);
+  }
+}
