@@ -401,24 +401,30 @@ const Dashboard = () => {
       setNotifications(notificationsRes.data || []);
       
       // Transform prochains RDV
-      setProchainsRdv((prochainsRdvRes.data || []).map((r: any) => ({
-        id: r.id,
-        date_heure: r.date_heure,
-        client_nom: r.clients?.nom || "Client inconnu",
-        client_prenom: r.clients?.prenom || "",
-        client_id: r.clients?.id || "",
-        type_projet: r.type_projet,
-        status: r.status,
-        type_rdv: r.type_rdv || "standard",
-        etude_id: r.etude_id,
-        regie_id: r.regie_id,
-        regie_nom: r.regies?.nom || null,
-        regie_couleur: r.regies?.couleur || null,
-        telephone: r.clients?.telephone || null,
-        adresse: r.clients?.adresse || null,
-        code_postal: r.clients?.code_postal || null,
-        ville: r.clients?.ville || null,
-      })));
+      setProchainsRdv((prochainsRdvRes.data || []).map((r: any) => {
+        // Fallback: use client's régie if RDV has none
+        const regieNom = r.regies?.nom || r.clients?.regies?.nom || null;
+        const regieCouleur = r.regies?.couleur || r.clients?.regies?.couleur || null;
+        const regieId = r.regie_id || r.clients?.regie_id || null;
+        return {
+          id: r.id,
+          date_heure: r.date_heure,
+          client_nom: r.clients?.nom || "Client inconnu",
+          client_prenom: r.clients?.prenom || "",
+          client_id: r.clients?.id || "",
+          type_projet: r.type_projet,
+          status: r.status,
+          type_rdv: r.type_rdv || "standard",
+          etude_id: r.etude_id,
+          regie_id: regieId,
+          regie_nom: regieNom,
+          regie_couleur: regieCouleur,
+          telephone: r.clients?.telephone || null,
+          adresse: r.clients?.adresse || null,
+          code_postal: r.clients?.code_postal || null,
+          ville: r.clients?.ville || null,
+        };
+      }));
 
       // Premier RDV de demain pour Booking
       if (rdvDemainRes.data && rdvDemainRes.data.length > 0) {
