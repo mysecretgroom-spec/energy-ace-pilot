@@ -1166,6 +1166,16 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.text(sanitizePdfText(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}`), 16, yPos + 5);
   yPos += 9;
 
+  // Sub-header with rate + source
+  if (data.tauxAugmentationEnergie) {
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 100, 100);
+    const sourceLabel = data.sourceEvolutionPrix ? ` (${sanitizePdfText(data.sourceEvolutionPrix)})` : " (CRE, INSEE)";
+    doc.text(sanitizePdfText(`Hypothese : hausse annuelle de ${data.tauxAugmentationEnergie}%${sourceLabel}`), 16, yPos);
+    yPos += 5;
+  }
+
   // Build table rows
   const rows: string[][] = data.projection10ans.map((p) => [
     `Année ${p.annee}`,
