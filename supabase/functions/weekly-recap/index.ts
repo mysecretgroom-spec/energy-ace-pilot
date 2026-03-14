@@ -41,26 +41,28 @@ serve(async (req) => {
 
         const firstName = profile?.first_name || "Commercial";
 
-        // Calculate last week's dates (Monday to Sunday)
+        // Calculate current week dates (Israeli week: Sunday to Saturday)
         const now = new Date();
         const dayOfWeek = now.getDay(); // 0=Sun
-        const daysBackToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const lastMonday = new Date(now);
-        lastMonday.setDate(now.getDate() - daysBackToMonday - 7);
-        lastMonday.setHours(0, 0, 0, 0);
-        const lastSunday = new Date(lastMonday);
-        lastSunday.setDate(lastMonday.getDate() + 7);
+        // Go back to this week's Sunday
+        const thisSunday = new Date(now);
+        thisSunday.setDate(now.getDate() - dayOfWeek);
+        thisSunday.setHours(0, 0, 0, 0);
+        // End = next Saturday end (Sunday + 7 days)
+        const nextSunday = new Date(thisSunday);
+        nextSunday.setDate(thisSunday.getDate() + 7);
 
-        // Previous week for trends comparison
-        const prevMonday = new Date(lastMonday);
-        prevMonday.setDate(prevMonday.getDate() - 7);
-        const prevSunday = new Date(lastMonday);
+        // Previous week for trends comparison (previous Sun-Sat)
+        const prevSunday = new Date(thisSunday);
+        prevSunday.setDate(prevSunday.getDate() - 7);
+        const prevEnd = new Date(thisSunday);
 
-        const startStr = lastMonday.toISOString();
-        const endStr = lastSunday.toISOString();
-        const prevStartStr = prevMonday.toISOString();
-        const prevEndStr = prevSunday.toISOString();
-        const weekLabel = `${lastMonday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(lastSunday.getTime() - 86400000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+        const startStr = thisSunday.toISOString();
+        const endStr = nextSunday.toISOString();
+        const prevStartStr = prevSunday.toISOString();
+        const prevEndStr = prevEnd.toISOString();
+        const satLabel = new Date(nextSunday.getTime() - 86400000);
+        const weekLabel = `${thisSunday.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${satLabel.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
 
         // Fetch RDVs of the week
         const { data: rdvs } = await supabase
