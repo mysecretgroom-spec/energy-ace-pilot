@@ -196,7 +196,7 @@ const DataEvolutionPrix = () => {
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground">Type d'énergie</label>
-                        <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" />
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground">Taux annuel (%)</label>
