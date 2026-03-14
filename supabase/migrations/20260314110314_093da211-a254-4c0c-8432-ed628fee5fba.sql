@@ -1,0 +1,1 @@
+ALTER TABLE public.ventes ADD COLUMN IF NOT EXISTS heure_installation_prevue time DEFAULT '08:00:00';

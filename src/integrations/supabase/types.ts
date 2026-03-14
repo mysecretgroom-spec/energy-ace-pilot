@@ -3072,6 +3072,7 @@ export type Database = {
           decom_montant: number | null
           decom_raison: string | null
           etude_id: string | null
+          heure_installation_prevue: string | null
           id: string
           is_retape: boolean | null
           montant_acompte: number | null
@@ -3100,6 +3101,7 @@ export type Database = {
           decom_montant?: number | null
           decom_raison?: string | null
           etude_id?: string | null
+          heure_installation_prevue?: string | null
           id?: string
           is_retape?: boolean | null
           montant_acompte?: number | null
@@ -3128,6 +3130,7 @@ export type Database = {
           decom_montant?: number | null
           decom_raison?: string | null
           etude_id?: string | null
+          heure_installation_prevue?: string | null
           id?: string
           is_retape?: boolean | null
           montant_acompte?: number | null
