@@ -1715,7 +1715,7 @@ const EtudeForm = () => {
       isInsertingRef.current = false;
       setAutoSaveStatus(prev => ({ ...prev, isSaving: false }));
     }
-  }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline, clearDraft, setHasUnsavedChanges]);
+  }, [buildEtudeData, isOnline, currentEtudeId, clientId, localEtudeId, saveEtudeOffline, clearDraft, setHasUnsavedChanges, existingEtudePrompt]);
 
   // Debounced auto-save trigger
   const triggerAutoSave = useCallback(() => {
