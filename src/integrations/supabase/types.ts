@@ -3498,6 +3498,10 @@ export type Database = {
         Args: { p_is_admin?: boolean; p_message: string; p_ticket_id: string }
         Returns: string
       }
+      admin_update_access_state: {
+        Args: { p_app_access: string; p_target_user_id: string }
+        Returns: undefined
+      }
       block_saas_user: { Args: { p_user_id: string }; Returns: undefined }
       calculate_vente_commission: {
         Args: { p_vente_id: string }
@@ -3526,6 +3530,25 @@ export type Database = {
       find_user_by_stripe_customer: {
         Args: { p_stripe_customer_id: string }
         Returns: {
+          user_id: string
+        }[]
+      }
+      get_admin_users_overview: {
+        Args: never
+        Returns: {
+          app_access: string
+          created_at: string
+          current_period_end: string
+          email: string
+          first_name: string
+          is_beta_tester: boolean
+          last_name: string
+          past_due_since: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          subscription_status: string
+          trial_ends_at: string
+          trial_started_at: string
           user_id: string
         }[]
       }
@@ -3765,6 +3788,10 @@ export type Database = {
         Returns: Json
       }
       store_mfa_verification: { Args: never; Returns: string }
+      toggle_beta_tester: {
+        Args: { p_is_beta: boolean; p_target_user_id: string }
+        Returns: undefined
+      }
       undo_agent_action: { Args: { p_action_id: string }; Returns: Json }
       update_feature_status: {
         Args: { p_feature_id: string; p_status: string }
