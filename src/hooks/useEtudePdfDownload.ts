@@ -122,8 +122,9 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     console.warn("[PDF] Could not fetch evolution data, using defaults", e);
   }
 
-  // Calculer le gain annuel de base
-  const gainAnnuelBase = (autoconsommationEuros + reventeMensuelleEstimee) * 12;
+  // Gain mensuel du projet (transfert de charge)
+  // resultatTransfertCharge = autoconso + revente - mensualité
+  const gainProjetAnnuel = resultatTransfertCharge * 12;
   
   // Prix kWh de référence actuel
   const prixKwhActuel = etude.pac_prix_kwh_elec || 0.2516; // tarif réglementé 2026
@@ -141,7 +142,8 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     const prixKwh = prixKwhActuel * multiplicateur;
     const coutAnnuelProjecte = consoAnnuelleKwh * prixKwh;
     const coutAugmentation = coutAnnuelProjecte - coutAnnuelActuel;
-    const gainAnnuel = gainAnnuelBase * multiplicateur;
+    // Gain annuel = gain projet (transfert de charge) + économie liée à l'inflation évitée
+    const gainAnnuel = gainProjetAnnuel + coutAugmentation;
     cumulGain += gainAnnuel;
     projection10ans.push({
       annee: i,
