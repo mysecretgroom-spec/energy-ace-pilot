@@ -3498,6 +3498,10 @@ export type Database = {
         Args: { p_is_admin?: boolean; p_message: string; p_ticket_id: string }
         Returns: string
       }
+      admin_grant_trial: {
+        Args: { p_target_user_id: string; p_trial_days?: number }
+        Returns: undefined
+      }
       admin_update_access_state: {
         Args: { p_app_access: string; p_target_user_id: string }
         Returns: undefined
