@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
-  Search, Loader2, Users, AlertTriangle, Shield, Star, ExternalLink, Eye, Calendar,
+  Search, Loader2, Users, AlertTriangle, Shield, Star, ExternalLink, Eye, Calendar, Clock,
 } from "lucide-react";
 import { format, differenceInDays, addDays, addMonths } from "date-fns";
 import { fr } from "date-fns/locale";
