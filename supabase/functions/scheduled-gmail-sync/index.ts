@@ -5,6 +5,130 @@ import { corsHeaders, getValidAccessToken } from "../_shared/google-auth.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+/**
+ * Send a WhatsApp message to the user summarizing imported RDVs
+ * and indicating where they start their day (first RDV address).
+ */
+async function sendWhatsAppRdvSummary(
+  supabase: any,
+  userId: string,
+  totalImported: number,
+  syncResult: any
+) {
+  // 1. Get user's phone number from profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("phone, first_name")
+    .eq("user_id", userId)
+    .single();
+
+  if (!profile?.phone) {
+    console.log(`No phone for user ${userId}, skipping WhatsApp`);
+    return;
+  }
+
+  // 2. Get today's upcoming RDVs for this user (ordered chronologically)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayRdvs } = await supabase
+    .from("rdv")
+    .select(`
+      id, date_heure, adresse, commentaire,
+      clients!inner(nom, prenom, ville, code_postal, adresse)
+    `)
+    .eq("user_id", userId)
+    .gte("date_heure", todayStart.toISOString())
+    .lte("date_heure", todayEnd.toISOString())
+    .not("status", "in", '("annule","reporte")')
+    .order("date_heure", { ascending: true });
+
+  // 3. Build the WhatsApp message
+  const greeting = profile.first_name ? `Bonjour ${profile.first_name} 👋` : "Bonjour 👋";
+  
+  const rdvLabel = totalImported === 1 ? "nouveau RDV importé" : "nouveaux RDV importés";
+  let whatsappMessage = `${greeting}\n\n📧 *${totalImported} ${rdvLabel}* depuis Gmail.\n`;
+
+  // Show imported RDV details from sync result (max 5)
+  const importedDetails = syncResult.details?.filter(
+    (d: any) => d.status === "imported" || d.status === "updated"
+  ) || [];
+
+  if (importedDetails.length > 0) {
+    whatsappMessage += "\n";
+    for (const detail of importedDetails.slice(0, 5)) {
+      const label = detail.status === "updated" ? "🔄" : "✅";
+      whatsappMessage += `${label} ${detail.subject?.substring(0, 60) || "RDV"}\n`;
+    }
+    if (importedDetails.length > 5) {
+      whatsappMessage += `...et ${importedDetails.length - 5} autre(s)\n`;
+    }
+  }
+
+  // Show today's planning summary
+  if (todayRdvs && todayRdvs.length > 0) {
+    whatsappMessage += `\n📍 *Planning du jour (${todayRdvs.length} RDV)* :\n`;
+    
+    for (const rdv of todayRdvs.slice(0, 5)) {
+      const heure = new Date(rdv.date_heure).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Paris"
+      });
+      const clientName = rdv.clients?.nom || "Client";
+      const clientPrenom = rdv.clients?.prenom || "";
+      const ville = rdv.clients?.ville || "";
+      
+      whatsappMessage += `• *${heure}* — ${clientPrenom} ${clientName}`;
+      if (ville) whatsappMessage += ` (${ville})`;
+      whatsappMessage += "\n";
+    }
+
+    // First RDV address for navigation
+    const firstRdv = todayRdvs[0];
+    const firstAddress = firstRdv.adresse || firstRdv.clients?.adresse;
+    const firstCity = firstRdv.clients?.ville;
+    const firstPostal = firstRdv.clients?.code_postal;
+    
+    if (firstAddress) {
+      const fullAddress = [firstAddress, firstPostal, firstCity].filter(Boolean).join(" ");
+      whatsappMessage += `\n🚗 *Vous commencez à :*\n${fullAddress}\n`;
+      whatsappMessage += `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+    }
+  }
+
+  // 4. Normalize phone to WhatsApp format
+  let phone = profile.phone.replace(/\D/g, "");
+  if (phone.startsWith("0")) phone = "33" + phone.slice(1);
+  if (!phone.startsWith("+")) phone = "+" + phone;
+  const whatsappTo = `whatsapp:${phone}`;
+
+  // 5. Send via whatsapp-send edge function
+  const sendResponse = await fetch(
+    `${SUPABASE_URL}/functions/v1/whatsapp-send`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        to: whatsappTo,
+        message: whatsappMessage,
+      }),
+    }
+  );
+
+  if (!sendResponse.ok) {
+    const err = await sendResponse.text();
+    console.error(`WhatsApp send failed for user ${userId}:`, err);
+  } else {
+    console.log(`WhatsApp RDV summary sent to user ${userId} (${whatsappTo})`);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS for manual triggers
   if (req.method === "OPTIONS") {
