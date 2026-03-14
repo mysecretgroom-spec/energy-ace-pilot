@@ -1163,8 +1163,7 @@ const drawProjection10Ans = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: 
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   const typeLabel = data.typeEnergieReference ? ` (${data.typeEnergieReference})` : "";
-  const tauxLabel = data.tauxAugmentationEnergie ? ` - Hausse ${data.tauxAugmentationEnergie}%/an` : "";
-  doc.text(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}${tauxLabel}`, 16, yPos + 5);
+  doc.text(sanitizePdfText(`PROJECTION DES GAINS SUR 10 ANS${typeLabel}`), 16, yPos + 5);
   yPos += 9;
 
   // Build table rows
