@@ -206,7 +206,7 @@ const DataEvolutionPrix = () => {
 
                     <div>
                       <label className="text-[10px] text-muted-foreground">Description / Source</label>
-                      <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                      <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" />
                     </div>
 
                     {/* Mini preview: projection on 10 years */}
