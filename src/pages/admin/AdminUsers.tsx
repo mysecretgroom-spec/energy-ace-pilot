@@ -454,8 +454,36 @@ export default function AdminUsers() {
                 )}
               </div>
 
-              <div className="space-y-3 border rounded-lg p-4">
-                <h4 className="font-semibold text-sm">Modifier l'accès</h4>
+              {/* Grant Trial Section */}
+              {selectedUser.app_access === "paywall" && !selectedUser.is_beta_tester && (
+                <div className="space-y-3 border rounded-lg p-4 border-primary/30 bg-primary/5">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Accorder un essai gratuit
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <Select value={trialDays} onValueChange={setTrialDays}>
+                      <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7">7 jours</SelectItem>
+                        <SelectItem value="15">15 jours</SelectItem>
+                        <SelectItem value="30">30 jours</SelectItem>
+                        <SelectItem value="60">60 jours</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() => grantTrialMutation.mutate({ userId: selectedUser.user_id, days: parseInt(trialDays) })}
+                      disabled={grantTrialMutation.isPending}
+                      size="sm"
+                    >
+                      {grantTrialMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Accorder l'essai
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">Changer le statut manuellement</p>
                   <Select
