@@ -21,12 +21,7 @@ serve(async (req) => {
     const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
     const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    const { data: expiringUsers, error } = await supabase
-      .from("saas_access_states_view")
-      .select("*")
-      .is("app_access", null); // dummy - we'll use RPC instead
-
-    // Use direct query via RPC since saas schema is not directly accessible
+    // Find users whose trial ends in ~2 days via RPC
     const { data: users, error: usersError } = await supabase.rpc(
       "get_trial_expiring_soon" as any,
       {
