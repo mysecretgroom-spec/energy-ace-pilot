@@ -5,31 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sun, Loader2, Eye, EyeOff } from "lucide-react";
+import { Sun, Loader2, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { SuccessAnimation } from "@/components/ui/success-animation";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/auth/PasswordStrengthIndicator";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-    <path
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      fill="#4285F4"
-    />
-    <path
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      fill="#34A853"
-    />
-    <path
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      fill="#FBBC05"
-    />
-    <path
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      fill="#EA4335"
-    />
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
   </svg>
 );
 
@@ -37,6 +27,7 @@ const Signup = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,9 +35,38 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const checkDuplicates = async (): Promise<boolean> => {
+    setDuplicateError(null);
+    try {
+      const { data, error } = await supabase.rpc("check_signup_duplicate" as any, {
+        p_email: email.trim(),
+        p_phone: phone.trim() || null,
+      });
+
+      if (error) {
+        console.error("Duplicate check error:", error);
+        return false; // Allow signup if check fails
+      }
+
+      const result = data as any;
+      if (result?.email_exists) {
+        setDuplicateError("Un compte existe déjà avec cette adresse email. Connectez-vous plutôt.");
+        return true;
+      }
+      if (result?.phone_exists) {
+        setDuplicateError("Un compte existe déjà avec ce numéro de téléphone. Connectez-vous plutôt.");
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +101,13 @@ const Signup = () => {
 
     setLoading(true);
 
+    // Check duplicates first
+    const hasDuplicate = await checkDuplicates();
+    if (hasDuplicate) {
+      setLoading(false);
+      return;
+    }
+
     const { error } = await signUp(email, password, firstName, lastName);
 
     if (error) {
@@ -90,9 +117,18 @@ const Signup = () => {
         description: error.message,
       });
     } else {
+      // Save phone to profile after signup
+      if (phone.trim()) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from("profiles")
+            .update({ phone: phone.trim() })
+            .eq("user_id", user.id);
+        }
+      }
+
       setShowSuccess(true);
-      
-      // Navigate after animation
       setTimeout(() => {
         navigate("/");
       }, 1500);
@@ -115,9 +151,8 @@ const Signup = () => {
     }
   };
 
-  // Show success animation overlay
   if (showSuccess) {
-    return <SuccessAnimation message="Compte créé !" subMessage="Bienvenue sur DébalePro !" />;
+    return <SuccessAnimation message="Compte créé !" subMessage="10 jours d'essai gratuit activés !" />;
   }
 
   return (
@@ -129,11 +164,23 @@ const Signup = () => {
           </div>
           <div>
             <CardTitle className="text-2xl font-display">Créer un compte</CardTitle>
-            <CardDescription>Rejoignez DébalePro et boostez vos ventes ENR</CardDescription>
+            <CardDescription>Rejoignez DébalePro — 10 jours d'essai gratuit</CardDescription>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {duplicateError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="flex flex-col gap-2">
+                <span>{duplicateError}</span>
+                <Link to="/login" className="text-sm font-medium underline">
+                  → Se connecter
+                </Link>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Google Sign-up Button */}
           <Button
             type="button"
@@ -192,9 +239,22 @@ const Signup = () => {
                 type="email"
                 placeholder="votre@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setDuplicateError(null); }}
                 required
                 autoComplete="email"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Téléphone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="06 12 34 56 78"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setDuplicateError(null); }}
+                required
+                autoComplete="tel"
               />
             </div>
 
@@ -269,9 +329,13 @@ const Signup = () => {
                   Création...
                 </>
               ) : (
-                "Créer mon compte"
+                "Démarrer mon essai gratuit"
               )}
             </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              10 jours d'essai gratuit • Sans engagement • Sans carte bancaire
+            </p>
           </form>
         </CardContent>
 
