@@ -10,7 +10,7 @@ interface TrialBannerProps {
 export function TrialBanner({ daysLeft }: TrialBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed || daysLeft > 7) return null;
+  if (dismissed) return null;
 
   const urgency = daysLeft <= 3 ? "destructive" : "default";
   const bgColor = daysLeft <= 3 

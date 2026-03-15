@@ -76,10 +76,6 @@ export function useSaasAccess() {
   const isPaywall = !isBetaTester && (accessState?.app_access === "paywall" || !!isBetaExpired);
   const isBlocked = !isBetaTester && accessState?.app_access === "blocked";
   const hasAccess = isBetaTester || isInTrial || isActive;
-  
-  // Detect if user never had a real trial (trial_started_at ≈ trial_ends_at means no trial was granted)
-  const neverHadTrial = isPaywall && accessState?.trial_started_at && accessState?.trial_ends_at
-    && Math.abs(new Date(accessState.trial_ends_at).getTime() - new Date(accessState.trial_started_at).getTime()) < 60000;
 
   return {
     accessState,
@@ -92,7 +88,6 @@ export function useSaasAccess() {
     isPaywall,
     isBlocked,
     hasAccess,
-    neverHadTrial: !!neverHadTrial,
     appAccess: accessState?.app_access as AppAccess | undefined,
     subscriptionStatus: subscription?.status as SubscriptionStatus | undefined,
   };

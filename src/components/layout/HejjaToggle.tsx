@@ -7,10 +7,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { useDraggablePosition } from "@/hooks/useDraggablePosition";
 import { cn } from "@/lib/utils";
+import { useTrialFeatures } from "@/hooks/useTrialFeatures";
+import { useToast } from "@/hooks/use-toast";
 
 export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_props, ref) {
   const { user } = useAuth();
   const { isActive, activate, deactivate } = useHejjaMode();
+  const { canAccess } = useTrialFeatures();
+  const { toast } = useToast();
   const location = useLocation();
   
   // Check if we're on the Etude page - make button more discreet there
@@ -63,6 +67,15 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
         }
       }, isOnEtudePage ? 0 : 500);
     } else {
+      // Check if user has premium access for HEJJA
+      if (!canAccess("mode_hejja")) {
+        toast({
+          variant: "destructive",
+          title: "Fonctionnalité Premium",
+          description: "Le mode HEJJA est réservé aux abonnés. Abonnez-vous pour y accéder.",
+        });
+        return;
+      }
       setShowPinDialog(true);
     }
   };

@@ -2,19 +2,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Loader2, Lock } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface PaywallScreenProps {
   isBlocked?: boolean;
   daysLeft?: number;
-  neverHadTrial?: boolean;
 }
 
 const MONTHLY_LINK = "https://buy.stripe.com/5kQfZa7Dfchb9Et7Oc7ok01";
 const ANNUAL_LINK = "https://buy.stripe.com/cNieV66zb2GBdUJecA7ok02";
 
-export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: PaywallScreenProps) {
+export function PaywallScreen({ isBlocked = false }: PaywallScreenProps) {
   const { user } = useAuth();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
 
@@ -39,13 +38,6 @@ export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: Payw
               <p className="text-muted-foreground">
                 Votre compte a été suspendu en raison d'un impayé. 
                 Veuillez régulariser votre situation pour continuer.
-              </p>
-            </>
-          ) : neverHadTrial ? (
-            <>
-              <h1 className="text-2xl font-bold">Bienvenue sur DébalePro 🎉</h1>
-              <p className="text-muted-foreground">
-                Votre compte est prêt ! Abonnez-vous dès maintenant pour accéder à tous les outils et booster vos ventes ENR.
               </p>
             </>
           ) : (
@@ -113,6 +105,8 @@ export function PaywallScreen({ isBlocked = false, neverHadTrial = false }: Payw
               {[
                 "Gestion complète du planning",
                 "Suivi CRM et ventes",
+                "Résultats d'études complets",
+                "Mode HEJJA",
                 "Synchronisation Gmail automatique",
                 "Gestion des frais et commissions",
                 "Notifications push",

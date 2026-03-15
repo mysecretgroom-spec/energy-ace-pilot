@@ -47,6 +47,7 @@ import { ResultatPdfChoiceDialog } from "@/components/etude/ResultatPdfChoiceDia
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { VenteCard } from "@/components/crm/VenteCard";
 import { VenteStatus } from "@/lib/venteStatusConfig";
+import { useTrialFeatures } from "@/hooks/useTrialFeatures";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -223,6 +224,7 @@ const ClientDetailInner = () => {
   const { isActive: modeHejjaActive } = useHejjaMode();
   const { toast } = useToast();
   const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
+  const { canAccess } = useTrialFeatures();
 
   const [client, setClient] = useState<Client | null>(null);
   const [rdvs, setRdvs] = useState<Rdv[]>([]);
@@ -792,10 +794,18 @@ const ClientDetailInner = () => {
                         <Button 
                           variant="ghost" 
                           size="icon"
-                          title="Télécharger le Résultat d'étude (complet)"
-                          disabled={pdfDownloadLoading}
+                          title={canAccess("etude_resultats") ? "Télécharger le Résultat d'étude (complet)" : "Résultat d'étude — Réservé aux abonnés"}
+                          disabled={pdfDownloadLoading || !canAccess("etude_resultats")}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (!canAccess("etude_resultats")) {
+                              toast({
+                                variant: "destructive",
+                                title: "Fonctionnalité Premium",
+                                description: "Les résultats d'études sont réservés aux abonnés.",
+                              });
+                              return;
+                            }
                             setResultatPdfDialogEtudeId(etude.id);
                           }}
                         >

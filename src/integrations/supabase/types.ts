@@ -3512,6 +3512,10 @@ export type Database = {
         Returns: Json
       }
       check_mfa_session_valid: { Args: never; Returns: boolean }
+      check_signup_duplicate: {
+        Args: { p_email: string; p_phone?: string }
+        Returns: Json
+      }
       cleanup_expired_mfa_sessions: { Args: never; Returns: number }
       clear_mfa_session: { Args: never; Returns: undefined }
       create_support_ticket: {
