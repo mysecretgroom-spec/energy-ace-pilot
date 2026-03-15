@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const DB_NAME = "debalepro_offline";
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORE_NAME = "pending_documents";
 
 export interface PendingDocument {
@@ -21,33 +21,107 @@ export interface PendingDocument {
   retryCount: number;
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    // Safety check for IndexedDB availability
-    if (!window.indexedDB) {
-      reject(new Error("IndexedDB not available"));
-      return;
-    }
-    
-    try {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+const isSameKeyPath = (
+  actual: string | string[] | null,
+  expected: string | string[]
+): boolean => {
+  if (Array.isArray(expected)) {
+    return Array.isArray(actual) && expected.length === actual.length && expected.every((key, idx) => key === actual[idx]);
+  }
+  return actual === expected;
+};
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
+function createDocumentsStore(db: IDBDatabase) {
+  if (!db.objectStoreNames.contains(STORE_NAME)) {
+    const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+    store.createIndex("userId", "userId", { unique: false });
+    store.createIndex("clientId", "clientId", { unique: false });
+    store.createIndex("createdAt", "createdAt", { unique: false });
+  }
+}
 
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-          store.createIndex("userId", "userId", { unique: false });
-          store.createIndex("clientId", "clientId", { unique: false });
-          store.createIndex("createdAt", "createdAt", { unique: false });
-        }
-      };
-    } catch (error) {
-      reject(error);
-    }
+function hasValidDocumentsSchema(db: IDBDatabase): boolean {
+  if (!db.objectStoreNames.contains(STORE_NAME)) {
+    return false;
+  }
+
+  const tx = db.transaction(STORE_NAME, "readonly");
+  const store = tx.objectStore(STORE_NAME);
+
+  if (!isSameKeyPath(store.keyPath, "id")) {
+    return false;
+  }
+
+  const requiredIndexes: Array<[string, string]> = [
+    ["userId", "userId"],
+    ["clientId", "clientId"],
+    ["createdAt", "createdAt"],
+  ];
+
+  return requiredIndexes.every(([indexName, keyPath]) => {
+    if (!store.indexNames.contains(indexName)) return false;
+    return isSameKeyPath(store.index(indexName).keyPath, keyPath);
   });
+}
+
+function deleteOfflineDatabase(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error("IndexedDB delete blocked"));
+  });
+}
+
+function openDatabaseRequest(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => createDocumentsStore((event.target as IDBOpenDBRequest).result);
+    request.onblocked = () => reject(new Error("IndexedDB open blocked"));
+  });
+}
+
+async function openDatabase(): Promise<IDBDatabase> {
+  if (!window.indexedDB) {
+    throw new Error("IndexedDB not available");
+  }
+
+  let hasRecovered = false;
+
+  while (true) {
+    try {
+      const db = await openDatabaseRequest();
+
+      if (hasValidDocumentsSchema(db)) {
+        return db;
+      }
+
+      db.close();
+      if (hasRecovered) {
+        throw new Error("IndexedDB documents schema invalid after recovery");
+      }
+
+      console.warn("[OfflineDocuments] Invalid IndexedDB schema detected, recreating database...");
+      await deleteOfflineDatabase();
+      hasRecovered = true;
+    } catch (error) {
+      const errorName =
+        error instanceof Error && "name" in error
+          ? (error as Error).name
+          : "";
+      const isRecoverableError = errorName === "VersionError" || errorName === "InvalidStateError";
+
+      if (!isRecoverableError || hasRecovered) {
+        throw error;
+      }
+
+      console.warn(`[OfflineDocuments] ${errorName} detected, recreating database...`);
+      await deleteOfflineDatabase();
+      hasRecovered = true;
+    }
+  }
 }
 
 export function useOfflineDocuments() {
