@@ -342,6 +342,11 @@ function stripHtml(html: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
+  // Append hidden data if found
+  if (hiddenData.length > 0) {
+    text += "\n\n--- DONNÉES MASQUÉES (HTML) ---\n" + hiddenData.join("\n");
+  }
+
   return text;
 }
 
