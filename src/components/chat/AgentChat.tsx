@@ -91,11 +91,18 @@ const getUploadErrorFallbackMessage = (
     `[${actionLabel}](${route})`;
 };
 
-const SUGGESTIONS = [
+const SUGGESTIONS_FULL = [
   "📅 Mon planning de demain",
   "📊 Mes ventes ce mois",
   "👤 Rechercher un client",
   "🏆 Mes statistiques",
+];
+
+const SUGGESTIONS_TRIAL = [
+  "📊 Mes stats du mois",
+  "🧾 Envoyer un frais",
+  "👤 Rechercher un client",
+  "📅 Mon planning",
 ];
 
 export function AgentChat() {
