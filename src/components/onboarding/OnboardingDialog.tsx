@@ -101,7 +101,7 @@ export function OnboardingDialog() {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[85dvh] sm:max-h-[85vh] w-[calc(100%-2rem)] sm:w-full rounded-2xl sm:rounded-xl top-[50%] translate-y-[-50%]"
+        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[85dvh] sm:max-h-[85vh] w-[calc(100%-2rem)] sm:w-full rounded-2xl sm:rounded-xl top-[50%] translate-y-[-50%] flex flex-col"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
