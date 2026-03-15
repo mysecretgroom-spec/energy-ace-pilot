@@ -58,7 +58,7 @@ export function useSaasAccess() {
         return null;
       }
 
-      return data?.[0] as SaasSubscription | null;
+      return (data?.[0] as SaasSubscription | null | undefined) ?? null;
     },
     enabled: !!user?.id,
   });
