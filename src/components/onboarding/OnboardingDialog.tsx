@@ -101,7 +101,7 @@ export function OnboardingDialog() {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent 
-        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[90vh] sm:max-h-[85vh] w-[calc(100%-2rem)] sm:w-full rounded-2xl sm:rounded-xl"
+        className="max-w-lg p-0 gap-0 overflow-hidden max-h-[85dvh] sm:max-h-[85vh] w-[calc(100%-2rem)] sm:w-full rounded-2xl sm:rounded-xl top-[50%] translate-y-[-50%] flex flex-col"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
@@ -134,7 +134,7 @@ export function OnboardingDialog() {
         </div>
 
         {/* Step content - optimized scroll for mobile */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto max-h-[55vh] sm:max-h-[60vh] overscroll-contain">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto flex-1 min-h-0 overscroll-contain">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
