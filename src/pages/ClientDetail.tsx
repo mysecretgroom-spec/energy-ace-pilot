@@ -794,10 +794,18 @@ const ClientDetailInner = () => {
                         <Button 
                           variant="ghost" 
                           size="icon"
-                          title="Télécharger le Résultat d'étude (complet)"
-                          disabled={pdfDownloadLoading}
+                          title={canAccess("etude_resultats") ? "Télécharger le Résultat d'étude (complet)" : "Résultat d'étude — Réservé aux abonnés"}
+                          disabled={pdfDownloadLoading || !canAccess("etude_resultats")}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (!canAccess("etude_resultats")) {
+                              toast({
+                                variant: "destructive",
+                                title: "Fonctionnalité Premium",
+                                description: "Les résultats d'études sont réservés aux abonnés.",
+                              });
+                              return;
+                            }
                             setResultatPdfDialogEtudeId(etude.id);
                           }}
                         >
