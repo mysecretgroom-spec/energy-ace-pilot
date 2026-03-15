@@ -340,9 +340,64 @@ serve(async (req) => {
     const phone2 = normalizePhone(validated.CONTACT.telephone_secondaire);
     const email = validated.CONTACT.email?.toLowerCase();
 
+    // ── FUZZY MATCHING HELPERS ─────────────────────────────────────────────
+    function normalizeStr(s: string): string {
+      return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    }
+
+    function stringSimilarity(a: string, b: string): number {
+      const na = normalizeStr(a);
+      const nb = normalizeStr(b);
+      if (na === nb) return 1;
+      if (na.length === 0 || nb.length === 0) return 0;
+      // Levenshtein-based similarity
+      const matrix: number[][] = [];
+      for (let i = 0; i <= na.length; i++) { matrix[i] = [i]; }
+      for (let j = 0; j <= nb.length; j++) { matrix[0][j] = j; }
+      for (let i = 1; i <= na.length; i++) {
+        for (let j = 1; j <= nb.length; j++) {
+          const cost = na[i - 1] === nb[j - 1] ? 0 : 1;
+          matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+        }
+      }
+      return 1 - matrix[na.length][nb.length] / Math.max(na.length, nb.length);
+    }
+
+    function nameMatchScore(
+      extractedNom: string, extractedPrenom: string | undefined,
+      dbNom: string, dbPrenom: string | null
+    ): number {
+      const en = normalizeStr(extractedNom);
+      const ep = extractedPrenom ? normalizeStr(extractedPrenom) : "";
+      const dn = normalizeStr(dbNom);
+      const dp = dbPrenom ? normalizeStr(dbPrenom) : "";
+
+      // Direct match: nom↔nom, prenom↔prenom
+      const directNom = stringSimilarity(en, dn);
+      const directPrenom = (ep && dp) ? stringSimilarity(ep, dp) : ((!ep && !dp) ? 1 : 0.5);
+      const directScore = directNom * 0.6 + directPrenom * 0.4;
+
+      // Swapped match: nom↔prenom, prenom↔nom (the Marecchia/Vivie case)
+      let swapScore = 0;
+      if (ep && dp) {
+        const swapNom = stringSimilarity(en, dp);
+        const swapPrenom = stringSimilarity(ep, dn);
+        swapScore = swapNom * 0.6 + swapPrenom * 0.4;
+      }
+
+      // Full name as single string comparison (handles "VIVIE Marecchia" vs "MARECCHIA Vivie")
+      const extractedFull = `${en} ${ep}`.trim();
+      const dbFull = `${dn} ${dp}`.trim();
+      const dbFullReversed = `${dp} ${dn}`.trim();
+      const fullScore = Math.max(stringSimilarity(extractedFull, dbFull), stringSimilarity(extractedFull, dbFullReversed));
+
+      return Math.max(directScore, swapScore, fullScore);
+    }
+
     // ── CLIENT LOOKUP / CREATION ─────────────────────────────────────────────
     let existingClient: { id: string; nom: string } | null = null;
 
+    // Step 1: Phone match (highest confidence)
     if (phone1) {
       const { data } = await supabase
         .from("clients")
@@ -354,6 +409,7 @@ serve(async (req) => {
       existingClient = data;
     }
 
+    // Step 2: Email match
     if (!existingClient && email) {
       const { data } = await supabase
         .from("clients")
@@ -365,16 +421,89 @@ serve(async (req) => {
       existingClient = data;
     }
 
+    // Step 3: Exact nom + code_postal
     if (!existingClient && validated.CONTACT.nom && validated.ADRESSE?.code_postal) {
       const { data } = await supabase
         .from("clients")
-        .select("id, nom")
+        .select("id, nom, prenom")
         .eq("user_id", user_id)
         .ilike("nom", validated.CONTACT.nom)
         .eq("code_postal", validated.ADRESSE.code_postal)
         .limit(1)
         .maybeSingle();
-      existingClient = data;
+      if (data) existingClient = { id: data.id, nom: data.nom };
+    }
+
+    // Step 4: Fuzzy name match with nom/prénom swap detection + address/postal code
+    if (!existingClient && validated.CONTACT.nom) {
+      const cp = validated.ADRESSE?.code_postal;
+      const ville = validated.ADRESSE?.ville;
+
+      // Fetch candidates: same code_postal OR same ville for narrowing
+      let query = supabase
+        .from("clients")
+        .select("id, nom, prenom, code_postal, ville, adresse")
+        .eq("user_id", user_id);
+
+      if (cp && ville) {
+        query = query.or(`code_postal.eq.${cp},ville.ilike.${ville}`);
+      } else if (cp) {
+        query = query.eq("code_postal", cp);
+      } else if (ville) {
+        query = query.ilike("ville", ville);
+      }
+
+      const { data: candidates } = await query.limit(50);
+
+      if (candidates && candidates.length > 0) {
+        let bestMatch: { id: string; nom: string; score: number } | null = null;
+
+        for (const c of candidates) {
+          const score = nameMatchScore(
+            validated.CONTACT.nom, validated.CONTACT.prenom,
+            c.nom, c.prenom
+          );
+
+          // Boost score if address also matches
+          let addrBoost = 0;
+          if (validated.ADRESSE?.adresse && c.adresse) {
+            const addrSim = stringSimilarity(validated.ADRESSE.adresse, c.adresse);
+            if (addrSim > 0.6) addrBoost = 0.15;
+          }
+
+          const finalScore = Math.min(score + addrBoost, 1);
+
+          if (finalScore > (bestMatch?.score || 0)) {
+            bestMatch = { id: c.id, nom: c.nom, score: finalScore };
+          }
+        }
+
+        // Threshold: 0.75 = high confidence fuzzy match
+        if (bestMatch && bestMatch.score >= 0.75) {
+          existingClient = { id: bestMatch.id, nom: bestMatch.nom };
+          console.log(`Fuzzy matched client: ${bestMatch.nom} (score=${bestMatch.score.toFixed(2)})`);
+        }
+      }
+    }
+
+    // Step 5: Fallback — try matching prenom as nom (full swap with no location)
+    if (!existingClient && validated.CONTACT.prenom) {
+      const { data } = await supabase
+        .from("clients")
+        .select("id, nom, prenom")
+        .eq("user_id", user_id)
+        .ilike("nom", validated.CONTACT.prenom)
+        .limit(5);
+
+      if (data) {
+        for (const c of data) {
+          if (c.prenom && stringSimilarity(validated.CONTACT.nom, c.prenom) > 0.8) {
+            existingClient = { id: c.id, nom: c.nom };
+            console.log(`Name-swap matched client: extracted(${validated.CONTACT.nom}/${validated.CONTACT.prenom}) → db(${c.nom}/${c.prenom})`);
+            break;
+          }
+        }
+      }
     }
 
     let clientId: string;
