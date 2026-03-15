@@ -36,7 +36,7 @@ function openDatabase(): Promise<IDBDatabase> {
             const retry = indexedDB.open(DB_NAME, DB_VERSION);
             retry.onerror = () => reject(retry.error);
             retry.onsuccess = () => resolve(retry.result);
-            retry.onupgradeneeded = (ev) => createMutationStores((ev.target as IDBOpenDBRequest).result);
+            retry.onupgradeneeded = (ev) => createAllSharedStores((ev.target as IDBOpenDBRequest).result);
           };
           del.onerror = () => reject(error);
         } else {
