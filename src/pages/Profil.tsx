@@ -201,14 +201,24 @@ const Profil = () => {
 
     setUploadingPhoto(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const {
+        data: { user: authUser },
+        error: authUserError,
+      } = await supabase.auth.getUser();
+
+      if (authUserError || !authUser) {
+        throw new Error("Session expirée. Reconnectez-vous puis réessayez.");
+      }
+
+      const activeUserId = authUser.id;
+      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const fileName = `${activeUserId}/${Date.now()}-avatar.${fileExt}`;
       console.log("Uploading to path:", fileName);
 
-      // Upload to storage
+      // Upload to storage (new file each time to avoid upsert RLS conflicts)
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { upsert: false, cacheControl: '3600' });
 
       console.log("Upload result:", { uploadData, uploadError });
 
@@ -229,7 +239,7 @@ const Profil = () => {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: avatarUrlWithCacheBuster })
-        .eq('user_id', user.id);
+        .eq('user_id', activeUserId);
 
       console.log("Profile update result:", { updateError });
 
