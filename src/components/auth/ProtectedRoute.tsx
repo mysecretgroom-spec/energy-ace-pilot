@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial, neverHadTrial } = useSaasAccess();
+  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
 
   if (loading || isSaasLoading) {
     return (
@@ -32,7 +32,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Show paywall for users with expired trial or blocked accounts
   if (isPaywall || isBlocked) {
-    return <PaywallScreen isBlocked={isBlocked} daysLeft={0} neverHadTrial={neverHadTrial} />;
+    return <PaywallScreen isBlocked={isBlocked} daysLeft={0} />;
   }
 
   return (
