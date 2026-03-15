@@ -4057,7 +4057,7 @@ async function handlePendingWorkflow(
               adresse: pendingAction.entities.address as string || null,
               status: "nouveau",
               type_rdv: "R1",
-              type_projet: "pv",
+              type_projet: "photovoltaique",
               source: "whatsapp",
               regie_id: collectedData.regieId || null,
             })
