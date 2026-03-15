@@ -3766,6 +3766,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_trial_agent_facture_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_trial_expiring_soon: {
         Args: { p_from: string; p_to: string }
         Returns: {

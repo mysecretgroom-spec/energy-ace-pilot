@@ -36,6 +36,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useAgentConversations, AgentMessage } from "@/hooks/useAgentConversations";
 import { ConversationHistory } from "./ConversationHistory";
+import { useTrialFeatures, TRIAL_AGENT_FACTURE_LIMIT } from "@/hooks/useTrialFeatures";
 
 interface Message {
   id: string;
@@ -90,15 +91,23 @@ const getUploadErrorFallbackMessage = (
     `[${actionLabel}](${route})`;
 };
 
-const SUGGESTIONS = [
+const SUGGESTIONS_FULL = [
   "📅 Mon planning de demain",
   "📊 Mes ventes ce mois",
   "👤 Rechercher un client",
   "🏆 Mes statistiques",
 ];
 
+const SUGGESTIONS_TRIAL = [
+  "📊 Mes stats du mois",
+  "🧾 Envoyer un frais",
+  "👤 Rechercher un client",
+  "📅 Mon planning",
+];
+
 export function AgentChat() {
   const { user } = useAuth();
+  const { isTrialUser, isPremiumUser } = useTrialFeatures();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -900,10 +909,13 @@ export function AgentChat() {
                   </div>
                   <h4 className="font-semibold mb-1">Bonjour ! 👋</h4>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Posez vos questions par texte, voix ou envoyez des documents.
+                    {isTrialUser 
+                      ? `Mode essai : notes de frais uniquement (${TRIAL_AGENT_FACTURE_LIMIT} max) + consultation.`
+                      : "Posez vos questions par texte, voix ou envoyez des documents."
+                    }
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center mb-4">
-                    {SUGGESTIONS.map((suggestion) => (
+                    {(isTrialUser ? SUGGESTIONS_TRIAL : SUGGESTIONS_FULL).map((suggestion) => (
                       <Button
                         key={suggestion}
                         variant="outline"

@@ -1771,6 +1771,38 @@ serve(async (req) => {
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
 
+    // ==================== TRIAL ACCESS CHECK ====================
+    // Trial users can ONLY use import_facture (expense receipts), limited to 30
+    const TRIAL_FACTURE_LIMIT = 30;
+    let isTrialUser = false;
+    let trialFactureCount = 0;
+    
+    try {
+      const { data: accessData } = await supabase
+        .from("saas_access_state_view")
+        .select("app_access")
+        .eq("user_id", request.userId)
+        .single();
+      
+      // Fallback: query saas.access_state directly via RPC if view doesn't exist
+      if (!accessData) {
+        const { data: rpcData } = await supabase.rpc("get_saas_access_state", { p_user_id: request.userId });
+        if (rpcData?.[0]?.app_access === "trial") {
+          isTrialUser = true;
+        }
+      } else if (accessData?.app_access === "trial") {
+        isTrialUser = true;
+      }
+      
+      if (isTrialUser) {
+        const { data: countData } = await supabase.rpc("get_trial_agent_facture_count", { p_user_id: request.userId });
+        trialFactureCount = countData || 0;
+        console.log(`Trial user detected. Facture count: ${trialFactureCount}/${TRIAL_FACTURE_LIMIT}`);
+      }
+    } catch (trialErr) {
+      console.error("Error checking trial status:", trialErr);
+    }
+
     let processedContent = request.content;
     let mediaData: MediaDownloadResult | null = null;
     let uploadedDocumentUrl: string | null = null;
@@ -2418,6 +2450,70 @@ serve(async (req) => {
       
       aiResponse!.responseMessage = actionResult.customResponse || aiResponse!.responseMessage;
       skipAiAnalysis = true; // Skip further processing
+    }
+
+    // ==================== TRIAL INTENT GATING ====================
+    // Trial users can ONLY use: import_facture (limited to 30), query_* (read-only), conversation
+    if (!skipAiAnalysis && isTrialUser && aiResponse!) {
+      const trialAllowedIntents: Intent[] = [
+        "import_facture",
+        "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter",
+        "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail",
+        "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info",
+        "query_documents", "query_etude_detail", "query_hejja",
+        "conversation", "unknown", "confirm_action", "cancel_action",
+        "select_choice", "select_regie", "user_feedback", "undo_last_action",
+      ];
+      
+      if (!trialAllowedIntents.includes(aiResponse!.intent)) {
+        // Block non-allowed intents for trial users
+        console.log(`Trial user blocked from intent: ${aiResponse!.intent}`);
+        const blockedResponse: AgentResponse = {
+          intent: aiResponse!.intent,
+          confidence: aiResponse!.confidence,
+          entities: aiResponse!.entities,
+          actionTaken: "trial_blocked",
+          responseMessage: `🔒 *Fonctionnalité Premium*\n\nCette action (${aiResponse!.intent}) n'est pas disponible pendant la période d'essai.\n\nPendant l'essai, tu peux :\n• 🧾 Envoyer des notes de frais (${trialFactureCount}/${TRIAL_FACTURE_LIMIT} utilisées)\n• 📊 Consulter tes stats, ventes, RDV, etc.\n\nPour débloquer toutes les fonctionnalités, abonne-toi ! 🚀`,
+        };
+        
+        // Update conversation context
+        const updatedContext = [...(conversationResult.data?.context || []),
+          { role: "user", content: processedContent },
+          { role: "assistant", content: blockedResponse.responseMessage },
+        ].slice(-20);
+        
+        await supabase
+          .from("whatsapp_conversations")
+          .upsert({
+            user_id: request.userId,
+            phone_number: request.fromNumber,
+            context: updatedContext,
+            pending_action: null,
+            last_message_at: new Date().toISOString(),
+          }, { onConflict: "user_id" });
+        
+        return new Response(JSON.stringify(blockedResponse), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      // Check facture limit for import_facture
+      if (aiResponse!.intent === "import_facture" && trialFactureCount >= TRIAL_FACTURE_LIMIT) {
+        console.log(`Trial user hit facture limit: ${trialFactureCount}/${TRIAL_FACTURE_LIMIT}`);
+        const limitResponse: AgentResponse = {
+          intent: "import_facture",
+          confidence: 100,
+          entities: {},
+          actionTaken: "trial_limit_reached",
+          responseMessage: `🔒 *Limite d'essai atteinte*\n\nTu as utilisé tes ${TRIAL_FACTURE_LIMIT} notes de frais gratuites.\n\nAbonne-toi pour un accès illimité à toutes les fonctionnalités ! 🚀`,
+        };
+        
+        return new Response(JSON.stringify(limitResponse), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Execute action based on intent (only if not already handled by workflow)
