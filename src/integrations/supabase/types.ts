@@ -3766,6 +3766,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_trial_expiring_soon: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          email: string
+          first_name: string
+          phone: string
+          trial_ends_at: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
