@@ -536,8 +536,12 @@ serve(async (req) => {
           continue;
         }
 
-        const emailBody = extractTextFromPayload(msgData.payload);
-        console.log(`Body preview (${emailBody.length} chars): ${emailBody.substring(0, 300)}...`);
+        const allContent = extractAllContentFromPayload(msgData.payload);
+        const icalText = parseICalToText(allContent.icalData);
+        
+        // Combine all sources: plain text + iCal data for maximum extraction
+        const emailBody = (allContent.text + icalText).trim();
+        console.log(`Body preview (${emailBody.length} chars, ical=${allContent.icalData.length > 0}): ${emailBody.substring(0, 300)}...`);
 
         if (!emailBody) {
           console.log(`Empty body for message ${msg.id}`);
