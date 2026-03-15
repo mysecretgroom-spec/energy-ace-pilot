@@ -125,7 +125,11 @@ Heure du RDV: 13:00
 ### Format 2 - Tableau HTML aplati
 ### Format 3 - Informations dans le SUJET
 ### Format 4 - Email narratif/prose
-### Format 5 - Format Calendrier/iCal
+### Format 5 - Format Calendrier/iCal (VEVENT)
+Le contenu peut inclure une section "--- DONNÉES AGENDA (iCal) ---" contenant des données structurées extraites d'une pièce jointe calendrier. Ces données sont PRIORITAIRES car elles contiennent souvent le numéro de téléphone du client et le commentaire du télépro.
+
+### Format 6 - Données cachées dans le HTML
+Certains emails contiennent des données dans des éléments HTML masqués (display:none, hidden inputs, data-attributes). Ces données sont pré-extraites et ajoutées au contenu.
 
 ## RÈGLES D'EXTRACTION CRITIQUES:
 
@@ -136,16 +140,16 @@ Heure du RDV: 13:00
 2. **HEURES** - Convertis en HH:MM:
    - "10h00" → "10:00", "T130000" → "13:00"
 
-3. **TÉLÉPHONES** - Extrait les 10 chiffres français
+3. **TÉLÉPHONES** - Extrait les 10 chiffres français. Cherche dans TOUTES les sections y compris les données iCal.
 
 4. **TYPE DE PROJET** - Utilise UNIQUEMENT:
    - "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre"
 
-5. **COMMENTAIRES** - Capture TOUT le contexte dans "commentaire" et "commentaire_regie"
+5. **COMMENTAIRES** - Capture TOUT le contexte dans "commentaire" (notes internes/suivi) et "commentaire_regie" (commentaire du télépro/confirmateur, description iCal, contexte de la prise de RDV). La Description iCal contient souvent le commentaire du télépro — mets-le dans "commentaire_regie".
 
 6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
-7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville. L'adresse complète est OBLIGATOIRE. Cherche-la dans TOUS les champs de l'email (sujet, corps, signature, en-têtes).
+7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville. L'adresse complète est OBLIGATOIRE. Cherche-la dans TOUS les champs (sujet, corps, iCal LOCATION, signature).
 
 8. **PRÉNOM** - Le prénom est OBLIGATOIRE. Cherche-le dans tous les champs disponibles. Si le nom complet est sur une seule ligne (ex: "DUPONT Jean"), sépare nom et prénom.
 
