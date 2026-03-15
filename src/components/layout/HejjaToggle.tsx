@@ -67,6 +67,15 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
         }
       }, isOnEtudePage ? 0 : 500);
     } else {
+      // Check if user has premium access for HEJJA
+      if (!canAccess("mode_hejja")) {
+        toast({
+          variant: "destructive",
+          title: "Fonctionnalité Premium",
+          description: "Le mode HEJJA est réservé aux abonnés. Abonnez-vous pour y accéder.",
+        });
+        return;
+      }
       setShowPinDialog(true);
     }
   };
