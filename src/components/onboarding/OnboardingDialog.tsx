@@ -134,7 +134,7 @@ export function OnboardingDialog() {
         </div>
 
         {/* Step content - optimized scroll for mobile */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto max-h-[55vh] sm:max-h-[60vh] overscroll-contain">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-y-auto flex-1 min-h-0 overscroll-contain">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
