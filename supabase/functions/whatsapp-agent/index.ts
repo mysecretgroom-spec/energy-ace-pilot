@@ -4205,15 +4205,37 @@ async function handlePendingWorkflow(
       
       // Check if user selected "New Client" option
       if (selectedChoice.id === "NEW_CLIENT" && selectedChoice.data.is_new_client) {
-        // User wants to create a new client - ask for sale type (internal/external)
         const clientName = selectedChoice.data.client_name as string || pendingAction.collectedData?.searchQuery || "";
         const originalEntities = pendingAction.entities;
+        const effectiveIntent = originalIntent || pendingAction.intent;
         
+        // For create_rdv intent, skip sale type question and proceed directly
+        if (effectiveIntent === "create_rdv") {
+          return {
+            intent: "create_rdv",
+            actionTaken: "new_client_selected",
+            newPendingAction: {
+              intent: "create_rdv",
+              entities: { ...originalEntities, is_new_client: true, client_name: clientName },
+              workflowState: "awaiting_confirmation",
+              collectedData: {
+                clientName: clientName,
+                isNewClient: true,
+                date: originalEntities.date as string,
+                time: originalEntities.time as string,
+              },
+              createdAt: new Date().toISOString(),
+            },
+            responseMessage: `🆕 Client "${clientName}" sera créé.\n\n📅 *Nouveau RDV*\n• Client: ${clientName}\n• Date: ${originalEntities.date || "non définie"}\n• Heure: ${originalEntities.time || "non définie"}\n${originalEntities.address ? `• Adresse: ${originalEntities.address}\n` : ""}${originalEntities.commentaire ? `• Commentaire: ${(originalEntities.commentaire as string).substring(0, 100)}...\n` : ""}\n*Confirmes-tu ?* (Oui/Non)`,
+          };
+        }
+        
+        // For mark_signe and other intents, ask for sale type (internal/external)
         return {
-          intent: originalIntent || pendingAction.intent,
+          intent: effectiveIntent,
           actionTaken: "new_client_selected",
           newPendingAction: {
-            intent: originalIntent || pendingAction.intent,
+            intent: effectiveIntent,
             entities: { ...originalEntities, is_new_client: true, client_name: clientName },
             workflowState: "awaiting_new_sale_type",
             collectedData: {
