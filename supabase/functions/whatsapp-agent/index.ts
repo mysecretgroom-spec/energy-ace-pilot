@@ -7319,7 +7319,7 @@ async function executeAction(
             date_heure: new Date().toISOString(),
             status: "signe",  // Valid rdv_status enum value
             type_rdv: "R1",
-            type_projet: "pv",
+            type_projet: "photovoltaique",
             source: "whatsapp_agent",
             regie_id: regieId,
           })
