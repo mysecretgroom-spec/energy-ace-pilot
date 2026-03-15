@@ -31,12 +31,19 @@ const isSameKeyPath = (
   return actual === expected;
 };
 
-function createDocumentsStore(db: IDBDatabase) {
+function createAllSharedStores(db: IDBDatabase) {
+  // IMPORTANT: This DB is shared with offlineMutationQueue.
+  // ALL stores must be created here to avoid missing-store errors from race conditions.
   if (!db.objectStoreNames.contains(STORE_NAME)) {
     const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
     store.createIndex("userId", "userId", { unique: false });
     store.createIndex("clientId", "clientId", { unique: false });
     store.createIndex("createdAt", "createdAt", { unique: false });
+  }
+  if (!db.objectStoreNames.contains("pending_mutations")) {
+    const mutStore = db.createObjectStore("pending_mutations", { keyPath: "id" });
+    mutStore.createIndex("createdAt", "createdAt", { unique: false });
+    mutStore.createIndex("status", "status", { unique: false });
   }
 }
 
@@ -78,7 +85,7 @@ function openDatabaseRequest(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
     request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => createDocumentsStore((event.target as IDBOpenDBRequest).result);
+    request.onupgradeneeded = (event) => createAllSharedStores((event.target as IDBOpenDBRequest).result);
     request.onblocked = () => reject(new Error("IndexedDB open blocked"));
   });
 }

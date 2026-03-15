@@ -36,7 +36,7 @@ function openDatabase(): Promise<IDBDatabase> {
             const retry = indexedDB.open(DB_NAME, DB_VERSION);
             retry.onerror = () => reject(retry.error);
             retry.onsuccess = () => resolve(retry.result);
-            retry.onupgradeneeded = (ev) => createMutationStores((ev.target as IDBOpenDBRequest).result);
+            retry.onupgradeneeded = (ev) => createAllSharedStores((ev.target as IDBOpenDBRequest).result);
           };
           del.onerror = () => reject(error);
         } else {
@@ -45,7 +45,7 @@ function openDatabase(): Promise<IDBDatabase> {
       };
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
-        createMutationStores((event.target as IDBOpenDBRequest).result);
+        createAllSharedStores((event.target as IDBOpenDBRequest).result);
       };
     } catch (error) {
       reject(error);
@@ -53,7 +53,9 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-function createMutationStores(db: IDBDatabase) {
+function createAllSharedStores(db: IDBDatabase) {
+  // IMPORTANT: Both offlineMutationQueue and useOfflineDocuments share this DB.
+  // ALL stores must be created here to avoid missing-store errors from race conditions.
   if (!db.objectStoreNames.contains("pending_documents")) {
     const docStore = db.createObjectStore("pending_documents", { keyPath: "id" });
     docStore.createIndex("userId", "userId", { unique: false });

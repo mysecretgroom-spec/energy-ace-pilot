@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaasAccess } from "@/hooks/useSaasAccess";
@@ -14,6 +14,20 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
+  const [saasTimedOut, setSaasTimedOut] = useState(false);
+
+  // Prevent infinite SaaS loading: force-bypass after 5s
+  useEffect(() => {
+    if (!isSaasLoading) {
+      setSaasTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      console.warn("[ProtectedRoute] SaaS loading timed out after 5s, bypassing...");
+      setSaasTimedOut(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [isSaasLoading]);
 
   if (loading) {
     return (
@@ -30,7 +44,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (isSaasLoading) {
+  if (isSaasLoading && !saasTimedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
