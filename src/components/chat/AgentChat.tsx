@@ -36,6 +36,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { useAgentConversations, AgentMessage } from "@/hooks/useAgentConversations";
 import { ConversationHistory } from "./ConversationHistory";
+import { useTrialFeatures, TRIAL_AGENT_FACTURE_LIMIT } from "@/hooks/useTrialFeatures";
 
 interface Message {
   id: string;
