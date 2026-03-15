@@ -27,27 +27,44 @@ function openDatabase(): Promise<IDBDatabase> {
     }
     try {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        const error = request.error;
+        if (error?.name === "VersionError") {
+          console.warn("[MutationQueue] VersionError, deleting stale DB...");
+          const del = indexedDB.deleteDatabase(DB_NAME);
+          del.onsuccess = () => {
+            const retry = indexedDB.open(DB_NAME, DB_VERSION);
+            retry.onerror = () => reject(retry.error);
+            retry.onsuccess = () => resolve(retry.result);
+            retry.onupgradeneeded = (ev) => createMutationStores((ev.target as IDBOpenDBRequest).result);
+          };
+          del.onerror = () => reject(error);
+        } else {
+          reject(error);
+        }
+      };
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        // Keep existing stores
-        if (!db.objectStoreNames.contains("pending_documents")) {
-          const docStore = db.createObjectStore("pending_documents", { keyPath: "id" });
-          docStore.createIndex("userId", "userId", { unique: false });
-          docStore.createIndex("clientId", "clientId", { unique: false });
-          docStore.createIndex("createdAt", "createdAt", { unique: false });
-        }
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-          store.createIndex("createdAt", "createdAt", { unique: false });
-          store.createIndex("status", "status", { unique: false });
-        }
+        createMutationStores((event.target as IDBOpenDBRequest).result);
       };
     } catch (error) {
       reject(error);
     }
   });
+}
+
+function createMutationStores(db: IDBDatabase) {
+  if (!db.objectStoreNames.contains("pending_documents")) {
+    const docStore = db.createObjectStore("pending_documents", { keyPath: "id" });
+    docStore.createIndex("userId", "userId", { unique: false });
+    docStore.createIndex("clientId", "clientId", { unique: false });
+    docStore.createIndex("createdAt", "createdAt", { unique: false });
+  }
+  if (!db.objectStoreNames.contains(STORE_NAME)) {
+    const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+    store.createIndex("createdAt", "createdAt", { unique: false });
+    store.createIndex("status", "status", { unique: false });
+  }
 }
 
 /** Derive a human-readable description from the request */

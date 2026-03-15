@@ -92,54 +92,59 @@ function openDatabase(): Promise<IDBDatabase> {
     try {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-
-        // Études pending store
-        if (!db.objectStoreNames.contains(STORES.ETUDES)) {
-          const etudesStore = db.createObjectStore(STORES.ETUDES, { keyPath: "localId" });
-          etudesStore.createIndex("userId", "userId", { unique: false });
-          etudesStore.createIndex("clientId", "clientId", { unique: false });
-          etudesStore.createIndex("synced", "synced", { unique: false });
-        }
-
-        // RDV cache store
-        if (!db.objectStoreNames.contains(STORES.RDV)) {
-          const rdvStore = db.createObjectStore(STORES.RDV, { keyPath: "id" });
-          rdvStore.createIndex("userId", "userId", { unique: false });
-        }
-
-        // Clients cache store
-        if (!db.objectStoreNames.contains(STORES.CLIENTS)) {
-          const clientsStore = db.createObjectStore(STORES.CLIENTS, { keyPath: "id" });
-          clientsStore.createIndex("userId", "userId", { unique: false });
-        }
-
-        // WhatsApp queue store
-        if (!db.objectStoreNames.contains(STORES.WHATSAPP_QUEUE)) {
-          const whatsappStore = db.createObjectStore(STORES.WHATSAPP_QUEUE, { keyPath: "id" });
-          whatsappStore.createIndex("userId", "userId", { unique: false });
-          whatsappStore.createIndex("status", "status", { unique: false });
-        }
-
-        // Profile cache store
-        if (!db.objectStoreNames.contains(STORES.PROFILE)) {
-          db.createObjectStore(STORES.PROFILE, { keyPath: "userId" });
-        }
-
-        // Regies cache store
-        if (!db.objectStoreNames.contains(STORES.REGIES)) {
-          const regiesStore = db.createObjectStore(STORES.REGIES, { keyPath: "id" });
-          regiesStore.createIndex("userId", "userId", { unique: false });
+      request.onerror = (event) => {
+        const error = request.error;
+        // VersionError means a higher version DB already exists — delete and retry
+        if (error?.name === "VersionError") {
+          console.warn("[OfflineData] VersionError detected, deleting stale DB and retrying...");
+          const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+          deleteReq.onsuccess = () => {
+            // Retry once after deletion
+            const retryReq = indexedDB.open(DB_NAME, DB_VERSION);
+            retryReq.onerror = () => reject(retryReq.error);
+            retryReq.onsuccess = () => resolve(retryReq.result);
+            retryReq.onupgradeneeded = (ev) => createStores((ev.target as IDBOpenDBRequest).result);
+          };
+          deleteReq.onerror = () => reject(error);
+        } else {
+          reject(error);
         }
       };
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => createStores((event.target as IDBOpenDBRequest).result);
     } catch (error) {
       reject(error);
     }
   });
+}
+
+function createStores(db: IDBDatabase) {
+  if (!db.objectStoreNames.contains(STORES.ETUDES)) {
+    const etudesStore = db.createObjectStore(STORES.ETUDES, { keyPath: "localId" });
+    etudesStore.createIndex("userId", "userId", { unique: false });
+    etudesStore.createIndex("clientId", "clientId", { unique: false });
+    etudesStore.createIndex("synced", "synced", { unique: false });
+  }
+  if (!db.objectStoreNames.contains(STORES.RDV)) {
+    const rdvStore = db.createObjectStore(STORES.RDV, { keyPath: "id" });
+    rdvStore.createIndex("userId", "userId", { unique: false });
+  }
+  if (!db.objectStoreNames.contains(STORES.CLIENTS)) {
+    const clientsStore = db.createObjectStore(STORES.CLIENTS, { keyPath: "id" });
+    clientsStore.createIndex("userId", "userId", { unique: false });
+  }
+  if (!db.objectStoreNames.contains(STORES.WHATSAPP_QUEUE)) {
+    const whatsappStore = db.createObjectStore(STORES.WHATSAPP_QUEUE, { keyPath: "id" });
+    whatsappStore.createIndex("userId", "userId", { unique: false });
+    whatsappStore.createIndex("status", "status", { unique: false });
+  }
+  if (!db.objectStoreNames.contains(STORES.PROFILE)) {
+    db.createObjectStore(STORES.PROFILE, { keyPath: "userId" });
+  }
+  if (!db.objectStoreNames.contains(STORES.REGIES)) {
+    const regiesStore = db.createObjectStore(STORES.REGIES, { keyPath: "id" });
+    regiesStore.createIndex("userId", "userId", { unique: false });
+  }
 }
 
 export function useOfflineData() {
