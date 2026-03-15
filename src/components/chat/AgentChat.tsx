@@ -107,6 +107,7 @@ const SUGGESTIONS_TRIAL = [
 
 export function AgentChat() {
   const { user } = useAuth();
+  const { isTrialUser, isPremiumUser } = useTrialFeatures();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
