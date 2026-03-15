@@ -1771,6 +1771,38 @@ serve(async (req) => {
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
 
+    // ==================== TRIAL ACCESS CHECK ====================
+    // Trial users can ONLY use import_facture (expense receipts), limited to 30
+    const TRIAL_FACTURE_LIMIT = 30;
+    let isTrialUser = false;
+    let trialFactureCount = 0;
+    
+    try {
+      const { data: accessData } = await supabase
+        .from("saas_access_state_view")
+        .select("app_access")
+        .eq("user_id", request.userId)
+        .single();
+      
+      // Fallback: query saas.access_state directly via RPC if view doesn't exist
+      if (!accessData) {
+        const { data: rpcData } = await supabase.rpc("get_saas_access_state", { p_user_id: request.userId });
+        if (rpcData?.[0]?.app_access === "trial") {
+          isTrialUser = true;
+        }
+      } else if (accessData?.app_access === "trial") {
+        isTrialUser = true;
+      }
+      
+      if (isTrialUser) {
+        const { data: countData } = await supabase.rpc("get_trial_agent_facture_count", { p_user_id: request.userId });
+        trialFactureCount = countData || 0;
+        console.log(`Trial user detected. Facture count: ${trialFactureCount}/${TRIAL_FACTURE_LIMIT}`);
+      }
+    } catch (trialErr) {
+      console.error("Error checking trial status:", trialErr);
+    }
+
     let processedContent = request.content;
     let mediaData: MediaDownloadResult | null = null;
     let uploadedDocumentUrl: string | null = null;
