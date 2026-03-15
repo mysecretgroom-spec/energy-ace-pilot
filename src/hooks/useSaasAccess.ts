@@ -42,6 +42,8 @@ export function useSaasAccess() {
       return (data?.[0] as SaasAccessState | null | undefined) ?? null;
     },
     enabled: !!user?.id,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
@@ -61,6 +63,8 @@ export function useSaasAccess() {
       return (data?.[0] as SaasSubscription | null | undefined) ?? null;
     },
     enabled: !!user?.id,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
 
   const daysLeftInTrial = accessState?.trial_ends_at

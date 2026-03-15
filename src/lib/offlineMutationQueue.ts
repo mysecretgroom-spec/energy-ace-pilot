@@ -45,7 +45,7 @@ function openDatabase(): Promise<IDBDatabase> {
       };
       request.onsuccess = () => resolve(request.result);
       request.onupgradeneeded = (event) => {
-        createMutationStores((event.target as IDBOpenDBRequest).result);
+        createAllSharedStores((event.target as IDBOpenDBRequest).result);
       };
     } catch (error) {
       reject(error);

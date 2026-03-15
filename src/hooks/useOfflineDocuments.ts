@@ -85,7 +85,7 @@ function openDatabaseRequest(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
     request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => createDocumentsStore((event.target as IDBOpenDBRequest).result);
+    request.onupgradeneeded = (event) => createAllSharedStores((event.target as IDBOpenDBRequest).result);
     request.onblocked = () => reject(new Error("IndexedDB open blocked"));
   });
 }
