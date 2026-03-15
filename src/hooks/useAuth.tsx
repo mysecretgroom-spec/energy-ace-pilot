@@ -64,7 +64,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
-    
+
+    const clearInvalidSession = async () => {
+      clearCorruptedAuthStorage();
+
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch (error) {
+        console.warn("Unable to clear invalid local auth session:", error);
+      } finally {
+        if (mounted) {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    };
+
     // CRITICAL: Force loading to false after 3s no matter what (iOS PWA fix)
     // Increased from 1.5s to 3s for slower connections
     const forceTimeout = setTimeout(() => {
@@ -78,6 +94,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
+
+        if (session && isCorruptedSession(session)) {
+          console.warn("Auth: corrupted session ignored from auth state change");
+          clearCorruptedAuthStorage();
+          void supabase.auth.signOut({ scope: "local" });
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         console.log("Auth state:", event);
         setSession(session);
         setUser(session?.user ?? null);
@@ -90,30 +117,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Check existing session with short timeout
     const checkSession = async () => {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1000);
-        
+        const removedSessions = clearCorruptedAuthStorage();
+        if (removedSessions > 0) {
+          console.warn(`Auth: removed ${removedSessions} corrupted local session(s)`);
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
-        clearTimeout(timeout);
-        
+
+        if (session && isCorruptedSession(session)) {
+          console.warn("Auth: corrupted session found during init");
+          await clearInvalidSession();
+          return;
+        }
+
+        if (session) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError && hasMalformedAuthTokenError(userError)) {
+            console.warn("Auth: invalid JWT detected during session validation");
+            await clearInvalidSession();
+            return;
+          }
+        }
+
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
-          
+
           if (session?.provider_token) {
             setTimeout(() => saveGoogleTokens(session), 100);
           }
         }
       } catch (error) {
         console.warn("Session check failed:", error);
+
+        if (hasMalformedAuthTokenError(error)) {
+          await clearInvalidSession();
+          return;
+        }
+
         if (mounted) setLoading(false);
       }
     };
-    
+
     checkSession();
 
     return () => {
