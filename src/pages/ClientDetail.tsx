@@ -224,6 +224,7 @@ const ClientDetailInner = () => {
   const { isActive: modeHejjaActive } = useHejjaMode();
   const { toast } = useToast();
   const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
+  const { canAccess } = useTrialFeatures();
 
   const [client, setClient] = useState<Client | null>(null);
   const [rdvs, setRdvs] = useState<Rdv[]>([]);
