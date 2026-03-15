@@ -53,7 +53,9 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-function createMutationStores(db: IDBDatabase) {
+function createAllSharedStores(db: IDBDatabase) {
+  // IMPORTANT: Both offlineMutationQueue and useOfflineDocuments share this DB.
+  // ALL stores must be created here to avoid missing-store errors from race conditions.
   if (!db.objectStoreNames.contains("pending_documents")) {
     const docStore = db.createObjectStore("pending_documents", { keyPath: "id" });
     docStore.createIndex("userId", "userId", { unique: false });
