@@ -4057,7 +4057,7 @@ async function handlePendingWorkflow(
               adresse: pendingAction.entities.address as string || null,
               status: "nouveau",
               type_rdv: "R1",
-              type_projet: "pv",
+              type_projet: "photovoltaique",
               source: "whatsapp",
               regie_id: collectedData.regieId || null,
             })
@@ -5528,7 +5528,7 @@ async function createSignedVente(
         date_heure: new Date().toISOString(),
         status: "signe",  // Valid rdv_status enum value
         type_rdv: "R1",
-        type_projet: "pv",
+        type_projet: "photovoltaique",
         source: "whatsapp_agent",
         regie_id: data.regieId || null,
       })
@@ -6550,7 +6550,7 @@ async function executeAction(
           adresse: entities.address as string || null,
           status: "nouveau",
           type_rdv: "R1",
-          type_projet: "pv",
+          type_projet: "photovoltaique",
           source: "whatsapp",
           regie_id: regieId,
         })
@@ -7319,7 +7319,7 @@ async function executeAction(
             date_heure: new Date().toISOString(),
             status: "signe",  // Valid rdv_status enum value
             type_rdv: "R1",
-            type_projet: "pv",
+            type_projet: "photovoltaique",
             source: "whatsapp_agent",
             regie_id: regieId,
           })
