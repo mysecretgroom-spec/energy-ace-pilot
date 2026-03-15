@@ -250,6 +250,36 @@ function decodeBase64Url(data: string): string {
 function stripHtml(html: string): string {
   let text = html;
 
+  // Extract hidden data BEFORE stripping HTML: hidden inputs, display:none elements
+  const hiddenData: string[] = [];
+
+  // Hidden input fields (often contain phone, comments, IDs)
+  const hiddenInputs = html.matchAll(/<input[^>]*type\s*=\s*["']hidden["'][^>]*>/gi);
+  for (const match of hiddenInputs) {
+    const nameMatch = match[0].match(/name\s*=\s*["']([^"']+)["']/i);
+    const valueMatch = match[0].match(/value\s*=\s*["']([^"']+)["']/i);
+    if (nameMatch && valueMatch && valueMatch[1].trim()) {
+      hiddenData.push(`${nameMatch[1]}: ${valueMatch[1]}`);
+    }
+  }
+
+  // Elements with display:none that may contain data
+  const hiddenElements = html.matchAll(/<[^>]*style\s*=\s*["'][^"']*display\s*:\s*none[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/gi);
+  for (const match of hiddenElements) {
+    const content = match[1].replace(/<[^>]+>/g, "").trim();
+    if (content && content.length > 2 && content.length < 500) {
+      hiddenData.push(content);
+    }
+  }
+
+  // data-* attributes that may contain structured info
+  const dataAttrs = html.matchAll(/data-(phone|tel|telephone|mobile|comment|commentaire|nom|prenom|name|address|adresse)\s*=\s*["']([^"']+)["']/gi);
+  for (const match of dataAttrs) {
+    if (match[2].trim()) {
+      hiddenData.push(`${match[1]}: ${match[2]}`);
+    }
+  }
+
   text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
     const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
     const cleanValue = value.replace(/<[^>]+>/g, "").trim();
