@@ -112,38 +112,118 @@ interface SyncResult {
   }>;
 }
 
-// Extract plain text from Gmail message payload
+// Extract all content parts from Gmail message payload (text, html, ical)
+interface ExtractedContent {
+  text: string;
+  rawHtml: string;
+  icalData: string;
+}
+
+function extractAllContentFromPayload(payload: any): ExtractedContent {
+  const result: ExtractedContent = { text: "", rawHtml: "", icalData: "" };
+  collectParts(payload, result);
+
+  // If no plain text, derive from HTML
+  if (!result.text && result.rawHtml) {
+    result.text = stripHtml(result.rawHtml);
+  }
+
+  return result;
+}
+
+function collectParts(part: any, result: ExtractedContent): void {
+  if (!part) return;
+
+  const mime = part.mimeType || "";
+  const data = part.body?.data;
+
+  if (data) {
+    if (mime === "text/plain" && !result.text) {
+      result.text = decodeBase64Url(data);
+    } else if (mime === "text/html" && !result.rawHtml) {
+      result.rawHtml = decodeBase64Url(data);
+    } else if (mime === "text/calendar" || mime.includes("calendar")) {
+      result.icalData += decodeBase64Url(data) + "\n";
+    }
+  }
+
+  // Also check attachments with .ics filename
+  if (part.filename && part.filename.endsWith(".ics") && data) {
+    result.icalData += decodeBase64Url(data) + "\n";
+  }
+
+  if (part.parts) {
+    for (const subpart of part.parts) {
+      collectParts(subpart, result);
+    }
+  }
+}
+
+// Parse iCal VEVENT data into key-value text
+function parseICalToText(icalData: string): string {
+  if (!icalData.trim()) return "";
+
+  const lines: string[] = [];
+
+  // Unfold iCal line continuations (lines starting with space/tab)
+  const unfolded = icalData.replace(/\r?\n[ \t]/g, "");
+
+  // Extract VEVENT block
+  const veventMatch = unfolded.match(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/i);
+  const content = veventMatch ? veventMatch[1] : unfolded;
+
+  const fieldMap: Record<string, string> = {
+    "SUMMARY": "Résumé",
+    "DESCRIPTION": "Description",
+    "LOCATION": "Lieu",
+    "DTSTART": "Date début",
+    "DTEND": "Date fin",
+    "ATTENDEE": "Participant",
+    "ORGANIZER": "Organisateur",
+    "COMMENT": "Commentaire",
+    "CONTACT": "Contact",
+  };
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("BEGIN:") || trimmed.startsWith("END:")) continue;
+
+    // Handle properties with params like DTSTART;TZID=...:value
+    const colonIdx = trimmed.indexOf(":");
+    if (colonIdx === -1) continue;
+
+    let propFull = trimmed.substring(0, colonIdx);
+    let value = trimmed.substring(colonIdx + 1);
+
+    // Strip parameters (e.g., DTSTART;TZID=Europe/Paris → DTSTART)
+    const semiIdx = propFull.indexOf(";");
+    const propName = (semiIdx !== -1 ? propFull.substring(0, semiIdx) : propFull).toUpperCase();
+
+    // Decode escaped chars
+    value = value.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\\\/g, "\\");
+
+    const label = fieldMap[propName];
+    if (label && value.trim()) {
+      lines.push(`${label}: ${value.trim()}`);
+    }
+  }
+
+  // Extract phone numbers from DESCRIPTION or any field
+  const phoneMatches = content.match(/(?:(?:tel|tél|telephone|téléphone|portable|mobile|phone)\s*[:=]?\s*)?(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/gi);
+  if (phoneMatches) {
+    for (const phone of phoneMatches) {
+      if (!lines.some(l => l.includes(phone.trim()))) {
+        lines.push(`Téléphone (iCal): ${phone.trim()}`);
+      }
+    }
+  }
+
+  return lines.length > 0 ? "\n--- DONNÉES AGENDA (iCal) ---\n" + lines.join("\n") : "";
+}
+
+// Legacy wrapper for backward compatibility
 function extractTextFromPayload(payload: any): string {
-  if (!payload) return "";
-
-  if (payload.mimeType === "text/plain" && payload.body?.data) {
-    return decodeBase64Url(payload.body.data);
-  }
-
-  if (payload.mimeType === "text/html" && payload.body?.data) {
-    const html = decodeBase64Url(payload.body.data);
-    return stripHtml(html);
-  }
-
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === "text/plain" && part.body?.data) {
-        return decodeBase64Url(part.body.data);
-      }
-    }
-    for (const part of payload.parts) {
-      if (part.mimeType === "text/html" && part.body?.data) {
-        const html = decodeBase64Url(part.body.data);
-        return stripHtml(html);
-      }
-    }
-    for (const part of payload.parts) {
-      const text = extractTextFromPayload(part);
-      if (text) return text;
-    }
-  }
-
-  return "";
+  return extractAllContentFromPayload(payload).text;
 }
 
 function decodeBase64Url(data: string): string {
@@ -169,6 +249,36 @@ function decodeBase64Url(data: string): string {
 
 function stripHtml(html: string): string {
   let text = html;
+
+  // Extract hidden data BEFORE stripping HTML: hidden inputs, display:none elements
+  const hiddenData: string[] = [];
+
+  // Hidden input fields (often contain phone, comments, IDs)
+  const hiddenInputs = html.matchAll(/<input[^>]*type\s*=\s*["']hidden["'][^>]*>/gi);
+  for (const match of hiddenInputs) {
+    const nameMatch = match[0].match(/name\s*=\s*["']([^"']+)["']/i);
+    const valueMatch = match[0].match(/value\s*=\s*["']([^"']+)["']/i);
+    if (nameMatch && valueMatch && valueMatch[1].trim()) {
+      hiddenData.push(`${nameMatch[1]}: ${valueMatch[1]}`);
+    }
+  }
+
+  // Elements with display:none that may contain data
+  const hiddenElements = html.matchAll(/<[^>]*style\s*=\s*["'][^"']*display\s*:\s*none[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/gi);
+  for (const match of hiddenElements) {
+    const content = match[1].replace(/<[^>]+>/g, "").trim();
+    if (content && content.length > 2 && content.length < 500) {
+      hiddenData.push(content);
+    }
+  }
+
+  // data-* attributes that may contain structured info
+  const dataAttrs = html.matchAll(/data-(phone|tel|telephone|mobile|comment|commentaire|nom|prenom|name|address|adresse)\s*=\s*["']([^"']+)["']/gi);
+  for (const match of dataAttrs) {
+    if (match[2].trim()) {
+      hiddenData.push(`${match[1]}: ${match[2]}`);
+    }
+  }
 
   text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
     const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
@@ -231,6 +341,11 @@ function stripHtml(html: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  // Append hidden data if found
+  if (hiddenData.length > 0) {
+    text += "\n\n--- DONNÉES MASQUÉES (HTML) ---\n" + hiddenData.join("\n");
+  }
 
   return text;
 }
@@ -456,8 +571,12 @@ serve(async (req) => {
           continue;
         }
 
-        const emailBody = extractTextFromPayload(msgData.payload);
-        console.log(`Body preview (${emailBody.length} chars): ${emailBody.substring(0, 300)}...`);
+        const allContent = extractAllContentFromPayload(msgData.payload);
+        const icalText = parseICalToText(allContent.icalData);
+        
+        // Combine all sources: plain text + iCal data for maximum extraction
+        const emailBody = (allContent.text + icalText).trim();
+        console.log(`Body preview (${emailBody.length} chars, ical=${allContent.icalData.length > 0}): ${emailBody.substring(0, 300)}...`);
 
         if (!emailBody) {
           console.log(`Empty body for message ${msg.id}`);
