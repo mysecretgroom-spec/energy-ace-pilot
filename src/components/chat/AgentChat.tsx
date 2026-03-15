@@ -909,10 +909,13 @@ export function AgentChat() {
                   </div>
                   <h4 className="font-semibold mb-1">Bonjour ! 👋</h4>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Posez vos questions par texte, voix ou envoyez des documents.
+                    {isTrialUser 
+                      ? `Mode essai : notes de frais uniquement (${TRIAL_AGENT_FACTURE_LIMIT} max) + consultation.`
+                      : "Posez vos questions par texte, voix ou envoyez des documents."
+                    }
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center mb-4">
-                    {SUGGESTIONS.map((suggestion) => (
+                    {(isTrialUser ? SUGGESTIONS_TRIAL : SUGGESTIONS_FULL).map((suggestion) => (
                       <Button
                         key={suggestion}
                         variant="outline"
