@@ -1831,7 +1831,7 @@ const Finance = () => {
                   Ajouter frais manuel
                 </Button>
               </DialogTrigger>
-               <DialogContent className="max-h-[90vh] overflow-y-auto">
+               <DialogContent className="max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>Ajouter un frais</DialogTitle>
                 </DialogHeader>
@@ -1940,7 +1940,7 @@ const Finance = () => {
 
             {/* Edit Dialog */}
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>Modifier le frais</DialogTitle>
                 </DialogHeader>
