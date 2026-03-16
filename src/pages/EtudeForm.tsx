@@ -2802,7 +2802,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="11600"
                     value={consoAnnuelle}
-                    onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
+                    onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
@@ -2818,7 +2818,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="230"
                     value={factureMensuelle}
-                    onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
+                    onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
@@ -2886,7 +2886,7 @@ _Envoyé depuis DébalePro_`;
             />
 
             {/* Détail estimation sauvegardé */}
-            {consoIsEstimated && estimationDetailsDisplay && (
+            {estimationDetailsDisplay && (
               <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
                 <p className="text-[10px] sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Calculator className="h-3 w-3 text-primary" />
