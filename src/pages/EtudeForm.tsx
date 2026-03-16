@@ -3458,6 +3458,72 @@ _Envoyé depuis DébalePro_`;
           </Card>
         )}
 
+        {/* PROJECTION ÉVOLUTION PRIX ÉNERGIE */}
+        {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && factureMensuelle && (
+          <Card className="shadow-card">
+            <CardHeader className="pb-2 bg-destructive/10 px-3 sm:px-6 py-2 sm:py-3">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+                Évolution future de la facture
+                <Badge variant="outline" className="ml-auto text-[10px] h-4 border-destructive/30 text-destructive">
+                  +{tauxAugmentationEnergie}%/an
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3 px-3 sm:px-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-1.5 font-medium text-muted-foreground">Année</th>
+                      <th className="text-right py-1.5 font-medium text-muted-foreground">Facture/an</th>
+                      <th className="text-right py-1.5 font-medium text-muted-foreground">Surcoût</th>
+                      <th className="text-right py-1.5 font-medium text-muted-foreground">Gain cumulé</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const factureAnnuelle = Number(factureMensuelle) * 12;
+                      const taux = tauxAugmentationEnergie / 100;
+                      const gainAnnuelProjet = (calculatedResults.resultatTransfertCharge || 0) * 12;
+
+                      return [1, 2, 3, 5, 7, 10].map((annee) => {
+                        const factureProjetee = factureAnnuelle * Math.pow(1 + taux, annee);
+                        const surcout = factureProjetee - factureAnnuelle;
+                        let cumulGain = 0;
+                        for (let a = 1; a <= annee; a++) {
+                          cumulGain += gainAnnuelProjet + (factureAnnuelle * Math.pow(1 + taux, a) - factureAnnuelle);
+                        }
+
+                        return (
+                          <tr key={annee} className={cn("border-b border-dashed last:border-0", annee === 10 && "font-semibold")}>
+                            <td className="py-1.5 text-muted-foreground">
+                              An {annee}
+                              <span className="text-[10px] text-muted-foreground/60 ml-1">({new Date().getFullYear() + annee})</span>
+                            </td>
+                            <td className="text-right py-1.5">
+                              {factureProjetee.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
+                            </td>
+                            <td className="text-right py-1.5 text-destructive">
+                              +{surcout.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
+                            </td>
+                            <td className={cn("text-right py-1.5 font-medium", cumulGain > 0 ? "text-status-signed" : "text-destructive")}>
+                              {cumulGain > 0 ? "+" : ""}{cumulGain.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
+                Source : Commission de Régulation de l'Énergie (CRE) — Projection indicative
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
         {/* SYNERGIES MULTI-PRODUITS — Visualisation détaillée des dépendances */}
