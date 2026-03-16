@@ -953,11 +953,26 @@ const EtudeForm = () => {
     }
   }, [departement, dataPsh]);
 
+  // Normalize helper for robust surcharge matching
+  // Strips accents, special chars, converts to lowercase tokens
+  const normalizeSurcout = (str: string) => 
+    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // strip accents
+       .toLowerCase()
+       .replace(/[/_\-().<>]/g, " ")
+       .replace(/\s+/g, " ")
+       .trim();
+
   // Mise à jour du surcoût compteur selon le type de raccordement
   useEffect(() => {
-    // Priorité aux surcoûts régie si disponibles
     if (regieSurcouts.length > 0) {
-      const regieCompteur = regieSurcouts.find(s => s.categorie === "compteur" && s.nom.toUpperCase().includes(typeRaccordement.replace("É", "E")));
+      const normalizedType = normalizeSurcout(typeRaccordement);
+      const regieCompteur = regieSurcouts.find(s => {
+        if (s.categorie !== "compteur") return false;
+        const nNom = normalizeSurcout(s.nom);
+        const nCode = normalizeSurcout(s.code);
+        return normalizedType.includes(nNom) || nNom.includes(normalizedType) ||
+               normalizedType.includes(nCode) || nCode.includes(normalizedType);
+      });
       if (regieCompteur) {
         setSurcoutCompteur(regieCompteur.prix);
         return;
@@ -967,24 +982,26 @@ const EtudeForm = () => {
     const compteur = dataCompteurs.find(c => c.type_compteur === typeRaccordement);
     if (compteur) {
       setSurcoutCompteur(compteur.montant);
+    } else {
+      setSurcoutCompteur(0);
     }
   }, [typeRaccordement, dataCompteurs, regieSurcouts]);
 
-  // Mise à jour du surcoût support selon le type de support — uniquement depuis les surcoûts régie
+  // Mise à jour du surcoût support selon le type de support
   useEffect(() => {
     if (regieSurcouts.length > 0) {
-      // Normalize: remove slashes, parentheses, extra spaces, underscores → lowercase words
-      const normalize = (str: string) => str.toLowerCase().replace(/[/_\-()]/g, " ").replace(/\s+/g, " ").trim();
-      const normalizedSupport = normalize(supportInstallation);
+      const normalizedSupport = normalizeSurcout(supportInstallation);
       
       const regieSupport = regieSurcouts.find(s => {
         if (s.categorie !== "support") return false;
-        const normalizedNom = normalize(s.nom);
-        const normalizedCode = normalize(s.code);
-        return normalizedSupport.includes(normalizedNom) || 
-               normalizedNom.includes(normalizedSupport.split("(")[0].trim()) ||
-               normalizedCode.includes(normalizedSupport.replace(/ /g, "")) ||
-               normalizedSupport.includes(normalizedCode.replace(/ /g, ""));
+        const nNom = normalizeSurcout(s.nom);
+        const nCode = normalizeSurcout(s.code);
+        // Check if key words overlap (e.g. "pergola", "surimposition", "sol", "bac gse")
+        return normalizedSupport.includes(nNom) || nNom.includes(normalizedSupport) ||
+               normalizedSupport.includes(nCode) || nCode.includes(normalizedSupport) ||
+               // Token-based: check if all tokens of DB entry exist in the UI value
+               nNom.split(" ").filter(t => t.length > 2).every(t => normalizedSupport.includes(t)) ||
+               nCode.split(" ").filter(t => t.length > 2).every(t => normalizedSupport.includes(t));
       });
       if (regieSupport) {
         if (regieSupport.type_calcul === "par_panneau") {
@@ -998,6 +1015,27 @@ const EtudeForm = () => {
     }
     setSurcoutSupport(0);
   }, [supportInstallation, regieSurcouts, puissanceKwc]);
+
+  // Mise à jour du surcoût emplacement boîtier
+  useEffect(() => {
+    if (regieSurcouts.length > 0) {
+      const normalizedEmpl = normalizeSurcout(emplacementBoitier);
+      
+      const regieEmpl = regieSurcouts.find(s => {
+        if (s.categorie !== "emplacement_boitier") return false;
+        const nNom = normalizeSurcout(s.nom);
+        const nCode = normalizeSurcout(s.code);
+        return normalizedEmpl.includes(nNom) || nNom.includes(normalizedEmpl) ||
+               normalizedEmpl.includes(nCode) || nCode.includes(normalizedEmpl) ||
+               nNom.split(" ").filter(t => t.length > 2).every(t => normalizedEmpl.includes(t));
+      });
+      if (regieEmpl) {
+        setSurcoutEmplacement(regieEmpl.prix);
+        return;
+      }
+    }
+    setSurcoutEmplacement(0);
+  }, [emplacementBoitier, regieSurcouts]);
 
   // Mise à jour automatique du rendement selon orientation et inclinaison
   useEffect(() => {
