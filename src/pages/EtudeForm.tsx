@@ -194,6 +194,7 @@ const EtudeForm = () => {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRestoredDraftRef = useRef(false);
   const hasManualOverridesRef = useRef(false);
+  const estimationDetailsRef = useRef<any>(null);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // MULTI-PRODUCT STATE - PV / PAC / ITE
