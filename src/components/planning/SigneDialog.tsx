@@ -149,6 +149,7 @@ export function SigneDialog({
         // No regie — no bouquets/surcouts available
         setAllBouquets([]);
         setSurcouts([]);
+      }
       
       setLoadingBouquets(false);
     };
