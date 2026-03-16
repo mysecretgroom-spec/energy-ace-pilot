@@ -145,7 +145,10 @@ Certains emails contiennent des données dans des éléments HTML masqués (disp
 4. **TYPE DE PROJET** - Utilise UNIQUEMENT:
    - "photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre"
 
-5. **COMMENTAIRES** - Capture TOUT le contexte dans "commentaire" (notes internes/suivi) et "commentaire_regie" (commentaire du télépro/confirmateur, description iCal, contexte de la prise de RDV). La Description iCal contient souvent le commentaire du télépro — mets-le dans "commentaire_regie".
+5. **COMMENTAIRES** - TRÈS IMPORTANT: Tu DOIS capturer TOUS les commentaires, notes et observations présents dans l'email:
+   - "commentaire": Notes internes, suivi, observations visibles dans le corps de l'email (ex: "Client intéressé par 6kWc", "Maison ancienne", "Déjà démarché", statut du call, motivation, etc.). Inclure TOUT texte informatif du corps de l'email qui n'est pas une donnée structurée (nom, téléphone, adresse).
+   - "commentaire_regie": Commentaire du télépro/confirmateur. Peut venir de la Description iCal, des données masquées HTML, ou d'un champ explicitement nommé "commentaire" dans l'email.
+   - COMBINE les deux sources: si l'email visible contient des notes ET que les données cachées/iCal en contiennent aussi, remplis LES DEUX champs. Ne sacrifie JAMAIS le contenu visible au profit des données cachées.
 
 6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
