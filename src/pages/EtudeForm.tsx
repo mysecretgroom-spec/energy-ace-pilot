@@ -1962,6 +1962,7 @@ const EtudeForm = () => {
       prixInstallation: calculatedResults?.prixInstallation || 0,
       surcoutSupport: surcoutSupport,
       surcoutCompteur: surcoutCompteur,
+      surcoutEmplacement: surcoutEmplacement,
       autreSurcout: autreSurcout,
       prixTotalHorsAides: calculatedResults?.prixTotalHorsAides || 0,
       primeAutoconsommation: calculatedResults?.primeAutoconsommation || 0,
