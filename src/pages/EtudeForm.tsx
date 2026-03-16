@@ -667,15 +667,13 @@ const EtudeForm = () => {
     let financementsData: DataFinancement[] = [];
 
     if (currentRegieId) {
-      const [bouquetsRes, financementsRes, surcoutsRegieRes, surcoutsGlobalRes] = await Promise.all([
+      const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
         supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type").eq("actif", true),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
-        supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").is("regie_id", null).eq("actif", true),
       ]);
       
       if (bouquetsRes.data) {
-        // Filter bouquets by product_type AND regie
         const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
         
         bouquetsData = bouquetsRes.data
@@ -687,7 +685,6 @@ const EtudeForm = () => {
             prix_recommande: b.prix_recommande,
           }));
         
-        // If no regie-specific bouquets for this product, use global ones filtered by product_type
         if (bouquetsData.length === 0) {
           bouquetsData = bouquetsRes.data
             .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
@@ -708,22 +705,16 @@ const EtudeForm = () => {
           actif: f.actif,
         }));
       }
-      
-      // Merge regie-specific and global default surcouts
-      const regieSpecific = (surcoutsRegieRes.data || []);
-      const globalDefaults = (surcoutsGlobalRes.data || []);
-      const regieKeys = new Set(regieSpecific.map(s => `${s.categorie}-${s.code}`));
-      const nonOverriddenGlobals = globalDefaults.filter(s => !regieKeys.has(`${s.categorie}-${s.code}`));
-      const mergedSurcouts = [...regieSpecific, ...nonOverriddenGlobals];
-      
-      setRegieSurcouts(mergedSurcouts.map(s => ({
-        id: s.id,
-        code: s.code,
-        nom: s.nom,
-        prix: Number(s.prix),
-        categorie: s.categorie,
-        type_calcul: (s.type_calcul as 'fixe' | 'par_panneau') || 'fixe',
-      })));
+      if (surcoutsRegieRes.data) {
+        setRegieSurcouts(surcoutsRegieRes.data.map(s => ({
+          id: s.id,
+          code: s.code,
+          nom: s.nom,
+          prix: Number(s.prix),
+          categorie: s.categorie,
+          type_calcul: (s.type_calcul as 'fixe' | 'par_panneau') || 'fixe',
+        })));
+      }
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
