@@ -992,14 +992,17 @@ const EtudeForm = () => {
         return;
       }
     }
-    // Fallback aux surcoûts hardcodés
-    const surcoûtsSupport: Record<string, number> = {
-      "PERGOLA / CARPORT": 3900,
-      "BAC GSE (SOL)": 1800,
-      "TOITURE SURIMPOSITION": 0,
-      "TOITURE INTEGRATION": 0,
-    };
-    setSurcoutSupport(surcoûtsSupport[supportInstallation] || 0);
+    // Fallback aux surcoûts globaux data_surcouts
+    const globalSupport = dataSurcouts.find(s => 
+      s.code.toLowerCase().includes(supportInstallation.toLowerCase().replace(/ /g, "_").replace(/[()\/]/g, "").trim()) ||
+      supportInstallation.toUpperCase().includes(s.nom.toUpperCase()) ||
+      s.nom.toUpperCase().includes(supportInstallation.replace(/ /g, "_").toUpperCase().split("(")[0].trim())
+    );
+    if (globalSupport) {
+      setSurcoutSupport(globalSupport.prix);
+    } else {
+      setSurcoutSupport(0);
+    }
   }, [supportInstallation, regieSurcouts, puissanceKwc]);
 
   // Mise à jour automatique du rendement selon orientation et inclinaison
