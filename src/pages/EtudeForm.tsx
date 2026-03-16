@@ -2818,7 +2818,7 @@ _Envoyé depuis DébalePro_`;
                     type="number"
                     placeholder="230"
                     value={factureMensuelle}
-                    onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); setConsoIsEstimated(false); }}
+                    onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
                   <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
