@@ -395,6 +395,7 @@ const EtudeForm = () => {
   const [dataCompteurs, setDataCompteurs] = useState<DataCompteur[]>([]);
   const [dataAides, setDataAides] = useState<DataAide[]>([]);
   const [dataFinancements, setDataFinancements] = useState<DataFinancement[]>([]);
+  const [tauxAugmentationEnergie, setTauxAugmentationEnergie] = useState(4); // % annuel par défaut
   // Heures d'ensoleillement affichées
   const [heuresEnsoleillement, setHeuresEnsoleillement] = useState<number>(2890);
   const [usePshCalculation, setUsePshCalculation] = useState(false); // true = PSH, false = Heures
