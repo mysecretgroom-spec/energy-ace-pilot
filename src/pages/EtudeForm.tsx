@@ -1203,7 +1203,7 @@ const EtudeForm = () => {
       const surcout = dataSurcouts.find((s) => s.code === code);
       return total + (surcout?.prix || 0);
     }, 0);
-    const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + autreSurcout;
+    const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + surcoutEmplacement + autreSurcout;
 
     const prixTotalHorsAides = prixInstallation + prixSurcouts;
 
