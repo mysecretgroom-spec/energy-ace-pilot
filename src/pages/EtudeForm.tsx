@@ -852,6 +852,9 @@ const EtudeForm = () => {
         if (typeof overrides.usePshCalculation === "boolean") {
           setUsePshCalculation(overrides.usePshCalculation);
         }
+        if (overrides.estimationDetails) {
+          estimationDetailsRef.current = overrides.estimationDetails;
+        }
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
