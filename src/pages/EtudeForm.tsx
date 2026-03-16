@@ -2894,11 +2894,11 @@ _Envoyé depuis DébalePro_`;
                 </p>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
                   <span>Isolation : <strong className="text-foreground">{
-                    ({ faible: "Faible", moyen: "Moyen", bon: "Bon", tres_bon: "Très bon", passif: "Passif/RT2012+" } as Record<string, string>)[estimationDetailsRef.current.isolation] || estimationDetailsRef.current.isolation
+                    ({ faible: "Faible", moyen: "Moyen", bon: "Bon", tres_bon: "Très bon", passif: "Passif/RT2012+" } as Record<string, string>)[estimationDetailsDisplay.isolation] || estimationDetailsDisplay.isolation
                   }</strong></span>
-                  <span>Occupants : <strong className="text-foreground">{estimationDetailsRef.current.occupants}</strong></span>
+                  <span>Occupants : <strong className="text-foreground">{estimationDetailsDisplay.occupants}</strong></span>
                 </div>
-                {estimationDetailsRef.current.heatingZones?.map((z: any, i: number) => (
+                {estimationDetailsDisplay.heatingZones?.map((z: any, i: number) => (
                   <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
                     <span>🔥 {z.label} ({z.surface} m²)</span>
                     <span className="font-medium text-foreground">{z.kwh?.toLocaleString("fr-FR")} kWh</span>
@@ -2906,15 +2906,15 @@ _Envoyé depuis DébalePro_`;
                 ))}
                 <div className="text-[10px] text-muted-foreground flex justify-between">
                   <span>💧 ECS ({
-                    ({ electrique: "Élec.", gaz: "Gaz", fioul: "Fioul", thermodynamique: "Thermo.", propane: "Propane" } as Record<string, string>)[estimationDetailsRef.current.ecsType] || estimationDetailsRef.current.ecsType
+                    ({ electrique: "Élec.", gaz: "Gaz", fioul: "Fioul", thermodynamique: "Thermo.", propane: "Propane" } as Record<string, string>)[estimationDetailsDisplay.ecsType] || estimationDetailsDisplay.ecsType
                   })</span>
-                  <span className="font-medium text-foreground">{estimationDetailsRef.current.ecsKwh?.toLocaleString("fr-FR")} kWh</span>
+                  <span className="font-medium text-foreground">{estimationDetailsDisplay.ecsKwh?.toLocaleString("fr-FR")} kWh</span>
                 </div>
                 <div className="text-[10px] text-muted-foreground flex justify-between">
                   <span>⚡ Base électrique</span>
-                  <span className="font-medium text-foreground">{estimationDetailsRef.current.baseElecKwh?.toLocaleString("fr-FR")} kWh</span>
+                  <span className="font-medium text-foreground">{estimationDetailsDisplay.baseElecKwh?.toLocaleString("fr-FR")} kWh</span>
                 </div>
-                {estimationDetailsRef.current.appliances?.map((app: any, i: number) => (
+                {estimationDetailsDisplay.appliances?.map((app: any, i: number) => (
                   <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
                     <span>⚙️ {app.label}</span>
                     <span className="font-medium text-foreground">{app.kwh?.toLocaleString("fr-FR")} kWh</span>
@@ -2923,12 +2923,12 @@ _Envoyé depuis DébalePro_`;
                 <Separator className="my-1" />
                 <div className="flex justify-between text-[10px] font-semibold">
                   <span className="text-foreground">Total élec.</span>
-                  <span className="text-primary">{estimationDetailsRef.current.totalElecKwh?.toLocaleString("fr-FR")} kWh/an</span>
+                  <span className="text-primary">{estimationDetailsDisplay.totalElecKwh?.toLocaleString("fr-FR")} kWh/an</span>
                 </div>
-                {estimationDetailsRef.current.totalCombustibleKwh > 0 && (
+                {estimationDetailsDisplay.totalCombustibleKwh > 0 && (
                   <div className="flex justify-between text-[10px] font-semibold">
                     <span className="text-foreground">Total combustible</span>
-                    <span className="text-orange-500">{estimationDetailsRef.current.totalCombustibleKwh?.toLocaleString("fr-FR")} kWh/an</span>
+                    <span className="text-orange-500">{estimationDetailsDisplay.totalCombustibleKwh?.toLocaleString("fr-FR")} kWh/an</span>
                   </div>
                 )}
               </div>
