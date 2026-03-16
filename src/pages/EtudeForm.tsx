@@ -2881,6 +2881,55 @@ _Envoyé depuis DébalePro_`;
                 }
               }}
             />
+
+            {/* Détail estimation sauvegardé */}
+            {consoIsEstimated && estimationDetailsRef.current && (
+              <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
+                <p className="text-[10px] sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Calculator className="h-3 w-3 text-primary" />
+                  Détail de l'estimation
+                </p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                  <span>Isolation : <strong className="text-foreground">{
+                    ({ faible: "Faible", moyen: "Moyen", bon: "Bon", tres_bon: "Très bon", passif: "Passif/RT2012+" } as Record<string, string>)[estimationDetailsRef.current.isolation] || estimationDetailsRef.current.isolation
+                  }</strong></span>
+                  <span>Occupants : <strong className="text-foreground">{estimationDetailsRef.current.occupants}</strong></span>
+                </div>
+                {estimationDetailsRef.current.heatingZones?.map((z: any, i: number) => (
+                  <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>🔥 {z.label} ({z.surface} m²)</span>
+                    <span className="font-medium text-foreground">{z.kwh?.toLocaleString("fr-FR")} kWh</span>
+                  </div>
+                ))}
+                <div className="text-[10px] text-muted-foreground flex justify-between">
+                  <span>💧 ECS ({
+                    ({ electrique: "Élec.", gaz: "Gaz", fioul: "Fioul", thermodynamique: "Thermo.", propane: "Propane" } as Record<string, string>)[estimationDetailsRef.current.ecsType] || estimationDetailsRef.current.ecsType
+                  })</span>
+                  <span className="font-medium text-foreground">{estimationDetailsRef.current.ecsKwh?.toLocaleString("fr-FR")} kWh</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground flex justify-between">
+                  <span>⚡ Base électrique</span>
+                  <span className="font-medium text-foreground">{estimationDetailsRef.current.baseElecKwh?.toLocaleString("fr-FR")} kWh</span>
+                </div>
+                {estimationDetailsRef.current.appliances?.map((app: any, i: number) => (
+                  <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>⚙️ {app.label}</span>
+                    <span className="font-medium text-foreground">{app.kwh?.toLocaleString("fr-FR")} kWh</span>
+                  </div>
+                ))}
+                <Separator className="my-1" />
+                <div className="flex justify-between text-[10px] font-semibold">
+                  <span className="text-foreground">Total élec.</span>
+                  <span className="text-primary">{estimationDetailsRef.current.totalElecKwh?.toLocaleString("fr-FR")} kWh/an</span>
+                </div>
+                {estimationDetailsRef.current.totalCombustibleKwh > 0 && (
+                  <div className="flex justify-between text-[10px] font-semibold">
+                    <span className="text-foreground">Total combustible</span>
+                    <span className="text-orange-500">{estimationDetailsRef.current.totalCombustibleKwh?.toLocaleString("fr-FR")} kWh/an</span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
