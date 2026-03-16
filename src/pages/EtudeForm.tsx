@@ -1003,7 +1003,7 @@ const EtudeForm = () => {
     } else {
       setSurcoutSupport(0);
     }
-  }, [supportInstallation, regieSurcouts, puissanceKwc]);
+  }, [supportInstallation, regieSurcouts, dataSurcouts, puissanceKwc]);
 
   // Mise à jour automatique du rendement selon orientation et inclinaison
   useEffect(() => {
