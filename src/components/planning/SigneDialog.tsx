@@ -121,30 +121,15 @@ export function SigneDialog({
           setAllBouquets(regieBouquets as Bouquet[]);
         }
 
-        // Fetch regie-specific AND global default surcouts
-        const [regieRes, globalRes] = await Promise.all([
-          supabase
-            .from("regies_surcouts")
-            .select("id, nom, code, prix, categorie, type_calcul")
-            .eq("regie_id", regieId)
-            .eq("actif", true)
-            .order("categorie", { ascending: true }),
-          supabase
-            .from("regies_surcouts")
-            .select("id, nom, code, prix, categorie, type_calcul")
-            .is("regie_id", null)
-            .eq("actif", true)
-            .order("categorie", { ascending: true }),
-        ]);
+        // Fetch only regie-specific surcouts (no global fallback)
+        const { data: regiesSurcouts } = await supabase
+          .from("regies_surcouts")
+          .select("id, nom, code, prix, categorie, type_calcul")
+          .eq("regie_id", regieId)
+          .eq("actif", true)
+          .order("categorie", { ascending: true });
         
-        const regieSpecific = regieRes.data || [];
-        const globalDefaults = globalRes.data || [];
-        
-        // Merge: régie-specific takes priority over global defaults (by categorie+code)
-        const regieKeys = new Set(regieSpecific.map(s => `${s.categorie}-${s.code}`));
-        const nonOverriddenGlobals = globalDefaults.filter(s => !regieKeys.has(`${s.categorie}-${s.code}`));
-        
-        setSurcouts([...regieSpecific, ...nonOverriddenGlobals]);
+        setSurcouts(regiesSurcouts || []);
       } else {
         // No regie — no bouquets/surcouts available
         setAllBouquets([]);
