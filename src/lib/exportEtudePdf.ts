@@ -141,6 +141,21 @@ interface EtudeData {
   tauxAugmentationEnergie?: number;
   typeEnergieReference?: string;
   sourceEvolutionPrix?: string;
+  
+  // Estimation details (from ConsumptionEstimator)
+  estimationDetails?: {
+    isolation: string;
+    occupants: number;
+    heatingZones: { type: string; label: string; surface: number; kwh: number }[];
+    ecsType: string;
+    ecsKwh: number;
+    baseElecKwh: number;
+    appliances: { label: string; kwh: number }[];
+    totalElecKwh: number;
+    totalCombustibleKwh: number;
+    factureElecMois: number;
+    factureCombustibleMois: number;
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

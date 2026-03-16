@@ -2870,6 +2870,10 @@ _Envoyé depuis DébalePro_`;
                 if (activeProducts.includes("ITE")) {
                   if (result.factureChaufMensuelle) setIteFactureChaufActuelle(result.factureChaufMensuelle);
                 }
+                // Save estimation details in param_overrides
+                if (result.estimationDetails) {
+                  estimationDetailsRef.current = result.estimationDetails;
+                }
               }}
             />
           </CardContent>
