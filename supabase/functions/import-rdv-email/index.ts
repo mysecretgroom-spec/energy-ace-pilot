@@ -641,8 +641,8 @@ serve(async (req) => {
     } else {
       // Create new client
       const clientNotes: string[] = [];
+      if (validated.RDV?.commentaire_regie) clientNotes.push(validated.RDV.commentaire_regie);
       if (validated.RDV?.commentaire) clientNotes.push(validated.RDV.commentaire);
-      if (validated.RDV?.commentaire_regie) clientNotes.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
 
       const clientData = {
         user_id,
