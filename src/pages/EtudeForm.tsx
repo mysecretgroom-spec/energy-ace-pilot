@@ -2879,6 +2879,7 @@ _Envoyé depuis DébalePro_`;
                 // Save estimation details in param_overrides
                 if (result.estimationDetails) {
                   estimationDetailsRef.current = result.estimationDetails;
+                  setEstimationDetailsDisplay(result.estimationDetails);
                 }
               }}
             />
