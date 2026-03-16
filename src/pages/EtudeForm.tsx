@@ -3277,6 +3277,15 @@ _Envoyé depuis DébalePro_`;
                   <span className={surcoutCompteur > 0 ? "text-amber-600 font-medium" : ""}>{surcoutCompteur.toFixed(2)}€</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    Surcoût Emplacement
+                    {emplacementBoitier && (
+                      <span className="text-[10px] text-muted-foreground/70">({emplacementBoitier})</span>
+                    )}
+                  </span>
+                  <span className={surcoutEmplacement > 0 ? "text-amber-600 font-medium" : ""}>{surcoutEmplacement.toFixed(2)}€</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
                   <span>Autre Surcoût</span>
                   <Input
                     type="number"
