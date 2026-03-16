@@ -101,35 +101,53 @@ export function SigneDialog({
     );
   }, [allBouquets, productType]);
 
-  // Fetch bouquets and surcouts on mount — regie-specific + global defaults
+  // Fetch bouquets and surcouts on mount — regie-specific only
   useEffect(() => {
     const fetchData = async () => {
       setLoadingBouquets(true);
       
-      if (regieId) {
+      // Resolve regieId: use prop, or fallback to étude → client → rdv chain
+      let resolvedRegieId = regieId;
+      if (!resolvedRegieId && etudeId) {
+        const { data: etudeData } = await supabase
+          .from("etudes")
+          .select("client_id")
+          .eq("id", etudeId)
+          .single();
+        if (etudeData?.client_id) {
+          const { data: clientData } = await supabase
+            .from("clients")
+            .select("regie_id")
+            .eq("id", etudeData.client_id)
+            .single();
+          resolvedRegieId = clientData?.regie_id || null;
+        }
+      }
+      
+      if (resolvedRegieId) {
         // Fetch only bouquets belonging to this regie
-        const { data: bouquetsData } = await supabase
-          .from("bouquets")
-          .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type, regie_ids")
-          .eq("actif", true)
-          .order("puissance_kwc", { ascending: true });
+        const [bouquetsRes, surcoutsRes] = await Promise.all([
+          supabase
+            .from("bouquets")
+            .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type, regie_ids")
+            .eq("actif", true)
+            .order("puissance_kwc", { ascending: true }),
+          supabase
+            .from("regies_surcouts")
+            .select("id, nom, code, prix, categorie, type_calcul")
+            .eq("regie_id", resolvedRegieId)
+            .eq("actif", true)
+            .order("categorie", { ascending: true }),
+        ]);
 
-        if (bouquetsData) {
-          const regieBouquets = bouquetsData
-            .filter(b => b.regie_ids && (b.regie_ids as string[]).includes(regieId))
+        if (bouquetsRes.data) {
+          const regieBouquets = bouquetsRes.data
+            .filter(b => b.regie_ids && (b.regie_ids as string[]).includes(resolvedRegieId!))
             .sort((a, b) => a.puissance_kwc - b.puissance_kwc);
           setAllBouquets(regieBouquets as Bouquet[]);
         }
 
-        // Fetch only regie-specific surcouts (no global fallback)
-        const { data: regiesSurcouts } = await supabase
-          .from("regies_surcouts")
-          .select("id, nom, code, prix, categorie, type_calcul")
-          .eq("regie_id", regieId)
-          .eq("actif", true)
-          .order("categorie", { ascending: true });
-        
-        setSurcouts(regiesSurcouts || []);
+        setSurcouts(surcoutsRes.data || []);
       } else {
         // No regie — no bouquets/surcouts available
         setAllBouquets([]);
@@ -142,7 +160,7 @@ export function SigneDialog({
     if (open) {
       fetchData();
     }
-  }, [open, regieId]);
+  }, [open, regieId, etudeId]);
 
   // Fetch étude data when dialog opens
   useEffect(() => {
