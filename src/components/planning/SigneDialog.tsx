@@ -101,7 +101,7 @@ export function SigneDialog({
     );
   }, [allBouquets, productType]);
 
-  // Fetch bouquets and surcouts on mount — only regie-specific data
+  // Fetch bouquets and surcouts on mount — regie-specific + global defaults
   useEffect(() => {
     const fetchData = async () => {
       setLoadingBouquets(true);
@@ -121,20 +121,34 @@ export function SigneDialog({
           setAllBouquets(regieBouquets as Bouquet[]);
         }
 
-        // Fetch only regie-specific surcouts
-        const { data: regiesSurcouts } = await supabase
-          .from("regies_surcouts")
-          .select("id, nom, code, prix, categorie, type_calcul")
-          .eq("regie_id", regieId)
-          .eq("actif", true)
-          .order("categorie", { ascending: true });
+        // Fetch regie-specific AND global default surcouts
+        const [regieRes, globalRes] = await Promise.all([
+          supabase
+            .from("regies_surcouts")
+            .select("id, nom, code, prix, categorie, type_calcul")
+            .eq("regie_id", regieId)
+            .eq("actif", true)
+            .order("categorie", { ascending: true }),
+          supabase
+            .from("regies_surcouts")
+            .select("id, nom, code, prix, categorie, type_calcul")
+            .is("regie_id", null)
+            .eq("actif", true)
+            .order("categorie", { ascending: true }),
+        ]);
         
-        setSurcouts(regiesSurcouts || []);
+        const regieSpecific = regieRes.data || [];
+        const globalDefaults = globalRes.data || [];
+        
+        // Merge: régie-specific takes priority over global defaults (by categorie+code)
+        const regieKeys = new Set(regieSpecific.map(s => `${s.categorie}-${s.code}`));
+        const nonOverriddenGlobals = globalDefaults.filter(s => !regieKeys.has(`${s.categorie}-${s.code}`));
+        
+        setSurcouts([...regieSpecific, ...nonOverriddenGlobals]);
       } else {
         // No regie — no bouquets/surcouts available
         setAllBouquets([]);
         setSurcouts([]);
-      }
       
       setLoadingBouquets(false);
     };
