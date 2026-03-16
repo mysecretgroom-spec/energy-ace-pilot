@@ -130,6 +130,20 @@ interface ApplianceConfig {
   details: Record<string, number>;
 }
 
+export interface EstimationDetails {
+  isolation: string;
+  occupants: number;
+  heatingZones: { type: string; label: string; surface: number; kwh: number }[];
+  ecsType: string;
+  ecsKwh: number;
+  baseElecKwh: number;
+  appliances: { label: string; kwh: number }[];
+  totalElecKwh: number;
+  totalCombustibleKwh: number;
+  factureElecMois: number;
+  factureCombustibleMois: number;
+}
+
 interface ConsumptionEstimatorProps {
   productType: ProductType;
   onApply: (result: {
@@ -137,6 +151,7 @@ interface ConsumptionEstimatorProps {
     factureMensuelleElec: number;
     consoChaufffageKwh?: number;
     factureChaufMensuelle?: number;
+    estimationDetails?: EstimationDetails;
   }) => void;
 }
 
