@@ -222,6 +222,9 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     tauxAugmentationEnergie: tauxAugmentation,
     typeEnergieReference: typeEnergieLabel,
     sourceEvolutionPrix,
+    
+    // Estimation details (from ConsumptionEstimator)
+    estimationDetails: paramOverrides.estimationDetails || undefined,
   };
 
   return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);

@@ -194,6 +194,7 @@ const EtudeForm = () => {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRestoredDraftRef = useRef(false);
   const hasManualOverridesRef = useRef(false);
+  const estimationDetailsRef = useRef<any>(null);
   
   // ═══════════════════════════════════════════════════════════════════════════
   // MULTI-PRODUCT STATE - PV / PAC / ITE
@@ -851,6 +852,9 @@ const EtudeForm = () => {
         if (typeof overrides.usePshCalculation === "boolean") {
           setUsePshCalculation(overrides.usePshCalculation);
         }
+        if (overrides.estimationDetails) {
+          estimationDetailsRef.current = overrides.estimationDetails;
+        }
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
@@ -1420,6 +1424,7 @@ const EtudeForm = () => {
       param_overrides: {
         heuresEnsoleillement,
         usePshCalculation,
+        estimationDetails: estimationDetailsRef.current || undefined,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
@@ -2869,6 +2874,10 @@ _Envoyé depuis DébalePro_`;
                 }
                 if (activeProducts.includes("ITE")) {
                   if (result.factureChaufMensuelle) setIteFactureChaufActuelle(result.factureChaufMensuelle);
+                }
+                // Save estimation details in param_overrides
+                if (result.estimationDetails) {
+                  estimationDetailsRef.current = result.estimationDetails;
                 }
               }}
             />

@@ -130,6 +130,20 @@ interface ApplianceConfig {
   details: Record<string, number>;
 }
 
+export interface EstimationDetails {
+  isolation: string;
+  occupants: number;
+  heatingZones: { type: string; label: string; surface: number; kwh: number }[];
+  ecsType: string;
+  ecsKwh: number;
+  baseElecKwh: number;
+  appliances: { label: string; kwh: number }[];
+  totalElecKwh: number;
+  totalCombustibleKwh: number;
+  factureElecMois: number;
+  factureCombustibleMois: number;
+}
+
 interface ConsumptionEstimatorProps {
   productType: ProductType;
   onApply: (result: {
@@ -137,6 +151,7 @@ interface ConsumptionEstimatorProps {
     factureMensuelleElec: number;
     consoChaufffageKwh?: number;
     factureChaufMensuelle?: number;
+    estimationDetails?: EstimationDetails;
   }) => void;
 }
 
@@ -349,10 +364,31 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
   }, [heatingZones, occupants, isolation, ecsType, appliances, isolationLevels, prixEnergies, copBySubtype, coefficients, calcApplianceKwh, customPrices]);
 
   const handleApply = () => {
+    // Build detailed estimation breakdown for PDF
+    const details: EstimationDetails = {
+      isolation,
+      occupants: Number(occupants) || 1,
+      heatingZones: estimation.zoneDetails.map((z, i) => ({
+        type: z.type,
+        label: HEATING_LABEL_MAP[z.type] || z.type,
+        surface: Number(heatingZones[i]?.surface) || 0,
+        kwh: z.kwh,
+      })),
+      ecsType,
+      ecsKwh: estimation.ecsKwh,
+      baseElecKwh: estimation.baseKwh,
+      appliances: estimation.applianceBreakdown,
+      totalElecKwh: estimation.elecKwh,
+      totalCombustibleKwh: estimation.combustibleKwh,
+      factureElecMois: estimation.factureElecMois,
+      factureCombustibleMois: estimation.factureCombustibleMois,
+    };
+
     if (productType === "PV") {
       onApply({
         consoElecKwh: estimation.elecKwh,
         factureMensuelleElec: estimation.factureElecMois,
+        estimationDetails: details,
       });
     } else if (productType === "PAC") {
       onApply({
@@ -360,6 +396,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
         factureMensuelleElec: estimation.factureElecMois,
         consoChaufffageKwh: estimation.combustibleKwh || estimation.totalChauffageKwh,
         factureChaufMensuelle: estimation.factureCombustibleMois || estimation.factureElecMois,
+        estimationDetails: details,
       });
     } else {
       onApply({
@@ -367,6 +404,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
         factureMensuelleElec: estimation.factureElecMois,
         consoChaufffageKwh: estimation.totalChauffageKwh,
         factureChaufMensuelle: estimation.factureCombustibleMois || Math.round((estimation.totalChauffageKwh * estimation.getPrix("elec")) / 12),
+        estimationDetails: details,
       });
     }
     setIsOpen(false);
