@@ -332,14 +332,13 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, regieBouquetsRes, globalBouquetsRes, financementsRes, regieSurcoutsRes, globalSurcoutsRes] = await Promise.all([
+      const [emailsRes, contactsRes, regieBouquetsRes, globalBouquetsRes, financementsRes, regieSurcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("bouquets").select("*").contains("regie_ids", [regieId]).order("puissance_kwc"),
         supabase.from("bouquets").select("*").is("regie_ids", null).eq("actif", true).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
-        supabase.from("regies_surcouts").select("*").is("regie_id", null).order("categorie"),
       ]);
 
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
@@ -364,18 +363,8 @@ const RegiesSettings = () => {
       setRegieBouquets([...regieBouquetsData, ...nonOverriddenGlobalBouquets]);
       setRegieFinancements(financementsRes.data || []);
       
-      // Merge global and regie-specific surcouts
-      const regieSurcoutsData = (regieSurcoutsRes.data || []) as RegieSurcout[];
-      const globalSurcoutsData = (globalSurcoutsRes.data || []).map(s => ({
-        ...s,
-        isGlobal: true,
-      })) as RegieSurcout[];
-      
-      // Filter out global surcouts that have been overridden by regie-specific ones
-      const surcoutKeys = new Set(regieSurcoutsData.map(s => `${s.categorie}-${s.code}`));
-      const nonOverriddenGlobals = globalSurcoutsData.filter(s => !surcoutKeys.has(`${s.categorie}-${s.code}`));
-      
-      setRegieSurcouts([...regieSurcoutsData, ...nonOverriddenGlobals]);
+      // Only use regie-specific surcouts (no global merge)
+      setRegieSurcouts((regieSurcoutsRes.data || []) as RegieSurcout[]);
     } catch (error) {
       console.error("Error fetching regie details:", error);
     }
