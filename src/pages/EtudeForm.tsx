@@ -2027,7 +2027,7 @@ const EtudeForm = () => {
     numeroPdl, typeRaccordement, amperageDisjoncteur, emplacementBoitier,
     potentielFaisabilite, consoAnnuelle, factureMensuelle, puissanceKwc,
     typeRevente, supportInstallation, surfaceInstallation, heuresEnsoleillement,
-    rendementProductivite, surcoutSupport, surcoutCompteur, autreSurcout,
+    rendementProductivite, surcoutSupport, surcoutCompteur, surcoutEmplacement, autreSurcout,
     dataFinancements, financementId, dureeMoisManuelle, classification, classificationComment,
     activeProducts, pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacPuissanceCalorifique,
     pacCop, pacEcsIntegre, pacVolumeBallon, pacEnergieActuelle, pacNiveauIsolation,
