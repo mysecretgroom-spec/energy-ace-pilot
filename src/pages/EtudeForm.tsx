@@ -615,6 +615,7 @@ const EtudeForm = () => {
     mensualiteManuelle,
     surcoutSupport,
     surcoutCompteur,
+    surcoutEmplacement,
     autreSurcout,
     typeRaccordement,
     supportInstallation,
