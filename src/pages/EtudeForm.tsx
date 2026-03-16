@@ -647,7 +647,7 @@ const EtudeForm = () => {
     setLoading(true);
 
     // Load common reference data
-    const [pshRes, orientRes, tarifsRes, surcoutsRes, calibresRes, compteursRes, aidesRes] = await Promise.all([
+    const [pshRes, orientRes, tarifsRes, surcoutsRes, calibresRes, compteursRes, aidesRes, evolutionRes] = await Promise.all([
       supabase.from("data_psh").select("*").order("department_code"),
       supabase.from("data_orientation").select("*"),
       supabase.from("data_tarifs_revente").select("*").eq("actif", true),
@@ -655,6 +655,7 @@ const EtudeForm = () => {
       supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
       supabase.from("data_compteurs").select("*").eq("actif", true),
       supabase.from("data_aides").select("*").eq("actif", true),
+      supabase.from("data_evolution_prix_energie").select("*").eq("actif", true),
     ]);
 
     if (pshRes.data) setDataPsh(pshRes.data);
