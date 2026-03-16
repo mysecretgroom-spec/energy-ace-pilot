@@ -267,6 +267,7 @@ const EtudeForm = () => {
   const [selectedSurcouts, setSelectedSurcouts] = useState<string[]>([]);
   const [surcoutSupport, setSurcoutSupport] = useState(0);
   const [surcoutCompteur, setSurcoutCompteur] = useState(0);
+  const [surcoutEmplacement, setSurcoutEmplacement] = useState(0);
   const [autreSurcout, setAutreSurcout] = useState(0);
 
   // ═══════════════════════════════════════════════════════════════════════════
