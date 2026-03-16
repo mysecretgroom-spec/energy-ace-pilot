@@ -855,6 +855,7 @@ const EtudeForm = () => {
         }
         if (overrides.estimationDetails) {
           estimationDetailsRef.current = overrides.estimationDetails;
+          setEstimationDetailsDisplay(overrides.estimationDetails);
         }
       }
       // Financement - restaurer l'ID basé sur le nom
