@@ -1652,7 +1652,63 @@ const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?:
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
 
-  // Production
+  // ── Détail de l'estimation (si estimatif) ── (Résultat PDF)
+  if (data.consoIsEstimated && data.estimationDetails) {
+    const est = data.estimationDetails;
+    const isolationLabels: Record<string, string> = {
+      faible: "Faible", moyen: "Moyen", bon: "Bon", tres_bon: "Tres bon", passif: "Passif/RT2012+"
+    };
+    
+    if (ctx) yPos = ensureSpace(ctx, yPos, 40);
+    
+    const breakdownBody: string[][] = [
+      ["Isolation du logement", sanitizePdfText(isolationLabels[est.isolation] || est.isolation), "Occupants", `${est.occupants} pers.`],
+    ];
+    
+    est.heatingZones.forEach((z: any) => {
+      breakdownBody.push([
+        sanitizePdfText(`Chauffage: ${z.label}`),
+        `${z.surface} m² -> ${formatNumber(z.kwh)} kWh`,
+        "", ""
+      ]);
+    });
+    
+    const ecsLabels: Record<string, string> = {
+      electrique: "Electrique", gaz: "Gaz", fioul: "Fioul", thermodynamique: "Thermodynamique", propane: "Propane"
+    };
+    breakdownBody.push([
+      sanitizePdfText(`ECS: ${ecsLabels[est.ecsType] || est.ecsType}`),
+      `${formatNumber(est.ecsKwh)} kWh/an`,
+      "Electricite de base",
+      `${formatNumber(est.baseElecKwh)} kWh/an`
+    ]);
+    
+    if (est.appliances && est.appliances.length > 0) {
+      est.appliances.forEach((app: any) => {
+        breakdownBody.push([sanitizePdfText(app.label), `${formatNumber(app.kwh)} kWh/an`, "", ""]);
+      });
+    }
+    
+    breakdownBody.push([
+      "TOTAL Electricite",
+      `${formatNumber(est.totalElecKwh)} kWh/an`,
+      est.totalCombustibleKwh > 0 ? "TOTAL Combustible" : "",
+      est.totalCombustibleKwh > 0 ? `${formatNumber(est.totalCombustibleKwh)} kWh/an` : ""
+    ]);
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Detail de l'estimation de consommation", "", "", ""]],
+      body: breakdownBody,
+      ...cepcTableStyles,
+      headStyles: { ...cepcTableStyles.headStyles, fontSize: 7 },
+      styles: { ...cepcTableStyles.styles, fontSize: 7, cellPadding: 1.2 },
+      columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
+      margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 4;
+  }
+
   if (ctx) yPos = ensureSpace(ctx, yPos, 35);
   autoTable(doc, {
     startY: yPos,
