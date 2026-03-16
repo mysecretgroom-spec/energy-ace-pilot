@@ -665,6 +665,12 @@ const EtudeForm = () => {
     if (calibresRes.data) setDataCalibres(calibresRes.data);
     if (compteursRes.data) setDataCompteurs(compteursRes.data);
     if (aidesRes.data) setDataAides(aidesRes.data);
+    if (evolutionRes.data && evolutionRes.data.length > 0) {
+      const elecMatch = evolutionRes.data.find((e: any) => 
+        e.type_energie?.toLowerCase().includes("electr") || e.type_energie === "electricite"
+      );
+      if (elecMatch) setTauxAugmentationEnergie(elecMatch.taux_augmentation_annuel);
+    }
 
     // Load regie-specific bouquets and financements if regie is set
     let bouquetsData: DataBouquet[] = [];
