@@ -972,12 +972,19 @@ const EtudeForm = () => {
   // Mise à jour du surcoût support selon le type de support — uniquement depuis les surcoûts régie
   useEffect(() => {
     if (regieSurcouts.length > 0) {
-      const regieSupport = regieSurcouts.find(s => 
-        s.categorie === "support" && 
-        (supportInstallation.toUpperCase().includes(s.nom.toUpperCase()) || 
-         s.nom.toUpperCase().includes(supportInstallation.replace(/ /g, "_").toUpperCase().split("(")[0].trim()) ||
-         s.code.toLowerCase().includes(supportInstallation.toLowerCase().replace(/ /g, "_").replace("(", "").replace(")", "")))
-      );
+      // Normalize: remove slashes, parentheses, extra spaces, underscores → lowercase words
+      const normalize = (str: string) => str.toLowerCase().replace(/[/_\-()]/g, " ").replace(/\s+/g, " ").trim();
+      const normalizedSupport = normalize(supportInstallation);
+      
+      const regieSupport = regieSurcouts.find(s => {
+        if (s.categorie !== "support") return false;
+        const normalizedNom = normalize(s.nom);
+        const normalizedCode = normalize(s.code);
+        return normalizedSupport.includes(normalizedNom) || 
+               normalizedNom.includes(normalizedSupport.split("(")[0].trim()) ||
+               normalizedCode.includes(normalizedSupport.replace(/ /g, "")) ||
+               normalizedSupport.includes(normalizedCode.replace(/ /g, ""));
+      });
       if (regieSupport) {
         if (regieSupport.type_calcul === "par_panneau") {
           const nbPanneaux = Math.round((puissanceKwc || 0) * 2);
