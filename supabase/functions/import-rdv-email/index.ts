@@ -702,11 +702,11 @@ serve(async (req) => {
     else if (typeProjet.includes("ballon") || typeProjet.includes("thermo") || typeProjet.includes("ecs")) typeProjet = "ballon_thermo";
     else if (!validProjectTypes.includes(typeProjet)) typeProjet = "photovoltaique";
 
-    // Build commentaire
+    // Build commentaire — merge all sources into a single block
     const commentParts: string[] = [];
+    if (validated.RDV?.commentaire_regie) commentParts.push(validated.RDV.commentaire_regie);
     if (validated.RDV?.commentaire) commentParts.push(validated.RDV.commentaire);
-    if (validated.RDV?.commentaire_regie) commentParts.push(`[Commentaire Régie] ${validated.RDV.commentaire_regie}`);
-    const fullCommentaire = commentParts.join("\n\n") || null;
+    const fullCommentaire = commentParts.join("\n") || null;
 
     // Intent-specific RDV properties
     let typeRdv = "standard";
