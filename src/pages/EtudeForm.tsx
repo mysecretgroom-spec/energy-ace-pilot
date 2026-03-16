@@ -1421,6 +1421,7 @@ const EtudeForm = () => {
       param_overrides: {
         heuresEnsoleillement,
         usePshCalculation,
+        estimationDetails: estimationDetailsRef.current || undefined,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
