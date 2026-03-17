@@ -435,37 +435,34 @@ export function RdvContextMenu({
             {/* Safe area padding for iOS + bottom nav */}
             <div className="h-20 sm:h-6" />
           </motion.div>
-
-          {/* External Vente Dialog - higher z-index */}
-          <div className="[&_.fixed]:!z-[200]">
-            <ExternalVenteDialog
-              open={externalVenteDialogOpen}
-              onOpenChange={setExternalVenteDialogOpen}
-              clientId={rdv.clientId}
-              clientName={rdv.client}
-              rdvId={rdv.id}
-              rdvDate={rdv.date.toISOString().split("T")[0]}
-              regieId={regieId}
-              onSuccess={() => {
-                onRefresh?.();
-                onClose();
-              }}
-            />
-          </div>
-
-          {/* Delete Confirmation Dialog - higher z-index */}
-          <div className="[&_.fixed]:!z-[200]">
-            <DeleteConfirmDialog
-              open={isDeleteDialogOpen}
-              onOpenChange={cancelDelete}
-              onConfirm={confirmDelete}
-              title="Supprimer ce RDV ?"
-              description={`Le rendez-vous avec ${rdv.client} sera supprimé définitivement.`}
-              isLoading={isDeleting}
-            />
-          </div>
         </>
       )}
     </AnimatePresence>
+
+    {/* External Vente Dialog - outside AnimatePresence to avoid ref warnings */}
+    <ExternalVenteDialog
+      open={externalVenteDialogOpen}
+      onOpenChange={setExternalVenteDialogOpen}
+      clientId={rdv.clientId}
+      clientName={rdv.client}
+      rdvId={rdv.id}
+      rdvDate={rdv.date.toISOString().split("T")[0]}
+      regieId={regieId}
+      onSuccess={() => {
+        onRefresh?.();
+        onClose();
+      }}
+    />
+
+    {/* Delete Confirmation Dialog - outside AnimatePresence */}
+    <DeleteConfirmDialog
+      open={isDeleteDialogOpen}
+      onOpenChange={cancelDelete}
+      onConfirm={confirmDelete}
+      title="Supprimer ce RDV ?"
+      description={`Le rendez-vous avec ${rdv.client} sera supprimé définitivement.`}
+      isLoading={isDeleting}
+    />
+  </>
   );
 }
