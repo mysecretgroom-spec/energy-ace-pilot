@@ -360,6 +360,17 @@ serve(async (req) => {
       );
     }
 
+    // ── PHONE FALLBACK: if AI didn't find a phone, try regex extraction ──
+    if (!extracted.CONTACT.telephone) {
+      const fallbackPhone = extractPhoneFromBodyFallback(body);
+      if (fallbackPhone) {
+        extracted.CONTACT.telephone = fallbackPhone;
+        console.log(`Phone extracted via regex fallback: ${fallbackPhone}`);
+      } else {
+        console.log("No phone found by AI or regex fallback");
+      }
+    }
+
     const validated = validateLeadData(extracted);
     if (!validated) {
       return new Response(
