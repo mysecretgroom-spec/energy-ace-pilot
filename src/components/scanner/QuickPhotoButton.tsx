@@ -35,6 +35,24 @@ export function QuickPhotoButton({
   const { user } = useAuth();
   const { isOnline, savePendingDocument } = useOfflineDocuments();
 
+  const saveToDevice = (file: File) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.${file.name.split(".").pop() || "jpg"}`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.warn("Impossible de sauvegarder dans les téléchargements:", err);
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -42,6 +60,9 @@ export function QuickPhotoButton({
     setIsUploading(true);
 
     try {
+      // Sauvegarder l'image originale dans les téléchargements (pellicule)
+      saveToDevice(file);
+
       // Convertir l'image en PDF
       const { blob: pdfBlob, thumbnails } = await generatePdfFromFile(file);
       
