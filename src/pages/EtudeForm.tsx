@@ -2821,6 +2821,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_tableau"
                   label="Photo"
+                  etudeId={currentEtudeId}
                   onPhotoSaved={triggerImmediateSave}
                 />
               )}
