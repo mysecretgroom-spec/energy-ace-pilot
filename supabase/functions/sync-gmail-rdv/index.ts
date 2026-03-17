@@ -369,6 +369,44 @@ function stripHtml(html: string): string {
     }
   }
 
+  // ── PHONE EXTRACTION FROM HTML TABLE CELLS ────────────────────────────────
+  // Detect patterns like <td>Téléphone</td><td>06 12 34 56 78</td>
+  // Also handles <th>/<td>, <b>Tél:</b>, spans, etc.
+  const phoneLabels = /(?:t[ée]l[ée]?phone|portable|mobile|gsm|num[ée]ro|t[ée]l|phone|fixe|cell)/i;
+  
+  // Match table rows containing phone labels
+  const tablePhonePatterns = [
+    // <td>Label</td><td>Value</td> (with possible nested tags)
+    /<t[dh][^>]*>[\s\S]*?(?:t[ée]l[ée]?phone|portable|mobile|gsm|num[ée]ro|t[ée]l|phone|fixe)[\s\S]*?<\/t[dh]>\s*<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi,
+    // <b>Label:</b> Value or <strong>Label:</strong> Value in same cell
+    /<(?:b|strong)[^>]*>[\s]*(?:t[ée]l[ée]?phone|portable|mobile|gsm|t[ée]l|phone|fixe)[\s]*:?[\s]*<\/(?:b|strong)>\s*([\s\S]*?)(?:<(?:br|\/td|\/p|\/div|\/li))/gi,
+    // <span>Label</span><span>Value</span>
+    /<span[^>]*>[\s\S]*?(?:t[ée]l[ée]?phone|portable|mobile|gsm|t[ée]l)[\s\S]*?<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>/gi,
+  ];
+
+  for (const pattern of tablePhonePatterns) {
+    const matches = html.matchAll(pattern);
+    for (const match of matches) {
+      const rawValue = match[1].replace(/<[^>]+>/g, "").trim();
+      // Check if it looks like a phone number (has enough digits)
+      const digits = rawValue.replace(/\D/g, "");
+      if (digits.length >= 10 && digits.length <= 15) {
+        hiddenData.push(`Téléphone (tableau): ${rawValue}`);
+      }
+    }
+  }
+
+  // ── GLOBAL PHONE NUMBER SWEEP FROM HTML ─────────────────────────────────
+  // Find ALL phone numbers in the raw HTML that might be near phone labels
+  const phoneContextPattern = /(?:t[ée]l[ée]?phone|portable|mobile|gsm|num[ée]ro|t[ée]l|phone|fixe)\s*(?::|\s|<[^>]*>)*\s*(?:<[^>]*>)*\s*((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})/gi;
+  const contextPhones = html.matchAll(phoneContextPattern);
+  for (const match of contextPhones) {
+    const phone = match[1].trim();
+    if (!hiddenData.some(d => d.includes(phone.replace(/\D/g, "").slice(-8)))) {
+      hiddenData.push(`Téléphone (contexte HTML): ${phone}`);
+    }
+  }
+
   text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
     const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
     const cleanValue = value.replace(/<[^>]+>/g, "").trim();

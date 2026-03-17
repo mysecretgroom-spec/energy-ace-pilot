@@ -217,6 +217,46 @@ function normalizePhone(phone: string | undefined): string | null {
   return digits;
 }
 
+/**
+ * Fallback phone extraction from raw email body using regex patterns.
+ * Used when AI fails to extract a phone number.
+ */
+function extractPhoneFromBodyFallback(body: string): string | null {
+  // Patterns ordered by specificity (labeled phones first, then standalone)
+  const labeledPatterns = [
+    // "Téléphone: 06 12 34 56 78" or "Tel : 0612345678"
+    /(?:t[ée]l[ée]?phone|portable|mobile|gsm|num[ée]ro|t[ée]l|phone|fixe)\s*[:=]?\s*((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})/gi,
+    // "Téléphone (tableau): 06 12 34 56 78" (from our HTML extraction)
+    /(?:t[ée]l[ée]?phone|portable|mobile)\s*\([^)]*\)\s*[:=]?\s*((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})/gi,
+  ];
+
+  for (const pattern of labeledPatterns) {
+    const match = pattern.exec(body);
+    if (match) {
+      const normalized = normalizePhone(match[1]);
+      if (normalized) return normalized;
+    }
+  }
+
+  // Standalone French phone numbers (06/07 mobile preferred)
+  const mobilePattern = /(?<!\d)(0[67][\s.\-]?\d{2}(?:[\s.\-]?\d{2}){3})(?!\d)/g;
+  const mobileMatch = mobilePattern.exec(body);
+  if (mobileMatch) {
+    const normalized = normalizePhone(mobileMatch[1]);
+    if (normalized) return normalized;
+  }
+
+  // Any French phone number
+  const anyPhonePattern = /(?<!\d)((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})(?!\d)/g;
+  const anyMatch = anyPhonePattern.exec(body);
+  if (anyMatch) {
+    const normalized = normalizePhone(anyMatch[1]);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
 function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
   try {
     const dataToValidate = {
@@ -318,6 +358,17 @@ serve(async (req) => {
         JSON.stringify({ success: false, error: "Could not extract lead data (nom manquant)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // ── PHONE FALLBACK: if AI didn't find a phone, try regex extraction ──
+    if (!extracted.CONTACT.telephone) {
+      const fallbackPhone = extractPhoneFromBodyFallback(body);
+      if (fallbackPhone) {
+        extracted.CONTACT.telephone = fallbackPhone;
+        console.log(`Phone extracted via regex fallback: ${fallbackPhone}`);
+      } else {
+        console.log("No phone found by AI or regex fallback");
+      }
     }
 
     const validated = validateLeadData(extracted);
@@ -632,7 +683,21 @@ serve(async (req) => {
         isDuplicateClient = true;
       }
 
+      // Update client with any new data (phone, email) that we now have but they don't
       const updateData: Record<string, unknown> = {};
+      
+      // Update primary phone if client doesn't have one yet
+      if (phone1) {
+        const { data: currentClient } = await supabase
+          .from("clients")
+          .select("telephone")
+          .eq("id", clientId)
+          .single();
+        if (!currentClient?.telephone) {
+          updateData.telephone = phone1;
+          console.log(`Updating existing client ${clientId} with phone: ${phone1}`);
+        }
+      }
       if (phone2) updateData.telephone_secondaire = phone2;
       if (email) updateData.email = email;
       if (Object.keys(updateData).length > 0) {
