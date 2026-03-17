@@ -1622,10 +1622,45 @@ const EtudeForm = () => {
           annule: "annule", reporte: "reporte", porte: "porte",
         };
         const rdvStatus = classificationToRdvStatus[classification] as "signe" | "negatif" | "r2" | "r2_prestudy" | "annule" | "reporte" | "porte" | undefined;
-        if (rdvStatus && rdvId) {
-          postSaveOps.push(
-            Promise.resolve(supabase.from("rdv").update({ status: rdvStatus }).eq("id", rdvId)).then(() => {})
-          );
+        if (rdvStatus) {
+          postSaveOps.push((async () => {
+            let targetRdvId = rdvId;
+            // Fallback: if rdvId is null, find the RDV linked to this étude or the most recent for this client
+            if (!targetRdvId && savedEtudeId) {
+              const { data: linkedRdv } = await supabase
+                .from("rdv")
+                .select("id")
+                .eq("etude_id", savedEtudeId)
+                .maybeSingle();
+              if (linkedRdv) {
+                targetRdvId = linkedRdv.id;
+              } else if (clientId) {
+                // Last resort: find the most recent non-terminal RDV for this client
+                const { data: recentRdv } = await supabase
+                  .from("rdv")
+                  .select("id")
+                  .eq("client_id", clientId)
+                  .eq("user_id", user.id)
+                  .not("status", "in", '("annule","reporte")')
+                  .order("date_heure", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (recentRdv) {
+                  targetRdvId = recentRdv.id;
+                }
+              }
+            }
+            if (targetRdvId) {
+              await supabase.from("rdv").update({ 
+                status: rdvStatus,
+                etude_id: savedEtudeId, // Also link the étude to the RDV
+              }).eq("id", targetRdvId);
+              // Update local rdvId for subsequent operations
+              if (!rdvId) {
+                setResolvedRdvId(targetRdvId);
+              }
+            }
+          })());
         }
       }
 
