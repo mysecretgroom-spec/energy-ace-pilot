@@ -234,35 +234,60 @@ export function MultiDocumentSelector({
 
       let failedDocs: string[] = [];
       for (const doc of selectedDocs) {
-        const fileType = getFileType(doc);
-        try {
-          console.log(`[MergedPDF] Processing "${doc.nom}" (type: ${fileType}, url: ${doc.url.substring(0, 80)}...)`);
-          const arrayBuffer = await fetchAsArrayBuffer(doc.url);
-          console.log(`[MergedPDF] Fetched "${doc.nom}": ${arrayBuffer.byteLength} bytes`);
+        let fileType = getFileType(doc);
+        let lastError: unknown = null;
 
-          if (fileType === "pdf") {
-            const pdfDoc = await PDFDocument.load(arrayBuffer);
-            const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-            pages.forEach((page) => mergedPdf.addPage(page));
-          } else if (fileType === "image") {
-            const url = doc.url.toLowerCase();
-            const image =
-              url.includes(".png") || url.includes("image/png")
-                ? await mergedPdf.embedPng(arrayBuffer)
-                : await mergedPdf.embedJpg(arrayBuffer);
+        // Retry up to 2 times (initial + 1 retry) for transient network issues
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            console.log(`[MergedPDF] Processing "${doc.nom}" (type: ${fileType}, attempt: ${attempt + 1}, url: ${doc.url.substring(0, 80)}...)`);
+            const arrayBuffer = await fetchAsArrayBuffer(doc.url);
+            console.log(`[MergedPDF] Fetched "${doc.nom}": ${arrayBuffer.byteLength} bytes`);
 
-            // Fit to A4 with margins instead of raw pixel size
-            const A4_W = 595, A4_H = 842, MARGIN = 20;
-            const scale = Math.min((A4_W - 2 * MARGIN) / image.width, (A4_H - 2 * MARGIN) / image.height, 1);
-            const sw = image.width * scale, sh = image.height * scale;
-            const page = mergedPdf.addPage([A4_W, A4_H]);
-            page.drawImage(image, { x: (A4_W - sw) / 2, y: A4_H - MARGIN - sh, width: sw, height: sh });
-          } else {
-            console.warn(`[MergedPDF] Unknown file type for "${doc.nom}", skipping`);
-            failedDocs.push(doc.nom);
+            if (arrayBuffer.byteLength === 0) {
+              throw new Error("Empty file (0 bytes)");
+            }
+
+            // Detect actual content type from magic bytes if getFileType returned unknown
+            if (fileType === "unknown") {
+              const header = new Uint8Array(arrayBuffer.slice(0, 5));
+              const headerStr = String.fromCharCode(...header);
+              if (headerStr.startsWith("%PDF")) fileType = "pdf";
+              else if (header[0] === 0xFF && header[1] === 0xD8) fileType = "image"; // JPEG
+              else if (header[0] === 0x89 && headerStr.includes("PNG")) fileType = "image"; // PNG
+            }
+
+            if (fileType === "pdf") {
+              const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+              const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+              pages.forEach((page) => mergedPdf.addPage(page));
+            } else if (fileType === "image") {
+              const url = doc.url.toLowerCase();
+              const image =
+                url.includes(".png") || url.includes("image/png")
+                  ? await mergedPdf.embedPng(arrayBuffer)
+                  : await mergedPdf.embedJpg(arrayBuffer);
+
+              const A4_W = 595, A4_H = 842, MARGIN = 20;
+              const scale = Math.min((A4_W - 2 * MARGIN) / image.width, (A4_H - 2 * MARGIN) / image.height, 1);
+              const sw = image.width * scale, sh = image.height * scale;
+              const page = mergedPdf.addPage([A4_W, A4_H]);
+              page.drawImage(image, { x: (A4_W - sw) / 2, y: A4_H - MARGIN - sh, width: sw, height: sh });
+            } else {
+              console.warn(`[MergedPDF] Unknown file type for "${doc.nom}", skipping`);
+              failedDocs.push(doc.nom);
+            }
+            lastError = null;
+            break; // Success, no need to retry
+          } catch (error) {
+            lastError = error;
+            console.warn(`[MergedPDF] Attempt ${attempt + 1} failed for "${doc.nom}":`, error);
+            if (attempt < 1) await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
           }
-        } catch (error) {
-          console.error(`[MergedPDF] Error processing "${doc.nom}":`, error);
+        }
+
+        if (lastError) {
+          console.error(`[MergedPDF] All attempts failed for "${doc.nom}":`, lastError);
           failedDocs.push(doc.nom);
         }
       }

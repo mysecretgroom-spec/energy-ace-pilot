@@ -9,17 +9,20 @@ const COMPRESSION_OPTIONS = {
   fileType: "image/jpeg" as const,
 };
 
-// Convert Uint8Array to base64 string (safe for large files)
+// Convert Uint8Array to base64 string (safe for large files, avoids call stack overflow on mobile)
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  const CHUNK_SIZE = 0x8000; // 32KB chunks
-  const chunks: string[] = [];
-  
+  const CHUNK_SIZE = 8192; // 8KB chunks — safe for all mobile browsers
+  let binary = "";
+
   for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
-    chunks.push(String.fromCharCode(...chunk));
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    // Loop instead of spread to avoid exceeding call stack limit (~65K args)
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
   }
-  
-  return btoa(chunks.join(""));
+
+  return btoa(binary);
 }
 
 function generatePlaceholderThumbnail(fileName: string, fileSize?: number): string {
