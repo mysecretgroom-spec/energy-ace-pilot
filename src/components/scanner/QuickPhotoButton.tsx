@@ -16,6 +16,7 @@ interface QuickPhotoButtonProps {
   clientId: string;
   category: QuickPhotoCategory;
   label: string;
+  etudeId?: string | null;
   onPhotoSaved?: () => void;
 }
 
