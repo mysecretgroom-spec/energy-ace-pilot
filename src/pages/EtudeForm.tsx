@@ -964,23 +964,77 @@ const EtudeForm = () => {
 
   // Normalize helper for robust surcharge matching
   // Strips accents, special chars, converts to lowercase tokens
-  const normalizeSurcout = (str: string) => 
-    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // strip accents
-       .toLowerCase()
-       .replace(/[/_\-().<>]/g, " ")
-       .replace(/\s+/g, " ")
-       .trim();
+  const normalizeSurcout = (str: string) =>
+    str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // strip accents
+      .toLowerCase()
+      .replace(/[/_\-().<>]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const getEmplacementRange = (value: string): "a_cote" | "lt_10m" | "gt_10m" | null => {
+    const raw = value.toLowerCase();
+    if (!raw) return null;
+    if (raw.includes("a côté") || raw.includes("a cote")) return "a_cote";
+    if (raw.includes("<")) return "lt_10m";
+    if (raw.includes(">")) return "gt_10m";
+    return null;
+  };
+
+  const isEmplacementMatch = (surcout: RegieSurcout, emplacementValue: string) => {
+    const nNom = normalizeSurcout(surcout.nom);
+    const nCode = normalizeSurcout(surcout.code);
+    const normalizedEmpl = normalizeSurcout(emplacementValue);
+    const range = getEmplacementRange(emplacementValue);
+
+    if (range === "a_cote") {
+      return nCode.includes("a cote") || nNom.includes("a cote");
+    }
+
+    if (range === "lt_10m") {
+      return (
+        nCode.includes("inf 10") ||
+        nCode.includes("0 10") ||
+        nNom.includes("inf 10") ||
+        nNom.includes("moins de 10") ||
+        nNom.includes("0 a 10")
+      );
+    }
+
+    if (range === "gt_10m") {
+      return (
+        nCode.includes("10 20") ||
+        nCode.includes("sup 10") ||
+        nNom.includes("10 a 20") ||
+        nNom.includes("plus de 10") ||
+        nNom.includes("sup 10")
+      );
+    }
+
+    return (
+      normalizedEmpl.includes(nNom) ||
+      nNom.includes(normalizedEmpl) ||
+      normalizedEmpl.includes(nCode) ||
+      nCode.includes(normalizedEmpl) ||
+      nNom.split(" ").filter((t) => t.length > 2).every((t) => normalizedEmpl.includes(t))
+    );
+  };
 
   // Mise à jour du surcoût compteur selon le type de raccordement
   useEffect(() => {
     if (regieSurcouts.length > 0) {
       const normalizedType = normalizeSurcout(typeRaccordement);
-      const regieCompteur = regieSurcouts.find(s => {
+      const regieCompteur = regieSurcouts.find((s) => {
         if (s.categorie !== "compteur") return false;
         const nNom = normalizeSurcout(s.nom);
         const nCode = normalizeSurcout(s.code);
-        return normalizedType.includes(nNom) || nNom.includes(normalizedType) ||
-               normalizedType.includes(nCode) || nCode.includes(normalizedType);
+        return (
+          normalizedType.includes(nNom) ||
+          nNom.includes(normalizedType) ||
+          normalizedType.includes(nCode) ||
+          nCode.includes(normalizedType)
+        );
       });
       if (regieCompteur) {
         setSurcoutCompteur(regieCompteur.prix);
@@ -988,7 +1042,7 @@ const EtudeForm = () => {
       }
     }
     // Fallback aux surcoûts globaux
-    const compteur = dataCompteurs.find(c => c.type_compteur === typeRaccordement);
+    const compteur = dataCompteurs.find((c) => c.type_compteur === typeRaccordement);
     if (compteur) {
       setSurcoutCompteur(compteur.montant);
     } else {
@@ -1000,17 +1054,21 @@ const EtudeForm = () => {
   useEffect(() => {
     if (regieSurcouts.length > 0) {
       const normalizedSupport = normalizeSurcout(supportInstallation);
-      
-      const regieSupport = regieSurcouts.find(s => {
+
+      const regieSupport = regieSurcouts.find((s) => {
         if (s.categorie !== "support") return false;
         const nNom = normalizeSurcout(s.nom);
         const nCode = normalizeSurcout(s.code);
         // Check if key words overlap (e.g. "pergola", "surimposition", "sol", "bac gse")
-        return normalizedSupport.includes(nNom) || nNom.includes(normalizedSupport) ||
-               normalizedSupport.includes(nCode) || nCode.includes(normalizedSupport) ||
-               // Token-based: check if all tokens of DB entry exist in the UI value
-               nNom.split(" ").filter(t => t.length > 2).every(t => normalizedSupport.includes(t)) ||
-               nCode.split(" ").filter(t => t.length > 2).every(t => normalizedSupport.includes(t));
+        return (
+          normalizedSupport.includes(nNom) ||
+          nNom.includes(normalizedSupport) ||
+          normalizedSupport.includes(nCode) ||
+          nCode.includes(normalizedSupport) ||
+          // Token-based: check if all tokens of DB entry exist in the UI value
+          nNom.split(" ").filter((t) => t.length > 2).every((t) => normalizedSupport.includes(t)) ||
+          nCode.split(" ").filter((t) => t.length > 2).every((t) => normalizedSupport.includes(t))
+        );
       });
       if (regieSupport) {
         if (regieSupport.type_calcul === "par_panneau") {
@@ -1028,16 +1086,10 @@ const EtudeForm = () => {
   // Mise à jour du surcoût emplacement boîtier
   useEffect(() => {
     if (regieSurcouts.length > 0) {
-      const normalizedEmpl = normalizeSurcout(emplacementBoitier);
-      
-      const regieEmpl = regieSurcouts.find(s => {
-        if (s.categorie !== "emplacement_boitier") return false;
-        const nNom = normalizeSurcout(s.nom);
-        const nCode = normalizeSurcout(s.code);
-        return normalizedEmpl.includes(nNom) || nNom.includes(normalizedEmpl) ||
-               normalizedEmpl.includes(nCode) || nCode.includes(normalizedEmpl) ||
-               nNom.split(" ").filter(t => t.length > 2).every(t => normalizedEmpl.includes(t));
-      });
+      const regieEmpl = regieSurcouts.find(
+        (s) => s.categorie === "emplacement_boitier" && isEmplacementMatch(s, emplacementBoitier)
+      );
+
       if (regieEmpl) {
         setSurcoutEmplacement(regieEmpl.prix);
         return;
