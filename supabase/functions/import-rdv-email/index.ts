@@ -217,6 +217,46 @@ function normalizePhone(phone: string | undefined): string | null {
   return digits;
 }
 
+/**
+ * Fallback phone extraction from raw email body using regex patterns.
+ * Used when AI fails to extract a phone number.
+ */
+function extractPhoneFromBodyFallback(body: string): string | null {
+  // Patterns ordered by specificity (labeled phones first, then standalone)
+  const labeledPatterns = [
+    // "Téléphone: 06 12 34 56 78" or "Tel : 0612345678"
+    /(?:t[ée]l[ée]?phone|portable|mobile|gsm|num[ée]ro|t[ée]l|phone|fixe)\s*[:=]?\s*((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})/gi,
+    // "Téléphone (tableau): 06 12 34 56 78" (from our HTML extraction)
+    /(?:t[ée]l[ée]?phone|portable|mobile)\s*\([^)]*\)\s*[:=]?\s*((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})/gi,
+  ];
+
+  for (const pattern of labeledPatterns) {
+    const match = pattern.exec(body);
+    if (match) {
+      const normalized = normalizePhone(match[1]);
+      if (normalized) return normalized;
+    }
+  }
+
+  // Standalone French phone numbers (06/07 mobile preferred)
+  const mobilePattern = /(?<!\d)(0[67][\s.\-]?\d{2}(?:[\s.\-]?\d{2}){3})(?!\d)/g;
+  const mobileMatch = mobilePattern.exec(body);
+  if (mobileMatch) {
+    const normalized = normalizePhone(mobileMatch[1]);
+    if (normalized) return normalized;
+  }
+
+  // Any French phone number
+  const anyPhonePattern = /(?<!\d)((?:\+33|0)[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4})(?!\d)/g;
+  const anyMatch = anyPhonePattern.exec(body);
+  if (anyMatch) {
+    const normalized = normalizePhone(anyMatch[1]);
+    if (normalized) return normalized;
+  }
+
+  return null;
+}
+
 function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
   try {
     const dataToValidate = {
