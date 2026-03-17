@@ -50,10 +50,13 @@ export function QuickPhotoButton({
         const reader = new FileReader();
         reader.onload = async (event) => {
           const pdfData = event.target?.result as string;
+          const offlineDocType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any) 
+            ? category as "photo_chantier" 
+            : "photo_chantier";
           await savePendingDocument({
             clientId,
             nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
-            typeDocument: "photo_chantier",
+            typeDocument: offlineDocType,
             imageData: pdfData,
             mimeType: "application/pdf",
             contextSource: category,
