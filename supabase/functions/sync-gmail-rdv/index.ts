@@ -119,9 +119,11 @@ interface ExtractedContent {
   icalData: string;
 }
 
-function extractAllContentFromPayload(payload: any): ExtractedContent {
+function extractAllContentFromPayload(payload: any, messageId?: string): ExtractedContent {
   const result: ExtractedContent = { text: "", rawHtml: "", icalData: "" };
-  collectParts(payload, result);
+  // Clear pending attachments from previous message
+  pendingAttachments.length = 0;
+  collectParts(payload, result, messageId);
 
   // If no plain text, derive from HTML
   if (!result.text && result.rawHtml) {
