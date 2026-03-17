@@ -24,6 +24,7 @@ export function QuickPhotoButton({
   clientId,
   category,
   label,
+  etudeId,
   onPhotoSaved,
 }: QuickPhotoButtonProps) {
   const [isUploading, setIsUploading] = useState(false);
