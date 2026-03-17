@@ -215,9 +215,11 @@ function parseICalToText(icalData: string): string {
   // Unfold iCal line continuations (lines starting with space/tab)
   const unfolded = icalData.replace(/\r?\n[ \t]/g, "");
 
-  // Extract VEVENT block
-  const veventMatch = unfolded.match(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/i);
-  const content = veventMatch ? veventMatch[1] : unfolded;
+  // Extract ALL VEVENT blocks (some emails have multiple)
+  const veventMatches = [...unfolded.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/gi)];
+  const contents = veventMatches.length > 0 
+    ? veventMatches.map(m => m[1]) 
+    : [unfolded];
 
   const fieldMap: Record<string, string> = {
     "SUMMARY": "Résumé",
@@ -229,38 +231,60 @@ function parseICalToText(icalData: string): string {
     "ORGANIZER": "Organisateur",
     "COMMENT": "Commentaire",
     "CONTACT": "Contact",
+    "X-ALT-DESC": "Description HTML",
+    "X-COMMENT": "Commentaire",
+    "X-PHONE": "Téléphone",
+    "X-TEL": "Téléphone",
+    "X-MOBILE": "Mobile",
   };
 
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("BEGIN:") || trimmed.startsWith("END:")) continue;
+  for (const content of contents) {
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("BEGIN:") || trimmed.startsWith("END:")) continue;
 
-    // Handle properties with params like DTSTART;TZID=...:value
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx === -1) continue;
+      // Handle properties with params like DTSTART;TZID=...:value
+      const colonIdx = trimmed.indexOf(":");
+      if (colonIdx === -1) continue;
 
-    let propFull = trimmed.substring(0, colonIdx);
-    let value = trimmed.substring(colonIdx + 1);
+      let propFull = trimmed.substring(0, colonIdx);
+      let value = trimmed.substring(colonIdx + 1);
 
-    // Strip parameters (e.g., DTSTART;TZID=Europe/Paris → DTSTART)
-    const semiIdx = propFull.indexOf(";");
-    const propName = (semiIdx !== -1 ? propFull.substring(0, semiIdx) : propFull).toUpperCase();
+      // Strip parameters (e.g., DTSTART;TZID=Europe/Paris → DTSTART)
+      const semiIdx = propFull.indexOf(";");
+      const propName = (semiIdx !== -1 ? propFull.substring(0, semiIdx) : propFull).toUpperCase();
 
-    // Decode escaped chars
-    value = value.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\\\/g, "\\");
+      // Decode escaped chars
+      value = value.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\\\/g, "\\");
 
-    const label = fieldMap[propName];
-    if (label && value.trim()) {
-      lines.push(`${label}: ${value.trim()}`);
+      // For X-ALT-DESC (HTML description), strip HTML tags
+      if (propName === "X-ALT-DESC") {
+        value = value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      }
+
+      const label = fieldMap[propName];
+      if (label && value.trim()) {
+        lines.push(`${label}: ${value.trim()}`);
+      }
     }
-  }
 
-  // Extract phone numbers from DESCRIPTION or any field
-  const phoneMatches = content.match(/(?:(?:tel|tél|telephone|téléphone|portable|mobile|phone)\s*[:=]?\s*)?(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/gi);
-  if (phoneMatches) {
-    for (const phone of phoneMatches) {
-      if (!lines.some(l => l.includes(phone.trim()))) {
-        lines.push(`Téléphone (iCal): ${phone.trim()}`);
+    // Extract phone numbers from the full iCal content (all formats)
+    const phonePatterns = [
+      // French formats with labels
+      /(?:tel|tél|telephone|téléphone|portable|mobile|phone|gsm|fixe|num)\s*[:=]?\s*(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/gi,
+      // Standalone French phone numbers
+      /(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/g,
+      // International format
+      /\+\d{2,3}[\s.-]?\d[\s.-]?\d{2}(?:[\s.-]?\d{2}){3}/g,
+    ];
+
+    for (const pattern of phonePatterns) {
+      const phoneMatches = content.matchAll(pattern);
+      for (const match of phoneMatches) {
+        const phone = match[0].trim();
+        if (!lines.some(l => l.includes(phone))) {
+          lines.push(`Téléphone (iCal): ${phone}`);
+        }
       }
     }
   }
