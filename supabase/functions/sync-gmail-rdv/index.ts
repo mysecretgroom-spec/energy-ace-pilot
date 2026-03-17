@@ -351,6 +351,24 @@ function stripHtml(html: string): string {
     }
   }
 
+  // Extract tel: links (often contain phone numbers)
+  const telLinks = html.matchAll(/<a[^>]*href\s*=\s*["']tel:([^"']+)["'][^>]*>/gi);
+  for (const match of telLinks) {
+    const phone = match[1].replace(/[^\d+]/g, "").trim();
+    if (phone.length >= 10) {
+      hiddenData.push(`Téléphone (lien): ${phone}`);
+    }
+  }
+
+  // Extract mailto: links for client email
+  const mailtoLinks = html.matchAll(/<a[^>]*href\s*=\s*["']mailto:([^"'?]+)["'?][^>]*>/gi);
+  for (const match of mailtoLinks) {
+    const email = match[1].trim();
+    if (email.includes("@") && !email.includes("unsubscribe")) {
+      hiddenData.push(`Email (lien): ${email}`);
+    }
+  }
+
   text = text.replace(/<tr[^>]*>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/gi, (_, label, value) => {
     const cleanLabel = label.replace(/<[^>]+>/g, "").trim();
     const cleanValue = value.replace(/<[^>]+>/g, "").trim();
