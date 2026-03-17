@@ -91,6 +91,7 @@ export function QuickPhotoButton({
       const { error: dbError } = await supabase.from("documents").insert({
         user_id: user.id,
         client_id: clientId,
+        etude_id: etudeId || null,
         nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
         type_document: "photo_chantier",
         url: urlData.publicUrl,
