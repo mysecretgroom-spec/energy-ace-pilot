@@ -683,7 +683,21 @@ serve(async (req) => {
         isDuplicateClient = true;
       }
 
+      // Update client with any new data (phone, email) that we now have but they don't
       const updateData: Record<string, unknown> = {};
+      
+      // Update primary phone if client doesn't have one yet
+      if (phone1) {
+        const { data: currentClient } = await supabase
+          .from("clients")
+          .select("telephone")
+          .eq("id", clientId)
+          .single();
+        if (!currentClient?.telephone) {
+          updateData.telephone = phone1;
+          console.log(`Updating existing client ${clientId} with phone: ${phone1}`);
+        }
+      }
       if (phone2) updateData.telephone_secondaire = phone2;
       if (email) updateData.email = email;
       if (Object.keys(updateData).length > 0) {
