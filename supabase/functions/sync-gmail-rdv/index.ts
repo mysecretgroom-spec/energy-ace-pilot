@@ -119,9 +119,11 @@ interface ExtractedContent {
   icalData: string;
 }
 
-function extractAllContentFromPayload(payload: any): ExtractedContent {
+function extractAllContentFromPayload(payload: any, messageId?: string): ExtractedContent {
   const result: ExtractedContent = { text: "", rawHtml: "", icalData: "" };
-  collectParts(payload, result);
+  // Clear pending attachments from previous message
+  pendingAttachments.length = 0;
+  collectParts(payload, result, messageId);
 
   // If no plain text, derive from HTML
   if (!result.text && result.rawHtml) {
@@ -131,11 +133,22 @@ function extractAllContentFromPayload(payload: any): ExtractedContent {
   return result;
 }
 
-function collectParts(part: any, result: ExtractedContent): void {
+// Pending attachment fetches (populated during collectParts, resolved after)
+interface PendingAttachment {
+  attachmentId: string;
+  messageId: string;
+  mimeType: string;
+  filename: string;
+}
+
+const pendingAttachments: PendingAttachment[] = [];
+
+function collectParts(part: any, result: ExtractedContent, messageId?: string): void {
   if (!part) return;
 
   const mime = part.mimeType || "";
   const data = part.body?.data;
+  const attachmentId = part.body?.attachmentId;
 
   if (data) {
     if (mime === "text/plain" && !result.text) {
@@ -147,16 +160,50 @@ function collectParts(part: any, result: ExtractedContent): void {
     }
   }
 
-  // Also check attachments with .ics filename
+  // Also check attachments with .ics filename (inline data)
   if (part.filename && part.filename.endsWith(".ics") && data) {
     result.icalData += decodeBase64Url(data) + "\n";
   }
 
-  if (part.parts) {
-    for (const subpart of part.parts) {
-      collectParts(subpart, result);
+  // Queue attachment fetch if data is NOT inline but attachmentId exists
+  if (!data && attachmentId && messageId) {
+    const isCalendar = mime === "text/calendar" || mime.includes("calendar") || 
+                       (part.filename && part.filename.endsWith(".ics"));
+    if (isCalendar) {
+      pendingAttachments.push({ attachmentId, messageId, mimeType: mime, filename: part.filename || "" });
     }
   }
+
+  if (part.parts) {
+    for (const subpart of part.parts) {
+      collectParts(subpart, result, messageId);
+    }
+  }
+}
+
+async function fetchPendingAttachments(accessToken: string, result: ExtractedContent): Promise<void> {
+  for (const att of pendingAttachments) {
+    try {
+      const attResponse = await fetch(
+        `${GMAIL_API_BASE}/users/me/messages/${att.messageId}/attachments/${att.attachmentId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (attResponse.ok) {
+        const attData = await attResponse.json();
+        if (attData.data) {
+          const decoded = decodeBase64Url(attData.data);
+          result.icalData += decoded + "\n";
+          console.log(`Fetched .ics attachment (${decoded.length} chars) for message ${att.messageId}`);
+        }
+      } else {
+        console.error(`Failed to fetch attachment ${att.attachmentId}: ${attResponse.status}`);
+      }
+    } catch (e) {
+      console.error(`Error fetching attachment ${att.attachmentId}:`, e);
+    }
+  }
+  // Clear for next message
+  pendingAttachments.length = 0;
 }
 
 // Parse iCal VEVENT data into key-value text
@@ -168,9 +215,11 @@ function parseICalToText(icalData: string): string {
   // Unfold iCal line continuations (lines starting with space/tab)
   const unfolded = icalData.replace(/\r?\n[ \t]/g, "");
 
-  // Extract VEVENT block
-  const veventMatch = unfolded.match(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/i);
-  const content = veventMatch ? veventMatch[1] : unfolded;
+  // Extract ALL VEVENT blocks (some emails have multiple)
+  const veventMatches = [...unfolded.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/gi)];
+  const contents = veventMatches.length > 0 
+    ? veventMatches.map(m => m[1]) 
+    : [unfolded];
 
   const fieldMap: Record<string, string> = {
     "SUMMARY": "Résumé",
@@ -182,38 +231,60 @@ function parseICalToText(icalData: string): string {
     "ORGANIZER": "Organisateur",
     "COMMENT": "Commentaire",
     "CONTACT": "Contact",
+    "X-ALT-DESC": "Description HTML",
+    "X-COMMENT": "Commentaire",
+    "X-PHONE": "Téléphone",
+    "X-TEL": "Téléphone",
+    "X-MOBILE": "Mobile",
   };
 
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("BEGIN:") || trimmed.startsWith("END:")) continue;
+  for (const content of contents) {
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("BEGIN:") || trimmed.startsWith("END:")) continue;
 
-    // Handle properties with params like DTSTART;TZID=...:value
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx === -1) continue;
+      // Handle properties with params like DTSTART;TZID=...:value
+      const colonIdx = trimmed.indexOf(":");
+      if (colonIdx === -1) continue;
 
-    let propFull = trimmed.substring(0, colonIdx);
-    let value = trimmed.substring(colonIdx + 1);
+      let propFull = trimmed.substring(0, colonIdx);
+      let value = trimmed.substring(colonIdx + 1);
 
-    // Strip parameters (e.g., DTSTART;TZID=Europe/Paris → DTSTART)
-    const semiIdx = propFull.indexOf(";");
-    const propName = (semiIdx !== -1 ? propFull.substring(0, semiIdx) : propFull).toUpperCase();
+      // Strip parameters (e.g., DTSTART;TZID=Europe/Paris → DTSTART)
+      const semiIdx = propFull.indexOf(";");
+      const propName = (semiIdx !== -1 ? propFull.substring(0, semiIdx) : propFull).toUpperCase();
 
-    // Decode escaped chars
-    value = value.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\\\/g, "\\");
+      // Decode escaped chars
+      value = value.replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\\\/g, "\\");
 
-    const label = fieldMap[propName];
-    if (label && value.trim()) {
-      lines.push(`${label}: ${value.trim()}`);
+      // For X-ALT-DESC (HTML description), strip HTML tags
+      if (propName === "X-ALT-DESC") {
+        value = value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      }
+
+      const label = fieldMap[propName];
+      if (label && value.trim()) {
+        lines.push(`${label}: ${value.trim()}`);
+      }
     }
-  }
 
-  // Extract phone numbers from DESCRIPTION or any field
-  const phoneMatches = content.match(/(?:(?:tel|tél|telephone|téléphone|portable|mobile|phone)\s*[:=]?\s*)?(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/gi);
-  if (phoneMatches) {
-    for (const phone of phoneMatches) {
-      if (!lines.some(l => l.includes(phone.trim()))) {
-        lines.push(`Téléphone (iCal): ${phone.trim()}`);
+    // Extract phone numbers from the full iCal content (all formats)
+    const phonePatterns = [
+      // French formats with labels
+      /(?:tel|tél|telephone|téléphone|portable|mobile|phone|gsm|fixe|num)\s*[:=]?\s*(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/gi,
+      // Standalone French phone numbers
+      /(?:\+33|0)[\s.-]?[1-9](?:[\s.-]?\d{2}){4}/g,
+      // International format
+      /\+\d{2,3}[\s.-]?\d[\s.-]?\d{2}(?:[\s.-]?\d{2}){3}/g,
+    ];
+
+    for (const pattern of phonePatterns) {
+      const phoneMatches = content.matchAll(pattern);
+      for (const match of phoneMatches) {
+        const phone = match[0].trim();
+        if (!lines.some(l => l.includes(phone))) {
+          lines.push(`Téléphone (iCal): ${phone}`);
+        }
       }
     }
   }
@@ -277,6 +348,24 @@ function stripHtml(html: string): string {
   for (const match of dataAttrs) {
     if (match[2].trim()) {
       hiddenData.push(`${match[1]}: ${match[2]}`);
+    }
+  }
+
+  // Extract tel: links (often contain phone numbers)
+  const telLinks = html.matchAll(/<a[^>]*href\s*=\s*["']tel:([^"']+)["'][^>]*>/gi);
+  for (const match of telLinks) {
+    const phone = match[1].replace(/[^\d+]/g, "").trim();
+    if (phone.length >= 10) {
+      hiddenData.push(`Téléphone (lien): ${phone}`);
+    }
+  }
+
+  // Extract mailto: links for client email
+  const mailtoLinks = html.matchAll(/<a[^>]*href\s*=\s*["']mailto:([^"'?]+)["'?][^>]*>/gi);
+  for (const match of mailtoLinks) {
+    const email = match[1].trim();
+    if (email.includes("@") && !email.includes("unsubscribe")) {
+      hiddenData.push(`Email (lien): ${email}`);
     }
   }
 
@@ -571,7 +660,14 @@ serve(async (req) => {
           continue;
         }
 
-        const allContent = extractAllContentFromPayload(msgData.payload);
+        const allContent = extractAllContentFromPayload(msgData.payload, msg.id);
+        
+        // Fetch any .ics attachments that weren't inline
+        if (pendingAttachments.length > 0) {
+          console.log(`Fetching ${pendingAttachments.length} .ics attachment(s) for message ${msg.id}...`);
+          await fetchPendingAttachments(accessToken, allContent);
+        }
+        
         const icalText = parseICalToText(allContent.icalData);
         
         // Combine all sources: plain text + iCal data for maximum extraction
