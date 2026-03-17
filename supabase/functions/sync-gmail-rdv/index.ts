@@ -618,7 +618,14 @@ serve(async (req) => {
           continue;
         }
 
-        const allContent = extractAllContentFromPayload(msgData.payload);
+        const allContent = extractAllContentFromPayload(msgData.payload, msg.id);
+        
+        // Fetch any .ics attachments that weren't inline
+        if (pendingAttachments.length > 0) {
+          console.log(`Fetching ${pendingAttachments.length} .ics attachment(s) for message ${msg.id}...`);
+          await fetchPendingAttachments(accessToken, allContent);
+        }
+        
         const icalText = parseICalToText(allContent.icalData);
         
         // Combine all sources: plain text + iCal data for maximum extraction
