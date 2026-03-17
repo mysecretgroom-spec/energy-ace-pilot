@@ -2036,11 +2036,6 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
     yPos = drawCepcGlobalSummary(doc, data, yPos, cepcCtx);
   }
 
-  // PROJECTION 10 ANS (directement après l'analyse financière)
-  if (data.projection10ans && data.projection10ans.length > 0) {
-    yPos = drawProjection10Ans(doc, data, yPos, cepcCtx, "cepc");
-  }
-
   // PAGE FINALE: RÉSULTAT D'ÉTUDE (verdict CEPC)
   doc.addPage();
   drawCepcHeader(doc, data, franceRenovBase64, "RÉSULTAT D'ÉTUDE", ministereBase64);
