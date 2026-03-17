@@ -2647,6 +2647,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_toiture"
                   label="Photo"
+                  etudeId={currentEtudeId}
                   onPhotoSaved={triggerImmediateSave}
                 />
               )}
