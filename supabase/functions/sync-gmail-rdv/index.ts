@@ -131,11 +131,22 @@ function extractAllContentFromPayload(payload: any): ExtractedContent {
   return result;
 }
 
-function collectParts(part: any, result: ExtractedContent): void {
+// Pending attachment fetches (populated during collectParts, resolved after)
+interface PendingAttachment {
+  attachmentId: string;
+  messageId: string;
+  mimeType: string;
+  filename: string;
+}
+
+const pendingAttachments: PendingAttachment[] = [];
+
+function collectParts(part: any, result: ExtractedContent, messageId?: string): void {
   if (!part) return;
 
   const mime = part.mimeType || "";
   const data = part.body?.data;
+  const attachmentId = part.body?.attachmentId;
 
   if (data) {
     if (mime === "text/plain" && !result.text) {
@@ -147,16 +158,50 @@ function collectParts(part: any, result: ExtractedContent): void {
     }
   }
 
-  // Also check attachments with .ics filename
+  // Also check attachments with .ics filename (inline data)
   if (part.filename && part.filename.endsWith(".ics") && data) {
     result.icalData += decodeBase64Url(data) + "\n";
   }
 
-  if (part.parts) {
-    for (const subpart of part.parts) {
-      collectParts(subpart, result);
+  // Queue attachment fetch if data is NOT inline but attachmentId exists
+  if (!data && attachmentId && messageId) {
+    const isCalendar = mime === "text/calendar" || mime.includes("calendar") || 
+                       (part.filename && part.filename.endsWith(".ics"));
+    if (isCalendar) {
+      pendingAttachments.push({ attachmentId, messageId, mimeType: mime, filename: part.filename || "" });
     }
   }
+
+  if (part.parts) {
+    for (const subpart of part.parts) {
+      collectParts(subpart, result, messageId);
+    }
+  }
+}
+
+async function fetchPendingAttachments(accessToken: string, result: ExtractedContent): Promise<void> {
+  for (const att of pendingAttachments) {
+    try {
+      const attResponse = await fetch(
+        `${GMAIL_API_BASE}/users/me/messages/${att.messageId}/attachments/${att.attachmentId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (attResponse.ok) {
+        const attData = await attResponse.json();
+        if (attData.data) {
+          const decoded = decodeBase64Url(attData.data);
+          result.icalData += decoded + "\n";
+          console.log(`Fetched .ics attachment (${decoded.length} chars) for message ${att.messageId}`);
+        }
+      } else {
+        console.error(`Failed to fetch attachment ${att.attachmentId}: ${attResponse.status}`);
+      }
+    } catch (e) {
+      console.error(`Error fetching attachment ${att.attachmentId}:`, e);
+    }
+  }
+  // Clear for next message
+  pendingAttachments.length = 0;
 }
 
 // Parse iCal VEVENT data into key-value text
