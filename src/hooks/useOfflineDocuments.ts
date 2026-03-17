@@ -12,7 +12,7 @@ export interface PendingDocument {
   userId: string;
   clientId: string;
   nom: string;
-  typeDocument: "photo_chantier" | "facture_frais" | "autre";
+  typeDocument: "photo_chantier" | "photo_toiture" | "photo_compteur" | "photo_tableau" | "facture_frais" | "autre";
   imageData: string; // Base64 data
   mimeType: string;
   contextSource?: string;
