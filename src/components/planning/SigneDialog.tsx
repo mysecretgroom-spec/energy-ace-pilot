@@ -162,7 +162,7 @@ export function SigneDialog({
     }
   }, [open, regieId, etudeId]);
 
-  // Fetch étude data when dialog opens
+  // Fetch étude data when dialog opens (only once)
   useEffect(() => {
     const fetchEtude = async () => {
       if (!etudeId || !open) return;
@@ -180,21 +180,15 @@ export function SigneDialog({
         setPuissance(puissanceVal);
         setPrixTTC(prixTTCVal);
         
-        // Try to find matching bouquet
-        if (etude.puissance_kwc) {
-          const matchingBouquet = bouquets.find(b => b.puissance_kwc === etude.puissance_kwc);
-          if (matchingBouquet) {
-            setSelectedBouquetId(matchingBouquet.id);
-          }
-        }
-        
         // Calculate HT
         if (prixTTCVal && puissanceVal) {
           const ttc = parseFloat(prixTTCVal);
           const puissanceNum = parseFloat(puissanceVal);
           if (!isNaN(ttc) && ttc > 0) {
-            const tauxTVA = !isNaN(puissanceNum) && puissanceNum <= 3 ? 0.10 : 0.20;
-            setPrixHT((ttc / (1 + tauxTVA)).toFixed(2));
+            const tauxTVAValue = !isNaN(puissanceNum) && puissanceNum > 0
+              ? getTauxTVAByPuissance(puissanceNum) / 100
+              : 0.10;
+            setPrixHT((ttc / (1 + tauxTVAValue)).toFixed(2));
           }
         }
       }
@@ -202,7 +196,18 @@ export function SigneDialog({
     };
 
     fetchEtude();
-  }, [etudeId, open, bouquets]);
+  }, [etudeId, open]);
+
+  // Auto-select matching bouquet when bouquets load and puissance is set
+  useEffect(() => {
+    if (puissance && bouquets.length > 0 && !selectedBouquetId) {
+      const puissanceNum = parseFloat(puissance);
+      const matchingBouquet = bouquets.find(b => b.puissance_kwc === puissanceNum);
+      if (matchingBouquet) {
+        setSelectedBouquetId(matchingBouquet.id);
+      }
+    }
+  }, [bouquets, puissance, selectedBouquetId]);
 
   // Reset when dialog closes
   useEffect(() => {
