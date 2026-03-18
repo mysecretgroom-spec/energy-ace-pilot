@@ -1040,6 +1040,7 @@ const Finance = () => {
           montant: parseFloat(editForm.montant),
           categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
           description: editForm.description || null,
+          fournisseur: editForm.fournisseur || null,
           date_frais: editForm.date_frais,
           date_debut: editForm.date_debut || null,
           date_fin: editForm.date_fin || null,
