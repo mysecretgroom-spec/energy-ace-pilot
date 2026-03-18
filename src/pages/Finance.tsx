@@ -1552,14 +1552,21 @@ const Finance = () => {
 
             {/* Actions - Stack on mobile */}
             <div className="space-y-2">
-              <Button 
-                className="w-full bg-gradient-hero gap-2 h-12"
-                onClick={() => setMultiImportOpen(true)}
-              >
-                <Plus className="h-5 w-5" />
-                Importer des factures
-              </Button>
-              
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  className="bg-gradient-hero gap-2 h-12"
+                  onClick={() => setMultiImportOpen(true)}
+                >
+                  <Camera className="h-5 w-5" />
+                  Scanner factures
+                </Button>
+                <Dialog open={addFraisOpen} onOpenChange={setAddFraisOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-12">
+                      <Pencil className="h-5 w-5" />
+                      Frais manuel
+                    </Button>
+                  </DialogTrigger>
               <div className="grid grid-cols-2 gap-2">
                 <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
                   <DialogTrigger asChild>
