@@ -55,6 +55,7 @@ interface WeekCalendarViewProps {
 interface PendingDrop {
   rdv: RdvData;
   targetDate: Date;
+  fromContextMenu?: boolean;
 }
 
 // Default working days: Monday to Saturday (no Sunday)
