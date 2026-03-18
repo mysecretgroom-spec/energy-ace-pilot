@@ -1524,6 +1524,7 @@ const EtudeForm = () => {
         heuresEnsoleillement,
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
+        hasPrixInstallationManuel: !!prixInstallationManuel,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
