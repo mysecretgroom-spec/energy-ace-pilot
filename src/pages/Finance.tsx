@@ -137,6 +137,7 @@ interface FraisItem {
   date_frais: string;
   categorie: string;
   description: string | null;
+  fournisseur: string | null;
   ocr_data: Json | null;
   date_debut: string | null;
   date_fin: string | null;
