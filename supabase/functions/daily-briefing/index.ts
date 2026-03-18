@@ -11,6 +11,8 @@ const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER") || Deno.env.get("TWILIO_WHATSAPP_FROM");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,13 +20,11 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("user_id, first_name");
+      .select("user_id, first_name, phone");
 
     if (profilesError) {
       console.error("Error fetching profiles:", profilesError);
@@ -39,129 +39,252 @@ serve(async (req) => {
 
     for (const profile of profiles || []) {
       try {
-        const { data: rdvs, error: rdvsError } = await supabase
-          .from("rdv")
-          .select(`
-            *,
-            clients (
-              nom,
-              prenom,
-              adresse,
-              ville,
-              code_postal,
-              telephone,
-              notes
-            )
-          `)
-          .eq("user_id", profile.user_id)
-          .gte("date_heure", todayStr)
-          .lt("date_heure", tomorrowStr)
-          .not("status", "in", '("annule","reporte")')
-          .order("date_heure", { ascending: true });
+        // ─── 1. Trigger Gmail sync for this user (if enabled) ───
+        let gmailImportCount = 0;
+        let gmailImportDetails: any[] = [];
+        try {
+          const syncResponse = await fetch(
+            `${SUPABASE_URL}/functions/v1/sync-gmail-rdv`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                "x-user-id": profile.user_id,
+              },
+            }
+          );
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            gmailImportCount = (syncResult.imported || 0) + (syncResult.updated || 0);
+            gmailImportDetails = syncResult.details?.filter(
+              (d: any) => d.status === "imported" || d.status === "updated"
+            ) || [];
+            console.log(`Gmail sync for ${profile.user_id}: ${gmailImportCount} imported/updated`);
 
-        if (rdvsError) {
-          console.error(`Error fetching RDVs for user ${profile.user_id}:`, rdvsError);
+            // Update last sync time
+            await supabase
+              .from("user_settings")
+              .update({ gmail_last_auto_sync: new Date().toISOString() })
+              .eq("user_id", profile.user_id);
+          }
+        } catch (gmailErr) {
+          console.warn(`Gmail sync failed for ${profile.user_id}:`, gmailErr);
+        }
+
+        // ─── 2. Fetch today's RDVs (after Gmail sync to include new imports) ───
+        const [rdvsRes, ventesWeekRes, ventesMonthRes, rdvsWeekRes] = await Promise.all([
+          supabase
+            .from("rdv")
+            .select(`*, clients (nom, prenom, adresse, ville, code_postal, telephone, notes, latitude, longitude)`)
+            .eq("user_id", profile.user_id)
+            .gte("date_heure", todayStr)
+            .lt("date_heure", tomorrowStr)
+            .not("status", "in", '("annule","reporte")')
+            .order("date_heure", { ascending: true }),
+          supabase
+            .from("ventes")
+            .select("montant_ttc, puissance_kwc, product_type, status, created_at")
+            .eq("user_id", profile.user_id)
+            .gte("created_at", getMonday(today))
+            .not("status", "eq", "annule"),
+          supabase
+            .from("ventes")
+            .select("montant_ttc, puissance_kwc, status")
+            .eq("user_id", profile.user_id)
+            .gte("created_at", `${todayStr.slice(0, 7)}-01`)
+            .not("status", "eq", "annule"),
+          supabase
+            .from("rdv")
+            .select("status")
+            .eq("user_id", profile.user_id)
+            .gte("date_heure", getMonday(today))
+            .lt("date_heure", tomorrowStr)
+            .not("status", "in", '("annule","reporte")'),
+        ]);
+
+        const rdvs = rdvsRes.data || [];
+        const ventesWeek = ventesWeekRes.data || [];
+        const ventesMonth = ventesMonthRes.data || [];
+        const rdvsWeek = rdvsWeekRes.data || [];
+
+        // Skip user if no RDVs today AND no Gmail imports
+        if (rdvs.length === 0 && gmailImportCount === 0) {
+          console.log(`No RDVs and no imports for user ${profile.user_id}, skipping`);
           continue;
         }
 
-        if (!rdvs || rdvs.length === 0) {
-          console.log(`No RDVs today for user ${profile.user_id}`);
-          continue;
-        }
+        // ─── 3. Analytics ───
+        const weekCA = ventesWeek.reduce((s: number, v: any) => s + (v.montant_ttc || 0), 0);
+        const weekKwc = ventesWeek.reduce((s: number, v: any) => s + (v.puissance_kwc || 0), 0);
+        const monthCA = ventesMonth.reduce((s: number, v: any) => s + (v.montant_ttc || 0), 0);
+        const weekSigned = ventesWeek.filter((v: any) => ["en_installation", "installe", "paye", "attente_paiement"].includes(v.status)).length;
+        const weekRdvsDone = rdvsWeek.filter((r: any) => ["signe", "negatif", "r2", "r2_prestudy"].includes(r.status)).length;
+        const weekConversion = weekRdvsDone > 0 ? Math.round((weekSigned / weekRdvsDone) * 100) : null;
+        const pendingPayment = ventesMonth.filter((v: any) => v.status === "attente_paiement").length;
 
-        // Compute inter-RDV distances
-        const interDistances: { toCity: string; km: number; minutes: number }[] = [];
+        // ─── 4. Inter-RDV distances (OSRM) ───
+        const getCoords = (rdv: any): { lat: number; lon: number } | null => {
+          if (rdv.latitude && rdv.longitude) return { lat: Number(rdv.latitude), lon: Number(rdv.longitude) };
+          if (rdv.clients?.latitude && rdv.clients?.longitude) return { lat: Number(rdv.clients.latitude), lon: Number(rdv.clients.longitude) };
+          return null;
+        };
+
+        const interDistances: { fromCity: string; toCity: string; km: number; minutes: number }[] = [];
+        const routePromises: Promise<void>[] = [];
         for (let i = 1; i < rdvs.length; i++) {
           const prev = rdvs[i - 1];
           const curr = rdvs[i];
-          if (prev.latitude && prev.longitude && curr.latitude && curr.longitude) {
-            const km = haversineKm(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
-            const estimatedKm = Math.round(km * 1.3);
-            const estimatedMin = Math.round(estimatedKm / 60 * 60);
-            interDistances.push({
-              toCity: curr.clients?.ville || "?",
-              km: estimatedKm,
-              minutes: estimatedMin,
-            });
-          } else {
-            interDistances.push({ toCity: curr.clients?.ville || "?", km: 0, minutes: 0 });
+          const prevCoords = getCoords(prev);
+          const currCoords = getCoords(curr);
+          const idx = i - 1;
+          if (prevCoords && currCoords) {
+            routePromises.push(
+              fetchRealRoute(prevCoords, currCoords).then((route) => {
+                interDistances[idx] = {
+                  fromCity: prev.clients?.ville || "?",
+                  toCity: curr.clients?.ville || "?",
+                  km: route.distance_km,
+                  minutes: route.duration_minutes,
+                };
+              })
+            );
+          }
+        }
+        await Promise.all(routePromises);
+
+        let totalInterKm = 0;
+        let totalInterMinutes = 0;
+        for (const d of interDistances) {
+          if (d) {
+            totalInterKm += d.km;
+            totalInterMinutes += d.minutes;
           }
         }
 
-        // Alerts
-        const alerts: string[] = [];
-        const pendingRdvs = rdvs.filter(r => r.status === "a_confirmer" || r.status === "nouveau");
-        if (pendingRdvs.length > 0) alerts.push(`⚠️ ${pendingRdvs.length} RDV à confirmer`);
-        const noAddressRdvs = rdvs.filter(r => !r.adresse && !r.clients?.adresse);
-        if (noAddressRdvs.length > 0) alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
-
-        // Calculate totals
-        const totalDistance = rdvs.reduce((sum, r) => sum + (r.distance_km || 0), 0);
-        const totalTravelTime = rdvs.reduce((sum, r) => sum + (r.travel_time_minutes || 0), 0);
-
-        // Build briefing message
+        // ─── 5. Build unified briefing message ───
         const firstName = profile.first_name || "Commercial";
         const dayName = today.toLocaleDateString("fr-FR", { weekday: "long" });
         const dateFormatted = today.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
         let briefingTitle = `☀️ Bonjour ${firstName} !`;
-        
-        let briefingBody = `📅 ${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${dateFormatted}\n`;
-        briefingBody += `📍 ${rdvs.length} RDV aujourd'hui`;
-        
-        if (totalDistance > 0) briefingBody += ` • ${Math.round(totalDistance)} km`;
-        if (totalTravelTime > 0) briefingBody += ` • ~${Math.round(totalTravelTime)} min de route`;
-        briefingBody += "\n\n";
+        let briefingBody = `📅 ${capitalize(dayName)} ${dateFormatted}\n`;
 
-        // Alerts
-        if (alerts.length > 0) briefingBody += alerts.join("\n") + "\n\n";
+        // Gmail import summary (if any)
+        if (gmailImportCount > 0) {
+          const rdvLabel = gmailImportCount === 1 ? "nouveau RDV importé" : "nouveaux RDV importés";
+          briefingBody += `\n📧 *${gmailImportCount} ${rdvLabel}* depuis Gmail\n`;
 
-        // RDV details with inter-distances and summaries
-        for (let i = 0; i < rdvs.length; i++) {
-          const rdv = rdvs[i];
-          const time = new Date(rdv.date_heure).toLocaleTimeString("fr-FR", {
-            hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
-          });
-          const clientName = rdv.clients 
-            ? `${rdv.clients.prenom || ""} ${rdv.clients.nom}`.trim()
-            : "Client";
-          const city = rdv.clients?.ville || "";
-          
-          // Status icon
-          const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
-            rdv.status === "confirme" ? "✅ " : "";
-
-          let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
-          if (city) rdvLine += ` (${city})`;
-          briefingBody += rdvLine + "\n";
-
-          // RDV summary from import
-          const summary = buildRdvSummary(rdv);
-          if (summary) {
-            briefingBody += `   📋 ${summary}\n`;
+          for (const detail of gmailImportDetails.slice(0, 5)) {
+            const label = detail.status === "updated" ? "🔄" : "✅";
+            briefingBody += `${label} ${detail.subject?.substring(0, 60) || "RDV"}\n`;
           }
-
-          // Inter-RDV distance
-          if (i < rdvs.length - 1 && i < interDistances.length) {
-            const d = interDistances[i];
-            if (d.km > 0) {
-              briefingBody += `   🚗 → ${d.km} km • ~${d.minutes} min vers ${d.toCity}\n`;
-            }
+          if (gmailImportDetails.length > 5) {
+            briefingBody += `...et ${gmailImportDetails.length - 5} autre(s)\n`;
           }
-
-          briefingBody += "\n";
         }
 
-        // Motivational
-        const motivationalMessages = [
-          "🚀 Bonne journée !",
-          "💪 C'est parti !",
-          "🔥 Aujourd'hui va être une bonne journée !",
-          "✨ Faisons de cette journée un succès !",
-        ];
-        briefingBody += motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+        // Weekly performance snapshot
+        briefingBody += "\n📊 *Semaine en cours*\n";
+        if (weekCA > 0) {
+          briefingBody += `💰 CA : ${formatEuro(weekCA)}`;
+          if (weekKwc > 0) briefingBody += ` • ${weekKwc.toFixed(1)} kWc`;
+          briefingBody += "\n";
+        }
+        if (weekSigned > 0) {
+          briefingBody += `✍️ ${weekSigned} vente${weekSigned > 1 ? "s" : ""} signée${weekSigned > 1 ? "s" : ""}`;
+          if (weekConversion !== null) briefingBody += ` (${weekConversion}% transformation)`;
+          briefingBody += "\n";
+        }
+        if (weekCA === 0 && weekSigned === 0) {
+          briefingBody += "Pas encore de signature cette semaine — c'est le moment ! 💪\n";
+        }
 
-        // Send notification via OneSignal
+        // Monthly CA
+        if (monthCA > 0) {
+          briefingBody += `\n📈 *CA mois* : ${formatEuro(monthCA)}\n`;
+        }
+
+        // Pending payments
+        if (pendingPayment > 0) {
+          briefingBody += `⏳ ${pendingPayment} vente${pendingPayment > 1 ? "s" : ""} en attente de paiement\n`;
+        }
+
+        // Today's RDVs
+        briefingBody += "\n";
+        if (rdvs.length === 0) {
+          briefingBody += "🎉 Aucun RDV actif aujourd'hui.\nIdéal pour prospecter ou relancer des dossiers en cours !\n";
+        } else {
+          briefingBody += `📍 *${rdvs.length} RDV aujourd'hui*`;
+          if (totalInterKm > 0) briefingBody += ` • ${Math.round(totalInterKm)} km`;
+          if (totalInterMinutes > 0) briefingBody += ` • ~${totalInterMinutes} min route`;
+          briefingBody += "\n\n";
+
+          // Alerts
+          const alerts: string[] = [];
+          const pendingRdvs = rdvs.filter((r: any) => r.status === "a_confirmer" || r.status === "nouveau");
+          if (pendingRdvs.length > 0) alerts.push(`⚠️ ${pendingRdvs.length} RDV à confirmer`);
+          const noAddressRdvs = rdvs.filter((r: any) => !r.adresse && !r.clients?.adresse);
+          if (noAddressRdvs.length > 0) alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
+          if (alerts.length > 0) briefingBody += alerts.join("\n") + "\n\n";
+
+          // RDV list
+          for (let i = 0; i < rdvs.length; i++) {
+            const rdv = rdvs[i];
+            const time = new Date(rdv.date_heure).toLocaleTimeString("fr-FR", {
+              hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris",
+            });
+            const clientName = rdv.clients
+              ? `${rdv.clients.prenom || ""} ${rdv.clients.nom}`.trim()
+              : "Client";
+            const city = rdv.clients?.ville || "";
+
+            const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
+              rdv.status === "confirme" ? "✅ " : "";
+
+            let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
+            if (city) rdvLine += ` (${city})`;
+            briefingBody += rdvLine + "\n";
+
+            const summary = buildRdvSummary(rdv);
+            if (summary) {
+              briefingBody += `   📋 ${summary}\n`;
+            }
+
+            // Inter-RDV distance to next
+            if (i < rdvs.length - 1 && i < interDistances.length) {
+              const d = interDistances[i];
+              if (d && d.km > 0) {
+                briefingBody += `   🚗 → ${d.km} km • ~${d.minutes} min vers ${d.toCity}\n`;
+              }
+            }
+
+            briefingBody += "\n";
+          }
+
+          // First RDV address + Google Maps link
+          const firstRdv = rdvs[0];
+          const firstAddress = firstRdv.adresse || firstRdv.clients?.adresse;
+          const firstCity = firstRdv.clients?.ville;
+          const firstPostal = firstRdv.clients?.code_postal;
+
+          if (firstAddress) {
+            const fullAddress = [firstAddress, firstPostal, firstCity].filter(Boolean).join(" ");
+            briefingBody += `🚗 *Vous commencez à :*\n${fullAddress}\n`;
+            briefingBody += `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}\n\n`;
+          }
+        }
+
+        // Motivational closer
+        const motivational = [
+          "🚀 Bonne journée et bonnes signatures !",
+          "💪 C'est parti, chaque RDV compte !",
+          "🔥 Aujourd'hui est une opportunité !",
+          "✨ Transforme cette journée en succès !",
+        ];
+        briefingBody += motivational[Math.floor(Math.random() * motivational.length)];
+
+        // ─── 6. Send OneSignal push notification ───
         if (ONESIGNAL_APP_ID && ONESIGNAL_REST_API_KEY) {
           const notificationPayload = {
             app_id: ONESIGNAL_APP_ID,
@@ -172,6 +295,7 @@ serve(async (req) => {
               type: "daily_briefing",
               date: todayStr,
               rdv_count: rdvs.length,
+              gmail_imports: gmailImportCount,
             },
           };
 
@@ -190,12 +314,13 @@ serve(async (req) => {
           results.push({
             user_id: profile.user_id,
             rdv_count: rdvs.length,
+            gmail_imports: gmailImportCount,
             success: response.ok,
             result,
           });
         }
 
-        // Save to notifications table
+        // ─── 7. Save in-app notification ───
         await supabase.from("notifications").insert({
           user_id: profile.user_id,
           type: "rappel",
@@ -204,7 +329,7 @@ serve(async (req) => {
           date_envoi: new Date().toISOString(),
         });
 
-        // Send via WhatsApp
+        // ─── 8. Send via WhatsApp ───
         const { data: userSettings } = await supabase
           .from("user_settings")
           .select("daily_briefing_whatsapp")
@@ -212,18 +337,11 @@ serve(async (req) => {
           .single();
 
         if (userSettings?.daily_briefing_whatsapp !== false) {
-          const { data: fullProfile } = await supabase
-            .from("profiles")
-            .select("phone")
-            .eq("user_id", profile.user_id)
-            .single();
-
-          if (fullProfile?.phone && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
-            let phone = fullProfile.phone.replace(/\D/g, "");
+          if (profile.phone && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_NUMBER) {
+            let phone = profile.phone.replace(/\D/g, "");
             if (phone.startsWith("0")) phone = `33${phone.slice(1)}`;
             if (!phone.startsWith("+")) phone = `+${phone}`;
 
-            // Split into multiple messages if needed (1500 char limit per WhatsApp message)
             const fullBody = `${briefingTitle}\n\n${briefingBody}`;
             const chunks = splitWhatsAppMessage(fullBody, 1500);
 
@@ -259,28 +377,35 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        processed: results.length,
-        results,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true, processed: results.length, results }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Daily briefing error:", error);
     return new Response(
       JSON.stringify({ error: String(error) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
 
 // --- Helpers ---
+
+function getMonday(d: Date): string {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  date.setDate(diff);
+  return date.toISOString().split("T")[0];
+}
+
+function formatEuro(amount: number): string {
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(amount);
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -292,7 +417,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Extract a concise summary from RDV commentaire + metadata (gmail import info) */
 function buildRdvSummary(rdv: any): string | null {
   const parts: string[] = [];
 
@@ -327,15 +451,38 @@ function buildRdvSummary(rdv: any): string | null {
   return parts.length > 0 ? parts.join(" • ") : null;
 }
 
-/**
- * Smart split for WhatsApp briefing messages.
- * Splits on RDV blocks (delimited by double newlines) so each RDV stays intact.
- * The header (everything before the first RDV block) is always in message 1.
- */
+async function fetchRealRoute(
+  origin: { lat: number; lon: number },
+  destination: { lat: number; lon: number }
+): Promise<{ distance_km: number; duration_minutes: number }> {
+  try {
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${destination.lon},${destination.lat}?overview=false`;
+    const res = await fetch(osrmUrl, {
+      headers: { "User-Agent": "SolarFlow-CRM/1.0" },
+    });
+    const data = await res.json();
+    if (data.code === "Ok" && data.routes?.length > 0) {
+      const route = data.routes[0];
+      return {
+        distance_km: Math.round(route.distance / 100) / 10,
+        duration_minutes: Math.round(route.duration / 60),
+      };
+    }
+  } catch (e) {
+    console.warn("OSRM routing failed, using fallback:", e);
+  }
+
+  const km = haversineKm(origin.lat, origin.lon, destination.lat, destination.lon);
+  const estimatedKm = Math.round(km * 1.3);
+  return {
+    distance_km: estimatedKm,
+    duration_minutes: Math.round((estimatedKm / 50) * 60),
+  };
+}
+
 function splitWhatsAppMessage(text: string, maxLen: number): string[] {
   if (text.length <= maxLen) return [text];
 
-  // Split into logical blocks separated by double newlines
   const blocks = text.split("\n\n");
   const chunks: string[] = [];
   let current = "";
@@ -344,16 +491,13 @@ function splitWhatsAppMessage(text: string, maxLen: number): string[] {
     const candidate = current.length > 0 ? current + "\n\n" + block : block;
     
     if (candidate.length > maxLen && current.length > 0) {
-      // Current chunk is full, push it and start new one
       chunks.push(current.trimEnd());
       current = block;
     } else {
       current = candidate;
     }
 
-    // Edge case: single block exceeds maxLen (very long commentaire)
     if (current.length > maxLen) {
-      // Force split on single newlines within this block
       const lines = current.split("\n");
       current = "";
       for (const line of lines) {
