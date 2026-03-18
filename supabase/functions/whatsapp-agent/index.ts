@@ -7299,6 +7299,8 @@ async function executeAction(
           .insert({
             user_id: userId,
             nom: clientName,
+            telephone: (entities.phone as string) || null,
+            adresse: (entities.address as string) || null,
             source: "whatsapp_agent",
             regie_id: regieId,
           })
