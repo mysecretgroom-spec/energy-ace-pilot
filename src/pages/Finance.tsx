@@ -1918,10 +1918,20 @@ const Finance = () => {
                   )}
                   
                   <div className="space-y-2">
+                    <Label htmlFor="fournisseur">Fournisseur / Commerçant</Label>
+                    <Input
+                      id="fournisseur"
+                      placeholder="Ex: Total, Novotel, SNCF..."
+                      value={newFrais.fournisseur}
+                      onChange={(e) => setNewFrais(prev => ({ ...prev, fournisseur: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="description">Description (optionnel)</Label>
                     <Input
                       id="description"
-                      placeholder="Ex: Station Total, Restaurant..."
+                      placeholder="Ex: Plein essence, Déjeuner client..."
                       value={newFrais.description}
                       onChange={(e) => setNewFrais(prev => ({ ...prev, description: e.target.value }))}
                     />
