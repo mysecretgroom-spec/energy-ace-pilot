@@ -163,6 +163,20 @@ export function WeekCalendarView({
     setPendingDrop(null);
   };
 
+  const handleConfirmWithDate = (newDate: Date, newTime: string) => {
+    if (!pendingDrop) return;
+
+    handleDrop(
+      pendingDrop.rdv.id,
+      pendingDrop.rdv.time,
+      newDate,
+      newTime,
+      pendingDrop.rdv.client
+    );
+
+    setPendingDrop(null);
+  };
+
   const handleTimePickerClose = (open: boolean) => {
     setTimePickerOpen(open);
     if (!open) {
