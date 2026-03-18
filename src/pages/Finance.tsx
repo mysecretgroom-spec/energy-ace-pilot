@@ -854,7 +854,7 @@ const Finance = () => {
       // Fetch all frais for the selected month (for stats and chart)
       const { data: monthFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
+        .select("id, montant, date_frais, categorie, description, fournisseur, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .gte("date_frais", monthStartStr)
         .lte("date_frais", monthEndStr)
