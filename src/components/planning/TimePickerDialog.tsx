@@ -14,9 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Clock } from "lucide-react";
+import { Clock, CalendarIcon } from "lucide-react";
 
 interface TimePickerDialogProps {
   open: boolean;
@@ -25,6 +26,10 @@ interface TimePickerDialogProps {
   targetDate: Date;
   clientName: string;
   onConfirm: (newTime: string) => void;
+  /** Called when date+time are confirmed; if provided, date picker is shown */
+  onConfirmWithDate?: (newDate: Date, newTime: string) => void;
+  /** Allow changing the date (used from context menu move) */
+  allowDateChange?: boolean;
 }
 
 // Generate time slots from 08:00 to 20:00 in 30-minute intervals
@@ -48,38 +53,75 @@ export function TimePickerDialog({
   targetDate,
   clientName,
   onConfirm,
+  onConfirmWithDate,
+  allowDateChange = false,
 }: TimePickerDialogProps) {
   const [selectedTime, setSelectedTime] = useState(currentTime);
+  const [selectedDate, setSelectedDate] = useState<Date>(targetDate);
 
   const handleConfirm = () => {
-    onConfirm(selectedTime);
+    if (onConfirmWithDate) {
+      onConfirmWithDate(selectedDate, selectedTime);
+    } else {
+      onConfirm(selectedTime);
+    }
     onOpenChange(false);
   };
 
   const handleKeepTime = () => {
-    onConfirm(currentTime);
+    if (onConfirmWithDate) {
+      onConfirmWithDate(selectedDate, currentTime);
+    } else {
+      onConfirm(currentTime);
+    }
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[340px]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
-            Modifier l'heure
+            Déplacer le RDV
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-2 space-y-4">
           <div className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{clientName}</span>
-            <br />
-            Déplacé au{" "}
-            <span className="font-medium text-foreground">
-              {format(targetDate, "EEEE d MMMM", { locale: fr })}
-            </span>
+            {!allowDateChange && (
+              <>
+                <br />
+                Déplacé au{" "}
+                <span className="font-medium text-foreground">
+                  {format(targetDate, "EEEE d MMMM", { locale: fr })}
+                </span>
+              </>
+            )}
           </div>
+
+          {/* Date picker - shown when allowDateChange */}
+          {allowDateChange && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                Nouvelle date
+              </label>
+              <div className="flex justify-center border rounded-lg p-1">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => d && setSelectedDate(d)}
+                  locale={fr}
+                  className="pointer-events-auto"
+                />
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                {format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })}
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Nouvelle heure</label>
