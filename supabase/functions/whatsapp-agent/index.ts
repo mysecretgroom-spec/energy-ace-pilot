@@ -6193,6 +6193,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                   type: "object",
                   properties: {
                     client_name: { type: "string" },
+                    phone: { type: "string", description: "Phone number of the client extracted from the message (e.g. 0630872082, 06 30 87 20 82, +33630872082). Extract any phone number mentioned in the message." },
                     date: { type: "string" },
                     time: { type: "string" },
                     address: { type: "string" },
