@@ -1018,6 +1018,7 @@ const Finance = () => {
       montant: String(frais.montant),
       categorie: frais.categorie,
       description: frais.description || "",
+      fournisseur: frais.fournisseur || "",
       date_frais: frais.date_frais,
       date_debut: frais.date_debut || "",
       date_fin: frais.date_fin || "",
