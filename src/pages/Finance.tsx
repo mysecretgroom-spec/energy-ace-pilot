@@ -2037,10 +2037,20 @@ const Finance = () => {
                   )}
                   
                   <div className="space-y-2">
+                    <Label htmlFor="edit-fournisseur">Fournisseur / Commerçant</Label>
+                    <Input
+                      id="edit-fournisseur"
+                      placeholder="Ex: Total, Novotel, SNCF..."
+                      value={editForm.fournisseur}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, fournisseur: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="edit-description">Description (optionnel)</Label>
                     <Input
                       id="edit-description"
-                      placeholder="Ex: Station Total, Restaurant..."
+                      placeholder="Ex: Plein essence, Déjeuner client..."
                       value={editForm.description}
                       onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                     />
