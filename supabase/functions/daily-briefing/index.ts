@@ -215,8 +215,8 @@ serve(async (req) => {
               : "Client";
             const city = rdv.clients?.ville || "";
 
-            const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
-              rdv.status === "confirme" ? "✅ " : "";
+            const statusIcon = rdv.needs_reconfirmation ? "⚠️ " :
+              rdv.status === "signe" ? "✅ " : "";
 
             let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
             if (city) rdvLine += ` (${city})`;
