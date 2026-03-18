@@ -4850,6 +4850,8 @@ async function handlePendingWorkflow(
             .insert({
               user_id: userId,
               nom: collectedData.clientName,
+              telephone: (collectedData as any).phone || null,
+              adresse: (collectedData as any).address || null,
               source: "whatsapp_agent",
               regie_id: collectedData.regieId || null,
             })
