@@ -4062,7 +4062,7 @@ async function handlePendingWorkflow(
               date_heure: dateHeure,
               adresse: pendingAction.entities.address as string || null,
               status: "nouveau",
-              type_rdv: "R1",
+              type_rdv: "standard",
               type_projet: "photovoltaique",
               source: "whatsapp",
               regie_id: collectedData.regieId || null,
