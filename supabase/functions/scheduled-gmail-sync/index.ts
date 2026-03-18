@@ -292,12 +292,8 @@ serve(async (req) => {
             console.error(`Failed to send push to user ${user_id}:`, pushError);
           }
 
-          // Send WhatsApp summary with first RDV location
-          try {
-            await sendWhatsAppRdvSummary(supabase, user_id, totalImportedForUser, syncResult);
-          } catch (waError) {
-            console.error(`Failed to send WhatsApp to user ${user_id}:`, waError);
-          }
+          // WhatsApp summary is now sent as part of the daily briefing at 6:00 AM
+          // No standalone WhatsApp notification here anymore
         }
 
         results.push({
