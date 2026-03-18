@@ -1678,6 +1678,7 @@ const Finance = () => {
                   </DialogContent>
                 </Dialog>
               <div className="grid grid-cols-2 gap-2">
+                <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="gap-2 h-11 w-full">
                       <FileSpreadsheet className="h-4 w-4" />
