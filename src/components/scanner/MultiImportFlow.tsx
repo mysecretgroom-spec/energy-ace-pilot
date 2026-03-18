@@ -586,34 +586,112 @@ export function MultiImportFlow({
 
     setSaving(true);
     try {
-      let savedCount = 0, duplicateCount = 0;
-      const { data } = await supabase.from("frais").select("montant, date_frais, description").eq("user_id", user.id);
+      let savedCount = 0, duplicateCount = 0, matchedCount = 0;
+
+      // Fetch existing frais for duplicate check
+      const { data } = await supabase.from("frais").select("id, montant, date_frais, description, fournisseur, justificatif_url").eq("user_id", user.id);
       const existingFrais = data || [];
 
+      // Helper: fuzzy string match (Levenshtein-like simple check)
+      const fuzzyMatch = (a: string | null | undefined, b: string | null | undefined): boolean => {
+        if (!a || !b) return false;
+        const na = a.toLowerCase().trim();
+        const nb = b.toLowerCase().trim();
+        if (na === nb) return true;
+        if (na.includes(nb) || nb.includes(na)) return true;
+        // Simple char-distance check: allow 2 char difference for short strings
+        if (Math.abs(na.length - nb.length) > 3) return false;
+        let diff = 0;
+        const maxLen = Math.max(na.length, nb.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (na[i] !== nb[i]) diff++;
+          if (diff > 2) return false;
+        }
+        return true;
+      };
+
+      // Helper: find a manual expense (no receipt) matching by amount + date + vendor
+      const findManualMatch = (montant: number, date: string | null, vendor: string | null | undefined) => {
+        const targetDate = date || new Date().toISOString().split("T")[0];
+        return existingFrais.find(e => {
+          // Must be a manual entry (no receipt attached)
+          if (e.justificatif_url) return false;
+          // Amount must match exactly
+          if (Number(e.montant) !== montant) return false;
+          // Date must match
+          if (e.date_frais !== targetDate) return false;
+          // Vendor fuzzy match (against fournisseur or description)
+          if (vendor) {
+            return fuzzyMatch(e.fournisseur, vendor) || fuzzyMatch(e.description, vendor);
+          }
+          return true; // Same amount + date, no vendor to check
+        });
+      };
+
       for (const importedFile of validFiles) {
-        const isDuplicate = existingFrais.some((e) => e.montant === importedFile.montant_ttc && e.date_frais === (importedFile.date || new Date().toISOString().split("T")[0]) && (e.description === importedFile.fournisseur || e.description === importedFile.description));
+        // Check for exact duplicate (already has receipt)
+        const isDuplicate = existingFrais.some((e) => 
+          e.justificatif_url && 
+          Number(e.montant) === importedFile.montant_ttc && 
+          e.date_frais === (importedFile.date || new Date().toISOString().split("T")[0]) && 
+          (e.description === importedFile.fournisseur || e.description === importedFile.description)
+        );
         if (isDuplicate) { duplicateCount++; continue; }
+
+        // Try to find a matching manual expense to attach receipt to
+        const manualMatch = findManualMatch(
+          importedFile.montant_ttc!, 
+          importedFile.date ? clampDateToToday(importedFile.date) : null,
+          importedFile.fournisseur
+        );
 
         const pdfResult = await generatePdfFromFile(importedFile.file);
         const signedUrl = await uploadDocumentToStorage(pdfResult.blob, user.id, context);
 
-        const { error } = await supabase.from("frais").insert({
-          user_id: user.id,
-          montant: importedFile.montant_ttc!,
-          date_frais: clampDateToToday(importedFile.date),
-          categorie: (importedFile.categorie || "autre") as any,
-          description: importedFile.description || importedFile.fournisseur,
-          justificatif_url: signedUrl,
-          ocr_data: { montant_ttc: importedFile.montant_ttc, montant_ht: importedFile.montant_ht, tva: importedFile.tva, taux_tva: importedFile.taux_tva, fournisseur: importedFile.fournisseur },
-        });
-        if (error) throw error;
-        existingFrais.push({ montant: importedFile.montant_ttc!, date_frais: importedFile.date || new Date().toISOString().split("T")[0], description: importedFile.fournisseur || importedFile.description || null });
-        savedCount++;
+        if (manualMatch) {
+          // Update the existing manual expense with the receipt
+          const { error } = await supabase.from("frais").update({
+            justificatif_url: signedUrl,
+            fournisseur: importedFile.fournisseur || manualMatch.fournisseur,
+            description: importedFile.description || manualMatch.description,
+            ocr_data: { montant_ttc: importedFile.montant_ttc, montant_ht: importedFile.montant_ht, tva: importedFile.tva, taux_tva: importedFile.taux_tva, fournisseur: importedFile.fournisseur } as any,
+          }).eq("id", manualMatch.id);
+          if (error) throw error;
+          // Mark as matched so it won't match again
+          manualMatch.justificatif_url = signedUrl;
+          matchedCount++;
+        } else {
+          // Create new expense
+          const { error } = await supabase.from("frais").insert({
+            user_id: user.id,
+            montant: importedFile.montant_ttc!,
+            date_frais: clampDateToToday(importedFile.date),
+            categorie: (importedFile.categorie || "autre") as any,
+            description: importedFile.description || importedFile.fournisseur,
+            fournisseur: importedFile.fournisseur || null,
+            justificatif_url: signedUrl,
+            ocr_data: { montant_ttc: importedFile.montant_ttc, montant_ht: importedFile.montant_ht, tva: importedFile.tva, taux_tva: importedFile.taux_tva, fournisseur: importedFile.fournisseur },
+          });
+          if (error) throw error;
+          existingFrais.push({ id: crypto.randomUUID(), montant: importedFile.montant_ttc!, date_frais: importedFile.date || new Date().toISOString().split("T")[0], description: importedFile.fournisseur || importedFile.description || null, fournisseur: importedFile.fournisseur || null, justificatif_url: signedUrl });
+          savedCount++;
+        }
       }
 
-      if (duplicateCount > 0 && savedCount > 0) toast.success(`${savedCount} enregistrés, ${duplicateCount} doublons ignorés`);
-      else if (duplicateCount > 0) toast.info(`${duplicateCount} doublons, aucun nouveau`);
-      else toast.success(`${savedCount} factures enregistrées`);
+      // Build result message
+      const parts: string[] = [];
+      if (savedCount > 0) parts.push(`${savedCount} créés`);
+      if (matchedCount > 0) parts.push(`${matchedCount} rattachés à des frais manuels`);
+      if (duplicateCount > 0) parts.push(`${duplicateCount} doublons ignorés`);
+
+      if (matchedCount > 0) {
+        toast.success(`✅ ${parts.join(", ")}`, { duration: 5000 });
+      } else if (duplicateCount > 0 && savedCount === 0) {
+        toast.info(parts.join(", "));
+      } else {
+        toast.success(parts.join(", ") || "Aucun frais enregistré");
+      }
+
       setFiles([]);
       onSuccess?.();
       onClose();
