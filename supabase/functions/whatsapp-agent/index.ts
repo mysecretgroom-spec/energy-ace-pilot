@@ -6555,7 +6555,7 @@ async function executeAction(
           date_heure: dateHeure,
           adresse: entities.address as string || null,
           status: "nouveau",
-          type_rdv: "R1",
+          type_rdv: "standard",
           type_projet: "photovoltaique",
           source: "whatsapp",
           regie_id: regieId,
