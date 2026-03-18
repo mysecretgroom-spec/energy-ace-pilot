@@ -1677,6 +1677,7 @@ const Finance = () => {
                     </div>
                   </DialogContent>
                 </Dialog>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
                   <DialogTrigger asChild>
