@@ -5513,6 +5513,8 @@ async function createSignedVente(
       .insert({
         user_id: userId,
         nom: data.clientName,
+        telephone: (data as any).phone || null,
+        adresse: (data as any).address || null,
         source: "whatsapp_agent",
         regie_id: data.regieId || null,
       })
