@@ -197,7 +197,7 @@ export function WeekCalendarView({
 
   const handleContextMenuMove = () => {
     if (contextMenuRdv) {
-      setPendingDrop({ rdv: contextMenuRdv, targetDate: contextMenuRdv.date });
+      setPendingDrop({ rdv: contextMenuRdv, targetDate: contextMenuRdv.date, fromContextMenu: true });
       setTimePickerOpen(true);
     }
   };
