@@ -999,6 +999,7 @@ const Finance = () => {
         montant: "",
         categorie: "autre",
         description: "",
+        fournisseur: "",
         date_frais: formatLocalDate(new Date()),
         date_debut: "",
         date_fin: "",
