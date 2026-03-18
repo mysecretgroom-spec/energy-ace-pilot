@@ -6085,6 +6085,12 @@ RÈGLES CRITIQUES:
 - Si des données manquent, LISTE ce qu'il te faut en UNE SEULE question
 - Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
 - Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
+
+📱 NUMÉRO DE TÉLÉPHONE DANS LES RDV:
+- TOUJOURS extraire le numéro de téléphone (entity "phone") s'il est mentionné dans le message de création de RDV
+- Si un numéro est détecté, l'INCLURE dans le récapitulatif de confirmation (ex: "📱 Tél: 0630872082")
+- Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
+- Le numéro sera automatiquement sauvegardé sur la fiche client à la création
 - Mets requiresConfirmation: true dans ta réponse JSON
 - Seules les requêtes (query_*), user_feedback et conversations ne nécessitent PAS de confirmation
 
