@@ -1,0 +1,1 @@
+ALTER TABLE public.frais ADD COLUMN IF NOT EXISTS fournisseur text;
