@@ -4850,6 +4850,8 @@ async function handlePendingWorkflow(
             .insert({
               user_id: userId,
               nom: collectedData.clientName,
+              telephone: (collectedData as any).phone || null,
+              adresse: (collectedData as any).address || null,
               source: "whatsapp_agent",
               regie_id: collectedData.regieId || null,
             })
@@ -5511,6 +5513,8 @@ async function createSignedVente(
       .insert({
         user_id: userId,
         nom: data.clientName,
+        telephone: (data as any).phone || null,
+        adresse: (data as any).address || null,
         source: "whatsapp_agent",
         regie_id: data.regieId || null,
       })
@@ -6193,6 +6197,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                   type: "object",
                   properties: {
                     client_name: { type: "string" },
+                    phone: { type: "string", description: "Phone number of the client extracted from the message (e.g. 0630872082, 06 30 87 20 82, +33630872082). Extract any phone number mentioned in the message." },
                     date: { type: "string" },
                     time: { type: "string" },
                     address: { type: "string" },
@@ -6406,6 +6411,8 @@ async function executeAction(
           .insert({
             user_id: userId,
             nom: clientName,
+            telephone: (entities.phone as string) || null,
+            adresse: (entities.address as string) || null,
             source: "whatsapp_agent",
           })
           .select("id, nom, prenom")
@@ -7292,6 +7299,8 @@ async function executeAction(
           .insert({
             user_id: userId,
             nom: clientName,
+            telephone: (entities.phone as string) || null,
+            adresse: (entities.address as string) || null,
             source: "whatsapp_agent",
             regie_id: regieId,
           })
