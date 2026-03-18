@@ -840,8 +840,9 @@ const EtudeForm = () => {
       setSurcoutSupport(etude.surcout_support || 0);
       setSurcoutCompteur(etude.surcout_compteur || 0);
       setAutreSurcout(etude.autre_surcout || 0);
-      // Prix manuel
-      if (etude.prix_installation) {
+      // Prix manuel - only restore if it was explicitly set by user (tracked in param_overrides)
+      const loadedOverrides = (etude as any).param_overrides;
+      if (loadedOverrides?.hasPrixInstallationManuel && etude.prix_installation) {
         setPrixInstallationManuel(etude.prix_installation);
       }
       // Mensualité manuelle
@@ -1523,6 +1524,7 @@ const EtudeForm = () => {
         heuresEnsoleillement,
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
+        hasPrixInstallationManuel: !!prixInstallationManuel,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
