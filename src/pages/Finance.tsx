@@ -137,6 +137,7 @@ interface FraisItem {
   date_frais: string;
   categorie: string;
   description: string | null;
+  fournisseur: string | null;
   ocr_data: Json | null;
   date_debut: string | null;
   date_fin: string | null;
@@ -272,6 +273,7 @@ const Finance = () => {
     montant: "",
     categorie: "autre",
     description: "",
+    fournisseur: "",
     date_frais: formatLocalDate(new Date()),
     date_debut: "",
     date_fin: "",
@@ -286,6 +288,7 @@ const Finance = () => {
     montant: "",
     categorie: "autre",
     description: "",
+    fournisseur: "",
     date_frais: "",
     date_debut: "",
     date_fin: "",
@@ -851,7 +854,7 @@ const Finance = () => {
       // Fetch all frais for the selected month (for stats and chart)
       const { data: monthFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
+        .select("id, montant, date_frais, categorie, description, fournisseur, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .gte("date_frais", monthStartStr)
         .lte("date_frais", monthEndStr)
@@ -860,7 +863,7 @@ const Finance = () => {
       // Fetch ALL frais for history (no date filter)
       const { data: allHistoryFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
+        .select("id, montant, date_frais, categorie, description, fournisseur, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .order("date_frais", { ascending: false });
 
@@ -982,6 +985,7 @@ const Finance = () => {
         montant: parseFloat(newFrais.montant),
         categorie: newFrais.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
         description: newFrais.description || null,
+        fournisseur: newFrais.fournisseur || null,
         date_frais: clampDateToToday(newFrais.date_frais),
         date_debut: newFrais.date_debut || null,
         date_fin: newFrais.date_fin || null,
@@ -995,6 +999,7 @@ const Finance = () => {
         montant: "",
         categorie: "autre",
         description: "",
+        fournisseur: "",
         date_frais: formatLocalDate(new Date()),
         date_debut: "",
         date_fin: "",
@@ -1013,6 +1018,7 @@ const Finance = () => {
       montant: String(frais.montant),
       categorie: frais.categorie,
       description: frais.description || "",
+      fournisseur: frais.fournisseur || "",
       date_frais: frais.date_frais,
       date_debut: frais.date_debut || "",
       date_fin: frais.date_fin || "",
@@ -1034,6 +1040,7 @@ const Finance = () => {
           montant: parseFloat(editForm.montant),
           categorie: editForm.categorie as "carburant" | "repas" | "hotel" | "peage" | "parking" | "train" | "location_vehicule" | "autre",
           description: editForm.description || null,
+          fournisseur: editForm.fournisseur || null,
           date_frais: editForm.date_frais,
           date_debut: editForm.date_debut || null,
           date_fin: editForm.date_fin || null,
@@ -1714,10 +1721,12 @@ const Finance = () => {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <p className="text-sm font-medium text-foreground truncate">
-                                                {frais.description || categoryLabels[frais.categorie]}
+                                                {frais.fournisseur || frais.description || categoryLabels[frais.categorie]}
                                               </p>
                                               <p className="text-xs text-muted-foreground">
                                                 {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
+                                                {frais.fournisseur && frais.description && ` • ${frais.description}`}
+                                                {!frais.justificatif_url && <span className="ml-1 text-amber-500">• Manuel</span>}
                                               </p>
                                               {(frais.categorie === "location_vehicule" || frais.categorie === "hotel") && frais.date_debut && frais.date_fin && (
                                                 <p className="text-xs text-primary mt-0.5">
@@ -1911,10 +1920,20 @@ const Finance = () => {
                   )}
                   
                   <div className="space-y-2">
+                    <Label htmlFor="fournisseur">Fournisseur / Commerçant</Label>
+                    <Input
+                      id="fournisseur"
+                      placeholder="Ex: Total, Novotel, SNCF..."
+                      value={newFrais.fournisseur}
+                      onChange={(e) => setNewFrais(prev => ({ ...prev, fournisseur: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="description">Description (optionnel)</Label>
                     <Input
                       id="description"
-                      placeholder="Ex: Station Total, Restaurant..."
+                      placeholder="Ex: Plein essence, Déjeuner client..."
                       value={newFrais.description}
                       onChange={(e) => setNewFrais(prev => ({ ...prev, description: e.target.value }))}
                     />
@@ -2020,10 +2039,20 @@ const Finance = () => {
                   )}
                   
                   <div className="space-y-2">
+                    <Label htmlFor="edit-fournisseur">Fournisseur / Commerçant</Label>
+                    <Input
+                      id="edit-fournisseur"
+                      placeholder="Ex: Total, Novotel, SNCF..."
+                      value={editForm.fournisseur}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, fournisseur: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="edit-description">Description (optionnel)</Label>
                     <Input
                       id="edit-description"
-                      placeholder="Ex: Station Total, Restaurant..."
+                      placeholder="Ex: Plein essence, Déjeuner client..."
                       value={editForm.description}
                       onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                     />

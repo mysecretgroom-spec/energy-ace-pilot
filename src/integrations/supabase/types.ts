@@ -1864,6 +1864,7 @@ export type Database = {
           date_frais: string
           description: string | null
           document_id: string | null
+          fournisseur: string | null
           id: string
           justificatif_url: string | null
           montant: number
@@ -1878,6 +1879,7 @@ export type Database = {
           date_frais?: string
           description?: string | null
           document_id?: string | null
+          fournisseur?: string | null
           id?: string
           justificatif_url?: string | null
           montant: number
@@ -1892,6 +1894,7 @@ export type Database = {
           date_frais?: string
           description?: string | null
           document_id?: string | null
+          fournisseur?: string | null
           id?: string
           justificatif_url?: string | null
           montant?: number
