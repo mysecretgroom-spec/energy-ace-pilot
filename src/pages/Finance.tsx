@@ -863,7 +863,7 @@ const Finance = () => {
       // Fetch ALL frais for history (no date filter)
       const { data: allHistoryFrais } = await supabase
         .from("frais")
-        .select("id, montant, date_frais, categorie, description, ocr_data, date_debut, date_fin, justificatif_url")
+        .select("id, montant, date_frais, categorie, description, fournisseur, ocr_data, date_debut, date_fin, justificatif_url")
         .eq("user_id", user.id)
         .order("date_frais", { ascending: false });
 
