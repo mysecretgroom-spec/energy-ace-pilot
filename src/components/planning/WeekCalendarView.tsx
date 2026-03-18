@@ -55,6 +55,7 @@ interface WeekCalendarViewProps {
 interface PendingDrop {
   rdv: RdvData;
   targetDate: Date;
+  fromContextMenu?: boolean;
 }
 
 // Default working days: Monday to Saturday (no Sunday)
@@ -163,6 +164,20 @@ export function WeekCalendarView({
     setPendingDrop(null);
   };
 
+  const handleConfirmWithDate = (newDate: Date, newTime: string) => {
+    if (!pendingDrop) return;
+
+    handleDrop(
+      pendingDrop.rdv.id,
+      pendingDrop.rdv.time,
+      newDate,
+      newTime,
+      pendingDrop.rdv.client
+    );
+
+    setPendingDrop(null);
+  };
+
   const handleTimePickerClose = (open: boolean) => {
     setTimePickerOpen(open);
     if (!open) {
@@ -182,7 +197,7 @@ export function WeekCalendarView({
 
   const handleContextMenuMove = () => {
     if (contextMenuRdv) {
-      setPendingDrop({ rdv: contextMenuRdv, targetDate: contextMenuRdv.date });
+      setPendingDrop({ rdv: contextMenuRdv, targetDate: contextMenuRdv.date, fromContextMenu: true });
       setTimePickerOpen(true);
     }
   };
@@ -315,6 +330,8 @@ export function WeekCalendarView({
           targetDate={pendingDrop.targetDate}
           clientName={pendingDrop.rdv.client}
           onConfirm={handleTimeConfirm}
+          allowDateChange={pendingDrop.fromContextMenu}
+          onConfirmWithDate={pendingDrop.fromContextMenu ? handleConfirmWithDate : undefined}
         />
       )}
 
