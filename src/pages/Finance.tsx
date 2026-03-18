@@ -288,6 +288,7 @@ const Finance = () => {
     montant: "",
     categorie: "autre",
     description: "",
+    fournisseur: "",
     date_frais: "",
     date_debut: "",
     date_fin: "",
