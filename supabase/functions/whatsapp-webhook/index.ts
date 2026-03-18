@@ -83,25 +83,13 @@ serve(async (req) => {
       }
     }
 
-    // 1. Find user by phone number (with retry for transient network errors)
-    let users: any[] | null = null;
-    let userError: any = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await supabase.rpc("find_user_by_phone", {
-        p_phone: fromNumber,
-      });
-      if (!res.error) {
-        users = res.data;
-        userError = null;
-        break;
-      }
-      userError = res.error;
-      console.warn(`find_user_by_phone attempt ${attempt + 1} failed:`, res.error.message);
-      if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-    }
+    // 1. Find user by phone number
+    const { data: users, error: userError } = await supabase.rpc("find_user_by_phone", {
+      p_phone: fromNumber,
+    });
 
     if (userError) {
-      console.error("Error finding user after retries:", userError);
+      console.error("Error finding user:", userError);
       throw userError;
     }
 
