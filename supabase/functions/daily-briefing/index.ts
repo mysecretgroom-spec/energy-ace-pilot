@@ -184,31 +184,7 @@ serve(async (req) => {
           }
         }
 
-        // Weekly performance snapshot
-        briefingBody += "\n📊 *Semaine en cours*\n";
-        if (weekCA > 0) {
-          briefingBody += `💰 CA : ${formatEuro(weekCA)}`;
-          if (weekKwc > 0) briefingBody += ` • ${weekKwc.toFixed(1)} kWc`;
-          briefingBody += "\n";
-        }
-        if (weekSigned > 0) {
-          briefingBody += `✍️ ${weekSigned} vente${weekSigned > 1 ? "s" : ""} signée${weekSigned > 1 ? "s" : ""}`;
-          if (weekConversion !== null) briefingBody += ` (${weekConversion}% transformation)`;
-          briefingBody += "\n";
-        }
-        if (weekCA === 0 && weekSigned === 0) {
-          briefingBody += "Pas encore de signature cette semaine — c'est le moment ! 💪\n";
-        }
-
-        // Monthly CA
-        if (monthCA > 0) {
-          briefingBody += `\n📈 *CA mois* : ${formatEuro(monthCA)}\n`;
-        }
-
-        // Pending payments
-        if (pendingPayment > 0) {
-          briefingBody += `⏳ ${pendingPayment} vente${pendingPayment > 1 ? "s" : ""} en attente de paiement\n`;
-        }
+        // (Stats semaine/mois retirées du briefing matinal)
 
         // Today's RDVs
         briefingBody += "\n";
