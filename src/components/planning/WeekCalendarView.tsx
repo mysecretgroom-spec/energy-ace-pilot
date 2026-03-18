@@ -330,6 +330,8 @@ export function WeekCalendarView({
           targetDate={pendingDrop.targetDate}
           clientName={pendingDrop.rdv.client}
           onConfirm={handleTimeConfirm}
+          allowDateChange={pendingDrop.fromContextMenu}
+          onConfirmWithDate={pendingDrop.fromContextMenu ? handleConfirmWithDate : undefined}
         />
       )}
 
