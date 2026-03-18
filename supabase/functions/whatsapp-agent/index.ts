@@ -7324,7 +7324,7 @@ async function executeAction(
             client_id: matchedClient.id,
             date_heure: new Date().toISOString(),
             status: "signe",  // Valid rdv_status enum value
-            type_rdv: "R1",
+            type_rdv: "standard",
             type_projet: "photovoltaique",
             source: "whatsapp_agent",
             regie_id: regieId,
