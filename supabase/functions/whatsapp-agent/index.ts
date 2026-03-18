@@ -3259,6 +3259,8 @@ Exemple échec:
         tva: null,
         taux_tva: null,
         date: null,
+        date_debut: null,
+        date_fin: null,
         fournisseur: null,
         description: null,
         categorie: null,
