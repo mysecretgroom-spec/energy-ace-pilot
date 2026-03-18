@@ -1566,6 +1566,7 @@ const Finance = () => {
                       <Pencil className="h-5 w-5" />
                       Frais manuel
                     </Button>
+                  </DialogTrigger>
                    <DialogContent className="max-h-[90vh]">
                     <DialogHeader>
                       <DialogTitle>Ajouter un frais</DialogTitle>
