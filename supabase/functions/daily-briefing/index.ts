@@ -196,10 +196,10 @@ serve(async (req) => {
           if (totalInterMinutes > 0) briefingBody += ` • ~${totalInterMinutes} min route`;
           briefingBody += "\n\n";
 
-          // Alerts
+          // Alerts (only needs_reconfirmation flag, not status-based)
           const alerts: string[] = [];
-          const pendingRdvs = rdvs.filter((r: any) => r.status === "a_confirmer" || r.status === "nouveau");
-          if (pendingRdvs.length > 0) alerts.push(`⚠️ ${pendingRdvs.length} RDV à confirmer`);
+          const needsReconfirmRdvs = rdvs.filter((r: any) => r.needs_reconfirmation === true);
+          if (needsReconfirmRdvs.length > 0) alerts.push(`⚠️ ${needsReconfirmRdvs.length} RDV à reconfirmer`);
           const noAddressRdvs = rdvs.filter((r: any) => !r.adresse && !r.clients?.adresse);
           if (noAddressRdvs.length > 0) alerts.push(`📍 ${noAddressRdvs.length} RDV sans adresse`);
           if (alerts.length > 0) briefingBody += alerts.join("\n") + "\n\n";
@@ -215,8 +215,8 @@ serve(async (req) => {
               : "Client";
             const city = rdv.clients?.ville || "";
 
-            const statusIcon = rdv.status === "a_confirmer" || rdv.status === "nouveau" ? "⚠️ " :
-              rdv.status === "confirme" ? "✅ " : "";
+            const statusIcon = rdv.needs_reconfirmation ? "⚠️ " :
+              rdv.status === "signe" ? "✅ " : "";
 
             let rdvLine = `${statusIcon}⏰ ${time} - ${clientName}`;
             if (city) rdvLine += ` (${city})`;
