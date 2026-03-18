@@ -3294,6 +3294,8 @@ Exemple échec:
         tva: parsed.tva ?? null,
         taux_tva: parsed.taux_tva ?? null,
         date: parsed.date ?? null,
+        date_debut: parsed.date_debut ?? null,
+        date_fin: parsed.date_fin ?? null,
         fournisseur: parsed.fournisseur ?? null,
         description: parsed.description ?? null,
         categorie: parsed.categorie ?? null,
