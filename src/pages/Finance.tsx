@@ -1721,10 +1721,12 @@ const Finance = () => {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                               <p className="text-sm font-medium text-foreground truncate">
-                                                {frais.description || categoryLabels[frais.categorie]}
+                                                {frais.fournisseur || frais.description || categoryLabels[frais.categorie]}
                                               </p>
                                               <p className="text-xs text-muted-foreground">
                                                 {new Date(frais.date_frais).toLocaleDateString("fr-FR")} • <span className={colors.text}>{categoryLabels[frais.categorie]}</span>
+                                                {frais.fournisseur && frais.description && ` • ${frais.description}`}
+                                                {!frais.justificatif_url && <span className="ml-1 text-amber-500">• Manuel</span>}
                                               </p>
                                               {(frais.categorie === "location_vehicule" || frais.categorie === "hotel") && frais.date_debut && frais.date_fin && (
                                                 <p className="text-xs text-primary mt-0.5">
