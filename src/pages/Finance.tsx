@@ -1566,8 +1566,117 @@ const Finance = () => {
                       <Pencil className="h-5 w-5" />
                       Frais manuel
                     </Button>
-                  </DialogTrigger>
-              <div className="grid grid-cols-2 gap-2">
+                   <DialogContent className="max-h-[90vh]">
+                    <DialogHeader>
+                      <DialogTitle>Ajouter un frais</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="montant">Montant TTC (€)</Label>
+                        <Input
+                          id="montant"
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={newFrais.montant}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, montant: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="categorie">Catégorie</Label>
+                        <Select
+                          value={newFrais.categorie}
+                          onValueChange={(v) => setNewFrais(prev => ({ ...prev, categorie: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(categoryLabels).map(([key, label]) => {
+                              const Icon = categoryIcons[key] || HelpCircle;
+                              const colors = categoryColors[key] || categoryColors.autre;
+                              return (
+                                <SelectItem key={key} value={key}>
+                                  <div className="flex items-center gap-2">
+                                    <Icon className={`h-4 w-4 ${colors.icon}`} />
+                                    <span>{label}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="date">Date</Label>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={newFrais.date_frais}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, date_frais: e.target.value }))}
+                        />
+                      </div>
+                      {(newFrais.categorie === "hotel" || newFrais.categorie === "location_vehicule") && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="date_debut">Date début</Label>
+                            <Input
+                              id="date_debut"
+                              type="date"
+                              value={newFrais.date_debut}
+                              onChange={(e) => setNewFrais(prev => ({ ...prev, date_debut: e.target.value }))}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="date_fin">Date fin</Label>
+                            <Input
+                              id="date_fin"
+                              type="date"
+                              value={newFrais.date_fin}
+                              onChange={(e) => setNewFrais(prev => ({ ...prev, date_fin: e.target.value }))}
+                            />
+                          </div>
+                          <p className="col-span-2 text-xs text-muted-foreground">
+                            Le montant sera réparti au prorata sur la période
+                          </p>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="fournisseur">Fournisseur / Commerçant</Label>
+                        <Input
+                          id="fournisseur"
+                          placeholder="Ex: Total, Novotel, SNCF..."
+                          value={newFrais.fournisseur}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, fournisseur: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description (optionnel)</Label>
+                        <Input
+                          id="description"
+                          placeholder="Ex: Plein essence, Déjeuner client..."
+                          value={newFrais.description}
+                          onChange={(e) => setNewFrais(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                      <Button 
+                        className="w-full" 
+                        onClick={handleAddFrais}
+                        disabled={savingFrais}
+                      >
+                        {savingFrais ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Enregistrement...
+                          </>
+                        ) : (
+                          "Enregistrer"
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
                 <Dialog open={bankImportOpen} onOpenChange={setBankImportOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="gap-2 h-11 w-full">
