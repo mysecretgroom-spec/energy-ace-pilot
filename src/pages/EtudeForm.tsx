@@ -2743,13 +2743,19 @@ _Envoyé depuis DébalePro_`;
                   case "pacSubtype": {
                     const newSubtype = value as "air_air" | "air_eau";
                     setPacSubtype(newSubtype);
-                    // Recalculate MPR when subtype changes
+                    // Recalculate MPR + dépose when subtype changes
                     if (pacProfilMpr) {
                       const MPR_MONTANTS: Record<string, Record<string, number>> = {
                         air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
                         air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                       };
-                      setAidesPAC(prev => ({ ...prev, maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0 }));
+                      const DEPOSE_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                      const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
+                      setAidesPAC(prev => ({ 
+                        ...prev, 
+                        maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0,
+                        deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0,
+                      }));
                     }
                     break;
                   }
