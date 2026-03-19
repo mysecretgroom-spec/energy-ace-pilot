@@ -2809,7 +2809,7 @@ _Envoyé depuis DébalePro_`;
                   case "pacDeposeChaudiere": {
                     const active = value as boolean;
                     const DEPOSE_MONTANTS: Record<string, number> = {
-                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
+                      bleu: 3500, jaune: 2500, violet: 1500, rose: 0,
                     };
                     const deposeVal = active ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0;
                     setAidesPAC(prev => ({ ...prev, deposeChaudiere: deposeVal }));
