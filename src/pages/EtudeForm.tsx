@@ -2658,7 +2658,7 @@ _Envoyé depuis DébalePro_`;
 
                   {/* En multi-produit : tout est affiché à la suite, plus besoin de navigation */}
                   <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">📋 Études techniques : {activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""} → Bilan financier global</p>
+                    <p className="font-medium text-foreground">📋 Étude unifiée : Saisie technique ({activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""}) → Résultats cumulés → Bilan financier global</p>
                   </div>
                 </CardContent>
               </Card>
@@ -3133,11 +3133,13 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* =============== PRÉCONISATION TECHNIQUE =============== */}
-        <div className="pt-2 sm:pt-4">
-          <h2 className="text-sm sm:text-lg font-display font-bold text-center text-primary mb-3 sm:mb-4">
-            PRÉCONISATION
-          </h2>
-        </div>
+        {activeProducts.length <= 1 && (
+          <div className="pt-2 sm:pt-4">
+            <h2 className="text-sm sm:text-lg font-display font-bold text-center text-primary mb-3 sm:mb-4">
+              PRÉCONISATION
+            </h2>
+          </div>
+        )}
 
         {/* CONSOMMATIONS — masquées en multi-produit car déjà affichées dans "Situation actuelle" */}
         <Card className="shadow-card" style={activeProducts.length > 1 ? { display: 'none' } : undefined}>
@@ -3313,7 +3315,7 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* PROJECTION ÉVOLUTION PRIX ÉNERGIE — sous les infos conso */}
-        {factureMensuelle && Number(factureMensuelle) > 0 && (
+        {factureMensuelle && Number(factureMensuelle) > 0 && activeProducts.length <= 1 && (
           <Collapsible>
             <Card className="shadow-card">
               <CollapsibleTrigger asChild>
@@ -3517,7 +3519,7 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* RÉSULTAT DE LA PRÉCONISATION */}
-        {calculatedResults && (
+        {calculatedResults && activeProducts.length <= 1 && (
           <Card className="shadow-card border-2 border-secondary/50">
             <CardHeader className="pb-2 bg-secondary/20 px-3 sm:px-6 py-2 sm:py-3">
               <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
@@ -3774,6 +3776,111 @@ _Envoyé depuis DébalePro_`;
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* =============== RÉSULTATS TECHNIQUES CUMULÉS — multi-produit uniquement =============== */}
+        {activeProducts.length > 1 && (
+          <>
+            <div className="pt-4">
+              <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                <h2 className="text-xs sm:text-sm font-bold text-primary uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                  📊 Résultats des études techniques
+                </h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {/* Résultat PV */}
+              {activeProducts.includes("PV") && calculatedResults && (
+                <Card className="shadow-card border-l-4 border-l-amber-500">
+                  <CardContent className="pt-3 pb-3 px-3 sm:px-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Sun className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-700">PHOTOVOLTAÏQUE</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Production</p>
+                        <p className="font-bold text-sm">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")}</p>
+                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Autoconso</p>
+                        <p className="font-bold text-sm">{calculatedResults.autoconsoPct.toFixed(1)}%</p>
+                        <p className="text-[10px] text-muted-foreground">{(calculatedResults.productionAnnuelle - calculatedResults.surplusProduction).toLocaleString("fr-FR")} kWh</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Surplus</p>
+                        <p className="font-bold text-sm">{calculatedResults.surplusProduction.toLocaleString("fr-FR")}</p>
+                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Résultat PAC */}
+              {activeProducts.includes("PAC") && pacEconomiesCalculees && (
+                <Card className="shadow-card border-l-4 border-l-blue-500">
+                  <CardContent className="pt-3 pb-3 px-3 sm:px-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Gauge className="h-4 w-4 text-blue-500" />
+                      <span className="text-xs font-bold text-blue-700">POMPE À CHALEUR</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Besoins chauf.</p>
+                        <p className="font-bold text-sm">{Math.round(pacEconomiesCalculees.besoinsChauffageKwh).toLocaleString("fr-FR")}</p>
+                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Conso PAC</p>
+                        <p className="font-bold text-sm">{Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")}</p>
+                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Économie nette</p>
+                        <p className="font-bold text-sm text-green-600">{Math.round(pacEconomiesCalculees.economieNetteEuros).toLocaleString("fr-FR")}€</p>
+                        <p className="text-[10px] text-muted-foreground">/an</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Résultat ITE */}
+              {activeProducts.includes("ITE") && Number(iteEconomieChauffagePct) > 0 && (
+                <Card className="shadow-card border-l-4 border-l-orange-500">
+                  <CardContent className="pt-3 pb-3 px-3 sm:px-4">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Home className="h-4 w-4 text-orange-500" />
+                      <span className="text-xs font-bold text-orange-700">ISOLATION THERMIQUE</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Surface</p>
+                        <p className="font-bold text-sm">{Number(iteSurfaceIsoler).toLocaleString("fr-FR")}</p>
+                        <p className="text-[10px] text-muted-foreground">m²</p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Économie chauf.</p>
+                        <p className="font-bold text-sm text-orange-600">-{Number(iteEconomieChauffagePct)}%</p>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-2">
+                        <p className="text-[10px] text-muted-foreground">Gain annuel</p>
+                        <p className="font-bold text-sm text-green-600">
+                          {Math.round(Number(iteFactureChaufActuelle || pacFactureChauffageEuros || 0) * Number(iteEconomieChauffagePct) / 100).toLocaleString("fr-FR")}€
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">/an</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
         )}
 
         {/* =============== PRÉ-ÉTUDE FINANCIÈRE — Globale en multi-produit, PV seul sinon =============== */}
