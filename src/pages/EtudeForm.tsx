@@ -1262,12 +1262,16 @@ const EtudeForm = () => {
     
     if (prixInstallationManuel) {
       prixInstallation = Number(prixInstallationManuel);
+    } else if (selectedBouquetPV) {
+      // Use explicitly selected bouquet
+      const selectedBq = dataBouquets.find(b => b.id === selectedBouquetPV);
+      if (selectedBq) {
+        prixInstallation = selectedBq.prix_recommande;
+      }
     } else if (dataBouquets.length > 0) {
-      // En multi-produit, filtrer les bouquets multi-produit pour ne garder que les PV purs
-      const pvOnlyBouquets = activeProducts.length > 1
-        ? dataBouquets.filter(b => !b.nom_bouquet?.match(/PAC|ITE|Ballon|Thermo/i))
-        : dataBouquets;
-      const bouquetsForInterp = pvOnlyBouquets.length > 0 ? pvOnlyBouquets : dataBouquets;
+      // Fallback: interpolate from PV bouquets only
+      const pvBouquets = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
+      const bouquetsForInterp = pvBouquets.length > 0 ? pvBouquets : dataBouquets.filter(b => b.product_type === "PV");
       const interpolatedBouquet = findOrInterpolateBouquet(bouquetsForInterp, puissance);
       prixInstallation = modeHejjaPrix 
         ? (prixManuel ? Number(prixManuel) : 0)
