@@ -1996,6 +1996,7 @@ const EtudeForm = () => {
       selectedBouquetPAC,
       selectedBouquetITE,
       selectedBouquetCombo,
+      precoMode,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
