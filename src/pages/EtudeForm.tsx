@@ -3807,7 +3807,7 @@ _Envoyé depuis DébalePro_`;
                       <div className="bg-muted/50 rounded-lg p-2">
                         <p className="text-[10px] text-muted-foreground">Autoconso</p>
                         <p className="font-bold text-sm">{calculatedResults.autoconsoPct.toFixed(1)}%</p>
-                        <p className="text-[10px] text-muted-foreground">{calculatedResults.autoconsommationKwh.toLocaleString("fr-FR")} kWh</p>
+                        <p className="text-[10px] text-muted-foreground">{(calculatedResults.productionAnnuelle - calculatedResults.surplusProduction).toLocaleString("fr-FR")} kWh</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
                         <p className="text-[10px] text-muted-foreground">Surplus</p>
