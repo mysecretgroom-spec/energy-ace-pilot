@@ -916,6 +916,7 @@ const EtudeForm = () => {
         setPacFactureElecEuros(etude.pac_facture_elec_euros || "");
         setPacNiveauIsolation(etude.pac_niveau_isolation || "moyen");
         setPacPrixKwhElec(etude.pac_prix_kwh_elec || 0.23);
+        if ((etude as any).pac_profil_mpr) setPacProfilMpr((etude as any).pac_profil_mpr);
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
