@@ -9,10 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Camera, Loader2, Check, X, Receipt, Building2, Calendar, Euro, FileText, CarFront } from "lucide-react";
 import { toast } from "sonner";
-import * as pdfjsLib from "pdfjs-dist";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import { pdfjsLib } from "@/lib/pdfWorker";
 
 // Helper to upload file to storage
 async function uploadReceiptToStorage(

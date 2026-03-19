@@ -16,13 +16,7 @@ import { FileDown, Loader2, FileText, Image } from "lucide-react";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as pdfjs from "pdfjs-dist";
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+import { pdfjsLib as pdfjs } from "@/lib/pdfWorker";
 
 interface FraisItem {
   id: string;
