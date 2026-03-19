@@ -3315,7 +3315,7 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* PROJECTION ÉVOLUTION PRIX ÉNERGIE — sous les infos conso */}
-        {factureMensuelle && Number(factureMensuelle) > 0 && (
+        {factureMensuelle && Number(factureMensuelle) > 0 && activeProducts.length <= 1 && (
           <Collapsible>
             <Card className="shadow-card">
               <CollapsibleTrigger asChild>
