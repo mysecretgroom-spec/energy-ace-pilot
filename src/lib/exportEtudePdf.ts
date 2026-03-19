@@ -1984,7 +1984,7 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
     : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
-    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : products[0] === "PAC" ? "POMPE À CHALEUR + BTD"
     : "ISOLATION THERMIQUE";
 
   // Override PageContext to use CEPC header
