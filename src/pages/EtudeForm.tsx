@@ -3523,11 +3523,11 @@ _Envoyé depuis DébalePro_`;
           />
         )}
 
-        {/* =============== PRÉ-ÉTUDE FINANCIÈRE PV =============== */}
-        {activeProducts.includes("PV") && currentTab === "PV" && (
+        {/* =============== PRÉ-ÉTUDE FINANCIÈRE — Globale en multi-produit, PV seul sinon =============== */}
+        {((activeProducts.includes("PV") && currentTab === "PV") || (activeProducts.length > 1)) && (
           <div className="pt-4">
             <h2 className="text-lg font-display font-bold text-center text-primary mb-4">
-              PRÉ-ÉTUDE FINANCIÈRE
+              {activeProducts.length > 1 ? "PRÉ-ÉTUDE FINANCIÈRE GLOBALE" : "PRÉ-ÉTUDE FINANCIÈRE"}
             </h2>
           </div>
         )}
