@@ -591,6 +591,7 @@ const EtudeForm = () => {
     if (draft.selectedBouquetPAC) setSelectedBouquetPAC(draft.selectedBouquetPAC);
     if (draft.selectedBouquetITE) setSelectedBouquetITE(draft.selectedBouquetITE);
     if (draft.selectedBouquetCombo) setSelectedBouquetCombo(draft.selectedBouquetCombo);
+    if (draft.precoMode) setPrecoMode(draft.precoMode);
     
     // Mark restoration complete after a delay
     markRestorationComplete();
