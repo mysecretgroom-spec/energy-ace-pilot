@@ -220,6 +220,26 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
               PAC Air/Air non éligible à MaPrimeRénov'
             </div>
           )}
+
+          {/* Dépose chaudière */}
+          {data.pacProfilMpr && data.pacProfilMpr !== "rose" && (
+            <div className="flex items-center justify-between py-2 px-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-orange-600" />
+                <div>
+                  <p className="text-xs font-medium">Dépose chaudière fossile</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Bonus si retrait d'une chaudière gaz/fioul
+                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={data.pacDeposeChaudiere || false}
+                onCheckedChange={(checked) => onChange("pacDeposeChaudiere", checked)}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card className="shadow-card">
