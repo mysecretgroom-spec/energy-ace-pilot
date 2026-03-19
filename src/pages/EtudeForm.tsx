@@ -2741,6 +2741,7 @@ _Envoyé depuis DébalePro_`;
                 pacProfilMpr,
                 pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
                 pacBallonThermo: (aidesPAC.ballonThermo || 0) > 0,
+                pacRaccordementReseau: (aidesPAC.raccordementReseau || 0) > 0,
               }}
               onChange={(field, value) => {
                 switch (field) {
