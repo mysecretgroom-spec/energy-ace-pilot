@@ -324,6 +324,7 @@ const EtudeForm = () => {
     aideLocale: 0,
     deposeChaudiere: 0,
     ballonThermo: 0,
+    raccordementReseau: 0,
   });
   const [aidesITE, setAidesITE] = useState({
     maPrimeRenov: 0,
