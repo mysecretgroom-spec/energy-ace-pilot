@@ -1369,7 +1369,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR + BTD", ministereBase64);
       yPos = 42;
     }
     yPos = drawPacPage(doc, data, yPos, pvCtx);
