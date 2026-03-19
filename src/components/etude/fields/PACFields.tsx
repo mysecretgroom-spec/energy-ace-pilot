@@ -37,6 +37,7 @@ interface PACFieldsProps {
     pacNiveauIsolation: string;
     pacPrixKwhElec: number | "";
     pacProfilMpr?: string;
+    pacDeposeChaudiere?: boolean;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
