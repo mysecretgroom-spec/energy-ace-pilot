@@ -1280,7 +1280,7 @@ const EtudeForm = () => {
     }, 0);
     const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + surcoutEmplacement + autreSurcout;
 
-    const prixTotalHorsAides = prixInstallation + prixSurcouts;
+    const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
     // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
     // Pas de prime pour ≤ 3 kWc, prime par tranche au-dessus
