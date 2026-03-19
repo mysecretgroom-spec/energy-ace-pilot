@@ -323,6 +323,7 @@ const EtudeForm = () => {
     ecoTva: 0,
     aideLocale: 0,
     deposeChaudiere: 0,
+    ballonThermo: 0,
   });
   const [aidesITE, setAidesITE] = useState({
     maPrimeRenov: 0,
@@ -1505,7 +1506,7 @@ const EtudeForm = () => {
       total_aides: (() => {
         let total = 0;
         if (hasPV && calculatedResults) total += calculatedResults.totalAides;
-        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0));
+        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0));
         if (hasITE) total += (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale);
         return total;
       })(),
@@ -2738,6 +2739,7 @@ _Envoyé depuis DébalePro_`;
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
                 pacProfilMpr,
                 pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
+                pacBallonThermo: (aidesPAC.ballonThermo || 0) > 0,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -2751,11 +2753,14 @@ _Envoyé depuis DébalePro_`;
                         air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                       };
                       const DEPOSE_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                      const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
                       const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
+                      const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
                       setAidesPAC(prev => ({ 
                         ...prev, 
                         maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0,
                         deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0,
+                        ballonThermo: ballonActive ? (CET_MONTANTS[pacProfilMpr] ?? 0) : 0,
                       }));
                     }
                     break;
@@ -2782,14 +2787,14 @@ _Envoyé depuis DébalePro_`;
                       air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
                       air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                     };
-                    const DEPOSE_MONTANTS: Record<string, number> = {
-                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
-                    };
+                    const DEPOSE_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                    const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
                     const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
-                    // Recalculate dépose if it was active
                     const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
                     const deposeVal = deposeActive ? (DEPOSE_MONTANTS[profil] ?? 0) : 0;
-                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant, deposeChaudiere: deposeVal }));
+                    const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
+                    const ballonVal = ballonActive ? (CET_MONTANTS[profil] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant, deposeChaudiere: deposeVal, ballonThermo: ballonVal }));
                     break;
                   }
                   case "pacDeposeChaudiere": {
@@ -2799,6 +2804,15 @@ _Envoyé depuis DébalePro_`;
                     };
                     const deposeVal = active ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0;
                     setAidesPAC(prev => ({ ...prev, deposeChaudiere: deposeVal }));
+                    break;
+                  }
+                  case "pacBallonThermo": {
+                    const active = value as boolean;
+                    const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                    const ballonVal = active ? (CET_MONTANTS[pacProfilMpr] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, ballonThermo: ballonVal }));
+                    // If ballon thermo is included, also enable ECS
+                    if (active) setPacEcsIntegre(true);
                     break;
                   }
                 }

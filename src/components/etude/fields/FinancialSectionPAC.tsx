@@ -13,6 +13,7 @@ interface AidesPAC {
   ecoTva: number;
   aideLocale: number;
   deposeChaudiere: number;
+  ballonThermo: number;
 }
 
 interface FinancialSectionPACProps {
@@ -76,7 +77,7 @@ export const FinancialSectionPAC = ({
   // Montant TTC total hors aides (base de financement)
   const prixTotalTTC = Number(prixFinal) + autreSurcout;
   
-  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale + (aides.deposeChaudiere || 0);
+  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale + (aides.deposeChaudiere || 0) + (aides.ballonThermo || 0);
   const prixAidesDéduites = prixTotalTTC - totalAides;
   
   // Calcul mensualité avec report 6 mois
@@ -241,6 +242,21 @@ export const FinancialSectionPAC = ({
                   />
                 ) : (
                   <span className="font-medium text-green-600">{(aides.deposeChaudiere || 0).toLocaleString("fr-FR")}€</span>
+                )}
+              </div>
+            )}
+            {(aides.ballonThermo || 0) > 0 && (
+              <div className="flex justify-between items-center">
+                <span>CET (ballon thermo)</span>
+                {modeHejja ? (
+                  <Input
+                    type="number"
+                    value={aides.ballonThermo}
+                    onChange={(e) => onAidesChange({ ...aides, ballonThermo: Number(e.target.value) || 0 })}
+                    className="h-6 w-20 text-right text-xs"
+                  />
+                ) : (
+                  <span className="font-medium text-green-600">{(aides.ballonThermo || 0).toLocaleString("fr-FR")}€</span>
                 )}
               </div>
             )}

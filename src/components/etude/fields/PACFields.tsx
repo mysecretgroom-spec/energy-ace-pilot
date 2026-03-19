@@ -38,6 +38,7 @@ interface PACFieldsProps {
     pacPrixKwhElec: number | "";
     pacProfilMpr?: string;
     pacDeposeChaudiere?: boolean;
+    pacBallonThermo?: boolean;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
@@ -237,6 +238,26 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
               <Switch
                 checked={data.pacDeposeChaudiere || false}
                 onCheckedChange={(checked) => onChange("pacDeposeChaudiere", checked)}
+              />
+            </div>
+          )}
+
+          {/* Ballon thermodynamique */}
+          {data.pacSubtype === "air_eau" && data.pacProfilMpr && data.pacProfilMpr !== "rose" && (
+            <div className="flex items-center justify-between py-2 px-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Droplets className="h-4 w-4 text-blue-600" />
+                <div>
+                  <p className="text-xs font-medium">Ballon thermodynamique (CET)</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Chauffe-eau thermo inclus dans le bouquet
+                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={data.pacBallonThermo || false}
+                onCheckedChange={(checked) => onChange("pacBallonThermo", checked)}
               />
             </div>
           )}
