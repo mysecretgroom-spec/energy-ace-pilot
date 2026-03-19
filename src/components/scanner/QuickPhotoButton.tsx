@@ -5,12 +5,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
-import { generatePdfFromFile } from "@/components/scanner/services/pdfGenerator";
+import imageCompression from "browser-image-compression";
+import { PDFDocument } from "pdf-lib";
 
 import { QuickPhotoCategory, QUICK_PHOTO_LABELS, PhotoCategory } from "@/lib/documentCategories";
 
 // Re-export for backward compatibility
 export type { PhotoCategory };
+
+const COMPRESSION_OPTIONS = {
+  maxSizeMB: 0.8,
+  maxWidthOrHeight: 1600,
+  useWebWorker: true,
+  fileType: "image/jpeg" as const,
+};
 
 interface QuickPhotoButtonProps {
   clientId: string;
@@ -18,6 +26,162 @@ interface QuickPhotoButtonProps {
   label: string;
   etudeId?: string | null;
   onPhotoSaved?: () => void;
+}
+
+/**
+ * Merges all study photo documents into a single PDF.
+ * Called after each photo upload to maintain one combined PDF.
+ */
+async function mergeStudyPhotosIntoPdf(
+  userId: string,
+  clientId: string,
+  etudeId: string
+): Promise<void> {
+  // 1. Fetch all individual photo documents for this study
+  const { data: photoDocs, error: fetchError } = await supabase
+    .from("documents")
+    .select("id, url, nom, type_document, context_source, created_at")
+    .eq("client_id", clientId)
+    .eq("etude_id", etudeId)
+    .in("type_document", ["photo_toiture", "photo_compteur", "photo_tableau", "photo_chantier"])
+    .neq("context_source", "merged_photos")
+    .order("created_at", { ascending: true });
+
+  if (fetchError || !photoDocs || photoDocs.length === 0) return;
+
+  // 2. Download all images and build combined PDF
+  const pdfDoc = await PDFDocument.create();
+  const A4_WIDTH = 595.28;
+  const A4_HEIGHT = 841.89;
+  const MARGIN = 40;
+  const LABEL_HEIGHT = 20;
+
+  const categoryLabels: Record<string, string> = {
+    photo_toiture: "Toiture",
+    photo_compteur: "Compteur",
+    photo_tableau: "Tableau électrique",
+    photo_chantier: "Photo chantier",
+  };
+
+  for (const doc of photoDocs) {
+    try {
+      // Get signed URL for private bucket
+      const urlPath = doc.url.includes("/documents/")
+        ? doc.url.split("/documents/").pop()
+        : null;
+
+      let imageBytes: Uint8Array | null = null;
+
+      if (urlPath) {
+        // Try signed URL first
+        const { data: signedData } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(decodeURIComponent(urlPath), 60);
+
+        if (signedData?.signedUrl) {
+          const resp = await fetch(signedData.signedUrl);
+          if (resp.ok) {
+            imageBytes = new Uint8Array(await resp.arrayBuffer());
+          }
+        }
+      }
+
+      // Fallback: try public URL directly
+      if (!imageBytes) {
+        try {
+          const resp = await fetch(doc.url);
+          if (resp.ok) {
+            imageBytes = new Uint8Array(await resp.arrayBuffer());
+          }
+        } catch {
+          console.warn(`Could not fetch photo: ${doc.nom}`);
+          continue;
+        }
+      }
+
+      if (!imageBytes || imageBytes.length < 100) continue;
+
+      // Detect image type and embed
+      let image;
+      // Check magic bytes for PNG (89 50 4E 47)
+      if (imageBytes[0] === 0x89 && imageBytes[1] === 0x50) {
+        image = await pdfDoc.embedPng(imageBytes);
+      } else {
+        image = await pdfDoc.embedJpg(imageBytes);
+      }
+
+      // Create A4 page
+      const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
+
+      // Add label at top
+      const label = categoryLabels[doc.type_document] || doc.nom;
+      page.drawText(label, {
+        x: MARGIN,
+        y: A4_HEIGHT - MARGIN,
+        size: 14,
+      });
+
+      // Scale image to fit within margins
+      const availWidth = A4_WIDTH - MARGIN * 2;
+      const availHeight = A4_HEIGHT - MARGIN * 2 - LABEL_HEIGHT;
+      const scale = Math.min(availWidth / image.width, availHeight / image.height, 1);
+      const imgWidth = image.width * scale;
+      const imgHeight = image.height * scale;
+
+      // Center horizontally, place below label
+      const x = (A4_WIDTH - imgWidth) / 2;
+      const y = A4_HEIGHT - MARGIN - LABEL_HEIGHT - imgHeight;
+
+      page.drawImage(image, { x, y, width: imgWidth, height: imgHeight });
+    } catch (err) {
+      console.warn(`Skipping photo ${doc.nom}:`, err);
+    }
+  }
+
+  if (pdfDoc.getPageCount() === 0) return;
+
+  // 3. Save combined PDF
+  const pdfBytes = await pdfDoc.save();
+  const pdfBlob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+  const timestamp = Date.now();
+  const fileName = `${userId}/${clientId}/photos_etude_${etudeId.slice(0, 8)}_${timestamp}.pdf`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("documents")
+    .upload(fileName, pdfBlob, {
+      contentType: "application/pdf",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    console.error("Failed to upload merged PDF:", uploadError);
+    return;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from("documents")
+    .getPublicUrl(fileName);
+
+  // 4. Delete old merged PDF if exists, then insert new one
+  await supabase
+    .from("documents")
+    .delete()
+    .eq("client_id", clientId)
+    .eq("etude_id", etudeId)
+    .eq("context_source", "merged_photos");
+
+  await supabase.from("documents").insert({
+    user_id: userId,
+    client_id: clientId,
+    etude_id: etudeId,
+    nom: `Photos visite technique - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
+    type_document: "photo_chantier",
+    url: urlData.publicUrl,
+    taille_bytes: pdfBlob.size,
+    mime_type: "application/pdf",
+    context_source: "merged_photos",
+    page_count: pdfDoc.getPageCount(),
+  });
 }
 
 export function QuickPhotoButton({
@@ -35,24 +199,6 @@ export function QuickPhotoButton({
   const { user } = useAuth();
   const { isOnline, savePendingDocument } = useOfflineDocuments();
 
-  const saveToDevice = (file: File) => {
-    try {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.${file.name.split(".").pop() || "jpg"}`;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    } catch (err) {
-      console.warn("Impossible de sauvegarder dans les téléchargements:", err);
-    }
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
@@ -60,46 +206,45 @@ export function QuickPhotoButton({
     setIsUploading(true);
 
     try {
-      // Sauvegarder l'image originale dans les téléchargements (pellicule)
-      saveToDevice(file);
+      // Compress the image (avoids I/O errors with large files on mobile)
+      let compressedBlob: Blob;
+      try {
+        compressedBlob = await imageCompression(file, COMPRESSION_OPTIONS);
+      } catch (compressionError) {
+        console.warn("Compression failed, using original:", compressionError);
+        compressedBlob = file;
+      }
 
-      // Convertir l'image en PDF
-      const { blob: pdfBlob, thumbnails } = await generatePdfFromFile(file);
-      
       // If offline, save to IndexedDB
       if (!isOnline) {
         const reader = new FileReader();
         reader.onload = async (event) => {
-          const pdfData = event.target?.result as string;
-          const offlineDocType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any) 
-            ? category as "photo_chantier" 
-            : "photo_chantier";
+          const imageData = event.target?.result as string;
           await savePendingDocument({
             clientId,
-            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
-            typeDocument: offlineDocType,
-            imageData: pdfData,
-            mimeType: "application/pdf",
+            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
+            typeDocument: category as "photo_chantier",
+            imageData,
+            mimeType: "image/jpeg",
             contextSource: category,
           });
           setHasPhoto(true);
           onPhotoSaved?.();
         };
-        reader.readAsDataURL(pdfBlob);
+        reader.readAsDataURL(compressedBlob);
         setIsUploading(false);
         if (e.target) e.target.value = "";
         return;
       }
 
-      // Online: upload PDF directly
-      // Le chemin doit commencer par user.id pour respecter la politique RLS
+      // Online: upload compressed image directly (no PDF wrapping)
       const timestamp = Date.now();
-      const fileName = `${user.id}/${clientId}/${category}_${timestamp}.pdf`;
+      const fileName = `${user.id}/${clientId}/${category}_${timestamp}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from("documents")
-        .upload(fileName, pdfBlob, {
-          contentType: "application/pdf",
+        .upload(fileName, compressedBlob, {
+          contentType: "image/jpeg",
           upsert: false,
         });
 
@@ -112,23 +257,21 @@ export function QuickPhotoButton({
         .from("documents")
         .getPublicUrl(fileName);
 
-      // Use the actual category as type_document (photo_toiture, photo_compteur, photo_tableau)
-      // Fallback to "photo_chantier" only for unknown categories
-      const docType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any) 
-        ? category 
+      // Save individual photo document
+      const docType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any)
+        ? category
         : "photo_chantier";
 
       const { error: dbError } = await supabase.from("documents").insert({
         user_id: user.id,
         client_id: clientId,
         etude_id: etudeId || null,
-        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.pdf`,
+        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
         type_document: docType,
         url: urlData.publicUrl,
-        taille_bytes: pdfBlob.size,
-        mime_type: "application/pdf",
+        taille_bytes: compressedBlob.size,
+        mime_type: "image/jpeg",
         context_source: category,
-        thumbnails_urls: thumbnails.length > 0 ? thumbnails : null,
       });
 
       if (dbError) {
@@ -139,10 +282,17 @@ export function QuickPhotoButton({
       setHasPhoto(true);
       toast({
         title: "Photo enregistrée",
-        description: `${QUICK_PHOTO_LABELS[category]} converti en PDF et ajouté au dossier`,
+        description: `${QUICK_PHOTO_LABELS[category]} ajoutée au dossier`,
       });
 
       onPhotoSaved?.();
+
+      // Merge all study photos into a single PDF (background, non-blocking)
+      if (etudeId) {
+        mergeStudyPhotosIntoPdf(user.id, clientId, etudeId).catch((err) =>
+          console.warn("Background merge failed:", err)
+        );
+      }
     } catch (error) {
       console.error("Erreur upload photo:", error);
       toast({
