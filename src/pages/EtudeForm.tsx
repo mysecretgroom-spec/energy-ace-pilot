@@ -2641,28 +2641,9 @@ _Envoyé depuis DébalePro_`;
                     }}
                   />
 
-                  {/* Guide de progression multi-produit */}
+                  {/* En multi-produit : tout est affiché à la suite, plus besoin de navigation */}
                   <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground mb-1">📋 Ordre recommandé :</p>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {activeProducts.includes("ITE") && (
-                        <button type="button" onClick={() => setCurrentTab("ITE")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "ITE" ? "bg-orange-100 border-orange-300 text-orange-700 font-medium" : "hover:bg-muted")}>
-                          1. ITE
-                        </button>
-                      )}
-                      {activeProducts.includes("ITE") && activeProducts.includes("PAC") && <span>→</span>}
-                      {activeProducts.includes("PAC") && (
-                        <button type="button" onClick={() => setCurrentTab("PAC")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "PAC" ? "bg-blue-100 border-blue-300 text-blue-700 font-medium" : "hover:bg-muted")}>
-                          {activeProducts.includes("ITE") ? "2" : "1"}. PAC
-                        </button>
-                      )}
-                      {activeProducts.includes("PAC") && activeProducts.includes("PV") && <span>→</span>}
-                      {activeProducts.includes("PV") && (
-                        <button type="button" onClick={() => setCurrentTab("PV")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "PV" ? "bg-amber-100 border-amber-300 text-amber-700 font-medium" : "hover:bg-muted")}>
-                          {activeProducts.filter(p => p !== "PV").length + 1}. PV + Bilan
-                        </button>
-                      )}
-                    </div>
+                    <p className="font-medium text-foreground">📋 Études techniques : {activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""} → Bilan financier global</p>
                   </div>
                 </CardContent>
               </Card>
