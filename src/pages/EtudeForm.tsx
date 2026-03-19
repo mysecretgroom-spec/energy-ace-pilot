@@ -893,6 +893,7 @@ const EtudeForm = () => {
         if (overrides.selectedBouquetPAC) setSelectedBouquetPAC(overrides.selectedBouquetPAC);
         if (overrides.selectedBouquetITE) setSelectedBouquetITE(overrides.selectedBouquetITE);
         if (overrides.selectedBouquetCombo) setSelectedBouquetCombo(overrides.selectedBouquetCombo);
+        if (overrides.precoMode) setPrecoMode(overrides.precoMode);
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
