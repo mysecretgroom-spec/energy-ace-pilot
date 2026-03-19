@@ -19,7 +19,7 @@ interface PacData {
   energieActuelle: string;
   niveauIsolation: string;
   prixInstallation: number;
-  aides: { maPrimeRenov: number; cee: number; ecoTva: number; aideLocale: number };
+  aides: { maPrimeRenov: number; cee: number; ecoTva: number; aideLocale: number; deposeChaudiere?: number; ballonThermo?: number; raccordementReseau?: number };
   economies: { besoinsChauffageKwh: number; consoElecPacKwh: number; surcoutElecEuros: number; economieNetteEuros: number; economieNetteMessage: number } | null;
   factureChauffage: number;
   factureElec: number;
@@ -764,7 +764,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("POMPE A CHALEUR (PAC)", 16, yPos + 5);
+  doc.text("POMPE A CHALEUR (PAC) + BALLON THERMODYNAMIQUE", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
@@ -774,7 +774,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
       ["Surface chauffee", `${pac.surfaceChauffee} m2`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
       ["Type emetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Energie actuelle", pac.energieActuelle, "ECS integre", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Energie actuelle", pac.energieActuelle, "Ballon thermo (BTD)", "Inclus"],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
@@ -807,22 +807,27 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
   
   // Financier PAC
   if (ctx) yPos = ensureSpace(ctx, yPos, 50);
-  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
+  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale + (pac.aides.deposeChaudiere || 0) + (pac.aides.ballonThermo || 0) + (pac.aides.raccordementReseau || 0);
+  const aidesRows: string[][] = [
+    ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
+    ["", "", "CEE", formatEuros(pac.aides.cee)],
+    ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
+  ];
+  if ((pac.aides.deposeChaudiere || 0) > 0) aidesRows.push(["", "", "Depose chaudiere", formatEuros(pac.aides.deposeChaudiere || 0)]);
+  if ((pac.aides.ballonThermo || 0) > 0) aidesRows.push(["", "", "Ballon thermodynamique", formatEuros(pac.aides.ballonThermo || 0)]);
+  if ((pac.aides.raccordementReseau || 0) > 0) aidesRows.push(["", "", "Raccordement reseau", formatEuros(pac.aides.raccordementReseau || 0)]);
+  if ((pac.aides.aideLocale || 0) > 0) aidesRows.push(["", "", "Aide locale", formatEuros(pac.aides.aideLocale)]);
+  aidesRows.push(["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)]);
+  
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
-    body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
-      ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
-      ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
-    ],
+    body: aidesRows,
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === aidesRows.length - 1) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
@@ -921,10 +926,10 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
     rows.push(["☀️ Photovoltaïque", `${data.puissanceKwc} kWc`, formatEuros(data.prixTotalHorsAides), formatEuros(data.totalAides), formatEuros(data.prixTotalHorsAides - data.totalAides)]);
   }
   if (data.pac) {
-    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale;
+    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale + (data.pac.aides.deposeChaudiere || 0) + (data.pac.aides.ballonThermo || 0) + (data.pac.aides.raccordementReseau || 0);
     totalPrix += data.pac.prixInstallation;
     totalAides += aidesPac;
-    rows.push(["🌡️ PAC", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
+    rows.push(["🌡️ PAC + BTD", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
   }
   if (data.ite) {
     const aidesIte = data.ite.aides.maPrimeRenov + data.ite.aides.cee + data.ite.aides.ecoTva + data.ite.aides.aideLocale;
@@ -1344,9 +1349,9 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
-    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC+BTD" : "ITE").join(" + ")
     : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
-    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : products[0] === "PAC" ? "POMPE À CHALEUR + BTD"
     : "ISOLATION THERMIQUE";
 
   const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
@@ -1364,7 +1369,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      drawHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR + BTD", ministereBase64);
       yPos = 42;
     }
     yPos = drawPacPage(doc, data, yPos, pvCtx);
@@ -1750,7 +1755,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   const pac = data.pac;
   let yPos = yStart;
 
-  yPos = drawCepcSectionBar(doc, "POMPE À CHALEUR (PAC)", yPos);
+  yPos = drawCepcSectionBar(doc, "POMPE À CHALEUR (PAC) + BALLON THERMODYNAMIQUE", yPos);
 
   autoTable(doc, {
     startY: yPos,
@@ -1759,7 +1764,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
       ["Surface chauffée", `${pac.surfaceChauffee} m²`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
       ["Type émetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Énergie actuelle", pac.energieActuelle, "ECS intégré", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Énergie actuelle", pac.energieActuelle, "Ballon thermo (BTD)", "Inclus"],
     ],
     ...cepcTableStyles,
     columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
@@ -1786,20 +1791,25 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   }
 
   if (ctx) yPos = ensureSpace(ctx, yPos, 50);
-  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
+  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale + (pac.aides.deposeChaudiere || 0) + (pac.aides.ballonThermo || 0) + (pac.aides.raccordementReseau || 0);
+  const cepcAidesRows: string[][] = [
+    ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
+    ["", "", "CEE", formatEuros(pac.aides.cee)],
+    ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
+  ];
+  if ((pac.aides.deposeChaudiere || 0) > 0) cepcAidesRows.push(["", "", "Dépose chaudière", formatEuros(pac.aides.deposeChaudiere || 0)]);
+  if ((pac.aides.ballonThermo || 0) > 0) cepcAidesRows.push(["", "", "Ballon thermodynamique", formatEuros(pac.aides.ballonThermo || 0)]);
+  if ((pac.aides.raccordementReseau || 0) > 0) cepcAidesRows.push(["", "", "Raccordement réseau", formatEuros(pac.aides.raccordementReseau || 0)]);
+  if ((pac.aides.aideLocale || 0) > 0) cepcAidesRows.push(["", "", "Aide locale", formatEuros(pac.aides.aideLocale)]);
+  cepcAidesRows.push(["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)]);
+
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
-    body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
-      ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
-      ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
-    ],
+    body: cepcAidesRows,
     ...cepcTableStyles,
     columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
-    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === cepcAidesRows.length - 1) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
 
@@ -1870,10 +1880,10 @@ const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?
     rows.push(["Photovoltaïque", `${data.puissanceKwc} kWc`, formatEuros(data.prixTotalHorsAides), formatEuros(data.totalAides), formatEuros(data.prixTotalHorsAides - data.totalAides)]);
   }
   if (data.pac) {
-    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale;
+    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale + (data.pac.aides.deposeChaudiere || 0) + (data.pac.aides.ballonThermo || 0) + (data.pac.aides.raccordementReseau || 0);
     totalPrix += data.pac.prixInstallation;
     totalAides += aidesPac;
-    rows.push(["PAC", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
+    rows.push(["PAC + BTD", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
   }
   if (data.ite) {
     const aidesIte = data.ite.aides.maPrimeRenov + data.ite.aides.cee + data.ite.aides.ecoTva + data.ite.aides.aideLocale;
@@ -1972,9 +1982,9 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
-    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC+BTD" : "ITE").join(" + ")
     : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
-    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : products[0] === "PAC" ? "POMPE À CHALEUR + BTD"
     : "ISOLATION THERMIQUE";
 
   // Override PageContext to use CEPC header
@@ -2012,7 +2022,7 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR + BTD", ministereBase64);
       yPos = 38;
     }
     yPos = drawCepcPacPage(doc, data, yPos, cepcCtx);
