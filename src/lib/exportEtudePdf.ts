@@ -764,7 +764,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("POMPE A CHALEUR (PAC)", 16, yPos + 5);
+  doc.text("POMPE A CHALEUR (PAC) + BALLON THERMODYNAMIQUE", 16, yPos + 5);
   yPos += 9;
   
   autoTable(doc, {
