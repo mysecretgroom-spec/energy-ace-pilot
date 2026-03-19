@@ -1336,9 +1336,13 @@ const EtudeForm = () => {
     }
 
     // === RENTABILITÉ FINANCIÈRE ===
-    // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle
+    // En multi-produit avec PAC, la facture élec de référence inclut le surcoût PAC
+    const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
+      ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
+      : facture;
+    // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
-    const autoconsommationEuros = (autoconsoPctCapped / 100) * facture;
+    const autoconsommationEuros = (autoconsoPctCapped / 100) * factureElecPourPV;
 
     // Revente mensuelle = Surplus × Prix revente / 12
     // Chercher le tarif de revente applicable selon le type et la puissance
