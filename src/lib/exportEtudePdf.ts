@@ -807,22 +807,27 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
   
   // Financier PAC
   if (ctx) yPos = ensureSpace(ctx, yPos, 50);
-  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
+  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale + (pac.aides.deposeChaudiere || 0) + (pac.aides.ballonThermo || 0) + (pac.aides.raccordementReseau || 0);
+  const aidesRows: string[][] = [
+    ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
+    ["", "", "CEE", formatEuros(pac.aides.cee)],
+    ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
+  ];
+  if ((pac.aides.deposeChaudiere || 0) > 0) aidesRows.push(["", "", "Depose chaudiere", formatEuros(pac.aides.deposeChaudiere || 0)]);
+  if ((pac.aides.ballonThermo || 0) > 0) aidesRows.push(["", "", "Ballon thermodynamique", formatEuros(pac.aides.ballonThermo || 0)]);
+  if ((pac.aides.raccordementReseau || 0) > 0) aidesRows.push(["", "", "Raccordement reseau", formatEuros(pac.aides.raccordementReseau || 0)]);
+  if ((pac.aides.aideLocale || 0) > 0) aidesRows.push(["", "", "Aide locale", formatEuros(pac.aides.aideLocale)]);
+  aidesRows.push(["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)]);
+  
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
-    body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRenov'", formatEuros(pac.aides.maPrimeRenov)],
-      ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Eco TVA", formatEuros(pac.aides.ecoTva)],
-      ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COUT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
-    ],
+    body: aidesRows,
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === aidesRows.length - 1) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   
