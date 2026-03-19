@@ -3652,7 +3652,7 @@ _Envoyé depuis DébalePro_`;
             + (activeProducts.includes("ITE") ? prixITEFinal : 0)
             + (isMulti ? 0 : 0); // autreSurcout déjà inclus dans prixPVHorsAides
 
-          const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+          const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
           const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
           const totalAidesPV = calculatedResults?.totalAides || 0;
           const totalAidesGlobal = (activeProducts.includes("PV") ? totalAidesPV : 0)
