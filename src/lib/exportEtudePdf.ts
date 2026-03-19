@@ -19,7 +19,7 @@ interface PacData {
   energieActuelle: string;
   niveauIsolation: string;
   prixInstallation: number;
-  aides: { maPrimeRenov: number; cee: number; ecoTva: number; aideLocale: number };
+  aides: { maPrimeRenov: number; cee: number; ecoTva: number; aideLocale: number; deposeChaudiere?: number; ballonThermo?: number; raccordementReseau?: number };
   economies: { besoinsChauffageKwh: number; consoElecPacKwh: number; surcoutElecEuros: number; economieNetteEuros: number; economieNetteMessage: number } | null;
   factureChauffage: number;
   factureElec: number;
