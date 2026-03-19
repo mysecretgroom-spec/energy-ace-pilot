@@ -12,7 +12,7 @@ interface AidesPAC {
   cee: number;
   ecoTva: number;
   aideLocale: number;
-  deposeChaudiere?: number;
+  deposeChaudiere: number;
 }
 
 interface FinancialSectionPACProps {
