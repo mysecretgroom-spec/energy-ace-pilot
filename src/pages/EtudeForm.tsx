@@ -334,6 +334,7 @@ const EtudeForm = () => {
   });
   const [pacPrixManuel, setPacPrixManuel] = useState<number | "">("");
   const [itePrixManuel, setItePrixManuel] = useState<number | "">("");
+  const [remiseCommerciale, setRemiseCommerciale] = useState<number>(0);
 
   // Mode HEJJA - use global context
   const { 
@@ -873,6 +874,9 @@ const EtudeForm = () => {
           estimationDetailsRef.current = overrides.estimationDetails;
           setEstimationDetailsDisplay(overrides.estimationDetails);
         }
+        if (typeof overrides.remiseCommerciale === "number") {
+          setRemiseCommerciale(overrides.remiseCommerciale);
+        }
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
@@ -1279,7 +1283,7 @@ const EtudeForm = () => {
     }, 0);
     const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + surcoutEmplacement + autreSurcout;
 
-    const prixTotalHorsAides = prixInstallation + prixSurcouts;
+    const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
     // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
     // Pas de prime pour ≤ 3 kWc, prime par tranche au-dessus
@@ -1542,6 +1546,7 @@ const EtudeForm = () => {
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
         hasPrixInstallationManuel: !!prixInstallationManuel,
+        remiseCommerciale: remiseCommerciale || 0,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
@@ -3976,10 +3981,10 @@ _Envoyé depuis DébalePro_`;
 
           // Totaux globaux
           const isMulti = activeProducts.length > 1;
-          const prixGlobalHorsAides = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
+          const prixGlobalBrut = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
             + (activeProducts.includes("PAC") ? prixPACFinal : 0)
-            + (activeProducts.includes("ITE") ? prixITEFinal : 0)
-            + (isMulti ? 0 : 0); // autreSurcout déjà inclus dans prixPVHorsAides
+            + (activeProducts.includes("ITE") ? prixITEFinal : 0);
+          const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale) : prixGlobalBrut;
 
           const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
           const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
@@ -4080,6 +4085,19 @@ _Envoyé depuis DébalePro_`;
                         className="h-6 w-16 text-right text-xs"
                       />
                     </div>
+                    <div className="flex justify-between items-center text-status-signed">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        Remise Commerciale
+                      </span>
+                      <Input
+                        type="number"
+                        value={remiseCommerciale || ""}
+                        onChange={(e) => setRemiseCommerciale(Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className="h-6 w-20 text-right text-xs"
+                      />
+                    </div>
                     <Separator className="my-1" />
                     <div className="flex justify-between font-bold">
                       <span>TOTAL Hors Aides</span>
@@ -4127,6 +4145,19 @@ _Envoyé depuis DébalePro_`;
                     <div className="flex justify-between text-muted-foreground">
                       <span>Autre Surcoût</span>
                       <Input type="number" value={autreSurcout} onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)} className="h-6 w-16 text-right text-xs" />
+                    </div>
+                    <div className="flex justify-between items-center text-status-signed">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        Remise
+                      </span>
+                      <Input
+                        type="number"
+                        value={remiseCommerciale || ""}
+                        onChange={(e) => setRemiseCommerciale(Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className="h-6 w-20 text-right text-xs"
+                      />
                     </div>
                     <Separator className="my-1" />
                     <div className="flex justify-between font-bold">
