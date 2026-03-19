@@ -6416,14 +6416,21 @@ async function executeAction(
       if (isNewClient && clientName) {
         console.log(`Creating new client for RDV: ${clientName}`);
         
-        // Create new client
+        // Split name: client_first_name entity takes priority, otherwise try to split client_name
+        const clientFirstName = (entities.client_first_name as string) || null;
+        
+        // Create new client with all available data
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
             user_id: userId,
             nom: clientName,
+            prenom: clientFirstName,
             telephone: (entities.phone as string) || null,
             adresse: (entities.address as string) || null,
+            ville: (entities.city as string) || null,
+            code_postal: (entities.postal_code as string) || null,
+            notes: (entities.notes_content as string) || null,
             source: "whatsapp_agent",
           })
           .select("id, nom, prenom")
