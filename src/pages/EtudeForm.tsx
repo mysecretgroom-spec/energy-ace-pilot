@@ -874,6 +874,9 @@ const EtudeForm = () => {
           estimationDetailsRef.current = overrides.estimationDetails;
           setEstimationDetailsDisplay(overrides.estimationDetails);
         }
+        if (typeof overrides.remiseCommerciale === "number") {
+          setRemiseCommerciale(overrides.remiseCommerciale);
+        }
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
