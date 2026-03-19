@@ -2737,6 +2737,7 @@ _Envoyé depuis DébalePro_`;
                 pacEnergieActuelle, pacConsoChaufffageKwh, pacEconomieEstimee,
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
                 pacProfilMpr,
+                pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
               }}
               onChange={(field, value) => {
                 switch (field) {
