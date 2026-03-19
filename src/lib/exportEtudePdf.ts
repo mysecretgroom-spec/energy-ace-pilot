@@ -1791,20 +1791,25 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   }
 
   if (ctx) yPos = ensureSpace(ctx, yPos, 50);
-  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale;
+  const totalAidesPac = pac.aides.maPrimeRenov + pac.aides.cee + pac.aides.ecoTva + pac.aides.aideLocale + (pac.aides.deposeChaudiere || 0) + (pac.aides.ballonThermo || 0) + (pac.aides.raccordementReseau || 0);
+  const cepcAidesRows: string[][] = [
+    ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
+    ["", "", "CEE", formatEuros(pac.aides.cee)],
+    ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
+  ];
+  if ((pac.aides.deposeChaudiere || 0) > 0) cepcAidesRows.push(["", "", "Dépose chaudière", formatEuros(pac.aides.deposeChaudiere || 0)]);
+  if ((pac.aides.ballonThermo || 0) > 0) cepcAidesRows.push(["", "", "Ballon thermodynamique", formatEuros(pac.aides.ballonThermo || 0)]);
+  if ((pac.aides.raccordementReseau || 0) > 0) cepcAidesRows.push(["", "", "Raccordement réseau", formatEuros(pac.aides.raccordementReseau || 0)]);
+  if ((pac.aides.aideLocale || 0) > 0) cepcAidesRows.push(["", "", "Aide locale", formatEuros(pac.aides.aideLocale)]);
+  cepcAidesRows.push(["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)]);
+
   autoTable(doc, {
     startY: yPos,
     head: [["Investissement PAC", "", "Aides PAC", ""]],
-    body: [
-      ["Prix installation", formatEuros(pac.prixInstallation), "MaPrimeRénov'", formatEuros(pac.aides.maPrimeRenov)],
-      ["", "", "CEE", formatEuros(pac.aides.cee)],
-      ["", "", "Éco TVA", formatEuros(pac.aides.ecoTva)],
-      ["", "", "Aide locale", formatEuros(pac.aides.aideLocale)],
-      ["COÛT PAC", formatEuros(pac.prixInstallation), "TOTAL AIDES PAC", formatEuros(totalAidesPac)],
-    ],
+    body: cepcAidesRows,
     ...cepcTableStyles,
     columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
-    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === cepcAidesRows.length - 1) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
 
