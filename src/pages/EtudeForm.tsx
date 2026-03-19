@@ -4085,6 +4085,19 @@ _Envoyé depuis DébalePro_`;
                         className="h-6 w-16 text-right text-xs"
                       />
                     </div>
+                    <div className="flex justify-between items-center text-status-signed">
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        Remise Commerciale
+                      </span>
+                      <Input
+                        type="number"
+                        value={remiseCommerciale || ""}
+                        onChange={(e) => setRemiseCommerciale(Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className="h-6 w-20 text-right text-xs"
+                      />
+                    </div>
                     <Separator className="my-1" />
                     <div className="flex justify-between font-bold">
                       <span>TOTAL Hors Aides</span>
