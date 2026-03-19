@@ -1764,7 +1764,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
       ["Surface chauffée", `${pac.surfaceChauffee} m²`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
       ["Type émetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Énergie actuelle", pac.energieActuelle, "ECS intégré", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Énergie actuelle", pac.energieActuelle, "Ballon thermo (BTD)", "Inclus"],
     ],
     ...cepcTableStyles,
     columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
