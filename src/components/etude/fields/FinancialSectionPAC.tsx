@@ -229,6 +229,21 @@ export const FinancialSectionPAC = ({
                 </div>
               </>
             )}
+            {(aides.deposeChaudiere || 0) > 0 && (
+              <div className="flex justify-between items-center">
+                <span>Dépose chaudière</span>
+                {modeHejja ? (
+                  <Input
+                    type="number"
+                    value={aides.deposeChaudiere}
+                    onChange={(e) => onAidesChange({ ...aides, deposeChaudiere: Number(e.target.value) || 0 })}
+                    className="h-6 w-20 text-right text-xs"
+                  />
+                ) : (
+                  <span className="font-medium text-green-600">{(aides.deposeChaudiere || 0).toLocaleString("fr-FR")}€</span>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span>ECO TVA (5.5%)</span>
               {modeHejja ? (
