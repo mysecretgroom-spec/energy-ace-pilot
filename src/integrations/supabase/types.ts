@@ -1508,6 +1508,7 @@ export type Database = {
           pac_niveau_isolation: string | null
           pac_nombre_unites_int: number | null
           pac_prix_kwh_elec: number | null
+          pac_profil_mpr: string | null
           pac_puissance_calorifique: number | null
           pac_subtype: Database["public"]["Enums"]["pac_subtype"] | null
           pac_surcout_elec_euros: number | null
@@ -1610,6 +1611,7 @@ export type Database = {
           pac_niveau_isolation?: string | null
           pac_nombre_unites_int?: number | null
           pac_prix_kwh_elec?: number | null
+          pac_profil_mpr?: string | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
           pac_surcout_elec_euros?: number | null
@@ -1712,6 +1714,7 @@ export type Database = {
           pac_niveau_isolation?: string | null
           pac_nombre_unites_int?: number | null
           pac_prix_kwh_elec?: number | null
+          pac_profil_mpr?: string | null
           pac_puissance_calorifique?: number | null
           pac_subtype?: Database["public"]["Enums"]["pac_subtype"] | null
           pac_surcout_elec_euros?: number | null

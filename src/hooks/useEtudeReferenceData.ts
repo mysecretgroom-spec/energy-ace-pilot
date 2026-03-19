@@ -255,8 +255,10 @@ export const useEtudeReferenceData = (): UseEtudeReferenceDataReturn => {
     aidesPac.forEach(aide => {
       // Vérifier compatibilité subtype
       if (aide.pac_subtype && aide.pac_subtype !== subtype) return;
-      // Vérifier compatibilité profil revenus
+      // Vérifier compatibilité profil revenus (using MPR color codes: bleu, jaune, violet, rose)
       if (aide.profil_revenus && profilRevenus && aide.profil_revenus !== profilRevenus) return;
+      // Rose = non éligible MPR
+      if (profilRevenus === "rose" && aide.type_aide === "mpr") return;
       
       if (aide.montant_fixe) {
         total += aide.montant_fixe;

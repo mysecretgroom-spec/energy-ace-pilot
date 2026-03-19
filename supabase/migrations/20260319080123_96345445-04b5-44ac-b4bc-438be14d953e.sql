@@ -1,0 +1,1 @@
+ALTER TABLE public.etudes ADD COLUMN IF NOT EXISTS pac_profil_mpr text;

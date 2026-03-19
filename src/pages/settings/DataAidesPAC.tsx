@@ -29,10 +29,10 @@ interface AideData {
 }
 
 const PROFIL_LABELS: Record<string, string> = {
-  tres_modeste: "Très modeste",
-  modeste: "Modeste",
-  intermediaire: "Intermédiaire",
-  superieur: "Supérieur",
+  bleu: "🔵 Bleu (très modeste)",
+  jaune: "🟡 Jaune (modeste)",
+  violet: "🟣 Violet (intermédiaire)",
+  rose: "🩷 Rose (aisé)",
 };
 
 const DataAidesPAC = () => {
@@ -209,9 +209,10 @@ const DataAidesPAC = () => {
                           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Tous</SelectItem>
-                            <SelectItem value="tres_modeste">Très modeste</SelectItem>
-                            <SelectItem value="modeste">Modeste</SelectItem>
-                            <SelectItem value="intermediaire">Intermédiaire</SelectItem>
+                            <SelectItem value="bleu">🔵 Bleu</SelectItem>
+                            <SelectItem value="jaune">🟡 Jaune</SelectItem>
+                            <SelectItem value="violet">🟣 Violet</SelectItem>
+                            <SelectItem value="rose">🩷 Rose</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

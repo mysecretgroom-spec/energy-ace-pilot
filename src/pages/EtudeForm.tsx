@@ -290,6 +290,7 @@ const EtudeForm = () => {
   const [pacFactureElecEuros, setPacFactureElecEuros] = useState<number | "">("");
   const [pacNiveauIsolation, setPacNiveauIsolation] = useState<string>("moyen");
   const [pacPrixKwhElec, setPacPrixKwhElec] = useState<number | "">(0.23);
+  const [pacProfilMpr, setPacProfilMpr] = useState<string>("");
   const [pacEconomiesCalculees, setPacEconomiesCalculees] = useState<{
     besoinsChauffageKwh: number;
     consoElecPacKwh: number;
@@ -317,7 +318,7 @@ const EtudeForm = () => {
   // AIDES PAC & ITE (état local pour section financière)
   // ═══════════════════════════════════════════════════════════════════════════
   const [aidesPAC, setAidesPAC] = useState({
-    maPrimeRenov: 4000,
+    maPrimeRenov: 0,
     cee: 4000,
     ecoTva: 0,
     aideLocale: 0,
@@ -556,6 +557,7 @@ const EtudeForm = () => {
     if (draft.pacFactureElecEuros !== undefined) setPacFactureElecEuros(draft.pacFactureElecEuros);
     if (draft.pacNiveauIsolation) setPacNiveauIsolation(draft.pacNiveauIsolation);
     if (draft.pacPrixKwhElec !== undefined) setPacPrixKwhElec(draft.pacPrixKwhElec);
+    if (draft.pacProfilMpr) setPacProfilMpr(draft.pacProfilMpr);
     if (draft.pacPrixManuel !== undefined) setPacPrixManuel(draft.pacPrixManuel);
     if (draft.aidesPAC) setAidesPAC(draft.aidesPAC);
     
@@ -915,6 +917,7 @@ const EtudeForm = () => {
         setPacFactureElecEuros(etude.pac_facture_elec_euros || "");
         setPacNiveauIsolation(etude.pac_niveau_isolation || "moyen");
         setPacPrixKwhElec(etude.pac_prix_kwh_elec || 0.23);
+        if ((etude as any).pac_profil_mpr) setPacProfilMpr((etude as any).pac_profil_mpr);
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1450,6 +1453,7 @@ const EtudeForm = () => {
       pac_facture_elec_euros: hasPAC && pacFactureElecEuros ? Number(pacFactureElecEuros) : null,
       pac_niveau_isolation: hasPAC ? pacNiveauIsolation : null,
       pac_prix_kwh_elec: hasPAC && pacPrixKwhElec ? Number(pacPrixKwhElec) : null,
+      pac_profil_mpr: hasPAC ? (pacProfilMpr || null) : null,
       pac_besoins_chauffage_kwh: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.besoinsChauffageKwh : null,
       pac_conso_elec_pac_kwh: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.consoElecPacKwh : null,
       pac_surcout_elec_euros: hasPAC && pacEconomiesCalculees ? pacEconomiesCalculees.surcoutElecEuros : null,
@@ -2731,10 +2735,23 @@ _Envoyé depuis DébalePro_`;
                 pacPuissanceCalorifique, pacCop, pacEcsIntegre, pacVolumeBallon,
                 pacEnergieActuelle, pacConsoChaufffageKwh, pacEconomieEstimee,
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
+                pacProfilMpr,
               }}
               onChange={(field, value) => {
                 switch (field) {
-                  case "pacSubtype": setPacSubtype(value as "air_air" | "air_eau"); break;
+                  case "pacSubtype": {
+                    const newSubtype = value as "air_air" | "air_eau";
+                    setPacSubtype(newSubtype);
+                    // Recalculate MPR when subtype changes
+                    if (pacProfilMpr) {
+                      const MPR_MONTANTS: Record<string, Record<string, number>> = {
+                        air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
+                        air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
+                      };
+                      setAidesPAC(prev => ({ ...prev, maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0 }));
+                    }
+                    break;
+                  }
                   case "pacSurfaceChauffee": setPacSurfaceChauffee(value as number | ""); break;
                   case "pacTypeEmetteurs": setPacTypeEmetteurs(value as string); break;
                   case "pacNombreUnitesInt": setPacNombreUnitesInt(value as number | ""); break;
@@ -2749,6 +2766,18 @@ _Envoyé depuis DébalePro_`;
                   case "pacFactureElecEuros": setPacFactureElecEuros(value as number | ""); break;
                   case "pacNiveauIsolation": setPacNiveauIsolation(value as string); break;
                   case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
+                  case "pacProfilMpr": {
+                    const profil = value as string;
+                    setPacProfilMpr(profil);
+                    // Auto-calculate MPR aid based on profile
+                    const MPR_MONTANTS: Record<string, Record<string, number>> = {
+                      air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
+                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 }, // Non éligible
+                    };
+                    const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
+                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant }));
+                    break;
+                  }
                 }
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
