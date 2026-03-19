@@ -342,6 +342,7 @@ const EtudeForm = () => {
   const [selectedBouquetPAC, setSelectedBouquetPAC] = useState<string>("");
   const [selectedBouquetITE, setSelectedBouquetITE] = useState<string>("");
   const [selectedBouquetCombo, setSelectedBouquetCombo] = useState<string>("");
+  const [precoMode, setPrecoMode] = useState<"global" | "sur_mesure">("sur_mesure");
 
   // Mode HEJJA - use global context
   const { 
