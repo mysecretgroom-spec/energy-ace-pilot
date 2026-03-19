@@ -36,6 +36,7 @@ interface PACFieldsProps {
     // Nouveaux champs économies
     pacNiveauIsolation: string;
     pacPrixKwhElec: number | "";
+    pacProfilMpr?: string;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
