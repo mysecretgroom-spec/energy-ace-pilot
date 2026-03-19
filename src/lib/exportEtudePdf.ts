@@ -1349,7 +1349,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
-    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
+    ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC+BTD" : "ITE").join(" + ")
     : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
     : products[0] === "PAC" ? "POMPE À CHALEUR + BTD"
     : "ISOLATION THERMIQUE";
