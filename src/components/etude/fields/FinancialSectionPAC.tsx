@@ -261,6 +261,21 @@ export const FinancialSectionPAC = ({
                 )}
               </div>
             )}
+            {(aides.raccordementReseau || 0) > 0 && (
+              <div className="flex justify-between items-center">
+                <span>Raccord. réseau</span>
+                {modeHejja ? (
+                  <Input
+                    type="number"
+                    value={aides.raccordementReseau}
+                    onChange={(e) => onAidesChange({ ...aides, raccordementReseau: Number(e.target.value) || 0 })}
+                    className="h-6 w-20 text-right text-xs"
+                  />
+                ) : (
+                  <span className="font-medium text-green-600">{(aides.raccordementReseau || 0).toLocaleString("fr-FR")}€</span>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span>ECO TVA (5.5%)</span>
               {modeHejja ? (
