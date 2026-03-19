@@ -3972,29 +3972,52 @@ _Envoyé depuis DébalePro_`;
 
         {/* PRIX & AIDES — Unifié en multi-produit */}
         {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1)) && (() => {
+          // Filter bouquets by product type
+          const pvBouquets = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
+          const pacBouquetsFiltered = dataBouquets.filter(b => b.product_type === "PAC");
+          const iteBouquetsFiltered = dataBouquets.filter(b => b.product_type === "ITE");
+
           // Calcul prix PAC
-          const pacBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("PAC"));
           const pacPuissance = Number(pacPuissanceCalorifique) || 8;
-          const pacBouquet = pacBouquets.find((b: any) => Math.abs(b.puissance_kwc - pacPuissance) < 2);
-          const prixPACBase = pacBouquet?.prix_recommande || pacPuissance * 1500;
+          let prixPACBase: number;
+          if (selectedBouquetPAC) {
+            const selBq = pacBouquetsFiltered.find(b => b.id === selectedBouquetPAC);
+            prixPACBase = selBq?.prix_recommande || pacPuissance * 1500;
+          } else {
+            const pacBouquet = pacBouquetsFiltered.find(b => Math.abs(b.puissance_kwc - pacPuissance) < 2);
+            prixPACBase = pacBouquet?.prix_recommande || pacPuissance * 1500;
+          }
           const prixPACFinal = Number(pacPrixManuel || prixPACBase);
 
           // Calcul prix ITE
-          const iteBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("ITE"));
           const iteSurface = Number(iteSurfaceIsoler) || 100;
-          const iteBouquet = iteBouquets.find((b: any) => Math.abs(b.puissance_kwc - iteSurface) < 30);
-          const prixITEBase = iteBouquet?.prix_recommande || iteSurface * 150;
+          let prixITEBase: number;
+          if (selectedBouquetITE) {
+            const selBq = iteBouquetsFiltered.find(b => b.id === selectedBouquetITE);
+            prixITEBase = selBq?.prix_recommande || iteSurface * 150;
+          } else {
+            const iteBouquet = iteBouquetsFiltered.find(b => Math.abs(b.puissance_kwc - iteSurface) < 30);
+            prixITEBase = iteBouquet?.prix_recommande || iteSurface * 150;
+          }
           const prixITEFinal = Number(itePrixManuel || prixITEBase);
 
           // Prix PV
           const prixPVFinal = calculatedResults ? calculatedResults.prixInstallation : 0;
           const prixPVHorsAides = calculatedResults ? calculatedResults.prixTotalHorsAides : 0;
 
+          // Combo bouquet: if selected, override all prices
+          const comboSelected = dataBouquets.find(b => b.id === selectedBouquetCombo);
+
           // Totaux globaux
           const isMulti = activeProducts.length > 1;
-          const prixGlobalBrut = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
-            + (activeProducts.includes("PAC") ? prixPACFinal : 0)
-            + (activeProducts.includes("ITE") ? prixITEFinal : 0);
+          let prixGlobalBrut: number;
+          if (comboSelected) {
+            prixGlobalBrut = comboSelected.prix_recommande;
+          } else {
+            prixGlobalBrut = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
+              + (activeProducts.includes("PAC") ? prixPACFinal : 0)
+              + (activeProducts.includes("ITE") ? prixITEFinal : 0);
+          }
           const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale) : prixGlobalBrut;
 
           const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
