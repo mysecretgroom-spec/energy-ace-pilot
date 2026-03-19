@@ -3133,11 +3133,13 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* =============== PRÉCONISATION TECHNIQUE =============== */}
-        <div className="pt-2 sm:pt-4">
-          <h2 className="text-sm sm:text-lg font-display font-bold text-center text-primary mb-3 sm:mb-4">
-            PRÉCONISATION
-          </h2>
-        </div>
+        {activeProducts.length <= 1 && (
+          <div className="pt-2 sm:pt-4">
+            <h2 className="text-sm sm:text-lg font-display font-bold text-center text-primary mb-3 sm:mb-4">
+              PRÉCONISATION
+            </h2>
+          </div>
+        )}
 
         {/* CONSOMMATIONS — masquées en multi-produit car déjà affichées dans "Situation actuelle" */}
         <Card className="shadow-card" style={activeProducts.length > 1 ? { display: 'none' } : undefined}>
