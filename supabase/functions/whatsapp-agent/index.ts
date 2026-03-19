@@ -5921,7 +5921,7 @@ SIGNAUX D'ACTION (→ autres intents):
 - Confirmation/annulation après une question de l'agent: "oui", "non", "confirme"
 
 INTENTIONS DISPONIBLES:
-- create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
+- create_rdv: Créer RDV (ex: "rdv Dupont demain 14h"). EXTRAIRE TOUTES les infos mentionnées: client_name (NOM seul), client_first_name (prénom), phone, address, city, postal_code, notes_content (toute note/commentaire sur le client). Ex: "rdv Jean Dupont demain 14h au 12 rue de la Paix 75001 Paris, tel 0612345678, client intéressé par du 9kwc" → entities: {client_name:"Dupont", client_first_name:"Jean", date:"...", time:"14:00", address:"12 rue de la Paix", city:"Paris", postal_code:"75001", phone:"0612345678", notes_content:"Client intéressé par du 9kwc"}
 - update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés", "supprime les rdv de vendredi et samedi dernier")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe. Si le RDV est DÉJÀ signé (une vente existe), ce changement de statut sera automatiquement redirigé vers la VENTE (pipeline).
@@ -6086,11 +6086,16 @@ RÈGLES CRITIQUES:
 - Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
 - Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
 
-📱 NUMÉRO DE TÉLÉPHONE DANS LES RDV:
+📱 EXTRACTION DE DONNÉES CLIENT DANS LES RDV:
 - TOUJOURS extraire le numéro de téléphone (entity "phone") s'il est mentionné dans le message de création de RDV
+- TOUJOURS extraire l'adresse (address), la ville (city), le code postal (postal_code) séparément
+- TOUJOURS extraire le prénom (client_first_name) quand il est mentionné avec le nom
+- TOUJOURS extraire les notes/commentaires (notes_content) si l'utilisateur mentionne des infos sur le client (ex: "intéressé par 9kwc", "maison de 120m2", "déjà eu un devis")
 - Si un numéro est détecté, l'INCLURE dans le récapitulatif de confirmation (ex: "📱 Tél: 0630872082")
+- Si une adresse est détectée, l'INCLURE dans le récapitulatif (ex: "🏠 12 rue de la Paix, 75001 Paris")
+- Si des notes sont détectées, les INCLURE dans le récapitulatif (ex: "📝 Note: Client intéressé par 9kwc")
 - Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
-- Le numéro sera automatiquement sauvegardé sur la fiche client à la création
+- Toutes ces données seront automatiquement sauvegardées sur la fiche client
 - Mets requiresConfirmation: true dans ta réponse JSON
 - Seules les requêtes (query_*), user_feedback et conversations ne nécessitent PAS de confirmation
 
@@ -6204,11 +6209,14 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                 entities: {
                   type: "object",
                   properties: {
-                    client_name: { type: "string" },
+                    client_name: { type: "string", description: "Client LAST NAME only (nom de famille). For 'Jean Dupont', extract 'Dupont'." },
+                    client_first_name: { type: "string", description: "Client FIRST NAME (prénom). For 'Jean Dupont', extract 'Jean'. Always extract when mentioned." },
                     phone: { type: "string", description: "Phone number of the client extracted from the message (e.g. 0630872082, 06 30 87 20 82, +33630872082). Extract any phone number mentioned in the message." },
                     date: { type: "string" },
                     time: { type: "string" },
-                    address: { type: "string" },
+                    address: { type: "string", description: "Street address (e.g. '12 rue de la Paix'). Extract without city and postal code." },
+                    city: { type: "string", description: "City name extracted from address (e.g. 'Paris', 'Lyon'). Always extract when mentioned." },
+                    postal_code: { type: "string", description: "Postal code extracted from address (e.g. '75001', '69000'). Always extract when mentioned." },
                     action: { type: "string", enum: ["annule", "reporte", "decale", "supprime"], description: "Action to perform on RDV: annule (cancel/mark as cancelled), reporte (postpone), decale (reschedule), supprime (DELETE permanently)" },
                     status: { type: "string" },
                     pipeline_status: { type: "string", enum: ["cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye", "annule"] },
@@ -6413,14 +6421,21 @@ async function executeAction(
       if (isNewClient && clientName) {
         console.log(`Creating new client for RDV: ${clientName}`);
         
-        // Create new client
+        // Split name: client_first_name entity takes priority, otherwise try to split client_name
+        const clientFirstName = (entities.client_first_name as string) || null;
+        
+        // Create new client with all available data
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
             user_id: userId,
             nom: clientName,
+            prenom: clientFirstName,
             telephone: (entities.phone as string) || null,
             adresse: (entities.address as string) || null,
+            ville: (entities.city as string) || null,
+            code_postal: (entities.postal_code as string) || null,
+            notes: (entities.notes_content as string) || null,
             source: "whatsapp_agent",
           })
           .select("id, nom, prenom")
@@ -6517,6 +6532,44 @@ async function executeAction(
         return { actionTaken: "error", customResponse: "❌ Erreur: client non défini." };
       }
       
+      // Enrich existing client with new data from the message (phone, address, notes, prenom)
+      const updateFields: Record<string, unknown> = {};
+      const entityPhone = entities.phone as string;
+      const entityAddress = entities.address as string;
+      const entityCity = entities.city as string;
+      const entityPostalCode = entities.postal_code as string;
+      const entityNotes = entities.notes_content as string;
+      const entityFirstName = entities.client_first_name as string;
+      
+      if (entityPhone || entityAddress || entityCity || entityPostalCode || entityNotes || entityFirstName) {
+        // Fetch current client data to only update missing fields
+        const { data: currentClient } = await supabase
+          .from("clients")
+          .select("telephone, adresse, ville, code_postal, notes, prenom")
+          .eq("id", client.id)
+          .single();
+        
+        if (currentClient) {
+          if (entityPhone && !currentClient.telephone) updateFields.telephone = entityPhone;
+          if (entityAddress && !currentClient.adresse) updateFields.adresse = entityAddress;
+          if (entityCity && !currentClient.ville) updateFields.ville = entityCity;
+          if (entityPostalCode && !currentClient.code_postal) updateFields.code_postal = entityPostalCode;
+          if (entityFirstName && !currentClient.prenom) updateFields.prenom = entityFirstName;
+          if (entityNotes) {
+            // Append notes
+            updateFields.notes = currentClient.notes 
+              ? `${currentClient.notes}\n${entityNotes}` 
+              : entityNotes;
+          }
+          
+          if (Object.keys(updateFields).length > 0) {
+            updateFields.updated_at = new Date().toISOString();
+            await supabase.from("clients").update(updateFields).eq("id", client.id);
+            console.log(`Enriched existing client ${client.id} with:`, Object.keys(updateFields));
+          }
+        }
+      }
+      
       // Parse date and time
       const dateStr = entities.date as string || new Date().toISOString().split("T")[0];
       const timeStr = entities.time as string || "10:00";
@@ -6561,6 +6614,13 @@ async function executeAction(
       // Use default or single regie (guaranteed to exist at this point)
       const regieId = regiePoll.defaultRegieId!;
 
+      // Build full address for RDV from available parts
+      const rdvAddress = [
+        entities.address as string,
+        entities.postal_code as string,
+        entities.city as string,
+      ].filter(Boolean).join(" ") || null;
+
       // Create RDV
       const { data: rdv, error: rdvError } = await supabase
         .from("rdv")
@@ -6568,7 +6628,7 @@ async function executeAction(
           user_id: userId,
           client_id: client.id,
           date_heure: dateHeure,
-          adresse: entities.address as string || null,
+          adresse: rdvAddress,
           status: "nouveau",
           type_rdv: "standard",
           type_projet: "photovoltaique",
