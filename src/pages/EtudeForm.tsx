@@ -2650,16 +2650,20 @@ _Envoyé depuis DébalePro_`;
             </>
           )}
 
-          {/* =============== ÉTUDE TECHNIQUE =============== */}
-          <div className="pt-1 sm:pt-2">
-            <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-              <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
-                Diagnostic {activeProducts.length > 1 ? `(${currentTab})` : productType !== "PV" ? `(${productType})` : ""}
-              </h2>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+          {/* =============== ÉTUDES TECHNIQUES — séquentielles en multi-produit =============== */}
+
+          {/* ─── SECTION ITE ─── */}
+          {activeProducts.includes("ITE") && (activeProducts.length <= 1 ? currentTab === "ITE" : true) && (
+            <>
+            <div className="pt-1 sm:pt-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+                <h2 className="text-xs sm:text-sm font-bold text-orange-600 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                  🧱 Isolation Thermique Extérieure
+                </h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+              </div>
             </div>
-          </div>
 
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* CHAMPS SPÉCIFIQUES PAC - Shown when PAC is active AND current tab */}
