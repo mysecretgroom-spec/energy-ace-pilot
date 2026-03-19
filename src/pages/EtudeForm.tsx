@@ -2652,40 +2652,85 @@ _Envoyé depuis DébalePro_`;
 
           {/* =============== ÉTUDES TECHNIQUES — séquentielles en multi-produit =============== */}
 
+          {/* =============== ÉTUDES TECHNIQUES — séquentielles en multi-produit =============== */}
+
           {/* ─── SECTION ITE ─── */}
           {activeProducts.includes("ITE") && (activeProducts.length <= 1 ? currentTab === "ITE" : true) && (
             <>
-            <div className="pt-1 sm:pt-2">
-              <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
-                <h2 className="text-xs sm:text-sm font-bold text-orange-600 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
-                  🧱 Isolation Thermique Extérieure
-                </h2>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+            {activeProducts.length > 1 ? (
+              <div className="pt-3 sm:pt-4">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-orange-600 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                    🧱 Isolation Thermique Extérieure
+                  </h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="pt-1 sm:pt-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                </div>
+              </div>
+            )}
+            <ITEFields
+              data={{
+                iteSurfaceIsoler, iteTypeFacade, iteEpaisseurIsolant, iteTypeIsolant,
+                iteRActuel, iteRCible, iteNombreFacades, iteSurfaceOuvertures,
+                iteFinition, iteEconomieChauffagePct, iteFactureChaufActuelle,
+              }}
+              onChange={(field, value) => {
+                switch (field) {
+                  case "iteSurfaceIsoler": setIteSurfaceIsoler(value as number | ""); break;
+                  case "iteTypeFacade": setIteTypeFacade(value as string); break;
+                  case "iteEpaisseurIsolant": setIteEpaisseurIsolant(value as number | ""); break;
+                  case "iteTypeIsolant": setIteTypeIsolant(value as string); break;
+                  case "iteRActuel": setIteRActuel(value as number | ""); break;
+                  case "iteRCible": setIteRCible(value as number | ""); break;
+                  case "iteNombreFacades": setIteNombreFacades(value as number | ""); break;
+                  case "iteSurfaceOuvertures": setIteSurfaceOuvertures(value as number | ""); break;
+                  case "iteFinition": setIteFinition(value as string); break;
+                  case "iteEconomieChauffagePct": setIteEconomieChauffagePct(value as number | ""); break;
+                  case "iteFactureChaufActuelle": setIteFactureChaufActuelle(value as number | ""); break;
+                }
+              }}
+              linkedPacActive={activeProducts.includes("PAC")}
+              linkedPacFactureChauffage={activeProducts.includes("PAC") ? Number(pacFactureChauffageEuros) || 0 : undefined}
+            />
+            </>
+          )}
 
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {/* CHAMPS SPÉCIFIQUES PAC - Shown when PAC is active AND current tab */}
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {activeProducts.includes("PAC") && currentTab === "PAC" && (
+          {/* ─── SECTION PAC ─── */}
+          {activeProducts.includes("PAC") && (activeProducts.length <= 1 ? currentTab === "PAC" : true) && (
+            <>
+            {activeProducts.length > 1 ? (
+              <div className="pt-3 sm:pt-4">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-blue-600 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                    ❄️ Pompe à Chaleur
+                  </h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
+                </div>
+              </div>
+            ) : (
+              <div className="pt-1 sm:pt-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                </div>
+              </div>
+            )}
             <PACFields
               data={{
-                pacSubtype: pacSubtype,
-                pacSurfaceChauffee: pacSurfaceChauffee,
-                pacTypeEmetteurs: pacTypeEmetteurs,
-                pacNombreUnitesInt: pacNombreUnitesInt,
-                pacPuissanceCalorifique: pacPuissanceCalorifique,
-                pacCop: pacCop,
-                pacEcsIntegre: pacEcsIntegre,
-                pacVolumeBallon: pacVolumeBallon,
-                pacEnergieActuelle: pacEnergieActuelle,
-                pacConsoChaufffageKwh: pacConsoChaufffageKwh,
-                pacEconomieEstimee: pacEconomieEstimee,
-                pacFactureChauffageEuros: pacFactureChauffageEuros,
-                pacFactureElecEuros: pacFactureElecEuros,
-                pacNiveauIsolation: pacNiveauIsolation,
-                pacPrixKwhElec: pacPrixKwhElec,
+                pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacNombreUnitesInt,
+                pacPuissanceCalorifique, pacCop, pacEcsIntegre, pacVolumeBallon,
+                pacEnergieActuelle, pacConsoChaufffageKwh, pacEconomieEstimee,
+                pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -2706,57 +2751,42 @@ _Envoyé depuis DébalePro_`;
                   case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
                 }
               }}
+              dataPacIsolation={dataPacIsolation}
+              dataPacCop={dataPacCop}
+              dataPacPuissances={dataPacPuissances}
+              dataEnergiesPrix={dataEnergiesPrix}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
               linkedIteActive={activeProducts.includes("ITE")}
               iteEconomiePct={Number(iteEconomieChauffagePct) || 0}
               linkedPvActive={activeProducts.includes("PV")}
             />
+            </>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {/* CHAMPS SPÉCIFIQUES ITE - Shown when ITE is active AND current tab */}
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {activeProducts.includes("ITE") && currentTab === "ITE" && (
-            <ITEFields
-              data={{
-                iteSurfaceIsoler: iteSurfaceIsoler,
-                iteTypeFacade: iteTypeFacade,
-                iteEpaisseurIsolant: iteEpaisseurIsolant,
-                iteTypeIsolant: iteTypeIsolant,
-                iteRActuel: iteRActuel,
-                iteRCible: iteRCible,
-                iteNombreFacades: iteNombreFacades,
-                iteSurfaceOuvertures: iteSurfaceOuvertures,
-                iteFinition: iteFinition,
-                iteEconomieChauffagePct: iteEconomieChauffagePct,
-                iteFactureChaufActuelle: iteFactureChaufActuelle,
-              }}
-              onChange={(field, value) => {
-                switch (field) {
-                  case "iteSurfaceIsoler": setIteSurfaceIsoler(value as number | ""); break;
-                  case "iteTypeFacade": setIteTypeFacade(value as string); break;
-                  case "iteEpaisseurIsolant": setIteEpaisseurIsolant(value as number | ""); break;
-                  case "iteTypeIsolant": setIteTypeIsolant(value as string); break;
-                  case "iteRActuel": setIteRActuel(value as number | ""); break;
-                  case "iteRCible": setIteRCible(value as number | ""); break;
-                  case "iteNombreFacades": setIteNombreFacades(value as number | ""); break;
-                  case "iteSurfaceOuvertures": setIteSurfaceOuvertures(value as number | ""); break;
-                  case "iteFinition": setIteFinition(value as string); break;
-                  case "iteEconomieChauffagePct": setIteEconomieChauffagePct(value as number | ""); break;
-                  case "iteFactureChaufActuelle": setIteFactureChaufActuelle(value as number | ""); break;
-                }
-              }}
-              linkedPacActive={activeProducts.includes("PAC")}
-              linkedPacFactureChauffage={activeProducts.includes("PAC") ? Number(pacFactureChauffageEuros) || 0 : undefined}
-            />
-          )}
-
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {/* CHAMPS PV - VISITE TECHNIQUE TOITURE (seulement pour PV) */}
-          {/* ═══════════════════════════════════════════════════════════════════════════ */}
-          {activeProducts.includes("PV") && currentTab === "PV" && (
+          {/* ─── SECTION PV ─── */}
+          {activeProducts.includes("PV") && (activeProducts.length <= 1 ? currentTab === "PV" : true) && (
             <>
+            {activeProducts.length > 1 && (
+              <div className="pt-3 sm:pt-4">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-amber-600 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                    ☀️ Photovoltaïque
+                  </h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                </div>
+              </div>
+            )}
+            {activeProducts.length <= 1 && (
+              <div className="pt-1 sm:pt-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                </div>
+              </div>
+            )}
 
         {/* VISITE TECHNIQUE - TOITURE */}
         <Card className="shadow-card">
