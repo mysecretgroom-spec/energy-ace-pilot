@@ -2739,7 +2739,19 @@ _Envoyé depuis DébalePro_`;
               }}
               onChange={(field, value) => {
                 switch (field) {
-                  case "pacSubtype": setPacSubtype(value as "air_air" | "air_eau"); break;
+                  case "pacSubtype": {
+                    const newSubtype = value as "air_air" | "air_eau";
+                    setPacSubtype(newSubtype);
+                    // Recalculate MPR when subtype changes
+                    if (pacProfilMpr) {
+                      const MPR_MONTANTS: Record<string, Record<string, number>> = {
+                        air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
+                        air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
+                      };
+                      setAidesPAC(prev => ({ ...prev, maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0 }));
+                    }
+                    break;
+                  }
                   case "pacSurfaceChauffee": setPacSurfaceChauffee(value as number | ""); break;
                   case "pacTypeEmetteurs": setPacTypeEmetteurs(value as string); break;
                   case "pacNombreUnitesInt": setPacNombreUnitesInt(value as number | ""); break;
