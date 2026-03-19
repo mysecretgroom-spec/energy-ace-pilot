@@ -3952,8 +3952,8 @@ _Envoyé depuis DébalePro_`;
           />
         )}
 
-        {/* RENTABILITÉ FINANCIÈRE — PV seul OU Bilan global multi-produit */}
-        {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && (
+        {/* RENTABILITÉ FINANCIÈRE — Bilan global en multi-produit OU PV seul */}
+        {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1 && calculatedResults)) && (
           <Card className="shadow-card border-2 border-primary/50">
             <CardHeader className="pb-2 bg-primary/20 px-3 sm:px-6 py-2 sm:py-3">
               <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
