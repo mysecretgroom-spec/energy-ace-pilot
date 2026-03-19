@@ -699,25 +699,26 @@ const EtudeForm = () => {
       ]);
       
       if (bouquetsRes.data) {
-        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
-        
+        // Load ALL bouquets (all product types) for multi-product selector
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId) && matchesProductType(b))
+          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
+            product_type: b.product_type || "PV",
           }));
         
         if (bouquetsData.length === 0) {
           bouquetsData = bouquetsRes.data
-            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
+            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0))
             .map((b: any) => ({
               id: b.id,
               nom_bouquet: b.nom_bouquet,
               puissance_kwc: b.puissance_kwc,
               prix_recommande: b.prix_recommande,
+              product_type: b.product_type || "PV",
             }));
         }
       }
