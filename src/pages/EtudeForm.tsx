@@ -2822,6 +2822,13 @@ _Envoyé depuis DébalePro_`;
                     if (active) setPacEcsIntegre(true);
                     break;
                   }
+                  case "pacRaccordementReseau": {
+                    const active = value as boolean;
+                    const BONUS_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                    const val = active ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, raccordementReseau: val }));
+                    break;
+                  }
                 }
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
