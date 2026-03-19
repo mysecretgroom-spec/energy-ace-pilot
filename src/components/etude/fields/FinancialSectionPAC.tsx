@@ -14,6 +14,7 @@ interface AidesPAC {
   aideLocale: number;
   deposeChaudiere: number;
   ballonThermo: number;
+  raccordementReseau: number;
 }
 
 interface FinancialSectionPACProps {
