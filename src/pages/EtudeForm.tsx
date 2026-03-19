@@ -3532,8 +3532,8 @@ _Envoyé depuis DébalePro_`;
           </div>
         )}
 
-        {/* PRIX & AIDES PV */}
-        {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && (
+        {/* PRIX & AIDES — Global en multi-produit */}
+        {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1)) && (
           <div className="grid grid-cols-2 gap-3">
             {/* PRIX */}
             <Card className="shadow-card">
