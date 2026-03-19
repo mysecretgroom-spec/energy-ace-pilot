@@ -108,6 +108,7 @@ interface DataBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
+  product_type: string | null;
 }
 
 interface DataSurcout {
