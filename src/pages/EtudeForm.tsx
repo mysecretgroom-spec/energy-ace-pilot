@@ -3517,7 +3517,7 @@ _Envoyé depuis DébalePro_`;
         </Card>
 
         {/* RÉSULTAT DE LA PRÉCONISATION */}
-        {calculatedResults && (
+        {calculatedResults && activeProducts.length <= 1 && (
           <Card className="shadow-card border-2 border-secondary/50">
             <CardHeader className="pb-2 bg-secondary/20 px-3 sm:px-6 py-2 sm:py-3">
               <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
