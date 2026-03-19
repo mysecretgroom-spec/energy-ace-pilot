@@ -3037,9 +3037,7 @@ _Envoyé depuis DébalePro_`;
           </h2>
         </div>
 
-        {/* CONSOMMATIONS — masquées en multi-produit car déjà affichées dans la section "Situation actuelle" */}
-        {activeProducts.length <= 1 && <Card className="shadow-card">}
-        {activeProducts.length > 1 && <div className="hidden">}
+        {/* CONSOMMATIONS — masquées en multi-produit car déjà affichées dans "Situation actuelle" */}
         <Card className="shadow-card" style={activeProducts.length > 1 ? { display: 'none' } : undefined}>
           <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
             <div className="flex items-center justify-between">
