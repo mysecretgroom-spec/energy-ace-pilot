@@ -12,6 +12,7 @@ interface AidesPAC {
   cee: number;
   ecoTva: number;
   aideLocale: number;
+  deposeChaudiere: number;
 }
 
 interface FinancialSectionPACProps {
@@ -75,7 +76,7 @@ export const FinancialSectionPAC = ({
   // Montant TTC total hors aides (base de financement)
   const prixTotalTTC = Number(prixFinal) + autreSurcout;
   
-  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale;
+  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale + (aides.deposeChaudiere || 0);
   const prixAidesDéduites = prixTotalTTC - totalAides;
   
   // Calcul mensualité avec report 6 mois
@@ -227,6 +228,21 @@ export const FinancialSectionPAC = ({
                   )}
                 </div>
               </>
+            )}
+            {(aides.deposeChaudiere || 0) > 0 && (
+              <div className="flex justify-between items-center">
+                <span>Dépose chaudière</span>
+                {modeHejja ? (
+                  <Input
+                    type="number"
+                    value={aides.deposeChaudiere}
+                    onChange={(e) => onAidesChange({ ...aides, deposeChaudiere: Number(e.target.value) || 0 })}
+                    className="h-6 w-20 text-right text-xs"
+                  />
+                ) : (
+                  <span className="font-medium text-green-600">{(aides.deposeChaudiere || 0).toLocaleString("fr-FR")}€</span>
+                )}
+              </div>
             )}
             <div className="flex justify-between items-center">
               <span>ECO TVA (5.5%)</span>

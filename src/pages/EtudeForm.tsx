@@ -322,6 +322,7 @@ const EtudeForm = () => {
     cee: 4000,
     ecoTva: 0,
     aideLocale: 0,
+    deposeChaudiere: 0,
   });
   const [aidesITE, setAidesITE] = useState({
     maPrimeRenov: 0,
@@ -1504,7 +1505,7 @@ const EtudeForm = () => {
       total_aides: (() => {
         let total = 0;
         if (hasPV && calculatedResults) total += calculatedResults.totalAides;
-        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale);
+        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0));
         if (hasITE) total += (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale);
         return total;
       })(),
@@ -2736,19 +2737,26 @@ _Envoyé depuis DébalePro_`;
                 pacEnergieActuelle, pacConsoChaufffageKwh, pacEconomieEstimee,
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
                 pacProfilMpr,
+                pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
               }}
               onChange={(field, value) => {
                 switch (field) {
                   case "pacSubtype": {
                     const newSubtype = value as "air_air" | "air_eau";
                     setPacSubtype(newSubtype);
-                    // Recalculate MPR when subtype changes
+                    // Recalculate MPR + dépose when subtype changes
                     if (pacProfilMpr) {
                       const MPR_MONTANTS: Record<string, Record<string, number>> = {
                         air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
                         air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                       };
-                      setAidesPAC(prev => ({ ...prev, maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0 }));
+                      const DEPOSE_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                      const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
+                      setAidesPAC(prev => ({ 
+                        ...prev, 
+                        maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0,
+                        deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0,
+                      }));
                     }
                     break;
                   }
@@ -2772,10 +2780,25 @@ _Envoyé depuis DébalePro_`;
                     // Auto-calculate MPR aid based on profile
                     const MPR_MONTANTS: Record<string, Record<string, number>> = {
                       air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
-                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 }, // Non éligible
+                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
+                    };
+                    const DEPOSE_MONTANTS: Record<string, number> = {
+                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
                     };
                     const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
-                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant }));
+                    // Recalculate dépose if it was active
+                    const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
+                    const deposeVal = deposeActive ? (DEPOSE_MONTANTS[profil] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant, deposeChaudiere: deposeVal }));
+                    break;
+                  }
+                  case "pacDeposeChaudiere": {
+                    const active = value as boolean;
+                    const DEPOSE_MONTANTS: Record<string, number> = {
+                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
+                    };
+                    const deposeVal = active ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, deposeChaudiere: deposeVal }));
                     break;
                   }
                 }

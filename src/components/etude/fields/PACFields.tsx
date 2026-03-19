@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, Link2, Gift } from "lucide-react";
+import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, Link2, Gift, Trash2 } from "lucide-react";
 import { PAC_OPTIONS, PacSubtype } from "@/lib/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,6 +37,7 @@ interface PACFieldsProps {
     pacNiveauIsolation: string;
     pacPrixKwhElec: number | "";
     pacProfilMpr?: string;
+    pacDeposeChaudiere?: boolean;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
@@ -217,6 +218,26 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               PAC Air/Air non éligible à MaPrimeRénov'
+            </div>
+          )}
+
+          {/* Dépose chaudière */}
+          {data.pacProfilMpr && data.pacProfilMpr !== "rose" && (
+            <div className="flex items-center justify-between py-2 px-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-orange-600" />
+                <div>
+                  <p className="text-xs font-medium">Dépose chaudière fossile</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Bonus si retrait d'une chaudière gaz/fioul
+                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={data.pacDeposeChaudiere || false}
+                onCheckedChange={(checked) => onChange("pacDeposeChaudiere", checked)}
+              />
             </div>
           )}
         </CardContent>
