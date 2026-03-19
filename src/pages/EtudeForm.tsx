@@ -557,6 +557,7 @@ const EtudeForm = () => {
     if (draft.pacFactureElecEuros !== undefined) setPacFactureElecEuros(draft.pacFactureElecEuros);
     if (draft.pacNiveauIsolation) setPacNiveauIsolation(draft.pacNiveauIsolation);
     if (draft.pacPrixKwhElec !== undefined) setPacPrixKwhElec(draft.pacPrixKwhElec);
+    if (draft.pacProfilMpr) setPacProfilMpr(draft.pacProfilMpr);
     if (draft.pacPrixManuel !== undefined) setPacPrixManuel(draft.pacPrixManuel);
     if (draft.aidesPAC) setAidesPAC(draft.aidesPAC);
     
