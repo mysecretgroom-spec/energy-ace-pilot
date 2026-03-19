@@ -2815,6 +2815,7 @@ _Envoyé depuis DébalePro_`;
                     if (active) setPacEcsIntegre(true);
                     break;
                   }
+                }
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
