@@ -2755,13 +2755,14 @@ _Envoyé depuis DébalePro_`;
                         air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                       };
                       const BONUS_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                      const DEPOSE_MONTANTS: Record<string, number> = { bleu: 3500, jaune: 2500, violet: 1500, rose: 0 };
                       const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
                       const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
                       const raccordActive = (aidesPAC.raccordementReseau || 0) > 0;
                       setAidesPAC(prev => ({ 
                         ...prev, 
                         maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0,
-                        deposeChaudiere: deposeActive ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0,
+                        deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0,
                         ballonThermo: ballonActive ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0,
                         raccordementReseau: raccordActive ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0,
                       }));
