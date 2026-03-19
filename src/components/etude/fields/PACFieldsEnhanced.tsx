@@ -617,17 +617,26 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
               </div>
             </div>
 
-            {/* Consommation PAC */}
+            {/* Consommation PAC + BTD */}
             <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
               <p className="text-xs text-amber-600 font-medium mb-2 flex items-center gap-1">
                 <Zap className="h-3 w-3" />
-                Augmentation électricité avec PAC
+                Augmentation électricité avec PAC + BTD
               </p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Conso élec PAC</span>
+                  <span className="text-muted-foreground">Conso élec chauffage</span>
                   <p className="font-medium">{besoinsChauffageKwh.toLocaleString("fr-FR")} ÷ {copValue.toFixed(1)} COP</p>
-                  <p className="font-bold text-amber-600">= {Math.round(consoElecPacKwh).toLocaleString("fr-FR")} kWh/an</p>
+                  <p className="font-bold text-amber-600">= {Math.round(consoElecChauffageKwh).toLocaleString("fr-FR")} kWh/an</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Conso élec BTD (ECS)</span>
+                  <p className="font-medium">{BESOINS_ECS_KWH} kWh ÷ {COP_BTD} COP</p>
+                  <p className="font-bold text-amber-600">= {Math.round(consoElecBtdKwh).toLocaleString("fr-FR")} kWh/an</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Total PAC + BTD</span>
+                  <p className="font-bold text-amber-600">{Math.round(consoElecPacKwh).toLocaleString("fr-FR")} kWh/an</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Surcoût électrique</span>
