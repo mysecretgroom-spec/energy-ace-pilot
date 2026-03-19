@@ -2658,7 +2658,7 @@ _Envoyé depuis DébalePro_`;
 
                   {/* En multi-produit : tout est affiché à la suite, plus besoin de navigation */}
                   <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-[10px] sm:text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">📋 Études techniques : {activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""} → Bilan financier global</p>
+                    <p className="font-medium text-foreground">📋 Étude unifiée : Saisie technique ({activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""}) → Résultats cumulés → Bilan financier global</p>
                   </div>
                 </CardContent>
               </Card>
