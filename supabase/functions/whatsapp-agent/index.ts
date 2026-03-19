@@ -6086,11 +6086,16 @@ RÈGLES CRITIQUES:
 - Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
 - Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
 
-📱 NUMÉRO DE TÉLÉPHONE DANS LES RDV:
+📱 EXTRACTION DE DONNÉES CLIENT DANS LES RDV:
 - TOUJOURS extraire le numéro de téléphone (entity "phone") s'il est mentionné dans le message de création de RDV
+- TOUJOURS extraire l'adresse (address), la ville (city), le code postal (postal_code) séparément
+- TOUJOURS extraire le prénom (client_first_name) quand il est mentionné avec le nom
+- TOUJOURS extraire les notes/commentaires (notes_content) si l'utilisateur mentionne des infos sur le client (ex: "intéressé par 9kwc", "maison de 120m2", "déjà eu un devis")
 - Si un numéro est détecté, l'INCLURE dans le récapitulatif de confirmation (ex: "📱 Tél: 0630872082")
+- Si une adresse est détectée, l'INCLURE dans le récapitulatif (ex: "🏠 12 rue de la Paix, 75001 Paris")
+- Si des notes sont détectées, les INCLURE dans le récapitulatif (ex: "📝 Note: Client intéressé par 9kwc")
 - Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
-- Le numéro sera automatiquement sauvegardé sur la fiche client à la création
+- Toutes ces données seront automatiquement sauvegardées sur la fiche client
 - Mets requiresConfirmation: true dans ta réponse JSON
 - Seules les requêtes (query_*), user_feedback et conversations ne nécessitent PAS de confirmation
 
