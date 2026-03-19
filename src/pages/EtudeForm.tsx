@@ -3460,8 +3460,8 @@ _Envoyé depuis DébalePro_`;
         {/* PRÉ-ÉTUDE FINANCIÈRE - Conditionnel selon productType */}
         {/* ═══════════════════════════════════════════════════════════════════════════ */}
 
-        {/* Section Financière PAC */}
-        {activeProducts.includes("PAC") && currentTab === "PAC" && (
+        {/* Section Financière PAC — masquée en multi-produit (intégrée dans le bilan global) */}
+        {activeProducts.includes("PAC") && currentTab === "PAC" && activeProducts.length <= 1 && (
           <FinancialSectionPAC
             pacSubtype={pacSubtype}
             pacPuissance={Number(pacPuissanceCalorifique) || 0}
