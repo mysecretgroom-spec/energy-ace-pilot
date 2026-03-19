@@ -13,6 +13,7 @@ interface AidesPAC {
   ecoTva: number;
   aideLocale: number;
   deposeChaudiere: number;
+  ballonThermo: number;
 }
 
 interface FinancialSectionPACProps {
