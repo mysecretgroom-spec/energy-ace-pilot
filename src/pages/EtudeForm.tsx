@@ -2792,6 +2792,7 @@ _Envoyé depuis DébalePro_`;
                       air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
                     };
                     const BONUS_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                    const DEPOSE_MONTANTS: Record<string, number> = { bleu: 3500, jaune: 2500, violet: 1500, rose: 0 };
                     const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
                     const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
                     const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
@@ -2799,7 +2800,7 @@ _Envoyé depuis DébalePro_`;
                     setAidesPAC(prev => ({ 
                       ...prev, 
                       maPrimeRenov: montant, 
-                      deposeChaudiere: deposeActive ? (BONUS_MONTANTS[profil] ?? 0) : 0, 
+                      deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[profil] ?? 0) : 0, 
                       ballonThermo: ballonActive ? (BONUS_MONTANTS[profil] ?? 0) : 0,
                       raccordementReseau: raccordActive ? (BONUS_MONTANTS[profil] ?? 0) : 0,
                     }));
