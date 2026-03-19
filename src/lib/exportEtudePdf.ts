@@ -926,10 +926,10 @@ const drawGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Pa
     rows.push(["☀️ Photovoltaïque", `${data.puissanceKwc} kWc`, formatEuros(data.prixTotalHorsAides), formatEuros(data.totalAides), formatEuros(data.prixTotalHorsAides - data.totalAides)]);
   }
   if (data.pac) {
-    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale;
+    const aidesPac = data.pac.aides.maPrimeRenov + data.pac.aides.cee + data.pac.aides.ecoTva + data.pac.aides.aideLocale + (data.pac.aides.deposeChaudiere || 0) + (data.pac.aides.ballonThermo || 0) + (data.pac.aides.raccordementReseau || 0);
     totalPrix += data.pac.prixInstallation;
     totalAides += aidesPac;
-    rows.push(["🌡️ PAC", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
+    rows.push(["🌡️ PAC + BTD", `${data.pac.puissanceCalorifique} kW`, formatEuros(data.pac.prixInstallation), formatEuros(aidesPac), formatEuros(data.pac.prixInstallation - aidesPac)]);
   }
   if (data.ite) {
     const aidesIte = data.ite.aides.maPrimeRenov + data.ite.aides.cee + data.ite.aides.ecoTva + data.ite.aides.aideLocale;
