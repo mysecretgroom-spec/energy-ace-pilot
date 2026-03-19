@@ -39,6 +39,7 @@ interface PACFieldsProps {
     pacProfilMpr?: string;
     pacDeposeChaudiere?: boolean;
     pacBallonThermo?: boolean;
+    pacRaccordementReseau?: boolean;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
@@ -258,6 +259,26 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
               <Switch
                 checked={data.pacBallonThermo || false}
                 onCheckedChange={(checked) => onChange("pacBallonThermo", checked)}
+              />
+            </div>
+          )}
+
+          {/* Raccordement réseau de chaleur/froid */}
+          {data.pacProfilMpr && data.pacProfilMpr !== "rose" && (
+            <div className="flex items-center justify-between py-2 px-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <p className="text-xs font-medium">Raccordement réseau chaleur/froid</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Réseau de chaleur et/ou de froid
+                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={data.pacRaccordementReseau || false}
+                onCheckedChange={(checked) => onChange("pacRaccordementReseau", checked)}
               />
             </div>
           )}
