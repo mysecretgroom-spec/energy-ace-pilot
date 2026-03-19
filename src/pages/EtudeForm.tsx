@@ -4518,7 +4518,7 @@ _Envoyé depuis DébalePro_`;
                             <Input type="number" value={aidesPAC.deposeChaudiere} onChange={(e) => setAidesPAC({ ...aidesPAC, deposeChaudiere: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
                           </div>
                         )}
-                        {hasPAC && (
+                        {activeProducts.includes("PAC") && (
                           <div className="flex justify-between items-center">
                             <span>BTD (ballon thermo)</span>
                             <Input type="number" value={aidesPAC.ballonThermo} onChange={(e) => setAidesPAC({ ...aidesPAC, ballonThermo: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
