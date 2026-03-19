@@ -2743,6 +2743,7 @@ _Envoyé depuis DébalePro_`;
                 pacBallonThermo: (aidesPAC.ballonThermo || 0) > 0,
                 pacRaccordementReseau: (aidesPAC.raccordementReseau || 0) > 0,
               }}
+              isIdf={["75","77","78","91","92","93","94","95"].includes(departement)}
               onChange={(field, value) => {
                 switch (field) {
                   case "pacSubtype": {
@@ -3652,7 +3653,7 @@ _Envoyé depuis DébalePro_`;
             + (activeProducts.includes("ITE") ? prixITEFinal : 0)
             + (isMulti ? 0 : 0); // autreSurcout déjà inclus dans prixPVHorsAides
 
-          const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+          const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
           const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
           const totalAidesPV = calculatedResults?.totalAides || 0;
           const totalAidesGlobal = (activeProducts.includes("PV") ? totalAidesPV : 0)
@@ -3869,6 +3870,24 @@ _Envoyé depuis DébalePro_`;
                           <span>CEE</span>
                           <Input type="number" value={aidesPAC.cee} onChange={(e) => setAidesPAC({ ...aidesPAC, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
                         </div>
+                        {(aidesPAC.deposeChaudiere || 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span>Dépose chaudière</span>
+                            <Input type="number" value={aidesPAC.deposeChaudiere} onChange={(e) => setAidesPAC({ ...aidesPAC, deposeChaudiere: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          </div>
+                        )}
+                        {(aidesPAC.ballonThermo || 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span>CET (ballon)</span>
+                            <Input type="number" value={aidesPAC.ballonThermo} onChange={(e) => setAidesPAC({ ...aidesPAC, ballonThermo: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          </div>
+                        )}
+                        {(aidesPAC.raccordementReseau || 0) > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span>Raccord. réseau</span>
+                            <Input type="number" value={aidesPAC.raccordementReseau} onChange={(e) => setAidesPAC({ ...aidesPAC, raccordementReseau: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          </div>
+                        )}
                         <div className="flex justify-between items-center">
                           <span>ECO TVA</span>
                           <Input type="number" value={aidesPAC.ecoTva} onChange={(e) => setAidesPAC({ ...aidesPAC, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
