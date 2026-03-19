@@ -2773,10 +2773,25 @@ _Envoyé depuis DébalePro_`;
                     // Auto-calculate MPR aid based on profile
                     const MPR_MONTANTS: Record<string, Record<string, number>> = {
                       air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
-                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 }, // Non éligible
+                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 },
+                    };
+                    const DEPOSE_MONTANTS: Record<string, number> = {
+                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
                     };
                     const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
-                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant }));
+                    // Recalculate dépose if it was active
+                    const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
+                    const deposeVal = deposeActive ? (DEPOSE_MONTANTS[profil] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant, deposeChaudiere: deposeVal }));
+                    break;
+                  }
+                  case "pacDeposeChaudiere": {
+                    const active = value as boolean;
+                    const DEPOSE_MONTANTS: Record<string, number> = {
+                      bleu: 1200, jaune: 800, violet: 400, rose: 0,
+                    };
+                    const deposeVal = active ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, deposeChaudiere: deposeVal }));
                     break;
                   }
                 }
