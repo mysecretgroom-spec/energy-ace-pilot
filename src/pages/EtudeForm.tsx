@@ -3936,8 +3936,8 @@ _Envoyé depuis DébalePro_`;
           );
         })()}
 
-        {/* ÉVOLUTION ÉNERGÉTIQUE MULTI-PRODUIT */}
-        {activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length > 1 && (
+        {/* ÉVOLUTION ÉNERGÉTIQUE MULTI-PRODUIT — visible quelle que soit l'onglet */}
+        {activeProducts.length > 1 && (
           <EnergyEvolutionCard
             activeProducts={activeProducts}
             factureElecAnnuelle={Number(factureMensuelle) * 12 || 0}
