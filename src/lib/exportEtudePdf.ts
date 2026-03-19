@@ -1351,7 +1351,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   const subtitle = isMulti
     ? products.map(p => p === "PV" ? "PHOTOVOLTAÏQUE" : p === "PAC" ? "PAC" : "ITE").join(" + ")
     : products[0] === "PV" ? "INSTALLATION PHOTOVOLTAÏQUE"
-    : products[0] === "PAC" ? "POMPE À CHALEUR"
+    : products[0] === "PAC" ? "POMPE À CHALEUR + BTD"
     : "ISOLATION THERMIQUE";
 
   const pvCtx: PageContext = { doc, data, franceRenovBase64, ministereBase64, subtitle };
