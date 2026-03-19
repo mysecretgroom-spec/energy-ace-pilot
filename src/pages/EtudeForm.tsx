@@ -1543,6 +1543,7 @@ const EtudeForm = () => {
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
         hasPrixInstallationManuel: !!prixInstallationManuel,
+        remiseCommerciale: remiseCommerciale || 0,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
