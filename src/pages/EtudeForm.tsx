@@ -3042,7 +3042,7 @@ _Envoyé depuis DébalePro_`;
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
                 pacProfilMpr,
                 pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
-                pacBallonThermo: (aidesPAC.ballonThermo || 0) > 0,
+                pacBallonThermo: true, // BTD toujours inclus avec PAC
                 pacRaccordementReseau: (aidesPAC.raccordementReseau || 0) > 0,
               }}
               isIdf={["75","77","78","91","92","93","94","95"].includes(departement)}
@@ -3060,13 +3060,14 @@ _Envoyé depuis DébalePro_`;
                       const BONUS_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
                       const DEPOSE_MONTANTS: Record<string, number> = { bleu: 3500, jaune: 2500, violet: 1500, rose: 0 };
                       const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
-                      const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
                       const raccordActive = (aidesPAC.raccordementReseau || 0) > 0;
+                      // BTD toujours inclus
+                      const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
                       setAidesPAC(prev => ({ 
                         ...prev, 
                         maPrimeRenov: MPR_MONTANTS[newSubtype]?.[pacProfilMpr] ?? 0,
                         deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[pacProfilMpr] ?? 0) : 0,
-                        ballonThermo: ballonActive ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0,
+                        ballonThermo: CET_MONTANTS[pacProfilMpr] ?? 0,
                         raccordementReseau: raccordActive ? (BONUS_MONTANTS[pacProfilMpr] ?? 0) : 0,
                       }));
                     }
@@ -3098,15 +3099,18 @@ _Envoyé depuis DébalePro_`;
                     const DEPOSE_MONTANTS: Record<string, number> = { bleu: 3500, jaune: 2500, violet: 1500, rose: 0 };
                     const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
                     const deposeActive = (aidesPAC.deposeChaudiere || 0) > 0;
-                    const ballonActive = (aidesPAC.ballonThermo || 0) > 0;
                     const raccordActive = (aidesPAC.raccordementReseau || 0) > 0;
+                    // BTD toujours inclus avec PAC
+                    const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
                     setAidesPAC(prev => ({ 
                       ...prev, 
                       maPrimeRenov: montant, 
                       deposeChaudiere: deposeActive ? (DEPOSE_MONTANTS[profil] ?? 0) : 0, 
-                      ballonThermo: ballonActive ? (BONUS_MONTANTS[profil] ?? 0) : 0,
+                      ballonThermo: CET_MONTANTS[profil] ?? 0,
                       raccordementReseau: raccordActive ? (BONUS_MONTANTS[profil] ?? 0) : 0,
                     }));
+                    // BTD → ECS toujours actif
+                    setPacEcsIntegre(true);
                     break;
                   }
                   case "pacDeposeChaudiere": {
@@ -4514,9 +4518,9 @@ _Envoyé depuis DébalePro_`;
                             <Input type="number" value={aidesPAC.deposeChaudiere} onChange={(e) => setAidesPAC({ ...aidesPAC, deposeChaudiere: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
                           </div>
                         )}
-                        {(aidesPAC.ballonThermo || 0) > 0 && (
+                        {activeProducts.includes("PAC") && (
                           <div className="flex justify-between items-center">
-                            <span>CET (ballon)</span>
+                            <span>BTD (ballon thermo)</span>
                             <Input type="number" value={aidesPAC.ballonThermo} onChange={(e) => setAidesPAC({ ...aidesPAC, ballonThermo: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
                           </div>
                         )}

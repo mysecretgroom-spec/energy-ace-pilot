@@ -259,23 +259,26 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
             </div>
           )}
 
-          {/* Ballon thermodynamique */}
-          {data.pacSubtype === "air_eau" && data.pacProfilMpr && data.pacProfilMpr !== "rose" && (
+          {/* Ballon thermodynamique - TOUJOURS inclus avec PAC */}
+          {data.pacProfilMpr && (
             <div className="flex items-center justify-between py-2 px-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <Droplets className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-xs font-medium">Ballon thermodynamique (CET)</p>
                   <p className="text-[10px] text-muted-foreground">
-                    Chauffe-eau thermo inclus dans le bouquet
-                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                    Toujours inclus avec la PAC
+                    {data.pacProfilMpr !== "rose" && (
+                      <span className="font-medium text-blue-600 ml-1">
+                        • Aide: {data.pacProfilMpr === "bleu" ? "1 200€" : data.pacProfilMpr === "jaune" ? "800€" : "400€"}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
-              <Switch
-                checked={data.pacBallonThermo || false}
-                onCheckedChange={(checked) => onChange("pacBallonThermo", checked)}
-              />
+              <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-300">
+                Inclus
+              </Badge>
             </div>
           )}
 
