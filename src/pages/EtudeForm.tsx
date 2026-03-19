@@ -108,6 +108,7 @@ interface DataBouquet {
   nom_bouquet: string;
   puissance_kwc: number;
   prix_recommande: number;
+  product_type: string | null;
 }
 
 interface DataSurcout {
@@ -335,6 +336,12 @@ const EtudeForm = () => {
   const [pacPrixManuel, setPacPrixManuel] = useState<number | "">("");
   const [itePrixManuel, setItePrixManuel] = useState<number | "">("");
   const [remiseCommerciale, setRemiseCommerciale] = useState<number>(0);
+  
+  // Bouquet selectors
+  const [selectedBouquetPV, setSelectedBouquetPV] = useState<string>("");
+  const [selectedBouquetPAC, setSelectedBouquetPAC] = useState<string>("");
+  const [selectedBouquetITE, setSelectedBouquetITE] = useState<string>("");
+  const [selectedBouquetCombo, setSelectedBouquetCombo] = useState<string>("");
 
   // Mode HEJJA - use global context
   const { 
@@ -579,6 +586,10 @@ const EtudeForm = () => {
     if (draft.iteFactureChaufActuelle !== undefined) setIteFactureChaufActuelle(draft.iteFactureChaufActuelle);
     if (draft.itePrixManuel !== undefined) setItePrixManuel(draft.itePrixManuel);
     if (draft.aidesITE) setAidesITE(draft.aidesITE);
+    if (draft.selectedBouquetPV) setSelectedBouquetPV(draft.selectedBouquetPV);
+    if (draft.selectedBouquetPAC) setSelectedBouquetPAC(draft.selectedBouquetPAC);
+    if (draft.selectedBouquetITE) setSelectedBouquetITE(draft.selectedBouquetITE);
+    if (draft.selectedBouquetCombo) setSelectedBouquetCombo(draft.selectedBouquetCombo);
     
     // Mark restoration complete after a delay
     markRestorationComplete();
@@ -692,25 +703,26 @@ const EtudeForm = () => {
       ]);
       
       if (bouquetsRes.data) {
-        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
-        
+        // Load ALL bouquets (all product types) for multi-product selector
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId) && matchesProductType(b))
+          .filter((b: any) => b.regie_ids && b.regie_ids.includes(currentRegieId))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
+            product_type: b.product_type || "PV",
           }));
         
         if (bouquetsData.length === 0) {
           bouquetsData = bouquetsRes.data
-            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
+            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0))
             .map((b: any) => ({
               id: b.id,
               nom_bouquet: b.nom_bouquet,
               puissance_kwc: b.puissance_kwc,
               prix_recommande: b.prix_recommande,
+              product_type: b.product_type || "PV",
             }));
         }
       }
@@ -741,15 +753,14 @@ const EtudeForm = () => {
       ]);
       
       if (bouquetsRes.data) {
-        // Use only global bouquets filtered by product_type
-        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
+          .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
+            product_type: b.product_type || "PV",
           }));
       }
       if (financementsRes.data) financementsData = financementsRes.data;
@@ -877,6 +888,10 @@ const EtudeForm = () => {
         if (typeof overrides.remiseCommerciale === "number") {
           setRemiseCommerciale(overrides.remiseCommerciale);
         }
+        if (overrides.selectedBouquetPV) setSelectedBouquetPV(overrides.selectedBouquetPV);
+        if (overrides.selectedBouquetPAC) setSelectedBouquetPAC(overrides.selectedBouquetPAC);
+        if (overrides.selectedBouquetITE) setSelectedBouquetITE(overrides.selectedBouquetITE);
+        if (overrides.selectedBouquetCombo) setSelectedBouquetCombo(overrides.selectedBouquetCombo);
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
@@ -1255,12 +1270,16 @@ const EtudeForm = () => {
     
     if (prixInstallationManuel) {
       prixInstallation = Number(prixInstallationManuel);
+    } else if (selectedBouquetPV) {
+      // Use explicitly selected bouquet
+      const selectedBq = dataBouquets.find(b => b.id === selectedBouquetPV);
+      if (selectedBq) {
+        prixInstallation = selectedBq.prix_recommande;
+      }
     } else if (dataBouquets.length > 0) {
-      // En multi-produit, filtrer les bouquets multi-produit pour ne garder que les PV purs
-      const pvOnlyBouquets = activeProducts.length > 1
-        ? dataBouquets.filter(b => !b.nom_bouquet?.match(/PAC|ITE|Ballon|Thermo/i))
-        : dataBouquets;
-      const bouquetsForInterp = pvOnlyBouquets.length > 0 ? pvOnlyBouquets : dataBouquets;
+      // Fallback: interpolate from PV bouquets only
+      const pvBouquets = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
+      const bouquetsForInterp = pvBouquets.length > 0 ? pvBouquets : dataBouquets.filter(b => b.product_type === "PV");
       const interpolatedBouquet = findOrInterpolateBouquet(bouquetsForInterp, puissance);
       prixInstallation = modeHejjaPrix 
         ? (prixManuel ? Number(prixManuel) : 0)
@@ -1547,6 +1566,10 @@ const EtudeForm = () => {
         estimationDetails: estimationDetailsRef.current || undefined,
         hasPrixInstallationManuel: !!prixInstallationManuel,
         remiseCommerciale: remiseCommerciale || 0,
+        selectedBouquetPV: selectedBouquetPV || undefined,
+        selectedBouquetPAC: selectedBouquetPAC || undefined,
+        selectedBouquetITE: selectedBouquetITE || undefined,
+        selectedBouquetCombo: selectedBouquetCombo || undefined,
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
@@ -1966,6 +1989,10 @@ const EtudeForm = () => {
       classificationComment,
       r2DateHeure: r2DateHeure?.toISOString(),
       r2Time,
+      selectedBouquetPV,
+      selectedBouquetPAC,
+      selectedBouquetITE,
+      selectedBouquetCombo,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
@@ -3961,29 +3988,52 @@ _Envoyé depuis DébalePro_`;
 
         {/* PRIX & AIDES — Unifié en multi-produit */}
         {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1)) && (() => {
+          // Filter bouquets by product type
+          const pvBouquets = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
+          const pacBouquetsFiltered = dataBouquets.filter(b => b.product_type === "PAC");
+          const iteBouquetsFiltered = dataBouquets.filter(b => b.product_type === "ITE");
+
           // Calcul prix PAC
-          const pacBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("PAC"));
           const pacPuissance = Number(pacPuissanceCalorifique) || 8;
-          const pacBouquet = pacBouquets.find((b: any) => Math.abs(b.puissance_kwc - pacPuissance) < 2);
-          const prixPACBase = pacBouquet?.prix_recommande || pacPuissance * 1500;
+          let prixPACBase: number;
+          if (selectedBouquetPAC) {
+            const selBq = pacBouquetsFiltered.find(b => b.id === selectedBouquetPAC);
+            prixPACBase = selBq?.prix_recommande || pacPuissance * 1500;
+          } else {
+            const pacBouquet = pacBouquetsFiltered.find(b => Math.abs(b.puissance_kwc - pacPuissance) < 2);
+            prixPACBase = pacBouquet?.prix_recommande || pacPuissance * 1500;
+          }
           const prixPACFinal = Number(pacPrixManuel || prixPACBase);
 
           // Calcul prix ITE
-          const iteBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("ITE"));
           const iteSurface = Number(iteSurfaceIsoler) || 100;
-          const iteBouquet = iteBouquets.find((b: any) => Math.abs(b.puissance_kwc - iteSurface) < 30);
-          const prixITEBase = iteBouquet?.prix_recommande || iteSurface * 150;
+          let prixITEBase: number;
+          if (selectedBouquetITE) {
+            const selBq = iteBouquetsFiltered.find(b => b.id === selectedBouquetITE);
+            prixITEBase = selBq?.prix_recommande || iteSurface * 150;
+          } else {
+            const iteBouquet = iteBouquetsFiltered.find(b => Math.abs(b.puissance_kwc - iteSurface) < 30);
+            prixITEBase = iteBouquet?.prix_recommande || iteSurface * 150;
+          }
           const prixITEFinal = Number(itePrixManuel || prixITEBase);
 
           // Prix PV
           const prixPVFinal = calculatedResults ? calculatedResults.prixInstallation : 0;
           const prixPVHorsAides = calculatedResults ? calculatedResults.prixTotalHorsAides : 0;
 
+          // Combo bouquet: if selected, override all prices
+          const comboSelected = dataBouquets.find(b => b.id === selectedBouquetCombo);
+
           // Totaux globaux
           const isMulti = activeProducts.length > 1;
-          const prixGlobalBrut = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
-            + (activeProducts.includes("PAC") ? prixPACFinal : 0)
-            + (activeProducts.includes("ITE") ? prixITEFinal : 0);
+          let prixGlobalBrut: number;
+          if (comboSelected) {
+            prixGlobalBrut = comboSelected.prix_recommande;
+          } else {
+            prixGlobalBrut = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
+              + (activeProducts.includes("PAC") ? prixPACFinal : 0)
+              + (activeProducts.includes("ITE") ? prixITEFinal : 0);
+          }
           const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale) : prixGlobalBrut;
 
           const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
@@ -4010,6 +4060,170 @@ _Envoyé depuis DébalePro_`;
 
           return (
           <>
+          {/* SÉLECTION BOUQUET */}
+          {isMulti && (
+            <Card className="shadow-card mb-3">
+              <CardHeader className="pb-2 bg-primary/10">
+                <CardTitle className="text-xs flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  Sélection du bouquet
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3 space-y-3">
+                {/* Combo bouquet selector */}
+                {dataBouquets.filter(b => b.nom_bouquet?.match(/combo|pack|bundle|global/i) || (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i))).length > 0 && (
+                  <div>
+                    <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Pack combo (prix global)</Label>
+                    <Select value={selectedBouquetCombo} onValueChange={(v) => {
+                      setSelectedBouquetCombo(v === "none" ? "" : v);
+                      if (v && v !== "none") {
+                        // Reset individual selections when combo is chosen
+                        setSelectedBouquetPV("");
+                        setSelectedBouquetPAC("");
+                        setSelectedBouquetITE("");
+                      }
+                    }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Aucun pack combo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun (tarifs individuels)</SelectItem>
+                        {dataBouquets
+                          .filter(b => b.nom_bouquet?.match(/combo|pack|bundle|global/i) || (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i)))
+                          .map(b => (
+                            <SelectItem key={b.id} value={b.id}>
+                              {b.nom_bouquet} — {b.prix_recommande.toLocaleString("fr-FR")}€
+                            </SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Individual bouquet selectors (hidden if combo is selected) */}
+                {!selectedBouquetCombo && (
+                  <div className="grid gap-2">
+                    {activeProducts.includes("PV") && pvBouquets.length > 0 && (
+                      <div>
+                        <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                          <Sun className="h-3 w-3" /> Bouquet PV
+                        </Label>
+                        <Select value={selectedBouquetPV} onValueChange={(v) => {
+                          setSelectedBouquetPV(v === "none" ? "" : v);
+                          if (v && v !== "none") {
+                            const bq = pvBouquets.find(b => b.id === v);
+                            if (bq) setPrixInstallationManuel("");
+                          }
+                        }}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Auto (interpolation)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Auto (interpolation)</SelectItem>
+                            {pvBouquets.map(b => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.nom_bouquet} ({b.puissance_kwc} kWc) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {activeProducts.includes("PAC") && pacBouquetsFiltered.length > 0 && (
+                      <div>
+                        <Label className="text-[10px] uppercase text-blue-600 tracking-wider flex items-center gap-1">
+                          <Thermometer className="h-3 w-3" /> Bouquet PAC
+                        </Label>
+                        <Select value={selectedBouquetPAC} onValueChange={(v) => {
+                          setSelectedBouquetPAC(v === "none" ? "" : v);
+                          if (v && v !== "none") {
+                            const bq = pacBouquetsFiltered.find(b => b.id === v);
+                            if (bq) setPacPrixManuel(bq.prix_recommande);
+                          }
+                        }}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Saisie manuelle" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Saisie manuelle</SelectItem>
+                            {pacBouquetsFiltered.map(b => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.nom_bouquet} ({b.puissance_kwc} kW) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {activeProducts.includes("ITE") && iteBouquetsFiltered.length > 0 && (
+                      <div>
+                        <Label className="text-[10px] uppercase text-orange-600 tracking-wider flex items-center gap-1">
+                          <Home className="h-3 w-3" /> Bouquet ITE
+                        </Label>
+                        <Select value={selectedBouquetITE} onValueChange={(v) => {
+                          setSelectedBouquetITE(v === "none" ? "" : v);
+                          if (v && v !== "none") {
+                            const bq = iteBouquetsFiltered.find(b => b.id === v);
+                            if (bq) setItePrixManuel(bq.prix_recommande);
+                          }
+                        }}>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue placeholder="Saisie manuelle" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Saisie manuelle</SelectItem>
+                            {iteBouquetsFiltered.map(b => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.nom_bouquet} ({b.puissance_kwc} m²) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Combo selected indicator */}
+                {comboSelected && (
+                  <div className="bg-primary/10 rounded-lg p-2 text-center">
+                    <p className="text-xs font-semibold text-primary">{comboSelected.nom_bouquet}</p>
+                    <p className="text-lg font-bold text-primary">{comboSelected.prix_recommande.toLocaleString("fr-FR")}€ TTC</p>
+                    <p className="text-[10px] text-muted-foreground">Prix global pack — la remise commerciale s'applique en dessous</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Also add selector for PV-only mode */}
+          {!isMulti && pvBouquets.length > 1 && (
+            <div className="mb-3">
+              <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
+                <Tag className="h-3 w-3" /> Bouquet PV
+              </Label>
+              <Select value={selectedBouquetPV} onValueChange={(v) => {
+                setSelectedBouquetPV(v === "none" ? "" : v);
+                if (v && v !== "none") {
+                  setPrixInstallationManuel("");
+                }
+              }}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Auto (interpolation sur puissance)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Auto (interpolation)</SelectItem>
+                  {pvBouquets.map(b => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.nom_bouquet} ({b.puissance_kwc} kWc) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* PRIX & AIDES en grid */}
           <div className="grid grid-cols-2 gap-3">
             {/* PRIX */}
