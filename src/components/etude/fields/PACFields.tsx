@@ -178,32 +178,46 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Sélectionnez le profil de revenus du foyer selon l'avis d'imposition
+            <span className="font-medium ml-1">({isIdf ? "Île-de-France" : "Hors Île-de-France"})</span>
           </p>
           <div className="grid grid-cols-4 gap-2">
-            {([
-              { value: "bleu", label: "Bleu", desc: "Très modeste", color: "bg-blue-500", textColor: "text-white", borderColor: "border-blue-500" },
-              { value: "jaune", label: "Jaune", desc: "Modeste", color: "bg-yellow-400", textColor: "text-yellow-900", borderColor: "border-yellow-400" },
-              { value: "violet", label: "Violet", desc: "Intermédiaire", color: "bg-purple-500", textColor: "text-white", borderColor: "border-purple-500" },
-              { value: "rose", label: "Rose", desc: "Aisé", color: "bg-pink-400", textColor: "text-white", borderColor: "border-pink-400" },
-            ] as const).map((profil) => (
-              <button
-                key={profil.value}
-                type="button"
-                onClick={() => onChange("pacProfilMpr", profil.value)}
-                className={`p-2 rounded-xl border-2 transition-all text-center ${
-                  data.pacProfilMpr === profil.value
-                    ? `${profil.borderColor} ${profil.color} ${profil.textColor} shadow-md scale-105`
-                    : "border-muted bg-background hover:opacity-80"
-                }`}
-              >
-                <div className={`text-xs font-bold ${data.pacProfilMpr === profil.value ? profil.textColor : ""}`}>
-                  {profil.label}
-                </div>
-                <div className={`text-[10px] mt-0.5 ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-80" : "text-muted-foreground"}`}>
-                  {profil.desc}
-                </div>
-              </button>
-            ))}
+            {(() => {
+              // Seuils MPR 2025 pour 1 personne (RFR)
+              const seuilsIdf: Record<string, string> = {
+                bleu: "≤ 23 541€", jaune: "≤ 28 657€", violet: "≤ 40 018€", rose: "> 40 018€",
+              };
+              const seuilsHorsIdf: Record<string, string> = {
+                bleu: "≤ 17 009€", jaune: "≤ 21 805€", violet: "≤ 30 549€", rose: "> 30 549€",
+              };
+              const seuils = isIdf ? seuilsIdf : seuilsHorsIdf;
+              return ([
+                { value: "bleu", label: "Bleu", desc: "Très modeste", color: "bg-blue-500", textColor: "text-white", borderColor: "border-blue-500" },
+                { value: "jaune", label: "Jaune", desc: "Modeste", color: "bg-yellow-400", textColor: "text-yellow-900", borderColor: "border-yellow-400" },
+                { value: "violet", label: "Violet", desc: "Intermédiaire", color: "bg-purple-500", textColor: "text-white", borderColor: "border-purple-500" },
+                { value: "rose", label: "Rose", desc: "Aisé", color: "bg-pink-400", textColor: "text-white", borderColor: "border-pink-400" },
+              ] as const).map((profil) => (
+                <button
+                  key={profil.value}
+                  type="button"
+                  onClick={() => onChange("pacProfilMpr", profil.value)}
+                  className={`p-2 rounded-xl border-2 transition-all text-center ${
+                    data.pacProfilMpr === profil.value
+                      ? `${profil.borderColor} ${profil.color} ${profil.textColor} shadow-md scale-105`
+                      : "border-muted bg-background hover:opacity-80"
+                  }`}
+                >
+                  <div className={`text-xs font-bold ${data.pacProfilMpr === profil.value ? profil.textColor : ""}`}>
+                    {profil.label}
+                  </div>
+                  <div className={`text-[10px] mt-0.5 ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-80" : "text-muted-foreground"}`}>
+                    {profil.desc}
+                  </div>
+                  <div className={`text-[8px] mt-0.5 font-medium ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-90" : "text-muted-foreground"}`}>
+                    {seuils[profil.value]}
+                  </div>
+                </button>
+              ));
+            })()}
           </div>
           {data.pacProfilMpr === "rose" && data.pacSubtype === "air_eau" && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700 flex items-center gap-2">
