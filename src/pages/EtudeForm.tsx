@@ -2735,6 +2735,7 @@ _Envoyé depuis DébalePro_`;
                 pacPuissanceCalorifique, pacCop, pacEcsIntegre, pacVolumeBallon,
                 pacEnergieActuelle, pacConsoChaufffageKwh, pacEconomieEstimee,
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
+                pacProfilMpr,
               }}
               onChange={(field, value) => {
                 switch (field) {
@@ -2753,6 +2754,18 @@ _Envoyé depuis DébalePro_`;
                   case "pacFactureElecEuros": setPacFactureElecEuros(value as number | ""); break;
                   case "pacNiveauIsolation": setPacNiveauIsolation(value as string); break;
                   case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
+                  case "pacProfilMpr": {
+                    const profil = value as string;
+                    setPacProfilMpr(profil);
+                    // Auto-calculate MPR aid based on profile
+                    const MPR_MONTANTS: Record<string, Record<string, number>> = {
+                      air_eau: { bleu: 5000, jaune: 4000, violet: 3000, rose: 0 },
+                      air_air: { bleu: 0, jaune: 0, violet: 0, rose: 0 }, // Non éligible
+                    };
+                    const montant = MPR_MONTANTS[pacSubtype]?.[profil] ?? 0;
+                    setAidesPAC(prev => ({ ...prev, maPrimeRenov: montant }));
+                    break;
+                  }
                 }
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
