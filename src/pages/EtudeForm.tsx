@@ -1505,7 +1505,7 @@ const EtudeForm = () => {
       total_aides: (() => {
         let total = 0;
         if (hasPV && calculatedResults) total += calculatedResults.totalAides;
-        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale);
+        if (hasPAC) total += (aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0));
         if (hasITE) total += (aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale);
         return total;
       })(),
