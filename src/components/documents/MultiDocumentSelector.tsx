@@ -511,8 +511,7 @@ export function MultiDocumentSelector({
           } else if (fileType === "pdf") {
             // Render first page of PDF as image
             try {
-              const pdfjsLib = await import("pdfjs-dist");
-              pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+              const { pdfjsLib } = await import("@/lib/pdfWorker");
               const resp = await fetch(doc.url);
               const arrayBuffer = await resp.arrayBuffer();
               const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

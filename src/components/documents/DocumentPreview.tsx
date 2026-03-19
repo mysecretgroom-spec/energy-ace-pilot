@@ -15,10 +15,7 @@ import {
 import { TransferDocumentsDialog } from "./TransferDocumentsDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import * as pdfjsLib from "pdfjs-dist";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { pdfjsLib } from "@/lib/pdfWorker";
 
 interface DocumentPreviewProps {
   isOpen: boolean;

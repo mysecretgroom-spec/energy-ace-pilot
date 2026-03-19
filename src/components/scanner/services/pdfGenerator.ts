@@ -139,9 +139,7 @@ export async function generatePdfFromFile(
     if (file.size <= MAX_THUMBNAIL_SIZE) {
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const pdfjsLib = await import("pdfjs-dist");
-        
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+        const { pdfjsLib } = await import("@/lib/pdfWorker");
 
         const loadPromise = pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const timeoutPromise = new Promise<never>((_, reject) => 

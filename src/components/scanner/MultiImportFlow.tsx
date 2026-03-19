@@ -479,8 +479,7 @@ export function MultiImportFlow({
       
       if (importedFile.file.type === "application/pdf") {
         try {
-          const pdfjsLib = await import("pdfjs-dist");
-          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+          const { pdfjsLib } = await import("@/lib/pdfWorker");
           const arrayBuffer = await importedFile.file.arrayBuffer();
           const pdf = await Promise.race([
             pdfjsLib.getDocument({ data: arrayBuffer }).promise,

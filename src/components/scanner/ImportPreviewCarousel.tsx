@@ -31,10 +31,7 @@ import { enhanceImage, enhanceForDocument, convertToBlackAndWhite } from "./serv
 import useEmblaCarousel from "embla-carousel-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import * as pdfjsLib from "pdfjs-dist";
-
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+import { pdfjsLib } from "@/lib/pdfWorker";
 
 export interface ImportedDoc {
   id: string;
