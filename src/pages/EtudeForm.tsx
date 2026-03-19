@@ -1252,8 +1252,12 @@ const EtudeForm = () => {
     if (prixInstallationManuel) {
       prixInstallation = Number(prixInstallationManuel);
     } else if (dataBouquets.length > 0) {
-      // Toujours utiliser l'interpolation basée sur la puissance
-      const interpolatedBouquet = findOrInterpolateBouquet(dataBouquets, puissance);
+      // En multi-produit, filtrer les bouquets multi-produit pour ne garder que les PV purs
+      const pvOnlyBouquets = activeProducts.length > 1
+        ? dataBouquets.filter(b => !b.nom_bouquet?.match(/PAC|ITE|Ballon|Thermo/i))
+        : dataBouquets;
+      const bouquetsForInterp = pvOnlyBouquets.length > 0 ? pvOnlyBouquets : dataBouquets;
+      const interpolatedBouquet = findOrInterpolateBouquet(bouquetsForInterp, puissance);
       prixInstallation = modeHejjaPrix 
         ? (prixManuel ? Number(prixManuel) : 0)
         : interpolatedBouquet.prixRecommande;
