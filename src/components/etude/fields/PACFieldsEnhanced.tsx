@@ -615,7 +615,7 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
                   <p className="font-bold text-blue-600">{besoinsChauffageKwh.toLocaleString("fr-FR")} kWh/an</p>
                   {iteReductionPct > 0 && (
                     <p className="text-[10px] text-muted-foreground line-through">
-                      {besoinsChauffageBrut.toLocaleString("fr-FR")} kWh/an
+                      {besoinsTotauxBrut.toLocaleString("fr-FR")} kWh/an
                     </p>
                   )}
                 </div>
