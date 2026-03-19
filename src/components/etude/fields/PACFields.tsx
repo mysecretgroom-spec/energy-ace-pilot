@@ -38,6 +38,7 @@ interface PACFieldsProps {
     pacPrixKwhElec: number | "";
     pacProfilMpr?: string;
     pacDeposeChaudiere?: boolean;
+    pacBallonThermo?: boolean;
   };
   onChange: (field: string, value: unknown) => void;
   calculatedCop?: number;
