@@ -342,6 +342,7 @@ const EtudeForm = () => {
   const [selectedBouquetPAC, setSelectedBouquetPAC] = useState<string>("");
   const [selectedBouquetITE, setSelectedBouquetITE] = useState<string>("");
   const [selectedBouquetCombo, setSelectedBouquetCombo] = useState<string>("");
+  const [precoMode, setPrecoMode] = useState<"global" | "sur_mesure">("sur_mesure");
 
   // Mode HEJJA - use global context
   const { 
@@ -590,6 +591,7 @@ const EtudeForm = () => {
     if (draft.selectedBouquetPAC) setSelectedBouquetPAC(draft.selectedBouquetPAC);
     if (draft.selectedBouquetITE) setSelectedBouquetITE(draft.selectedBouquetITE);
     if (draft.selectedBouquetCombo) setSelectedBouquetCombo(draft.selectedBouquetCombo);
+    if (draft.precoMode) setPrecoMode(draft.precoMode);
     
     // Mark restoration complete after a delay
     markRestorationComplete();
@@ -892,6 +894,7 @@ const EtudeForm = () => {
         if (overrides.selectedBouquetPAC) setSelectedBouquetPAC(overrides.selectedBouquetPAC);
         if (overrides.selectedBouquetITE) setSelectedBouquetITE(overrides.selectedBouquetITE);
         if (overrides.selectedBouquetCombo) setSelectedBouquetCombo(overrides.selectedBouquetCombo);
+        if (overrides.precoMode) setPrecoMode(overrides.precoMode);
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
@@ -1570,6 +1573,7 @@ const EtudeForm = () => {
         selectedBouquetPAC: selectedBouquetPAC || undefined,
         selectedBouquetITE: selectedBouquetITE || undefined,
         selectedBouquetCombo: selectedBouquetCombo || undefined,
+        precoMode: precoMode || "sur_mesure",
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
@@ -1993,6 +1997,7 @@ const EtudeForm = () => {
       selectedBouquetPAC,
       selectedBouquetITE,
       selectedBouquetCombo,
+      precoMode,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
@@ -2759,9 +2764,204 @@ _Envoyé depuis DébalePro_`;
             </>
           )}
 
-          {/* =============== ÉTUDES TECHNIQUES — séquentielles en multi-produit =============== */}
+          {/* =============== PRÉCONISATION TECHNIQUE — multi-produit =============== */}
 
-          {/* =============== ÉTUDES TECHNIQUES — séquentielles en multi-produit =============== */}
+          {activeProducts.length > 1 && (
+            <Card className="shadow-card border-2 border-primary/20">
+              <CardHeader className="pb-2 bg-primary/10 px-3 sm:px-6 py-2 sm:py-3">
+                <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                  Préconisation Technique
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-3 px-3 sm:px-6 space-y-3">
+                {/* Toggle: Bouquet global vs Sur mesure */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={precoMode === "global" ? "default" : "outline"}
+                    size="sm"
+                    className="w-full text-xs gap-1.5"
+                    onClick={() => setPrecoMode("global")}
+                  >
+                    <Tag className="h-3.5 w-3.5" />
+                    Bouquet global
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={precoMode === "sur_mesure" ? "default" : "outline"}
+                    size="sm"
+                    className="w-full text-xs gap-1.5"
+                    onClick={() => setPrecoMode("sur_mesure")}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                    Sur mesure
+                  </Button>
+                </div>
+
+                {/* Mode Bouquet global */}
+                {precoMode === "global" && (
+                  <div className="space-y-3">
+                    {/* Combo bouquet selector */}
+                    {(() => {
+                      const comboBouquets = dataBouquets.filter(b => 
+                        b.nom_bouquet?.match(/combo|pack|bundle|global|réno/i) || 
+                        (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i))
+                      );
+                      const allBouquets = dataBouquets.length > 0;
+                      return (
+                        <>
+                          <Select value={selectedBouquetCombo} onValueChange={(v) => {
+                            setSelectedBouquetCombo(v === "none" ? "" : v);
+                          }}>
+                            <SelectTrigger className="h-9 text-xs">
+                              <SelectValue placeholder="Sélectionnez un bouquet travaux" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Aucun bouquet sélectionné</SelectItem>
+                              {comboBouquets.length > 0 && comboBouquets.map(b => (
+                                <SelectItem key={b.id} value={b.id}>
+                                  {b.nom_bouquet} — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                </SelectItem>
+                              ))}
+                              {comboBouquets.length === 0 && dataBouquets.map(b => (
+                                <SelectItem key={b.id} value={b.id}>
+                                  {b.nom_bouquet} ({b.product_type || "PV"}) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Selected combo summary */}
+                          {selectedBouquetCombo && (() => {
+                            const combo = dataBouquets.find(b => b.id === selectedBouquetCombo);
+                            if (!combo) return null;
+                            return (
+                              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-center space-y-1">
+                                <p className="text-sm font-bold text-primary">{combo.nom_bouquet}</p>
+                                <p className="text-2xl font-bold text-primary">{combo.prix_recommande.toLocaleString("fr-FR")}€ <span className="text-xs font-normal">TTC</span></p>
+                                <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                                  {activeProducts.map(p => (
+                                    <Badge key={p} variant="secondary" className="text-[10px]">
+                                      {p === "PV" ? "☀️ PV" : p === "PAC" ? "❄️ PAC" : "🧱 ITE"}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground pt-1">
+                                  Les saisies techniques restent nécessaires pour le dimensionnement
+                                </p>
+                              </div>
+                            );
+                          })()}
+
+                          {!selectedBouquetCombo && !allBouquets && (
+                            <div className="bg-muted/30 border-dashed border rounded-lg p-4 text-center">
+                              <Tag className="h-6 w-6 mx-auto mb-2 text-muted-foreground/50" />
+                              <p className="text-xs text-muted-foreground">Aucun bouquet configuré pour cette régie</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">Passez en mode "Sur mesure" ou ajoutez des bouquets dans les paramètres</p>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Mode Sur mesure — bouquets individuels par produit */}
+                {precoMode === "sur_mesure" && (
+                  <div className="space-y-2">
+                    {(() => {
+                      const pvBouquetsLocal = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
+                      const pacBouquetsLocal = dataBouquets.filter(b => b.product_type === "PAC");
+                      const iteBouquetsLocal = dataBouquets.filter(b => b.product_type === "ITE");
+                      return (
+                        <>
+                          {activeProducts.includes("ITE") && iteBouquetsLocal.length > 0 && (
+                            <div>
+                              <Label className="text-[10px] uppercase text-orange-600 tracking-wider flex items-center gap-1">
+                                <Home className="h-3 w-3" /> Bouquet ITE
+                              </Label>
+                              <Select value={selectedBouquetITE} onValueChange={(v) => {
+                                setSelectedBouquetITE(v === "none" ? "" : v);
+                                if (v && v !== "none") {
+                                  const bq = iteBouquetsLocal.find(b => b.id === v);
+                                  if (bq) setItePrixManuel(bq.prix_recommande);
+                                }
+                              }}>
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue placeholder="Saisie manuelle" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Saisie manuelle</SelectItem>
+                                  {iteBouquetsLocal.map(b => (
+                                    <SelectItem key={b.id} value={b.id}>
+                                      {b.nom_bouquet} ({b.puissance_kwc} m²) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {activeProducts.includes("PAC") && pacBouquetsLocal.length > 0 && (
+                            <div>
+                              <Label className="text-[10px] uppercase text-blue-600 tracking-wider flex items-center gap-1">
+                                <Thermometer className="h-3 w-3" /> Bouquet PAC
+                              </Label>
+                              <Select value={selectedBouquetPAC} onValueChange={(v) => {
+                                setSelectedBouquetPAC(v === "none" ? "" : v);
+                                if (v && v !== "none") {
+                                  const bq = pacBouquetsLocal.find(b => b.id === v);
+                                  if (bq) setPacPrixManuel(bq.prix_recommande);
+                                }
+                              }}>
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue placeholder="Saisie manuelle" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Saisie manuelle</SelectItem>
+                                  {pacBouquetsLocal.map(b => (
+                                    <SelectItem key={b.id} value={b.id}>
+                                      {b.nom_bouquet} ({b.puissance_kwc} kW) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {activeProducts.includes("PV") && pvBouquetsLocal.length > 0 && (
+                            <div>
+                              <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                                <Sun className="h-3 w-3" /> Bouquet PV
+                              </Label>
+                              <Select value={selectedBouquetPV} onValueChange={(v) => {
+                                setSelectedBouquetPV(v === "none" ? "" : v);
+                                if (v && v !== "none") setPrixInstallationManuel("");
+                              }}>
+                                <SelectTrigger className="h-7 text-xs">
+                                  <SelectValue placeholder="Auto (interpolation)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Auto (interpolation)</SelectItem>
+                                  {pvBouquetsLocal.map(b => (
+                                    <SelectItem key={b.id} value={b.id}>
+                                      {b.nom_bouquet} ({b.puissance_kwc} kWc) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                    <p className="text-[10px] text-muted-foreground text-center italic">
+                      Sélectionnez un bouquet par produit ou saisissez les prix manuellement dans la partie financière
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* ─── SECTION ITE ─── */}
           {activeProducts.includes("ITE") && (activeProducts.length <= 1 ? currentTab === "ITE" : true) && (
@@ -4060,142 +4260,7 @@ _Envoyé depuis DébalePro_`;
 
           return (
           <>
-          {/* SÉLECTION BOUQUET */}
-          {isMulti && (
-            <Card className="shadow-card mb-3">
-              <CardHeader className="pb-2 bg-primary/10">
-                <CardTitle className="text-xs flex items-center gap-1">
-                  <Tag className="h-3 w-3" />
-                  Sélection du bouquet
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-3 space-y-3">
-                {/* Combo bouquet selector */}
-                {dataBouquets.filter(b => b.nom_bouquet?.match(/combo|pack|bundle|global/i) || (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i))).length > 0 && (
-                  <div>
-                    <Label className="text-[10px] uppercase text-muted-foreground tracking-wider">Pack combo (prix global)</Label>
-                    <Select value={selectedBouquetCombo} onValueChange={(v) => {
-                      setSelectedBouquetCombo(v === "none" ? "" : v);
-                      if (v && v !== "none") {
-                        // Reset individual selections when combo is chosen
-                        setSelectedBouquetPV("");
-                        setSelectedBouquetPAC("");
-                        setSelectedBouquetITE("");
-                      }
-                    }}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Aucun pack combo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun (tarifs individuels)</SelectItem>
-                        {dataBouquets
-                          .filter(b => b.nom_bouquet?.match(/combo|pack|bundle|global/i) || (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i)))
-                          .map(b => (
-                            <SelectItem key={b.id} value={b.id}>
-                              {b.nom_bouquet} — {b.prix_recommande.toLocaleString("fr-FR")}€
-                            </SelectItem>
-                          ))
-                        }
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Individual bouquet selectors (hidden if combo is selected) */}
-                {!selectedBouquetCombo && (
-                  <div className="grid gap-2">
-                    {activeProducts.includes("PV") && pvBouquets.length > 0 && (
-                      <div>
-                        <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
-                          <Sun className="h-3 w-3" /> Bouquet PV
-                        </Label>
-                        <Select value={selectedBouquetPV} onValueChange={(v) => {
-                          setSelectedBouquetPV(v === "none" ? "" : v);
-                          if (v && v !== "none") {
-                            const bq = pvBouquets.find(b => b.id === v);
-                            if (bq) setPrixInstallationManuel("");
-                          }
-                        }}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="Auto (interpolation)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Auto (interpolation)</SelectItem>
-                            {pvBouquets.map(b => (
-                              <SelectItem key={b.id} value={b.id}>
-                                {b.nom_bouquet} ({b.puissance_kwc} kWc) — {b.prix_recommande.toLocaleString("fr-FR")}€
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {activeProducts.includes("PAC") && pacBouquetsFiltered.length > 0 && (
-                      <div>
-                        <Label className="text-[10px] uppercase text-blue-600 tracking-wider flex items-center gap-1">
-                          <Thermometer className="h-3 w-3" /> Bouquet PAC
-                        </Label>
-                        <Select value={selectedBouquetPAC} onValueChange={(v) => {
-                          setSelectedBouquetPAC(v === "none" ? "" : v);
-                          if (v && v !== "none") {
-                            const bq = pacBouquetsFiltered.find(b => b.id === v);
-                            if (bq) setPacPrixManuel(bq.prix_recommande);
-                          }
-                        }}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="Saisie manuelle" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Saisie manuelle</SelectItem>
-                            {pacBouquetsFiltered.map(b => (
-                              <SelectItem key={b.id} value={b.id}>
-                                {b.nom_bouquet} ({b.puissance_kwc} kW) — {b.prix_recommande.toLocaleString("fr-FR")}€
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {activeProducts.includes("ITE") && iteBouquetsFiltered.length > 0 && (
-                      <div>
-                        <Label className="text-[10px] uppercase text-orange-600 tracking-wider flex items-center gap-1">
-                          <Home className="h-3 w-3" /> Bouquet ITE
-                        </Label>
-                        <Select value={selectedBouquetITE} onValueChange={(v) => {
-                          setSelectedBouquetITE(v === "none" ? "" : v);
-                          if (v && v !== "none") {
-                            const bq = iteBouquetsFiltered.find(b => b.id === v);
-                            if (bq) setItePrixManuel(bq.prix_recommande);
-                          }
-                        }}>
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue placeholder="Saisie manuelle" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Saisie manuelle</SelectItem>
-                            {iteBouquetsFiltered.map(b => (
-                              <SelectItem key={b.id} value={b.id}>
-                                {b.nom_bouquet} ({b.puissance_kwc} m²) — {b.prix_recommande.toLocaleString("fr-FR")}€
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Combo selected indicator */}
-                {comboSelected && (
-                  <div className="bg-primary/10 rounded-lg p-2 text-center">
-                    <p className="text-xs font-semibold text-primary">{comboSelected.nom_bouquet}</p>
-                    <p className="text-lg font-bold text-primary">{comboSelected.prix_recommande.toLocaleString("fr-FR")}€ TTC</p>
-                    <p className="text-[10px] text-muted-foreground">Prix global pack — la remise commerciale s'applique en dessous</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Bouquet selectors are now in the Préconisation Technique card above */}
 
           {/* Also add selector for PV-only mode */}
           {!isMulti && pvBouquets.length > 1 && (
