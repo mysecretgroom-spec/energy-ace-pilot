@@ -586,6 +586,10 @@ const EtudeForm = () => {
     if (draft.iteFactureChaufActuelle !== undefined) setIteFactureChaufActuelle(draft.iteFactureChaufActuelle);
     if (draft.itePrixManuel !== undefined) setItePrixManuel(draft.itePrixManuel);
     if (draft.aidesITE) setAidesITE(draft.aidesITE);
+    if (draft.selectedBouquetPV) setSelectedBouquetPV(draft.selectedBouquetPV);
+    if (draft.selectedBouquetPAC) setSelectedBouquetPAC(draft.selectedBouquetPAC);
+    if (draft.selectedBouquetITE) setSelectedBouquetITE(draft.selectedBouquetITE);
+    if (draft.selectedBouquetCombo) setSelectedBouquetCombo(draft.selectedBouquetCombo);
     
     // Mark restoration complete after a delay
     markRestorationComplete();
