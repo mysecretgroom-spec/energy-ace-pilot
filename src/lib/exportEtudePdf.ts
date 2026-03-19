@@ -2022,7 +2022,7 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
   if (data.pac) {
     if (products.includes("PV")) {
       doc.addPage();
-      drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR", ministereBase64);
+      drawCepcHeader(doc, data, franceRenovBase64, "POMPE À CHALEUR + BTD", ministereBase64);
       yPos = 38;
     }
     yPos = drawCepcPacPage(doc, data, yPos, cepcCtx);
