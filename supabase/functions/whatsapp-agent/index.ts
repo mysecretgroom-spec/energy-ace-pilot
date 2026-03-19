@@ -6204,11 +6204,14 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                 entities: {
                   type: "object",
                   properties: {
-                    client_name: { type: "string" },
+                    client_name: { type: "string", description: "Client LAST NAME only (nom de famille). For 'Jean Dupont', extract 'Dupont'." },
+                    client_first_name: { type: "string", description: "Client FIRST NAME (prénom). For 'Jean Dupont', extract 'Jean'. Always extract when mentioned." },
                     phone: { type: "string", description: "Phone number of the client extracted from the message (e.g. 0630872082, 06 30 87 20 82, +33630872082). Extract any phone number mentioned in the message." },
                     date: { type: "string" },
                     time: { type: "string" },
-                    address: { type: "string" },
+                    address: { type: "string", description: "Street address (e.g. '12 rue de la Paix'). Extract without city and postal code." },
+                    city: { type: "string", description: "City name extracted from address (e.g. 'Paris', 'Lyon'). Always extract when mentioned." },
+                    postal_code: { type: "string", description: "Postal code extracted from address (e.g. '75001', '69000'). Always extract when mentioned." },
                     action: { type: "string", enum: ["annule", "reporte", "decale", "supprime"], description: "Action to perform on RDV: annule (cancel/mark as cancelled), reporte (postpone), decale (reschedule), supprime (DELETE permanently)" },
                     status: { type: "string" },
                     pipeline_status: { type: "string", enum: ["cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation", "installe", "attente_paiement", "paye", "annule"] },
