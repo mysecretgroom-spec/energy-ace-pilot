@@ -209,9 +209,10 @@ const DataAidesPAC = () => {
                           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Tous</SelectItem>
-                            <SelectItem value="tres_modeste">Très modeste</SelectItem>
-                            <SelectItem value="modeste">Modeste</SelectItem>
-                            <SelectItem value="intermediaire">Intermédiaire</SelectItem>
+                            <SelectItem value="bleu">🔵 Bleu</SelectItem>
+                            <SelectItem value="jaune">🟡 Jaune</SelectItem>
+                            <SelectItem value="violet">🟣 Violet</SelectItem>
+                            <SelectItem value="rose">🩷 Rose</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
