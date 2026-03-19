@@ -162,7 +162,65 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
         </CardContent>
       </Card>
 
-      {/* Caractéristiques du logement avec ISOLATION */}
+      {/* Profil MPR (barème de revenus) */}
+      <Card className="shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gift className="h-4 w-4 text-purple-600" />
+            Barème MaPrimeRénov'
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Sélectionnez le profil de revenus du foyer selon l'avis d'imposition
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              { value: "bleu", label: "Bleu", desc: "Très modeste", color: "bg-blue-500", textColor: "text-white", borderColor: "border-blue-500" },
+              { value: "jaune", label: "Jaune", desc: "Modeste", color: "bg-yellow-400", textColor: "text-yellow-900", borderColor: "border-yellow-400" },
+              { value: "violet", label: "Violet", desc: "Intermédiaire", color: "bg-purple-500", textColor: "text-white", borderColor: "border-purple-500" },
+              { value: "rose", label: "Rose", desc: "Aisé", color: "bg-pink-400", textColor: "text-white", borderColor: "border-pink-400" },
+            ] as const).map((profil) => (
+              <button
+                key={profil.value}
+                type="button"
+                onClick={() => onChange("pacProfilMpr", profil.value)}
+                className={`p-2 rounded-xl border-2 transition-all text-center ${
+                  data.pacProfilMpr === profil.value
+                    ? `${profil.borderColor} ${profil.color} ${profil.textColor} shadow-md scale-105`
+                    : "border-muted bg-background hover:opacity-80"
+                }`}
+              >
+                <div className={`text-xs font-bold ${data.pacProfilMpr === profil.value ? profil.textColor : ""}`}>
+                  {profil.label}
+                </div>
+                <div className={`text-[10px] mt-0.5 ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-80" : "text-muted-foreground"}`}>
+                  {profil.desc}
+                </div>
+              </button>
+            ))}
+          </div>
+          {data.pacProfilMpr === "rose" && data.pacSubtype === "air_eau" && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              Profil Rose : non éligible à MaPrimeRénov' pour la PAC
+            </div>
+          )}
+          {data.pacProfilMpr && data.pacSubtype === "air_eau" && data.pacProfilMpr !== "rose" && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-700">
+              MaPrimeRénov' PAC Air/Eau : <strong>
+                {data.pacProfilMpr === "bleu" ? "5 000" : data.pacProfilMpr === "jaune" ? "4 000" : "3 000"} €
+              </strong>
+            </div>
+          )}
+          {data.pacSubtype === "air_air" && data.pacProfilMpr && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              PAC Air/Air non éligible à MaPrimeRénov'
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <Card className="shadow-card">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
