@@ -334,6 +334,7 @@ const EtudeForm = () => {
   });
   const [pacPrixManuel, setPacPrixManuel] = useState<number | "">("");
   const [itePrixManuel, setItePrixManuel] = useState<number | "">("");
+  const [remiseCommerciale, setRemiseCommerciale] = useState<number>(0);
 
   // Mode HEJJA - use global context
   const { 
