@@ -58,9 +58,11 @@ interface PACFieldsProps {
   iteEconomiePct?: number;
   /** PV est aussi actif dans cette étude multi-produit */
   linkedPvActive?: boolean;
+  /** Client en Île-de-France (pour les seuils MPR) */
+  isIdf?: boolean;
 }
 
-export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated, linkedIteActive, iteEconomiePct, linkedPvActive }: PACFieldsProps) => {
+export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, onEconomiesCalculated, linkedIteActive, iteEconomiePct, linkedPvActive, isIdf = false }: PACFieldsProps) => {
   const [isolationLevels, setIsolationLevels] = useState<IsolationLevel[]>([]);
   
   // Load isolation levels
