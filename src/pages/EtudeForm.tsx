@@ -3493,8 +3493,8 @@ _Envoyé depuis DébalePro_`;
           />
         )}
 
-        {/* Section Financière ITE */}
-        {activeProducts.includes("ITE") && currentTab === "ITE" && (
+        {/* Section Financière ITE — masquée en multi-produit (intégrée dans le bilan global) */}
+        {activeProducts.includes("ITE") && currentTab === "ITE" && activeProducts.length <= 1 && (
           <FinancialSectionITE
             surfaceIsoler={Number(iteSurfaceIsoler) || 0}
             prixInstallation={(() => {
