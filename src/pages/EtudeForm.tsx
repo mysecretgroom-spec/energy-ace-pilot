@@ -318,7 +318,7 @@ const EtudeForm = () => {
   // AIDES PAC & ITE (état local pour section financière)
   // ═══════════════════════════════════════════════════════════════════════════
   const [aidesPAC, setAidesPAC] = useState({
-    maPrimeRenov: 4000,
+    maPrimeRenov: 0,
     cee: 4000,
     ecoTva: 0,
     aideLocale: 0,
