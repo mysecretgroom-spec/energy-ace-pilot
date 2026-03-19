@@ -5921,7 +5921,7 @@ SIGNAUX D'ACTION (→ autres intents):
 - Confirmation/annulation après une question de l'agent: "oui", "non", "confirme"
 
 INTENTIONS DISPONIBLES:
-- create_rdv: Créer RDV (ex: "rdv Dupont demain 14h")
+- create_rdv: Créer RDV (ex: "rdv Dupont demain 14h"). EXTRAIRE TOUTES les infos mentionnées: client_name (NOM seul), client_first_name (prénom), phone, address, city, postal_code, notes_content (toute note/commentaire sur le client). Ex: "rdv Jean Dupont demain 14h au 12 rue de la Paix 75001 Paris, tel 0612345678, client intéressé par du 9kwc" → entities: {client_name:"Dupont", client_first_name:"Jean", date:"...", time:"14:00", address:"12 rue de la Paix", city:"Paris", postal_code:"75001", phone:"0612345678", notes_content:"Client intéressé par du 9kwc"}
 - update_rdv: Modifier/annuler/SUPPRIMER RDV (ex: "annule rdv Martin", "supprime tous mes rdv de la semaine", "supprime les rdv annulés", "supprime les rdv de vendredi et samedi dernier")
 - mark_signe: Signature vente - workflow complet (ex: "Martin signé", "j'ai vendu chez Dupont")
 - update_vente_status: Statut RDV après visite (négatif, r2, reporté, annulé) - NE PAS utiliser pour signé/positif → utiliser mark_signe. Si le RDV est DÉJÀ signé (une vente existe), ce changement de statut sera automatiquement redirigé vers la VENTE (pipeline).
