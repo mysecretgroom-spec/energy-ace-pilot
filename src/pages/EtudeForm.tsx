@@ -336,6 +336,12 @@ const EtudeForm = () => {
   const [pacPrixManuel, setPacPrixManuel] = useState<number | "">("");
   const [itePrixManuel, setItePrixManuel] = useState<number | "">("");
   const [remiseCommerciale, setRemiseCommerciale] = useState<number>(0);
+  
+  // Bouquet selectors
+  const [selectedBouquetPV, setSelectedBouquetPV] = useState<string>("");
+  const [selectedBouquetPAC, setSelectedBouquetPAC] = useState<string>("");
+  const [selectedBouquetITE, setSelectedBouquetITE] = useState<string>("");
+  const [selectedBouquetCombo, setSelectedBouquetCombo] = useState<string>("");
 
   // Mode HEJJA - use global context
   const { 
