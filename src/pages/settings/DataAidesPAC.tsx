@@ -29,10 +29,10 @@ interface AideData {
 }
 
 const PROFIL_LABELS: Record<string, string> = {
-  tres_modeste: "Très modeste",
-  modeste: "Modeste",
-  intermediaire: "Intermédiaire",
-  superieur: "Supérieur",
+  bleu: "🔵 Bleu (très modeste)",
+  jaune: "🟡 Jaune (modeste)",
+  violet: "🟣 Violet (intermédiaire)",
+  rose: "🩷 Rose (aisé)",
 };
 
 const DataAidesPAC = () => {
