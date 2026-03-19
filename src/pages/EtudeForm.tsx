@@ -2534,12 +2534,147 @@ _Envoyé depuis DébalePro_`;
             </CardContent>
           </Card>
 
+          {/* ═══════════════════════════════════════════════════════════════════════════ */}
+          {/* SITUATION ÉNERGÉTIQUE ACTUELLE — visible uniquement en multi-produit */}
+          {/* ═══════════════════════════════════════════════════════════════════════════ */}
+          {activeProducts.length > 1 && (
+            <>
+              <div className="pt-1 sm:pt-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                    Situation énergétique actuelle
+                  </h2>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
+                </div>
+              </div>
+
+              <Card className="shadow-card border-2 border-amber-200">
+                <CardHeader className="pb-2 bg-amber-50 px-3 sm:px-6 py-2 sm:py-3">
+                  <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-amber-800">
+                    <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+                    Consommations actuelles du foyer
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div>
+                      <Label className="text-[10px] sm:text-xs">Conso. élec annuelle</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          placeholder="11600"
+                          value={consoAnnuelle}
+                          onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
+                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                        />
+                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] sm:text-xs">Facture élec/mois</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          placeholder="230"
+                          value={factureMensuelle}
+                          onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
+                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                        />
+                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prix unitaire calculé */}
+                  {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
+                    <div className="bg-muted/50 rounded-lg p-2 text-center">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">Prix kWh</p>
+                      <p className="font-bold text-sm sm:text-base text-primary">
+                        {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                        Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Facture chauffage fossile si PAC ou ITE */}
+                  {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && (
+                    <div>
+                      <Label className="text-[10px] sm:text-xs">Facture chauffage fossile/an (gaz, fioul…)</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          placeholder="1800"
+                          value={pacFactureChauffageEuros || iteFactureChaufActuelle || ""}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : "";
+                            if (activeProducts.includes("PAC")) setPacFactureChauffageEuros(val);
+                            if (activeProducts.includes("ITE")) setIteFactureChaufActuelle(val);
+                          }}
+                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                        />
+                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€/an</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Estimateur */}
+                  <ConsumptionEstimator
+                    productType={productType}
+                    onApply={(result) => {
+                      setConsoAnnuelle(result.consoElecKwh);
+                      setFactureMensuelle(result.factureMensuelleElec);
+                      setConsoIsEstimated(true);
+                      if (activeProducts.includes("PAC")) {
+                        if (result.consoChaufffageKwh) setPacConsoChaufffageKwh(result.consoChaufffageKwh);
+                        if (result.factureChaufMensuelle) setPacFactureChauffageEuros(result.factureChaufMensuelle);
+                      }
+                      if (activeProducts.includes("ITE")) {
+                        if (result.factureChaufMensuelle) setIteFactureChaufActuelle(result.factureChaufMensuelle);
+                      }
+                      if (result.estimationDetails) {
+                        estimationDetailsRef.current = result.estimationDetails;
+                        setEstimationDetailsDisplay(result.estimationDetails);
+                      }
+                    }}
+                  />
+
+                  {/* Guide de progression multi-produit */}
+                  <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-[10px] sm:text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">📋 Ordre recommandé :</p>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {activeProducts.includes("ITE") && (
+                        <button type="button" onClick={() => setCurrentTab("ITE")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "ITE" ? "bg-orange-100 border-orange-300 text-orange-700 font-medium" : "hover:bg-muted")}>
+                          1. ITE
+                        </button>
+                      )}
+                      {activeProducts.includes("ITE") && activeProducts.includes("PAC") && <span>→</span>}
+                      {activeProducts.includes("PAC") && (
+                        <button type="button" onClick={() => setCurrentTab("PAC")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "PAC" ? "bg-blue-100 border-blue-300 text-blue-700 font-medium" : "hover:bg-muted")}>
+                          {activeProducts.includes("ITE") ? "2" : "1"}. PAC
+                        </button>
+                      )}
+                      {activeProducts.includes("PAC") && activeProducts.includes("PV") && <span>→</span>}
+                      {activeProducts.includes("PV") && (
+                        <button type="button" onClick={() => setCurrentTab("PV")} className={cn("px-2 py-0.5 rounded-full border transition-colors", currentTab === "PV" ? "bg-amber-100 border-amber-300 text-amber-700 font-medium" : "hover:bg-muted")}>
+                          {activeProducts.filter(p => p !== "PV").length + 1}. PV + Bilan
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
           {/* =============== ÉTUDE TECHNIQUE =============== */}
           <div className="pt-1 sm:pt-2">
             <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
               <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
-                Diagnostic {productType !== "PV" && `(${productType})`}
+                Diagnostic {activeProducts.length > 1 ? `(${currentTab})` : productType !== "PV" ? `(${productType})` : ""}
               </h2>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
             </div>
