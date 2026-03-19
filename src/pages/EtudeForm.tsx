@@ -884,6 +884,10 @@ const EtudeForm = () => {
         if (typeof overrides.remiseCommerciale === "number") {
           setRemiseCommerciale(overrides.remiseCommerciale);
         }
+        if (overrides.selectedBouquetPV) setSelectedBouquetPV(overrides.selectedBouquetPV);
+        if (overrides.selectedBouquetPAC) setSelectedBouquetPAC(overrides.selectedBouquetPAC);
+        if (overrides.selectedBouquetITE) setSelectedBouquetITE(overrides.selectedBouquetITE);
+        if (overrides.selectedBouquetCombo) setSelectedBouquetCombo(overrides.selectedBouquetCombo);
       }
       // Financement - restaurer l'ID basé sur le nom
       if (etude.mode_financement && financements.length > 0) {
