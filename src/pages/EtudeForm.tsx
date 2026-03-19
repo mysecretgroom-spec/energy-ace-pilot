@@ -1985,6 +1985,10 @@ const EtudeForm = () => {
       classificationComment,
       r2DateHeure: r2DateHeure?.toISOString(),
       r2Time,
+      selectedBouquetPV,
+      selectedBouquetPAC,
+      selectedBouquetITE,
+      selectedBouquetCombo,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
