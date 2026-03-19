@@ -2806,7 +2806,15 @@ _Envoyé depuis DébalePro_`;
                     setAidesPAC(prev => ({ ...prev, deposeChaudiere: deposeVal }));
                     break;
                   }
-                }
+                  case "pacBallonThermo": {
+                    const active = value as boolean;
+                    const CET_MONTANTS: Record<string, number> = { bleu: 1200, jaune: 800, violet: 400, rose: 0 };
+                    const ballonVal = active ? (CET_MONTANTS[pacProfilMpr] ?? 0) : 0;
+                    setAidesPAC(prev => ({ ...prev, ballonThermo: ballonVal }));
+                    // If ballon thermo is included, also enable ECS
+                    if (active) setPacEcsIntegre(true);
+                    break;
+                  }
               }}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
