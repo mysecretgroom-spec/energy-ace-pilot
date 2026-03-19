@@ -290,6 +290,7 @@ const EtudeForm = () => {
   const [pacFactureElecEuros, setPacFactureElecEuros] = useState<number | "">("");
   const [pacNiveauIsolation, setPacNiveauIsolation] = useState<string>("moyen");
   const [pacPrixKwhElec, setPacPrixKwhElec] = useState<number | "">(0.23);
+  const [pacProfilMpr, setPacProfilMpr] = useState<string>("");
   const [pacEconomiesCalculees, setPacEconomiesCalculees] = useState<{
     besoinsChauffageKwh: number;
     consoElecPacKwh: number;
