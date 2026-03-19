@@ -32,7 +32,7 @@ export const ProductTypeSelector = ({
   onActiveProductsChange,
   onTabChange,
   disabled = false,
-  availableProducts = ["PV", "PAC", "ITE"],
+  availableProducts = ["ITE", "PAC", "PV"],
 }: ProductTypeSelectorProps) => {
   const toggleProduct = (product: ProductType) => {
     if (disabled) return;

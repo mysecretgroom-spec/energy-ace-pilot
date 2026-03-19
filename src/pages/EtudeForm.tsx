@@ -50,11 +50,13 @@ import {
   Cloud,
   ChevronDown,
   Link2,
+  Thermometer,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
 import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
+import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -3572,44 +3574,209 @@ _Envoyé depuis DébalePro_`;
           </div>
         )}
 
-        {/* RENTABILITÉ FINANCIÈRE PV */}
+        {/* ÉVOLUTION ÉNERGÉTIQUE MULTI-PRODUIT */}
+        {activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length > 1 && (
+          <EnergyEvolutionCard
+            activeProducts={activeProducts}
+            factureElecAnnuelle={Number(factureMensuelle) * 12 || 0}
+            factureChauffageAnnuelle={Number(pacFactureChauffageEuros) || Number(iteFactureChaufActuelle) || 0}
+            consoElecKwh={Number(consoAnnuelle) || 0}
+            iteEconomiePct={activeProducts.includes("ITE") ? (Number(iteEconomieChauffagePct) || 0) : 0}
+            pacConsoElecKwh={pacEconomiesCalculees?.consoElecPacKwh || 0}
+            pacSurcoutElecEuros={pacEconomiesCalculees?.surcoutElecEuros || 0}
+            pacEconomieNetteEuros={pacEconomiesCalculees?.economieNetteEuros || 0}
+            pvAutoconsoEuros={calculatedResults?.autoconsommationEuros || 0}
+            pvReventeEuros={calculatedResults?.reventeMensuelleEstimee || 0}
+          />
+        )}
+
+        {/* RENTABILITÉ FINANCIÈRE — PV seul OU Bilan global multi-produit */}
         {activeProducts.includes("PV") && currentTab === "PV" && calculatedResults && (
           <Card className="shadow-card border-2 border-primary/50">
             <CardHeader className="pb-2 bg-primary/20 px-3 sm:px-6 py-2 sm:py-3">
               <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
                 <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                Rentabilité
+                {activeProducts.length > 1 ? "Rentabilité Globale du Projet" : "Rentabilité"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
+              {/* Gains PV */}
               <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
-                <span>Autoconso.</span>
-                <span className="font-medium whitespace-nowrap">{calculatedResults.autoconsommationEuros.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <span className="flex items-center gap-1">
+                  <Sun className="h-3 w-3 text-amber-500" />
+                  Autoconso. PV
+                </span>
+                <span className="font-medium whitespace-nowrap">{calculatedResults.autoconsommationEuros.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€/mois</span>
               </div>
               <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
-                <span>Revente/mois</span>
-                <span className="font-medium whitespace-nowrap">{calculatedResults.reventeMensuelleEstimee.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                <span className="flex items-center gap-1">
+                  <Sun className="h-3 w-3 text-amber-500" />
+                  Revente surplus
+                </span>
+                <span className="font-medium whitespace-nowrap">{calculatedResults.reventeMensuelleEstimee.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€/mois</span>
               </div>
-              <Separator />
-              <div className={cn(
-                "rounded-lg p-2.5 sm:p-4 text-center",
-                calculatedResults.resultatTransfertCharge > 0 && "bg-status-signed/10",
-                calculatedResults.resultatTransfertCharge >= -30 && calculatedResults.resultatTransfertCharge <= 0 && "bg-status-reported/10",
-                calculatedResults.resultatTransfertCharge < -30 && "bg-status-negative/10"
-              )}>
-                <p className="text-[10px] sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">Transfert de Charge</p>
-                <div className="flex items-center justify-center gap-2 sm:gap-3">
-                  {getVerdictDisplay()}
-                  <span className={cn(
-                    "font-bold text-xl sm:text-2xl whitespace-nowrap",
-                    calculatedResults.resultatTransfertCharge > 0 && "text-status-signed",
-                    calculatedResults.resultatTransfertCharge >= -30 && calculatedResults.resultatTransfertCharge <= 0 && "text-status-reported",
-                    calculatedResults.resultatTransfertCharge < -30 && "text-status-negative"
-                  )}>
-                    {calculatedResults.resultatTransfertCharge >= 0 ? "+" : ""}{calculatedResults.resultatTransfertCharge.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
+              
+              {/* Gains PAC en multi-produit */}
+              {activeProducts.includes("PAC") && pacEconomiesCalculees && (
+                <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
+                  <span className="flex items-center gap-1">
+                    <Thermometer className="h-3 w-3 text-blue-500" />
+                    Économie PAC (fossile supprimé)
+                  </span>
+                  <span className="font-medium whitespace-nowrap text-green-600">
+                    +{(pacEconomiesCalculees.economieNetteEuros / 12).toLocaleString("fr-FR", { minimumFractionDigits: 0 })}€/mois
                   </span>
                 </div>
+              )}
+              
+              {/* Gains ITE en multi-produit (uniquement si pas PAC, sinon c'est déjà inclus) */}
+              {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0 && (
+                <div className="flex justify-between items-center py-0.5 sm:py-1 text-xs sm:text-sm">
+                  <span className="flex items-center gap-1">
+                    <Home className="h-3 w-3 text-orange-500" />
+                    Économie ITE (−{Number(iteEconomieChauffagePct)}% chauffage)
+                  </span>
+                  <span className="font-medium whitespace-nowrap text-green-600">
+                    +{Math.round(Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100 / 12)}€/mois
+                  </span>
+                </div>
+              )}
+              
+              <Separator />
+              
+              {/* Total gains mensuels combinés */}
+              {activeProducts.length > 1 && (
+                <div className="flex justify-between items-center py-1 text-xs sm:text-sm bg-green-50 rounded-lg px-2">
+                  <span className="font-bold text-green-700">Total gains mensuels</span>
+                  <span className="font-bold text-green-700">
+                    +{(() => {
+                      let total = calculatedResults.autoconsommationEuros + calculatedResults.reventeMensuelleEstimee;
+                      if (activeProducts.includes("PAC") && pacEconomiesCalculees) {
+                        total += pacEconomiesCalculees.economieNetteEuros / 12;
+                      }
+                      if (activeProducts.includes("ITE") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0) {
+                        total += Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100 / 12;
+                      }
+                      return total.toLocaleString("fr-FR", { minimumFractionDigits: 0 });
+                    })()}€/mois
+                  </span>
+                </div>
+              )}
+              
+              {/* Mensualité globale unique en multi-produit */}
+              {activeProducts.length > 1 && (
+                <div className="bg-blue-50 rounded-lg p-2 text-xs sm:text-sm space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-blue-700">Mensualité unique du projet</span>
+                    <span className="font-bold text-blue-700">
+                      −{(() => {
+                        // Mensualité PV
+                        let totalMensualite = calculatedResults.mensualite;
+                        return totalMensualite.toLocaleString("fr-FR", { minimumFractionDigits: 2 });
+                      })()}€/mois
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Financement global incluant {activeProducts.map(p => p === "PV" ? "PV" : p === "PAC" ? "PAC" : "ITE").join(" + ")}
+                  </p>
+                </div>
+              )}
+              
+              {/* Transfert de charge / Bilan final */}
+              <div className={cn(
+                "rounded-lg p-2.5 sm:p-4 text-center",
+                (() => {
+                  let gains = calculatedResults.autoconsommationEuros + calculatedResults.reventeMensuelleEstimee;
+                  if (activeProducts.length > 1) {
+                    if (activeProducts.includes("PAC") && pacEconomiesCalculees) {
+                      gains += pacEconomiesCalculees.economieNetteEuros / 12;
+                    }
+                    if (activeProducts.includes("ITE") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0) {
+                      gains += Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100 / 12;
+                    }
+                  }
+                  const bilan = gains - calculatedResults.mensualite;
+                  return bilan > 0 ? "bg-status-signed/10" :
+                    bilan >= -30 ? "bg-status-reported/10" :
+                    "bg-status-negative/10";
+                })()
+              )}>
+                <p className="text-[10px] sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
+                  {activeProducts.length > 1 ? "Bilan Mensuel Global" : "Transfert de Charge"}
+                </p>
+                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                  {(() => {
+                    let gains = calculatedResults.autoconsommationEuros + calculatedResults.reventeMensuelleEstimee;
+                    if (activeProducts.length > 1) {
+                      if (activeProducts.includes("PAC") && pacEconomiesCalculees) {
+                        gains += pacEconomiesCalculees.economieNetteEuros / 12;
+                      }
+                      if (activeProducts.includes("ITE") && !activeProducts.includes("PAC") && Number(iteEconomieChauffagePct) > 0 && Number(iteFactureChaufActuelle) > 0) {
+                        gains += Number(iteFactureChaufActuelle) * Number(iteEconomieChauffagePct) / 100 / 12;
+                      }
+                    }
+                    const bilan = activeProducts.length > 1 
+                      ? gains - calculatedResults.mensualite 
+                      : calculatedResults.resultatTransfertCharge;
+                    return (
+                      <>
+                        {bilan > 0 ? (
+                          <Badge className="bg-status-signed text-white text-sm px-3 py-1">RENTABLE</Badge>
+                        ) : bilan >= -30 ? (
+                          <Badge className="bg-status-reported text-white text-sm px-3 py-1">QUASI-NEUTRE</Badge>
+                        ) : (
+                          <Badge className="bg-status-negative text-white text-sm px-3 py-1">EFFORT</Badge>
+                        )}
+                        <span className={cn(
+                          "font-bold text-xl sm:text-2xl whitespace-nowrap",
+                          bilan > 0 && "text-status-signed",
+                          bilan >= -30 && bilan <= 0 && "text-status-reported",
+                          bilan < -30 && "text-status-negative"
+                        )}>
+                          {bilan >= 0 ? "+" : ""}{bilan.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
+
+              {/* Aides globales en multi-produit */}
+              {activeProducts.length > 1 && (
+                <div className="bg-emerald-50 rounded-lg p-2 text-xs space-y-1">
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase">Aides globales du projet</p>
+                  {activeProducts.includes("PV") && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>PV</span>
+                      <span>{calculatedResults.totalAides.toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("PAC") && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>PAC</span>
+                      <span>{(aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale).toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  {activeProducts.includes("ITE") && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>ITE</span>
+                      <span>{(aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale).toLocaleString("fr-FR")}€</span>
+                    </div>
+                  )}
+                  <Separator className="bg-emerald-200" />
+                  <div className="flex justify-between font-bold text-emerald-700">
+                    <span>TOTAL</span>
+                    <span>
+                      {(() => {
+                        let total = calculatedResults.totalAides;
+                        if (activeProducts.includes("PAC")) total += aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+                        if (activeProducts.includes("ITE")) total += aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
+                        return total.toLocaleString("fr-FR");
+                      })()}€
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
