@@ -172,7 +172,15 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
   const besoinsChauffageBrut = surface * besoinsKwhM2;
   // Réduction ITE : si ITE active, les besoins chauffage diminuent
   const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
-  const consoElecPacKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  
+  // BTD (Ballon Thermodynamique) — ~2000 kWh besoins ECS / COP BTD ~3
+  const BESOINS_ECS_KWH = 2000;
+  const COP_BTD = 3;
+  const consoElecBtdKwh = BESOINS_ECS_KWH / COP_BTD; // ~667 kWh/an
+  
+  // Total PAC + BTD
+  const consoElecPacKwh = consoElecChauffageKwh + consoElecBtdKwh;
   const surcoutElecEuros = consoElecPacKwh * prixKwhElec;
   const economieNetteEuros = factureChauf - surcoutElecEuros;
   const economieNetteMensuelle = economieNetteEuros / 12;

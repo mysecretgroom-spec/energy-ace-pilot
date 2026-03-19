@@ -97,8 +97,16 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
   // Réduction ITE : si ITE active, les besoins chauffage diminuent
   const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
   
-  // 2. Consommation électrique PAC = Besoins / COP
-  const consoElecPacKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  // 2. Consommation électrique PAC (chauffage) = Besoins / COP
+  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  
+  // 2b. Consommation électrique BTD (ECS) — ~2000 kWh besoins ECS / COP BTD ~3
+  const BESOINS_ECS_KWH = 2000;
+  const COP_BTD = 3;
+  const consoElecBtdKwh = BESOINS_ECS_KWH / COP_BTD; // ~667 kWh/an
+  
+  // 2c. Total consommation électrique PAC + BTD
+  const consoElecPacKwh = consoElecChauffageKwh + consoElecBtdKwh;
   
   // 3. Surcoût électrique annuel (€)
   const surcoutElecEuros = consoElecPacKwh * prixKwhElec;
