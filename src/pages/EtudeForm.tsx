@@ -3042,7 +3042,7 @@ _Envoyé depuis DébalePro_`;
                 pacFactureChauffageEuros, pacFactureElecEuros, pacNiveauIsolation, pacPrixKwhElec,
                 pacProfilMpr,
                 pacDeposeChaudiere: (aidesPAC.deposeChaudiere || 0) > 0,
-                pacBallonThermo: (aidesPAC.ballonThermo || 0) > 0,
+                pacBallonThermo: true, // BTD toujours inclus avec PAC
                 pacRaccordementReseau: (aidesPAC.raccordementReseau || 0) > 0,
               }}
               isIdf={["75","77","78","91","92","93","94","95"].includes(departement)}
