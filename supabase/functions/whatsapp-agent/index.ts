@@ -6527,6 +6527,44 @@ async function executeAction(
         return { actionTaken: "error", customResponse: "❌ Erreur: client non défini." };
       }
       
+      // Enrich existing client with new data from the message (phone, address, notes, prenom)
+      const updateFields: Record<string, unknown> = {};
+      const entityPhone = entities.phone as string;
+      const entityAddress = entities.address as string;
+      const entityCity = entities.city as string;
+      const entityPostalCode = entities.postal_code as string;
+      const entityNotes = entities.notes_content as string;
+      const entityFirstName = entities.client_first_name as string;
+      
+      if (entityPhone || entityAddress || entityCity || entityPostalCode || entityNotes || entityFirstName) {
+        // Fetch current client data to only update missing fields
+        const { data: currentClient } = await supabase
+          .from("clients")
+          .select("telephone, adresse, ville, code_postal, notes, prenom")
+          .eq("id", client.id)
+          .single();
+        
+        if (currentClient) {
+          if (entityPhone && !currentClient.telephone) updateFields.telephone = entityPhone;
+          if (entityAddress && !currentClient.adresse) updateFields.adresse = entityAddress;
+          if (entityCity && !currentClient.ville) updateFields.ville = entityCity;
+          if (entityPostalCode && !currentClient.code_postal) updateFields.code_postal = entityPostalCode;
+          if (entityFirstName && !currentClient.prenom) updateFields.prenom = entityFirstName;
+          if (entityNotes) {
+            // Append notes
+            updateFields.notes = currentClient.notes 
+              ? `${currentClient.notes}\n${entityNotes}` 
+              : entityNotes;
+          }
+          
+          if (Object.keys(updateFields).length > 0) {
+            updateFields.updated_at = new Date().toISOString();
+            await supabase.from("clients").update(updateFields).eq("id", client.id);
+            console.log(`Enriched existing client ${client.id} with:`, Object.keys(updateFields));
+          }
+        }
+      }
+      
       // Parse date and time
       const dateStr = entities.date as string || new Date().toISOString().split("T")[0];
       const timeStr = entities.time as string || "10:00";
