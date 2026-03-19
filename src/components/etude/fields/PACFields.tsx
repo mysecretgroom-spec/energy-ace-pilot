@@ -232,7 +232,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                   <p className="text-xs font-medium">Dépose chaudière fossile</p>
                   <p className="text-[10px] text-muted-foreground">
                     Bonus si retrait d'une chaudière gaz/fioul
-                    {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
+                    {data.pacProfilMpr === "bleu" ? " : 3 500€" : data.pacProfilMpr === "jaune" ? " : 2 500€" : " : 1 500€"}
                   </p>
                 </div>
               </div>
