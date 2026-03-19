@@ -92,17 +92,20 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
   // CALCULS D'ÉCONOMIES DÉTAILLÉS
   // ═══════════════════════════════════════════════════════════════════════════
   
-  // 1. Besoins en chauffage annuels (kWh) basés sur surface et isolation
-  const besoinsChauffageBrut = surface * besoinsKwhM2;
+  // 1. Besoins totaux annuels (kWh) basés sur surface et isolation (inclut ECS)
+  const besoinsTotauxBrut = surface * besoinsKwhM2;
   // Réduction ITE : si ITE active, les besoins chauffage diminuent
-  const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
+  const besoinsTotauxApresIte = besoinsTotauxBrut * (1 - (iteReductionPct / 100));
   
-  // 2. Consommation électrique PAC (chauffage) = Besoins / COP
-  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
-  
-  // 2b. Consommation électrique BTD (ECS) — ~2000 kWh besoins ECS / COP BTD ~3
+  // 1b. Déduire l'ECS des besoins chauffage car le BTD la couvre séparément
   const BESOINS_ECS_KWH = 2000;
   const COP_BTD = 3;
+  const besoinsChauffageKwh = Math.max(0, besoinsTotauxApresIte - BESOINS_ECS_KWH);
+  
+  // 2. Consommation électrique PAC (chauffage seul) = Besoins chauffage / COP PAC
+  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  
+  // 2b. Consommation électrique BTD (ECS) = Besoins ECS / COP BTD
   const consoElecBtdKwh = BESOINS_ECS_KWH / COP_BTD; // ~667 kWh/an
   
   // 2c. Total consommation électrique PAC + BTD

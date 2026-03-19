@@ -169,14 +169,19 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
   const besoinsKwhM2 = selectedIsolation?.besoins_kwh_m2_an || 120;
 
   // === CALCULS D'ÉCONOMIES ===
-  const besoinsChauffageBrut = surface * besoinsKwhM2;
+  const besoinsTotauxBrut = surface * besoinsKwhM2;
   // Réduction ITE : si ITE active, les besoins chauffage diminuent
-  const besoinsChauffageKwh = besoinsChauffageBrut * (1 - (iteReductionPct / 100));
-  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  const besoinsTotauxApresIte = besoinsTotauxBrut * (1 - (iteReductionPct / 100));
   
-  // BTD (Ballon Thermodynamique) — ~2000 kWh besoins ECS / COP BTD ~3
+  // Déduire l'ECS des besoins chauffage car le BTD la couvre séparément
   const BESOINS_ECS_KWH = 2000;
   const COP_BTD = 3;
+  const besoinsChauffageKwh = Math.max(0, besoinsTotauxApresIte - BESOINS_ECS_KWH);
+  
+  // Conso élec PAC (chauffage seul) = Besoins chauffage / COP PAC
+  const consoElecChauffageKwh = copValue > 0 ? besoinsChauffageKwh / copValue : 0;
+  
+  // Conso élec BTD (ECS) = Besoins ECS / COP BTD
   const consoElecBtdKwh = BESOINS_ECS_KWH / COP_BTD; // ~667 kWh/an
   
   // Total PAC + BTD
@@ -610,7 +615,7 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
                   <p className="font-bold text-blue-600">{besoinsChauffageKwh.toLocaleString("fr-FR")} kWh/an</p>
                   {iteReductionPct > 0 && (
                     <p className="text-[10px] text-muted-foreground line-through">
-                      {besoinsChauffageBrut.toLocaleString("fr-FR")} kWh/an
+                      {besoinsTotauxBrut.toLocaleString("fr-FR")} kWh/an
                     </p>
                   )}
                 </div>
