@@ -6609,6 +6609,13 @@ async function executeAction(
       // Use default or single regie (guaranteed to exist at this point)
       const regieId = regiePoll.defaultRegieId!;
 
+      // Build full address for RDV from available parts
+      const rdvAddress = [
+        entities.address as string,
+        entities.postal_code as string,
+        entities.city as string,
+      ].filter(Boolean).join(" ") || null;
+
       // Create RDV
       const { data: rdv, error: rdvError } = await supabase
         .from("rdv")
@@ -6616,7 +6623,7 @@ async function executeAction(
           user_id: userId,
           client_id: client.id,
           date_heure: dateHeure,
-          adresse: entities.address as string || null,
+          adresse: rdvAddress,
           status: "nouveau",
           type_rdv: "standard",
           type_projet: "photovoltaique",
