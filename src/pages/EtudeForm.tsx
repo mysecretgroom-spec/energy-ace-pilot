@@ -2751,10 +2751,6 @@ _Envoyé depuis DébalePro_`;
                   case "pacPrixKwhElec": setPacPrixKwhElec(value as number | ""); break;
                 }
               }}
-              dataPacIsolation={dataPacIsolation}
-              dataPacCop={dataPacCop}
-              dataPacPuissances={dataPacPuissances}
-              dataEnergiesPrix={dataEnergiesPrix}
               iteReductionPct={activeProducts.includes("ITE") ? Number(iteEconomieChauffagePct) || 0 : 0}
               onEconomiesCalculated={setPacEconomiesCalculees}
               linkedIteActive={activeProducts.includes("ITE")}
