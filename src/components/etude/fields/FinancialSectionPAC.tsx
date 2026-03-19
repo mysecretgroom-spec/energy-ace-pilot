@@ -78,7 +78,7 @@ export const FinancialSectionPAC = ({
   // Montant TTC total hors aides (base de financement)
   const prixTotalTTC = Number(prixFinal) + autreSurcout;
   
-  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale + (aides.deposeChaudiere || 0) + (aides.ballonThermo || 0);
+  const totalAides = aides.maPrimeRenov + aides.cee + aides.ecoTva + aides.aideLocale + (aides.deposeChaudiere || 0) + (aides.ballonThermo || 0) + (aides.raccordementReseau || 0);
   const prixAidesDéduites = prixTotalTTC - totalAides;
   
   // Calcul mensualité avec report 6 mois
