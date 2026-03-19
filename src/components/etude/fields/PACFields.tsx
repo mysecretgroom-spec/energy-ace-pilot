@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, Link2 } from "lucide-react";
+import { Thermometer, Home, Droplets, Gauge, Flame, Zap, AlertCircle, TrendingDown, TrendingUp, Info, Shield, Link2, Gift } from "lucide-react";
 import { PAC_OPTIONS, PacSubtype } from "@/lib/productTypes";
 import { supabase } from "@/integrations/supabase/client";
 
