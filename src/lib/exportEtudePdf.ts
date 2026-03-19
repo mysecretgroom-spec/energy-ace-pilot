@@ -774,7 +774,7 @@ const drawPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageCont
       ["Type de PAC", pac.subtype === "air_eau" ? "Air/Eau" : "Air/Air", "COP moyen", `${pac.cop}`],
       ["Surface chauffee", `${pac.surfaceChauffee} m2`, "Puissance calorifique", `${pac.puissanceCalorifique} kW`],
       ["Type emetteurs", pac.typeEmetteurs, "Niveau isolation", pac.niveauIsolation],
-      ["Energie actuelle", pac.energieActuelle, "ECS integre", pac.ecsIntegre ? "Oui" : "Non"],
+      ["Energie actuelle", pac.energieActuelle, "Ballon thermo (BTD)", "Inclus"],
     ],
     theme: "striped",
     headStyles: { fillColor: grisClair, textColor: pacColor, fontSize: 8, fontStyle: "bold" },
