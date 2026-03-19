@@ -1755,7 +1755,7 @@ const drawCepcPacPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: Page
   const pac = data.pac;
   let yPos = yStart;
 
-  yPos = drawCepcSectionBar(doc, "POMPE À CHALEUR (PAC)", yPos);
+  yPos = drawCepcSectionBar(doc, "POMPE À CHALEUR (PAC) + BALLON THERMODYNAMIQUE", yPos);
 
   autoTable(doc, {
     startY: yPos,
