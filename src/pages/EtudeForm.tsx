@@ -749,15 +749,14 @@ const EtudeForm = () => {
       ]);
       
       if (bouquetsRes.data) {
-        // Use only global bouquets filtered by product_type
-        const matchesProductType = (b: any) => !b.product_type || b.product_type === productType;
         bouquetsData = bouquetsRes.data
-          .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0) && matchesProductType(b))
+          .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0))
           .map((b: any) => ({
             id: b.id,
             nom_bouquet: b.nom_bouquet,
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
+            product_type: b.product_type || "PV",
           }));
       }
       if (financementsRes.data) financementsData = financementsRes.data;
