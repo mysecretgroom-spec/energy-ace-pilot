@@ -2422,7 +2422,7 @@ _Envoyé depuis DébalePro_`;
               className="w-full"
               onClick={() => {
                 if (existingEtudePrompt) {
-                  navigate(`/etude?clientId=${clientId}${rdvId ? `&rdvId=${rdvId}` : ""}&etudeId=${existingEtudePrompt.etudeId}`, { replace: true });
+                  navigate(`/etude/edit?client=${clientId}${rdvId ? `&rdv=${rdvId}` : ""}&etude=${existingEtudePrompt.etudeId}`, { replace: true });
                 }
                 setExistingEtudePrompt(null);
               }}
