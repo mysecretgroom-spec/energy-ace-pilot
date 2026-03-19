@@ -1571,6 +1571,7 @@ const EtudeForm = () => {
         selectedBouquetPAC: selectedBouquetPAC || undefined,
         selectedBouquetITE: selectedBouquetITE || undefined,
         selectedBouquetCombo: selectedBouquetCombo || undefined,
+        precoMode: precoMode || "sur_mesure",
       } as any,
       classification: classification || null,
       classification_comment: classificationComment || null,
