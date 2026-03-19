@@ -3532,82 +3532,195 @@ _Envoyé depuis DébalePro_`;
           </div>
         )}
 
-        {/* PRIX & AIDES — Global en multi-produit */}
-        {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1)) && (
+        {/* PRIX & AIDES — Unifié en multi-produit */}
+        {((activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length <= 1 && calculatedResults) || (activeProducts.length > 1)) && (() => {
+          // Calcul prix PAC
+          const pacBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("PAC"));
+          const pacPuissance = Number(pacPuissanceCalorifique) || 8;
+          const pacBouquet = pacBouquets.find((b: any) => Math.abs(b.puissance_kwc - pacPuissance) < 2);
+          const prixPACBase = pacBouquet?.prix_recommande || pacPuissance * 1500;
+          const prixPACFinal = Number(pacPrixManuel || prixPACBase);
+
+          // Calcul prix ITE
+          const iteBouquets = dataBouquets.filter((b: any) => b.nom_bouquet?.includes("ITE"));
+          const iteSurface = Number(iteSurfaceIsoler) || 100;
+          const iteBouquet = iteBouquets.find((b: any) => Math.abs(b.puissance_kwc - iteSurface) < 30);
+          const prixITEBase = iteBouquet?.prix_recommande || iteSurface * 150;
+          const prixITEFinal = Number(itePrixManuel || prixITEBase);
+
+          // Prix PV
+          const prixPVFinal = calculatedResults ? calculatedResults.prixInstallation : 0;
+          const prixPVHorsAides = calculatedResults ? calculatedResults.prixTotalHorsAides : 0;
+
+          // Totaux globaux
+          const isMulti = activeProducts.length > 1;
+          const prixGlobalHorsAides = (activeProducts.includes("PV") ? prixPVHorsAides : 0)
+            + (activeProducts.includes("PAC") ? prixPACFinal : 0)
+            + (activeProducts.includes("ITE") ? prixITEFinal : 0)
+            + (isMulti ? 0 : 0); // autreSurcout déjà inclus dans prixPVHorsAides
+
+          const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale;
+          const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
+          const totalAidesPV = calculatedResults?.totalAides || 0;
+          const totalAidesGlobal = (activeProducts.includes("PV") ? totalAidesPV : 0)
+            + (activeProducts.includes("PAC") ? totalAidesPAC : 0)
+            + (activeProducts.includes("ITE") ? totalAidesITE : 0);
+
+          const prixGlobalAidesDeduites = prixGlobalHorsAides - totalAidesGlobal;
+
+          // Financement global
+          const selectedFin = dataFinancements.find(f => f.id === financementId);
+          const tauxEff = selectedFin?.taux_effectif || 0;
+          const nbMois = Number(dureeMoisManuelle) || 120;
+          const montantFinancement = isMulti ? prixGlobalHorsAides : (calculatedResults?.prixTotalHorsAides || 0);
+          const resultatFinGlobal = calculerMensualiteAvecReport({
+            montantTTC: montantFinancement,
+            tauxEffectifAnnuel: tauxEff,
+            dureeMois: nbMois,
+            dureeReportMois: 6,
+          });
+          const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
+
+          return (
+          <>
+          {/* PRIX & AIDES en grid */}
           <div className="grid grid-cols-2 gap-3">
             {/* PRIX */}
             <Card className="shadow-card">
               <CardHeader className="pb-2 bg-primary/10">
                 <CardTitle className="text-xs flex items-center gap-1">
                   <Euro className="h-3 w-3" />
-                  PRIX
+                  {isMulti ? "PRIX GLOBAL" : "PRIX"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 pt-2 text-xs">
-                <div>
-                  <label className="text-xs text-muted-foreground">Prix Installation TTC</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={prixInstallationManuel || ""}
-                    onChange={(e) => setPrixInstallationManuel(e.target.value ? Number(e.target.value) : "")}
-                    placeholder={`Base: ${calculatedResults.prixInstallation.toFixed(0)}€`}
-                    className="h-7 text-xs font-medium"
-                  />
-                </div>
-                <div className="flex justify-between pt-1">
-                  <span>Installation TTC</span>
-                  <span className="font-medium">{calculatedResults.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    Surcoût Support
-                    {supportInstallation && (
-                      <span className="text-[10px] text-muted-foreground/70">({supportInstallation})</span>
+                {/* Détail par produit en multi */}
+                {isMulti ? (
+                  <>
+                    {activeProducts.includes("ITE") && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-orange-600 uppercase">ITE</p>
+                        <div className="flex justify-between items-center">
+                          <span>Prix ITE TTC</span>
+                          <Input
+                            type="number"
+                            value={itePrixManuel || ""}
+                            onChange={(e) => setItePrixManuel(e.target.value ? Number(e.target.value) : "")}
+                            placeholder={`${prixITEBase.toFixed(0)}€`}
+                            className="h-6 w-24 text-right text-xs"
+                          />
+                        </div>
+                      </div>
                     )}
-                  </span>
-                  <span className={surcoutSupport > 0 ? "text-amber-600 font-medium" : ""}>{surcoutSupport.toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    Surcoût Compteur
-                    {typeRaccordement && (
-                      <span className="text-[10px] text-muted-foreground/70">({typeRaccordement})</span>
+                    {activeProducts.includes("PAC") && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-blue-600 uppercase">PAC</p>
+                        <div className="flex justify-between items-center">
+                          <span>Prix PAC TTC</span>
+                          <Input
+                            type="number"
+                            value={pacPrixManuel || ""}
+                            onChange={(e) => setPacPrixManuel(e.target.value ? Number(e.target.value) : "")}
+                            placeholder={`${prixPACBase.toFixed(0)}€`}
+                            className="h-6 w-24 text-right text-xs"
+                          />
+                        </div>
+                      </div>
                     )}
-                  </span>
-                  <span className={surcoutCompteur > 0 ? "text-amber-600 font-medium" : ""}>{surcoutCompteur.toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    Surcoût Emplacement
-                    {emplacementBoitier && (
-                      <span className="text-[10px] text-muted-foreground/70">({emplacementBoitier})</span>
+                    {activeProducts.includes("PV") && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-amber-600 uppercase">PV</p>
+                        <div className="flex justify-between items-center">
+                          <span>Prix PV TTC</span>
+                          <Input
+                            type="number"
+                            value={prixInstallationManuel || ""}
+                            onChange={(e) => setPrixInstallationManuel(e.target.value ? Number(e.target.value) : "")}
+                            placeholder={`${prixPVFinal.toFixed(0)}€`}
+                            className="h-6 w-24 text-right text-xs"
+                          />
+                        </div>
+                        {(surcoutSupport > 0 || surcoutCompteur > 0 || surcoutEmplacement > 0) && (
+                          <div className="text-[10px] text-muted-foreground pl-2">
+                            {surcoutSupport > 0 && <p>+ Support: {surcoutSupport.toFixed(0)}€</p>}
+                            {surcoutCompteur > 0 && <p>+ Compteur: {surcoutCompteur.toFixed(0)}€</p>}
+                            {surcoutEmplacement > 0 && <p>+ Empl.: {surcoutEmplacement.toFixed(0)}€</p>}
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </span>
-                  <span className={surcoutEmplacement > 0 ? "text-amber-600 font-medium" : ""}>{surcoutEmplacement.toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Autre Surcoût</span>
-                  <Input
-                    type="number"
-                    value={autreSurcout}
-                    onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)}
-                    className="h-6 w-16 text-right text-xs"
-                  />
-                </div>
-                <Separator className="my-1" />
-                <div className="flex justify-between font-bold">
-                  <span>TOTAL Hors Aides</span>
-                  <span>{calculatedResults.prixTotalHorsAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                </div>
-                <div className="flex justify-between text-status-signed">
-                  <span>TOTAL Aides</span>
-                  <span>{calculatedResults.totalAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                </div>
-                <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
-                  <span>Aides Déduites</span>
-                  <span>{calculatedResults.totalAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Autre Surcoût</span>
+                      <Input
+                        type="number"
+                        value={autreSurcout}
+                        onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)}
+                        className="h-6 w-16 text-right text-xs"
+                      />
+                    </div>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between font-bold">
+                      <span>TOTAL Hors Aides</span>
+                      <span>{(prixGlobalHorsAides + autreSurcout).toLocaleString("fr-FR", { minimumFractionDigits: 0 })}€</span>
+                    </div>
+                    <div className="flex justify-between text-status-signed">
+                      <span>TOTAL Aides</span>
+                      <span>{totalAidesGlobal.toLocaleString("fr-FR", { minimumFractionDigits: 0 })}€</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
+                      <span>Reste à Charge</span>
+                      <span>{(prixGlobalAidesDeduites + autreSurcout).toLocaleString("fr-FR", { minimumFractionDigits: 0 })}€</span>
+                    </div>
+                  </>
+                ) : (
+                  /* Mode PV seul — existant */
+                  <>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Prix Installation TTC</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={prixInstallationManuel || ""}
+                        onChange={(e) => setPrixInstallationManuel(e.target.value ? Number(e.target.value) : "")}
+                        placeholder={`Base: ${calculatedResults!.prixInstallation.toFixed(0)}€`}
+                        className="h-7 text-xs font-medium"
+                      />
+                    </div>
+                    <div className="flex justify-between pt-1">
+                      <span>Installation TTC</span>
+                      <span className="font-medium">{calculatedResults!.prixInstallation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Surcoût Support</span>
+                      <span className={surcoutSupport > 0 ? "text-amber-600 font-medium" : ""}>{surcoutSupport.toFixed(2)}€</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Surcoût Compteur</span>
+                      <span className={surcoutCompteur > 0 ? "text-amber-600 font-medium" : ""}>{surcoutCompteur.toFixed(2)}€</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Surcoût Emplacement</span>
+                      <span className={surcoutEmplacement > 0 ? "text-amber-600 font-medium" : ""}>{surcoutEmplacement.toFixed(2)}€</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Autre Surcoût</span>
+                      <Input type="number" value={autreSurcout} onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)} className="h-6 w-16 text-right text-xs" />
+                    </div>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between font-bold">
+                      <span>TOTAL Hors Aides</span>
+                      <span>{calculatedResults!.prixTotalHorsAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    </div>
+                    <div className="flex justify-between text-status-signed">
+                      <span>TOTAL Aides</span>
+                      <span>{calculatedResults!.totalAides.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
+                      <span>Aides Déduites</span>
+                      <span>{calculatedResults!.totalAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -3616,7 +3729,7 @@ _Envoyé depuis DébalePro_`;
               <CardHeader className="pb-2 bg-status-signed/10">
                 <CardTitle className="text-xs flex items-center gap-1">
                   <PiggyBank className="h-3 w-3 text-status-signed" />
-                  AIDES
+                  {isMulti ? "AIDES GLOBALES" : "AIDES"}
                   {modeHejjaActive && (
                     <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
                       HEJJA
@@ -3625,30 +3738,130 @@ _Envoyé depuis DébalePro_`;
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 pt-2 text-xs">
-                {modeHejjaActive ? (
-                  <HejjaAidesEditor
-                    aides={aidesManuelles}
-                    onAidesChange={setAidesManuelles}
-                    puissanceKwc={Number(puissanceKwc) || 0}
-                    prixTotal={calculatedResults.prixTotalHorsAides}
-                    primeAutoconso={calculatedResults.primeAutoconsommation}
-                    ecoTva={calculatedResults.ecoTva}
-                  />
-                ) : (
+                {isMulti ? (
                   <>
-                    <div className="flex justify-between">
-                      <span>Prime Autoconso</span>
-                      <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                    {/* Aides ITE */}
+                    {activeProducts.includes("ITE") && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-orange-600">ITE</p>
+                        <div className="flex justify-between items-center">
+                          <span>MaPrimeRénov'</span>
+                          <Input type="number" value={aidesITE.maPrimeRenov} onChange={(e) => setAidesITE({ ...aidesITE, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>CEE</span>
+                          <Input type="number" value={aidesITE.cee} onChange={(e) => setAidesITE({ ...aidesITE, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>ECO TVA</span>
+                          <Input type="number" value={aidesITE.ecoTva} onChange={(e) => setAidesITE({ ...aidesITE, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-medium text-orange-600">
+                          <span>Sous-total ITE</span>
+                          <span>{totalAidesITE.toLocaleString("fr-FR")}€</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Aides PAC */}
+                    {activeProducts.includes("PAC") && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-blue-600">PAC</p>
+                        {pacSubtype === "air_eau" && (
+                          <div className="flex justify-between items-center">
+                            <span>MaPrimeRénov'</span>
+                            <Input type="number" value={aidesPAC.maPrimeRenov} onChange={(e) => setAidesPAC({ ...aidesPAC, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <span>CEE</span>
+                          <Input type="number" value={aidesPAC.cee} onChange={(e) => setAidesPAC({ ...aidesPAC, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>ECO TVA</span>
+                          <Input type="number" value={aidesPAC.ecoTva} onChange={(e) => setAidesPAC({ ...aidesPAC, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-medium text-blue-600">
+                          <span>Sous-total PAC</span>
+                          <span>{totalAidesPAC.toLocaleString("fr-FR")}€</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Aides PV */}
+                    {activeProducts.includes("PV") && calculatedResults && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-amber-600">PV</p>
+                        {modeHejjaActive ? (
+                          <HejjaAidesEditor
+                            aides={aidesManuelles}
+                            onAidesChange={setAidesManuelles}
+                            puissanceKwc={Number(puissanceKwc) || 0}
+                            prixTotal={calculatedResults.prixTotalHorsAides}
+                            primeAutoconso={calculatedResults.primeAutoconsommation}
+                            ecoTva={calculatedResults.ecoTva}
+                          />
+                        ) : (
+                          <>
+                            <div className="flex justify-between">
+                              <span>Prime Autoconso</span>
+                              <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>ECO TVA</span>
+                              <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR")}€</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between text-[10px] font-medium text-amber-600">
+                          <span>Sous-total PV</span>
+                          <span>{totalAidesPV.toLocaleString("fr-FR")}€</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Aide locale commune */}
+                    <div className="flex justify-between items-center">
+                      <span>Aide locale</span>
+                      <Input type="number" value={aidesPAC.aideLocale || aidesITE.aideLocale || 0} onChange={(e) => {
+                        const v = Number(e.target.value) || 0;
+                        setAidesPAC(prev => ({ ...prev, aideLocale: v }));
+                        setAidesITE(prev => ({ ...prev, aideLocale: 0 }));
+                      }} className="h-5 w-16 text-right text-[10px]" />
                     </div>
-                    <div className="flex justify-between">
-                      <span>ECO TVA</span>
-                      <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                    <Separator className="my-1" />
+                    <div className="flex justify-between font-bold text-status-signed bg-status-signed/10 rounded p-1">
+                      <span>TOTAL AIDES</span>
+                      <span>{totalAidesGlobal.toLocaleString("fr-FR")}€</span>
                     </div>
+                  </>
+                ) : (
+                  /* Mode PV seul */
+                  <>
+                    {modeHejjaActive ? (
+                      <HejjaAidesEditor
+                        aides={aidesManuelles}
+                        onAidesChange={setAidesManuelles}
+                        puissanceKwc={Number(puissanceKwc) || 0}
+                        prixTotal={calculatedResults!.prixTotalHorsAides}
+                        primeAutoconso={calculatedResults!.primeAutoconsommation}
+                        ecoTva={calculatedResults!.ecoTva}
+                      />
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Prime Autoconso</span>
+                          <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ECO TVA</span>
+                          <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
                 <Separator className="my-2" />
+                {/* FINANCEMENT — unique */}
                 <div className="pt-2">
-                  <p className="text-xs font-bold mb-1">FINANCEMENT</p>
+                  <p className="text-xs font-bold mb-1">{isMulti ? "FINANCEMENT GLOBAL" : "FINANCEMENT"}</p>
                   <Select value={financementId} onValueChange={setFinancementId}>
                     <SelectTrigger className="h-7 text-xs">
                       <SelectValue placeholder="Sélectionner" />
@@ -3666,16 +3879,22 @@ _Envoyé depuis DébalePro_`;
                   <div className="text-xs text-muted-foreground mt-1">
                     <div className="flex justify-between">
                       <span>Taux effectif</span>
-                      <span>{dataFinancements.find(f => f.id === financementId)?.taux_effectif}%</span>
+                      <span>{selectedFin?.taux_effectif}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span>TAEG</span>
-                      <span>{dataFinancements.find(f => f.id === financementId)?.taeg}%</span>
+                      <span>{selectedFin?.taeg}%</span>
                     </div>
+                    {isMulti && (
+                      <div className="flex justify-between font-medium text-foreground mt-1">
+                        <span>Montant financé</span>
+                        <span>{(montantFinancement + autreSurcout).toLocaleString("fr-FR")}€</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="mt-2">
-                  <label className="text-xs text-muted-foreground">Durée du financement (mois)</label>
+                  <label className="text-xs text-muted-foreground">Durée (mois)</label>
                   <Select value={String(dureeMoisManuelle)} onValueChange={(v) => setDureeMoisManuelle(Number(v))}>
                     <SelectTrigger className="h-7 text-xs">
                       <SelectValue placeholder="Durée" />
@@ -3696,18 +3915,26 @@ _Envoyé depuis DébalePro_`;
                     step="0.01"
                     value={mensualiteManuelle}
                     onChange={(e) => setMensualiteManuelle(e.target.value ? Number(e.target.value) : "")}
-                    placeholder={`Calculée: ${calculatedResults.mensualite.toFixed(2)}€`}
+                    placeholder={`Calculée: ${resultatFinGlobal.mensualiteAmortissement.toFixed(2)}€`}
                     className="h-7 text-xs"
                   />
                 </div>
+                {/* Report 6 mois */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-1.5 text-[10px] mt-1">
+                  <div className="flex items-center gap-1 text-amber-700 font-medium">
+                    Report 6 mois: {resultatFinGlobal.mensualiteReport.toFixed(0)}€/mois
+                  </div>
+                </div>
                 <div className="flex justify-between font-bold bg-muted/50 rounded p-1 mt-1">
-                  <span>Mensualité</span>
-                  <span>{calculatedResults.mensualite.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                  <span>{isMulti ? "Mensualité unique" : "Mensualité"}</span>
+                  <span>{Number(mensualiteGlobale).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
               </CardContent>
             </Card>
           </div>
-        )}
+          </>
+          );
+        })()}
 
         {/* ÉVOLUTION ÉNERGÉTIQUE MULTI-PRODUIT */}
         {activeProducts.includes("PV") && currentTab === "PV" && activeProducts.length > 1 && (
