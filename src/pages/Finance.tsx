@@ -618,7 +618,7 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
 
-    // Total potentiel = en cours + attente facturation + à facturer
+    // Total potentiel = en cours + attente facturation + à facturer (hors payées)
     const comPotentielleTotale = comEnCours + comAttenteFacturation + comAFacturer;
 
     const signedCount = signedThisMonthForCA.length;
