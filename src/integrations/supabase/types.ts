@@ -3101,6 +3101,7 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          date_cq: string | null
           date_installation_prevue: string | null
           date_installation_reelle: string | null
           date_paiement: string | null
@@ -3130,6 +3131,7 @@ export type Database = {
         Insert: {
           client_id: string
           created_at?: string
+          date_cq?: string | null
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
@@ -3159,6 +3161,7 @@ export type Database = {
         Update: {
           client_id?: string
           created_at?: string
+          date_cq?: string | null
           date_installation_prevue?: string | null
           date_installation_reelle?: string | null
           date_paiement?: string | null
