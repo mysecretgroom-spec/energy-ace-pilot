@@ -134,19 +134,23 @@ serve(async (req) => {
           return " ═";
         };
 
-        // Build recap message
+        // Build recap message — use ventes as single source of truth for signatures
+        const totalRdvLabel = rdvs?.length || 0;
         let message = `📊 *RÉCAP SEMAINE* (${weekLabel})\n`;
         message += `Salut ${firstName} ! Voici ton bilan :\n\n`;
         
-        message += `📅 *RDV effectués :* ${totalRdv}${trend(totalRdv, prevTotalRdv)}\n`;
-        if (signeRdv > 0) message += `✅ Signés : ${signeRdv}${trend(signeRdv, prevSigneRdv)}\n`;
+        message += `📅 *RDV effectués :* ${totalRdvEffectues}${trend(totalRdvEffectues, prevTotalRdvEffectues)}\n`;
+        if (ventesCount > 0) message += `✅ Signés : ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
         if (negatifRdv > 0) message += `❌ Négatifs : ${negatifRdv}\n`;
         if (r2Rdv > 0) message += `🔄 R2 : ${r2Rdv}\n`;
+        if (reporteRdv > 0) message += `⏳ Reportés : ${reporteRdv}\n`;
         if (annuleRdv > 0) message += `🚫 Annulés : ${annuleRdv}\n`;
-        message += `📈 Taux de transformation : ${tauxTransfo}%${trend(tauxTransfo, prevTauxTransfo)}\n\n`;
+        const tauxTransfoVentes = totalRdvEffectues > 0 ? Math.round((ventesCount / totalRdvEffectues) * 100) : 0;
+        const prevTauxTransfoVentes = prevTotalRdvEffectues > 0 ? Math.round((prevVentesCount / prevTotalRdvEffectues) * 100) : 0;
+        message += `📈 Taux de transformation : ${tauxTransfoVentes}%${trend(tauxTransfoVentes, prevTauxTransfoVentes)}\n\n`;
 
         if (ventesCount > 0) {
-          message += `💰 *Ventes signées :* ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
+          message += `💰 *Ventes signées :* ${ventesCount}\n`;
           message += `💶 CA total : ${totalCA.toLocaleString("fr-FR")}€ TTC${trend(totalCA, prevTotalCA)}\n`;
           message += `⚡ Puissance : ${totalKwc.toFixed(1)} kWc\n`;
         } else {
