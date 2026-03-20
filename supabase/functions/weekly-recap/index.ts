@@ -80,16 +80,22 @@ serve(async (req) => {
           .gte("date_heure", prevStartStr)
           .lt("date_heure", prevEndStr);
 
-        const totalRdv = rdvs?.length || 0;
-        const signeRdv = rdvs?.filter(r => r.status === "signe").length || 0;
-        const negatifRdv = rdvs?.filter(r => r.status === "negatif").length || 0;
+        // Statuts considérés comme "non effectués" (pas réellement tenus)
+        const statusNonFait = ["annule", "reporte", "absent", "porte"];
+        
+        const rdvEffectues = rdvs?.filter(r => !statusNonFait.includes(r.status)) || [];
+        const totalRdvEffectues = rdvEffectues.length;
+        const signeRdv = rdvEffectues.filter(r => r.status === "signe").length;
+        const negatifRdv = rdvEffectues.filter(r => r.status === "negatif").length;
+        const r2Rdv = rdvEffectues.filter(r => r.status === "r2" || r.status === "r2_prestudy").length;
         const annuleRdv = rdvs?.filter(r => r.status === "annule").length || 0;
-        const r2Rdv = rdvs?.filter(r => r.status === "r2" || r.status === "r2_prestudy").length || 0;
-        const tauxTransfo = totalRdv > 0 ? Math.round((signeRdv / totalRdv) * 100) : 0;
+        const reporteRdv = rdvs?.filter(r => r.status === "reporte").length || 0;
+        const tauxTransfo = totalRdvEffectues > 0 ? Math.round((signeRdv / totalRdvEffectues) * 100) : 0;
 
-        const prevTotalRdv = prevRdvs?.length || 0;
-        const prevSigneRdv = prevRdvs?.filter(r => r.status === "signe").length || 0;
-        const prevTauxTransfo = prevTotalRdv > 0 ? Math.round((prevSigneRdv / prevTotalRdv) * 100) : 0;
+        const prevRdvEffectues = prevRdvs?.filter(r => !statusNonFait.includes(r.status)) || [];
+        const prevTotalRdvEffectues = prevRdvEffectues.length;
+        const prevSigneRdv = prevRdvEffectues.filter(r => r.status === "signe").length;
+        const prevTauxTransfo = prevTotalRdvEffectues > 0 ? Math.round((prevSigneRdv / prevTotalRdvEffectues) * 100) : 0;
 
         // Fetch ventes signed this week
         const { data: ventes } = await supabase
