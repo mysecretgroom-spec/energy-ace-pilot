@@ -399,6 +399,7 @@ const VenteDetail = () => {
       numeroContrat,
       status,
       dateSignature,
+      dateCq,
       dateInstallationPrevue,
       heureInstallationPrevue,
       dateInstallationReelle,
