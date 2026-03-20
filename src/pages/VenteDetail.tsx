@@ -187,6 +187,13 @@ const VenteDetail = () => {
   const handleStatusChange = (newStatus: VenteStatus) => {
     setStatus(newStatus);
     
+    // If changing to "cq_a_faire" and no CQ date set, default to tomorrow
+    if (newStatus === "cq_a_faire" && !dateCq) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setDateCq(tomorrow.toISOString().split("T")[0]);
+    }
+    
     // If changing to "installe" and no installation date set, set it to today
     if (newStatus === "installe" && !dateInstallationReelle) {
       const today = new Date().toISOString().split("T")[0];
