@@ -368,6 +368,7 @@ const VenteDetail = () => {
         numero_contrat: numeroContrat || null,
         status,
         date_signature: dateSignature || null,
+        date_cq: dateCq || null,
         date_installation_prevue: dateInstallationPrevue || null,
         heure_installation_prevue: heureInstallationPrevue || "08:00",
         date_installation_reelle: dateInstallationReelle || null,
