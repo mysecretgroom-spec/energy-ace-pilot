@@ -2115,6 +2115,7 @@ const EtudeForm = () => {
       surcoutCompteur: surcoutCompteur,
       surcoutEmplacement: surcoutEmplacement,
       autreSurcout: autreSurcout,
+      remiseCommerciale: remiseCommerciale || 0,
       prixTotalHorsAides: calculatedResults?.prixTotalHorsAides || 0,
       primeAutoconsommation: calculatedResults?.primeAutoconsommation || 0,
       ecoTva: calculatedResults?.ecoTva || 0,
