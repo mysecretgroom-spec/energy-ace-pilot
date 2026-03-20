@@ -80,16 +80,22 @@ serve(async (req) => {
           .gte("date_heure", prevStartStr)
           .lt("date_heure", prevEndStr);
 
-        const totalRdv = rdvs?.length || 0;
-        const signeRdv = rdvs?.filter(r => r.status === "signe").length || 0;
-        const negatifRdv = rdvs?.filter(r => r.status === "negatif").length || 0;
+        // Statuts considérés comme "non effectués" (pas réellement tenus)
+        const statusNonFait = ["annule", "reporte", "absent", "porte"];
+        
+        const rdvEffectues = rdvs?.filter(r => !statusNonFait.includes(r.status)) || [];
+        const totalRdvEffectues = rdvEffectues.length;
+        const signeRdv = rdvEffectues.filter(r => r.status === "signe").length;
+        const negatifRdv = rdvEffectues.filter(r => r.status === "negatif").length;
+        const r2Rdv = rdvEffectues.filter(r => r.status === "r2" || r.status === "r2_prestudy").length;
         const annuleRdv = rdvs?.filter(r => r.status === "annule").length || 0;
-        const r2Rdv = rdvs?.filter(r => r.status === "r2" || r.status === "r2_prestudy").length || 0;
-        const tauxTransfo = totalRdv > 0 ? Math.round((signeRdv / totalRdv) * 100) : 0;
+        const reporteRdv = rdvs?.filter(r => r.status === "reporte").length || 0;
+        const tauxTransfo = totalRdvEffectues > 0 ? Math.round((signeRdv / totalRdvEffectues) * 100) : 0;
 
-        const prevTotalRdv = prevRdvs?.length || 0;
-        const prevSigneRdv = prevRdvs?.filter(r => r.status === "signe").length || 0;
-        const prevTauxTransfo = prevTotalRdv > 0 ? Math.round((prevSigneRdv / prevTotalRdv) * 100) : 0;
+        const prevRdvEffectues = prevRdvs?.filter(r => !statusNonFait.includes(r.status)) || [];
+        const prevTotalRdvEffectues = prevRdvEffectues.length;
+        const prevSigneRdv = prevRdvEffectues.filter(r => r.status === "signe").length;
+        const prevTauxTransfo = prevTotalRdvEffectues > 0 ? Math.round((prevSigneRdv / prevTotalRdvEffectues) * 100) : 0;
 
         // Fetch ventes signed this week
         const { data: ventes } = await supabase
@@ -128,19 +134,23 @@ serve(async (req) => {
           return " ═";
         };
 
-        // Build recap message
+        // Build recap message — use ventes as single source of truth for signatures
+        const totalRdvLabel = rdvs?.length || 0;
         let message = `📊 *RÉCAP SEMAINE* (${weekLabel})\n`;
         message += `Salut ${firstName} ! Voici ton bilan :\n\n`;
         
-        message += `📅 *RDV effectués :* ${totalRdv}${trend(totalRdv, prevTotalRdv)}\n`;
-        if (signeRdv > 0) message += `✅ Signés : ${signeRdv}${trend(signeRdv, prevSigneRdv)}\n`;
+        message += `📅 *RDV effectués :* ${totalRdvEffectues}${trend(totalRdvEffectues, prevTotalRdvEffectues)}\n`;
+        if (ventesCount > 0) message += `✅ Signés : ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
         if (negatifRdv > 0) message += `❌ Négatifs : ${negatifRdv}\n`;
         if (r2Rdv > 0) message += `🔄 R2 : ${r2Rdv}\n`;
+        if (reporteRdv > 0) message += `⏳ Reportés : ${reporteRdv}\n`;
         if (annuleRdv > 0) message += `🚫 Annulés : ${annuleRdv}\n`;
-        message += `📈 Taux de transformation : ${tauxTransfo}%${trend(tauxTransfo, prevTauxTransfo)}\n\n`;
+        const tauxTransfoVentes = totalRdvEffectues > 0 ? Math.round((ventesCount / totalRdvEffectues) * 100) : 0;
+        const prevTauxTransfoVentes = prevTotalRdvEffectues > 0 ? Math.round((prevVentesCount / prevTotalRdvEffectues) * 100) : 0;
+        message += `📈 Taux de transformation : ${tauxTransfoVentes}%${trend(tauxTransfoVentes, prevTauxTransfoVentes)}\n\n`;
 
         if (ventesCount > 0) {
-          message += `💰 *Ventes signées :* ${ventesCount}${trend(ventesCount, prevVentesCount)}\n`;
+          message += `💰 *Ventes signées :* ${ventesCount}\n`;
           message += `💶 CA total : ${totalCA.toLocaleString("fr-FR")}€ TTC${trend(totalCA, prevTotalCA)}\n`;
           message += `⚡ Puissance : ${totalKwc.toFixed(1)} kWc\n`;
         } else {
@@ -178,7 +188,7 @@ serve(async (req) => {
               app_id: ONESIGNAL_APP_ID,
               include_external_user_ids: [userId],
               headings: { fr: `📊 Récap semaine ${weekLabel}` },
-              contents: { fr: `${totalRdv} RDV • ${signeRdv} signés • ${totalCA.toLocaleString("fr-FR")}€ CA` },
+              contents: { fr: `${totalRdvEffectues} RDV • ${ventesCount} signés • ${totalCA.toLocaleString("fr-FR")}€ CA` },
               data: { type: "weekly_recap" },
             }),
           });
