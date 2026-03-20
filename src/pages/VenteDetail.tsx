@@ -244,6 +244,7 @@ const VenteDetail = () => {
     const newDateInstallationPrevue = venteData.date_installation_prevue || "";
     const newHeureInstallationPrevue = (venteData as any).heure_installation_prevue?.slice(0, 5) || "08:00";
     const newDateInstallationReelle = venteData.date_installation_reelle || "";
+    const newDateCq = (venteData as any).date_cq || "";
     const newMontantHt = venteData.montant_ht || "";
     const newMontantTtc = venteData.montant_ttc || "";
     const newMontantAcompte = venteData.montant_acompte || "";
@@ -255,6 +256,7 @@ const VenteDetail = () => {
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
     setPreviousStatus(newStatus);
+    setDateCq(newDateCq);
     setDateInstallationPrevue(newDateInstallationPrevue);
     setHeureInstallationPrevue(newHeureInstallationPrevue);
     setDateInstallationReelle(newDateInstallationReelle);
