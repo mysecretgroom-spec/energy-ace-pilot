@@ -697,7 +697,11 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    didParseCell: (cellData) => { if (cellData.row.index === 4) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { 
+      const lastIdx = data.remiseCommerciale ? 5 : 4;
+      if (cellData.row.index === lastIdx) cellData.cell.styles.fontStyle = "bold";
+      if (data.remiseCommerciale && cellData.row.index === 4) cellData.cell.styles.textColor = [0, 128, 0];
+    },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 4;
