@@ -169,7 +169,7 @@ const VenteDetail = () => {
       typeInstallation !== originalValues.typeInstallation
     );
   }, [
-    numeroContrat, status, dateSignature, dateInstallationPrevue, heureInstallationPrevue,
+    numeroContrat, status, dateSignature, dateCq, dateInstallationPrevue, heureInstallationPrevue,
     dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
     puissanceKwc, typeInstallation,
     originalValues
