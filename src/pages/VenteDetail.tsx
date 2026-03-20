@@ -112,6 +112,7 @@ const VenteDetail = () => {
   const [numeroContrat, setNumeroContrat] = useState("");
   const [status, setStatus] = useState<VenteStatus>("en_negociation");
   const [dateSignature, setDateSignature] = useState("");
+  const [dateCq, setDateCq] = useState("");
   const [dateInstallationPrevue, setDateInstallationPrevue] = useState("");
   const [heureInstallationPrevue, setHeureInstallationPrevue] = useState("08:00");
   const [dateInstallationReelle, setDateInstallationReelle] = useState("");
@@ -136,6 +137,7 @@ const VenteDetail = () => {
     numeroContrat: "",
     status: "en_negociation" as VenteStatus,
     dateSignature: "",
+    dateCq: "",
     dateInstallationPrevue: "",
     heureInstallationPrevue: "08:00",
     dateInstallationReelle: "",
@@ -154,6 +156,7 @@ const VenteDetail = () => {
       numeroContrat !== originalValues.numeroContrat ||
       status !== originalValues.status ||
       dateSignature !== originalValues.dateSignature ||
+      dateCq !== originalValues.dateCq ||
       dateInstallationPrevue !== originalValues.dateInstallationPrevue ||
       heureInstallationPrevue !== originalValues.heureInstallationPrevue ||
       dateInstallationReelle !== originalValues.dateInstallationReelle ||
@@ -166,7 +169,7 @@ const VenteDetail = () => {
       typeInstallation !== originalValues.typeInstallation
     );
   }, [
-    numeroContrat, status, dateSignature, dateInstallationPrevue, heureInstallationPrevue,
+    numeroContrat, status, dateSignature, dateCq, dateInstallationPrevue, heureInstallationPrevue,
     dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
     puissanceKwc, typeInstallation,
     originalValues
@@ -183,6 +186,13 @@ const VenteDetail = () => {
   // Auto-set installation date when status changes to "installe"
   const handleStatusChange = (newStatus: VenteStatus) => {
     setStatus(newStatus);
+    
+    // If changing to "cq_a_faire" and no CQ date set, default to tomorrow
+    if (newStatus === "cq_a_faire" && !dateCq) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setDateCq(tomorrow.toISOString().split("T")[0]);
+    }
     
     // If changing to "installe" and no installation date set, set it to today
     if (newStatus === "installe" && !dateInstallationReelle) {
@@ -234,6 +244,7 @@ const VenteDetail = () => {
     const newDateInstallationPrevue = venteData.date_installation_prevue || "";
     const newHeureInstallationPrevue = (venteData as any).heure_installation_prevue?.slice(0, 5) || "08:00";
     const newDateInstallationReelle = venteData.date_installation_reelle || "";
+    const newDateCq = (venteData as any).date_cq || "";
     const newMontantHt = venteData.montant_ht || "";
     const newMontantTtc = venteData.montant_ttc || "";
     const newMontantAcompte = venteData.montant_acompte || "";
@@ -245,6 +256,7 @@ const VenteDetail = () => {
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
     setPreviousStatus(newStatus);
+    setDateCq(newDateCq);
     setDateInstallationPrevue(newDateInstallationPrevue);
     setHeureInstallationPrevue(newHeureInstallationPrevue);
     setDateInstallationReelle(newDateInstallationReelle);
@@ -281,6 +293,7 @@ const VenteDetail = () => {
       numeroContrat: newNumeroContrat,
       status: newStatus,
       dateSignature: finalDateSignature,
+      dateCq: newDateCq,
       dateInstallationPrevue: newDateInstallationPrevue,
       heureInstallationPrevue: newHeureInstallationPrevue,
       dateInstallationReelle: newDateInstallationReelle,
@@ -355,6 +368,7 @@ const VenteDetail = () => {
         numero_contrat: numeroContrat || null,
         status,
         date_signature: dateSignature || null,
+        date_cq: dateCq || null,
         date_installation_prevue: dateInstallationPrevue || null,
         heure_installation_prevue: heureInstallationPrevue || "08:00",
         date_installation_reelle: dateInstallationReelle || null,
@@ -385,6 +399,7 @@ const VenteDetail = () => {
       numeroContrat,
       status,
       dateSignature,
+      dateCq,
       dateInstallationPrevue,
       heureInstallationPrevue,
       dateInstallationReelle,
@@ -610,6 +625,18 @@ const VenteDetail = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Calculée auto. depuis le RDV (R2 si présent, sinon date initiale)
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dateCq">Contrôle Qualité (CQ)</Label>
+              <Input
+                id="dateCq"
+                type="date"
+                value={dateCq}
+                onChange={(e) => setDateCq(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Par défaut le lendemain au passage en "CQ à faire"
               </p>
             </div>
             <div className="space-y-2">

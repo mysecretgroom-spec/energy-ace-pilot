@@ -1,0 +1,1 @@
+ALTER TABLE public.ventes ADD COLUMN IF NOT EXISTS date_cq DATE;
