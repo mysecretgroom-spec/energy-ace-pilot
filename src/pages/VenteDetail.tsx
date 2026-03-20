@@ -156,6 +156,7 @@ const VenteDetail = () => {
       numeroContrat !== originalValues.numeroContrat ||
       status !== originalValues.status ||
       dateSignature !== originalValues.dateSignature ||
+      dateCq !== originalValues.dateCq ||
       dateInstallationPrevue !== originalValues.dateInstallationPrevue ||
       heureInstallationPrevue !== originalValues.heureInstallationPrevue ||
       dateInstallationReelle !== originalValues.dateInstallationReelle ||
