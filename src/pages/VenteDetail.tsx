@@ -137,6 +137,7 @@ const VenteDetail = () => {
     numeroContrat: "",
     status: "en_negociation" as VenteStatus,
     dateSignature: "",
+    dateCq: "",
     dateInstallationPrevue: "",
     heureInstallationPrevue: "08:00",
     dateInstallationReelle: "",
