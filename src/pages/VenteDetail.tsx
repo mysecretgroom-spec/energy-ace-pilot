@@ -112,6 +112,7 @@ const VenteDetail = () => {
   const [numeroContrat, setNumeroContrat] = useState("");
   const [status, setStatus] = useState<VenteStatus>("en_negociation");
   const [dateSignature, setDateSignature] = useState("");
+  const [dateCq, setDateCq] = useState("");
   const [dateInstallationPrevue, setDateInstallationPrevue] = useState("");
   const [heureInstallationPrevue, setHeureInstallationPrevue] = useState("08:00");
   const [dateInstallationReelle, setDateInstallationReelle] = useState("");
