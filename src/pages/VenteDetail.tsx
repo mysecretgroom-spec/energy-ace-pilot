@@ -628,6 +628,18 @@ const VenteDetail = () => {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="dateCq">Contrôle Qualité (CQ)</Label>
+              <Input
+                id="dateCq"
+                type="date"
+                value={dateCq}
+                onChange={(e) => setDateCq(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Par défaut le lendemain au passage en "CQ à faire"
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Installation prévue</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Input
