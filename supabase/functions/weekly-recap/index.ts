@@ -188,7 +188,7 @@ serve(async (req) => {
               app_id: ONESIGNAL_APP_ID,
               include_external_user_ids: [userId],
               headings: { fr: `📊 Récap semaine ${weekLabel}` },
-              contents: { fr: `${totalRdv} RDV • ${signeRdv} signés • ${totalCA.toLocaleString("fr-FR")}€ CA` },
+              contents: { fr: `${totalRdvEffectues} RDV • ${ventesCount} signés • ${totalCA.toLocaleString("fr-FR")}€ CA` },
               data: { type: "weekly_recap" },
             }),
           });
