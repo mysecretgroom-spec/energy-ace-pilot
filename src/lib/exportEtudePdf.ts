@@ -690,6 +690,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
       ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
       ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
       ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
+      ...(data.remiseCommerciale ? [["Remise commerciale", `- ${formatEuros(data.remiseCommerciale)}`, "", ""]] : []),
       ["COÛT TOTAL BRUT", formatEuros(data.prixTotalHorsAides), "COÛT NET (après aides)", formatEuros(data.totalAidesDeduites)],
     ],
     theme: "striped",
