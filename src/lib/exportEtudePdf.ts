@@ -109,6 +109,7 @@ interface EtudeData {
   surcoutCompteur: number;
   surcoutEmplacement?: number;
   autreSurcout: number;
+  remiseCommerciale?: number;
   prixTotalHorsAides: number;
   
   // Aides
