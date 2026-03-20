@@ -618,7 +618,7 @@ const Finance = () => {
       return sum + (comm?.commissionNette || 0);
     }, 0);
 
-    // Total potentiel = en cours + attente facturation + à facturer
+    // Total potentiel = en cours + attente facturation + à facturer (hors payées)
     const comPotentielleTotale = comEnCours + comAttenteFacturation + comAFacturer;
 
     const signedCount = signedThisMonthForCA.length;
@@ -1257,23 +1257,6 @@ const Finance = () => {
                       </p>
                     </div>
 
-                    {/* Com Payées */}
-                    <div 
-                      className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-300 cursor-pointer hover:bg-emerald-500/20 transition-colors"
-                      onClick={() => openFinanceStatDialog('payees')}
-                    >
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-emerald-700" />
-                        <div>
-                          <p className="text-sm font-medium text-emerald-700">Déjà payées</p>
-                          <p className="text-xs text-emerald-600/80">Commissions encaissées</p>
-                        </div>
-                      </div>
-                      <p className="text-lg font-bold text-emerald-700 whitespace-nowrap">
-                        {venteStats.comPayees.toLocaleString("fr-FR")} €
-                      </p>
-                    </div>
-
                     {/* Séparateur et Total */}
                     <div className="border-t border-dashed pt-3 mt-2">
                       <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/15 border-2 border-amber-400">
@@ -1285,6 +1268,27 @@ const Finance = () => {
                           {venteStats.comPotentielleTotale.toLocaleString("fr-FR")} €
                         </p>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Com Payées - séparé du potentiel */}
+                <Card 
+                  className="shadow-card cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => openFinanceStatDialog('payees')}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-emerald-700" />
+                        <div>
+                          <p className="text-sm font-medium text-emerald-700">Déjà payées</p>
+                          <p className="text-xs text-emerald-600/80">Commissions encaissées</p>
+                        </div>
+                      </div>
+                      <p className="text-lg font-bold text-emerald-700 whitespace-nowrap">
+                        {venteStats.comPayees.toLocaleString("fr-FR")} €
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
