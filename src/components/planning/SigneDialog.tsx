@@ -29,6 +29,13 @@ import { Loader2, TrendingUp, Coins, Clock, Wrench, ChevronDown, ChevronUp, Mess
 import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 import { ProductType, PRODUCT_SHORT_LABELS, PacSubtype, PAC_SUBTYPE_LABELS } from "@/lib/productTypes";
 
+// Catégories de surcoûts par type de produit
+const SURCOUT_CATEGORIES_BY_PRODUCT: Record<ProductType, string[]> = {
+  PV: ["support", "emplacement_boitier", "compteur"],
+  PAC: ["type_pac", "installation", "accessoires"],
+  ITE: ["finition", "complexite", "accessoires_ite"],
+};
+
 interface Bouquet {
   id: string;
   nom_bouquet: string;
@@ -100,6 +107,13 @@ export function SigneDialog({
       b.product_type === productType || b.product_type === null
     );
   }, [allBouquets, productType]);
+
+  // Filter surcouts by selected product type(s) using category mapping
+  const filteredSurcouts = useMemo(() => {
+    // Get categories for the current product type
+    const allowedCategories = SURCOUT_CATEGORIES_BY_PRODUCT[productType] || [];
+    return surcouts.filter(s => allowedCategories.includes(s.categorie));
+  }, [surcouts, productType]);
 
   // Fetch bouquets and surcouts on mount — regie-specific only
   useEffect(() => {
@@ -391,11 +405,11 @@ export function SigneDialog({
 
   const totalSurcouts = useMemo(() => {
     return selectedSurcoutsIds.reduce((total, id) => {
-      const surcout = surcouts.find(s => s.id === id);
+      const surcout = filteredSurcouts.find(s => s.id === id);
       if (!surcout) return total;
       return total + calcSurcoutPrice(surcout);
     }, 0);
-  }, [selectedSurcoutsIds, surcouts, puissance, surfaceM2, mlQuantities]);
+  }, [selectedSurcoutsIds, filteredSurcouts, puissance, surfaceM2, mlQuantities]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -421,6 +435,8 @@ export function SigneDialog({
                     onClick={() => {
                       setProductType(type);
                       setSelectedBouquetId("");
+                      setSelectedSurcoutsIds([]);
+                      setMlQuantities({});
                     }}
                   >
                     <Icon className="h-4 w-4 mr-1" />
@@ -571,7 +587,7 @@ export function SigneDialog({
           </div>
 
           {/* Surcoûts selection - Collapsible */}
-          {surcouts.length > 0 && (
+          {filteredSurcouts.length > 0 && (
             <Collapsible open={surcoutsOpen} onOpenChange={setSurcoutsOpen}>
               <CollapsibleTrigger asChild>
                 <Button
@@ -598,7 +614,7 @@ export function SigneDialog({
               <CollapsibleContent className="pt-3 space-y-3">
                 <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30">
                   {Object.entries(
-                    surcouts.reduce((groups, surcout) => {
+                    filteredSurcouts.reduce((groups, surcout) => {
                       const cat = surcout.categorie || "general";
                       if (!groups[cat]) groups[cat] = [];
                       groups[cat].push(surcout);
