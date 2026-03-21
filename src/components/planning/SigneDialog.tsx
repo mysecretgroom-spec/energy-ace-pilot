@@ -612,7 +612,7 @@ export function SigneDialog({
               <CollapsibleContent className="pt-3 space-y-3">
                 <div className="space-y-3 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30">
                   {Object.entries(
-                    surcouts.reduce((groups, surcout) => {
+                    filteredSurcouts.reduce((groups, surcout) => {
                       const cat = surcout.categorie || "general";
                       if (!groups[cat]) groups[cat] = [];
                       groups[cat].push(surcout);
