@@ -856,10 +856,11 @@ const EtudeForm = () => {
       // Données techniques PV
       setSurfaceInstallation(etude.surface_installation_m2 || 0);
       setRendementProductivite(etude.rendement_productivite || 100);
-      // Surcoûts
+      // Surcoûts — only restore autre_surcout and selectedSurcouts.
+      // surcout_support and surcout_compteur are COMPUTED by useEffects
+      // from supportInstallation / typeRaccordement + regieSurcouts,
+      // so we must NOT overwrite them with stale DB values.
       setSelectedSurcouts(etude.surcouts as string[] || []);
-      setSurcoutSupport(etude.surcout_support || 0);
-      setSurcoutCompteur(etude.surcout_compteur || 0);
       setAutreSurcout(etude.autre_surcout || 0);
       // Prix manuel - only restore if it was explicitly set by user (tracked in param_overrides)
       const loadedOverrides = (etude as any).param_overrides;
