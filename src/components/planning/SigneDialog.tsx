@@ -435,6 +435,8 @@ export function SigneDialog({
                     onClick={() => {
                       setProductType(type);
                       setSelectedBouquetId("");
+                      setSelectedSurcoutsIds([]);
+                      setMlQuantities({});
                     }}
                   >
                     <Icon className="h-4 w-4 mr-1" />
