@@ -114,8 +114,12 @@ export function RdvStatusSelector({
   const [r2Date, setR2Date] = useState<Date | undefined>(undefined);
   const [r2Time, setR2Time] = useState("10:00");
 
-  // Signé dialog state
+   // Signé dialog state
   const [showSigneDialog, setShowSigneDialog] = useState(false);
+  
+  // Quick R2 info dialog state
+  const [showQuickR2Dialog, setShowQuickR2Dialog] = useState(false);
+
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
