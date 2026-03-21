@@ -226,13 +226,18 @@ export const useWhatsAppNotification = () => {
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (!settings || !settings.whatsapp_enabled || !settings.confirmateur_phone) {
-          console.log("[WhatsApp] Aucun contact WhatsApp configuré (ni régie, ni global)");
-          return false;
+        if (settings?.confirmateur_phone && settings?.whatsapp_enabled) {
+          confirmPhone = settings.confirmateur_phone;
+          defaultCqTime = settings.default_cq_time || "10:00";
+        } else {
+          // No phone configured - allow PDF sharing via Web Share API for pre-study/positif
+          if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
+            console.log("[WhatsApp] Pas de confirmateur configuré, partage PDF via Web Share API");
+          } else {
+            console.log("[WhatsApp] Aucun contact WhatsApp configuré (ni régie, ni global)");
+            return false;
+          }
         }
-        
-        confirmPhone = settings.confirmateur_phone;
-        defaultCqTime = settings.default_cq_time || "10:00";
       }
 
       // Fetch custom template for this classification
@@ -245,7 +250,7 @@ export const useWhatsAppNotification = () => {
         .maybeSingle();
 
       // Clean phone number for wa.me link (remove + and spaces)
-      const cleanPhone = confirmPhone.replace(/[+\s-]/g, "");
+      const cleanPhone = confirmPhone ? confirmPhone.replace(/[+\s-]/g, "") : "";
 
       // Build the message using template
       const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
@@ -310,7 +315,7 @@ export const useWhatsAppNotification = () => {
 
       // Encode message for URL
       const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedMessage}` : null;
 
       // Partager le PDF pour "positif" et "r2_prestudy" via Web Share API
       if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
@@ -326,7 +331,7 @@ export const useWhatsAppNotification = () => {
               title: `Étude ${pdfData.clientPrenom} ${pdfData.clientNom}`,
               text: message,
             });
-          } else {
+          } else if (whatsappUrl) {
             // Fallback: Télécharger le PDF et ouvrir WhatsApp
             const url = URL.createObjectURL(pdfBlob);
             const link = document.createElement("a");
@@ -339,13 +344,24 @@ export const useWhatsAppNotification = () => {
             
             // Ouvrir WhatsApp après le téléchargement
             window.open(whatsappUrl, "_blank");
+          } else {
+            // No phone configured, just download the PDF
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
           }
         } catch (shareError) {
           console.log("[WhatsApp] Fallback vers WhatsApp classique:", shareError);
-          // En cas d'erreur de partage, ouvrir WhatsApp normalement
-          window.open(whatsappUrl, "_blank");
+          if (whatsappUrl) {
+            window.open(whatsappUrl, "_blank");
+          }
         }
-      } else {
+      } else if (whatsappUrl) {
         // Open WhatsApp in new tab (comportement standard)
         window.open(whatsappUrl, "_blank");
       }
