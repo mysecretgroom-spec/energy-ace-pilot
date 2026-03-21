@@ -226,13 +226,18 @@ export const useWhatsAppNotification = () => {
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (!settings || !settings.whatsapp_enabled || !settings.confirmateur_phone) {
-          console.log("[WhatsApp] Aucun contact WhatsApp configuré (ni régie, ni global)");
-          return false;
+        if (settings?.confirmateur_phone && settings?.whatsapp_enabled) {
+          confirmPhone = settings.confirmateur_phone;
+          defaultCqTime = settings.default_cq_time || "10:00";
+        } else {
+          // No phone configured - allow PDF sharing via Web Share API for pre-study/positif
+          if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
+            console.log("[WhatsApp] Pas de confirmateur configuré, partage PDF via Web Share API");
+          } else {
+            console.log("[WhatsApp] Aucun contact WhatsApp configuré (ni régie, ni global)");
+            return false;
+          }
         }
-        
-        confirmPhone = settings.confirmateur_phone;
-        defaultCqTime = settings.default_cq_time || "10:00";
       }
 
       // Fetch custom template for this classification
