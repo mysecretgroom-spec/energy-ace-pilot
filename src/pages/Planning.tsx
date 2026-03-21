@@ -276,14 +276,14 @@ const Planning = () => {
             couleur: string | null;
           } | null;
 
-          // Use RDV address or client address
-          const rdvAddress = (rdv.adresse as string) || clientData?.adresse || "";
+          // Use RDV address first, fall back to client address
+          const rdvAddress = (rdv.adresse as string) || "";
           const parsed = parseAddress(rdvAddress);
           
-          // Prefer client's structured address data if available
-          const finalAddress = clientData?.adresse || parsed.address;
-          const finalPostalCode = clientData?.code_postal || parsed.postalCode;
-          const finalCity = clientData?.ville || parsed.city;
+          // Prefer RDV address (appointment location), fall back to client home address
+          const finalAddress = rdvAddress ? parsed.address : (clientData?.adresse || "");
+          const finalPostalCode = rdvAddress ? parsed.postalCode : (clientData?.code_postal || "");
+          const finalCity = rdvAddress ? parsed.city : (clientData?.ville || "");
 
           const durationMinutes = (rdv.duree_minutes as number) || 90;
           const hours = Math.floor(durationMinutes / 60);
