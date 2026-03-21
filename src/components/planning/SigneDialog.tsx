@@ -409,7 +409,7 @@ export function SigneDialog({
       if (!surcout) return total;
       return total + calcSurcoutPrice(surcout);
     }, 0);
-  }, [selectedSurcoutsIds, surcouts, puissance, surfaceM2, mlQuantities]);
+  }, [selectedSurcoutsIds, filteredSurcouts, puissance, surfaceM2, mlQuantities]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
