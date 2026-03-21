@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { SigneDialog } from "./SigneDialog";
+import { QuickR2Dialog } from "./QuickR2Dialog";
 
 interface RdvStatusSelectorProps {
   rdvId: string;
