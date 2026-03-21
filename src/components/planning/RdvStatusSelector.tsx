@@ -476,6 +476,19 @@ export function RdvStatusSelector({
         onConfirm={handleSigneConfirm}
         updating={updating}
       />
+
+      {/* Quick R2 Info Dialog */}
+      {clientId && (
+        <QuickR2Dialog
+          open={showQuickR2Dialog}
+          onOpenChange={setShowQuickR2Dialog}
+          rdvId={rdvId}
+          clientId={clientId}
+          etudeId={etudeId}
+          regieId={regieId}
+          onComplete={() => onStatusChange?.(status)}
+        />
+      )}
     </>
   );
 }
