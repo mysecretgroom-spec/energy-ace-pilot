@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { SigneDialog } from "./SigneDialog";
+import { QuickR2Dialog } from "./QuickR2Dialog";
 
 interface RdvStatusSelectorProps {
   rdvId: string;
@@ -113,8 +114,12 @@ export function RdvStatusSelector({
   const [r2Date, setR2Date] = useState<Date | undefined>(undefined);
   const [r2Time, setR2Time] = useState("10:00");
 
-  // Signé dialog state
+   // Signé dialog state
   const [showSigneDialog, setShowSigneDialog] = useState(false);
+  
+  // Quick R2 info dialog state
+  const [showQuickR2Dialog, setShowQuickR2Dialog] = useState(false);
+
   const handleStatusSelect = async (newStatus: RdvStatus) => {
     if (newStatus === status || !user) return;
     
@@ -148,6 +153,12 @@ export function RdvStatusSelector({
     
     setShowR2Dialog(false);
     await handleStatusChange(pendingR2Status, { r2DateTime: r2DateTimeISO });
+    
+    // Show quick R2 info dialog only for r2/r2_prestudy (not for reporté)
+    if ((pendingR2Status === "r2" || pendingR2Status === "r2_prestudy") && clientId) {
+      setShowQuickR2Dialog(true);
+    }
+    
     setPendingR2Status(null);
   };
 
@@ -465,6 +476,19 @@ export function RdvStatusSelector({
         onConfirm={handleSigneConfirm}
         updating={updating}
       />
+
+      {/* Quick R2 Info Dialog */}
+      {clientId && (
+        <QuickR2Dialog
+          open={showQuickR2Dialog}
+          onOpenChange={setShowQuickR2Dialog}
+          rdvId={rdvId}
+          clientId={clientId}
+          etudeId={etudeId}
+          regieId={regieId}
+          onComplete={() => onStatusChange?.(status)}
+        />
+      )}
     </>
   );
 }
