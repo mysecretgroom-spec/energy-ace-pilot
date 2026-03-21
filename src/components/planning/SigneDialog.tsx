@@ -108,6 +108,13 @@ export function SigneDialog({
     );
   }, [allBouquets, productType]);
 
+  // Filter surcouts by selected product type(s) using category mapping
+  const filteredSurcouts = useMemo(() => {
+    // Get categories for the current product type
+    const allowedCategories = SURCOUT_CATEGORIES_BY_PRODUCT[productType] || [];
+    return surcouts.filter(s => allowedCategories.includes(s.categorie));
+  }, [surcouts, productType]);
+
   // Fetch bouquets and surcouts on mount — regie-specific only
   useEffect(() => {
     const fetchData = async () => {
