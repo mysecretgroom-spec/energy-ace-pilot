@@ -585,7 +585,7 @@ export function SigneDialog({
           </div>
 
           {/* Surcoûts selection - Collapsible */}
-          {surcouts.length > 0 && (
+          {filteredSurcouts.length > 0 && (
             <Collapsible open={surcoutsOpen} onOpenChange={setSurcoutsOpen}>
               <CollapsibleTrigger asChild>
                 <Button
