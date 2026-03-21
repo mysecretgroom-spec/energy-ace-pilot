@@ -153,6 +153,12 @@ export function RdvStatusSelector({
     
     setShowR2Dialog(false);
     await handleStatusChange(pendingR2Status, { r2DateTime: r2DateTimeISO });
+    
+    // Show quick R2 info dialog only for r2/r2_prestudy (not for reporté)
+    if ((pendingR2Status === "r2" || pendingR2Status === "r2_prestudy") && clientId) {
+      setShowQuickR2Dialog(true);
+    }
+    
     setPendingR2Status(null);
   };
 
