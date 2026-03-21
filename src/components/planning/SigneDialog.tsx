@@ -405,7 +405,7 @@ export function SigneDialog({
 
   const totalSurcouts = useMemo(() => {
     return selectedSurcoutsIds.reduce((total, id) => {
-      const surcout = surcouts.find(s => s.id === id);
+      const surcout = filteredSurcouts.find(s => s.id === id);
       if (!surcout) return total;
       return total + calcSurcoutPrice(surcout);
     }, 0);
