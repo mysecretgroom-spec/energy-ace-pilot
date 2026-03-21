@@ -29,6 +29,13 @@ import { Loader2, TrendingUp, Coins, Clock, Wrench, ChevronDown, ChevronUp, Mess
 import { ttcToHT, getTauxTVAByPuissance } from "@/lib/tva";
 import { ProductType, PRODUCT_SHORT_LABELS, PacSubtype, PAC_SUBTYPE_LABELS } from "@/lib/productTypes";
 
+// Catégories de surcoûts par type de produit
+const SURCOUT_CATEGORIES_BY_PRODUCT: Record<ProductType, string[]> = {
+  PV: ["support", "emplacement_boitier", "compteur"],
+  PAC: ["type_pac", "installation", "accessoires"],
+  ITE: ["finition", "complexite", "accessoires_ite"],
+};
+
 interface Bouquet {
   id: string;
   nom_bouquet: string;
