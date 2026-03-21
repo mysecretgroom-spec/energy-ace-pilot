@@ -250,7 +250,7 @@ export const useWhatsAppNotification = () => {
         .maybeSingle();
 
       // Clean phone number for wa.me link (remove + and spaces)
-      const cleanPhone = confirmPhone.replace(/[+\s-]/g, "");
+      const cleanPhone = confirmPhone ? confirmPhone.replace(/[+\s-]/g, "") : "";
 
       // Build the message using template
       const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
@@ -315,7 +315,7 @@ export const useWhatsAppNotification = () => {
 
       // Encode message for URL
       const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      const whatsappUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedMessage}` : null;
 
       // Partager le PDF pour "positif" et "r2_prestudy" via Web Share API
       if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
