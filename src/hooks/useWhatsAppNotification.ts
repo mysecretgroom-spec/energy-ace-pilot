@@ -331,7 +331,7 @@ export const useWhatsAppNotification = () => {
               title: `Étude ${pdfData.clientPrenom} ${pdfData.clientNom}`,
               text: message,
             });
-          } else {
+          } else if (whatsappUrl) {
             // Fallback: Télécharger le PDF et ouvrir WhatsApp
             const url = URL.createObjectURL(pdfBlob);
             const link = document.createElement("a");
@@ -344,13 +344,24 @@ export const useWhatsAppNotification = () => {
             
             // Ouvrir WhatsApp après le téléchargement
             window.open(whatsappUrl, "_blank");
+          } else {
+            // No phone configured, just download the PDF
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
           }
         } catch (shareError) {
           console.log("[WhatsApp] Fallback vers WhatsApp classique:", shareError);
-          // En cas d'erreur de partage, ouvrir WhatsApp normalement
-          window.open(whatsappUrl, "_blank");
+          if (whatsappUrl) {
+            window.open(whatsappUrl, "_blank");
+          }
         }
-      } else {
+      } else if (whatsappUrl) {
         // Open WhatsApp in new tab (comportement standard)
         window.open(whatsappUrl, "_blank");
       }
