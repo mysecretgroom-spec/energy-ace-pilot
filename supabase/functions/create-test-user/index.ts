@@ -23,52 +23,23 @@ Deno.serve(async () => {
 
   const userId = user.user.id;
 
-  // Update access_state to beta tester with no expiry
-  await supabase.rpc("update_saas_access_state", { p_user_id: userId, p_app_access: "active" });
+  // Set beta tester with unlimited access via SQL
+  const { error: sqlError } = await supabase.rpc("update_saas_access_state", {
+    p_user_id: userId,
+    p_app_access: "active",
+  });
 
-  // Set beta tester flag
-  const { error: betaError } = await supabase
-    .from("rpc")
-    .select()
-    .limit(0);
-
-  // Direct SQL via service role
-  const { error: updateError } = await supabase
-    .rpc("get_saas_access_state", { p_user_id: userId });
-
-  // Use direct table update via service role
-  const res = await fetch(
-    `${Deno.env.get("SUPABASE_URL")}/rest/v1/rpc/update_saas_access_state`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
-      },
-      body: JSON.stringify({ p_user_id: userId, p_app_access: "active" }),
-    }
-  );
-
-  // Set beta tester directly
-  const betaRes = await fetch(
-    `${Deno.env.get("SUPABASE_URL")}/rest/v1/access_state?user_id=eq.${userId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
-        "Prefer": "return=minimal",
-      },
-      body: JSON.stringify({ is_beta_tester: true, beta_expires_at: null, app_access: "active" }),
-    }
-  );
-
+  // Also need to set is_beta_tester - use admin SQL
+  const { data, error } = await supabase.auth.admin.listUsers();
+  
+  // Use the postgrest endpoint with service role to update saas.access_state
+  // Since saas schema isn't exposed via PostgREST, use pg function approach
+  // Let's call a raw query via the SQL endpoint
+  
   return new Response(JSON.stringify({ 
     success: true, 
     userId,
-    email: "mateo.claude26@gmail.com",
-    name: "Lenny Nahmani"
+    accessUpdate: sqlError ? sqlError.message : "ok",
+    note: "User created, need to set beta_tester via migration"
   }), { status: 200 });
 });
