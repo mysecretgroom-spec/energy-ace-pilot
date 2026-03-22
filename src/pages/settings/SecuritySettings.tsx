@@ -183,6 +183,7 @@ function ChangePasswordCard() {
   );
 }
 
+const SecuritySettings = () => {
 
   const { user } = useAuth();
   const { isSupported: webAuthnSupported, register: registerBiometric, unregister: unregisterBiometric, isLoading: webAuthnLoading } = useWebAuthn();
