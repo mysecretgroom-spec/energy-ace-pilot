@@ -75,6 +75,7 @@ const DataRetention = React.lazy(() => import("./pages/DataRetention"));
 const Abonnement = React.lazy(() => import("./pages/Abonnement"));
 const Support = React.lazy(() => import("./pages/Support"));
 const DocScannerPage = React.lazy(() => import("./modules/docScanner/components/DocScannerPage"));
+const VideoUpload = React.lazy(() => import("./pages/VideoUpload"));
 
 // Admin pages
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard"));
