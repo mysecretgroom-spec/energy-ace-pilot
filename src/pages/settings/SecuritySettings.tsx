@@ -17,8 +17,9 @@ import { useWebAuthn } from "@/hooks/useWebAuthn";
 import { useBiometricLogin } from "@/hooks/useBiometricLogin";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound, LogIn } from "lucide-react";
+import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound, LogIn, Eye, EyeOff } from "lucide-react";
 import { MFASetup } from "@/components/auth/MFASetup";
+import { PasswordStrengthIndicator, validatePassword } from "@/components/auth/PasswordStrengthIndicator";
 
 const SecuritySettings = () => {
   const { user } = useAuth();
