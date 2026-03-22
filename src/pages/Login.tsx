@@ -329,6 +329,11 @@ const Login = () => {
                     )}
                   </Button>
                 </div>
+                <div className="flex justify-end">
+                  <Link to="/reset-password" className="text-xs text-primary hover:underline">
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
               </div>
 
               {/* Checkboxes */}
