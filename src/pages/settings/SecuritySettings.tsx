@@ -21,7 +21,169 @@ import { Loader2, Lock, Fingerprint, Check, X, Trash2, KeyRound, LogIn, Eye, Eye
 import { MFASetup } from "@/components/auth/MFASetup";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/auth/PasswordStrengthIndicator";
 
-const SecuritySettings = () => {
+function ChangePasswordCard() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const resetForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrent(false);
+    setShowNew(false);
+    setError("");
+  };
+
+  const handleChangePassword = async () => {
+    setError("");
+
+    if (!currentPassword) {
+      setError("Entrez votre mot de passe actuel");
+      return;
+    }
+
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      setError(validation.message);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Verify current password by re-signing in
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("Utilisateur non trouvé");
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        setError("Mot de passe actuel incorrect");
+        setIsSaving(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) throw updateError;
+
+      toast.success("Mot de passe modifié avec succès");
+      setShowDialog(false);
+      resetForm();
+    } catch (err: any) {
+      setError(err.message || "Erreur lors du changement de mot de passe");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Card className="shadow-card">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Lock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Mot de passe</p>
+                <p className="text-sm text-muted-foreground">Modifier votre mot de passe</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { resetForm(); setShowDialog(true); }}>
+              Modifier
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) resetForm(); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+              <Lock className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle className="text-center">Changer le mot de passe</DialogTitle>
+            <DialogDescription className="text-center">
+              Entrez votre mot de passe actuel puis le nouveau
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Mot de passe actuel</Label>
+              <div className="relative">
+                <Input
+                  type={showCurrent ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowCurrent(!showCurrent)}>
+                  {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Nouveau mot de passe</Label>
+              <div className="relative">
+                <Input
+                  type={showNew ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowNew(!showNew)}>
+                  {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <PasswordStrengthIndicator password={newPassword} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Confirmer le nouveau mot de passe</Label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-xs text-destructive">Les mots de passe ne correspondent pas</p>
+              )}
+            </div>
+
+            {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
+            <Button className="w-full" onClick={handleChangePassword} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+              Confirmer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+
   const { user } = useAuth();
   const { isSupported: webAuthnSupported, register: registerBiometric, unregister: unregisterBiometric, isLoading: webAuthnLoading } = useWebAuthn();
   const { isSupported: biometricLoginSupported, registerForLogin, hasAccount, savedAccounts } = useBiometricLogin();
