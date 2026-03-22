@@ -41,6 +41,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
+import { RegieAIConfigImport } from "@/components/regie/RegieAIConfigImport";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
 import { EditRegieDialog } from "@/components/regie/EditRegieDialog";
 import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
