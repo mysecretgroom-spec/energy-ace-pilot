@@ -404,7 +404,10 @@ const SecuritySettings = () => {
           </CardContent>
         </Card>
 
-        {/* PIN Configuration */}
+        {/* Change Password */}
+        <ChangePasswordCard />
+
+
         <Card className="shadow-card">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-3">
