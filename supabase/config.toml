@@ -1,5 +1,8 @@
 project_id = "yobyzsgqnoaxvfsbpwkp"
 
+[storage]
+file_size_limit = "500MiB"
+
 [functions.sync-gmail-rdv]
 verify_jwt = false
 
