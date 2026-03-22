@@ -15,6 +15,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Accept optional week_offset parameter (-1 = last week, 0 = current week)
+    let weekOffset = 0;
+    try {
+      const body = await req.json();
+      weekOffset = body?.week_offset ?? 0;
+    } catch { /* no body or invalid JSON, default to current week */ }
     const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
     const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
 
@@ -41,12 +48,12 @@ serve(async (req) => {
 
         const firstName = profile?.first_name || "Commercial";
 
-        // Calculate current week dates (Israeli week: Sunday to Saturday)
+        // Calculate week dates with offset support
         const now = new Date();
         const dayOfWeek = now.getDay(); // 0=Sun
-        // Go back to this week's Sunday
+        // Go back to this week's Sunday, then apply offset
         const thisSunday = new Date(now);
-        thisSunday.setDate(now.getDate() - dayOfWeek);
+        thisSunday.setDate(now.getDate() - dayOfWeek + (weekOffset * 7));
         thisSunday.setHours(0, 0, 0, 0);
         // End = next Saturday end (Sunday + 7 days)
         const nextSunday = new Date(thisSunday);
