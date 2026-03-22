@@ -97,8 +97,8 @@ const ResetPassword = () => {
         <div className="flex-1 flex items-center justify-center p-4">
           <Card className="w-full max-w-md shadow-card">
             <CardHeader className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-500" />
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-primary" />
               </div>
               <div>
                 <CardTitle className="text-xl font-display">Email envoyé !</CardTitle>
