@@ -76,6 +76,7 @@ const Abonnement = React.lazy(() => import("./pages/Abonnement"));
 const Support = React.lazy(() => import("./pages/Support"));
 const DocScannerPage = React.lazy(() => import("./modules/docScanner/components/DocScannerPage"));
 const VideoUpload = React.lazy(() => import("./pages/VideoUpload"));
+const ResetPassword = React.lazy(() => import("./pages/ResetPassword"));
 
 // Admin pages
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard"));
