@@ -112,7 +112,7 @@ serve(async (req) => {
           .from("ventes")
           .select("id, montant_ttc")
           .eq("user_id", userId)
-          .neq("type_rdv", "external_installation")
+          .neq("type_vente", "external_installation")
           .neq("status", "annule")
           .gte("date_signature", prevStartStr)
           .lt("date_signature", prevEndStr);
