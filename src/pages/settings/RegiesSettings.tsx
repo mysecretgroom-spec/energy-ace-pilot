@@ -1027,6 +1027,15 @@ const RegiesSettings = () => {
                   </div>
                 </div>
 
+                {/* AI Config Import */}
+                <div className="px-4 pt-4">
+                  <RegieAIConfigImport
+                    regieId={selectedRegie.id}
+                    userId={user?.id || ""}
+                    onComplete={() => fetchRegieDetails(selectedRegie.id)}
+                  />
+                </div>
+
                 {/* Tabs pour les différentes sections */}
                 <Tabs defaultValue="dashboard" className="w-full">
                   <TabsList className="w-full rounded-none border-b grid grid-cols-6">
