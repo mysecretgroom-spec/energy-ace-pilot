@@ -184,7 +184,7 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
               type_calcul: s.type_calcul,
               actif: true,
             }))
-          )
+          ).then()
         );
       }
 
