@@ -48,12 +48,12 @@ serve(async (req) => {
 
         const firstName = profile?.first_name || "Commercial";
 
-        // Calculate current week dates (Israeli week: Sunday to Saturday)
+        // Calculate week dates with offset support
         const now = new Date();
         const dayOfWeek = now.getDay(); // 0=Sun
-        // Go back to this week's Sunday
+        // Go back to this week's Sunday, then apply offset
         const thisSunday = new Date(now);
-        thisSunday.setDate(now.getDate() - dayOfWeek);
+        thisSunday.setDate(now.getDate() - dayOfWeek + (weekOffset * 7));
         thisSunday.setHours(0, 0, 0, 0);
         // End = next Saturday end (Sunday + 7 days)
         const nextSunday = new Date(thisSunday);
