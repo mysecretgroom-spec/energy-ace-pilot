@@ -150,7 +150,7 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
 
     setIsSaving(true);
     try {
-      const promises: Promise<any>[] = [];
+      const promises: PromiseLike<any>[] = [];
 
       if (selBouquets.length > 0) {
         promises.push(
