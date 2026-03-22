@@ -15,6 +15,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Accept optional week_offset parameter (-1 = last week, 0 = current week)
+    let weekOffset = 0;
+    try {
+      const body = await req.json();
+      weekOffset = body?.week_offset ?? 0;
+    } catch { /* no body or invalid JSON, default to current week */ }
     const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
     const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
 
