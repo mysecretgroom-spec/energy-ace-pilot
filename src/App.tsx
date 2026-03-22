@@ -75,6 +75,7 @@ const DataRetention = React.lazy(() => import("./pages/DataRetention"));
 const Abonnement = React.lazy(() => import("./pages/Abonnement"));
 const Support = React.lazy(() => import("./pages/Support"));
 const DocScannerPage = React.lazy(() => import("./modules/docScanner/components/DocScannerPage"));
+const VideoUpload = React.lazy(() => import("./pages/VideoUpload"));
 
 // Admin pages
 const AdminDashboard = React.lazy(() => import("./pages/admin/AdminDashboard"));
@@ -193,6 +194,7 @@ const App = () => {
                       <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
                       <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
                       <Route path="/docs/scan" element={<ProtectedRoute><DocScannerPage /></ProtectedRoute>} />
+                      <Route path="/videos" element={<ProtectedRoute><VideoUpload /></ProtectedRoute>} />
                       {/* Admin routes */}
                       <Route path="/admin" element={<AdminDashboard />} />
                       <Route path="/admin/analytics" element={<AdminAnalytics />} />
