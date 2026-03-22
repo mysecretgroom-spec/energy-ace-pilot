@@ -163,11 +163,11 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
               prix_recommande: b.prix_recommande,
               prix_max: b.prix_recommande,
               commission_fixe: b.commission_fixe,
-              product_type: b.product_type,
+              product_type: b.product_type as "PV" | "PAC" | "ITE",
               description: b.description,
               actif: true,
             }))
-          )
+          ).then()
         );
       }
 
