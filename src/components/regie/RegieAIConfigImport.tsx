@@ -200,7 +200,7 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
               taeg: f.taeg,
               actif: true,
             }))
-          )
+          ).then()
         );
       }
 
