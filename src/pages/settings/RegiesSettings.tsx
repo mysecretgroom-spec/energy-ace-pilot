@@ -41,6 +41,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
+import { RegieAIConfigImport } from "@/components/regie/RegieAIConfigImport";
 import { CreateRegieDialog } from "@/components/regie/CreateRegieDialog";
 import { EditRegieDialog } from "@/components/regie/EditRegieDialog";
 import { ProductBouquetsSection } from "@/components/regie/ProductBouquetsSection";
@@ -1024,6 +1025,15 @@ const RegiesSettings = () => {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                {/* AI Config Import */}
+                <div className="px-4 pt-4">
+                  <RegieAIConfigImport
+                    regieId={selectedRegie.id}
+                    userId={user?.id || ""}
+                    onComplete={() => fetchRegieDetails(selectedRegie.id)}
+                  />
                 </div>
 
                 {/* Tabs pour les différentes sections */}
