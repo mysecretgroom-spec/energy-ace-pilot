@@ -194,6 +194,7 @@ const App = () => {
                       <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
                       <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
                       <Route path="/docs/scan" element={<ProtectedRoute><DocScannerPage /></ProtectedRoute>} />
+                      <Route path="/videos" element={<ProtectedRoute><VideoUpload /></ProtectedRoute>} />
                       {/* Admin routes */}
                       <Route path="/admin" element={<AdminDashboard />} />
                       <Route path="/admin/analytics" element={<AdminAnalytics />} />

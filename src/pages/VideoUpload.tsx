@@ -137,8 +137,7 @@ export default function VideoUpload() {
   return (
     <MobileLayout
       title="Vidéos"
-      showBack
-      onBack={() => navigate(-1)}
+      showBackButton
     >
       <div className="p-4 space-y-4 pb-24">
         {/* Upload zone */}
