@@ -29,20 +29,46 @@ interface NominatimResult {
 }
 
 // Geocode with Nominatim, returning multiple results for validation
-async function geocodeNominatim(query: string, limit = 5): Promise<NominatimResult[]> {
+async function geocodeNominatim(query: string, limit = 5, retries = 2): Promise<NominatimResult[]> {
   const encoded = encodeURIComponent(query);
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=${limit}&countrycodes=fr&addressdetails=1`,
-    { headers: { "User-Agent": "SolarFlow-CRM/1.0" } }
-  );
-  const data = await response.json();
-  if (!data || !Array.isArray(data)) return [];
-  return data.map((r: any) => ({
-    lat: parseFloat(r.lat),
-    lon: parseFloat(r.lon),
-    display_name: r.display_name,
-    address: r.address,
-  }));
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=${limit}&countrycodes=fr&addressdetails=1`,
+        { headers: { "User-Agent": "SolarFlow-CRM/1.0" } }
+      );
+
+      // Nominatim can return XML error pages (rate limit, server error)
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || !contentType.includes("application/json")) {
+        const body = await response.text();
+        console.warn(`[Geocode] Nominatim HTTP ${response.status} (attempt ${attempt + 1}): ${body.substring(0, 200)}`);
+        if (attempt < retries) {
+          // Back off before retry (Nominatim rate limit is 1 req/s)
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+          continue;
+        }
+        return [];
+      }
+
+      const data = await response.json();
+      if (!data || !Array.isArray(data)) return [];
+      return data.map((r: any) => ({
+        lat: parseFloat(r.lat),
+        lon: parseFloat(r.lon),
+        display_name: r.display_name,
+        address: r.address,
+      }));
+    } catch (error) {
+      console.warn(`[Geocode] Nominatim fetch error (attempt ${attempt + 1}):`, error);
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
+      return [];
+    }
+  }
+  return [];
 }
 
 // Extract the department prefix from a postal code (first 2 digits, or 3 for DOM-TOM)
