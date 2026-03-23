@@ -1624,11 +1624,11 @@ const EtudeForm = () => {
     }
 
     if (error) {
-      console.error("Erreur sauvegarde:", error);
+      console.error("Erreur sauvegarde étude:", error.message, error);
       toast({
         variant: "destructive",
         title: "Erreur",
-        description: "Impossible de sauvegarder l'étude",
+        description: `Impossible de sauvegarder l'étude: ${error.message || "erreur inconnue"}`,
       });
       setSaving(false);
     } else {
