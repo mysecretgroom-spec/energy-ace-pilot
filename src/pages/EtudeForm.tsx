@@ -1887,12 +1887,15 @@ const EtudeForm = () => {
       if (isOnline) {
         // Online: save directly to Supabase
         if (currentEtudeId) {
-          await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
+          const { error: updateErr } = await supabase.from("etudes").update(etudeData).eq("id", currentEtudeId);
+          if (updateErr) console.error("Auto-save update error:", updateErr.message, updateErr);
         } else {
           isInsertingRef.current = true;
           try {
-            const { data } = await supabase.from("etudes").insert(etudeData).select("id").single();
-            if (data) {
+            const { data, error: insertErr } = await supabase.from("etudes").insert(etudeData).select("id").single();
+            if (insertErr) {
+              console.error("Auto-save insert error:", insertErr.message, insertErr);
+            } else if (data) {
               setCurrentEtudeId(data.id);
             }
           } finally {
