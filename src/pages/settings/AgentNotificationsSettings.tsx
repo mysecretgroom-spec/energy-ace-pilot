@@ -263,20 +263,11 @@ const AgentNotificationsSettings = () => {
           </p>
         </div>
 
-        {/* Save button */}
-        <div
-          className={`transition-all duration-300 ease-out overflow-hidden ${
-            hasChanges ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</>
-            ) : (
-              <><Save className="mr-2 h-4 w-4" />Enregistrer</>
-            )}
-          </Button>
-        </div>
+        <FloatingSaveButton
+          show={hasChanges}
+          saving={saving}
+          onSave={handleSave}
+        />
       </div>
     </MobileLayout>
   );

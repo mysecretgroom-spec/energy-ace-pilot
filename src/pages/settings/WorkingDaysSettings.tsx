@@ -138,28 +138,11 @@ const WorkingDaysSettings = () => {
         </p>
       </div>
 
-      {/* Floating save button */}
-      {hasChanges && (
-        <div className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] left-4 right-4 z-40 max-w-lg mx-auto">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-12 shadow-lg bg-gradient-hero gap-2"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Enregistrement...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5" />
-                Enregistrer les modifications
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSave}
+      />
     </MobileLayout>
   );
 };
