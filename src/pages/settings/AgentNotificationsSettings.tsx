@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, Bot, Bell, CalendarClock, TrendingUp, Brain, MessageCircle } from "lucide-react";
+import { Loader2, Bot, Bell, CalendarClock, TrendingUp, Brain, MessageCircle } from "lucide-react";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -262,20 +263,11 @@ const AgentNotificationsSettings = () => {
           </p>
         </div>
 
-        {/* Save button */}
-        <div
-          className={`transition-all duration-300 ease-out overflow-hidden ${
-            hasChanges ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enregistrement...</>
-            ) : (
-              <><Save className="mr-2 h-4 w-4" />Enregistrer</>
-            )}
-          </Button>
-        </div>
+        <FloatingSaveButton
+          show={hasChanges}
+          saving={saving}
+          onSave={handleSave}
+        />
       </div>
     </MobileLayout>
   );

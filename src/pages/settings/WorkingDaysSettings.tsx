@@ -3,11 +3,10 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Save, Loader2 } from "lucide-react";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
@@ -139,28 +138,11 @@ const WorkingDaysSettings = () => {
         </p>
       </div>
 
-      {/* Floating save button */}
-      {hasChanges && (
-        <div className="fixed bottom-[calc(72px+env(safe-area-inset-bottom)+1rem)] left-4 right-4 z-40 max-w-lg mx-auto">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-12 shadow-lg bg-gradient-hero gap-2"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Enregistrement...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5" />
-                Enregistrer les modifications
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+      <FloatingSaveButton
+        show={hasChanges}
+        saving={saving}
+        onSave={handleSave}
+      />
     </MobileLayout>
   );
 };

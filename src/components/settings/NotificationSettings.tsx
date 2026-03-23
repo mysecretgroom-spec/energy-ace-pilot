@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { MessageCircle, Save, Loader2, Settings } from "lucide-react";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
+import { MessageCircle, Loader2, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -149,27 +149,11 @@ export const NotificationSettings = () => {
           </p>
         </div>
 
-        <div 
-          className={`transition-all duration-300 ease-out overflow-hidden ${
-            hasChanges 
-              ? "max-h-20 opacity-100" 
-              : "max-h-0 opacity-0"
-          }`}
-        >
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enregistrement...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Enregistrer
-              </>
-            )}
-          </Button>
-        </div>
+        <FloatingSaveButton
+          show={hasChanges}
+          saving={saving}
+          onSave={handleSave}
+        />
       </CardContent>
     </Card>
   );
