@@ -1677,6 +1677,24 @@ const EtudeForm = () => {
         if (rdvStatus) {
           postSaveOps.push((async () => {
             let targetRdvId = rdvId;
+            
+            // For "positif/signe", always target the LATEST RDV of the client
+            // (could be an R2 created after the original R1 from the URL)
+            if (clientId && (rdvStatus === "signe" || rdvStatus === "negatif" || rdvStatus === "porte")) {
+              const { data: latestRdv } = await supabase
+                .from("rdv")
+                .select("id")
+                .eq("client_id", clientId)
+                .eq("user_id", user.id)
+                .not("status", "in", '("annule","reporte")')
+                .order("date_heure", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (latestRdv) {
+                targetRdvId = latestRdv.id;
+              }
+            }
+            
             // Fallback: if rdvId is null, find the RDV linked to this étude or the most recent for this client
             if (!targetRdvId && savedEtudeId) {
               const { data: linkedRdv } = await supabase
@@ -1687,7 +1705,6 @@ const EtudeForm = () => {
               if (linkedRdv) {
                 targetRdvId = linkedRdv.id;
               } else if (clientId) {
-                // Last resort: find the most recent non-terminal RDV for this client
                 const { data: recentRdv } = await supabase
                   .from("rdv")
                   .select("id")
@@ -1705,9 +1722,8 @@ const EtudeForm = () => {
             if (targetRdvId) {
               await supabase.from("rdv").update({ 
                 status: rdvStatus,
-                etude_id: savedEtudeId, // Also link the étude to the RDV
+                etude_id: savedEtudeId,
               }).eq("id", targetRdvId);
-              // Update local rdvId for subsequent operations
               if (!rdvId) {
                 setResolvedRdvId(targetRdvId);
               }
