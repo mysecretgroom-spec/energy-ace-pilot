@@ -19,7 +19,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
     const prefetch = useRoutePrefetch();
 
     return (
-      <nav ref={ref} className="fixed bottom-0 left-0 right-0 z-[60] bg-background/95 backdrop-blur-sm border-t border-border/60 safe-bottom" {...props}>
+      <nav ref={ref} className="fixed bottom-0 left-0 right-0 z-[60] bg-background/95 backdrop-blur-sm border-t border-border/60 safe-bottom will-change-transform" style={{ transform: 'translateZ(0)' }} {...props}>
         {/* Background jobs indicator - fixed top right of nav */}
         <div className="absolute -top-10 right-2">
           <BackgroundJobsIndicator />
