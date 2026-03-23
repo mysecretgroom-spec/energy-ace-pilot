@@ -337,32 +337,18 @@ export function MultiDocumentSelector({
       const fileName = `Dossier_${namePart}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
 
+      // Small delay to let iOS finalize the File object before sharing
+      await new Promise(r => setTimeout(r, 100));
+
       try {
         if (navigator.share && navigator.canShare?.({ files: [file] })) {
           await navigator.share({ files: [file], title: fileName });
         } else {
-          // Fallback: direct download
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          downloadBlob(blob, fileName);
         }
       } catch (shareErr: any) {
-        if (shareErr?.name === "AbortError") {
-          // User cancelled share — not an error
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+        if (shareErr?.name !== "AbortError") {
+          downloadBlob(blob, fileName);
         }
       }
 

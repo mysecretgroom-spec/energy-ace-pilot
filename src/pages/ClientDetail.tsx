@@ -873,56 +873,6 @@ const ClientDetailInner = () => {
                     <Image className="h-5 w-5" />
                     Scanner
                   </Button>
-                  <Button 
-                    variant="outline"
-                    className="flex-1 gap-2 h-12 border-primary text-primary"
-                    onClick={async () => {
-                      const lastRdv = rdvs.find(r => r.regie_id);
-                      if (lastRdv?.regie_id) {
-                        const { data: regieContact } = await supabase
-                          .from("regies_contacts")
-                          .select("telephone, nom")
-                          .eq("regie_id", lastRdv.regie_id)
-                          .eq("is_principal", true)
-                          .eq("actif", true)
-                          .maybeSingle();
-                        
-                        if (regieContact?.telephone) {
-                          await sendPdfDoc({
-                            clientId: id!,
-                            phoneNumber: regieContact.telephone,
-                            message: `📄 Dossier complet pour ${client?.prenom || ""} ${client?.nom || ""}`.trim(),
-                            includeEtude: true,
-                          });
-                          return;
-                        }
-                      }
-                      if (client?.telephone) {
-                        const cleanPhone = client.telephone.replace(/\D/g, "");
-                        const frPhone = cleanPhone.startsWith("0") ? `33${cleanPhone.slice(1)}` : cleanPhone;
-                        await sendPdfDoc({
-                          clientId: id!,
-                          phoneNumber: frPhone,
-                          message: `📄 Votre dossier complet`,
-                          includeEtude: true,
-                        });
-                      } else {
-                        toast({
-                          variant: "destructive",
-                          title: "Aucun destinataire",
-                          description: "Aucune régie/confirmateur trouvé et le client n'a pas de téléphone.",
-                        });
-                      }
-                    }}
-                    disabled={isSendingDoc || documents.length === 0}
-                  >
-                    {isSendingDoc ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Send className="h-5 w-5" />
-                    )}
-                    Envoyer
-                  </Button>
                 </div>
 
                 {documents.length === 0 ? (
