@@ -34,6 +34,17 @@ const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-
 const WhatsAppAgentSettings = () => {
   const { user } = useAuth();
 
+  const { data: whatsappNumber } = useQuery({
+    queryKey: ["twilio-whatsapp-number"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("get-whatsapp-number");
+      if (error) throw error;
+      return (data as { number: string })?.number || "";
+    },
+    staleTime: Infinity,
+  });
+
+
   // Fetch recent WhatsApp messages
   const { data: messages, isLoading: messagesLoading } = useQuery({
     queryKey: ["whatsapp-messages", user?.id],
@@ -127,7 +138,10 @@ const WhatsAppAgentSettings = () => {
               
               <Button 
                 className="w-full mt-3 bg-green-600 hover:bg-green-700"
-                onClick={() => window.open("https://wa.me/+14155238886", "_blank")}
+                onClick={() => {
+                  const twilioNumber = whatsappNumber?.replace(/[+\s-]/g, "") || "";
+                  window.open(`https://wa.me/${twilioNumber}`, "_blank");
+                }}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Ouvrir WhatsApp
