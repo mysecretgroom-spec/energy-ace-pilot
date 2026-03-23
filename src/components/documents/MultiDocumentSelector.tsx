@@ -47,6 +47,17 @@ interface MultiDocumentSelectorProps {
   onDocumentsChange?: () => void;
 }
 
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 const getFileType = (
   input: string | Pick<DocumentItem, "url" | "nom" | "mime_type">
 ): "pdf" | "image" | "unknown" => {
