@@ -139,8 +139,8 @@ const WhatsAppAgentSettings = () => {
               <Button 
                 className="w-full mt-3 bg-green-600 hover:bg-green-700"
                 onClick={() => {
-                  const twilioNumber = whatsappNumber?.replace(/[+\s-]/g, "") || "";
-                  window.open(`https://wa.me/${twilioNumber}`, "_blank");
+                  const clean = whatsappNumber?.replace(/[+\s\-()]/g, "") || "";
+                  window.open(`https://wa.me/${clean}?text=Bonjour`, "_blank");
                 }}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
