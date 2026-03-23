@@ -3,11 +3,10 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { FloatingSaveButton } from "@/components/ui/floating-save-button";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Save, Loader2 } from "lucide-react";
 
 const DAYS = [
   { value: 1, label: "Lundi" },
