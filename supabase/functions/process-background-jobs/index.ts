@@ -335,6 +335,52 @@ serve(async (req) => {
           case "document_analysis":
             result = await processDocumentAnalysis(job.payload, supabase);
             break;
+          case "ai_classify_document": {
+            // Normalize payload keys (documentId or document_id)
+            const docId = job.payload.documentId || job.payload.document_id;
+            const docUrl = job.payload.url;
+            
+            if (docId && docUrl) {
+              // Fetch document name for better AI context
+              const { data: doc } = await supabase
+                .from("documents")
+                .select("nom")
+                .eq("id", docId)
+                .single();
+              
+              result = await processDocumentAnalysis(
+                { documentId: docId, documentUrl: docUrl, documentName: doc?.nom || "Document" },
+                supabase
+              );
+            } else if (docId) {
+              // No URL provided, fetch from DB
+              const { data: doc } = await supabase
+                .from("documents")
+                .select("nom, url")
+                .eq("id", docId)
+                .single();
+              
+              if (doc) {
+                // Generate signed URL if it's a storage path
+                let resolvedUrl = doc.url;
+                if (doc.url && !doc.url.startsWith("http")) {
+                  const { data: signed } = await supabase.storage
+                    .from("documents")
+                    .createSignedUrl(doc.url, 300);
+                  if (signed?.signedUrl) resolvedUrl = signed.signedUrl;
+                }
+                result = await processDocumentAnalysis(
+                  { documentId: docId, documentUrl: resolvedUrl, documentName: doc.nom || "Document" },
+                  supabase
+                );
+              } else {
+                throw new Error("Document not found");
+              }
+            } else {
+              throw new Error("Missing documentId in payload");
+            }
+            break;
+          }
           case "receipt_ocr":
             result = await processReceiptOcr(job.payload, supabase);
             break;
