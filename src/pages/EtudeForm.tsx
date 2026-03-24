@@ -510,7 +510,41 @@ const EtudeForm = () => {
     init();
   }, [clientId, etudeId, rdvId]);
 
-  // Restore form from sessionStorage draft
+  // ═══ Auto-lookup cadastre from address via BAN + IGN ═══
+  useEffect(() => {
+    if (!clientAdresse || !clientCodePostal || numeroCadastre) return;
+    const lookup = async () => {
+      setCadastreLoading(true);
+      try {
+        // Step 1: Get coordinates from BAN
+        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(clientAdresse)}&postcode=${clientCodePostal}&limit=1`;
+        const banRes = await fetch(banUrl);
+        if (!banRes.ok) return;
+        const banData = await banRes.json();
+        const feature = banData.features?.[0];
+        if (!feature) return;
+        const [lng, lat] = feature.geometry.coordinates;
+        
+        // Step 2: Reverse geocode to find cadastral parcel via IGN
+        const ignUrl = `https://data.geopf.fr/geocodage/reverse?lon=${lng}&lat=${lat}&index=parcel&limit=1`;
+        const ignRes = await fetch(ignUrl);
+        if (!ignRes.ok) return;
+        const ignData = await ignRes.json();
+        const parcel = ignData.features?.[0]?.properties;
+        if (!parcel) return;
+        
+        const cadastreRef = `${parcel.section} ${parcel.number}`;
+        setNumeroCadastre(cadastreRef);
+      } catch (e) {
+        console.warn("[Cadastre] Lookup failed:", e);
+      } finally {
+        setCadastreLoading(false);
+      }
+    };
+    const timer = setTimeout(lookup, 500);
+    return () => clearTimeout(timer);
+  }, [clientAdresse, clientCodePostal]);
+
   const restoreFormFromDraft = (draft: Record<string, any>) => {
     console.log("[EtudeForm] Restoring draft from sessionStorage");
     
