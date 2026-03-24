@@ -168,7 +168,7 @@ export function usePWAUpdate() {
     updateServiceWorker(true);
   }, [updateServiceWorker]);
 
-  // Show a persistent toast when update is available
+  // Show a persistent toast when update is available (only once per session)
   useEffect(() => {
     if (needRefresh && !toastShownRef.current) {
       toastShownRef.current = true;
@@ -181,9 +181,7 @@ export function usePWAUpdate() {
           label: 'Actualiser',
           onClick: applyUpdate,
         },
-        onDismiss: () => {
-          toastShownRef.current = false;
-        },
+        // Don't reset toastShownRef on dismiss — prevents repeated prompts
       });
     }
   }, [needRefresh, applyUpdate]);
