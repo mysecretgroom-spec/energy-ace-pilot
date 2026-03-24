@@ -215,6 +215,54 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
   }
 }
 
+/**
+ * Cross-validate postal code and city using the French government API.
+ * If they don't match, correct the city to match the postal code.
+ */
+async function validateAndCorrectAddress(extracted: ExtractedLead): Promise<void> {
+  const cp = extracted.ADRESSE?.code_postal;
+  const ville = extracted.ADRESSE?.ville;
+  
+  if (!cp || !ville) return;
+  
+  try {
+    const response = await fetch(
+      `https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom,codesPostaux&limit=20`
+    );
+    if (!response.ok) return;
+    
+    const communes: Array<{ nom: string; codesPostaux: string[] }> = await response.json();
+    if (!communes || communes.length === 0) return;
+    
+    // Normalize for comparison
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-_']/g, " ").trim();
+    const villeNorm = normalize(ville);
+    
+    // Check if current city matches any commune for this postal code
+    const match = communes.find(c => {
+      const cNorm = normalize(c.nom);
+      return cNorm === villeNorm || cNorm.includes(villeNorm) || villeNorm.includes(cNorm);
+    });
+    
+    if (!match) {
+      // City doesn't match postal code — correct it
+      // Pick the most likely commune (first result from API, usually the main one)
+      const correctedCity = communes[0].nom;
+      console.warn(`[Address validation] City "${ville}" does NOT match CP ${cp}. Communes for this CP: [${communes.map(c => c.nom).join(", ")}]. Correcting to "${correctedCity}"`);
+      extracted.ADRESSE!.ville = correctedCity;
+    } else {
+      // Use the official spelling from the API
+      if (normalize(match.nom) === villeNorm && match.nom !== ville) {
+        console.log(`[Address validation] Normalizing city spelling: "${ville}" → "${match.nom}"`);
+        extracted.ADRESSE!.ville = match.nom;
+      }
+      console.log(`[Address validation] ✓ City "${ville}" matches CP ${cp}`);
+    }
+  } catch (e) {
+    console.warn("[Address validation] API call failed, skipping validation:", e);
+  }
+}
+
 function normalizePhone(phone: string | undefined): string | null {
   if (!phone) return null;
   let digits = phone.replace(/\D/g, "");
