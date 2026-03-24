@@ -636,10 +636,8 @@ serve(async (req) => {
       action = "updated";
       console.log(`Found existing client: ${existingClient.nom} (${clientId})`);
 
-      // ── CHECK FOR R2 CONFIRMATION ────────────────────────────────────────
-      // If the client has an existing R2/R2_prestudy RDV, this email is likely
-      // a confirmation of that R2, not a new appointment or a duplicate.
-      if (intent === "nouveau_rdv" && validated.RDV?.date) {
+      // ── CHECK FOR R2 CONFIRMATION OR NEW RDV FOR EXISTING CLIENT ──────────
+      if ((intent === "nouveau_rdv" || intent === "report") && validated.RDV?.date) {
         const rdvDate = validated.RDV.date;
         
         // Look for an existing R2/R2_prestudy or Reporté RDV for this client
@@ -706,29 +704,46 @@ serve(async (req) => {
           );
         }
 
-        // Standard same-date duplicate check (no R2 found)
+        // ── CHECK: client has a signed/completed RDV → this is likely a R2/follow-up ──
+        // Don't skip! Allow creating a new RDV even for signed clients.
+        // Only skip if there's already an ACTIVE (non-signed, non-annulé, non-negatif) RDV
+        // on the exact same date.
         const { data: sameDateRdvs } = await supabase
           .from("rdv")
-          .select("id")
+          .select("id, status")
           .eq("client_id", clientId)
           .eq("user_id", user_id)
-          .not("status", "in", '("reporte","annule")')
+          .not("status", "in", '("reporte","annule","signe","negatif","porte")')
           .not("type_rdv", "eq", "installation")
           .gte("date_heure", `${rdvDate}T00:00:00`)
           .lte("date_heure", `${rdvDate}T23:59:59`)
           .limit(1);
 
         if (sameDateRdvs && sameDateRdvs.length > 0) {
-          console.log(`Skipping: client ${clientId} already has an RDV on ${rdvDate}`);
+          console.log(`Skipping: client ${clientId} already has an active RDV on ${rdvDate}`);
           return new Response(
             JSON.stringify({
               success: true,
               action: "skipped",
               client_id: clientId,
-              reason: "RDV existant pour ce client à cette date",
+              reason: "RDV actif existant pour ce client à cette date",
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
+        }
+
+        // If client has only signed/completed/negative RDVs → allow creating new RDV (R2/follow-up)
+        const { data: signedRdvs } = await supabase
+          .from("rdv")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("user_id", user_id)
+          .in("status", ["signe", "negatif", "porte"])
+          .limit(1);
+
+        if (signedRdvs && signedRdvs.length > 0) {
+          console.log(`Client ${clientId} has signed/completed RDVs — allowing new RDV creation (R2/follow-up)`);
+          isDuplicateClient = true; // Flag it, but don't block
         }
       }
 
