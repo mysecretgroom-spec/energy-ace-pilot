@@ -346,10 +346,18 @@ export function MultiDocumentSelector({
 
       const namePart = clientName.trim().replace(/\s+/g, "_");
       const fileName = `Dossier_${namePart}.pdf`;
-      const file = new File([blob], fileName, { type: "application/pdf" });
 
-      // Small delay to let iOS finalize the File object before sharing
-      await new Promise(r => setTimeout(r, 100));
+      const pageCount = mergedPdf.getPageCount();
+
+      // Show toast BEFORE share so it doesn't steal focus from the share sheet
+      toast({ title: "PDF généré", description: `${pageCount} page(s) dans le dossier` });
+      setSelectedIds(new Set());
+      setIsGenerating(false);
+
+      // Allow UI to settle before triggering share sheet (iOS needs this)
+      await new Promise(r => setTimeout(r, 300));
+
+      const file = new File([blob], fileName, { type: "application/pdf" });
 
       try {
         if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -362,9 +370,7 @@ export function MultiDocumentSelector({
           downloadBlob(blob, fileName);
         }
       }
-
-      toast({ title: "PDF généré", description: `${mergedPdf.getPageCount()} page(s) dans le dossier` });
-      setSelectedIds(new Set());
+      return; // already set isGenerating=false above
     } catch (error) {
       console.error("Error generating combined PDF:", error);
       toast({ title: "Erreur", description: "Impossible de générer le PDF combiné", variant: "destructive" });
