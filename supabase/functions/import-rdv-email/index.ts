@@ -427,6 +427,11 @@ serve(async (req) => {
       }
     }
 
+    // ── ADDRESS CROSS-VALIDATION: verify city matches postal code ──
+    if (extracted.ADRESSE?.code_postal && extracted.ADRESSE?.ville) {
+      await validateAndCorrectAddress(extracted);
+    }
+
     const validated = validateLeadData(extracted);
     if (!validated) {
       return new Response(
