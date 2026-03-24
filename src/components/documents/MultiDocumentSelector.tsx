@@ -273,11 +273,29 @@ export function MultiDocumentSelector({
               const pages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
               pages.forEach((page) => mergedPdf.addPage(page));
             } else if (fileType === "image") {
-              const url = doc.url.toLowerCase();
-              const image =
-                url.includes(".png") || url.includes("image/png")
-                  ? await mergedPdf.embedPng(arrayBuffer)
-                  : await mergedPdf.embedJpg(arrayBuffer);
+              // Try direct embed first, fallback to canvas conversion for HEIC/WebP
+              let image;
+              const bytes = new Uint8Array(arrayBuffer);
+              const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+              try {
+                image = isPng
+                  ? await mergedPdf.embedPng(bytes)
+                  : await mergedPdf.embedJpg(bytes);
+              } catch {
+                // Unsupported format (HEIC, WebP, etc.) — convert via canvas to JPEG
+                console.log(`[MergedPDF] Direct embed failed for "${doc.nom}", converting via canvas...`);
+                const imgBlob = new Blob([arrayBuffer]);
+                const bitmap = await createImageBitmap(imgBlob);
+                const cvs = document.createElement("canvas");
+                cvs.width = bitmap.width;
+                cvs.height = bitmap.height;
+                const ctx = cvs.getContext("2d")!;
+                ctx.drawImage(bitmap, 0, 0);
+                bitmap.close();
+                const jpegBlob: Blob = await new Promise(res => cvs.toBlob(b => res(b!), "image/jpeg", 0.92));
+                const jpegBuf = await jpegBlob.arrayBuffer();
+                image = await mergedPdf.embedJpg(new Uint8Array(jpegBuf));
+              }
 
               const A4_W = 595, A4_H = 842, MARGIN = 20;
               const scale = Math.min((A4_W - 2 * MARGIN) / image.width, (A4_H - 2 * MARGIN) / image.height, 1);
