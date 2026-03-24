@@ -3414,6 +3414,19 @@ _Envoyé depuis DébalePro_`;
                 className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>
+            <div>
+              <Label className="text-[10px] sm:text-xs flex items-center gap-1">
+                📐 N° Cadastre
+                {cadastreLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+              </Label>
+              <Input
+                type="text"
+                placeholder={cadastreLoading ? "Recherche..." : "ex: DN 0113"}
+                value={numeroCadastre}
+                onChange={(e) => setNumeroCadastre(e.target.value)}
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              />
+            </div>
           </CardContent>
         </Card>
 
