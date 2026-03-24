@@ -2152,6 +2152,7 @@ const EtudeForm = () => {
       inclinaison: Number(inclinaison) || 0,
       typeCompteurElectrique: typeCompteurElectrique || "Non défini",
       numeroPdl: numeroPdl,
+      numeroCadastre: numeroCadastre || "",
       typeRaccordement: typeRaccordement || "Non défini",
       amperageDisjoncteur: Number(amperageDisjoncteur) || 0,
       emplacementBoitier: emplacementBoitier || "Non défini",
