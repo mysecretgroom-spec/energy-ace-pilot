@@ -2585,9 +2585,19 @@ _Envoyé depuis DébalePro_`;
                 )}
               </div>
               {clientVille && (
-                <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                  {clientCodePostal} {clientVille}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {clientCodePostal} {clientVille}
+                  </p>
+                  {numeroCadastre && (
+                    <Badge variant="outline" className="text-[8px] sm:text-[9px] bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
+                      📐 {numeroCadastre}
+                    </Badge>
+                  )}
+                  {cadastreLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                  )}
+                </div>
               )}
             </div>
             {/* Auto-save indicator and HEJJA Mode Switch */}
