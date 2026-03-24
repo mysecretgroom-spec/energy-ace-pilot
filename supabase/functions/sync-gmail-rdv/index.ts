@@ -38,10 +38,11 @@ async function classifyEmailIntent(subject: string, bodyPreview: string): Promis
 
 Analyse le SUJET et le CONTENU de l'email et retourne EXACTEMENT l'un de ces mots-clés :
 
-"nouveau_rdv" - Un NOUVEAU rendez-vous commercial (étude, visite prospect) pour un client qui n'existe pas encore. Inclut :
+"nouveau_rdv" - Un NOUVEAU rendez-vous commercial (étude, visite prospect). Inclut :
   - Prise de RDV, confirmation de RDV commercial
   - Fiche prospect/lead avec coordonnées client
   - Attribution de lead ou nouveau prospect à visiter
+  - ⚠️ IMPORTANT: Un email contenant un NOM + ADRESSE + DATE/HEURE de RDV est TOUJOURS un "nouveau_rdv", même si le client existe déjà dans la base (c'est un R2, un nouveau créneau, ou un renvoi par la régie). Ne le classe PAS en "mise_a_jour".
 
 "installation" - Un rendez-vous d'INSTALLATION planifié (le jour où l'installateur pose le matériel, ou visite de conformité/signature finale). Indices :
   - Mots : "installation", "pose", "date d'installation", "rendez-vous technique", "pose du matériel", "date de pose", "technicien", "installateur", "DAT", "dossier posé"
@@ -55,6 +56,7 @@ Analyse le SUJET et le CONTENU de l'email et retourne EXACTEMENT l'un de ces mot
   - Confirmation d'installation réalisée, dossier finalisé, paiement reçu, financement accordé
   - Changement de statut de vente
   - CQ fait, livraison, vente annulée
+  - ⚠️ NE CLASSE PAS en "mise_a_jour" si l'email contient une DATE + HEURE de rendez-vous avec un nom et une adresse → c'est un "nouveau_rdv"
 
 "ignore" - Tout le reste :
   - Newsletter, publicité, promotion
