@@ -231,6 +231,8 @@ const EtudeForm = () => {
   const [typeCompteurElectrique, setTypeCompteurElectrique] = useState("");
   const [numeroPdl, setNumeroPdl] = useState("");
   const [typeRaccordement, setTypeRaccordement] = useState("");
+  const [numeroCadastre, setNumeroCadastre] = useState("");
+  const [cadastreLoading, setCadastreLoading] = useState(false);
 
   // === TABLEAU ÉLECTRIQUE ===
   const [amperageDisjoncteur, setAmperageDisjoncteur] = useState<number | "">("");
@@ -842,6 +844,7 @@ const EtudeForm = () => {
       setTypeCompteurElectrique(etude.type_compteur_electrique || "Linky");
       setNumeroPdl(etude.numero_pdl || "");
       setTypeRaccordement(etude.type_raccordement || "MONOPHASÉ");
+      if ((etude as any).numero_cadastre) setNumeroCadastre((etude as any).numero_cadastre);
       // Tableau électrique (PV)
       setAmperageDisjoncteur(etude.amperage_disjoncteur || 45);
       setEmplacementBoitier(etude.emplacement_boitier || "À côté");
