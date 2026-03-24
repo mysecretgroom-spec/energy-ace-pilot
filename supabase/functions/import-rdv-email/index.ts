@@ -154,7 +154,15 @@ Certains emails contiennent des données dans des éléments HTML masqués (disp
 
 6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
-7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville. L'adresse complète est OBLIGATOIRE. Cherche-la dans TOUS les champs (sujet, corps, iCal LOCATION, signature).
+7. **ADRESSE** - ⚠️ RÈGLE CRITIQUE ANTI-MÉLANGE ⚠️
+   - Sépare TOUJOURS: adresse (numéro + rue UNIQUEMENT), code_postal (5 chiffres), ville.
+   - L'adresse, le code postal et la ville DOIVENT provenir de la MÊME ligne/section de l'email. Ne mélange JAMAIS une rue d'un endroit avec une ville d'un autre endroit.
+   - Si l'email contient PLUSIEURS adresses (client + bureau + expéditeur), prends celle qui est EXPLICITEMENT liée au RDV/client (étiquetée "Adresse", "Adresse du RDV", "Lieu", "LOCATION").
+   - NE PRENDS PAS l'adresse de la signature de l'expéditeur ni l'adresse du siège de la régie.
+   - Le champ "adresse" ne doit contenir QUE le numéro et le nom de la rue (ex: "21 ROUTE DES POIRIERS"), JAMAIS le code postal ou la ville dedans.
+   - Le champ "ville" doit correspondre au code_postal. Par exemple, 19240 → communes du département 19, PAS une ville du 75 ou du 33.
+   - Si tu trouves une adresse dans un champ iCal LOCATION (ex: "21 route des Poiriers 19240 Saint-Viance"), décompose-la correctement.
+   - En cas de doute entre deux adresses, préfère celle qui est proche d'un champ "Code postal" ou "Ville" dans l'email.
 
 8. **PRÉNOM** - Le prénom est OBLIGATOIRE. Cherche-le dans tous les champs disponibles. Si le nom complet est sur une seule ligne (ex: "DUPONT Jean"), sépare nom et prénom.
 
@@ -204,6 +212,54 @@ RETOURNE UNIQUEMENT LE JSON, sans markdown ni commentaires.`;
   } catch (error) {
     console.error("AI extraction error:", error);
     return null;
+  }
+}
+
+/**
+ * Cross-validate postal code and city using the French government API.
+ * If they don't match, correct the city to match the postal code.
+ */
+async function validateAndCorrectAddress(extracted: ExtractedLead): Promise<void> {
+  const cp = extracted.ADRESSE?.code_postal;
+  const ville = extracted.ADRESSE?.ville;
+  
+  if (!cp || !ville) return;
+  
+  try {
+    const response = await fetch(
+      `https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom,codesPostaux&limit=20`
+    );
+    if (!response.ok) return;
+    
+    const communes: Array<{ nom: string; codesPostaux: string[] }> = await response.json();
+    if (!communes || communes.length === 0) return;
+    
+    // Normalize for comparison
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-_']/g, " ").trim();
+    const villeNorm = normalize(ville);
+    
+    // Check if current city matches any commune for this postal code
+    const match = communes.find(c => {
+      const cNorm = normalize(c.nom);
+      return cNorm === villeNorm || cNorm.includes(villeNorm) || villeNorm.includes(cNorm);
+    });
+    
+    if (!match) {
+      // City doesn't match postal code — correct it
+      // Pick the most likely commune (first result from API, usually the main one)
+      const correctedCity = communes[0].nom;
+      console.warn(`[Address validation] City "${ville}" does NOT match CP ${cp}. Communes for this CP: [${communes.map(c => c.nom).join(", ")}]. Correcting to "${correctedCity}"`);
+      extracted.ADRESSE!.ville = correctedCity;
+    } else {
+      // Use the official spelling from the API
+      if (normalize(match.nom) === villeNorm && match.nom !== ville) {
+        console.log(`[Address validation] Normalizing city spelling: "${ville}" → "${match.nom}"`);
+        extracted.ADRESSE!.ville = match.nom;
+      }
+      console.log(`[Address validation] ✓ City "${ville}" matches CP ${cp}`);
+    }
+  } catch (e) {
+    console.warn("[Address validation] API call failed, skipping validation:", e);
   }
 }
 
@@ -369,6 +425,11 @@ serve(async (req) => {
       } else {
         console.log("No phone found by AI or regex fallback");
       }
+    }
+
+    // ── ADDRESS CROSS-VALIDATION: verify city matches postal code ──
+    if (extracted.ADRESSE?.code_postal && extracted.ADRESSE?.ville) {
+      await validateAndCorrectAddress(extracted);
     }
 
     const validated = validateLeadData(extracted);
