@@ -346,15 +346,32 @@ function validateLeadData(extracted: ExtractedLead): ValidatedLead | null {
   }
 }
 
+function getLastSundayOfMonth(year: number, month: number): number {
+  // month is 1-indexed (3=March, 10=October)
+  // Find last Sunday: start from last day and go back
+  const lastDay = new Date(year, month, 0).getDate(); // last day of month
+  const lastDayOfWeek = new Date(year, month - 1, lastDay).getDay(); // 0=Sunday
+  return lastDay - lastDayOfWeek;
+}
+
+function isCETSummerTime(year: number, month: number, day: number): boolean {
+  // CET summer time: last Sunday of March 02:00 → last Sunday of October 03:00
+  if (month < 3 || month > 10) return false;
+  if (month > 3 && month < 10) return true;
+  const lastSunday = getLastSundayOfMonth(year, month);
+  if (month === 3) return day >= lastSunday;
+  // month === 10
+  return day < lastSunday;
+}
+
 function buildDateHeure(date: string | undefined, heure: string | undefined): string {
   if (date) {
     const time = heure || "09:00";
-    const month = parseInt(date.split("-")[1], 10);
-    const day = parseInt(date.split("-")[2], 10);
-    const isSummerTime = (month > 3 && month < 10) ||
-      (month === 3 && day >= 25) ||
-      (month === 10 && day <= 27);
-    const offset = isSummerTime ? "+02:00" : "+01:00";
+    const [yearStr, monthStr, dayStr] = date.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+    const offset = isCETSummerTime(year, month, day) ? "+02:00" : "+01:00";
     return `${date}T${time}:00${offset}`;
   }
   // Default: tomorrow 09:00
