@@ -1,0 +1,1 @@
+UPDATE data_tarifs_revente SET prix_kwh = 0.15 WHERE id = '6f7832ae-936a-4ddd-99b8-a5191c3e6dca';
