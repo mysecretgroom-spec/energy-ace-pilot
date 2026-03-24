@@ -1493,6 +1493,7 @@ const EtudeForm = () => {
       type_raccordement: hasPV ? typeRaccordement : null,
       // Tableau électrique (PV)
       amperage_disjoncteur: hasPV && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      numero_cadastre: numeroCadastre || null,
       emplacement_boitier: hasPV ? (emplacementBoitier || null) : null,
       // Résultat visite
       potentiel_faisabilite: potentielFaisabilite || null,
@@ -1859,6 +1860,7 @@ const EtudeForm = () => {
       numero_pdl: productType === "PV" ? (numeroPdl || null) : null,
       type_raccordement: productType === "PV" ? typeRaccordement : null,
       amperage_disjoncteur: productType === "PV" && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      numero_cadastre: numeroCadastre || null,
       emplacement_boitier: productType === "PV" ? (emplacementBoitier || null) : null,
       potentiel_faisabilite: potentielFaisabilite || null,
       puissance_kwc: productType === "PV" && puissanceKwc ? Number(puissanceKwc) : null,
