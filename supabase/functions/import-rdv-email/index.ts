@@ -154,7 +154,15 @@ Certains emails contiennent des données dans des éléments HTML masqués (disp
 
 6. **RÈGLE ABSOLUE** - Si une info n'est pas dans l'email, NE METS PAS le champ. Jamais "INCONNU".
 
-7. **ADRESSE** - Sépare toujours: adresse (numéro + rue), code_postal (5 chiffres), ville. L'adresse complète est OBLIGATOIRE. Cherche-la dans TOUS les champs (sujet, corps, iCal LOCATION, signature).
+7. **ADRESSE** - ⚠️ RÈGLE CRITIQUE ANTI-MÉLANGE ⚠️
+   - Sépare TOUJOURS: adresse (numéro + rue UNIQUEMENT), code_postal (5 chiffres), ville.
+   - L'adresse, le code postal et la ville DOIVENT provenir de la MÊME ligne/section de l'email. Ne mélange JAMAIS une rue d'un endroit avec une ville d'un autre endroit.
+   - Si l'email contient PLUSIEURS adresses (client + bureau + expéditeur), prends celle qui est EXPLICITEMENT liée au RDV/client (étiquetée "Adresse", "Adresse du RDV", "Lieu", "LOCATION").
+   - NE PRENDS PAS l'adresse de la signature de l'expéditeur ni l'adresse du siège de la régie.
+   - Le champ "adresse" ne doit contenir QUE le numéro et le nom de la rue (ex: "21 ROUTE DES POIRIERS"), JAMAIS le code postal ou la ville dedans.
+   - Le champ "ville" doit correspondre au code_postal. Par exemple, 19240 → communes du département 19, PAS une ville du 75 ou du 33.
+   - Si tu trouves une adresse dans un champ iCal LOCATION (ex: "21 route des Poiriers 19240 Saint-Viance"), décompose-la correctement.
+   - En cas de doute entre deux adresses, préfère celle qui est proche d'un champ "Code postal" ou "Ville" dans l'email.
 
 8. **PRÉNOM** - Le prénom est OBLIGATOIRE. Cherche-le dans tous les champs disponibles. Si le nom complet est sur une seule ligne (ex: "DUPONT Jean"), sépare nom et prénom.
 
