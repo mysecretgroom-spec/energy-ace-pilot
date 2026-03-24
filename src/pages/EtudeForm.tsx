@@ -231,6 +231,8 @@ const EtudeForm = () => {
   const [typeCompteurElectrique, setTypeCompteurElectrique] = useState("");
   const [numeroPdl, setNumeroPdl] = useState("");
   const [typeRaccordement, setTypeRaccordement] = useState("");
+  const [numeroCadastre, setNumeroCadastre] = useState("");
+  const [cadastreLoading, setCadastreLoading] = useState(false);
 
   // === TABLEAU ÉLECTRIQUE ===
   const [amperageDisjoncteur, setAmperageDisjoncteur] = useState<number | "">("");
@@ -508,7 +510,41 @@ const EtudeForm = () => {
     init();
   }, [clientId, etudeId, rdvId]);
 
-  // Restore form from sessionStorage draft
+  // ═══ Auto-lookup cadastre from address via BAN + IGN ═══
+  useEffect(() => {
+    if (!clientAdresse || !clientCodePostal || numeroCadastre) return;
+    const lookup = async () => {
+      setCadastreLoading(true);
+      try {
+        // Step 1: Get coordinates from BAN
+        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(clientAdresse)}&postcode=${clientCodePostal}&limit=1`;
+        const banRes = await fetch(banUrl);
+        if (!banRes.ok) return;
+        const banData = await banRes.json();
+        const feature = banData.features?.[0];
+        if (!feature) return;
+        const [lng, lat] = feature.geometry.coordinates;
+        
+        // Step 2: Reverse geocode to find cadastral parcel via IGN
+        const ignUrl = `https://data.geopf.fr/geocodage/reverse?lon=${lng}&lat=${lat}&index=parcel&limit=1`;
+        const ignRes = await fetch(ignUrl);
+        if (!ignRes.ok) return;
+        const ignData = await ignRes.json();
+        const parcel = ignData.features?.[0]?.properties;
+        if (!parcel) return;
+        
+        const cadastreRef = `${parcel.section} ${parcel.number}`;
+        setNumeroCadastre(cadastreRef);
+      } catch (e) {
+        console.warn("[Cadastre] Lookup failed:", e);
+      } finally {
+        setCadastreLoading(false);
+      }
+    };
+    const timer = setTimeout(lookup, 500);
+    return () => clearTimeout(timer);
+  }, [clientAdresse, clientCodePostal]);
+
   const restoreFormFromDraft = (draft: Record<string, any>) => {
     console.log("[EtudeForm] Restoring draft from sessionStorage");
     
@@ -842,6 +878,7 @@ const EtudeForm = () => {
       setTypeCompteurElectrique(etude.type_compteur_electrique || "Linky");
       setNumeroPdl(etude.numero_pdl || "");
       setTypeRaccordement(etude.type_raccordement || "MONOPHASÉ");
+      if ((etude as any).numero_cadastre) setNumeroCadastre((etude as any).numero_cadastre);
       // Tableau électrique (PV)
       setAmperageDisjoncteur(etude.amperage_disjoncteur || 45);
       setEmplacementBoitier(etude.emplacement_boitier || "À côté");
@@ -1456,6 +1493,7 @@ const EtudeForm = () => {
       type_raccordement: hasPV ? typeRaccordement : null,
       // Tableau électrique (PV)
       amperage_disjoncteur: hasPV && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      numero_cadastre: numeroCadastre || null,
       emplacement_boitier: hasPV ? (emplacementBoitier || null) : null,
       // Résultat visite
       potentiel_faisabilite: potentielFaisabilite || null,
@@ -1822,6 +1860,7 @@ const EtudeForm = () => {
       numero_pdl: productType === "PV" ? (numeroPdl || null) : null,
       type_raccordement: productType === "PV" ? typeRaccordement : null,
       amperage_disjoncteur: productType === "PV" && amperageDisjoncteur ? Number(amperageDisjoncteur) : null,
+      numero_cadastre: numeroCadastre || null,
       emplacement_boitier: productType === "PV" ? (emplacementBoitier || null) : null,
       potentiel_faisabilite: potentielFaisabilite || null,
       puissance_kwc: productType === "PV" && puissanceKwc ? Number(puissanceKwc) : null,
@@ -2113,6 +2152,7 @@ const EtudeForm = () => {
       inclinaison: Number(inclinaison) || 0,
       typeCompteurElectrique: typeCompteurElectrique || "Non défini",
       numeroPdl: numeroPdl,
+      numeroCadastre: numeroCadastre || "",
       typeRaccordement: typeRaccordement || "Non défini",
       amperageDisjoncteur: Number(amperageDisjoncteur) || 0,
       emplacementBoitier: emplacementBoitier || "Non défini",
@@ -2546,9 +2586,19 @@ _Envoyé depuis DébalePro_`;
                 )}
               </div>
               {clientVille && (
-                <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                  {clientCodePostal} {clientVille}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {clientCodePostal} {clientVille}
+                  </p>
+                  {numeroCadastre && (
+                    <Badge variant="outline" className="text-[8px] sm:text-[9px] bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
+                      📐 {numeroCadastre}
+                    </Badge>
+                  )}
+                  {cadastreLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                  )}
+                </div>
               )}
             </div>
             {/* Auto-save indicator and HEJJA Mode Switch */}
@@ -3362,6 +3412,19 @@ _Envoyé depuis DébalePro_`;
                 placeholder="ex: 16271345864078"
                 value={numeroPdl}
                 onChange={(e) => setNumeroPdl(e.target.value)}
+                className="h-8 sm:h-9 text-xs sm:text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] sm:text-xs flex items-center gap-1">
+                📐 N° Cadastre
+                {cadastreLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+              </Label>
+              <Input
+                type="text"
+                placeholder={cadastreLoading ? "Recherche..." : "ex: DN 0113"}
+                value={numeroCadastre}
+                onChange={(e) => setNumeroCadastre(e.target.value)}
                 className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>

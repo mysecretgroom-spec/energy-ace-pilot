@@ -1492,6 +1492,7 @@ export type Database = {
           mode_hejja_psh: boolean | null
           nombre_panneaux: number | null
           notes: string | null
+          numero_cadastre: string | null
           numero_pdl: string | null
           ombre_toiture: string | null
           orientation: string | null
@@ -1595,6 +1596,7 @@ export type Database = {
           mode_hejja_psh?: boolean | null
           nombre_panneaux?: number | null
           notes?: string | null
+          numero_cadastre?: string | null
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null
@@ -1698,6 +1700,7 @@ export type Database = {
           mode_hejja_psh?: boolean | null
           nombre_panneaux?: number | null
           notes?: string | null
+          numero_cadastre?: string | null
           numero_pdl?: string | null
           ombre_toiture?: string | null
           orientation?: string | null

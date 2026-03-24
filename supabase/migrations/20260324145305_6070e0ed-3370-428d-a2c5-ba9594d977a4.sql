@@ -1,0 +1,1 @@
+ALTER TABLE public.etudes ADD COLUMN numero_cadastre text;

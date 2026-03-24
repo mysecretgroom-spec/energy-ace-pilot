@@ -77,6 +77,7 @@ interface EtudeData {
   // Compteur
   typeCompteurElectrique: string;
   numeroPdl: string;
+  numeroCadastre?: string;
   typeRaccordement: string;
   amperageDisjoncteur: number;
   emplacementBoitier: string;
@@ -496,6 +497,7 @@ const drawBeneficiaire = (doc: jsPDF, data: EtudeData, yPos: number): number => 
       ["Ville", `${data.clientCodePostal} ${data.clientVille}`],
       ["Département", data.departement],
       ["N° PDL", data.numeroPdl || "Non renseigné"],
+      ["N° Cadastre", data.numeroCadastre || "Non renseigné"],
     ],
     theme: "plain",
     styles: { fontSize: 9, cellPadding: 2, textColor: grisTexte },
