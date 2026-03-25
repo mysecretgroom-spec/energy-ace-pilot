@@ -16,7 +16,6 @@ interface GeocodeResponse {
   source?: string;
 }
 
-// ─── BAN (Base Adresse Nationale) — primary geocoder ───
 interface BANFeature {
   geometry: { coordinates: [number, number] };
   properties: {
@@ -24,23 +23,23 @@ interface BANFeature {
     score: number;
     postcode?: string;
     city?: string;
-    type: string; // housenumber | street | locality | municipality
+    type: string;
+    name?: string;
+    housenumber?: string;
+    street?: string;
   };
 }
 
-async function geocodeBAN(query: string, postcode?: string, cityHint?: string): Promise<BANFeature[]> {
-  const params = new URLSearchParams({ q: query, limit: "5" });
-  if (postcode) params.set("postcode", postcode);
-  // cityHint is used in scoring, not sent to API (it would restrict too much)
+// ─── BAN helpers ───
 
+async function banSearch(query: string, postcode?: string): Promise<BANFeature[]> {
+  const params = new URLSearchParams({ q: query, limit: "10" });
+  if (postcode) params.set("postcode", postcode);
   try {
     const url = `https://api-adresse.data.gouv.fr/search/?${params}`;
     console.log(`[Geocode:BAN] GET ${url}`);
     const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`[Geocode:BAN] HTTP ${res.status}`);
-      return [];
-    }
+    if (!res.ok) return [];
     const data = await res.json();
     return (data.features || []) as BANFeature[];
   } catch (e) {
@@ -49,39 +48,24 @@ async function geocodeBAN(query: string, postcode?: string, cityHint?: string): 
   }
 }
 
-function scoreBAN(f: BANFeature, expectedPostal?: string, expectedCity?: string): number {
-  let s = f.properties.score * 100; // BAN score is 0-1
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_']/g, " ").replace(/\s+/g, " ").trim();
 
-  // Type bonus: precise types are better
-  if (f.properties.type === "housenumber") s += 30;
-  else if (f.properties.type === "street") s += 15;
-  else if (f.properties.type === "locality") s += 10;
-
-  // Postal code match
-  if (expectedPostal && f.properties.postcode) {
-    if (f.properties.postcode === expectedPostal) s += 50;
-    else if (f.properties.postcode.substring(0, 2) === expectedPostal.substring(0, 2)) s += 10;
-    else s -= 100; // Wrong department
-  }
-
-  // City match
-  if (expectedCity && f.properties.city) {
-    const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_']/g, " ").trim();
-    const a = norm(expectedCity), b = norm(f.properties.city);
-    if (a === b) s += 40;
-    else if (a.includes(b) || b.includes(a)) s += 20;
-  }
-
-  return s;
+function cityMatch(a: string, b: string): boolean {
+  const na = normalize(a), nb = normalize(b);
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
-function pickBestBAN(features: BANFeature[], postal?: string, city?: string): BANFeature | null {
-  if (!features.length) return null;
-  const scored = features.map(f => ({ f, s: scoreBAN(f, postal, city) }));
-  scored.sort((a, b) => b.s - a.s);
-  // Require a minimum BAN score of 0.4 (very lenient)
-  if (scored[0].f.properties.score < 0.35) return null;
-  return scored[0].f;
+/** Fuzzy street match: check if the street tokens from the query appear in the BAN result */
+function streetFuzzyMatch(queryStreet: string, banLabel: string): number {
+  const qTokens = normalize(queryStreet).split(" ").filter(t => t.length > 2);
+  const bNorm = normalize(banLabel);
+  if (!qTokens.length) return 0;
+  let matched = 0;
+  for (const t of qTokens) {
+    if (bNorm.includes(t)) matched++;
+  }
+  return matched / qTokens.length; // 0-1 ratio
 }
 
 function banToResponse(f: BANFeature, extra: Partial<GeocodeResponse> = {}): Response {
@@ -101,7 +85,88 @@ function banToResponse(f: BANFeature, extra: Partial<GeocodeResponse> = {}): Res
   });
 }
 
+/**
+ * Score a BAN feature with STRICT city/postal validation.
+ * City + postal code correctness is mandatory; street is fuzzy-matched.
+ */
+function scoreBAN(
+  f: BANFeature,
+  expectedPostal?: string,
+  expectedCity?: string,
+  streetQuery?: string
+): { score: number; cityOk: boolean; postalOk: boolean } {
+  let s = 0;
+  let postalOk = true;
+  let cityOk = true;
+
+  // ── Postal code: MANDATORY match ──
+  if (expectedPostal && f.properties.postcode) {
+    if (f.properties.postcode === expectedPostal) {
+      s += 100;
+    } else if (f.properties.postcode.substring(0, 2) === expectedPostal.substring(0, 2)) {
+      s -= 50; // same department but wrong commune
+      postalOk = false;
+    } else {
+      s -= 500; // completely wrong
+      postalOk = false;
+    }
+  }
+
+  // ── City: MANDATORY match ──
+  if (expectedCity && f.properties.city) {
+    if (cityMatch(expectedCity, f.properties.city)) {
+      s += 80;
+    } else {
+      s -= 300;
+      cityOk = false;
+    }
+  }
+
+  // ── Street: fuzzy match (bonus, not mandatory) ──
+  if (streetQuery) {
+    const ratio = streetFuzzyMatch(streetQuery, f.properties.label);
+    s += ratio * 60; // up to +60 for perfect street match
+  }
+
+  // ── Type bonus ──
+  if (f.properties.type === "housenumber") s += 30;
+  else if (f.properties.type === "street") s += 15;
+  else if (f.properties.type === "locality") s += 10;
+
+  // Base BAN score
+  s += f.properties.score * 20;
+
+  return { score: s, cityOk, postalOk };
+}
+
+function pickBestBAN(
+  features: BANFeature[],
+  postal?: string,
+  city?: string,
+  street?: string
+): BANFeature | null {
+  if (!features.length) return null;
+
+  const scored = features.map(f => {
+    const r = scoreBAN(f, postal, city, street);
+    return { f, ...r };
+  });
+
+  // First: only consider results where city AND postal match
+  const valid = scored.filter(x => x.cityOk && x.postalOk);
+  if (valid.length) {
+    valid.sort((a, b) => b.score - a.score);
+    if (valid[0].f.properties.score >= 0.3) {
+      return valid[0].f;
+    }
+  }
+
+  // If no valid result, don't return anything with wrong city/postal
+  return null;
+}
+
 // ─── Nominatim fallback ───
+
 interface NominatimResult {
   lat: number;
   lon: number;
@@ -144,34 +209,20 @@ async function geocodeNominatim(query: string): Promise<NominatimResult[]> {
   return [];
 }
 
-function getDepartment(postalCode: string): string {
-  if (postalCode.startsWith("97") || postalCode.startsWith("98")) return postalCode.substring(0, 3);
-  return postalCode.substring(0, 2);
-}
-
-function scoreNominatim(r: NominatimResult, city?: string, postal?: string): number {
-  let s = 0;
-  if (postal) {
-    const rp = r.address?.postcode;
-    if (rp === postal) s += 100;
-    else if (rp && getDepartment(rp) === getDepartment(postal)) s += 50;
-    else s -= 200;
-  }
-  if (city) {
-    const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-_']/g, " ").trim();
-    const exp = norm(city);
-    const candidates = [r.address?.city, r.address?.town, r.address?.village, r.address?.municipality].filter(Boolean).map(c => norm(c!));
-    if (candidates.some(c => c === exp || c.includes(exp) || exp.includes(c))) s += 80;
-  }
-  return s;
+function nominatimCityMatch(r: NominatimResult, city: string): boolean {
+  const candidates = [r.address?.city, r.address?.town, r.address?.village, r.address?.municipality].filter(Boolean);
+  return candidates.some(c => cityMatch(c!, city));
 }
 
 function pickBestNominatim(results: NominatimResult[], city?: string, postal?: string): NominatimResult | null {
   if (!results.length) return null;
-  const scored = results.map(r => ({ r, s: scoreNominatim(r, city, postal) }));
-  scored.sort((a, b) => b.s - a.s);
-  if (scored[0].s >= 50) return scored[0].r;
-  return null;
+  // Filter by postal + city first
+  const filtered = results.filter(r => {
+    if (postal && r.address?.postcode !== postal) return false;
+    if (city && !nominatimCityMatch(r, city)) return false;
+    return true;
+  });
+  return filtered.length ? filtered[0] : null;
 }
 
 function nominatimToResponse(r: NominatimResult, extra: Partial<GeocodeResponse> = {}): Response {
@@ -188,6 +239,18 @@ function nominatimToResponse(r: NominatimResult, extra: Partial<GeocodeResponse>
     status: 200,
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
+}
+
+/** Extract the street part from the full address by removing postal/city */
+function extractStreet(address: string, city?: string, postalCode?: string): string {
+  let street = address;
+  if (postalCode) {
+    street = street.replace(new RegExp(postalCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g"), "");
+  }
+  if (city) {
+    street = street.replace(new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi"), "");
+  }
+  return street.replace(/[,\s]+/g, " ").trim();
 }
 
 serve(async (req) => {
@@ -207,83 +270,95 @@ serve(async (req) => {
 
     console.log(`[Geocode] Input: address="${address}" city="${city || ""}" cp="${postal_code || ""}"`);
 
-    // ── Step 1: BAN full address (with postcode filter if available) ──
-    const banResults = await geocodeBAN(address, postal_code, city);
-    const bestBan = pickBestBAN(banResults, postal_code, city);
-    if (bestBan) {
-      console.log(`[Geocode] ✓ BAN match: ${bestBan.properties.label} (score=${bestBan.properties.score}, type=${bestBan.properties.type})`);
-      return banToResponse(bestBan);
-    }
+    const streetPart = extractStreet(address, city, postal_code);
+    console.log(`[Geocode] Street extracted: "${streetPart}"`);
 
-    // ── Step 2: BAN structured — extract street, combine with city/cp ──
-    if (city && postal_code) {
-      const streetPart = address
-        .replace(new RegExp(postal_code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "g"), "")
-        .replace(new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi"), "")
-        .replace(/\s{2,}/g, " ")
-        .trim();
-      if (streetPart.length > 3) {
-        const structured = `${streetPart} ${postal_code} ${city}`;
-        console.log(`[Geocode] BAN structured: "${structured}"`);
-        const banStructured = await geocodeBAN(structured, postal_code, city);
-        const bestStructured = pickBestBAN(banStructured, postal_code, city);
-        if (bestStructured) {
-          console.log(`[Geocode] ✓ BAN structured match: ${bestStructured.properties.label}`);
-          return banToResponse(bestStructured, { corrected: true, correction_applied: "Recherche structurée BAN" });
-        }
+    // ── Strategy 1: Full structured query "street CP city" with postcode filter ──
+    if (city && postal_code && streetPart.length > 2) {
+      const structuredQuery = `${streetPart} ${postal_code} ${city}`;
+      console.log(`[Geocode] Step 1 — Structured: "${structuredQuery}"`);
+      const results = await banSearch(structuredQuery, postal_code);
+      const best = pickBestBAN(results, postal_code, city, streetPart);
+      if (best) {
+        console.log(`[Geocode] ✓ Structured match: ${best.properties.label} (type=${best.properties.type})`);
+        return banToResponse(best);
       }
     }
 
-    // ── Step 3: Nominatim fallback ──
-    console.log(`[Geocode] BAN failed, trying Nominatim...`);
-    const nomResults = await geocodeNominatim(address);
-    const bestNom = pickBestNominatim(nomResults, city, postal_code);
-    if (bestNom) {
-      // Cross-validate with BAN: send Nominatim coords to BAN reverse
-      try {
-        const reverseUrl = `https://api-adresse.data.gouv.fr/reverse/?lon=${bestNom.lon}&lat=${bestNom.lat}`;
-        const reverseRes = await fetch(reverseUrl);
-        if (reverseRes.ok) {
-          const reverseData = await reverseRes.json();
-          const rf = reverseData.features?.[0] as BANFeature | undefined;
-          if (rf && postal_code && rf.properties.postcode !== postal_code) {
-            console.warn(`[Geocode] Nominatim/BAN cross-validation mismatch: Nominatim CP=${bestNom.address?.postcode}, BAN reverse CP=${rf.properties.postcode}, expected=${postal_code}`);
-            // Don't use this result — fall through to city fallback
-          } else {
-            console.log(`[Geocode] ✓ Nominatim match (BAN-validated): ${bestNom.display_name}`);
-            return nominatimToResponse(bestNom);
+    // ── Strategy 2: BAN with raw address + postcode filter ──
+    {
+      console.log(`[Geocode] Step 2 — Raw address with postcode filter`);
+      const results = await banSearch(address, postal_code);
+      const best = pickBestBAN(results, postal_code, city, streetPart);
+      if (best) {
+        console.log(`[Geocode] ✓ Raw match: ${best.properties.label}`);
+        return banToResponse(best);
+      }
+    }
+
+    // ── Strategy 3: BAN street-only in city context ──
+    if (city && postal_code && streetPart.length > 2) {
+      console.log(`[Geocode] Step 3 — Street-only: "${streetPart}" in ${postal_code}`);
+      const results = await banSearch(streetPart, postal_code);
+      const best = pickBestBAN(results, postal_code, city, streetPart);
+      if (best) {
+        console.log(`[Geocode] ✓ Street-only match: ${best.properties.label}`);
+        return banToResponse(best, { corrected: true, correction_applied: "Recherche par rue dans la commune" });
+      }
+    }
+
+    // ── Strategy 4: Nominatim fallback (strict city/postal filter) ──
+    if (city && postal_code) {
+      console.log(`[Geocode] Step 4 — Nominatim fallback`);
+      const fullQuery = `${streetPart} ${postal_code} ${city}`;
+      const nomResults = await geocodeNominatim(fullQuery);
+      const bestNom = pickBestNominatim(nomResults, city, postal_code);
+      if (bestNom) {
+        // Cross-validate with BAN reverse
+        try {
+          const reverseUrl = `https://api-adresse.data.gouv.fr/reverse/?lon=${bestNom.lon}&lat=${bestNom.lat}`;
+          const reverseRes = await fetch(reverseUrl);
+          if (reverseRes.ok) {
+            const reverseData = await reverseRes.json();
+            const rf = reverseData.features?.[0] as BANFeature | undefined;
+            if (rf && rf.properties.postcode === postal_code) {
+              console.log(`[Geocode] ✓ Nominatim (BAN-validated): ${bestNom.display_name}`);
+              return nominatimToResponse(bestNom);
+            } else {
+              console.warn(`[Geocode] Nominatim/BAN cross-validation mismatch, skipping`);
+            }
           }
+        } catch {
+          // If reverse fails, still use Nominatim if city/postal matched
+          console.log(`[Geocode] ✓ Nominatim (no BAN validation): ${bestNom.display_name}`);
+          return nominatimToResponse(bestNom);
         }
-      } catch {
-        // If reverse fails, still use Nominatim result
-        console.log(`[Geocode] ✓ Nominatim match (no BAN validation): ${bestNom.display_name}`);
-        return nominatimToResponse(bestNom);
       }
     }
 
-    // ── Step 4: BAN city+CP only (approximate) ──
+    // ── Strategy 5: BAN city+CP approximate (centroid) ──
     if (city && postal_code) {
-      const cityQuery = `${city}`;
-      console.log(`[Geocode] BAN city fallback: "${cityQuery}" postcode=${postal_code}`);
-      const cityResults = await geocodeBAN(cityQuery, postal_code);
+      console.log(`[Geocode] Step 5 — City centroid fallback: "${city}" ${postal_code}`);
+      const cityResults = await banSearch(city, postal_code);
       if (cityResults.length > 0) {
-        const best = cityResults[0];
-        console.log(`[Geocode] ✓ BAN city fallback: ${best.properties.label}`);
-        return banToResponse(best, {
+        // Pick the municipality-type result
+        const muni = cityResults.find(f => f.properties.type === "municipality") || cityResults[0];
+        console.log(`[Geocode] ✓ City centroid: ${muni.properties.label}`);
+        return banToResponse(muni, {
           corrected: true,
           approximate: true,
           original_address: address,
-          correction_applied: "Géolocalisation par ville + code postal",
+          correction_applied: "Géolocalisation par ville + code postal (rue non trouvée)",
         });
       }
     }
 
-    // ── Step 5: CP-only fallback ──
+    // ── Strategy 6: CP-only fallback ──
     const postalMatch = (postal_code || address).match(/\b(\d{5})\b/);
     if (postalMatch) {
       const cp = postalMatch[1];
-      console.log(`[Geocode] BAN CP-only fallback: "${cp}"`);
-      const cpResults = await geocodeBAN(cp);
+      console.log(`[Geocode] Step 6 — CP-only: "${cp}"`);
+      const cpResults = await banSearch(cp);
       if (cpResults.length > 0) {
         return banToResponse(cpResults[0], {
           corrected: true,
