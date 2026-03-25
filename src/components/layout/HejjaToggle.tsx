@@ -1,44 +1,24 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
-import { useDraggablePosition } from "@/hooks/useDraggablePosition";
 import { cn } from "@/lib/utils";
 import { useTrialFeatures } from "@/hooks/useTrialFeatures";
 import { useToast } from "@/hooks/use-toast";
 
-export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_props, ref) {
+export function HejjaToggle() {
   const { user } = useAuth();
   const { isActive, activate, deactivate } = useHejjaMode();
   const { canAccess } = useTrialFeatures();
   const { toast } = useToast();
   const location = useLocation();
   
-  // Check if we're on the Etude page - make button more discreet there
   const isOnEtudePage = location.pathname.startsWith("/etude");
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showFireAnimation, setShowFireAnimation] = useState(false);
   const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
-
-  // Fixed default: bottom-right, above bottom nav (80px nav + 16px gap)
-  const defaultHejjaPos = {
-    x: typeof window !== "undefined" ? window.innerWidth - 56 : 200,
-    y: typeof window !== "undefined" ? window.innerHeight - 96 - 48 : 500,
-  };
-
-  const {
-    position: hejjaPos,
-    isDragging: isHejjaDragging,
-    hasMoved: hejjaHasMoved,
-    elementRef: hejjaRef,
-    handlers: hejjaDragHandlers,
-  } = useDraggablePosition({
-    storageKey: "hejja_btn_pos",
-    defaultPosition: defaultHejjaPos,
-  });
 
   const handleClick = () => {
     if (isActive) {
