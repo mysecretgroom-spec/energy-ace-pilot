@@ -29,6 +29,8 @@ interface RdvActionsProps {
   address: string;
   city?: string;
   postalCode?: string;
+  latitude?: number;
+  longitude?: number;
   typeRdv: RdvType;
   currentStatus: RdvStatus;
   etudeId?: string | null;
