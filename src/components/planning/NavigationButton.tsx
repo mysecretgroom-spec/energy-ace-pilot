@@ -25,7 +25,8 @@ export function NavigationButton({ address, city, postalCode, latitude, longitud
 
   const openWaze = () => {
     if (latitude && longitude) {
-      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`, "_blank");
+      // Use both coordinates AND address for accuracy
+      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&q=${encodedAddress}&navigate=yes`, "_blank");
     } else {
       window.open(`https://waze.com/ul?q=${encodedAddress}&navigate=yes`, "_blank");
     }

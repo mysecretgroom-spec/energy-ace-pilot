@@ -68,10 +68,10 @@ export function useRdvActions(options: UseRdvActionsOptions = {}) {
   };
 
   const openWaze = (address?: string, postalCode?: string, city?: string, latitude?: number, longitude?: number) => {
+    const encoded = buildEncodedAddress(address, postalCode, city);
     if (latitude && longitude) {
-      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`, "_blank");
+      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&q=${encoded}&navigate=yes`, "_blank");
     } else {
-      const encoded = buildEncodedAddress(address, postalCode, city);
       window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, "_blank");
     }
   };
