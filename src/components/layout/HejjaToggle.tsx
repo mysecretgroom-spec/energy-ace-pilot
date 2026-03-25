@@ -322,37 +322,20 @@ export function HejjaToggle() {
         </div>
       )}
 
-      {/* Full button on other pages - draggable with long press */}
-      <div
-        ref={hejjaRef}
+      {/* Header button - inline, not floating */}
+      <Button
+        variant={isActive ? "default" : "ghost"}
+        size="icon"
+        onClick={handleClick}
         className={cn(
-          "fixed z-40 touch-none select-none",
-          isHejjaDragging && "ring-2 ring-primary/50 rounded-full scale-105"
+          "h-9 w-9 rounded-full transition-all active:scale-95",
+          isActive 
+            ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700" 
+            : "hover:bg-muted"
         )}
-        style={{
-          left: `${hejjaPos.x}px`,
-          top: `${hejjaPos.y}px`,
-        }}
-        {...hejjaDragHandlers}
       >
-        <Button
-          variant={isActive ? "default" : "outline"}
-          size="icon"
-          onClick={() => {
-            if (!hejjaHasMoved.current) {
-              handleClick();
-            }
-          }}
-          className={cn(
-            "shadow-lg rounded-full h-10 w-10 transition-all active:scale-95 touch-action-manipulation",
-            isActive 
-              ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
-              : "bg-background/95 backdrop-blur border-border hover:bg-muted"
-          )}
-        >
-          <span className="text-lg">{isActive ? "😈" : "😇"}</span>
-        </Button>
-      </div>
+        <span className="text-base">{isActive ? "😈" : "😇"}</span>
+      </Button>
 
       <PinDialog
         open={showPinDialog}
@@ -790,4 +773,4 @@ export function HejjaToggle() {
       `}</style>
     </>
   );
-});
+}
