@@ -29,6 +29,8 @@ interface DayRdvCardProps {
     alert?: boolean;
     distance?: string;
     travelTime?: string;
+    latitude?: number;
+    longitude?: number;
     regieId?: string | null;
     regieNom?: string | null;
     regieCouleur?: string | null;
@@ -57,6 +59,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
       address={rdv.address}
       postalCode={rdv.postalCode}
       city={rdv.city}
+      latitude={rdv.latitude}
+      longitude={rdv.longitude}
       rdvId={rdv.id}
       clientId={rdv.clientId}
     >
@@ -227,6 +231,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 address={rdv.address}
                 city={rdv.city}
                 postalCode={rdv.postalCode}
+                latitude={rdv.latitude}
+                longitude={rdv.longitude}
                 typeRdv={rdv.typeRdv}
                 currentStatus={rdv.status}
                 etudeId={rdv.etudeId}

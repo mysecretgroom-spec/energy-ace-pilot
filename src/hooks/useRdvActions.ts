@@ -67,9 +67,13 @@ export function useRdvActions(options: UseRdvActionsOptions = {}) {
     return encodeURIComponent(full);
   };
 
-  const openWaze = (address?: string, postalCode?: string, city?: string) => {
-    const encoded = buildEncodedAddress(address, postalCode, city);
-    window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, "_blank");
+  const openWaze = (address?: string, postalCode?: string, city?: string, latitude?: number, longitude?: number) => {
+    if (latitude && longitude) {
+      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`, "_blank");
+    } else {
+      const encoded = buildEncodedAddress(address, postalCode, city);
+      window.open(`https://waze.com/ul?q=${encoded}&navigate=yes`, "_blank");
+    }
   };
 
   const openGoogleMaps = (

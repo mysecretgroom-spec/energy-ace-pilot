@@ -11,18 +11,24 @@ interface NavigationButtonProps {
   address: string;
   city?: string;
   postalCode?: string;
+  latitude?: number;
+  longitude?: number;
   className?: string;
   size?: "default" | "sm";
 }
 
-export function NavigationButton({ address, city, postalCode, className, size = "default" }: NavigationButtonProps) {
+export function NavigationButton({ address, city, postalCode, latitude, longitude, className, size = "default" }: NavigationButtonProps) {
   const fullAddress = [address, postalCode, city].filter(Boolean).join(",");
   const sizeClasses = size === "sm" ? "h-8 w-8" : "h-9 w-9";
   const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
   const encodedAddress = encodeURIComponent(fullAddress);
 
   const openWaze = () => {
-    window.open(`https://waze.com/ul?q=${encodedAddress}&navigate=yes`, "_blank");
+    if (latitude && longitude) {
+      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`, "_blank");
+    } else {
+      window.open(`https://waze.com/ul?q=${encodedAddress}&navigate=yes`, "_blank");
+    }
   };
 
   const openGoogleMaps = () => {

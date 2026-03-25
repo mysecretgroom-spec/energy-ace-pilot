@@ -19,6 +19,8 @@ interface RdvQuickActionsProps {
   address: string;
   city?: string;
   postalCode?: string;
+  latitude?: number;
+  longitude?: number;
   currentStatus: RdvStatus;
   etudeId?: string | null;
   regieId?: string | null;
@@ -36,6 +38,8 @@ export function RdvQuickActions({
   address,
   city,
   postalCode,
+  latitude,
+  longitude,
   currentStatus,
   etudeId,
   regieId,
@@ -113,6 +117,8 @@ export function RdvQuickActions({
                 address={address}
                 city={city}
                 postalCode={postalCode}
+                latitude={latitude}
+                longitude={longitude}
                 size="sm"
               />
               <Button
