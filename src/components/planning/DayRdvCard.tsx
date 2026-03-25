@@ -59,6 +59,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
       address={rdv.address}
       postalCode={rdv.postalCode}
       city={rdv.city}
+      latitude={rdv.latitude}
+      longitude={rdv.longitude}
       rdvId={rdv.id}
       clientId={rdv.clientId}
     >
