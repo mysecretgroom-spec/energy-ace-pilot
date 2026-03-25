@@ -761,45 +761,6 @@ export function AgentChat({ externalOpen, onExternalOpenChange }: AgentChatProps
 
   return (
     <>
-      {/* Floating Button - draggable with long press */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="fixed z-40"
-            style={{
-              left: `${agentPos.x}px`,
-              top: `${agentPos.y}px`,
-              pointerEvents: "auto",
-            }}
-          >
-            <div
-              ref={agentRef}
-              className={cn(
-                "touch-none select-none",
-                isAgentDragging && "ring-2 ring-primary/50 rounded-full scale-105"
-              )}
-              {...agentDragHandlers}
-            >
-              <Button
-                onClick={() => {
-                  if (!agentHasMoved.current) {
-                    setIsOpen(true);
-                  }
-                }}
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform"
-              >
-                <span className="text-lg">🤖</span>
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Hidden file input - multiple enabled */}
       <input
         ref={fileInputRef}
