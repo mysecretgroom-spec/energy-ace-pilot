@@ -9,6 +9,8 @@ interface SwipeableRdvCardProps {
   address?: string;
   postalCode?: string;
   city?: string;
+  latitude?: number;
+  longitude?: number;
   rdvId: string;
   clientId: string;
   className?: string;
