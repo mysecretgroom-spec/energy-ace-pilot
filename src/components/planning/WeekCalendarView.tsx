@@ -37,6 +37,8 @@ interface RdvData {
   typeRdv: 'standard' | 'external_installation';
   isR2?: boolean;
   etudeId?: string | null;
+  latitude?: number;
+  longitude?: number;
   regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
