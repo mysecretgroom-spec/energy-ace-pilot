@@ -52,6 +52,8 @@ export function RdvActions({
   address,
   city,
   postalCode,
+  latitude,
+  longitude,
   typeRdv,
   currentStatus,
   etudeId,
@@ -173,7 +175,9 @@ export function RdvActions({
       <NavigationButton 
         address={address} 
         city={city} 
-        postalCode={postalCode} 
+        postalCode={postalCode}
+        latitude={latitude}
+        longitude={longitude}
       />
 
       {/* Fiche client */}
