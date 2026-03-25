@@ -345,21 +345,18 @@ export function DocumentPreview({
 
           {/* Image preview */}
           {fileType === "image" && !error && (
-            <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-              <img
-                src={currentDoc.url}
-                alt={currentDoc.nom}
-                className="max-w-full max-h-full object-contain transition-transform duration-200"
-                style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                }}
-                onLoad={() => setIsLoading(false)}
-                onError={() => {
-                  setIsLoading(false);
-                  setError(true);
-                }}
-              />
-            </div>
+            <ImagePreview
+              url={currentDoc.url}
+              alt={currentDoc.nom}
+              zoom={zoom}
+              rotation={rotation}
+              resolveUrl={resolveUrl}
+              onLoad={() => setIsLoading(false)}
+              onError={() => {
+                setIsLoading(false);
+                setError(true);
+              }}
+            />
           )}
 
           {/* PDF preview using pdfjs-dist canvas */}
@@ -427,11 +424,7 @@ export function DocumentPreview({
                     }`}
                   >
                     {getFileType(doc.url) === "image" ? (
-                      <img
-                        src={doc.url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                      <ResolvedImage url={doc.url} resolveUrl={resolveUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
                         <FileText className="h-6 w-6 text-muted-foreground" />
