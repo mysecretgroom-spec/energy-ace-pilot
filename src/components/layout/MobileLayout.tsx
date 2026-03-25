@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
@@ -8,6 +8,7 @@ import { AlignmentGuides } from "./AlignmentGuides";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
+import { HejjaToggle } from "@/components/layout/HejjaToggle";
 
 interface MobileLayoutProps {
   children: ReactNode;
@@ -28,10 +29,13 @@ export const MobileLayout = ({
 }: MobileLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [agentOpen, setAgentOpen] = useState(false);
 
   // Hide RGE card on etude pages
   const isEtudePage = location.pathname.includes("/etude");
   const shouldShowRGECard = showRGECard && !isEtudePage;
+  // Hide agent chat button on etude pages
+  const shouldShowAgent = showAgentChat && !isEtudePage;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -59,6 +63,19 @@ export const MobileLayout = ({
               {title}
             </h1>
             <div className="flex items-center gap-1">
+              {/* Hejja Toggle - fixed in header */}
+              <HejjaToggle />
+              {/* Agent Chat button - fixed in header */}
+              {shouldShowAgent && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAgentOpen(true)}
+                  className="h-9 w-9 rounded-full hover:bg-muted"
+                >
+                  <span className="text-base">🤖</span>
+                </Button>
+              )}
               <NotificationBell />
               {shouldShowRGECard && <RGECardDialog />}
             </div>
@@ -72,8 +89,10 @@ export const MobileLayout = ({
       {/* Offline Indicator */}
       <OfflineIndicator />
 
-      {/* Agent Chat */}
-      {showAgentChat && <AgentChat />}
+      {/* Agent Chat - controlled by header button */}
+      {shouldShowAgent && (
+        <AgentChat externalOpen={agentOpen} onExternalOpenChange={setAgentOpen} />
+      )}
 
       {/* Alignment guides for draggable buttons */}
       <AlignmentGuides />
