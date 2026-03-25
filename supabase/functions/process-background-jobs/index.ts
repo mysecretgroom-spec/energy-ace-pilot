@@ -41,6 +41,28 @@ async function processDocumentAnalysis(payload: any, supabase: any) {
 
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+  // Skip AI vision for non-image files (PDF, etc.) — model only supports PNG, JPEG, WebP, GIF
+  const urlLower = (documentUrl || "").toLowerCase().split("?")[0];
+  const isImage = /\.(jpe?g|png|webp|gif)$/i.test(urlLower) || 
+                  (documentUrl || "").startsWith("data:image/");
+  if (!isImage) {
+    console.log(`[DocAnalysis] Skipping non-image document: ${documentName}`);
+    // Just mark as processed without AI classification
+    if (documentId) {
+      await supabase
+        .from("documents")
+        .update({
+          metadata: {
+            ai_extracted: false,
+            skip_reason: "non_image_format",
+            extraction_date: new Date().toISOString(),
+          }
+        })
+        .eq("id", documentId);
+    }
+    return { document_type: "autre", confidence: 0, skipped: true, reason: "non_image_format" };
+  }
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
