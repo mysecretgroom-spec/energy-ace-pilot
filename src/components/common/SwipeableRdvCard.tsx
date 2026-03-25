@@ -22,6 +22,8 @@ export function SwipeableRdvCard({
   address,
   postalCode,
   city,
+  latitude,
+  longitude,
   rdvId,
   clientId,
   className,
