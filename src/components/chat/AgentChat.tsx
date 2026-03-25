@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useDraggablePosition } from "@/hooks/useDraggablePosition";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -105,10 +104,15 @@ const SUGGESTIONS_TRIAL = [
   "📅 Mon planning",
 ];
 
-export function AgentChat() {
+interface AgentChatProps {
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
+}
+
+export function AgentChat({ externalOpen, onExternalOpenChange }: AgentChatProps = {}) {
   const { user } = useAuth();
   const { isTrialUser, isPremiumUser } = useTrialFeatures();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -126,22 +130,12 @@ export function AgentChat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Fixed default: bottom-right, above Hejja button (80px nav + 16px + 48px hejja + 8px gap)
-  const defaultAgentPos = useMemo(() => ({
-    x: typeof window !== "undefined" ? window.innerWidth - 56 : 200,
-    y: typeof window !== "undefined" ? window.innerHeight - 96 - 48 - 8 - 48 : 400,
-  }), []);
-
-  const {
-    position: agentPos,
-    isDragging: isAgentDragging,
-    hasMoved: agentHasMoved,
-    elementRef: agentRef,
-    handlers: agentDragHandlers,
-  } = useDraggablePosition({
-    storageKey: "agent_btn_pos",
-    defaultPosition: defaultAgentPos,
-  });
+  // Controlled or uncontrolled open state
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = (open: boolean) => {
+    if (onExternalOpenChange) onExternalOpenChange(open);
+    else setInternalOpen(open);
+  };
 
   const {
     conversations,
@@ -766,45 +760,6 @@ export function AgentChat() {
 
   return (
     <>
-      {/* Floating Button - draggable with long press */}
-      <AnimatePresence>
-        {!isOpen && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="fixed z-40"
-            style={{
-              left: `${agentPos.x}px`,
-              top: `${agentPos.y}px`,
-              pointerEvents: "auto",
-            }}
-          >
-            <div
-              ref={agentRef}
-              className={cn(
-                "touch-none select-none",
-                isAgentDragging && "ring-2 ring-primary/50 rounded-full scale-105"
-              )}
-              {...agentDragHandlers}
-            >
-              <Button
-                onClick={() => {
-                  if (!agentHasMoved.current) {
-                    setIsOpen(true);
-                  }
-                }}
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full shadow-lg bg-background/95 backdrop-blur border-border hover:bg-muted active:scale-95 transition-transform"
-              >
-                <span className="text-lg">🤖</span>
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Hidden file input - multiple enabled */}
       <input
         ref={fileInputRef}

@@ -1,44 +1,24 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
-import { useDraggablePosition } from "@/hooks/useDraggablePosition";
 import { cn } from "@/lib/utils";
 import { useTrialFeatures } from "@/hooks/useTrialFeatures";
 import { useToast } from "@/hooks/use-toast";
 
-export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_props, ref) {
+export function HejjaToggle() {
   const { user } = useAuth();
   const { isActive, activate, deactivate } = useHejjaMode();
   const { canAccess } = useTrialFeatures();
   const { toast } = useToast();
   const location = useLocation();
   
-  // Check if we're on the Etude page - make button more discreet there
   const isOnEtudePage = location.pathname.startsWith("/etude");
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [showFireAnimation, setShowFireAnimation] = useState(false);
   const [showHeavenAnimation, setShowHeavenAnimation] = useState(false);
-
-  // Fixed default: bottom-right, above bottom nav (80px nav + 16px gap)
-  const defaultHejjaPos = {
-    x: typeof window !== "undefined" ? window.innerWidth - 56 : 200,
-    y: typeof window !== "undefined" ? window.innerHeight - 96 - 48 : 500,
-  };
-
-  const {
-    position: hejjaPos,
-    isDragging: isHejjaDragging,
-    hasMoved: hejjaHasMoved,
-    elementRef: hejjaRef,
-    handlers: hejjaDragHandlers,
-  } = useDraggablePosition({
-    storageKey: "hejja_btn_pos",
-    defaultPosition: defaultHejjaPos,
-  });
 
   const handleClick = () => {
     if (isActive) {
@@ -342,37 +322,20 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
         </div>
       )}
 
-      {/* Full button on other pages - draggable with long press */}
-      <div
-        ref={hejjaRef}
+      {/* Header button - inline, not floating */}
+      <Button
+        variant={isActive ? "default" : "ghost"}
+        size="icon"
+        onClick={handleClick}
         className={cn(
-          "fixed z-40 touch-none select-none",
-          isHejjaDragging && "ring-2 ring-primary/50 rounded-full scale-105"
+          "h-9 w-9 rounded-full transition-all active:scale-95",
+          isActive 
+            ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700" 
+            : "hover:bg-muted"
         )}
-        style={{
-          left: `${hejjaPos.x}px`,
-          top: `${hejjaPos.y}px`,
-        }}
-        {...hejjaDragHandlers}
       >
-        <Button
-          variant={isActive ? "default" : "outline"}
-          size="icon"
-          onClick={() => {
-            if (!hejjaHasMoved.current) {
-              handleClick();
-            }
-          }}
-          className={cn(
-            "shadow-lg rounded-full h-10 w-10 transition-all active:scale-95 touch-action-manipulation",
-            isActive 
-              ? "bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white border-red-700 shadow-red-500/30 shadow-lg" 
-              : "bg-background/95 backdrop-blur border-border hover:bg-muted"
-          )}
-        >
-          <span className="text-lg">{isActive ? "😈" : "😇"}</span>
-        </Button>
-      </div>
+        <span className="text-base">{isActive ? "😈" : "😇"}</span>
+      </Button>
 
       <PinDialog
         open={showPinDialog}
@@ -810,4 +773,4 @@ export const HejjaToggle = forwardRef<HTMLDivElement>(function HejjaToggle(_prop
       `}</style>
     </>
   );
-});
+}
