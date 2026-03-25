@@ -17,6 +17,70 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { pdfjsLib } from "@/lib/pdfWorker";
 
+/** Helper: resolves a URL via signed URL and renders an <img> */
+function ResolvedImage({
+  url,
+  resolveUrl,
+  alt,
+  className,
+}: {
+  url: string;
+  resolveUrl: (u: string) => Promise<string>;
+  alt: string;
+  className?: string;
+}) {
+  const [src, setSrc] = React.useState(url);
+  React.useEffect(() => {
+    let cancelled = false;
+    resolveUrl(url).then((resolved) => {
+      if (!cancelled) setSrc(resolved);
+    });
+    return () => { cancelled = true; };
+  }, [url, resolveUrl]);
+  return <img src={src} alt={alt} className={className} />;
+}
+
+/** Image preview with signed URL resolution */
+function ImagePreview({
+  url,
+  alt,
+  zoom,
+  rotation,
+  resolveUrl,
+  onLoad,
+  onError,
+}: {
+  url: string;
+  alt: string;
+  zoom: number;
+  rotation: number;
+  resolveUrl: (u: string) => Promise<string>;
+  onLoad: () => void;
+  onError: () => void;
+}) {
+  const [src, setSrc] = React.useState(url);
+  React.useEffect(() => {
+    let cancelled = false;
+    resolveUrl(url).then((resolved) => {
+      if (!cancelled) setSrc(resolved);
+    });
+    return () => { cancelled = true; };
+  }, [url, resolveUrl]);
+
+  return (
+    <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-full max-h-full object-contain transition-transform duration-200"
+        style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+        onLoad={onLoad}
+        onError={onError}
+      />
+    </div>
+  );
+}
+
 interface DocumentPreviewProps {
   isOpen: boolean;
   onClose: () => void;
