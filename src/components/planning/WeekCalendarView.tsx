@@ -261,6 +261,8 @@ export function WeekCalendarView({
                         address={rdv.address || ""}
                         city={rdv.city}
                         postalCode={rdv.postalCode}
+                        latitude={rdv.latitude}
+                        longitude={rdv.longitude}
                         currentStatus={rdv.status}
                         etudeId={rdv.etudeId}
                         regieId={rdv.regieId}
