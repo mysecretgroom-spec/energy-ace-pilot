@@ -17,6 +17,7 @@ export interface PendingDocument {
   mimeType: string;
   contextSource?: string;
   extractedText?: string;
+  etudeId?: string | null;
   createdAt: string;
   retryCount: number;
 }
@@ -308,6 +309,7 @@ export function useOfflineDocuments() {
             mime_type: doc.mimeType,
             context_source: doc.contextSource,
             extracted_text: doc.extractedText,
+            etude_id: doc.etudeId || null,
           });
 
           if (dbError) throw dbError;
