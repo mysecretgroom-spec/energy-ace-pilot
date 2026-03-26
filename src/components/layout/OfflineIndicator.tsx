@@ -18,9 +18,11 @@ export function OfflineIndicator() {
 
   const [showBackOnline, setShowBackOnline] = useState(false);
   const [pendingMutationsCount, setPendingMutationsCount] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
   const wasOffline = useRef(false);
+  const offlineSince = useRef<number | null>(null);
 
-  // Track pending mutations count
+  // Track pending mutations count — only when offline or when queue changes
   useEffect(() => {
     const refresh = async () => {
       const count = await getPendingMutationCount();
@@ -28,11 +30,8 @@ export function OfflineIndicator() {
     };
     refresh();
     window.addEventListener("offline-queue-changed", refresh);
-    // Also refresh periodically when offline
-    const interval = setInterval(refresh, 3000);
     return () => {
       window.removeEventListener("offline-queue-changed", refresh);
-      clearInterval(interval);
     };
   }, []);
 
@@ -40,10 +39,13 @@ export function OfflineIndicator() {
   useEffect(() => {
     if (!isOnline) {
       wasOffline.current = true;
+      setDismissed(false);
+      if (!offlineSince.current) offlineSince.current = Date.now();
     } else if (wasOffline.current) {
       wasOffline.current = false;
+      offlineSince.current = null;
       setShowBackOnline(true);
-      const timer = setTimeout(() => setShowBackOnline(false), 2000);
+      const timer = setTimeout(() => setShowBackOnline(false), 1500);
       return () => clearTimeout(timer);
     }
   }, [isOnline]);
@@ -51,43 +53,37 @@ export function OfflineIndicator() {
   const isSyncing = isSyncingDocs || isSyncingData;
   const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount + pendingMutationsCount;
 
-  // Show "back online" toast briefly
+  // Show brief "back online" pill
   if (showBackOnline && totalPending === 0) {
     return (
-      <div className="fixed bottom-[5.5rem] left-3 right-3 z-30 animate-in slide-in-from-bottom-4 fade-in duration-300">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm bg-emerald-500/90 text-white">
-          <Wifi className="h-5 w-5" />
-          <p className="font-medium text-sm">Connexion rétablie ✓</p>
+      <div className="fixed bottom-[5.5rem] left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full shadow-md bg-emerald-500/90 text-white text-xs font-medium">
+          <Wifi className="h-3.5 w-3.5" />
+          Connexion rétablie
         </div>
       </div>
     );
   }
 
-  // Don't show anything if online and no pending items
+  // Don't show anything if online and no pending items, or dismissed
   if (isOnline && totalPending === 0) return null;
+  if (dismissed && isOnline) return null;
+
+  // Only show offline bar after 3s to avoid flashing on brief network hiccups
+  const offlineDuration = offlineSince.current ? Date.now() - offlineSince.current : 0;
+  if (!isOnline && offlineDuration < 3000 && totalPending === 0) return null;
 
   const handleSync = async () => {
-    // Replay offline mutation queue (uses original fetch to bypass interceptor)
     const replayMutations = async () => {
       if (pendingMutationsCount > 0) {
         try {
-          // Access the original fetch stored by the interceptor
           const result = await replayPendingMutations(window.fetch.bind(window));
           if (result.succeeded.length > 0) {
-            const successList = result.succeeded.map((d) => `✅ ${d}`).join("\n");
-            toast.success(`${result.succeeded.length} action(s) synchronisée(s)`, {
-              description: successList,
-              duration: 5000,
-            });
+            toast.success(`${result.succeeded.length} action(s) synchronisée(s)`, { duration: 3000 });
           }
           if (result.failed.length > 0) {
-            const failList = result.failed.map((f) => `❌ ${f.description}`).join("\n");
-            toast.error(`${result.failed.length} action(s) échouée(s)`, {
-              description: failList,
-              duration: 6000,
-            });
+            toast.error(`${result.failed.length} action(s) échouée(s)`, { duration: 4000 });
           }
-          // Refresh count
           const count = await getPendingMutationCount();
           setPendingMutationsCount(count);
         } catch (err) {
@@ -97,78 +93,47 @@ export function OfflineIndicator() {
     };
 
     await Promise.all([syncPendingDocuments(), syncAll(), replayMutations()]);
+    setDismissed(true);
   };
 
+  // Compact pill design instead of full-width banner
   return (
-    <div className={cn(
-      "fixed bottom-[5.5rem] left-3 right-3 z-30",
-      "animate-in slide-in-from-bottom-4 fade-in duration-300"
-    )}>
+    <div className="fixed bottom-[5.5rem] left-1/2 -translate-x-1/2 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
       <div
-        className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl shadow-lg backdrop-blur-sm ${
-          isOnline
-            ? "bg-amber-500/90 text-white"
-            : "bg-slate-800/95 text-white"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          {!isOnline ? (
-            <WifiOff className="h-5 w-5" />
-          ) : totalPending > 0 ? (
-            <CloudOff className="h-5 w-5" />
-          ) : (
-            <Check className="h-5 w-5" />
-          )}
-          <div>
-            <p className="font-medium text-sm">
-              {!isOnline
-                ? "Mode hors-ligne"
-                : totalPending > 0
-                ? "Éléments en attente"
-                : "Tout est synchronisé"}
-            </p>
-            {totalPending > 0 && (
-              <div className="flex items-center gap-2 text-xs opacity-90 mt-0.5 flex-wrap">
-                {pendingMutationsCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Send className="h-3 w-3" />
-                    {pendingMutationsCount} action{pendingMutationsCount > 1 ? "s" : ""}
-                  </span>
-                )}
-                {pendingDocsCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    {pendingDocsCount} doc{pendingDocsCount > 1 ? "s" : ""}
-                  </span>
-                )}
-                {pendingEtudesCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    📋 {pendingEtudesCount} étude{pendingEtudesCount > 1 ? "s" : ""}
-                  </span>
-                )}
-                {pendingWhatsAppCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <MessageCircle className="h-3 w-3" />
-                    {pendingWhatsAppCount} msg
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {isOnline && totalPending > 0 && (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-1.5 h-8"
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-            {isSyncing ? "Sync..." : "Sync"}
-          </Button>
+        className={cn(
+          "flex items-center gap-2 px-3 py-1.5 rounded-full shadow-md text-xs font-medium",
+          !isOnline
+            ? "bg-slate-700/90 text-white/90"
+            : "bg-amber-500/85 text-white"
         )}
+      >
+        {!isOnline ? (
+          <>
+            <WifiOff className="h-3.5 w-3.5" />
+            <span>Hors-ligne</span>
+            {totalPending > 0 && (
+              <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-[10px]">
+                {totalPending}
+              </span>
+            )}
+          </>
+        ) : totalPending > 0 ? (
+          <>
+            <CloudOff className="h-3.5 w-3.5" />
+            <span>{totalPending} en attente</span>
+            <button
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="ml-1 bg-white/25 hover:bg-white/35 rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors"
+            >
+              {isSyncing ? (
+                <RefreshCw className="h-3 w-3 animate-spin inline" />
+              ) : (
+                "Sync"
+              )}
+            </button>
+          </>
+        ) : null}
       </div>
     </div>
   );
