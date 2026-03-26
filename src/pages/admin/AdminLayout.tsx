@@ -15,10 +15,25 @@ import {
   Shield,
   BarChart3,
   ScrollText,
-  Bot
+  Bot,
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -38,11 +53,87 @@ const navItems = [
   { path: "/admin/audit-logs", label: "Logs d'Audit", icon: ScrollText },
 ];
 
-export function AdminLayout({ children }: AdminLayoutProps) {
-  const { isAdmin, isLoading } = useSaasAdmin();
+function AdminSidebar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon" className="border-r">
+      <div className={cn("p-4 border-b", collapsed ? "px-2" : "p-4")}>
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-primary shrink-0" />
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <h1 className="text-base font-bold text-foreground truncate">Admin Panel</h1>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link to={item.path}>
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <div className={cn("border-t p-2 space-y-1", collapsed ? "px-1" : "p-3")}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="outline" 
+              size={collapsed ? "icon" : "default"}
+              className={cn("w-full", !collapsed && "justify-start gap-2")}
+              onClick={() => navigate("/")}
+            >
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">Quitter l'admin</span>}
+            </Button>
+          </TooltipTrigger>
+          {collapsed && <TooltipContent side="right">Quitter l'admin</TooltipContent>}
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size={collapsed ? "icon" : "default"}
+              className={cn("w-full text-muted-foreground", !collapsed && "justify-start gap-2")}
+              onClick={() => signOut()}
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">Déconnexion</span>}
+            </Button>
+          </TooltipTrigger>
+          {collapsed && <TooltipContent side="right">Déconnexion</TooltipContent>}
+        </Tooltip>
+      </div>
+    </Sidebar>
+  );
+}
+
+export function AdminLayout({ children }: AdminLayoutProps) {
+  const { isAdmin, isLoading } = useSaasAdmin();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoading && !isAdmin) {
@@ -64,67 +155,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <AdminMFAGate>
-      <div className="min-h-screen bg-background flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r bg-card flex flex-col">
-          <div className="p-6 border-b">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">{user?.email}</p>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AdminSidebar />
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="h-12 flex items-center border-b bg-background px-4 shrink-0">
+              <SidebarTrigger />
+              <span className="ml-3 text-sm font-medium text-muted-foreground">Administration</span>
+            </header>
+            <main className="flex-1 overflow-auto">
+              <div className="p-4 md:p-8">
+                {children}
+              </div>
+            </main>
           </div>
-          
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.path;
-              
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          
-          <div className="p-4 border-t space-y-2">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start gap-3"
-              onClick={() => navigate("/")}
-            >
-              <LayoutDashboard className="h-5 w-5" />
-              Quitter l'admin
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start gap-3 text-muted-foreground"
-              onClick={() => signOut()}
-            >
-              <LogOut className="h-5 w-5" />
-              Déconnexion
-            </Button>
-          </div>
-        </aside>
-        
-        {/* Main content */}
-        <main className="flex-1 overflow-auto">
-          <div className="p-8">
-            {children}
-          </div>
-        </main>
-      </div>
+        </div>
+      </SidebarProvider>
     </AdminMFAGate>
   );
 }
