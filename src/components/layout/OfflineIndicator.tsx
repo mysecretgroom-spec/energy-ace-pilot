@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { WifiOff, CloudOff, RefreshCw, Check, FileText, MessageCircle, Wifi, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { WifiOff, CloudOff, RefreshCw, Wifi } from "lucide-react";
+
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
 import { getPendingMutationCount, replayPendingMutations } from "@/lib/offlineMutationQueue";
