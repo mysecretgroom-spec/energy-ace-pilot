@@ -302,6 +302,8 @@ export function QuickPhotoButton({
       }
 
       setHasPhoto(true);
+      // Auto-download to device
+      triggerPhotoDownload(compressedBlob, category);
       toast({
         title: "Photo enregistrée",
         description: `${QUICK_PHOTO_LABELS[category]} ajoutée au dossier`,
