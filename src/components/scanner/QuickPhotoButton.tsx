@@ -227,8 +227,11 @@ export function QuickPhotoButton({
             imageData,
             mimeType: "image/jpeg",
             contextSource: category,
+            etudeId: etudeId || null,
           });
           setHasPhoto(true);
+          // Auto-download to device even offline
+          triggerPhotoDownload(compressedBlob, category);
           onPhotoSaved?.();
         };
         reader.readAsDataURL(compressedBlob);
