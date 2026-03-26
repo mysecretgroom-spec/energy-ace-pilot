@@ -251,8 +251,10 @@ export function QuickPhotoButton({
             etudeId: etudeId || null,
           });
           setHasPhoto(true);
-          // Auto-download to device even offline
-          triggerPhotoDownload(compressedBlob, category);
+          // Individual download only if not in study (study gets merged PDF)
+          if (!etudeId) {
+            triggerBlobDownload(compressedBlob, `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.jpg`);
+          }
           onPhotoSaved?.();
         };
         reader.readAsDataURL(compressedBlob);
@@ -304,8 +306,12 @@ export function QuickPhotoButton({
       }
 
       setHasPhoto(true);
-      // Auto-download to device
-      triggerPhotoDownload(compressedBlob, category);
+
+      // If not in study, download individual photo
+      if (!etudeId) {
+        triggerBlobDownload(compressedBlob, `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.jpg`);
+      }
+
       toast({
         title: "Photo enregistrée",
         description: `${QUICK_PHOTO_LABELS[category]} ajoutée au dossier`,
@@ -313,11 +319,15 @@ export function QuickPhotoButton({
 
       onPhotoSaved?.();
 
-      // Merge all study photos into a single PDF (background, non-blocking)
+      // Merge all study photos into a single PDF and auto-download it
       if (etudeId) {
-        mergeStudyPhotosIntoPdf(user.id, clientId, etudeId).catch((err) =>
-          console.warn("Background merge failed:", err)
-        );
+        mergeStudyPhotosIntoPdf(user.id, clientId, etudeId)
+          .then((pdfBlob) => {
+            if (pdfBlob) {
+              triggerBlobDownload(pdfBlob, `Photos_visite_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.pdf`);
+            }
+          })
+          .catch((err) => console.warn("Background merge failed:", err));
       }
     } catch (error) {
       console.error("Erreur upload photo:", error);
