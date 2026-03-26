@@ -28,6 +28,25 @@ interface QuickPhotoButtonProps {
   onPhotoSaved?: () => void;
 }
 
+/** Auto-download photo to device Downloads folder */
+function triggerPhotoDownload(blob: Blob, category: string) {
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${QUICK_PHOTO_LABELS[category as QuickPhotoCategory] || category}_${new Date().toISOString().slice(0, 10)}.jpg`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 200);
+  } catch (e) {
+    console.warn("Auto-download failed:", e);
+  }
+}
+
 /**
  * Merges all study photo documents into a single PDF.
  * Called after each photo upload to maintain one combined PDF.
@@ -227,8 +246,11 @@ export function QuickPhotoButton({
             imageData,
             mimeType: "image/jpeg",
             contextSource: category,
+            etudeId: etudeId || null,
           });
           setHasPhoto(true);
+          // Auto-download to device even offline
+          triggerPhotoDownload(compressedBlob, category);
           onPhotoSaved?.();
         };
         reader.readAsDataURL(compressedBlob);
@@ -280,6 +302,8 @@ export function QuickPhotoButton({
       }
 
       setHasPhoto(true);
+      // Auto-download to device
+      triggerPhotoDownload(compressedBlob, category);
       toast({
         title: "Photo enregistrée",
         description: `${QUICK_PHOTO_LABELS[category]} ajoutée au dossier`,
