@@ -55,7 +55,7 @@ async function mergeStudyPhotosIntoPdf(
   userId: string,
   clientId: string,
   etudeId: string
-): Promise<void> {
+): Promise<Blob | null> {
   // 1. Fetch all individual photo documents for this study
   const { data: photoDocs, error: fetchError } = await supabase
     .from("documents")
@@ -66,7 +66,7 @@ async function mergeStudyPhotosIntoPdf(
     .neq("context_source", "merged_photos")
     .order("created_at", { ascending: true });
 
-  if (fetchError || !photoDocs || photoDocs.length === 0) return;
+  if (fetchError || !photoDocs || photoDocs.length === 0) return null;
 
   // 2. Download all images and build combined PDF
   const pdfDoc = await PDFDocument.create();
@@ -157,7 +157,7 @@ async function mergeStudyPhotosIntoPdf(
     }
   }
 
-  if (pdfDoc.getPageCount() === 0) return;
+  if (pdfDoc.getPageCount() === 0) return null;
 
   // 3. Save combined PDF
   const pdfBytes = await pdfDoc.save();
@@ -174,7 +174,7 @@ async function mergeStudyPhotosIntoPdf(
 
   if (uploadError) {
     console.error("Failed to upload merged PDF:", uploadError);
-    return;
+    return null;
   }
 
   const { data: urlData } = supabase.storage
@@ -201,6 +201,8 @@ async function mergeStudyPhotosIntoPdf(
     context_source: "merged_photos",
     page_count: pdfDoc.getPageCount(),
   });
+
+  return pdfBlob;
 }
 
 export function QuickPhotoButton({
