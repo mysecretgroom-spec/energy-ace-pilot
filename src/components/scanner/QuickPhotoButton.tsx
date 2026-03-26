@@ -28,13 +28,13 @@ interface QuickPhotoButtonProps {
   onPhotoSaved?: () => void;
 }
 
-/** Auto-download photo to device Downloads folder */
-function triggerPhotoDownload(blob: Blob, category: string) {
+/** Auto-download a blob to device Downloads folder */
+function triggerBlobDownload(blob: Blob, fileName: string) {
   try {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${QUICK_PHOTO_LABELS[category as QuickPhotoCategory] || category}_${new Date().toISOString().slice(0, 10)}.jpg`;
+    a.download = fileName;
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
