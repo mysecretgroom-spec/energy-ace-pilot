@@ -61,7 +61,7 @@ function AdminSidebar() {
   const collapsed = state === "collapsed";
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="offcanvas" className="border-r">
       <div className={cn("p-4 border-b", collapsed ? "px-2" : "p-4")}>
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary shrink-0" />
