@@ -58,7 +58,7 @@ function extractStoragePathFromUrl(url: string, bucketName: string): string | nu
 
 // Intent types
 type Intent = 
-  | "create_rdv" 
+  | "create_rdv"
   | "update_rdv"
   | "update_client_notes"  // Ajouter/modifier les notes d'un client
   | "update_client_data"   // Modifier les données d'un client (téléphone, email, adresse)
@@ -83,6 +83,7 @@ type Intent =
   | "query_frais"          // Liste des frais/dépenses avec filtres (période, catégorie)
   | "query_frais_detail"   // Total des frais avec répartition par catégorie
   | "query_regie_info"     // Infos sur les régies (liste ou détail)
+  | "query_regie_bilan"    // État général des dossiers avec une régie (en cours, posés non payés)
   | "query_documents"      // Liste des documents d'un client
   | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
@@ -2458,6 +2459,7 @@ serve(async (req) => {
       const trialAllowedIntents: Intent[] = [
         "import_facture",
         "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter",
+        "query_regie_bilan",
         "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail",
         "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info",
         "query_documents", "query_etude_detail", "query_hejja",
@@ -5843,6 +5845,8 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
       return "👋 Comment puis-je t'aider ?";
     case "query_hejja":
       return "⚠️ Cette fonctionnalité HEJJA n'est disponible que dans l'application. Ouvre l'app pour y accéder.";
+    case "query_regie_bilan":
+      return "📋 Je prépare le bilan de ta régie...";
     default:
       return "🤔 Je traite ta demande...";
   }
@@ -5942,6 +5946,7 @@ INTENTIONS DISPONIBLES:
 - query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
 - query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
 - query_regie_info: "mes régies", "liste régies", "infos régie X", "quelle régie pour X" → Liste des régies ou détail d'une régie spécifique
+- query_regie_bilan: "état général régie X", "bilan régie X", "point régie X", "dossiers avec régie X", "état des dossiers régie X", "où j'en suis avec régie X" → Rapport consolidé par régie: dossiers en cours (signés non installés) + posés non payés. Entity: regie_name
 - query_documents: "documents de X", "docs client X", "pièces de X" → Liste des documents d'un client
 - query_etude_detail: "étude de X", "étude technique X", "bilan X" → Détail de l'étude technique d'un client
 - query_hejja: "mode hejja", "retape", "prix hejja", "régies hejja", "commissions hejja" → Demande liée au mode HEJJA → REDIRIGER vers l'application car l'agent n'a pas accès
@@ -6048,6 +6053,7 @@ RÈGLES CRITIQUES:
 12. Pour "documents de X" / "pièces de X" → query_documents
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
 14. Pour "mes régies" / "infos régie X" → query_regie_info
+15. Pour "état général régie X" / "bilan régie X" / "point régie X" / "où j'en suis avec régie X" → query_regie_bilan
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
 16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
@@ -6203,7 +6209,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "create_support_ticket", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_regie_bilan", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "create_support_ticket", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
@@ -8521,7 +8527,177 @@ async function executeAction(
       };
     }
 
-    case "query_stats": {
+    case "query_regie_bilan": {
+      // Load bouquets for commission calculation
+      const { globalBouquets: bilanGlobalBouquets, regieBouquetsMap: bilanRegieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
+      const bilanRegieName = entities.regie_name as string;
+      
+      // Find matching régie(s)
+      const { data: regies, error: regiesError } = await supabase
+        .from("regies")
+        .select("id, nom")
+        .eq("user_id", userId);
+      
+      if (regiesError || !regies?.length) {
+        return {
+          actionTaken: "error",
+          customResponse: "❌ Aucune régie trouvée dans ton compte.",
+        };
+      }
+
+      // Filter by name if specified
+      // deno-lint-ignore no-explicit-any
+      let targetRegies: any[] = regies;
+      if (bilanRegieName) {
+        const nameLower = bilanRegieName.toLowerCase();
+        targetRegies = regies.filter((r: { nom: string }) => r.nom.toLowerCase().includes(nameLower));
+        if (targetRegies.length === 0) {
+          return {
+            actionTaken: "error",
+            customResponse: `❌ Aucune régie trouvée avec le nom "${bilanRegieName}". Tes régies: ${regies.map((r: { nom: string }) => r.nom).join(", ")}`,
+          };
+        }
+      }
+
+      // Fetch all active ventes for these régies
+      const regieIds = targetRegies.map((r: { id: string }) => r.id);
+      const { data: bilanVentes, error: bilanVentesError } = await supabase
+        .from("ventes")
+        .select(`
+          id, montant_ttc, montant_ht, puissance_kwc, date_signature, date_installation_reelle,
+          status, type_vente, decom_montant, regie_id,
+          clients(nom, prenom),
+          regies(nom, part_survente_pct)
+        `)
+        .eq("user_id", userId)
+        .in("regie_id", regieIds)
+        .not("status", "in", '("annule","refus_financement","inFinancable","retracte","refus_mairie_abf","paye")');
+
+      if (bilanVentesError) {
+        console.error("Error fetching bilan ventes:", bilanVentesError);
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de la récupération des dossiers." };
+      }
+
+      // Group by régie, then by category
+      // deno-lint-ignore no-explicit-any
+      const regieMap = new Map<string, { nom: string; enCours: any[]; posesNonPayes: any[] }>();
+      
+      for (const regie of targetRegies) {
+        regieMap.set(regie.id, { nom: regie.nom, enCours: [], posesNonPayes: [] });
+      }
+
+      const statusLabelsB: Record<string, string> = {
+        signe: "📝 Signé",
+        cq_a_faire: "🔴 CQ à faire",
+        cq_fait: "🟡 CQ fait",
+        attente_financement: "🟡 Att. financement",
+        envoi_pose: "🔵 Envoi pose",
+        en_installation: "🔵 En installation",
+        installe: "✅ Posé",
+        attente_paiement: "💳 Att. paiement",
+      };
+
+      const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"];
+      const posesNonPayesStatuses = ["installe", "attente_paiement"];
+
+      for (const v of (bilanVentes || [])) {
+        const entry = regieMap.get(v.regie_id);
+        if (!entry) continue;
+        
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
+        const isExternal = v.type_vente === "external_installation";
+        
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets: bilanGlobalBouquets,
+          regieBouquetsMap: bilanRegieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        const client = v.clients as any;
+        const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+        
+        const item = {
+          clientName,
+          puissance: v.puissance_kwc || 0,
+          montant: v.montant_ttc || 0,
+          commission: Math.round(commission),
+          date: v.date_installation_reelle || v.date_signature || "",
+          status: statusLabelsB[v.status] || v.status,
+          rawStatus: v.status,
+        };
+
+        if (enCoursStatuses.includes(v.status)) {
+          entry.enCours.push(item);
+        } else if (posesNonPayesStatuses.includes(v.status)) {
+          entry.posesNonPayes.push(item);
+        }
+      }
+
+      // Build response
+      let bilanResponse = "";
+      
+      for (const [, data] of regieMap) {
+        bilanResponse += `\n🏢 *${data.nom.toUpperCase()}*\n`;
+        bilanResponse += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+        
+        // Section 1: En cours (signés non installés)
+        const totalComEnCours = data.enCours.reduce((s, v) => s + v.commission, 0);
+        bilanResponse += `\n📋 *EN COURS* (${data.enCours.length}) — ${totalComEnCours.toLocaleString("fr-FR")}€ com.\n`;
+        
+        if (data.enCours.length === 0) {
+          bilanResponse += `   _Aucun dossier en cours_\n`;
+        } else {
+          for (const v of data.enCours) {
+            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            bilanResponse += `${v.status} *${v.clientName}*\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+          }
+        }
+
+        // Section 2: Posés non payés
+        const totalComPoses = data.posesNonPayes.reduce((s, v) => s + v.commission, 0);
+        bilanResponse += `\n💳 *POSÉS NON PAYÉS* (${data.posesNonPayes.length}) — ${totalComPoses.toLocaleString("fr-FR")}€ com.\n`;
+        
+        if (data.posesNonPayes.length === 0) {
+          bilanResponse += `   _Aucun dossier posé non payé_\n`;
+        } else {
+          for (const v of data.posesNonPayes) {
+            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            bilanResponse += `${v.status} *${v.clientName}*\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+          }
+        }
+
+        const totalDossiers = data.enCours.length + data.posesNonPayes.length;
+        const totalCom = totalComEnCours + totalComPoses;
+        bilanResponse += `\n📊 *Total: ${totalDossiers} dossiers — ${totalCom.toLocaleString("fr-FR")}€ com. potentielle*\n`;
+      }
+
+      if (!bilanResponse) {
+        bilanResponse = "_Aucun dossier actif trouvé._";
+      }
+
+      const headerLabel = bilanRegieName ? `BILAN ${bilanRegieName.toUpperCase()}` : "BILAN GÉNÉRAL PAR RÉGIE";
+      const finalBilanMsg = `📊 *${headerLabel}*\n${bilanResponse}`;
+
+      return {
+        actionTaken: "query_regie_bilan_result",
+        entityType: "regie_bilan",
+        customResponse: finalBilanMsg,
+      };
+    }
+
+
       const period = (entities.period as string) || "month";
       const now = new Date();
       let startDate: Date;
