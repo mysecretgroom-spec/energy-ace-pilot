@@ -24,7 +24,8 @@ export interface InterpolatedBouquet {
  */
 export function findOrInterpolateBouquet(
   bouquets: BouquetData[],
-  targetPuissance: number
+  targetPuissance: number,
+  coutPanneauSupplementaire: number = 500
 ): InterpolatedBouquet {
   // First try exact match
   const exactMatch = bouquets.find(b => b.puissance_kwc === targetPuissance);
