@@ -55,6 +55,7 @@ interface RegieConfig {
   id: string;
   mode_calcul_commission: CommissionMode | null;
   part_survente_pct: number | null;
+  cout_panneau_supplementaire: number | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,7 +84,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type").eq("actif", true),
         regieIds.length > 0
-          ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct").in("id", regieIds)
+          ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct, cout_panneau_supplementaire").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("mode_calcul, part_survente_pct").maybeSingle(),
         etudeIds.length > 0
@@ -208,7 +209,8 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
               : regieBouquetsRaw)
             : regieBouquetsRaw;
 
-          const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc);
+          const coutPanneau = regieConfig?.cout_panneau_supplementaire ?? 500;
+          const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc, coutPanneau);
           const commissionBase = interpolated.commissionFixe;
           const prixRecommandeTTC = interpolated.prixRecommande;
 

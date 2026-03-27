@@ -2648,6 +2648,7 @@ export type Database = {
         Row: {
           actif: boolean
           couleur: string | null
+          cout_panneau_supplementaire: number | null
           created_at: string
           id: string
           is_hejja: boolean | null
@@ -2663,6 +2664,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           couleur?: string | null
+          cout_panneau_supplementaire?: number | null
           created_at?: string
           id?: string
           is_hejja?: boolean | null
@@ -2680,6 +2682,7 @@ export type Database = {
         Update: {
           actif?: boolean
           couleur?: string | null
+          cout_panneau_supplementaire?: number | null
           created_at?: string
           id?: string
           is_hejja?: boolean | null
