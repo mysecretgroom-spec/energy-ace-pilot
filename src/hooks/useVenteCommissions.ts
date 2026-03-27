@@ -231,12 +231,11 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           if (prixRecommandeTTC > 0 && montantTTCSansSurcouts > prixRecommandeTTC) {
             const surventeTTC = montantTTCSansSurcouts - prixRecommandeTTC;
             const surventeHT = ttcToHT(surventeTTC, tauxTVA);
-            // Arrondir à 2 décimales pour éviter les erreurs de précision flottante
-            bonusSurvente = Math.round(surventeHT * (partSurventePct / 100) * 100) / 100;
+           bonusSurvente = surventeHT * (partSurventePct / 100);
           }
 
-          // Arrondir la commission finale à 2 décimales
-          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) * 100) / 100;
+          // Arrondir la commission finale à la centaine d'euros
+          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) / 100) * 100;
 
           results.set(vente.id, {
             venteId: vente.id,
@@ -322,9 +321,9 @@ function calculatePourcentageCommission(
   const applicableTier = tier || tiers[tiers.length - 1]; // Dernière tranche si au-delà
 
   const taux = applicableTier.tauxCommission / 100;
-  const commissionBase = Math.round(montantHT * taux * 100) / 100;
-  const bonusSurvente = Math.round(montantHT * (applicableTier.bonusSurvente / 100) * 100) / 100;
-  const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) * 100) / 100;
+  const commissionBase = montantHT * taux;
+  const bonusSurvente = montantHT * (applicableTier.bonusSurvente / 100);
+  const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) / 100) * 100;
 
   return {
     venteId: vente.id,
