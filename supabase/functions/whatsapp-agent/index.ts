@@ -2459,6 +2459,7 @@ serve(async (req) => {
       const trialAllowedIntents: Intent[] = [
         "import_facture",
         "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter",
+        "query_regie_bilan",
         "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail",
         "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info",
         "query_documents", "query_etude_detail", "query_hejja",
