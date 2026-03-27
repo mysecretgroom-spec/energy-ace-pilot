@@ -6052,8 +6052,8 @@ RÈGLES CRITIQUES:
 11. Pour "fiche complète X" / "tout sur X" / "dossier complet X" → query_client_full (vue 360° du client)
 12. Pour "documents de X" / "pièces de X" → query_documents
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
-14. Pour "mes régies" / "infos régie X" → query_regie_info
-15. Pour "état général régie X" / "bilan régie X" / "point régie X" / "où j'en suis avec régie X" → query_regie_bilan
+14. Pour "mes régies" / "infos régie X" (infos administratives UNIQUEMENT) → query_regie_info
+15. ⚠️ IMPORTANT: Pour "état général régie X" / "bilan régie X" / "point régie X" / "état régie X" / "où j'en suis avec régie X" / "dossiers régie X" → query_regie_bilan (PAS query_regie_info !)
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
 16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
