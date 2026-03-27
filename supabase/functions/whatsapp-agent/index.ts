@@ -5844,6 +5844,8 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
       return "👋 Comment puis-je t'aider ?";
     case "query_hejja":
       return "⚠️ Cette fonctionnalité HEJJA n'est disponible que dans l'application. Ouvre l'app pour y accéder.";
+    case "query_regie_bilan":
+      return "📋 Je prépare le bilan de ta régie...";
     default:
       return "🤔 Je traite ta demande...";
   }
