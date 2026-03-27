@@ -58,7 +58,7 @@ function extractStoragePathFromUrl(url: string, bucketName: string): string | nu
 
 // Intent types
 type Intent = 
-  | "create_rdv" 
+  | "create_rdv"
   | "update_rdv"
   | "update_client_notes"  // Ajouter/modifier les notes d'un client
   | "update_client_data"   // Modifier les données d'un client (téléphone, email, adresse)
