@@ -3103,6 +3103,7 @@ export type Database = {
       ventes: {
         Row: {
           client_id: string
+          commission_override: number | null
           created_at: string
           date_cq: string | null
           date_installation_prevue: string | null
@@ -3133,6 +3134,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          commission_override?: number | null
           created_at?: string
           date_cq?: string | null
           date_installation_prevue?: string | null
@@ -3163,6 +3165,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          commission_override?: number | null
           created_at?: string
           date_cq?: string | null
           date_installation_prevue?: string | null

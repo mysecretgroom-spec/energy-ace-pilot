@@ -1,0 +1,1 @@
+ALTER TABLE public.ventes ADD COLUMN commission_override NUMERIC DEFAULT NULL;
