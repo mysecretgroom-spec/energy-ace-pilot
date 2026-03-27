@@ -8526,7 +8526,177 @@ async function executeAction(
       };
     }
 
-    case "query_stats": {
+    case "query_regie_bilan": {
+      // Load bouquets for commission calculation
+      const { globalBouquets: bilanGlobalBouquets, regieBouquetsMap: bilanRegieBouquetsMap } = await loadBouquetsForCommissions(supabase);
+      
+      const bilanRegieName = entities.regie_name as string;
+      
+      // Find matching régie(s)
+      const { data: regies, error: regiesError } = await supabase
+        .from("regies")
+        .select("id, nom")
+        .eq("user_id", userId);
+      
+      if (regiesError || !regies?.length) {
+        return {
+          actionTaken: "error",
+          customResponse: "❌ Aucune régie trouvée dans ton compte.",
+        };
+      }
+
+      // Filter by name if specified
+      // deno-lint-ignore no-explicit-any
+      let targetRegies: any[] = regies;
+      if (bilanRegieName) {
+        const nameLower = bilanRegieName.toLowerCase();
+        targetRegies = regies.filter((r: { nom: string }) => r.nom.toLowerCase().includes(nameLower));
+        if (targetRegies.length === 0) {
+          return {
+            actionTaken: "error",
+            customResponse: `❌ Aucune régie trouvée avec le nom "${bilanRegieName}". Tes régies: ${regies.map((r: { nom: string }) => r.nom).join(", ")}`,
+          };
+        }
+      }
+
+      // Fetch all active ventes for these régies
+      const regieIds = targetRegies.map((r: { id: string }) => r.id);
+      const { data: bilanVentes, error: bilanVentesError } = await supabase
+        .from("ventes")
+        .select(`
+          id, montant_ttc, montant_ht, puissance_kwc, date_signature, date_installation_reelle,
+          status, type_vente, decom_montant, regie_id,
+          clients(nom, prenom),
+          regies(nom, part_survente_pct)
+        `)
+        .eq("user_id", userId)
+        .in("regie_id", regieIds)
+        .not("status", "in", '("annule","refus_financement","inFinancable","retracte","refus_mairie_abf","paye")');
+
+      if (bilanVentesError) {
+        console.error("Error fetching bilan ventes:", bilanVentesError);
+        return { actionTaken: "error", customResponse: "❌ Erreur lors de la récupération des dossiers." };
+      }
+
+      // Group by régie, then by category
+      // deno-lint-ignore no-explicit-any
+      const regieMap = new Map<string, { nom: string; enCours: any[]; posesNonPayes: any[] }>();
+      
+      for (const regie of targetRegies) {
+        regieMap.set(regie.id, { nom: regie.nom, enCours: [], posesNonPayes: [] });
+      }
+
+      const statusLabelsB: Record<string, string> = {
+        signe: "📝 Signé",
+        cq_a_faire: "🔴 CQ à faire",
+        cq_fait: "🟡 CQ fait",
+        attente_financement: "🟡 Att. financement",
+        envoi_pose: "🔵 Envoi pose",
+        en_installation: "🔵 En installation",
+        installe: "✅ Posé",
+        attente_paiement: "💳 Att. paiement",
+      };
+
+      const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"];
+      const posesNonPayesStatuses = ["installe", "attente_paiement"];
+
+      for (const v of (bilanVentes || [])) {
+        const entry = regieMap.get(v.regie_id);
+        if (!entry) continue;
+        
+        // deno-lint-ignore no-explicit-any
+        const regie = v.regies as any;
+        const partSurvente = regie?.part_survente_pct || 50;
+        const isExternal = v.type_vente === "external_installation";
+        
+        const { commission } = calculateCommission({
+          montantTTC: v.montant_ttc || 0,
+          montantHT: v.montant_ht || 0,
+          puissanceKwc: v.puissance_kwc || 0,
+          isExternal,
+          decomMontant: v.decom_montant || 0,
+          regieId: v.regie_id,
+          globalBouquets: bilanGlobalBouquets,
+          regieBouquetsMap: bilanRegieBouquetsMap,
+          partSurventePct: partSurvente,
+        });
+
+        // deno-lint-ignore no-explicit-any
+        const client = v.clients as any;
+        const clientName = `${client?.prenom || ""} ${client?.nom || ""}`.trim();
+        
+        const item = {
+          clientName,
+          puissance: v.puissance_kwc || 0,
+          montant: v.montant_ttc || 0,
+          commission: Math.round(commission),
+          date: v.date_installation_reelle || v.date_signature || "",
+          status: statusLabelsB[v.status] || v.status,
+          rawStatus: v.status,
+        };
+
+        if (enCoursStatuses.includes(v.status)) {
+          entry.enCours.push(item);
+        } else if (posesNonPayesStatuses.includes(v.status)) {
+          entry.posesNonPayes.push(item);
+        }
+      }
+
+      // Build response
+      let bilanResponse = "";
+      
+      for (const [, data] of regieMap) {
+        bilanResponse += `\n🏢 *${data.nom.toUpperCase()}*\n`;
+        bilanResponse += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+        
+        // Section 1: En cours (signés non installés)
+        const totalComEnCours = data.enCours.reduce((s, v) => s + v.commission, 0);
+        bilanResponse += `\n📋 *EN COURS* (${data.enCours.length}) — ${totalComEnCours.toLocaleString("fr-FR")}€ com.\n`;
+        
+        if (data.enCours.length === 0) {
+          bilanResponse += `   _Aucun dossier en cours_\n`;
+        } else {
+          for (const v of data.enCours) {
+            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            bilanResponse += `${v.status} *${v.clientName}*\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+          }
+        }
+
+        // Section 2: Posés non payés
+        const totalComPoses = data.posesNonPayes.reduce((s, v) => s + v.commission, 0);
+        bilanResponse += `\n💳 *POSÉS NON PAYÉS* (${data.posesNonPayes.length}) — ${totalComPoses.toLocaleString("fr-FR")}€ com.\n`;
+        
+        if (data.posesNonPayes.length === 0) {
+          bilanResponse += `   _Aucun dossier posé non payé_\n`;
+        } else {
+          for (const v of data.posesNonPayes) {
+            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            bilanResponse += `${v.status} *${v.clientName}*\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+          }
+        }
+
+        const totalDossiers = data.enCours.length + data.posesNonPayes.length;
+        const totalCom = totalComEnCours + totalComPoses;
+        bilanResponse += `\n📊 *Total: ${totalDossiers} dossiers — ${totalCom.toLocaleString("fr-FR")}€ com. potentielle*\n`;
+      }
+
+      if (!bilanResponse) {
+        bilanResponse = "_Aucun dossier actif trouvé._";
+      }
+
+      const headerLabel = bilanRegieName ? `BILAN ${bilanRegieName.toUpperCase()}` : "BILAN GÉNÉRAL PAR RÉGIE";
+      const finalBilanMsg = `📊 *${headerLabel}*\n${bilanResponse}`;
+
+      return {
+        actionTaken: "query_regie_bilan_result",
+        entityType: "regie_bilan",
+        customResponse: finalBilanMsg,
+      };
+    }
+
+
       const period = (entities.period as string) || "month";
       const now = new Date();
       let startDate: Date;
