@@ -83,6 +83,7 @@ type Intent =
   | "query_frais"          // Liste des frais/dépenses avec filtres (période, catégorie)
   | "query_frais_detail"   // Total des frais avec répartition par catégorie
   | "query_regie_info"     // Infos sur les régies (liste ou détail)
+  | "query_regie_bilan"    // État général des dossiers avec une régie (en cours, posés non payés)
   | "query_documents"      // Liste des documents d'un client
   | "query_etude_detail"   // Détail d'une étude technique
   | "query_hejja"          // Demande liée au mode HEJJA → rediriger vers l'app
@@ -5942,6 +5943,7 @@ INTENTIONS DISPONIBLES:
 - query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
 - query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
 - query_regie_info: "mes régies", "liste régies", "infos régie X", "quelle régie pour X" → Liste des régies ou détail d'une régie spécifique
+- query_regie_bilan: "état général régie X", "bilan régie X", "point régie X", "dossiers avec régie X", "état des dossiers régie X", "où j'en suis avec régie X" → Rapport consolidé par régie: dossiers en cours (signés non installés) + posés non payés. Entity: regie_name
 - query_documents: "documents de X", "docs client X", "pièces de X" → Liste des documents d'un client
 - query_etude_detail: "étude de X", "étude technique X", "bilan X" → Détail de l'étude technique d'un client
 - query_hejja: "mode hejja", "retape", "prix hejja", "régies hejja", "commissions hejja" → Demande liée au mode HEJJA → REDIRIGER vers l'application car l'agent n'a pas accès
@@ -6048,6 +6050,7 @@ RÈGLES CRITIQUES:
 12. Pour "documents de X" / "pièces de X" → query_documents
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
 14. Pour "mes régies" / "infos régie X" → query_regie_info
+15. Pour "état général régie X" / "bilan régie X" / "point régie X" / "où j'en suis avec régie X" → query_regie_bilan
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
 16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
