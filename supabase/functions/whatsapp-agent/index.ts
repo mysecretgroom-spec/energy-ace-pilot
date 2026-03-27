@@ -5945,8 +5945,8 @@ INTENTIONS DISPONIBLES:
 - query_vente_detail: "vente Dupont", "dossier Martin", "infos vente X" → Fiche détaillée de la vente avec prix, puissance, statut, dates
 - query_frais: "mes frais", "frais de la semaine", "frais ce mois", "combien de carburant" → Liste des frais avec Entity: period (today/week/month) et frais_categorie (carburant, repas, hotel, peage, parking, etc.)
 - query_frais_detail: "total frais", "répartition frais", "dépenses par catégorie" → Total avec répartition par catégorie
-- query_regie_info: "mes régies", "liste régies", "infos régie X", "quelle régie pour X" → Liste des régies ou détail d'une régie spécifique
-- query_regie_bilan: "état général régie X", "bilan régie X", "point régie X", "dossiers avec régie X", "état des dossiers régie X", "où j'en suis avec régie X" → Rapport consolidé par régie: dossiers en cours (signés non installés) + posés non payés. Entity: regie_name
+- query_regie_info: "mes régies", "liste régies", "infos régie X" → Liste des régies ou fiche contact d'une régie. UNIQUEMENT pour les INFORMATIONS ADMINISTRATIVES (SIRET, contact, tel). NE PAS utiliser pour "état général", "bilan", "point", "dossiers"
+- query_regie_bilan: "état général régie X", "bilan régie X", "point régie X", "dossiers avec régie X", "état des dossiers régie X", "où j'en suis avec régie X", "état régie X" → Rapport consolidé par régie: dossiers en cours (signés non installés) + posés non payés. Entity: regie_name. IMPORTANT: Dès que l'utilisateur mentionne "état", "bilan", "point", "dossiers", "où j'en suis" avec une régie → C'EST TOUJOURS query_regie_bilan, PAS query_regie_info
 - query_documents: "documents de X", "docs client X", "pièces de X" → Liste des documents d'un client
 - query_etude_detail: "étude de X", "étude technique X", "bilan X" → Détail de l'étude technique d'un client
 - query_hejja: "mode hejja", "retape", "prix hejja", "régies hejja", "commissions hejja" → Demande liée au mode HEJJA → REDIRIGER vers l'application car l'agent n'a pas accès
@@ -6052,8 +6052,8 @@ RÈGLES CRITIQUES:
 11. Pour "fiche complète X" / "tout sur X" / "dossier complet X" → query_client_full (vue 360° du client)
 12. Pour "documents de X" / "pièces de X" → query_documents
 13. Pour "étude de X" / "bilan technique X" → query_etude_detail
-14. Pour "mes régies" / "infos régie X" → query_regie_info
-15. Pour "état général régie X" / "bilan régie X" / "point régie X" / "où j'en suis avec régie X" → query_regie_bilan
+14. Pour "mes régies" / "infos régie X" (infos administratives UNIQUEMENT) → query_regie_info
+15. ⚠️ IMPORTANT: Pour "état général régie X" / "bilan régie X" / "point régie X" / "état régie X" / "où j'en suis avec régie X" / "dossiers régie X" → query_regie_bilan (PAS query_regie_info !)
 15. Pour "coaching" / "conseils" / "analyse mes perfs" / "comment m'améliorer" → coaching_performance
 16. Pour "bug" / "problème avec l'app" / "ça marche pas" / "signaler un souci" / "ticket support" → create_support_ticket (extraire ticket_subject + ticket_message)
 
@@ -8699,117 +8699,6 @@ async function executeAction(
     }
 
 
-      const period = (entities.period as string) || "month";
-      const now = new Date();
-      let startDate: Date;
-      const endDate: Date = now;
-      
-      switch (period) {
-        case "today":
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          break;
-        case "week": {
-          // Start of current week (Monday)
-          const dayOfWeek = now.getDay();
-          const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0
-          startDate = new Date(now);
-          startDate.setDate(now.getDate() - diff);
-          startDate.setHours(0, 0, 0, 0);
-          break;
-        }
-        case "year":
-          startDate = new Date(now.getFullYear(), 0, 1);
-          break;
-        case "all":
-          startDate = new Date(2020, 0, 1);
-          break;
-        default: // month
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      }
-
-      const startDateStr = startDate.toISOString().split("T")[0];
-      const endDateStr = endDate.toISOString().split("T")[0];
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // UTILISE RPC PARTAGÉE : get_monthly_stats
-      // ═══════════════════════════════════════════════════════════════════════
-      const { data: statsData, error: statsError } = await supabase
-        .rpc("get_monthly_stats", {
-          p_user_id: userId,
-          p_start_date: startDateStr,
-          p_end_date: endDateStr,
-        });
-
-      if (statsError) {
-        console.error("RPC get_monthly_stats error:", statsError);
-        // Fallback to legacy query
-        const { count: rdvCount } = await supabase
-          .from("rdv")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .gte("date_heure", startDate.toISOString())
-          .lte("date_heure", endDate.toISOString());
-
-        const { data: ventesData } = await supabase
-          .from("ventes")
-          .select("id, montant_ht, montant_ttc, status, type_vente, date_signature")
-          .eq("user_id", userId)
-          .neq("status", "annule")
-          .gte("date_signature", startDateStr)
-          .lte("date_signature", endDateStr);
-
-        // deno-lint-ignore no-explicit-any
-        const ventesStandard = ventesData?.filter((v: any) => v.type_vente !== "external_installation") || [];
-        const ventesCount = ventesStandard.length;
-        // deno-lint-ignore no-explicit-any
-        const caTTC = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ttc || 0), 0);
-        // deno-lint-ignore no-explicit-any
-        const caHT = ventesStandard.reduce((sum: number, v: any) => sum + (v.montant_ht || 0), 0);
-
-        const tauxConversion = rdvCount && rdvCount > 0 ? Math.round((ventesCount / rdvCount) * 100) : 0;
-
-        const periodLabel = period === "today" ? "aujourd'hui" : 
-                           period === "week" ? "cette semaine" : 
-                           period === "year" ? "cette année" :
-                           period === "all" ? "depuis le début" : "ce mois";
-
-        return {
-          actionTaken: "query_stats_result",
-          entityType: "stats",
-          entityId: JSON.stringify({
-            period: periodLabel,
-            rdv: rdvCount || 0,
-            ventes: ventesCount,
-            ventesEnCours: 0,
-            caTTC: Math.round(caTTC),
-            caHT: Math.round(caHT),
-            taux_conversion: tauxConversion
-          }),
-        };
-      }
-
-      const periodLabel = period === "today" ? "aujourd'hui" : 
-                         period === "week" ? "cette semaine" : 
-                         period === "year" ? "cette année" :
-                         period === "all" ? "depuis le début" : "ce mois";
-
-      const responseData = {
-        period: periodLabel,
-        rdv: statsData?.rdv_total || 0,
-        ventes: statsData?.ventes_signees || 0,
-        ventesEnCours: statsData?.ventes_en_cours || 0,
-        caTTC: Math.round(statsData?.ca_ttc || 0),
-        caHT: Math.round(statsData?.ca_ht || 0),
-        taux_conversion: statsData?.taux_conversion || 0,
-        commissions: Math.round(statsData?.commissions_total || 0)
-      };
-
-      return {
-        actionTaken: "query_stats_result",
-        entityType: "stats",
-        entityId: JSON.stringify(responseData),
-      };
-    }
 
     case "query_client_info": {
       const clientName = entities.client_name as string;
