@@ -8601,6 +8601,7 @@ async function executeAction(
       const enCoursStatuses = ["signe", "cq_a_faire", "cq_fait", "attente_financement", "envoi_pose", "en_installation"];
       const posesNonPayesStatuses = ["installe", "attente_paiement"];
 
+      // Use RPC for accurate commission calculation (source of truth)
       for (const v of (bilanVentes || [])) {
         const entry = regieMap.get(v.regie_id);
         if (!entry) continue;
@@ -8610,7 +8611,8 @@ async function executeAction(
         const partSurvente = regie?.part_survente_pct || 50;
         const isExternal = v.type_vente === "external_installation";
         
-        const { commission } = calculateCommission({
+        // Use RPC as source of truth, fallback to local calculation
+        const commResult = await getCommissionViaRPC(supabase, v.id, {
           montantTTC: v.montant_ttc || 0,
           montantHT: v.montant_ht || 0,
           puissanceKwc: v.puissance_kwc || 0,
@@ -8630,7 +8632,7 @@ async function executeAction(
           clientName,
           puissance: v.puissance_kwc || 0,
           montant: v.montant_ttc || 0,
-          commission: Math.round(commission),
+          commission: Math.round(commResult.commission),
           dateSignature: v.date_signature || "",
           dateInstallation: v.date_installation_reelle || "",
           status: statusLabelsB[v.status] || v.status,
