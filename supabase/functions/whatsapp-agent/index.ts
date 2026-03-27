@@ -8651,31 +8651,49 @@ async function executeAction(
         bilanResponse += `\n🏢 *${data.nom.toUpperCase()}*\n`;
         bilanResponse += `━━━━━━━━━━━━━━━━━━━━━━\n`;
         
-        // Section 1: En cours (signés non installés)
+        // Section 1: En cours (signés non installés) — grouped by status
         const totalComEnCours = data.enCours.reduce((s, v) => s + v.commission, 0);
         bilanResponse += `\n📋 *EN COURS* (${data.enCours.length}) — ${totalComEnCours.toLocaleString("fr-FR")}€ com.\n`;
         
         if (data.enCours.length === 0) {
           bilanResponse += `   _Aucun dossier en cours_\n`;
         } else {
+          // Group by rawStatus
+          const enCoursGrouped = new Map<string, typeof data.enCours>();
           for (const v of data.enCours) {
-            const dateStr = v.dateSignature ? new Date(v.dateSignature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
-            bilanResponse += `${v.status} *${v.clientName}*\n`;
-            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (signé ${dateStr})` : ""}\n`;
+            const group = enCoursGrouped.get(v.rawStatus) || [];
+            group.push(v);
+            enCoursGrouped.set(v.rawStatus, group);
+          }
+          for (const [, items] of enCoursGrouped) {
+            bilanResponse += `\n${items[0].status} (${items.length}):\n`;
+            for (const v of items) {
+              const dateStr = v.dateSignature ? new Date(v.dateSignature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+              bilanResponse += `• *${v.clientName}* — ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+            }
           }
         }
 
-        // Section 2: Posés non payés
+        // Section 2: Posés non payés — grouped by status
         const totalComPoses = data.posesNonPayes.reduce((s, v) => s + v.commission, 0);
         bilanResponse += `\n💳 *POSÉS NON PAYÉS* (${data.posesNonPayes.length}) — ${totalComPoses.toLocaleString("fr-FR")}€ com.\n`;
         
         if (data.posesNonPayes.length === 0) {
           bilanResponse += `   _Aucun dossier posé non payé_\n`;
         } else {
+          // Group by rawStatus
+          const posesGrouped = new Map<string, typeof data.posesNonPayes>();
           for (const v of data.posesNonPayes) {
-            const dateStr = v.dateInstallation ? new Date(v.dateInstallation).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
-            bilanResponse += `${v.status} *${v.clientName}*\n`;
-            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (posé ${dateStr})` : ""}\n`;
+            const group = posesGrouped.get(v.rawStatus) || [];
+            group.push(v);
+            posesGrouped.set(v.rawStatus, group);
+          }
+          for (const [, items] of posesGrouped) {
+            bilanResponse += `\n${items[0].status} (${items.length}):\n`;
+            for (const v of items) {
+              const dateStr = v.dateInstallation ? new Date(v.dateInstallation).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+              bilanResponse += `• *${v.clientName}* — ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+            }
           }
         }
 
