@@ -53,13 +53,14 @@ export function findOrInterpolateBouquet(
     }
   }
 
-  // Find the nearest lower bouquet and add 1000€ per kWc difference
+  // Find the nearest lower bouquet - commission = bouquet inférieur, prix ajusté par panneaux supplémentaires
   const lowerBouquet = sortedBouquets.filter(b => b.puissance_kwc < targetPuissance).pop();
   const upperBouquet = sortedBouquets.find(b => b.puissance_kwc > targetPuissance);
 
   if (lowerBouquet) {
     const diffKwc = targetPuissance - lowerBouquet.puissance_kwc;
-    const adjustment = diffKwc * 1000;
+    const panelsExtra = diffKwc / 0.5; // chaque panneau = 500Wc = 0.5kWc
+    const adjustment = panelsExtra * coutPanneauSupplementaire;
     return {
       prixRecommande: lowerBouquet.prix_recommande + adjustment,
       commissionFixe: lowerBouquet.commission_fixe || 0,
@@ -69,7 +70,8 @@ export function findOrInterpolateBouquet(
   } else if (upperBouquet) {
     // If no lower bouquet exists, use upper and subtract
     const diffKwc = upperBouquet.puissance_kwc - targetPuissance;
-    const adjustment = diffKwc * 1000;
+    const panelsExtra = diffKwc / 0.5;
+    const adjustment = panelsExtra * coutPanneauSupplementaire;
     return {
       prixRecommande: upperBouquet.prix_recommande - adjustment,
       commissionFixe: upperBouquet.commission_fixe || 0,
