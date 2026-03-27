@@ -8659,9 +8659,9 @@ async function executeAction(
           bilanResponse += `   _Aucun dossier en cours_\n`;
         } else {
           for (const v of data.enCours) {
-            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            const dateStr = v.dateSignature ? new Date(v.dateSignature).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
             bilanResponse += `${v.status} *${v.clientName}*\n`;
-            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (signé ${dateStr})` : ""}\n`;
           }
         }
 
@@ -8673,9 +8673,9 @@ async function executeAction(
           bilanResponse += `   _Aucun dossier posé non payé_\n`;
         } else {
           for (const v of data.posesNonPayes) {
-            const dateStr = v.date ? new Date(v.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+            const dateStr = v.dateInstallation ? new Date(v.dateInstallation).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
             bilanResponse += `${v.status} *${v.clientName}*\n`;
-            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (${dateStr})` : ""}\n`;
+            bilanResponse += `   ${v.puissance}kWc | ${v.montant.toLocaleString("fr-FR")}€ → *${v.commission.toLocaleString("fr-FR")}€*${dateStr ? ` (posé ${dateStr})` : ""}\n`;
           }
         }
 
