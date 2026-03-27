@@ -6206,7 +6206,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
               properties: {
                 intent: {
                   type: "string",
-                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "create_support_ticket", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
+                  enum: ["create_rdv", "update_rdv", "mark_signe", "update_vente_status", "update_vente_pipeline", "create_external_vente", "import_facture", "query_commissions", "query_ventes_a_facturer", "query_ventes_en_cours", "query_ventes_by_filter", "query_regie_bilan", "query_stats", "query_client_info", "query_client_full", "query_rdv_planning", "query_rdv_detail", "query_ventes", "query_vente_detail", "query_frais", "query_frais_detail", "query_regie_info", "query_documents", "query_etude_detail", "query_hejja", "coaching_performance", "add_decom", "update_vente_data", "update_client_notes", "update_client_data", "create_support_ticket", "user_feedback", "confirm_action", "cancel_action", "conversation", "unknown", "multi_request"]
                 },
                 confidence: { type: "number", minimum: 0, maximum: 100 },
                 entities: {
