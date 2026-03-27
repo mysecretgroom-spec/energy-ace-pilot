@@ -8631,7 +8631,8 @@ async function executeAction(
           puissance: v.puissance_kwc || 0,
           montant: v.montant_ttc || 0,
           commission: Math.round(commission),
-          date: v.date_installation_reelle || v.date_signature || "",
+          dateSignature: v.date_signature || "",
+          dateInstallation: v.date_installation_reelle || "",
           status: statusLabelsB[v.status] || v.status,
           rawStatus: v.status,
         };
