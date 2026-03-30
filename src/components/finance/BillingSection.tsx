@@ -147,6 +147,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           etude_id,
           type_vente,
           status,
+          commission_override,
           clients (
             nom,
             prenom
