@@ -242,6 +242,22 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const billableVentes: BillableVente[] = filteredVentesData.map((v: any) => {
         const decomMontant = v.decom_montant || 0;
         
+        // Commission figée (override)
+        if (v.commission_override != null) {
+          const commission = Math.round(Math.max(0, v.commission_override - decomMontant) / 100) * 100;
+          return {
+            id: v.id,
+            client_nom: v.clients?.nom || "Client inconnu",
+            client_prenom: v.clients?.prenom || null,
+            puissance_kwc: v.puissance_kwc,
+            montant_ht: v.montant_ht,
+            montant_ttc: v.montant_ttc,
+            date_installation_reelle: v.date_installation_reelle,
+            commission,
+            decom_montant: decomMontant,
+          };
+        }
+        
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
           return {
@@ -286,7 +302,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           bonusSurvente = surventeHT * (partSurventePct / 100);
         }
         
-        const commission = Math.max(0, baseCommission + bonusSurvente - decomMontant);
+        const commission = Math.round(Math.max(0, baseCommission + bonusSurvente - decomMontant) / 100) * 100;
 
         return {
           id: v.id,
@@ -471,6 +487,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           puissance_kwc,
           date_installation_reelle,
           decom_montant,
+          commission_override,
           regie_id,
           etude_id,
           type_vente,
