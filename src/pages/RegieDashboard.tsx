@@ -153,7 +153,7 @@ const RegieDashboard = () => {
           .order("date_heure", { ascending: false }),
         supabase
           .from("ventes")
-          .select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, clients(nom, prenom)")
+          .select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, commission_override, clients(nom, prenom)")
           .eq("regie_id", id)
           .order("date_signature", { ascending: false }),
         supabase

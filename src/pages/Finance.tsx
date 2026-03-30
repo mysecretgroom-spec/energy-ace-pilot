@@ -489,7 +489,7 @@ const Finance = () => {
         // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, decom_raison, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, clients(nom, prenom, telephone, adresse, ville, code_postal)")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, decom_raison, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)")
           .eq("user_id", user.id);
 
         if (error) throw error;
