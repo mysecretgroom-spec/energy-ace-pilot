@@ -49,6 +49,7 @@ interface VenteInput {
   etude_id?: string | null;
   status?: string;
   product_type?: "PV" | "PAC" | "ITE" | null;
+  commission_override?: number | null;
 }
 
 interface RegieConfig {
@@ -162,6 +163,24 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
         // CAS 1: Vente annulée → Commission = 0
         if (vente.status === "annule") {
           results.set(vente.id, createZeroCommission(vente.id, vente.montant_ht));
+          continue;
+        }
+
+        // CAS 1b: Commission figée (override) → utiliser directement
+        if (vente.commission_override != null) {
+          const decom = vente.decom_montant || 0;
+          const commissionNette = Math.round(Math.max(0, vente.commission_override - decom) / 100) * 100;
+          results.set(vente.id, {
+            venteId: vente.id,
+            type: "standard",
+            mode: "bouquet",
+            commissionBase: vente.commission_override,
+            bonusSurvente: 0,
+            decomMontant: decom,
+            commissionNette,
+            montantHT: vente.montant_ht,
+            isInterpolated: false,
+          });
           continue;
         }
 

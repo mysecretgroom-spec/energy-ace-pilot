@@ -301,7 +301,7 @@ const ClientDetailInner = () => {
       supabase.from("etudes").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       supabase.from("documents").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       supabase.from("historique_actions").select("*").eq("client_id", id).order("created_at", { ascending: false }).limit(20),
-      supabase.from("ventes").select("id, numero_contrat, date_signature, montant_ht, montant_ttc, puissance_kwc, status, type_vente, decom_montant, decom_raison, regie_id").eq("client_id", id).order("date_signature", { ascending: false }),
+      supabase.from("ventes").select("id, numero_contrat, date_signature, montant_ht, montant_ttc, puissance_kwc, status, type_vente, decom_montant, decom_raison, regie_id, commission_override").eq("client_id", id).order("date_signature", { ascending: false }),
     ]);
 
     setClientRegie(regieResult.data as ClientRegie | null);

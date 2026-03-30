@@ -34,6 +34,7 @@ interface Vente {
   regie_id?: string | null;
   decom_montant?: number | null;
   product_type?: string | null;
+  commission_override?: number | null;
   client: {
     id: string;
     nom: string;
@@ -141,6 +142,20 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       const newCommissions = new Map<string, Commission>();
       
       eligibleVentes.forEach(vente => {
+        // Si commission figée (override), l'utiliser directement
+        if (vente.commission_override != null) {
+          const decomMontant = vente.decom_montant || 0;
+          const montantCommission = Math.round(Math.max(0, vente.commission_override - decomMontant) / 100) * 100;
+          newCommissions.set(vente.id, {
+            vente_id: vente.id,
+            montant_base: vente.montant_ht,
+            commission_fixe: vente.commission_override,
+            bonus_survente: 0,
+            montant_commission: montantCommission,
+          });
+          return;
+        }
+
         if (!vente.puissance_kwc) return;
         
         const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
@@ -172,7 +187,7 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
         }
         
         const decomMontant = vente.decom_montant || 0;
-        const montantCommission = Math.max(0, commissionFixe + bonusSurvente - decomMontant);
+        const montantCommission = Math.round(Math.max(0, commissionFixe + bonusSurvente - decomMontant) / 100) * 100;
 
         newCommissions.set(vente.id, {
           vente_id: vente.id,
