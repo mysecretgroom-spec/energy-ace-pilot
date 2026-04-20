@@ -365,7 +365,7 @@ const AgentPromptsManager = () => {
                         {prompt.content}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Créée le {format(new Date(prompt.created_at), "dd MMM yyyy", { locale: fr })}
+                        Créée le {format(new Date(prompt.created_at), "dd/MM/yyyy", { locale: fr })}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

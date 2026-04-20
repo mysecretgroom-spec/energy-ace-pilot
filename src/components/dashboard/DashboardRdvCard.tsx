@@ -80,9 +80,9 @@
                 {rdv.needs_reconfirmation && <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">À CONFIRMER</span>}
                 {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-xs text-primary font-semibold">EN COURS</span>}
              </p>
-             <p className="text-xs text-muted-foreground">
-               {format(rdvDate, "EEEE d MMM à HH:mm", { locale: fr })}
-             </p>
+              <p className="text-xs text-muted-foreground">
+                {format(rdvDate, "dd/MM/yyyy à HH:mm", { locale: fr })}
+              </p>
            </div>
          </div>
          <div className="flex items-center gap-2">

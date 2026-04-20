@@ -116,7 +116,7 @@ export function GmailSyncDialog({
                     >
                       <Calendar className="mr-2 h-4 w-4" />
                       {fromDate ? (
-                        format(fromDate, "dd MMM yyyy", { locale: fr })
+                        format(fromDate, "dd/MM/yyyy", { locale: fr })
                       ) : (
                         <span>Date début</span>
                       )}
@@ -148,7 +148,7 @@ export function GmailSyncDialog({
                     >
                       <Calendar className="mr-2 h-4 w-4" />
                       {toDate ? (
-                        format(toDate, "dd MMM yyyy", { locale: fr })
+                        format(toDate, "dd/MM/yyyy", { locale: fr })
                       ) : (
                         <span>Date fin</span>
                       )}

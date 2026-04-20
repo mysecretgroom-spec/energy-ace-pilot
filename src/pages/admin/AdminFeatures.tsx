@@ -186,7 +186,7 @@ export default function AdminFeatures() {
                       </TableCell>
                       <TableCell>{feature.user?.email}</TableCell>
                       <TableCell>
-                        {format(new Date(feature.created_at), "dd MMM yyyy", { locale: fr })}
+                        {format(new Date(feature.created_at), "dd/MM/yyyy", { locale: fr })}
                       </TableCell>
                       <TableCell>{getStatusBadge(feature.status)}</TableCell>
                       <TableCell>
@@ -240,7 +240,7 @@ export default function AdminFeatures() {
 
             <div className="text-sm text-muted-foreground">
               Par {selectedFeature?.user?.email} le{" "}
-              {selectedFeature?.created_at && format(new Date(selectedFeature.created_at), "dd MMMM yyyy", { locale: fr })}
+              {selectedFeature?.created_at && format(new Date(selectedFeature.created_at), "dd/MM/yyyy", { locale: fr })}
             </div>
 
             <div className="bg-muted p-4 rounded-lg">

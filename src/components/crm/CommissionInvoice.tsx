@@ -248,7 +248,7 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`Date: ${format(new Date(), "dd MMMM yyyy", { locale: fr })}`, 14, 35);
+      doc.text(`Date: ${format(new Date(), "dd/MM/yyyy", { locale: fr })}`, 14, 35);
       doc.text(`Nombre de ventes: ${selectedVentes.length}`, 14, 42);
 
       // Table data
