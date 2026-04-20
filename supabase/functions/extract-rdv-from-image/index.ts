@@ -21,29 +21,37 @@ interface ExtractedRdv {
   ville: string | null;
   date: string | null; // YYYY-MM-DD
   heure: string | null; // HH:mm
-  type_projet: string | null; // photovoltaique | pompe_chaleur | isolation | ballon_thermo | autre
+  type_projet: string | null;
   notes: string | null;
   confidence: number; // 0..1
 }
 
+interface ExtractedRdvsResult {
+  rdvs: ExtractedRdv[];
+  confidence: number; // overall confidence
+}
+
 const SYSTEM_PROMPT = `Tu es un assistant expert en extraction d'informations de rendez-vous depuis des captures d'écran de CRM, emails, SMS, calendriers ou notes manuscrites.
 
-Ton rôle: analyser une ou plusieurs images et extraire TOUTES les informations utiles pour créer un rendez-vous client dans un CRM photovoltaïque/énergie.
+Ton rôle: analyser une ou plusieurs images et extraire TOUS les rendez-vous visibles (un screenshot peut contenir plusieurs RDV: planning, liste, agenda).
 
 Règles:
-- Si plusieurs images sont fournies, elles concernent UN SEUL rendez-vous (vues différentes du même CRM).
+- Une seule image peut contenir PLUSIEURS rendez-vous distincts (ex: capture d'un planning hebdo, liste d'appels, agenda). Renvoie un tableau "rdvs" avec un objet par rendez-vous identifié.
+- Si plusieurs images sont fournies, elles peuvent contenir chacune un ou plusieurs RDV. Fusionne tous les RDV de toutes les images dans le même tableau (sauf si deux entrées concernent visiblement la même personne avec mêmes date/heure → dédupliquer).
 - Date au format YYYY-MM-DD. Si tu vois "demain", "lundi prochain", etc., calcule par rapport à la date actuelle (donnée dans le contexte).
 - Heure au format HH:mm sur 24h.
-- Téléphone: garder le format français (ex: 0612345678 ou +33612345678).
+- Téléphone: format français (ex: 0612345678 ou +33612345678).
 - type_projet doit être l'une de ces valeurs: photovoltaique, pompe_chaleur, isolation, ballon_thermo, autre. Photovoltaïque par défaut si non précisé.
-- Si une info n'est pas visible/déductible, mets null. NE JAMAIS inventer.
-- confidence: 0.9+ si toutes les infos critiques (nom + date) sont claires, 0.6-0.8 si partiel, <0.5 si très incertain.`;
+- Si une info n'est pas visible/déductible pour UN RDV, mets null pour ce champ. NE JAMAIS inventer.
+- confidence par RDV: 0.9+ si nom + date clairs, 0.6-0.8 si partiel, <0.5 si très incertain.
+- confidence globale: moyenne pondérée des RDV extraits.
+- Si AUCUN rendez-vous identifiable, retourne rdvs: [] avec confidence 0.`;
 
 async function callGeminiVision(images: ImageInput[], todayIso: string, apiKey: string) {
   const userContent: Array<Record<string, unknown>> = [
     {
       type: "text",
-      text: `Date d'aujourd'hui: ${todayIso}. Analyse ${images.length === 1 ? "cette capture d'écran" : `ces ${images.length} captures d'écran`} et extrait les informations du rendez-vous.`,
+      text: `Date d'aujourd'hui: ${todayIso}. Analyse ${images.length === 1 ? "cette capture d'écran" : `ces ${images.length} captures d'écran`} et extrait TOUS les rendez-vous visibles (il peut y en avoir plusieurs dans une même image).`,
     },
     ...images.map((img) => {
       const url = img.data.startsWith("data:")
@@ -56,6 +64,29 @@ async function callGeminiVision(images: ImageInput[], todayIso: string, apiKey: 
     }),
   ];
 
+  const rdvSchema = {
+    type: "object",
+    properties: {
+      nom: { type: ["string", "null"], description: "Nom de famille du client" },
+      prenom: { type: ["string", "null"], description: "Prénom du client" },
+      telephone: { type: ["string", "null"] },
+      email: { type: ["string", "null"] },
+      adresse: { type: ["string", "null"], description: "Adresse rue + numéro" },
+      code_postal: { type: ["string", "null"] },
+      ville: { type: ["string", "null"] },
+      date: { type: ["string", "null"], description: "YYYY-MM-DD" },
+      heure: { type: ["string", "null"], description: "HH:mm 24h" },
+      type_projet: {
+        type: ["string", "null"],
+        enum: ["photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre", null],
+      },
+      notes: { type: ["string", "null"], description: "Commentaires, contexte commercial" },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+    },
+    required: ["confidence"],
+    additionalProperties: false,
+  };
+
   const body = {
     model: "google/gemini-2.5-flash",
     messages: [
@@ -66,34 +97,25 @@ async function callGeminiVision(images: ImageInput[], todayIso: string, apiKey: 
       {
         type: "function",
         function: {
-          name: "extract_rdv_data",
-          description: "Retourne les informations structurées du rendez-vous extraites de l'image.",
+          name: "extract_rdvs_data",
+          description: "Retourne TOUS les rendez-vous extraits (un ou plusieurs) sous forme de tableau structuré.",
           parameters: {
             type: "object",
             properties: {
-              nom: { type: ["string", "null"], description: "Nom de famille du client" },
-              prenom: { type: ["string", "null"], description: "Prénom du client" },
-              telephone: { type: ["string", "null"] },
-              email: { type: ["string", "null"] },
-              adresse: { type: ["string", "null"], description: "Adresse rue + numéro" },
-              code_postal: { type: ["string", "null"] },
-              ville: { type: ["string", "null"] },
-              date: { type: ["string", "null"], description: "YYYY-MM-DD" },
-              heure: { type: ["string", "null"], description: "HH:mm 24h" },
-              type_projet: {
-                type: ["string", "null"],
-                enum: ["photovoltaique", "pompe_chaleur", "isolation", "ballon_thermo", "autre", null],
+              rdvs: {
+                type: "array",
+                description: "Liste de tous les rendez-vous identifiés dans les images.",
+                items: rdvSchema,
               },
-              notes: { type: ["string", "null"], description: "Commentaires, contexte commercial" },
-              confidence: { type: "number", minimum: 0, maximum: 1 },
+              confidence: { type: "number", minimum: 0, maximum: 1, description: "Confiance globale" },
             },
-            required: ["confidence"],
+            required: ["rdvs", "confidence"],
             additionalProperties: false,
           },
         },
       },
     ],
-    tool_choice: { type: "function", function: { name: "extract_rdv_data" } },
+    tool_choice: { type: "function", function: { name: "extract_rdvs_data" } },
   };
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -117,7 +139,10 @@ async function callGeminiVision(images: ImageInput[], todayIso: string, apiKey: 
   }
 
   try {
-    const parsed = JSON.parse(toolCall.function.arguments) as ExtractedRdv;
+    const parsed = JSON.parse(toolCall.function.arguments) as ExtractedRdvsResult;
+    if (!Array.isArray(parsed.rdvs)) {
+      return { ok: false as const, status: 500, error: "Missing rdvs array" };
+    }
     return { ok: true as const, data: parsed };
   } catch (e) {
     return { ok: false as const, status: 500, error: `Parse error: ${(e as Error).message}` };
@@ -153,9 +178,9 @@ serve(async (req) => {
       );
     }
 
-    if (images.length > 5) {
+    if (images.length > 10) {
       return new Response(
-        JSON.stringify({ success: false, error: "Max 5 images per request" }),
+        JSON.stringify({ success: false, error: "Max 10 images per request" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -191,8 +216,23 @@ serve(async (req) => {
       );
     }
 
+    // Sort RDVs by date+heure for stable A/B/C labeling
+    const sorted = [...result.data.rdvs].sort((a, b) => {
+      const aKey = `${a.date || "9999-99-99"}T${a.heure || "99:99"}`;
+      const bKey = `${b.date || "9999-99-99"}T${b.heure || "99:99"}`;
+      return aKey.localeCompare(bKey);
+    });
+
     return new Response(
-      JSON.stringify({ success: true, data: result.data }),
+      JSON.stringify({
+        success: true,
+        data: {
+          rdvs: sorted,
+          confidence: result.data.confidence,
+          // Backward-compatible: expose first RDV as `rdv` (single-RDV consumers)
+          rdv: sorted[0] || null,
+        },
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
