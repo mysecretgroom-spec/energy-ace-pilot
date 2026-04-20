@@ -3477,6 +3477,53 @@ export type Database = {
           },
         ]
       }
+      whatsapp_pending_images: {
+        Row: {
+          created_at: string
+          expires_at: string
+          extracted_rdvs: Json | null
+          id: string
+          image_data: string
+          mime_type: string | null
+          phone_number: string
+          regie_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          extracted_rdvs?: Json | null
+          id?: string
+          image_data: string
+          mime_type?: string | null
+          phone_number: string
+          regie_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          extracted_rdvs?: Json | null
+          id?: string
+          image_data?: string
+          mime_type?: string | null
+          phone_number?: string
+          regie_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_pending_images_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_templates: {
         Row: {
           classification: string
