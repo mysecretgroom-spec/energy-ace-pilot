@@ -169,8 +169,19 @@ export function ImageImportDialog({
         return;
       }
 
-      const extracted = data.data;
-      if (extracted.confidence < 0.4) {
+      // New API returns { rdvs: [...], confidence, rdv }
+      // Backward-compat: also accept the old single-object shape
+      const rdvs = Array.isArray(data.data.rdvs) ? data.data.rdvs : null;
+      const extracted = rdvs && rdvs.length > 0 ? rdvs[0] : data.data.rdv || data.data;
+
+      if (!extracted || (typeof extracted === "object" && !extracted.nom && !extracted.date)) {
+        toast.error("Aucun rendez-vous identifié dans l'image");
+        return;
+      }
+
+      if (rdvs && rdvs.length > 1) {
+        toast.info(`${rdvs.length} RDV détectés — le premier est pré-rempli (les autres seront ignorés ici).`);
+      } else if ((extracted.confidence ?? 0) < 0.4) {
         toast.warning("Extraction peu fiable, vérifiez les champs");
       } else {
         toast.success("Informations extraites ✨");
