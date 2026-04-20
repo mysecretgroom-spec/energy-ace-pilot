@@ -238,6 +238,8 @@ interface PendingAction {
     selectedClientName?: string | null;   // Nom du client sélectionné
     // Pour les doublons
     forceDuplicate?: boolean;       // Force l'import malgré un doublon détecté
+    // Pour le workflow multi-RDV (extraction batch d'images)
+    multiRdvBatch?: MultiRdvBatchData;
   };
   createdAt: string;
 }
