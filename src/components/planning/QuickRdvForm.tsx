@@ -274,10 +274,22 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarPlus className="h-5 w-5" />
-          Nouveau rendez-vous
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <CalendarPlus className="h-5 w-5" />
+            Nouveau rendez-vous
+          </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImageDialogOpen(true)}
+            className="gap-1.5"
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Client search or display */}
