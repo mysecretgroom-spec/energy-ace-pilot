@@ -2299,10 +2299,21 @@ serve(async (req) => {
 
             if (extractResp.ok) {
               const extractJson = await extractResp.json();
-              const ex = extractJson?.data;
+              // New API: { data: { rdvs: [...], rdv (1st), confidence } }
+              // Backward-compat: { data: { ...singleRdv } }
+              const dataPayload = extractJson?.data;
+              const rdvsArr: Array<Record<string, unknown>> = Array.isArray(dataPayload?.rdvs)
+                ? dataPayload.rdvs
+                : (dataPayload && (dataPayload.nom || dataPayload.date) ? [dataPayload] : []);
+              const ex = (rdvsArr[0] || {}) as {
+                nom?: string; prenom?: string; date?: string; heure?: string;
+                adresse?: string; code_postal?: string; ville?: string;
+                telephone?: string; email?: string; type_projet?: string;
+                notes?: string; confidence?: number;
+              };
               if (
                 extractJson?.success &&
-                ex &&
+                rdvsArr.length > 0 &&
                 (ex.nom || ex.prenom) &&
                 ex.date &&
                 (ex.confidence ?? 0) >= 0.5
@@ -2323,12 +2334,15 @@ serve(async (req) => {
                   parts.push(`type ${ex.type_projet}`);
                 }
                 if (ex.notes) parts.push(`notes: ${ex.notes}`);
+                if (rdvsArr.length > 1) {
+                  parts.push(`(+${rdvsArr.length - 1} autre${rdvsArr.length > 2 ? "s" : ""} RDV détecté${rdvsArr.length > 2 ? "s" : ""} — non traités)`);
+                }
 
                 const userCaption = (request.content || "").trim();
                 processedContent = userCaption
                   ? `${userCaption} — ${parts.join(", ")}`
                   : parts.join(", ");
-                console.log("RDV extracted from image →", processedContent);
+                console.log(`RDV extracted from image (${rdvsArr.length} total) →`, processedContent);
               } else {
                 console.log("RDV classified but extraction missing critical fields → falling back to finance");
               }
