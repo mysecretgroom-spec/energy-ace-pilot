@@ -168,16 +168,16 @@ export default function AdminSubscriptions() {
                       </TableCell>
                       <TableCell>
                         {sub.current_period_end 
-                          ? format(new Date(sub.current_period_end), "dd MMM yyyy", { locale: fr })
+                          ? format(new Date(sub.current_period_end), "dd/MM/yyyy", { locale: fr })
                           : "-"}
                       </TableCell>
                       <TableCell>
                         {sub.past_due_since 
-                          ? format(new Date(sub.past_due_since), "dd MMM yyyy", { locale: fr })
+                          ? format(new Date(sub.past_due_since), "dd/MM/yyyy", { locale: fr })
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(sub.updated_at), "dd MMM HH:mm", { locale: fr })}
+                        {format(new Date(sub.updated_at), "dd/MM/yyyy HH:mm", { locale: fr })}
                       </TableCell>
                     </TableRow>
                   ))}
