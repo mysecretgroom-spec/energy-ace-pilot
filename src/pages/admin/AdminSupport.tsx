@@ -218,7 +218,7 @@ export default function AdminSupport() {
                   {filteredTickets?.map((ticket) => (
                     <TableRow key={ticket.id}>
                       <TableCell>
-                        {format(new Date(ticket.created_at), "dd MMM HH:mm", { locale: fr })}
+                        {format(new Date(ticket.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
                       </TableCell>
                       <TableCell>{ticket.user?.email}</TableCell>
                       <TableCell className="font-medium max-w-[300px] truncate">
@@ -291,7 +291,7 @@ export default function AdminSupport() {
                         {reply.is_admin ? "Admin" : "Client"}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(reply.created_at), "dd MMM HH:mm", { locale: fr })}
+                        {format(new Date(reply.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
                       </span>
                     </div>
                     <p className="text-sm">{reply.message}</p>
