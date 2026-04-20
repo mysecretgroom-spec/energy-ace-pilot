@@ -1,0 +1,418 @@
+// =============================================================
+// Multi-RDV WhatsApp workflow (extraction batch + menu A/B/C/D…)
+// Standalone helper module imported by index.ts
+// =============================================================
+
+// deno-lint-ignore-file no-explicit-any
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+export interface ExtractedRdv {
+  nom: string | null;
+  prenom: string | null;
+  telephone: string | null;
+  email: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  date: string | null;
+  heure: string | null;
+  type_projet: string | null;
+  notes: string | null;
+  confidence: number;
+}
+
+export interface MultiRdvBatchData {
+  /** RDV proposed to user, indexed by letter A,B,C... */
+  rdvs: ExtractedRdv[];
+  /** Letters validated by user (already created) — for tracking */
+  validated: string[];
+  /** Letters removed by user */
+  removed: string[];
+  /** Régie selected for the whole batch */
+  regieId: string | null;
+  /** Régie name (display) */
+  regieName: string | null;
+  /** True when user is editing a specific entry (e.g. "ÉDITER B") */
+  editingLetter?: string | null;
+  /** Field being edited if editing flow */
+  editingField?: string | null;
+  /** Created at ISO */
+  createdAt: string;
+}
+
+/** Build a data URL from base64 + mime */
+function toDataUrl(base64: string, mime: string): string {
+  if (base64.startsWith("data:")) return base64;
+  return `data:${mime || "image/jpeg"};base64,${base64}`;
+}
+
+/** Add an image to the user's pending buffer */
+export async function bufferImage(
+  supabase: any,
+  userId: string,
+  phoneNumber: string,
+  base64: string,
+  mimeType: string,
+): Promise<{ ok: boolean; pendingCount: number; error?: string }> {
+  // Insert
+  const { error } = await supabase.from("whatsapp_pending_images").insert({
+    user_id: userId,
+    phone_number: phoneNumber,
+    image_data: base64,
+    mime_type: mimeType || "image/jpeg",
+    status: "pending",
+  });
+  if (error) {
+    console.error("bufferImage insert failed:", error);
+    return { ok: false, pendingCount: 0, error: error.message };
+  }
+
+  const { count } = await supabase
+    .from("whatsapp_pending_images")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "pending");
+
+  return { ok: true, pendingCount: count ?? 1 };
+}
+
+/** Detect "GO" / "OK" trigger message (case-insensitive, isolated word) */
+export function isGoTrigger(message: string): boolean {
+  const t = message.trim().toLowerCase().replace(/[!.?]+$/g, "");
+  return ["go", "ok", "okay", "valide", "valider", "traite", "traiter", "fini", "c'est bon", "cest bon"].includes(t);
+}
+
+/** Detect short ack messages so we don't spam the user */
+export function isCancelMultiRdv(message: string): boolean {
+  const t = message.trim().toLowerCase();
+  return ["non", "annule", "annuler", "stop", "oublie"].includes(t);
+}
+
+/** Fetch all pending images for user */
+export async function fetchPendingImages(
+  supabase: any,
+  userId: string,
+): Promise<Array<{ id: string; image_data: string; mime_type: string }>> {
+  const { data, error } = await supabase
+    .from("whatsapp_pending_images")
+    .select("id, image_data, mime_type")
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(10);
+
+  if (error) {
+    console.error("fetchPendingImages error:", error);
+    return [];
+  }
+  return data || [];
+}
+
+/** Mark images as processed */
+export async function markImagesProcessed(
+  supabase: any,
+  ids: string[],
+): Promise<void> {
+  if (!ids.length) return;
+  await supabase
+    .from("whatsapp_pending_images")
+    .update({ status: "processed", processed_at: new Date().toISOString() })
+    .in("id", ids);
+}
+
+/** Discard buffered images (cancel) */
+export async function discardPendingImages(
+  supabase: any,
+  userId: string,
+): Promise<void> {
+  await supabase
+    .from("whatsapp_pending_images")
+    .update({ status: "discarded", processed_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("status", "pending");
+}
+
+/** Call extract-rdv-from-image with multiple images */
+export async function extractRdvsFromImages(
+  images: Array<{ image_data: string; mime_type: string }>,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+): Promise<{ ok: boolean; rdvs: ExtractedRdv[]; error?: string }> {
+  try {
+    const payload = {
+      images: images.map((img) => ({ data: toDataUrl(img.image_data, img.mime_type) })),
+    };
+    const resp = await fetch(`${supabaseUrl}/functions/v1/extract-rdv-from-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      return { ok: false, rdvs: [], error: `extract failed (${resp.status}): ${txt.slice(0, 200)}` };
+    }
+    const json = await resp.json();
+    const arr: ExtractedRdv[] = Array.isArray(json?.data?.rdvs) ? json.data.rdvs : [];
+    return { ok: true, rdvs: arr };
+  } catch (e) {
+    return { ok: false, rdvs: [], error: (e as Error).message };
+  }
+}
+
+/** Format a single RDV summary line for the menu */
+export function formatRdvLine(letter: string, r: ExtractedRdv): string {
+  const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
+  const dateLabel = r.date ? formatFrenchDate(r.date) : "❓ date";
+  const timeLabel = r.heure ? ` ${r.heure}` : "";
+  const cityLabel = r.ville ? ` — ${r.ville}` : "";
+  return `*${letter}.* ${fullName} — ${dateLabel}${timeLabel}${cityLabel}`;
+}
+
+/** Format YYYY-MM-DD → JJ/MM/AAAA */
+function formatFrenchDate(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+/** Build the validation menu message */
+export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): string {
+  const remaining = data.rdvs
+    .map((r, i) => ({ letter: ALPHABET[i], rdv: r, idx: i }))
+    .filter((x) => !data.removed.includes(x.letter) && !data.validated.includes(x.letter));
+
+  if (remaining.length === 0) {
+    return "✅ Plus aucun RDV à valider.";
+  }
+
+  const lines = remaining.map((x) => formatRdvLine(x.letter, x.rdv));
+  const header = intro || `📅 *${remaining.length} RDV détecté${remaining.length > 1 ? "s" : ""}* (Régie: ${data.regieName || "?"})`;
+
+  return [
+    header,
+    "",
+    ...lines,
+    "",
+    "*Réponds:*",
+    "• `OUI` → tout créer",
+    `• \`${remaining.map((x) => x.letter).join(" ")}\` → créer seulement ces RDV (lettres séparées par espace)`,
+    "• `SUPPRIMER B` → retirer un RDV",
+    "• `NON` → tout annuler",
+  ].join("\n");
+}
+
+/** Parse user response in awaiting_multi_rdv_validation state */
+export type MultiRdvParseResult =
+  | { kind: "create_all" }
+  | { kind: "create_subset"; letters: string[] }
+  | { kind: "remove"; letter: string }
+  | { kind: "cancel" }
+  | { kind: "unknown" };
+
+export function parseValidationResponse(message: string, data: MultiRdvBatchData): MultiRdvParseResult {
+  const raw = message.trim();
+  const lower = raw.toLowerCase();
+
+  if (["oui", "ok", "yes", "tout", "tous", "valide", "valider", "go"].includes(lower)) {
+    return { kind: "create_all" };
+  }
+  if (["non", "annule", "annuler", "stop", "cancel"].includes(lower)) {
+    return { kind: "cancel" };
+  }
+
+  // SUPPRIMER X / RETIRER X / DELETE X
+  const removeMatch = raw.match(/^(?:supprim(?:er|e)?|retir(?:er|e)?|enlev(?:er|e)?|delete|del)\s+([A-Za-z])\b/i);
+  if (removeMatch) {
+    const letter = removeMatch[1].toUpperCase();
+    if (isLetterValid(letter, data)) return { kind: "remove", letter };
+  }
+
+  // Subset: letters separated by space/comma/+ — e.g. "A C E" or "A,B" or "A+B"
+  const tokens = raw.split(/[\s,+;/]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
+  if (tokens.length > 0 && tokens.every((t) => /^[A-Z]$/.test(t))) {
+    const valid = tokens.filter((t) => isLetterValid(t, data));
+    if (valid.length > 0) {
+      return { kind: "create_subset", letters: Array.from(new Set(valid)) };
+    }
+  }
+
+  return { kind: "unknown" };
+}
+
+function isLetterValid(letter: string, data: MultiRdvBatchData): boolean {
+  const idx = ALPHABET.indexOf(letter);
+  if (idx < 0 || idx >= data.rdvs.length) return false;
+  if (data.removed.includes(letter)) return false;
+  if (data.validated.includes(letter)) return false;
+  return true;
+}
+
+/** Build Paris-tz date heure string (matches main file's helper) */
+function buildParisDateHeure(dateStr: string, timeStr: string): string {
+  const probe = new Date(`${dateStr}T${timeStr}:00Z`);
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    timeZoneName: "shortOffset",
+  });
+  const parts = dtf.formatToParts(probe);
+  const tz = parts.find((p) => p.type === "timeZoneName")?.value || "GMT+1";
+  const m = tz.match(/GMT([+-]\d+)/);
+  const offsetHours = m ? parseInt(m[1], 10) : 1;
+  const sign = offsetHours >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetHours).toString().padStart(2, "0");
+  return `${dateStr}T${timeStr}:00${sign}${abs}:00`;
+}
+
+/** Find existing client by phone (normalized French) */
+async function findClientByPhone(
+  supabase: any,
+  userId: string,
+  phone: string | null,
+): Promise<{ id: string; nom: string; prenom: string | null } | null> {
+  if (!phone) return null;
+  const normalized = phone.replace(/[^0-9]/g, "");
+  if (normalized.length < 9) return null;
+
+  // Try several variants
+  const last9 = normalized.slice(-9);
+  const candidates = [normalized, `0${last9}`, `+33${last9}`, `33${last9}`];
+
+  const { data } = await supabase
+    .from("clients")
+    .select("id, nom, prenom, telephone")
+    .eq("user_id", userId)
+    .not("telephone", "is", null);
+
+  if (!data) return null;
+  for (const row of data) {
+    const rowNorm = (row.telephone as string).replace(/[^0-9]/g, "");
+    if (candidates.some((c) => c === rowNorm) || rowNorm.endsWith(last9)) {
+      return { id: row.id, nom: row.nom, prenom: row.prenom };
+    }
+  }
+  return null;
+}
+
+/** Get user's available régies */
+export async function getUserRegies(
+  supabase: any,
+  userId: string,
+): Promise<Array<{ id: string; nom: string }>> {
+  const { data } = await supabase
+    .from("regies")
+    .select("id, nom")
+    .eq("user_id", userId)
+    .eq("actif", true)
+    .order("nom");
+  return (data || []) as Array<{ id: string; nom: string }>;
+}
+
+/** Resolve default regie for user (single or main) */
+export async function resolveDefaultRegie(
+  supabase: any,
+  userId: string,
+): Promise<{ regieId: string | null; regieName: string | null; needsSelection: boolean; regies: Array<{ id: string; nom: string }> }> {
+  const regies = await getUserRegies(supabase, userId);
+  if (regies.length === 0) {
+    return { regieId: null, regieName: null, needsSelection: false, regies: [] };
+  }
+  if (regies.length === 1) {
+    return { regieId: regies[0].id, regieName: regies[0].nom, needsSelection: false, regies };
+  }
+  // Try profile.main_regie_id
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("main_regie_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profile?.main_regie_id) {
+    const main = regies.find((r) => r.id === profile.main_regie_id);
+    if (main) return { regieId: main.id, regieName: main.nom, needsSelection: false, regies };
+  }
+  return { regieId: null, regieName: null, needsSelection: true, regies };
+}
+
+/** Create one RDV (and client if needed) — returns summary */
+export async function createSingleRdvFromExtract(
+  supabase: any,
+  userId: string,
+  rdv: ExtractedRdv,
+  regieId: string | null,
+): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; error?: string }> {
+  const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
+  if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
+    return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
+  }
+
+  // 1) Find or create client
+  let clientId: string | null = null;
+  let isNewClient = false;
+  const existing = await findClientByPhone(supabase, userId, rdv.telephone);
+  if (existing) {
+    clientId = existing.id;
+  } else {
+    const { data: newClient, error: clientErr } = await supabase
+      .from("clients")
+      .insert({
+        user_id: userId,
+        nom: rdv.nom || "Client",
+        prenom: rdv.prenom || null,
+        telephone: rdv.telephone || null,
+        email: rdv.email || null,
+        adresse: rdv.adresse || null,
+        code_postal: rdv.code_postal || null,
+        ville: rdv.ville || null,
+        notes: rdv.notes || null,
+        regie_id: regieId,
+        source: "whatsapp_agent_image",
+      })
+      .select("id")
+      .single();
+    if (clientErr || !newClient) {
+      return { ok: false, clientName: fullName, isNewClient: false, error: clientErr?.message || "Création client échouée" };
+    }
+    clientId = newClient.id;
+    isNewClient = true;
+  }
+
+  // 2) Build RDV
+  const heure = rdv.heure || "10:00";
+  const dateHeure = buildParisDateHeure(rdv.date, heure);
+  const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
+
+  const { error: rdvErr } = await supabase.from("rdv").insert({
+    user_id: userId,
+    client_id: clientId,
+    date_heure: dateHeure,
+    adresse: adresseFull,
+    status: "nouveau",
+    type_rdv: "standard",
+    type_projet: rdv.type_projet || "photovoltaique",
+    source: "whatsapp_agent_image",
+    regie_id: regieId,
+  });
+
+  if (rdvErr) {
+    return { ok: false, clientName: fullName, isNewClient, error: rdvErr.message };
+  }
+
+  return { ok: true, clientName: fullName, isNewClient };
+}
+
+/** Build régie selection message */
+export function buildRegieSelectionMessage(regies: Array<{ id: string; nom: string }>, count: number): string {
+  const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  return [
+    `📅 *${count} RDV détecté${count > 1 ? "s" : ""}* dans tes captures.`,
+    "",
+    "Pour quelle *Régie* ?",
+    "",
+    ...lines,
+    "",
+    "👆 Réponds avec le *numéro*",
+  ].join("\n");
+}

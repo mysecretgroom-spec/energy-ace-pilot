@@ -2,6 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
+import {
+  bufferImage,
+  isGoTrigger,
+  fetchPendingImages,
+  markImagesProcessed,
+  discardPendingImages,
+  extractRdvsFromImages,
+  buildMenuMessage,
+  buildRegieSelectionMessage,
+  parseValidationResponse,
+  resolveDefaultRegie,
+  createSingleRdvFromExtract,
+  type MultiRdvBatchData,
+  type ExtractedRdv,
+} from "./_multi-rdv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -140,6 +155,8 @@ type WorkflowState =
   | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
   | "collecting_missing_data"             // Collecte de données manquantes (question conversationnelle)
+  | "awaiting_multi_rdv_regie"            // En attente sélection de régie pour batch multi-RDV
+  | "awaiting_multi_rdv_validation"       // En attente validation A/B/C/D… pour batch multi-RDV
   | null;
 
 // Choice option for disambiguation polls
@@ -221,6 +238,8 @@ interface PendingAction {
     selectedClientName?: string | null;   // Nom du client sélectionné
     // Pour les doublons
     forceDuplicate?: boolean;       // Force l'import malgré un doublon détecté
+    // Pour le workflow multi-RDV (extraction batch d'images)
+    multiRdvBatch?: MultiRdvBatchData;
   };
   createdAt: string;
 }
@@ -2282,73 +2301,63 @@ serve(async (req) => {
         let rdvExtracted = false;
 
         if (intent === "rdv") {
+          // ============================================================
+          // NEW: Buffer the image instead of extracting immediately.
+          // The user can send multiple screenshots; once they type "GO"
+          // (or after the next text message), we batch-extract all RDVs
+          // and propose an A/B/C/D… validation menu.
+          // ============================================================
           try {
-            console.log("Routing to RDV extraction...");
-            const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
-            const extractResp = await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-rdv-from-image`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                },
-                body: JSON.stringify({ images: [{ data: dataUrl }] }),
-              }
+            const buf = await bufferImage(
+              supabase,
+              request.userId,
+              request.fromNumber,
+              mediaData.base64,
+              mediaData.contentType,
             );
 
-            if (extractResp.ok) {
-              const extractJson = await extractResp.json();
-              // New API: { data: { rdvs: [...], rdv (1st), confidence } }
-              // Backward-compat: { data: { ...singleRdv } }
-              const dataPayload = extractJson?.data;
-              const rdvsArr: Array<Record<string, unknown>> = Array.isArray(dataPayload?.rdvs)
-                ? dataPayload.rdvs
-                : (dataPayload && (dataPayload.nom || dataPayload.date) ? [dataPayload] : []);
-              const ex = (rdvsArr[0] || {}) as {
-                nom?: string; prenom?: string; date?: string; heure?: string;
-                adresse?: string; code_postal?: string; ville?: string;
-                telephone?: string; email?: string; type_projet?: string;
-                notes?: string; confidence?: number;
-              };
-              if (
-                extractJson?.success &&
-                rdvsArr.length > 0 &&
-                (ex.nom || ex.prenom) &&
-                ex.date &&
-                (ex.confidence ?? 0) >= 0.5
-              ) {
-                rdvExtracted = true;
-                isReceiptDocument = false;
+            if (buf.ok) {
+              rdvExtracted = true;
+              isReceiptDocument = false;
 
-                const fullName = [ex.prenom, ex.nom].filter(Boolean).join(" ").trim();
-                const parts: string[] = [`rdv ${fullName}`];
-                parts.push(`le ${ex.date}`);
-                if (ex.heure) parts.push(`à ${ex.heure}`);
-                if (ex.adresse) parts.push(`au ${ex.adresse}`);
-                if (ex.code_postal) parts.push(ex.code_postal);
-                if (ex.ville) parts.push(ex.ville);
-                if (ex.telephone) parts.push(`tél ${ex.telephone}`);
-                if (ex.email) parts.push(`email ${ex.email}`);
-                if (ex.type_projet && ex.type_projet !== "photovoltaique") {
-                  parts.push(`type ${ex.type_projet}`);
-                }
-                if (ex.notes) parts.push(`notes: ${ex.notes}`);
-                if (rdvsArr.length > 1) {
-                  parts.push(`(+${rdvsArr.length - 1} autre${rdvsArr.length > 2 ? "s" : ""} RDV détecté${rdvsArr.length > 2 ? "s" : ""} — non traités)`);
-                }
+              const ackMsg = buf.pendingCount === 1
+                ? `📸 Capture reçue (1 image en attente).\n\n👉 Envoie *d'autres captures* si tu en as, puis tape *GO* pour traiter tous les RDV.`
+                : `📸 Capture reçue (*${buf.pendingCount} images* en attente).\n\n👉 Continue d'envoyer ou tape *GO* pour traiter.`;
 
-                const userCaption = (request.content || "").trim();
-                processedContent = userCaption
-                  ? `${userCaption} — ${parts.join(", ")}`
-                  : parts.join(", ");
-                console.log(`RDV extracted from image (${rdvsArr.length} total) →`, processedContent);
-              } else {
-                console.log("RDV classified but extraction missing critical fields → falling back to finance");
-              }
+              // Log message and return early — no further AI processing
+              await logMessage(
+                supabase,
+                request.userId,
+                request.fromNumber,
+                request.messageType,
+                request.content,
+                request.mediaUrl || null,
+                null,
+                "buffer_image",
+                {},
+                "image_buffered",
+                null,
+                null,
+                ackMsg,
+                "processed",
+              );
+
+              return new Response(
+                JSON.stringify({
+                  intent: "buffer_image" as Intent,
+                  confidence: 1,
+                  entities: {},
+                  actionTaken: "image_buffered",
+                  responseMessage: ackMsg,
+                }),
+                {
+                  status: 200,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                },
+              );
             }
           } catch (e) {
-            console.error("RDV extraction failed:", e);
+            console.error("Image buffering failed, falling back to inline extraction:", e);
           }
         }
 
@@ -2419,6 +2428,79 @@ serve(async (req) => {
     let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
     let aiResponse: { intent: Intent; confidence: number; entities: Record<string, unknown>; requiresConfirmation: boolean; responseMessage: string };
     let skipAiAnalysis = false;
+
+    // ============================================================
+    // GO trigger: if user types "GO"/"OK" with NO active workflow,
+    // and they have buffered images → batch-extract + show A/B/C menu.
+    // ============================================================
+    if (
+      !pendingAction?.workflowState &&
+      request.messageType === "text" &&
+      isGoTrigger(processedContent)
+    ) {
+      const pending = await fetchPendingImages(supabase, request.userId);
+      if (pending.length > 0) {
+        console.log(`GO trigger: processing ${pending.length} buffered images`);
+        const extractRes = await extractRdvsFromImages(
+          pending.map((p) => ({ image_data: p.image_data, mime_type: p.mime_type })),
+          Deno.env.get("SUPABASE_URL") || "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+        );
+        await markImagesProcessed(supabase, pending.map((p) => p.id));
+
+        if (!extractRes.ok || extractRes.rdvs.length === 0) {
+          const msg = `❌ Aucun RDV détecté dans tes ${pending.length} capture${pending.length > 1 ? "s" : ""}.\n\nRéessaie avec des screenshots plus nets.`;
+          return new Response(
+            JSON.stringify({ intent: "unknown" as Intent, confidence: 1, entities: {}, actionTaken: "no_rdv_found", responseMessage: msg }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const regieRes = await resolveDefaultRegie(supabase, request.userId);
+        if (regieRes.regies.length === 0) {
+          return new Response(
+            JSON.stringify({ intent: "unknown" as Intent, confidence: 1, entities: {}, actionTaken: "no_regie", responseMessage: "❌ Aucune régie configurée." }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const batchData: MultiRdvBatchData = {
+          rdvs: extractRes.rdvs,
+          validated: [],
+          removed: [],
+          regieId: regieRes.regieId,
+          regieName: regieRes.regieName,
+          createdAt: new Date().toISOString(),
+        };
+
+        const responseMsg = regieRes.needsSelection
+          ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs.length)
+          : buildMenuMessage(batchData);
+        const workflowState: WorkflowState = regieRes.needsSelection
+          ? "awaiting_multi_rdv_regie"
+          : "awaiting_multi_rdv_validation";
+
+        const newPending: PendingAction = {
+          intent: "create_rdv",
+          entities: {},
+          workflowState,
+          collectedData: { multiRdvBatch: batchData },
+          createdAt: new Date().toISOString(),
+        };
+
+        await supabase.from("whatsapp_conversations").upsert({
+          user_id: request.userId,
+          phone_number: request.fromNumber,
+          pending_action: newPending,
+          last_message_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+
+        return new Response(
+          JSON.stringify({ intent: "create_rdv" as Intent, confidence: 1, entities: {}, actionTaken: "multi_rdv_proposed", responseMessage: responseMsg }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     // Handle pending workflow states
     if (pendingAction?.workflowState) {
@@ -3777,6 +3859,87 @@ async function handlePendingWorkflow(
     };
   }
   
+  // ============================================================
+  // Multi-RDV batch validation handler (A/B/C/D… menu)
+  // ============================================================
+  if (pendingAction.workflowState === "awaiting_multi_rdv_regie") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    // Parse number selection (1, 2, ...) from message
+    const num = parseInt(userMessage.trim(), 10);
+    const regieRes = await resolveDefaultRegie(supabase, userId);
+    const regies = regieRes.regies;
+    if (!isNaN(num) && num >= 1 && num <= regies.length) {
+      const selected = regies[num - 1];
+      const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        workflowState: "awaiting_multi_rdv_validation",
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return { intent: "create_rdv", actionTaken: "regie_selected", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch) };
+    }
+    return { intent: "create_rdv", actionTaken: "invalid", newPendingAction: pendingAction, responseMessage: "❌ Numéro invalide. Réponds avec un numéro de la liste." };
+  }
+
+  if (pendingAction.workflowState === "awaiting_multi_rdv_validation") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    const parsed = parseValidationResponse(userMessage, batch);
+
+    if (parsed.kind === "cancel") {
+      return { intent: "cancel_action", actionTaken: "cancelled", newPendingAction: null, responseMessage: "❌ Import annulé. Aucun RDV créé." };
+    }
+
+    if (parsed.kind === "remove") {
+      const newBatch: MultiRdvBatchData = { ...batch, removed: [...batch.removed, parsed.letter] };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return { intent: "create_rdv", actionTaken: "rdv_removed", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch, `🗑️ *${parsed.letter}* retiré.`) };
+    }
+
+    if (parsed.kind === "create_all" || parsed.kind === "create_subset") {
+      const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+      const lettersToCreate: string[] =
+        parsed.kind === "create_all"
+          ? ALPHA.slice(0, batch.rdvs.length).filter((l) => !batch.removed.includes(l) && !batch.validated.includes(l))
+          : parsed.letters;
+
+      const results: Array<{ letter: string; ok: boolean; clientName: string; isNew: boolean; error?: string }> = [];
+      for (const letter of lettersToCreate) {
+        const idx = ALPHA.indexOf(letter);
+        const rdv = batch.rdvs[idx];
+        if (!rdv) continue;
+        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId);
+        results.push({ letter, ok: res.ok, clientName: res.clientName, isNew: res.isNewClient, error: res.error });
+      }
+
+      const successCount = results.filter((r) => r.ok).length;
+      const lines = results.map((r) =>
+        r.ok
+          ? `✅ *${r.letter}* — ${r.clientName}${r.isNew ? " 🆕" : ""}`
+          : `❌ *${r.letter}* — ${r.clientName}: ${r.error || "erreur"}`
+      );
+
+      const summary = `🎉 *${successCount}/${results.length} RDV créé${successCount > 1 ? "s" : ""}*\n\n${lines.join("\n")}`;
+      return { intent: "create_rdv", actionTaken: "multi_rdv_created", newPendingAction: null, responseMessage: summary };
+    }
+
+    // Unknown response → re-show menu
+    return {
+      intent: "create_rdv",
+      actionTaken: "invalid",
+      newPendingAction: pendingAction,
+      responseMessage: `❓ Je n'ai pas compris.\n\n${buildMenuMessage(batch)}`,
+    };
+  }
+
   switch (pendingAction.workflowState) {
     case "collecting_signe_data": {
       // Parse the user's response for signing data
