@@ -4151,7 +4151,7 @@ async function handlePendingWorkflow(
           const collectedData = pendingAction.collectedData;
           const dateStr = pendingAction.entities.date as string || new Date().toISOString().split("T")[0];
           const timeStr = pendingAction.entities.time as string || "10:00";
-          const dateHeure = `${dateStr}T${timeStr}:00`;
+          const dateHeure = buildParisDateHeure(dateStr, timeStr);
           
           const { data: rdv, error: rdvError } = await supabase
             .from("rdv")
@@ -6676,7 +6676,7 @@ async function executeAction(
       // Parse date and time
       const dateStr = entities.date as string || new Date().toISOString().split("T")[0];
       const timeStr = entities.time as string || "10:00";
-      const dateHeure = `${dateStr}T${timeStr}:00`;
+      const dateHeure = buildParisDateHeure(dateStr, timeStr);
 
       // Check if we need to ask for regie selection
       const regiePoll = await generateRegiePoll(
