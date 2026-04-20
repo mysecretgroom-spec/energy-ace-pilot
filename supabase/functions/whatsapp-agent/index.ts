@@ -2213,123 +2213,117 @@ serve(async (req) => {
       console.log("Analyzing media with 2-phase structured extraction...");
       
       // =================================================================
-      // PHASE 1: DETECT DOCUMENT TYPE (receipt/invoice vs client document)
-      // This is the PRIORITY - identify type BEFORE detailed analysis
+      // PHASE 1: CONTENT-BASED CLASSIFICATION
+      // The AI READS the image and decides intent: rdv | finance | other.
+      // No keyword heuristics — pure content classification.
       // =================================================================
-      
+
       let isReceiptDocument = false;
       let typeDetectionConfidence = 0;
-      
-      // Check for explicit keywords in user message that override AI detection
-      const messageText = (request.content || "").toLowerCase();
-      const hasExplicitFinanceKeyword = 
-        messageText.includes("frais") ||
-        messageText.includes("ticket") ||
-        messageText.includes("note de frais") ||
-        messageText.includes("essence") ||
-        messageText.includes("carburant") ||
-        messageText.includes("péage") ||
-        messageText.includes("peage") ||
-        messageText.includes("parking") ||
-        messageText.includes("hotel") ||
-        messageText.includes("hôtel");
-      
-      // All media via WhatsApp are treated as expense receipts (notes de frais)
-      // EXCEPT when the image looks like a CRM/calendar RDV → try RDV extraction first
-      // Client documents must be imported via the app
+
       if (!mediaData.isLargeFile) {
-        // Skip Phase 1 type detection - always finance
-        if (hasExplicitFinanceKeyword) {
-          console.log("User explicitly indicated this is a finance document");
+        // Step 1: classify image content
+        let intent: "rdv" | "finance" | "other" = "other";
+        let intentConfidence = 0;
+        try {
+          console.log("Classifying image content...");
+          const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
+          const classifyResp = await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/classify-image-intent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ image_base64: dataUrl }),
+            }
+          );
+          if (classifyResp.ok) {
+            const cj = await classifyResp.json();
+            if (cj?.success) {
+              intent = cj.intent;
+              intentConfidence = cj.confidence ?? 0;
+              console.log(`Classification: ${intent} (${intentConfidence}) — ${cj.reason}`);
+            }
+          } else {
+            console.log("Classification failed status", classifyResp.status);
+          }
+        } catch (e) {
+          console.error("Classification error:", e);
         }
 
-        // ============================================================
-        // RDV-FROM-IMAGE EXTRACTION (try first if no finance keyword)
-        // We always attempt extraction when no finance keyword is present:
-        // the extractor's confidence threshold (>= 0.5 + nom + date) acts
-        // as a self-filter, so non-RDV images naturally fall back to finance.
-        // ============================================================
+        // Step 2: route based on classified intent
         let rdvExtracted = false;
-        if (!hasExplicitFinanceKeyword) {
-          {
-            try {
-              console.log("Attempting RDV extraction from image...");
-              const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
-              const extractResp = await fetch(
-                `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-rdv-from-image`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  },
-                  body: JSON.stringify({
-                    images: [{ data: dataUrl }],
-                  }),
-                }
-              );
 
-              if (extractResp.ok) {
-                const extractJson = await extractResp.json();
-                const ex = extractJson?.data;
-                // Require name + date with reasonable confidence
-                if (
-                  extractJson?.success &&
-                  ex &&
-                  (ex.nom || ex.prenom) &&
-                  ex.date &&
-                  (ex.confidence ?? 0) >= 0.5
-                ) {
-                  rdvExtracted = true;
-                  isReceiptDocument = false;
-
-                  // Build a synthetic text message so the existing
-                  // create_rdv AI intent flow handles everything
-                  // (client fuzzy search, regie selection, insertion).
-                  const fullName = [ex.prenom, ex.nom].filter(Boolean).join(" ").trim();
-                  const parts: string[] = [`rdv ${fullName}`];
-                  parts.push(`le ${ex.date}`);
-                  if (ex.heure) parts.push(`à ${ex.heure}`);
-                  if (ex.adresse) parts.push(`au ${ex.adresse}`);
-                  if (ex.code_postal) parts.push(ex.code_postal);
-                  if (ex.ville) parts.push(ex.ville);
-                  if (ex.telephone) parts.push(`tél ${ex.telephone}`);
-                  if (ex.email) parts.push(`email ${ex.email}`);
-                  if (ex.type_projet && ex.type_projet !== "photovoltaique") {
-                    parts.push(`type ${ex.type_projet}`);
-                  }
-                  if (ex.notes) parts.push(`notes: ${ex.notes}`);
-
-                  // Include original user caption (often contains "Régie XYZ")
-                  // so create_rdv intent can pick the right agency.
-                  const userCaption = (request.content || "").trim();
-                  processedContent = userCaption
-                    ? `${userCaption} — ${parts.join(", ")}`
-                    : parts.join(", ");
-                  console.log("RDV extracted from image →", processedContent);
-                }
-              } else {
-                console.log("RDV extraction returned status", extractResp.status);
+        if (intent === "rdv") {
+          try {
+            console.log("Routing to RDV extraction...");
+            const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
+            const extractResp = await fetch(
+              `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-rdv-from-image`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                },
+                body: JSON.stringify({ images: [{ data: dataUrl }] }),
               }
-            } catch (e) {
-              console.error("RDV extraction failed, fallback to finance:", e);
+            );
+
+            if (extractResp.ok) {
+              const extractJson = await extractResp.json();
+              const ex = extractJson?.data;
+              if (
+                extractJson?.success &&
+                ex &&
+                (ex.nom || ex.prenom) &&
+                ex.date &&
+                (ex.confidence ?? 0) >= 0.5
+              ) {
+                rdvExtracted = true;
+                isReceiptDocument = false;
+
+                const fullName = [ex.prenom, ex.nom].filter(Boolean).join(" ").trim();
+                const parts: string[] = [`rdv ${fullName}`];
+                parts.push(`le ${ex.date}`);
+                if (ex.heure) parts.push(`à ${ex.heure}`);
+                if (ex.adresse) parts.push(`au ${ex.adresse}`);
+                if (ex.code_postal) parts.push(ex.code_postal);
+                if (ex.ville) parts.push(ex.ville);
+                if (ex.telephone) parts.push(`tél ${ex.telephone}`);
+                if (ex.email) parts.push(`email ${ex.email}`);
+                if (ex.type_projet && ex.type_projet !== "photovoltaique") {
+                  parts.push(`type ${ex.type_projet}`);
+                }
+                if (ex.notes) parts.push(`notes: ${ex.notes}`);
+
+                const userCaption = (request.content || "").trim();
+                processedContent = userCaption
+                  ? `${userCaption} — ${parts.join(", ")}`
+                  : parts.join(", ");
+                console.log("RDV extracted from image →", processedContent);
+              } else {
+                console.log("RDV classified but extraction missing critical fields → falling back to finance");
+              }
             }
+          } catch (e) {
+            console.error("RDV extraction failed:", e);
           }
         }
 
-        // Fallback to finance analysis if no RDV was extracted
+        // Fallback: finance analysis if not an RDV
         if (!rdvExtracted) {
           isReceiptDocument = true;
-          typeDetectionConfidence = 95;
+          typeDetectionConfidence = Math.round((intent === "finance" ? intentConfidence : 0.6) * 100);
 
-          console.log("Running finance analysis (fallback / explicit)...");
-
+          console.log(`Running finance analysis (intent=${intent})...`);
           documentAnalysisResult = await analyzeMediaStructured(
             mediaData,
             "finance",
             LOVABLE_API_KEY
           );
-
           console.log("Finance analysis result:", documentAnalysisResult);
         }
       } else {
