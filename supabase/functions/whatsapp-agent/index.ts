@@ -2245,18 +2245,13 @@ serve(async (req) => {
 
         // ============================================================
         // RDV-FROM-IMAGE EXTRACTION (try first if no finance keyword)
+        // We always attempt extraction when no finance keyword is present:
+        // the extractor's confidence threshold (>= 0.5 + nom + date) acts
+        // as a self-filter, so non-RDV images naturally fall back to finance.
         // ============================================================
         let rdvExtracted = false;
         if (!hasExplicitFinanceKeyword) {
-          const messageHasRdvHint =
-            messageText.includes("rdv") ||
-            messageText.includes("rendez-vous") ||
-            messageText.includes("rendez vous") ||
-            messageText.includes("nouveau rdv") ||
-            messageText.includes("planifie") ||
-            messageText.length === 0; // image alone, no text → try RDV first
-
-          if (messageHasRdvHint) {
+          {
             try {
               console.log("Attempting RDV extraction from image...");
               const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
