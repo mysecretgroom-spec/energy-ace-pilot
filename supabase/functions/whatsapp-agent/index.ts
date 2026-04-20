@@ -155,6 +155,8 @@ type WorkflowState =
   | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
   | "collecting_missing_data"             // Collecte de données manquantes (question conversationnelle)
+  | "awaiting_multi_rdv_regie"            // En attente sélection de régie pour batch multi-RDV
+  | "awaiting_multi_rdv_validation"       // En attente validation A/B/C/D… pour batch multi-RDV
   | null;
 
 // Choice option for disambiguation polls
