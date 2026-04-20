@@ -56,6 +56,31 @@ function extractStoragePathFromUrl(url: string, bucketName: string): string | nu
   }
 }
 
+/**
+ * Build an ISO timestamp from a date (YYYY-MM-DD) and time (HH:mm) interpreted
+ * in Europe/Paris timezone. Returns ISO with the correct offset (+01:00 or +02:00 DST).
+ */
+function buildParisDateHeure(dateStr: string, timeStr: string): string {
+  // Compute the Paris UTC offset for the given date using Intl
+  const probe = new Date(`${dateStr}T${timeStr}:00Z`);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    timeZoneName: "shortOffset",
+  });
+  const parts = fmt.formatToParts(probe);
+  const offsetPart = parts.find((p) => p.type === "timeZoneName")?.value || "GMT+1";
+  // offsetPart looks like "GMT+2" or "GMT+1"
+  const match = offsetPart.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+  let offset = "+01:00";
+  if (match) {
+    const sign = match[1];
+    const hh = match[2].padStart(2, "0");
+    const mm = (match[3] || "00").padStart(2, "0");
+    offset = `${sign}${hh}:${mm}`;
+  }
+  return `${dateStr}T${timeStr}:00${offset}`;
+}
+
 // Intent types
 type Intent = 
   | "create_rdv"
@@ -4126,7 +4151,7 @@ async function handlePendingWorkflow(
           const collectedData = pendingAction.collectedData;
           const dateStr = pendingAction.entities.date as string || new Date().toISOString().split("T")[0];
           const timeStr = pendingAction.entities.time as string || "10:00";
-          const dateHeure = `${dateStr}T${timeStr}:00`;
+          const dateHeure = buildParisDateHeure(dateStr, timeStr);
           
           const { data: rdv, error: rdvError } = await supabase
             .from("rdv")
@@ -6651,7 +6676,7 @@ async function executeAction(
       // Parse date and time
       const dateStr = entities.date as string || new Date().toISOString().split("T")[0];
       const timeStr = entities.time as string || "10:00";
-      const dateHeure = `${dateStr}T${timeStr}:00`;
+      const dateHeure = buildParisDateHeure(dateStr, timeStr);
 
       // Check if we need to ask for regie selection
       const regiePoll = await generateRegiePoll(
