@@ -1,0 +1,1 @@
+UPDATE public.rdv SET date_heure = '2026-04-20 18:30:00+02'::timestamptz, updated_at = now() WHERE id = 'b2462e27-02f9-433d-bff6-656594aac04f';
