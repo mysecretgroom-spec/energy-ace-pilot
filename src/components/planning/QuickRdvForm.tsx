@@ -14,9 +14,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushToGoogleCalendar } from "@/hooks/usePushToGoogleCalendar";
-import { CalendarPlus, Loader2, Check, X, Search, Building2 } from "lucide-react";
+import { CalendarPlus, Loader2, Check, X, Search, Building2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { geocodeAndUpdateClient, geocodeAndUpdateRdv } from "@/hooks/useGeocode";
+import { ImageImportDialog, type ExtractedRdvData } from "./ImageImportDialog";
 
 interface QuickRdvFormProps {
   onSuccess?: () => void;
