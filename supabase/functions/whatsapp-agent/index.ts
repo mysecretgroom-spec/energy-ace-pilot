@@ -2301,73 +2301,63 @@ serve(async (req) => {
         let rdvExtracted = false;
 
         if (intent === "rdv") {
+          // ============================================================
+          // NEW: Buffer the image instead of extracting immediately.
+          // The user can send multiple screenshots; once they type "GO"
+          // (or after the next text message), we batch-extract all RDVs
+          // and propose an A/B/C/D… validation menu.
+          // ============================================================
           try {
-            console.log("Routing to RDV extraction...");
-            const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
-            const extractResp = await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-rdv-from-image`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                },
-                body: JSON.stringify({ images: [{ data: dataUrl }] }),
-              }
+            const buf = await bufferImage(
+              supabase,
+              request.userId,
+              request.fromNumber,
+              mediaData.base64,
+              mediaData.contentType,
             );
 
-            if (extractResp.ok) {
-              const extractJson = await extractResp.json();
-              // New API: { data: { rdvs: [...], rdv (1st), confidence } }
-              // Backward-compat: { data: { ...singleRdv } }
-              const dataPayload = extractJson?.data;
-              const rdvsArr: Array<Record<string, unknown>> = Array.isArray(dataPayload?.rdvs)
-                ? dataPayload.rdvs
-                : (dataPayload && (dataPayload.nom || dataPayload.date) ? [dataPayload] : []);
-              const ex = (rdvsArr[0] || {}) as {
-                nom?: string; prenom?: string; date?: string; heure?: string;
-                adresse?: string; code_postal?: string; ville?: string;
-                telephone?: string; email?: string; type_projet?: string;
-                notes?: string; confidence?: number;
-              };
-              if (
-                extractJson?.success &&
-                rdvsArr.length > 0 &&
-                (ex.nom || ex.prenom) &&
-                ex.date &&
-                (ex.confidence ?? 0) >= 0.5
-              ) {
-                rdvExtracted = true;
-                isReceiptDocument = false;
+            if (buf.ok) {
+              rdvExtracted = true;
+              isReceiptDocument = false;
 
-                const fullName = [ex.prenom, ex.nom].filter(Boolean).join(" ").trim();
-                const parts: string[] = [`rdv ${fullName}`];
-                parts.push(`le ${ex.date}`);
-                if (ex.heure) parts.push(`à ${ex.heure}`);
-                if (ex.adresse) parts.push(`au ${ex.adresse}`);
-                if (ex.code_postal) parts.push(ex.code_postal);
-                if (ex.ville) parts.push(ex.ville);
-                if (ex.telephone) parts.push(`tél ${ex.telephone}`);
-                if (ex.email) parts.push(`email ${ex.email}`);
-                if (ex.type_projet && ex.type_projet !== "photovoltaique") {
-                  parts.push(`type ${ex.type_projet}`);
-                }
-                if (ex.notes) parts.push(`notes: ${ex.notes}`);
-                if (rdvsArr.length > 1) {
-                  parts.push(`(+${rdvsArr.length - 1} autre${rdvsArr.length > 2 ? "s" : ""} RDV détecté${rdvsArr.length > 2 ? "s" : ""} — non traités)`);
-                }
+              const ackMsg = buf.pendingCount === 1
+                ? `📸 Capture reçue (1 image en attente).\n\n👉 Envoie *d'autres captures* si tu en as, puis tape *GO* pour traiter tous les RDV.`
+                : `📸 Capture reçue (*${buf.pendingCount} images* en attente).\n\n👉 Continue d'envoyer ou tape *GO* pour traiter.`;
 
-                const userCaption = (request.content || "").trim();
-                processedContent = userCaption
-                  ? `${userCaption} — ${parts.join(", ")}`
-                  : parts.join(", ");
-                console.log(`RDV extracted from image (${rdvsArr.length} total) →`, processedContent);
-              } else {
-                console.log("RDV classified but extraction missing critical fields → falling back to finance");
-              }
+              // Log message and return early — no further AI processing
+              await logMessage(
+                supabase,
+                request.userId,
+                request.fromNumber,
+                request.messageType,
+                request.content,
+                request.mediaUrl || null,
+                null,
+                "buffer_image",
+                {},
+                "image_buffered",
+                null,
+                null,
+                ackMsg,
+                "processed",
+              );
+
+              return new Response(
+                JSON.stringify({
+                  intent: "buffer_image" as Intent,
+                  confidence: 1,
+                  entities: {},
+                  actionTaken: "image_buffered",
+                  responseMessage: ackMsg,
+                }),
+                {
+                  status: 200,
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                },
+              );
             }
           } catch (e) {
-            console.error("RDV extraction failed:", e);
+            console.error("Image buffering failed, falling back to inline extraction:", e);
           }
         }
 
