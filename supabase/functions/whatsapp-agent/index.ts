@@ -3869,7 +3869,8 @@ async function handlePendingWorkflow(
     }
     // Parse number selection (1, 2, ...) from message
     const num = parseInt(userMessage.trim(), 10);
-    const regies = await (await import("./_multi-rdv.ts")).getUserRegies(supabase, userId);
+    const regieRes = await resolveDefaultRegie(supabase, userId);
+    const regies = regieRes.regies;
     if (!isNaN(num) && num >= 1 && num <= regies.length) {
       const selected = regies[num - 1];
       const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom };
