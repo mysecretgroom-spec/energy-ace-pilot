@@ -2300,7 +2300,12 @@ serve(async (req) => {
                   }
                   if (ex.notes) parts.push(`notes: ${ex.notes}`);
 
-                  processedContent = parts.join(", ");
+                  // Include original user caption (often contains "Régie XYZ")
+                  // so create_rdv intent can pick the right agency.
+                  const userCaption = (request.content || "").trim();
+                  processedContent = userCaption
+                    ? `${userCaption} — ${parts.join(", ")}`
+                    : parts.join(", ");
                   console.log("RDV extracted from image →", processedContent);
                 }
               } else {
