@@ -2,6 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
+import {
+  bufferImage,
+  isGoTrigger,
+  fetchPendingImages,
+  markImagesProcessed,
+  discardPendingImages,
+  extractRdvsFromImages,
+  buildMenuMessage,
+  buildRegieSelectionMessage,
+  parseValidationResponse,
+  resolveDefaultRegie,
+  createSingleRdvFromExtract,
+  type MultiRdvBatchData,
+  type ExtractedRdv,
+} from "./_multi-rdv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
