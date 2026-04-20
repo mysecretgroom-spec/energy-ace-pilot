@@ -2429,6 +2429,79 @@ serve(async (req) => {
     let aiResponse: { intent: Intent; confidence: number; entities: Record<string, unknown>; requiresConfirmation: boolean; responseMessage: string };
     let skipAiAnalysis = false;
 
+    // ============================================================
+    // GO trigger: if user types "GO"/"OK" with NO active workflow,
+    // and they have buffered images → batch-extract + show A/B/C menu.
+    // ============================================================
+    if (
+      !pendingAction?.workflowState &&
+      request.messageType === "text" &&
+      isGoTrigger(processedContent)
+    ) {
+      const pending = await fetchPendingImages(supabase, request.userId);
+      if (pending.length > 0) {
+        console.log(`GO trigger: processing ${pending.length} buffered images`);
+        const extractRes = await extractRdvsFromImages(
+          pending.map((p) => ({ image_data: p.image_data, mime_type: p.mime_type })),
+          Deno.env.get("SUPABASE_URL") || "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+        );
+        await markImagesProcessed(supabase, pending.map((p) => p.id));
+
+        if (!extractRes.ok || extractRes.rdvs.length === 0) {
+          const msg = `❌ Aucun RDV détecté dans tes ${pending.length} capture${pending.length > 1 ? "s" : ""}.\n\nRéessaie avec des screenshots plus nets.`;
+          return new Response(
+            JSON.stringify({ intent: "unknown" as Intent, confidence: 1, entities: {}, actionTaken: "no_rdv_found", responseMessage: msg }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const regieRes = await resolveDefaultRegie(supabase, request.userId);
+        if (regieRes.regies.length === 0) {
+          return new Response(
+            JSON.stringify({ intent: "unknown" as Intent, confidence: 1, entities: {}, actionTaken: "no_regie", responseMessage: "❌ Aucune régie configurée." }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        const batchData: MultiRdvBatchData = {
+          rdvs: extractRes.rdvs,
+          validated: [],
+          removed: [],
+          regieId: regieRes.regieId,
+          regieName: regieRes.regieName,
+          createdAt: new Date().toISOString(),
+        };
+
+        const responseMsg = regieRes.needsSelection
+          ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs.length)
+          : buildMenuMessage(batchData);
+        const workflowState: WorkflowState = regieRes.needsSelection
+          ? "awaiting_multi_rdv_regie"
+          : "awaiting_multi_rdv_validation";
+
+        const newPending: PendingAction = {
+          intent: "create_rdv",
+          entities: {},
+          workflowState,
+          collectedData: { multiRdvBatch: batchData },
+          createdAt: new Date().toISOString(),
+        };
+
+        await supabase.from("whatsapp_conversations").upsert({
+          user_id: request.userId,
+          phone_number: request.fromNumber,
+          pending_action: newPending,
+          last_message_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+
+        return new Response(
+          JSON.stringify({ intent: "create_rdv" as Intent, confidence: 1, entities: {}, actionTaken: "multi_rdv_proposed", responseMessage: responseMsg }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // Handle pending workflow states
     if (pendingAction?.workflowState) {
       try {
