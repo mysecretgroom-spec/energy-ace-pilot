@@ -3859,6 +3859,86 @@ async function handlePendingWorkflow(
     };
   }
   
+  // ============================================================
+  // Multi-RDV batch validation handler (A/B/C/D… menu)
+  // ============================================================
+  if (pendingAction.workflowState === "awaiting_multi_rdv_regie") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    // Parse number selection (1, 2, ...) from message
+    const num = parseInt(userMessage.trim(), 10);
+    const regies = await (await import("./_multi-rdv.ts")).getUserRegies(supabase, userId);
+    if (!isNaN(num) && num >= 1 && num <= regies.length) {
+      const selected = regies[num - 1];
+      const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        workflowState: "awaiting_multi_rdv_validation",
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return { intent: "create_rdv", actionTaken: "regie_selected", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch) };
+    }
+    return { intent: "create_rdv", actionTaken: "invalid", newPendingAction: pendingAction, responseMessage: "❌ Numéro invalide. Réponds avec un numéro de la liste." };
+  }
+
+  if (pendingAction.workflowState === "awaiting_multi_rdv_validation") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    const parsed = parseValidationResponse(userMessage, batch);
+
+    if (parsed.kind === "cancel") {
+      return { intent: "cancel_action", actionTaken: "cancelled", newPendingAction: null, responseMessage: "❌ Import annulé. Aucun RDV créé." };
+    }
+
+    if (parsed.kind === "remove") {
+      const newBatch: MultiRdvBatchData = { ...batch, removed: [...batch.removed, parsed.letter] };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return { intent: "create_rdv", actionTaken: "rdv_removed", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch, `🗑️ *${parsed.letter}* retiré.`) };
+    }
+
+    if (parsed.kind === "create_all" || parsed.kind === "create_subset") {
+      const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+      const lettersToCreate: string[] =
+        parsed.kind === "create_all"
+          ? ALPHA.slice(0, batch.rdvs.length).filter((l) => !batch.removed.includes(l) && !batch.validated.includes(l))
+          : parsed.letters;
+
+      const results: Array<{ letter: string; ok: boolean; clientName: string; isNew: boolean; error?: string }> = [];
+      for (const letter of lettersToCreate) {
+        const idx = ALPHA.indexOf(letter);
+        const rdv = batch.rdvs[idx];
+        if (!rdv) continue;
+        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId);
+        results.push({ letter, ok: res.ok, clientName: res.clientName, isNew: res.isNewClient, error: res.error });
+      }
+
+      const successCount = results.filter((r) => r.ok).length;
+      const lines = results.map((r) =>
+        r.ok
+          ? `✅ *${r.letter}* — ${r.clientName}${r.isNew ? " 🆕" : ""}`
+          : `❌ *${r.letter}* — ${r.clientName}: ${r.error || "erreur"}`
+      );
+
+      const summary = `🎉 *${successCount}/${results.length} RDV créé${successCount > 1 ? "s" : ""}*\n\n${lines.join("\n")}`;
+      return { intent: "create_rdv", actionTaken: "multi_rdv_created", newPendingAction: null, responseMessage: summary };
+    }
+
+    // Unknown response → re-show menu
+    return {
+      intent: "create_rdv",
+      actionTaken: "invalid",
+      newPendingAction: pendingAction,
+      responseMessage: `❓ Je n'ai pas compris.\n\n${buildMenuMessage(batch)}`,
+    };
+  }
+
   switch (pendingAction.workflowState) {
     case "collecting_signe_data": {
       // Parse the user's response for signing data
