@@ -525,6 +525,13 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
           </Button>
         </div>
       </CardContent>
+
+      <ImageImportDialog
+        open={imageDialogOpen}
+        onOpenChange={setImageDialogOpen}
+        onExtracted={handleExtracted}
+        defaultRegieId={selectedRegieId}
+      />
     </Card>
   );
 }
