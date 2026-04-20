@@ -14,9 +14,10 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePushToGoogleCalendar } from "@/hooks/usePushToGoogleCalendar";
-import { CalendarPlus, Loader2, Check, X, Search, Building2 } from "lucide-react";
+import { CalendarPlus, Loader2, Check, X, Search, Building2, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { geocodeAndUpdateClient, geocodeAndUpdateRdv } from "@/hooks/useGeocode";
+import { ImageImportDialog, type ExtractedRdvData } from "./ImageImportDialog";
 
 interface QuickRdvFormProps {
   onSuccess?: () => void;
@@ -73,6 +74,32 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   const [duration, setDuration] = useState("90");
   const [projectType, setProjectType] = useState("photovoltaique");
   const [commentaire, setCommentaire] = useState("");
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+
+  const handleExtracted = (data: ExtractedRdvData) => {
+    // Régie
+    if (data.regie_id) setSelectedRegieId(data.regie_id);
+
+    // Client → switch to "new client" mode pre-filled
+    setSelectedClientId("");
+    setShowClientSearch(true);
+    const fullName = [data.prenom, data.nom].filter(Boolean).join(" ").trim();
+    if (fullName) setClientName(fullName);
+    if (data.telephone) setClientPhone(data.telephone);
+    if (data.adresse) setAddress(data.adresse);
+    if (data.code_postal) setPostalCode(data.code_postal);
+    if (data.ville) setCity(data.ville);
+
+    // Date / heure
+    if (data.date) setDateRdv(data.date);
+    if (data.heure) setTimeRdv(data.heure);
+
+    // Project type
+    if (data.type_projet) setProjectType(data.type_projet);
+
+    // Notes → commentaire
+    if (data.notes) setCommentaire(data.notes);
+  };
 
   // Fetch regies on mount
   useEffect(() => {
@@ -247,10 +274,22 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarPlus className="h-5 w-5" />
-          Nouveau rendez-vous
-        </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <CalendarPlus className="h-5 w-5" />
+            Nouveau rendez-vous
+          </CardTitle>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setImageDialogOpen(true)}
+            className="gap-1.5"
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Client search or display */}
@@ -486,6 +525,13 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
           </Button>
         </div>
       </CardContent>
+
+      <ImageImportDialog
+        open={imageDialogOpen}
+        onOpenChange={setImageDialogOpen}
+        onExtracted={handleExtracted}
+        defaultRegieId={selectedRegieId}
+      />
     </Card>
   );
 }
