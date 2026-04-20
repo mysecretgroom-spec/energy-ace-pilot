@@ -74,6 +74,32 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   const [duration, setDuration] = useState("90");
   const [projectType, setProjectType] = useState("photovoltaique");
   const [commentaire, setCommentaire] = useState("");
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+
+  const handleExtracted = (data: ExtractedRdvData) => {
+    // Régie
+    if (data.regie_id) setSelectedRegieId(data.regie_id);
+
+    // Client → switch to "new client" mode pre-filled
+    setSelectedClientId("");
+    setShowClientSearch(true);
+    const fullName = [data.prenom, data.nom].filter(Boolean).join(" ").trim();
+    if (fullName) setClientName(fullName);
+    if (data.telephone) setClientPhone(data.telephone);
+    if (data.adresse) setAddress(data.adresse);
+    if (data.code_postal) setPostalCode(data.code_postal);
+    if (data.ville) setCity(data.ville);
+
+    // Date / heure
+    if (data.date) setDateRdv(data.date);
+    if (data.heure) setTimeRdv(data.heure);
+
+    // Project type
+    if (data.type_projet) setProjectType(data.type_projet);
+
+    // Notes → commentaire
+    if (data.notes) setCommentaire(data.notes);
+  };
 
   // Fetch regies on mount
   useEffect(() => {
