@@ -2235,25 +2235,103 @@ serve(async (req) => {
         messageText.includes("hôtel");
       
       // All media via WhatsApp are treated as expense receipts (notes de frais)
+      // EXCEPT when the image looks like a CRM/calendar RDV → try RDV extraction first
       // Client documents must be imported via the app
       if (!mediaData.isLargeFile) {
         // Skip Phase 1 type detection - always finance
         if (hasExplicitFinanceKeyword) {
           console.log("User explicitly indicated this is a finance document");
         }
-        
-        isReceiptDocument = true;
-        typeDetectionConfidence = 95;
-        
-        console.log("Running finance analysis (all WhatsApp media = notes de frais)...");
-        
-        documentAnalysisResult = await analyzeMediaStructured(
-          mediaData,
-          "finance",
-          LOVABLE_API_KEY
-        );
 
-        console.log("Finance analysis result:", documentAnalysisResult);
+        // ============================================================
+        // RDV-FROM-IMAGE EXTRACTION (try first if no finance keyword)
+        // ============================================================
+        let rdvExtracted = false;
+        if (!hasExplicitFinanceKeyword) {
+          const messageHasRdvHint =
+            messageText.includes("rdv") ||
+            messageText.includes("rendez-vous") ||
+            messageText.includes("rendez vous") ||
+            messageText.includes("nouveau rdv") ||
+            messageText.includes("planifie") ||
+            messageText.length === 0; // image alone, no text → try RDV first
+
+          if (messageHasRdvHint) {
+            try {
+              console.log("Attempting RDV extraction from image...");
+              const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
+              const extractResp = await fetch(
+                `${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-rdv-from-image`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                  },
+                  body: JSON.stringify({
+                    images: [{ data: dataUrl }],
+                  }),
+                }
+              );
+
+              if (extractResp.ok) {
+                const extractJson = await extractResp.json();
+                const ex = extractJson?.data;
+                // Require name + date with reasonable confidence
+                if (
+                  extractJson?.success &&
+                  ex &&
+                  (ex.nom || ex.prenom) &&
+                  ex.date &&
+                  (ex.confidence ?? 0) >= 0.5
+                ) {
+                  rdvExtracted = true;
+                  isReceiptDocument = false;
+
+                  // Build a synthetic text message so the existing
+                  // create_rdv AI intent flow handles everything
+                  // (client fuzzy search, regie selection, insertion).
+                  const fullName = [ex.prenom, ex.nom].filter(Boolean).join(" ").trim();
+                  const parts: string[] = [`rdv ${fullName}`];
+                  parts.push(`le ${ex.date}`);
+                  if (ex.heure) parts.push(`à ${ex.heure}`);
+                  if (ex.adresse) parts.push(`au ${ex.adresse}`);
+                  if (ex.code_postal) parts.push(ex.code_postal);
+                  if (ex.ville) parts.push(ex.ville);
+                  if (ex.telephone) parts.push(`tél ${ex.telephone}`);
+                  if (ex.email) parts.push(`email ${ex.email}`);
+                  if (ex.type_projet && ex.type_projet !== "photovoltaique") {
+                    parts.push(`type ${ex.type_projet}`);
+                  }
+                  if (ex.notes) parts.push(`notes: ${ex.notes}`);
+
+                  processedContent = parts.join(", ");
+                  console.log("RDV extracted from image →", processedContent);
+                }
+              } else {
+                console.log("RDV extraction returned status", extractResp.status);
+              }
+            } catch (e) {
+              console.error("RDV extraction failed, fallback to finance:", e);
+            }
+          }
+        }
+
+        // Fallback to finance analysis if no RDV was extracted
+        if (!rdvExtracted) {
+          isReceiptDocument = true;
+          typeDetectionConfidence = 95;
+
+          console.log("Running finance analysis (fallback / explicit)...");
+
+          documentAnalysisResult = await analyzeMediaStructured(
+            mediaData,
+            "finance",
+            LOVABLE_API_KEY
+          );
+
+          console.log("Finance analysis result:", documentAnalysisResult);
+        }
       } else {
         // For large files, create a placeholder result
         isReceiptDocument = true;
@@ -2274,16 +2352,16 @@ serve(async (req) => {
         console.log("Large file - skipping AI analysis, using finance placeholder");
       }
 
-      // Build processed content from analysis
+      // Build processed content from analysis (only if we ran finance analysis)
       if (documentAnalysisResult && documentAnalysisResult.success) {
         if (documentAnalysisResult.type === "finance") {
           const fin = documentAnalysisResult as FinanceAnalysisResult;
-          processedContent = request.content 
+          processedContent = request.content
             ? `${request.content}\n\n[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`
             : `[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`;
         }
       } else if (documentAnalysisResult) {
-        processedContent = request.content 
+        processedContent = request.content
           ? `${request.content}\n\n[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
