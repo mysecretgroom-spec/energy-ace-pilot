@@ -2375,12 +2375,21 @@ serve(async (req) => {
                 createdAt: new Date().toISOString(),
               };
 
-              const responseMsg = regieRes.needsSelection
-                ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings)
-                : buildMenuMessage(batchData);
-              const workflowState: WorkflowState = regieRes.needsSelection
-                ? "awaiting_multi_rdv_regie"
-                : "awaiting_multi_rdv_validation";
+              // Multi-RDV → ask if all same régie OR one per RDV (mode selection)
+              // Single RDV → direct régie list (existing behavior)
+              const isMulti = extractRes.rdvs.length > 1;
+              let responseMsg: string;
+              let workflowState: WorkflowState;
+              if (regieRes.needsSelection && isMulti) {
+                responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+                workflowState = "awaiting_multi_rdv_regie_mode";
+              } else if (regieRes.needsSelection) {
+                responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+                workflowState = "awaiting_multi_rdv_regie";
+              } else {
+                responseMsg = buildMenuMessage(batchData);
+                workflowState = "awaiting_multi_rdv_validation";
+              }
 
               const newPending: PendingAction = {
                 intent: "create_rdv",
@@ -2598,12 +2607,19 @@ serve(async (req) => {
           createdAt: new Date().toISOString(),
         };
 
-        const responseMsg = regieRes.needsSelection
-          ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings)
-          : buildMenuMessage(batchData);
-        const workflowState: WorkflowState = regieRes.needsSelection
-          ? "awaiting_multi_rdv_regie"
-          : "awaiting_multi_rdv_validation";
+        const isMulti = extractRes.rdvs.length > 1;
+        let responseMsg: string;
+        let workflowState: WorkflowState;
+        if (regieRes.needsSelection && isMulti) {
+          responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+          workflowState = "awaiting_multi_rdv_regie_mode";
+        } else if (regieRes.needsSelection) {
+          responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+          workflowState = "awaiting_multi_rdv_regie";
+        } else {
+          responseMsg = buildMenuMessage(batchData);
+          workflowState = "awaiting_multi_rdv_validation";
+        }
 
         const newPending: PendingAction = {
           intent: "create_rdv",
