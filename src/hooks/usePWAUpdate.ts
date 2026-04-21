@@ -216,19 +216,46 @@ export function usePWAUpdate() {
   }, []);
 
   const forceCheckAndUpdate = useCallback(async () => {
-    if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        console.log('[PWA] Force checking for updates...');
-        await registration.update();
-        if (registration.waiting) {
-          userTriggeredRef.current = true;
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          window.location.reload();
-        }
+    const toastId = toast.loading('Vérification des mises à jour…');
+    try {
+      if (!('serviceWorker' in navigator)) {
+        toast.error('Mises à jour non supportées sur ce navigateur', { id: toastId });
+        return;
       }
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        toast.error('Aucun service worker enregistré', { id: toastId });
+        return;
+      }
+      console.log('[PWA] Force checking for updates...');
+      await registration.update();
+
+      // Give the browser a moment to detect a waiting SW
+      await new Promise((r) => setTimeout(r, 800));
+
+      if (registration.waiting) {
+        toast.success('Mise à jour trouvée, application en cours…', { id: toastId });
+        userTriggeredRef.current = true;
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        setTimeout(() => window.location.reload(), 500);
+        return;
+      }
+
+      // No waiting SW: clear all caches and force a hard reload to be safe
+      toast.success('Vous êtes déjà à jour 🎉', { id: toastId });
+    } catch (err) {
+      console.error('[PWA] Force update failed:', err);
+      toast.error('Échec de la vérification', { id: toastId });
     }
   }, []);
+
+  // Expose globally so any component can trigger a check without re-using the hook
+  useEffect(() => {
+    (window as any).__forcePWAUpdate = forceCheckAndUpdate;
+    return () => {
+      delete (window as any).__forcePWAUpdate;
+    };
+  }, [forceCheckAndUpdate]);
 
   return {
     needRefresh,
