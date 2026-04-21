@@ -3224,15 +3224,23 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       ).catch(err => console.error("Learning error:", err));
     }
 
+    // If we just cleared the pending workflow (newPendingAction === null),
+    // also wipe the per-SID tracking so old quoted-replies can't reopen
+    // a stale workflow.
+    const conversationUpdate: Record<string, unknown> = {
+      user_id: request.userId,
+      phone_number: request.fromNumber,
+      context: newContext,
+      pending_action: newPendingAction,
+      last_message_at: new Date().toISOString(),
+    };
+    if (newPendingAction === null) {
+      conversationUpdate.pending_message_sids = {};
+    }
+
     await supabase
       .from("whatsapp_conversations")
-      .upsert({
-        user_id: request.userId,
-        phone_number: request.fromNumber,
-        context: newContext,
-        pending_action: newPendingAction,
-        last_message_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      .upsert(conversationUpdate, { onConflict: "user_id" });
 
     // Log message for web chat sources (WhatsApp via webhook already logs separately)
     if (request.fromNumber === "web_chat" || (request as { source?: string }).source === "onboarding_demo") {
