@@ -9,6 +9,7 @@ import {
   markImagesProcessed,
   discardPendingImages,
   extractRdvsFromImages,
+  ocrImageToText,
   buildMenuMessage,
   buildRegieSelectionMessage,
   parseValidationResponse,
@@ -2312,62 +2313,107 @@ serve(async (req) => {
 
         if (intent === "rdv") {
           // ============================================================
-          // NEW: Buffer the image instead of extracting immediately.
-          // The user can send multiple screenshots; once they type "GO"
-          // (or after the next text message), we batch-extract all RDVs
-          // and propose an A/B/C/D… validation menu.
+          // DIRECT PROCESSING (no buffer, no "GO" trigger).
+          // The image is extracted immediately. If RDVs are detected,
+          // the regie selection / validation menu is proposed right away.
+          // If 0 RDVs are detected, we OCR the image text and inject it
+          // into processedContent so the regular conversational pipeline
+          // (create_client / update_client / add_note) can pick it up
+          // — typically a project briefing, instructions or client info.
           // ============================================================
           try {
-            const buf = await bufferImage(
-              supabase,
-              request.userId,
-              request.fromNumber,
-              mediaData.base64,
-              mediaData.contentType,
+            console.log("Direct RDV extraction (single image, no buffer)...");
+            const extractRes = await extractRdvsFromImages(
+              [{ image_data: mediaData.base64, mime_type: mediaData.contentType }],
+              Deno.env.get("SUPABASE_URL") || "",
+              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
             );
 
-            if (buf.ok) {
+            if (extractRes.ok && extractRes.rdvs.length > 0) {
               rdvExtracted = true;
               isReceiptDocument = false;
 
-              const ackMsg = buf.pendingCount === 1
-                ? `📸 Capture reçue (1 image en attente).\n\n👉 Envoie *d'autres captures* si tu en as, puis tape *GO* pour traiter tous les RDV.`
-                : `📸 Capture reçue (*${buf.pendingCount} images* en attente).\n\n👉 Continue d'envoyer ou tape *GO* pour traiter.`;
+              // Resolve régie + build menu (same flow as the legacy GO trigger)
+              const regieRes = await resolveDefaultRegie(supabase, request.userId);
+              if (regieRes.regies.length === 0) {
+                return new Response(
+                  JSON.stringify({
+                    intent: "unknown" as Intent,
+                    confidence: 1,
+                    entities: {},
+                    actionTaken: "no_regie",
+                    responseMessage: "❌ Aucune régie configurée. Crée-en une dans les paramètres avant d'importer des RDV.",
+                  }),
+                  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+              }
 
-              // Log message and return early — no further AI processing
+              const batchData: MultiRdvBatchData = {
+                rdvs: extractRes.rdvs,
+                validated: [],
+                removed: [],
+                regieId: regieRes.regieId,
+                regieName: regieRes.regieName,
+                createdAt: new Date().toISOString(),
+              };
+
+              const responseMsg = regieRes.needsSelection
+                ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs.length)
+                : buildMenuMessage(batchData);
+              const workflowState: WorkflowState = regieRes.needsSelection
+                ? "awaiting_multi_rdv_regie"
+                : "awaiting_multi_rdv_validation";
+
+              const newPending: PendingAction = {
+                intent: "create_rdv",
+                entities: {},
+                workflowState,
+                collectedData: { multiRdvBatch: batchData },
+                createdAt: new Date().toISOString(),
+              };
+
+              await supabase.from("whatsapp_conversations").upsert({
+                user_id: request.userId,
+                phone_number: request.fromNumber,
+                pending_action: newPending,
+                last_message_at: new Date().toISOString(),
+              }, { onConflict: "user_id" });
+
               await logMessage(
-                supabase,
-                request.userId,
-                request.fromNumber,
-                request.messageType,
-                request.content,
-                request.mediaUrl || null,
-                null,
-                "buffer_image",
-                {},
-                "image_buffered",
-                null,
-                null,
-                ackMsg,
-                "processed",
+                supabase, request.userId, request.fromNumber, request.messageType,
+                request.content, request.mediaUrl || null, null,
+                "create_rdv", {}, "multi_rdv_proposed", null, null,
+                responseMsg, "processed",
               );
 
               return new Response(
                 JSON.stringify({
-                  intent: "buffer_image" as Intent,
+                  intent: "create_rdv" as Intent,
                   confidence: 1,
                   entities: {},
-                  actionTaken: "image_buffered",
-                  responseMessage: ackMsg,
+                  actionTaken: "multi_rdv_proposed",
+                  responseMessage: responseMsg,
                 }),
-                {
-                  status: 200,
-                  headers: { ...corsHeaders, "Content-Type": "application/json" },
-                },
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
               );
             }
+
+            // ----- Fallback: 0 RDV → treat the image as text notes -----
+            console.log("No RDV detected → OCR fallback to extract text/notes");
+            const ocrRes = await ocrImageToText(mediaData.base64, mediaData.contentType, LOVABLE_API_KEY!);
+            if (ocrRes.ok && ocrRes.text.trim().length > 0) {
+              const noteBlock = `[Contenu image OCR]\n${ocrRes.text.trim()}`;
+              processedContent = request.content && request.content.trim().length > 0
+                ? `${request.content}\n\n${noteBlock}`
+                : noteBlock;
+              rdvExtracted = true; // skip the finance fallback below
+              isReceiptDocument = false;
+              console.log(`OCR extracted ${ocrRes.text.length} chars → injected into processedContent`);
+            } else {
+              console.log("OCR fallback failed or returned empty text:", ocrRes.error);
+            }
           } catch (e) {
-            console.error("Image buffering failed, falling back to inline extraction:", e);
+            console.error("Direct RDV extraction failed:", e);
           }
         }
 

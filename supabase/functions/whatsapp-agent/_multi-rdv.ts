@@ -163,6 +163,64 @@ export async function extractRdvsFromImages(
   }
 }
 
+/**
+ * Fallback OCR: when no RDV is detected in an image, extract its raw text
+ * content (notes, instructions, client info) so the conversational agent
+ * can treat it as if the user had typed those notes.
+ */
+export async function ocrImageToText(
+  base64: string,
+  mimeType: string,
+  apiKey: string,
+): Promise<{ ok: boolean; text: string; error?: string }> {
+  try {
+    const url = base64.startsWith("data:")
+      ? base64
+      : `data:${mimeType || "image/jpeg"};base64,${base64}`;
+
+    const body = {
+      model: "google/gemini-2.5-flash-lite",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Tu es un OCR intelligent. Extrais TOUT le texte lisible de l'image en français, " +
+            "en préservant les sauts de ligne et la structure (notes, instructions, infos client, etc.). " +
+            "Ne commente pas. Retourne UNIQUEMENT le texte brut. Si l'image ne contient pas de texte, " +
+            "retourne une chaîne vide.",
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Extrais tout le texte de cette image." },
+            { type: "image_url", image_url: { url } },
+          ],
+        },
+      ],
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      return { ok: false, text: "", error: `ocr failed (${resp.status}): ${t.slice(0, 200)}` };
+    }
+    const json = await resp.json();
+    const text: string = json?.choices?.[0]?.message?.content?.trim() || "";
+    return { ok: true, text };
+  } catch (e) {
+    return { ok: false, text: "", error: (e as Error).message };
+  }
+}
+
 /** Format a single RDV summary line for the menu */
 export function formatRdvLine(letter: string, r: ExtractedRdv): string {
   const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
