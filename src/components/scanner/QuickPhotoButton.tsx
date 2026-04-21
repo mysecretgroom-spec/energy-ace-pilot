@@ -57,16 +57,23 @@ export async function mergeStudyPhotosIntoPdf(
   etudeId: string
 ): Promise<Blob | null> {
   // 1. Fetch all individual photo documents for this study
+  // Inclut aussi les photos prises pour ce client SANS etude_id (prises avant la création de l'étude)
   const { data: photoDocs, error: fetchError } = await supabase
     .from("documents")
-    .select("id, url, nom, type_document, context_source, created_at")
+    .select("id, url, nom, type_document, context_source, created_at, etude_id")
     .eq("client_id", clientId)
-    .eq("etude_id", etudeId)
+    .or(`etude_id.eq.${etudeId},etude_id.is.null`)
     .in("type_document", ["photo_toiture", "photo_compteur", "photo_tableau", "photo_chantier"])
     .neq("context_source", "merged_photos")
     .order("created_at", { ascending: true });
 
   if (fetchError || !photoDocs || photoDocs.length === 0) return null;
+
+  // Rattache rétroactivement les photos orphelines à l'étude courante
+  const orphanIds = photoDocs.filter((d) => !d.etude_id).map((d) => d.id);
+  if (orphanIds.length > 0) {
+    await supabase.from("documents").update({ etude_id: etudeId }).in("id", orphanIds);
+  }
 
   // 2. Download all images and build combined PDF
   const pdfDoc = await PDFDocument.create();
