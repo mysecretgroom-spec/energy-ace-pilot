@@ -33,6 +33,7 @@ import {
   Flame,
   MapPin,
   TrendingUp,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -365,10 +366,29 @@ const Parametres = () => {
           Se déconnecter
         </Button>
 
-        {/* Version */}
-        <p className="text-center text-xs text-muted-foreground">
-          DébalePro v1.0.0 • © 2026
-        </p>
+        {/* Version + check updates */}
+        <div className="flex flex-col items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground gap-2"
+            onClick={() => {
+              const fn = (window as any).__forcePWAUpdate;
+              if (typeof fn === "function") {
+                fn();
+              } else {
+                toast.info("Rechargement en cours…");
+                setTimeout(() => window.location.reload(), 300);
+              }
+            }}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Vérifier les mises à jour
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            DébalePro v1.0.0 • © 2026
+          </p>
+        </div>
       </div>
     </MobileLayout>
   );
