@@ -168,6 +168,14 @@ const RegiesSettings = () => {
     nom: "",
     taux_effectif: 0,
     taeg: 0,
+    duree_mois: 180,
+  });
+  const [editingFinancementId, setEditingFinancementId] = useState<string | null>(null);
+  const [editFinancementForm, setEditFinancementForm] = useState({
+    nom: "",
+    taux_effectif: 0,
+    taeg: 0,
+    duree_mois: 180,
   });
   const [newSurcout, setNewSurcout] = useState({
     categorie: 'support' as 'support' | 'emplacement_boitier' | 'compteur',
