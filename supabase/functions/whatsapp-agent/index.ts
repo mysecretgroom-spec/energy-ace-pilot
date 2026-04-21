@@ -2272,9 +2272,217 @@ serve(async (req) => {
       }
       
       console.log("Analyzing media with RDV-first extraction...");
-      
+
       // =================================================================
-      // RDV-FIRST STRATEGY
+      // ALBUM DEBOUNCE (WhatsApp multi-image albums)
+      // ------------------------------------------------------------------
+      // When the user sends multiple images in a single WhatsApp album,
+      // Twilio fires ONE webhook per image. Each webhook used to spawn its
+      // own multi-RDV workflow → concurrent state, last writer wins, the
+      // user sees only the LAST image's batch (or worse, mixed snapshots).
+      //
+      // Strategy: every incoming image (only when it's a real image, not
+      // a document/PDF) is buffered. We then sleep 4s and check whether
+      // a NEWER image was buffered for this user in the meantime. If yes,
+      // we exit silently (the latest webhook will be the "leader" that
+      // processes the whole album). If no, we are the leader and we
+      // extract the full batch as a single multi-RDV workflow.
+      // =================================================================
+      const isImageMessage = request.messageType === "image" &&
+        (mediaData.contentType || "").startsWith("image/");
+      // Skip debounce when there is already a multi-RDV workflow waiting
+      // (the user is iterating on a previous batch — handled elsewhere).
+      // Lightweight fetch of pending_action (full conversation row loaded later).
+      let _existingWorkflowState: string | null = null;
+      if (isImageMessage) {
+        const { data: convPeek } = await supabase
+          .from("whatsapp_conversations")
+          .select("pending_action")
+          .eq("user_id", request.userId)
+          .maybeSingle();
+        _existingWorkflowState =
+          (convPeek?.pending_action as PendingAction | null)?.workflowState || null;
+      }
+      const hasActiveMultiRdvFlow = !!_existingWorkflowState &&
+        _existingWorkflowState.startsWith("awaiting_multi_rdv");
+
+      if (isImageMessage && !mediaData.isLargeFile && !hasActiveMultiRdvFlow) {
+        try {
+          // 1) Buffer this image
+          const { data: bufRow, error: bufErr } = await supabase
+            .from("whatsapp_pending_images")
+            .insert({
+              user_id: request.userId,
+              phone_number: request.fromNumber,
+              image_data: mediaData.base64,
+              mime_type: mediaData.contentType || "image/jpeg",
+              status: "pending",
+            })
+            .select("id, created_at")
+            .single();
+
+          if (bufErr || !bufRow) {
+            console.error("Album debounce: buffer insert failed, falling back to direct path:", bufErr);
+            // Fall through to direct processing below
+          } else {
+            console.log(`[album-debounce] Buffered image ${bufRow.id} — waiting 4s for siblings...`);
+            // 2) Wait for potential siblings (album takes ~1-3s to fully arrive)
+            await new Promise((r) => setTimeout(r, 4000));
+
+            // 3) Check if a newer image arrived. If yes → not the leader.
+            const { data: newer } = await supabase
+              .from("whatsapp_pending_images")
+              .select("id")
+              .eq("user_id", request.userId)
+              .eq("status", "pending")
+              .gt("created_at", bufRow.created_at)
+              .limit(1);
+
+            if (newer && newer.length > 0) {
+              console.log(`[album-debounce] Newer image detected, yielding leadership.`);
+              return new Response(
+                JSON.stringify({
+                  intent: "unknown" as Intent,
+                  confidence: 1,
+                  entities: {},
+                  actionTaken: "album_buffered",
+                  // Empty responseMessage → webhook will NOT send a WhatsApp reply
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+              );
+            }
+
+            // 4) We are the leader → fetch ALL pending images and process as a batch.
+            const pending = await fetchPendingImages(supabase, request.userId);
+            console.log(`[album-debounce] Leader processing batch of ${pending.length} image(s)`);
+
+            if (pending.length > 0) {
+              const extractRes = await extractRdvsFromImages(
+                pending.map((p) => ({ image_data: p.image_data, mime_type: p.mime_type })),
+                Deno.env.get("SUPABASE_URL") || "",
+                Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+              );
+              await markImagesProcessed(supabase, pending.map((p) => p.id));
+
+              if (extractRes.ok && extractRes.rdvs.length > 0) {
+                const regieRes = await resolveDefaultRegie(supabase, request.userId);
+                if (regieRes.regies.length === 0) {
+                  return new Response(
+                    JSON.stringify({
+                      intent: "unknown" as Intent, confidence: 1, entities: {},
+                      actionTaken: "no_regie",
+                      responseMessage: "❌ Aucune régie configurée. Crée-en une dans les paramètres avant d'importer des RDV.",
+                    }),
+                    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                  );
+                }
+
+                const batchWarnings = await analyzeBatchWarnings(
+                  supabase, request.userId, extractRes.rdvs,
+                );
+
+                const batchData: MultiRdvBatchData = {
+                  rdvs: extractRes.rdvs,
+                  validated: [],
+                  removed: [],
+                  regieId: regieRes.regieId,
+                  regieName: regieRes.regieName,
+                  warnings: batchWarnings,
+                  createdAt: new Date().toISOString(),
+                };
+
+                // Single-RDV fast path (1 image album = 1 RDV with no friction)
+                if (
+                  extractRes.rdvs.length === 1 &&
+                  !regieRes.needsSelection &&
+                  regieRes.regieId &&
+                  batchWarnings.length === 0
+                ) {
+                  const rdv = extractRes.rdvs[0];
+                  const created = await createSingleRdvFromExtract(
+                    supabase, request.userId, rdv, regieRes.regieId, null,
+                  );
+                  if (created.ok) {
+                    const recap = appendEditHint(
+                      buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                    );
+                    return new Response(
+                      JSON.stringify({
+                        intent: "create_rdv" as Intent, confidence: 1, entities: {},
+                        actionTaken: "rdv_created",
+                        entityId: created.rdvId,
+                        entityType: "rdv",
+                        responseMessage: recap,
+                        lastActionToRemember: {
+                          intent: "create_rdv", entityType: "rdv", entityId: created.rdvId,
+                          snapshot: {}, label: "RDV de client", createdAt: new Date().toISOString(),
+                        },
+                      }),
+                      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                    );
+                  }
+                  console.error(`Album single-RDV fast path failed: ${created.error}`);
+                }
+
+                // Multi-RDV (or single RDV needing confirmation): proper batch flow
+                const isMulti = extractRes.rdvs.length > 1;
+                let responseMsg: string;
+                let workflowState: WorkflowState;
+                if (regieRes.needsSelection && isMulti) {
+                  responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+                  workflowState = "awaiting_multi_rdv_regie_mode";
+                } else if (regieRes.needsSelection) {
+                  responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
+                  workflowState = "awaiting_multi_rdv_regie";
+                } else {
+                  responseMsg = buildMenuMessage(batchData);
+                  workflowState = "awaiting_multi_rdv_validation";
+                }
+
+                const newPending: PendingAction = {
+                  intent: "create_rdv",
+                  entities: {},
+                  workflowState,
+                  collectedData: { multiRdvBatch: batchData },
+                  createdAt: new Date().toISOString(),
+                };
+
+                await supabase.from("whatsapp_conversations").upsert({
+                  user_id: request.userId,
+                  phone_number: request.fromNumber,
+                  pending_action: newPending,
+                  last_message_at: new Date().toISOString(),
+                }, { onConflict: "user_id" });
+
+                await logMessage(
+                  supabase, request.userId, request.fromNumber, request.messageType,
+                  request.content, request.mediaUrl || null, null,
+                  "create_rdv", {}, isMulti ? "multi_rdv_proposed" : "rdv_proposed", null, null,
+                  responseMsg, "processed",
+                );
+
+                return new Response(
+                  JSON.stringify({
+                    intent: "create_rdv" as Intent, confidence: 1, entities: {},
+                    actionTaken: isMulti ? "multi_rdv_proposed" : "rdv_proposed",
+                    responseMessage: responseMsg,
+                    pendingActionToTrack: newPending,
+                  }),
+                  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
+              }
+              // No RDV detected in the batch → fall through to OCR/finance fallback
+              // using the LAST image (current request) as representative content.
+              console.log(`[album-debounce] No RDV detected across ${pending.length} image(s) — falling back.`);
+            }
+          }
+        } catch (e) {
+          console.error("[album-debounce] error, falling back to direct path:", e);
+        }
+      }
+
+      // =================================================================
+      // RDV-FIRST STRATEGY (fallback / single-image direct path)
       // We ALWAYS try RDV extraction first (cheap, structured tool call).
       // If 0 RDVs are detected, we fall back to: (a) OCR text injection
       // for note-like screenshots, then (b) finance analysis if nothing.
