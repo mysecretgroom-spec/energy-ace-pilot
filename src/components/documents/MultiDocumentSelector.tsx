@@ -83,11 +83,14 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+// Public buckets — direct URL works without signed URL (avoids needless RTT)
+const PUBLIC_BUCKETS = new Set(["documents", "receipts"]);
+
 const resolveDocumentUrl = async (url: string): Promise<string> => {
   // If it's a data URL, return as-is
   if (url.startsWith("data:")) return url;
 
-  // If it's a Supabase storage URL, create a signed URL for reliable access
+  // If it's a Supabase storage URL, only sign for private buckets
   if (url.includes("/storage/v1/object/")) {
     try {
       const parsed = new URL(url);
@@ -95,6 +98,10 @@ const resolveDocumentUrl = async (url: string): Promise<string> => {
 
       if (match) {
         const [, bucket, rawPath] = match;
+        // Public buckets: use the original public URL (faster, no signed URL needed)
+        if (PUBLIC_BUCKETS.has(bucket) && parsed.pathname.includes("/object/public/")) {
+          return url;
+        }
         const decodedPath = decodeURIComponent(rawPath).split("?")[0].replace(/^\/+/, "");
         const pathCandidates = decodedPath.startsWith(`${bucket}/`)
           ? [decodedPath, decodedPath.slice(bucket.length + 1)]
