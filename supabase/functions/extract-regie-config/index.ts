@@ -56,8 +56,19 @@ EXTRAIT les informations suivantes selon ce qui est visible dans les documents:
    - categorie: Pour PV: "support"|"emplacement_boitier"|"compteur". Pour PAC: "type_pac"|"installation"|"accessoires". Pour ITE: "finition"|"complexite"|"accessoires_ite"
    - nom: nom affiché (ex: "Pergola", "Triphasé", "Sol béton")
    - code: code technique en snake_case (ex: "pergola", "triphase", "sol_beton")
-   - prix: montant en euros
+   - prix: montant en euros (prix UNITAIRE)
    - type_calcul: "fixe"|"par_panneau"|"par_m2"|"par_ml"
+
+   🔑 DÉTECTION CRITIQUE FIXE vs VARIABLE:
+   Examine attentivement chaque surcoût pour déterminer si le prix est FIXE (forfait global) ou VARIABLE (multiplié par quantité).
+   Indices VARIABLE :
+   - "par_panneau" : "/panneau", "par panneau", "/pann", "x N panneaux", "panneau additionnel/supplémentaire"
+   - "par_m2" : "/m²", "par m²", "au mètre carré", surface
+   - "par_ml" : "/ml", "/mètre linéaire", "ml de câble/liaison/gaine"
+   Indices FIXE : "forfait", "kit", prix unique sans mention de quantité (ex: "Triphasé : 1500€")
+   Règle: si une colonne ou en-tête mentionne "/panneau" "/m²" "/ml", applique-la à toutes les lignes du tableau.
+   Pour PV : si le prix est < 200€ et le contexte évoque les panneaux → préférer par_panneau.
+   Le prix doit toujours être UNITAIRE (par panneau/m²/ml), pas le total.
 
 3. **FINANCEMENTS** (options de financement proposées):
    Pour chaque option de financement, extrait:
