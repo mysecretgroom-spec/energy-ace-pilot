@@ -1057,65 +1057,99 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             </p>
           ) : (
             <>
-              {/* Select all / Deselect */}
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleSelectAll}
-                  className="text-xs text-amber-700"
-                >
-                  {selectedIds.size === ventes.length ? "Tout désélectionner" : "Tout sélectionner"}
-                </Button>
-                {selectedIds.size > 0 && (
+              {selectedIds.size > 0 && (
+                <div className="flex items-center justify-end">
                   <Badge variant="outline" className="bg-amber-100 text-amber-800">
                     {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
                   </Badge>
-                )}
-              </div>
+                </div>
+              )}
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {ventes.map((vente) => (
-                  <div
-                    key={vente.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                      selectedIds.has(vente.id)
-                        ? "bg-amber-100 border-amber-300"
-                        : "bg-white border-amber-100 hover:bg-amber-50"
-                    }`}
-                  >
-                    <Checkbox
-                      checked={selectedIds.has(vente.id)}
-                      onCheckedChange={() => toggleSelection(vente.id)}
-                      className="border-amber-400 data-[state=checked]:bg-amber-600"
-                    />
-                    <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => navigate(`/ventes/${vente.id}`)}
-                    >
-                      <p className="font-medium text-sm truncate">
-                        {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{vente.puissance_kwc || "-"} kWc</span>
-                        {vente.date_installation_reelle && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              Posé le {format(new Date(vente.date_installation_reelle), "dd MMM", { locale: fr })}
-                            </span>
-                          </>
-                        )}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                {ventesByRegie.map((group) => {
+                  const groupKey = group.regieId ?? "__none__";
+                  const allSelected = group.ventes.every(v => selectedIds.has(v.id));
+                  const isLockedOut = selectedRegieId !== null && selectedRegieId !== group.regieId;
+                  return (
+                    <div key={groupKey} className="space-y-2">
+                      {/* Regie header */}
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 className="h-4 w-4 text-amber-700 shrink-0" />
+                          <span className="font-semibold text-sm text-amber-900 truncate">
+                            {group.regieNom}
+                          </span>
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800 text-xs">
+                            {group.ventes.length}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleSelectAllForRegie(group.regieId, group.ventes)}
+                          className="text-xs text-amber-700 h-7"
+                        >
+                          {allSelected ? "Désélectionner" : "Tout sélectionner"}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {group.ventes.map((vente) => {
+                          const disabled = isLockedOut && !selectedIds.has(vente.id);
+                          return (
+                            <div
+                              key={vente.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                                selectedIds.has(vente.id)
+                                  ? "bg-amber-100 border-amber-300"
+                                  : disabled
+                                    ? "bg-muted/30 border-amber-100 opacity-50"
+                                    : "bg-white border-amber-100 hover:bg-amber-50"
+                              }`}
+                            >
+                              <Checkbox
+                                checked={selectedIds.has(vente.id)}
+                                onCheckedChange={() => toggleSelection(vente.id)}
+                                disabled={disabled}
+                                className="border-amber-400 data-[state=checked]:bg-amber-600"
+                              />
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => navigate(`/ventes/${vente.id}`)}
+                              >
+                                <p className="font-medium text-sm truncate">
+                                  {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{vente.puissance_kwc || "-"} kWc</span>
+                                  {vente.date_installation_reelle && (
+                                    <>
+                                      <span>•</span>
+                                      <span>
+                                        Posé le {format(new Date(vente.date_installation_reelle), "dd MMM", { locale: fr })}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-amber-700">{formatCurrency(vente.commission)} €</p>
+                                {vente.decom_montant > 0 && (
+                                  <p className="text-xs text-destructive">-{formatCurrency(vente.decom_montant)} € décom</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Group total */}
+                      <div className="flex items-center justify-end px-1 text-xs text-amber-800">
+                        Sous-total : <span className="font-semibold ml-1">{formatCurrency(group.total)} €</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-amber-700">{formatCurrency(vente.commission)} €</p>
-                      {vente.decom_montant > 0 && (
-                        <p className="text-xs text-destructive">-{formatCurrency(vente.decom_montant)} € décom</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
