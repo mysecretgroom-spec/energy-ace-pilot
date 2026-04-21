@@ -57,6 +57,7 @@ import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEdi
 import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
+import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -5309,6 +5310,15 @@ _Envoyé depuis DébalePro_`;
                   className="min-h-[80px]"
                 />
               </div>
+
+              {/* Bouton de téléchargement du PDF des photos d'étude */}
+              {clientId && (
+                <StudyPhotosDownloadButton
+                  clientId={clientId}
+                  etudeId={currentEtudeId}
+                  className="w-full"
+                />
+              )}
 
               {/* Bouton WhatsApp inline */}
               {classification && (
