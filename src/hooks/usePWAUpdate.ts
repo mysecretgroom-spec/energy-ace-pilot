@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { toast } from 'sonner';
 
-// Minimum connection quality for auto-update (in Mbps estimated)
+// Minimum connection quality for auto-update
 const MIN_EFFECTIVE_TYPE_FOR_UPDATE = ['4g', '3g'];
 
 // Version key to detect stale SWs from old deployments
@@ -13,8 +13,8 @@ const CURRENT_SW_VERSION = __APP_VERSION__;
 function hasGoodConnection(): boolean {
   if (!navigator.onLine) return false;
 
-  const connection = (navigator as any).connection || 
-                     (navigator as any).mozConnection || 
+  const connection = (navigator as any).connection ||
+                     (navigator as any).mozConnection ||
                      (navigator as any).webkitConnection;
 
   if (connection) {
@@ -37,19 +37,17 @@ async function cleanupStaleSWs(): Promise<boolean> {
   if (!('serviceWorker' in navigator)) return false;
 
   const storedVersion = localStorage.getItem(SW_VERSION_KEY);
-  
-  // If version changed, clear all SW caches to force clean install
+
   if (storedVersion && storedVersion !== CURRENT_SW_VERSION) {
     console.log('[PWA] Version mismatch detected, cleaning up stale caches...', {
       stored: storedVersion,
       current: CURRENT_SW_VERSION,
     });
 
-    // Clear all caches
     const cacheNames = await caches.keys();
     await Promise.all(cacheNames.map((name) => caches.delete(name)));
     console.log('[PWA] Cleared', cacheNames.length, 'stale caches');
-    
+
     localStorage.setItem(SW_VERSION_KEY, CURRENT_SW_VERSION);
     return true;
   }
@@ -58,31 +56,29 @@ async function cleanupStaleSWs(): Promise<boolean> {
   return false;
 }
 
+/**
+ * Silent auto-update PWA hook.
+ * - vite-plugin-pwa is configured with `registerType: "autoUpdate"` and
+ *   `skipWaiting: true`, so the new SW activates immediately.
+ * - We listen for `controllerchange` and reload the page silently.
+ * - Avoids reload storms by guarding with a ref + minimum interval since boot.
+ */
 export function usePWAUpdate() {
-  const toastShownRef = useRef(false);
-  const userTriggeredRef = useRef(false);
+  const reloadingRef = useRef(false);
+  const bootTimeRef = useRef(Date.now());
 
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
+  const { updateServiceWorker } = useRegisterSW({
     onRegisteredSW(swUrl, registration) {
       console.log('[PWA] Service Worker registered:', swUrl);
-      
-      // On first registration, check for a waiting SW (user already refreshed)
-      if (registration?.waiting) {
-        console.log('[PWA] Found waiting SW on registration, prompting update...');
-        setNeedRefresh(true);
-      }
 
-      // Check for updates periodically (every 1 hour)
+      // Periodically check for updates (every 30 min)
       if (registration) {
         setInterval(() => {
           if (hasGoodConnection()) {
-            console.log('[PWA] Checking for updates...');
-            registration.update();
+            console.log('[PWA] Periodic update check…');
+            registration.update().catch(() => {});
           }
-        }, 60 * 60 * 1000);
+        }, 30 * 60 * 1000);
       }
     },
     onRegisterError(error) {
@@ -93,50 +89,33 @@ export function usePWAUpdate() {
   // Cleanup stale SWs on mount
   useEffect(() => {
     cleanupStaleSWs().then((cleaned) => {
-      if (cleaned) {
-        console.log('[PWA] Stale caches cleaned, forcing SW update...');
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistration().then((reg) => {
-            reg?.update();
-          });
-        }
+      if (cleaned && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => {
+          reg?.update().catch(() => {});
+        });
       }
     });
   }, []);
 
-  // Check for updates when app becomes visible or reopened
+  // Check for updates when app becomes visible
   const checkForUpdates = useCallback(() => {
     if (!hasGoodConnection()) return;
+    if (!('serviceWorker' in navigator)) return;
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then((registration) => {
-        if (registration) {
-          console.log('[PWA] Checking for updates...');
-          registration.update();
-          
-          // If there's already a waiting SW, prompt immediately
-          if (registration.waiting) {
-            console.log('[PWA] Found waiting SW, prompting update...');
-            setNeedRefresh(true);
-          }
-        }
-      });
-    }
-  }, [setNeedRefresh]);
+    navigator.serviceWorker.getRegistration().then((registration) => {
+      if (!registration) return;
+      console.log('[PWA] Checking for updates…');
+      registration.update().catch(() => {});
+    });
+  }, []);
 
-  // Handle visibility change + app reopen (pageshow for bfcache on iOS)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkForUpdates();
-      }
+      if (document.visibilityState === 'visible') checkForUpdates();
     };
 
     const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        console.log('[PWA] App restored from bfcache, checking updates...');
-        checkForUpdates();
-      }
+      if (e.persisted) checkForUpdates();
     };
 
     const timer = setTimeout(checkForUpdates, 2000);
@@ -154,67 +133,30 @@ export function usePWAUpdate() {
     };
   }, [checkForUpdates]);
 
-  // Apply update: send SKIP_WAITING and reload
-  const applyUpdate = useCallback(() => {
-    userTriggeredRef.current = true;
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistration().then((reg) => {
-        if (reg?.waiting) {
-          console.log('[PWA] User accepted update, sending SKIP_WAITING...');
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-      });
-    }
-    updateServiceWorker(true);
-  }, [updateServiceWorker]);
-
-  // Show a persistent toast when update is available.
-  // Re-show after 5min if still needed (in case user dismissed it accidentally).
+  // Silent reload when a new SW takes control (after skipWaiting + clientsClaim).
+  // Guard: don't reload in the first 3s of boot (avoids reload during initial activation).
   useEffect(() => {
-    if (!needRefresh) {
-      toastShownRef.current = false;
-      return;
-    }
-    if (toastShownRef.current) return;
+    if (!('serviceWorker' in navigator)) return;
 
-    toastShownRef.current = true;
-    console.log('[PWA] Update available, showing notification...');
-
-    const showToast = () => {
-      toast('Nouvelle version disponible 🚀', {
-        id: 'pwa-update-available',
-        description: 'Actualisez pour profiter des dernières améliorations.',
-        duration: Infinity,
-        action: {
-          label: 'Actualiser',
-          onClick: applyUpdate,
-        },
-      });
+    const onControllerChange = () => {
+      if (reloadingRef.current) return;
+      const elapsed = Date.now() - bootTimeRef.current;
+      if (elapsed < 3000) {
+        console.log('[PWA] Ignoring controllerchange during initial boot');
+        return;
+      }
+      reloadingRef.current = true;
+      console.log('[PWA] New SW activated, silent reload…');
+      window.location.reload();
     };
 
-    showToast();
-
-    // Re-prompt every 5 minutes if user hasn't updated yet
-    const interval = setInterval(() => {
-      if (needRefresh) showToast();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [needRefresh, applyUpdate]);
-
-  // Listen for the new SW taking control → reload only if user triggered it
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      let reloading = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (reloading || !userTriggeredRef.current) return;
-        reloading = true;
-        console.log('[PWA] New SW activated via user action, reloading...');
-        window.location.reload();
-      });
-    }
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    };
   }, []);
 
+  // Manual force-update (used by Settings button)
   const forceCheckAndUpdate = useCallback(async () => {
     const toastId = toast.loading('Vérification des mises à jour…');
     try {
@@ -227,21 +169,21 @@ export function usePWAUpdate() {
         toast.error('Aucun service worker enregistré', { id: toastId });
         return;
       }
-      console.log('[PWA] Force checking for updates...');
+      console.log('[PWA] Force checking for updates…');
       await registration.update();
+      await new Promise((r) => setTimeout(r, 1000));
 
-      // Give the browser a moment to detect a waiting SW
-      await new Promise((r) => setTimeout(r, 800));
-
-      if (registration.waiting) {
+      if (registration.waiting || registration.installing) {
         toast.success('Mise à jour trouvée, application en cours…', { id: toastId });
-        userTriggeredRef.current = true;
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        setTimeout(() => window.location.reload(), 500);
+        // skipWaiting is true → new SW will activate; controllerchange will reload.
+        // As a safety net, force reload after 1.5s.
+        setTimeout(() => {
+          reloadingRef.current = true;
+          window.location.reload();
+        }, 1500);
         return;
       }
 
-      // No waiting SW: clear all caches and force a hard reload to be safe
       toast.success('Vous êtes déjà à jour 🎉', { id: toastId });
     } catch (err) {
       console.error('[PWA] Force update failed:', err);
@@ -258,8 +200,8 @@ export function usePWAUpdate() {
   }, [forceCheckAndUpdate]);
 
   return {
-    needRefresh,
-    updateServiceWorker: applyUpdate,
+    needRefresh: false,
+    updateServiceWorker,
     forceCheckAndUpdate,
   };
 }
