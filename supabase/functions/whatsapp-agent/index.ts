@@ -4050,24 +4050,37 @@ async function handlePendingWorkflow(
           ? ALPHA.slice(0, batch.rdvs.length).filter((l) => !batch.removed.includes(l) && !batch.validated.includes(l))
           : parsed.letters;
 
-      const results: Array<{ letter: string; ok: boolean; clientName: string; isNew: boolean; error?: string }> = [];
+      const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }> = [];
+      const failures: Array<{ clientName: string; error: string }> = [];
       for (const letter of lettersToCreate) {
         const idx = ALPHA.indexOf(letter);
         const rdv = batch.rdvs[idx];
         if (!rdv) continue;
         const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId);
-        results.push({ letter, ok: res.ok, clientName: res.clientName, isNew: res.isNewClient, error: res.error });
+        if (res.ok) {
+          created.push({ rdv: rdv as ExtractedRdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
+        } else {
+          failures.push({ clientName: res.clientName, error: res.error || "erreur" });
+        }
       }
 
-      const successCount = results.filter((r) => r.ok).length;
-      const lines = results.map((r) =>
-        r.ok
-          ? `✅ *${r.letter}* — ${r.clientName}${r.isNew ? " 🆕" : ""}`
-          : `❌ *${r.letter}* — ${r.clientName}: ${r.error || "erreur"}`
-      );
+      let summary = buildCreatedRecap(created, batch.regieName, failures);
+      if (created.length > 0) {
+        summary = appendEditHint(summary);
+      }
 
-      const summary = `🎉 *${successCount}/${results.length} RDV créé${successCount > 1 ? "s" : ""}*\n\n${lines.join("\n")}`;
-      return { intent: "create_rdv", actionTaken: "multi_rdv_created", newPendingAction: null, responseMessage: summary };
+      // Single RDV → expose entityId so outer pipeline can store last_executed_action
+      // (enables "reply to this message to edit")
+      const singleCreated = created.length === 1 ? created[0] : null;
+
+      return {
+        intent: "create_rdv",
+        actionTaken: "multi_rdv_created",
+        entityId: singleCreated?.rdvId,
+        entityType: singleCreated ? "rdv" : undefined,
+        newPendingAction: null,
+        responseMessage: summary,
+      };
     }
 
     // Unknown response → re-show menu
