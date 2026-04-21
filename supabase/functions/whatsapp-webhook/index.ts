@@ -268,10 +268,10 @@ serve(async (req) => {
       const agentResult = await agentResponse.json();
       console.log("Agent response:", agentResult);
 
-      // Send the response message if available and capture the SID
-      let responseTwilioSid: string | null = null;
+      // Send the response message if available and capture ALL chunk SIDs
+      let responseTwilioSids: string[] = [];
       if (agentResult.responseMessage) {
-        responseTwilioSid = await sendWhatsAppMessage(
+        responseTwilioSids = await sendWhatsAppMessage(
           TWILIO_ACCOUNT_SID,
           TWILIO_AUTH_TOKEN,
           TWILIO_WHATSAPP_NUMBER,
@@ -279,6 +279,9 @@ serve(async (req) => {
           agentResult.responseMessage
         );
       }
+      // Last SID is the "primary" one (kept for backward compat with last_action_message_sid)
+      const responseTwilioSid: string | null =
+        responseTwilioSids.length > 0 ? responseTwilioSids[responseTwilioSids.length - 1] : null;
 
       // ALWAYS update message status to processed (whether or not there's a response)
       await supabase
