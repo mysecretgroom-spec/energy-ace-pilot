@@ -34,18 +34,44 @@ EXTRAIT chaque ligne de surcoût avec:
   ${cfg.categories}
 - code: identifiant court en snake_case (ex: "sol_beton", "bac_acier", "linky_mono", "split_mural", "enduit_organique"). Doit être unique par catégorie.
 - nom: libellé affiché lisible (ex: "Sol béton", "Bac acier", "Linky monophasé", "Split mural", "Enduit organique")
-- prix: montant en euros (nombre)
+- prix: montant en euros (nombre, prix UNITAIRE)
 - type_calcul: STRICTEMENT l'une de:
   ${cfg.typeCalc}
 
 Indices contextuels: ${cfg.hint}
 
-RÈGLES:
+🔑 DÉTECTION CRITIQUE DU TYPE DE CALCUL (fixe vs variable):
+Analyse TRÈS attentivement chaque ligne pour déterminer si le prix est FIXE (forfait global) ou VARIABLE (multiplié par une quantité).
+
+Indices VARIABLE (NE PAS utiliser "fixe"):
+- "par_panneau": mention "/panneau", "par panneau", "/pann", "x N panneaux", "PV supplémentaire", "panneau additionnel", prix calculé sur le nombre de modules
+- "par_m2": mention "/m²", "par m²", "au mètre carré", "par mètre carré", surface, "ml²"
+- "par_ml": mention "/ml", "/mètre", "par mètre linéaire", "ml de câble", "ml de liaison frigorifique", "ml de gaine", "/m linéaire"
+
+Indices FIXE ("fixe"):
+- "forfait", "prix global", "ensemble", "kit complet", "à l'unité" sans mention de quantité variable
+- prix unique pour une option ponctuelle (ex: "Linky monophasé : 250€")
+- pose simple sans variation
+
+RÈGLES STRICTES:
+- Si une colonne ou un en-tête mentionne "/panneau", "/m²", "/ml" → applique-la à TOUTES les lignes de ce tableau
+- Si le prix semble très bas (ex: 50€, 80€) ET le contexte évoque une quantité (panneaux, surface, longueur) → c'est probablement variable, PAS fixe
+- Si le prix est élevé et unique (ex: 1500€ pour "Triphasé") → fixe
+- En cas de doute entre fixe et par_panneau pour du PV : préfère par_panneau si le prix est < 200€
+- Le prix retourné doit toujours être le prix UNITAIRE (par panneau/m²/ml), pas le total
+
+EXEMPLES:
+- "Bac acier : 80€/panneau" → type_calcul=par_panneau, prix=80
+- "Sol béton : 1200€" → type_calcul=fixe, prix=1200
+- "Enduit organique : 45€/m²" → type_calcul=par_m2, prix=45
+- "Liaison frigo supplémentaire : 35€/ml" → type_calcul=par_ml, prix=35
+- "Triphasé : 1500€" → type_calcul=fixe, prix=1500
+
+AUTRES RÈGLES:
 - Ne mélange jamais les surcoûts d'un autre produit
-- Si le prix est par panneau/m²/ml, utilise le bon type_calcul
-- Si non précisé, utilise "fixe"
+- Si vraiment aucun indice de variabilité, utilise "fixe" par défaut
 - Génère un code unique court et explicite à partir du nom
-- Retourne TOUS les surcoûts visibles, pas seulement les premiers
+- Retourne TOUS les surcoûts visibles
 - Si aucun surcoût détecté, retourne un tableau vide`;
 };
 
