@@ -8,6 +8,7 @@ import {
   fetchPendingImages,
   markImagesProcessed,
   discardPendingImages,
+  clearAllPendingImages,
   extractRdvsFromImages,
   ocrImageToText,
   buildMenuMessage,
