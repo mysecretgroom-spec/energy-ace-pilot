@@ -556,13 +556,18 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         return { prixRecommande: puissance * 4500, commissionFixe: 0 };
       };
 
-      return ventesData.map((v: any) => {
+      return ventesData.map((v: any): BillableVente => {
         const decomMontant = v.decom_montant || 0;
+        const enrich = (base: any): BillableVente => ({
+          ...base,
+          regie_id: v.regie_id ?? null,
+          regie_nom: v.regie_id ? (regieNameMap.get(v.regie_id) || "Régie inconnue") : "Sans régie",
+        });
         
         // Commission figée (override)
         if (v.commission_override != null) {
           const commission = Math.round(Math.max(0, v.commission_override - decomMontant) / 100) * 100;
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -572,12 +577,12 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -587,7 +592,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
@@ -619,7 +624,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         
         const commission = Math.round(Math.max(0, baseCommission + bonusSurvente - decomMontant) / 100) * 100;
 
-        return {
+        return enrich({
           id: v.id,
           client_nom: v.clients?.nom || "Client inconnu",
           client_prenom: v.clients?.prenom || null,
@@ -629,7 +634,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           date_installation_reelle: v.date_installation_reelle,
           commission,
           decom_montant: decomMontant,
-        };
+        });
       });
     } catch (error) {
       console.error("Error fetching facture ventes:", error);
