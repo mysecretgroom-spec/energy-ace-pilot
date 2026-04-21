@@ -2767,19 +2767,17 @@ serve(async (req) => {
 
     // Execute action based on intent (only if not already handled by workflow)
     if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.intent !== "multi_request" && aiResponse!.confidence >= 70) {
-      // Actions that require MANDATORY confirmation before execution - ALWAYS enforce this
-      const actionIntents: Intent[] = [
-        "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
-        "mark_signe", "update_vente_data", "update_client_notes"
-      ];
-      
-      // FORCE confirmation for all action intents, regardless of AI response
-      // This ensures no data modification happens without explicit user confirmation
-      const needsConfirmation = actionIntents.includes(aiResponse!.intent);
-      
-      // SPECIAL CASE: For update_rdv, let executeAction handle confirmation 
-      // so it can show the actual list of RDVs that will be affected
-      // This avoids double confirmation and provides better UX
+      // NEW BEHAVIOR (2026-04): direct execution + recap + reply-to-edit.
+      // We only KEEP the explicit Yes/No confirmation for DESTRUCTIVE intents
+      // (delete_*, cancel_*). All other action intents now run immediately
+      // and the user can correct them by REPLYING to the recap message.
+      const destructive = isDestructiveIntent(aiResponse!.intent);
+
+      // Legacy "needs confirmation" is now strictly destructive-only.
+      const needsConfirmation = destructive;
+
+      // update_rdv still owns its own internal confirmation prompts
+      // (it shows the matching list before patching). Keep that path.
       const delegateConfirmationToAction = aiResponse!.intent === "update_rdv";
       
       if (needsConfirmation && !delegateConfirmationToAction) {
