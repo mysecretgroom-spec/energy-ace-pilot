@@ -353,15 +353,28 @@ export function buildCreatedRecap(
 
 /** Parse user response in awaiting_multi_rdv_validation state */
 export type MultiRdvParseResult =
-  | { kind: "create_all" }
-  | { kind: "create_subset"; letters: string[] }
+  | { kind: "create_all"; force?: boolean }
+  | { kind: "create_subset"; letters: string[]; force?: boolean }
   | { kind: "remove"; letter: string }
+  | { kind: "set_note"; note: string }
   | { kind: "cancel" }
   | { kind: "unknown" };
 
 export function parseValidationResponse(message: string, data: MultiRdvBatchData): MultiRdvParseResult {
   const raw = message.trim();
   const lower = raw.toLowerCase();
+
+  // NOTE: ... → attach a contextual note to the batch (does NOT create yet)
+  const noteMatch = raw.match(/^(?:note|contexte|context|info)\s*[:\-]\s*(.+)$/i);
+  if (noteMatch) {
+    const note = noteMatch[1].trim();
+    if (note.length > 0) return { kind: "set_note", note: note.slice(0, 500) };
+  }
+
+  // FORCER → bypass warnings and create everything
+  if (["forcer", "force", "force-create", "quand meme", "quand même", "malgré", "malgre", "ignore"].includes(lower)) {
+    return { kind: "create_all", force: true };
+  }
 
   if (["oui", "ok", "yes", "tout", "tous", "valide", "valider", "go"].includes(lower)) {
     return { kind: "create_all" };
@@ -377,12 +390,14 @@ export function parseValidationResponse(message: string, data: MultiRdvBatchData
     if (isLetterValid(letter, data)) return { kind: "remove", letter };
   }
 
-  // Subset: letters separated by space/comma/+ — e.g. "A C E" or "A,B" or "A+B"
-  const tokens = raw.split(/[\s,+;/]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
+  // Subset with optional FORCER prefix/suffix
+  const forceFlag = /\bforcer?\b/i.test(raw);
+  const cleaned = raw.replace(/\bforcer?\b/gi, " ").trim();
+  const tokens = cleaned.split(/[\s,+;/]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
   if (tokens.length > 0 && tokens.every((t) => /^[A-Z]$/.test(t))) {
     const valid = tokens.filter((t) => isLetterValid(t, data));
     if (valid.length > 0) {
-      return { kind: "create_subset", letters: Array.from(new Set(valid)) };
+      return { kind: "create_subset", letters: Array.from(new Set(valid)), force: forceFlag };
     }
   }
 
