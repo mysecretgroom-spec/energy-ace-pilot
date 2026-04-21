@@ -9,6 +9,7 @@ import {
   markImagesProcessed,
   discardPendingImages,
   extractRdvsFromImages,
+  ocrImageToText,
   buildMenuMessage,
   buildRegieSelectionMessage,
   parseValidationResponse,
