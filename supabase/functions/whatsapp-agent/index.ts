@@ -4038,6 +4038,11 @@ async function handlePendingWorkflow(
   // ============================================================
   // Multi-RDV batch validation handler (A/B/C/D… menu)
   // ============================================================
+  const regieNameMap = (regies: Array<{ id: string; nom: string }>): Record<string, string> => {
+    const m: Record<string, string> = {};
+    for (const r of regies) m[r.id] = r.nom;
+    return m;
+  };
 
   // Step 1: user has multiple RDVs and multiple régies → ask "OUI = same régie / NON = per RDV"
   if (pendingAction.workflowState === "awaiting_multi_rdv_regie_mode") {
