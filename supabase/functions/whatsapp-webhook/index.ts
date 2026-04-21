@@ -268,10 +268,10 @@ serve(async (req) => {
       const agentResult = await agentResponse.json();
       console.log("Agent response:", agentResult);
 
-      // Send the response message if available and capture the SID
-      let responseTwilioSid: string | null = null;
+      // Send the response message if available and capture ALL chunk SIDs
+      let responseTwilioSids: string[] = [];
       if (agentResult.responseMessage) {
-        responseTwilioSid = await sendWhatsAppMessage(
+        responseTwilioSids = await sendWhatsAppMessage(
           TWILIO_ACCOUNT_SID,
           TWILIO_AUTH_TOKEN,
           TWILIO_WHATSAPP_NUMBER,
@@ -279,6 +279,9 @@ serve(async (req) => {
           agentResult.responseMessage
         );
       }
+      // Last SID is the "primary" one (kept for backward compat with last_action_message_sid)
+      const responseTwilioSid: string | null =
+        responseTwilioSids.length > 0 ? responseTwilioSids[responseTwilioSids.length - 1] : null;
 
       // ALWAYS update message status to processed (whether or not there's a response)
       await supabase
@@ -337,7 +340,7 @@ serve(async (req) => {
             { snapshot: unknown; createdAt: string }
           >;
 
-          // Prune entries older than 24h before adding the new one
+          // Prune entries older than 24h before adding the new ones
           const TTL = 24 * 60 * 60 * 1000;
           const now = Date.now();
           const pruned: typeof existing = {};
@@ -346,10 +349,16 @@ serve(async (req) => {
             if (ts && now - ts < TTL) pruned[sid] = entry;
           }
 
-          pruned[responseTwilioSid] = {
-            snapshot: agentResult.pendingActionToTrack,
-            createdAt: new Date().toISOString(),
-          };
+          // Map EVERY chunk SID to the same pending action snapshot.
+          // This way, if Twilio split the message into multiple parts,
+          // a quoted-reply to ANY chunk routes to the same workflow.
+          const createdAt = new Date().toISOString();
+          for (const sid of responseTwilioSids) {
+            pruned[sid] = {
+              snapshot: agentResult.pendingActionToTrack,
+              createdAt,
+            };
+          }
 
           await supabase
             .from("whatsapp_conversations")
@@ -357,7 +366,7 @@ serve(async (req) => {
             .eq("user_id", user.user_id);
 
           console.log(
-            `[reply-routing] Tracked response SID ${responseTwilioSid} -> workflow ${
+            `[reply-routing] Tracked ${responseTwilioSids.length} SID(s) -> workflow ${
               (agentResult.pendingActionToTrack as { workflowState?: string }).workflowState
             }`,
           );
@@ -412,14 +421,14 @@ serve(async (req) => {
 
 // Helper function to send WhatsApp message via Twilio
 // Supports long messages by splitting into chunks (WhatsApp limit ~1600 chars)
-// Returns the Twilio message SID of the last sent chunk
+// Returns the Twilio message SIDs of ALL sent chunks (in order)
 async function sendWhatsAppMessage(
   accountSid: string,
   authToken: string,
   fromNumber: string,
   toNumber: string,
   message: string
-): Promise<string | null> {
+): Promise<string[]> {
   const MAX_CHARS = 1500; // Safe limit below WhatsApp's 1600
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
@@ -453,8 +462,8 @@ async function sendWhatsAppMessage(
     }
   }
 
-  // Send each chunk sequentially
-  let lastMessageSid: string | null = null;
+  // Send each chunk sequentially and collect all SIDs
+  const sentSids: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const chunkLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
@@ -481,7 +490,7 @@ async function sendWhatsAppMessage(
     // Parse response to get message SID
     try {
       const responseData = await response.json();
-      lastMessageSid = responseData.sid || null;
+      if (responseData.sid) sentSids.push(responseData.sid);
     } catch {
       // If we can't parse the response, just continue
     }
@@ -494,5 +503,5 @@ async function sendWhatsAppMessage(
     }
   }
 
-  return lastMessageSid;
+  return sentSids;
 }
