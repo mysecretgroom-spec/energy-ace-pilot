@@ -2695,7 +2695,14 @@ serve(async (req) => {
         }, { onConflict: "user_id" });
 
         return new Response(
-          JSON.stringify({ intent: "create_rdv" as Intent, confidence: 1, entities: {}, actionTaken: "multi_rdv_proposed", responseMessage: responseMsg }),
+          JSON.stringify({
+            intent: "create_rdv" as Intent,
+            confidence: 1,
+            entities: {},
+            actionTaken: "multi_rdv_proposed",
+            responseMessage: responseMsg,
+            pendingActionToTrack: newPending,
+          }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
