@@ -2353,9 +2353,18 @@ serve(async (req) => {
               );
             }
 
-            // 4) We are the leader → fetch ALL pending images and process as a batch.
-            const pending = await fetchPendingImages(supabase, request.userId);
-            console.log(`[album-debounce] Leader processing batch of ${pending.length} image(s)`);
+            // 4) We are the leader → fetch only images that arrived in the
+            // current album window (last ~30s). Anything older was either
+            // already processed or stale (corrupted buffer) → ignore it.
+            const albumWindowSinceIso = new Date(
+              new Date(bufRow.created_at).getTime() - 30_000,
+            ).toISOString();
+            const pending = await fetchPendingImages(supabase, request.userId, {
+              sinceIso: albumWindowSinceIso,
+            });
+            console.log(
+              `[album-debounce] Leader processing batch of ${pending.length} image(s) (window since ${albumWindowSinceIso})`,
+            );
 
             if (pending.length > 0) {
               const extractRes = await extractRdvsFromImages(
@@ -2364,6 +2373,8 @@ serve(async (req) => {
                 Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
               );
               await markImagesProcessed(supabase, pending.map((p) => p.id));
+              // Defensive: any other "pending" leftovers for this user are stale → clear them
+              await clearAllPendingImages(supabase, request.userId, pending.map((p) => p.id));
 
               if (extractRes.ok && extractRes.rdvs.length > 0) {
                 const regieRes = await resolveDefaultRegie(supabase, request.userId);
