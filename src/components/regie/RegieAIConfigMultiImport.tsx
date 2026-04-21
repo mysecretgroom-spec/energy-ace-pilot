@@ -1,0 +1,524 @@
+import { useState, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  FileImage,
+  FileText,
+  Loader2,
+  Sparkles,
+  Check,
+  X,
+  Euro,
+  Zap,
+  Wrench,
+  CreditCard,
+  AlertCircle,
+  Trash2,
+  Plus,
+} from "lucide-react";
+
+interface ExtractedBouquet {
+  product_type: string;
+  nom_bouquet: string;
+  puissance_kwc: number;
+  prix_recommande: number;
+  commission_fixe: number;
+  description: string | null;
+  selected?: boolean;
+}
+
+interface ExtractedSurcout {
+  product_type: string;
+  categorie: string;
+  nom: string;
+  code: string;
+  prix: number;
+  type_calcul: string;
+  selected?: boolean;
+}
+
+interface ExtractedFinancement {
+  nom: string;
+  duree_mois: number;
+  taux_effectif: number;
+  taeg: number;
+  selected?: boolean;
+}
+
+interface SelectedFile {
+  file: File;
+  previewUrl: string;
+}
+
+interface Props {
+  regieId: string;
+  userId: string;
+  onComplete: () => void;
+}
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+export function RegieAIConfigMultiImport({ regieId, userId, onComplete }: Props) {
+  const [files, setFiles] = useState<SelectedFile[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [bouquets, setBouquets] = useState<ExtractedBouquet[]>([]);
+  const [surcouts, setSurcouts] = useState<ExtractedSurcout[]>([]);
+  const [financements, setFinancements] = useState<ExtractedFinancement[]>([]);
+  const [hasResults, setHasResults] = useState(false);
+  const [activeTab, setActiveTab] = useState("bouquets");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(e.target.files || []);
+    if (incoming.length === 0) return;
+
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    const accepted: SelectedFile[] = [];
+    for (const f of incoming) {
+      if (!validTypes.includes(f.type)) {
+        toast.error(`${f.name} : format non supporté`);
+        continue;
+      }
+      if (f.size > 10 * 1024 * 1024) {
+        toast.error(`${f.name} : trop volumineux (max 10 Mo)`);
+        continue;
+      }
+      accepted.push({
+        file: f,
+        previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : "",
+      });
+    }
+    if (files.length + accepted.length > 8) {
+      toast.error("Maximum 8 fichiers par analyse");
+      return;
+    }
+    setFiles((prev) => [...prev, ...accepted]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => {
+      const f = prev[index];
+      if (f?.previewUrl) URL.revokeObjectURL(f.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleExtract = useCallback(async () => {
+    if (files.length === 0) {
+      toast.error("Ajoutez au moins un fichier");
+      return;
+    }
+
+    setIsExtracting(true);
+    setBouquets([]);
+    setSurcouts([]);
+    setFinancements([]);
+    setHasResults(false);
+
+    try {
+      const images = await Promise.all(
+        files.map(async (sf) => ({
+          imageBase64: await fileToBase64(sf.file),
+          mimeType: sf.file.type,
+        }))
+      );
+
+      const { data, error } = await supabase.functions.invoke("extract-regie-config", {
+        body: { images },
+      });
+
+      if (error) throw error;
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      const b = (data.bouquets || []).map((x: any) => ({ ...x, selected: true }));
+      const s = (data.surcouts || []).map((x: any) => ({ ...x, selected: true }));
+      const f = (data.financements || []).map((x: any) => ({ ...x, selected: true }));
+
+      setBouquets(b);
+      setSurcouts(s);
+      setFinancements(f);
+      setHasResults(true);
+
+      const total = b.length + s.length + f.length;
+      if (total === 0) {
+        toast.warning("Aucune donnée détectée dans ces documents");
+      } else {
+        toast.success(`${b.length} bouquets, ${s.length} surcoûts, ${f.length} financements détectés`);
+        if (b.length > 0) setActiveTab("bouquets");
+        else if (s.length > 0) setActiveTab("surcouts");
+        else setActiveTab("financements");
+      }
+    } catch (err) {
+      console.error("Extraction error:", err);
+      toast.error("Erreur lors de l'extraction IA");
+    } finally {
+      setIsExtracting(false);
+    }
+  }, [files]);
+
+  const handleSave = async () => {
+    const selBouquets = bouquets.filter((b) => b.selected);
+    const selSurcouts = surcouts.filter((s) => s.selected);
+    const selFinancements = financements.filter((f) => f.selected);
+
+    if (selBouquets.length + selSurcouts.length + selFinancements.length === 0) {
+      toast.error("Sélectionnez au moins un élément");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const promises: PromiseLike<any>[] = [];
+
+      if (selBouquets.length > 0) {
+        promises.push(
+          supabase.from("bouquets").insert(
+            selBouquets.map((b) => ({
+              user_id: userId,
+              regie_ids: [regieId],
+              nom_bouquet: b.nom_bouquet,
+              puissance_kwc: b.puissance_kwc,
+              prix_recommande: b.prix_recommande,
+              prix_max: b.prix_recommande,
+              commission_fixe: b.commission_fixe,
+              product_type: b.product_type as "PV" | "PAC" | "ITE",
+              description: b.description,
+              actif: true,
+            }))
+          ).then()
+        );
+      }
+
+      if (selSurcouts.length > 0) {
+        promises.push(
+          supabase.from("regies_surcouts").insert(
+            selSurcouts.map((s) => ({
+              user_id: userId,
+              regie_id: regieId,
+              categorie: s.categorie,
+              code: s.code,
+              nom: s.nom,
+              prix: s.prix,
+              type_calcul: s.type_calcul,
+              actif: true,
+            }))
+          ).then()
+        );
+      }
+
+      if (selFinancements.length > 0) {
+        promises.push(
+          supabase.from("regies_financements").insert(
+            selFinancements.map((f) => ({
+              user_id: userId,
+              regie_id: regieId,
+              nom: f.nom,
+              duree_mois: f.duree_mois,
+              taux_effectif: f.taux_effectif,
+              taeg: f.taeg,
+              actif: true,
+            }))
+          ).then()
+        );
+      }
+
+      const results = await Promise.all(promises);
+      const errors = results.filter((r: any) => r?.error);
+      if (errors.length > 0) {
+        console.error("Save errors:", errors);
+        toast.error("Certaines données n'ont pas pu être sauvegardées");
+      } else {
+        const parts: string[] = [];
+        if (selBouquets.length) parts.push(`${selBouquets.length} bouquets`);
+        if (selSurcouts.length) parts.push(`${selSurcouts.length} surcoûts`);
+        if (selFinancements.length) parts.push(`${selFinancements.length} financements`);
+        toast.success(`${parts.join(", ")} créés ✓`);
+      }
+
+      handleReset();
+      onComplete();
+    } catch (err) {
+      console.error("Save error:", err);
+      toast.error("Erreur lors de la sauvegarde");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    files.forEach((f) => f.previewUrl && URL.revokeObjectURL(f.previewUrl));
+    setFiles([]);
+    setBouquets([]);
+    setSurcouts([]);
+    setFinancements([]);
+    setHasResults(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const totalSelected =
+    bouquets.filter((b) => b.selected).length +
+    surcouts.filter((s) => s.selected).length +
+    financements.filter((f) => f.selected).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Drop / picker zone */}
+      <Card className="border-dashed border-2">
+        <CardContent className="p-4 space-y-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={handleAddFiles}
+            className="hidden"
+          />
+
+          {files.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center py-6 gap-3 cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="p-3 rounded-full bg-primary/10">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <div className="text-center">
+                <p className="font-medium text-sm">Ajoutez un ou plusieurs screenshots</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bouquets PV / PAC / ITE, surcoûts et financements en une seule analyse
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <FileImage className="h-3 w-3" /> Image
+                </Badge>
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <FileText className="h-3 w-3" /> PDF
+                </Badge>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {files.map((sf, i) => (
+                  <div key={i} className="relative aspect-square rounded-md border bg-muted overflow-hidden group">
+                    {sf.previewUrl ? (
+                      <img src={sf.previewUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Retirer"
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-md border-2 border-dashed flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors"
+                  disabled={isExtracting}
+                >
+                  <Plus className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">Ajouter</span>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <span className="text-xs text-muted-foreground">
+                  {files.length} fichier{files.length > 1 ? "s" : ""} prêt{files.length > 1 ? "s" : ""}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={handleReset} disabled={isExtracting}>
+                    <X className="h-4 w-4 mr-1" /> Tout effacer
+                  </Button>
+                  <Button size="sm" onClick={handleExtract} disabled={isExtracting}>
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" /> Analyse...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-1" /> Analyser avec l'IA
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {hasResults && (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">{totalSelected} sélectionné(s)</span>
+            </div>
+            <Button size="sm" onClick={handleSave} disabled={isSaving || totalSelected === 0}>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+              Tout enregistrer
+            </Button>
+          </div>
+
+          <Card className="bg-amber-500/10 border-amber-500/30">
+            <CardContent className="p-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Vérifiez et corrigez les valeurs si nécessaire avant d'enregistrer.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="bouquets" className="gap-1 text-xs">
+                <Euro className="h-3.5 w-3.5" /> Bouquets
+                {bouquets.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{bouquets.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="surcouts" className="gap-1 text-xs">
+                <Wrench className="h-3.5 w-3.5" /> Surcoûts
+                {surcouts.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{surcouts.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="financements" className="gap-1 text-xs">
+                <CreditCard className="h-3.5 w-3.5" /> Financement
+                {financements.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{financements.length}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="bouquets" className="space-y-2 mt-3">
+              {bouquets.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucun bouquet détecté</p>
+              ) : (
+                bouquets.map((b, i) => (
+                  <Card key={i} className={`transition-all ${b.selected ? "ring-1 ring-primary/50 bg-primary/5" : "opacity-50"}`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox checked={b.selected} onCheckedChange={() => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">{b.product_type}</Badge>
+                            <Input value={b.nom_bouquet} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, nom_bouquet: e.target.value } : x))} className="h-7 text-sm font-medium" />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[10px] text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" />{b.product_type === "ITE" ? "m²" : "kWc"}</label>
+                              <Input type="number" step="0.5" value={b.puissance_kwc} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, puissance_kwc: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted-foreground flex items-center gap-1"><Euro className="h-3 w-3" />Prix reco.</label>
+                              <Input type="number" value={b.prix_recommande} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, prix_recommande: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-success flex items-center gap-1"><Euro className="h-3 w-3" />Commission</label>
+                              <Input type="number" value={b.commission_fixe} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, commission_fixe: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="surcouts" className="space-y-2 mt-3">
+              {surcouts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucun surcoût détecté</p>
+              ) : (
+                surcouts.map((s, i) => (
+                  <Card key={i} className={`transition-all ${s.selected ? "ring-1 ring-primary/50 bg-primary/5" : "opacity-50"}`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox checked={s.selected} onCheckedChange={() => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">{s.product_type}</Badge>
+                            <Badge variant="secondary" className="text-[10px]">{s.categorie}</Badge>
+                            <Badge className="text-[10px] bg-muted text-muted-foreground">{s.type_calcul}</Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input value={s.nom} onChange={(e) => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, nom: e.target.value } : x))} className="h-7 text-xs" placeholder="Nom" />
+                            <Input value={s.code} onChange={(e) => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, code: e.target.value } : x))} className="h-7 text-xs" placeholder="Code" />
+                            <Input type="number" value={s.prix} onChange={(e) => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, prix: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs font-semibold" />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="financements" className="space-y-2 mt-3">
+              {financements.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucun financement détecté</p>
+              ) : (
+                financements.map((f, i) => (
+                  <Card key={i} className={`transition-all ${f.selected ? "ring-1 ring-primary/50 bg-primary/5" : "opacity-50"}`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-start gap-2">
+                        <Checkbox checked={f.selected} onCheckedChange={() => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
+                        <div className="flex-1 space-y-2">
+                          <Input value={f.nom} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, nom: e.target.value } : x))} className="h-7 text-sm font-medium" placeholder="Nom" />
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[10px] text-muted-foreground">Durée (mois)</label>
+                              <Input type="number" value={f.duree_mois} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, duree_mois: parseInt(e.target.value) || 1 } : x))} className="h-7 text-xs" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted-foreground">Taux eff. %</label>
+                              <Input type="number" step="0.01" value={f.taux_effectif} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, taux_effectif: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-muted-foreground">TAEG %</label>
+                              <Input type="number" step="0.01" value={f.taeg} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, taeg: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
+    </div>
+  );
+}
