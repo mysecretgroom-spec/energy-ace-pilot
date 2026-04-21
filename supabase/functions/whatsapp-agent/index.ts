@@ -2292,8 +2292,19 @@ serve(async (req) => {
         (mediaData.contentType || "").startsWith("image/");
       // Skip debounce when there is already a multi-RDV workflow waiting
       // (the user is iterating on a previous batch — handled elsewhere).
-      const hasActiveMultiRdvFlow = !!pendingAction?.workflowState &&
-        String(pendingAction.workflowState).startsWith("awaiting_multi_rdv");
+      // Lightweight fetch of pending_action (full conversation row loaded later).
+      let _existingWorkflowState: string | null = null;
+      if (isImageMessage) {
+        const { data: convPeek } = await supabase
+          .from("whatsapp_conversations")
+          .select("pending_action")
+          .eq("user_id", request.userId)
+          .maybeSingle();
+        _existingWorkflowState =
+          (convPeek?.pending_action as PendingAction | null)?.workflowState || null;
+      }
+      const hasActiveMultiRdvFlow = !!_existingWorkflowState &&
+        _existingWorkflowState.startsWith("awaiting_multi_rdv");
 
       if (isImageMessage && !mediaData.isLargeFile && !hasActiveMultiRdvFlow) {
         try {
