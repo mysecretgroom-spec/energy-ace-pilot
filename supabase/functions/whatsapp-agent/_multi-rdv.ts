@@ -280,6 +280,7 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
 
   const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
 
+  const visibleLetters = new Set(remaining.map((x) => x.letter));
   const hasWarnings = (data.warnings || []).some((w) => visibleLetters.has(w.letter));
   const baseActions = isSingle
     ? [
@@ -296,8 +297,6 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
       ];
 
   // Inject warnings (only for letters still in remaining)
-  const visibleLettersList = remaining.map((x) => x.letter);
-  void visibleLettersList;
   const warnLines = (data.warnings || [])
     .filter((w) => visibleLetters.has(w.letter))
     .map((w) => `• ${w.message}`);
