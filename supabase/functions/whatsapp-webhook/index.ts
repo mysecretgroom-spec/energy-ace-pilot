@@ -252,6 +252,8 @@ serve(async (req) => {
         isReplyToMessage: !!replyToMessageId || !!replyToMessageContent,
         replyToMessageId: replyToMessageId,
         replyToMessageContent: replyToMessageContent,
+        // Twilio quoted-reply SID (for post-action edits)
+        repliedToTwilioSid: originalMessageContext,
       };
 
       const agentResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-agent`, {
@@ -293,7 +295,7 @@ serve(async (req) => {
         })
         .eq("id", messageRecord.id);
 
-      // If we got a response SID, create a record for the bot's response 
+      // If we got a response SID, create a record for the bot's response
       // (so it can be referenced if user replies to it)
       if (responseTwilioSid && agentResult.responseMessage) {
         await supabase.from("whatsapp_messages").insert({
@@ -307,6 +309,18 @@ serve(async (req) => {
           status: "sent",
           processed_at: new Date().toISOString(),
         });
+
+        // If the agent flagged this as an action recap, store the SID on
+        // the conversation so the user can reply to it to edit the action.
+        if (agentResult.lastActionToRemember) {
+          await supabase
+            .from("whatsapp_conversations")
+            .update({
+              last_action_message_sid: responseTwilioSid,
+              last_executed_action: agentResult.lastActionToRemember,
+            })
+            .eq("user_id", user.user_id);
+        }
       }
 
       return new Response(
