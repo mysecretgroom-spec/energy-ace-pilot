@@ -3027,6 +3027,8 @@ serve(async (req) => {
           Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
         );
         await markImagesProcessed(supabase, pending.map((p) => p.id));
+        // Defensive: clear any leftover pending images for this user
+        await clearAllPendingImages(supabase, request.userId, pending.map((p) => p.id));
 
         if (!extractRes.ok || extractRes.rdvs.length === 0) {
           const msg = `❌ Aucun RDV détecté dans tes ${pending.length} capture${pending.length > 1 ? "s" : ""}.\n\nRéessaie avec des screenshots plus nets.`;
