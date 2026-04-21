@@ -312,7 +312,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         
         const commission = Math.round(Math.max(0, baseCommission + bonusSurvente - decomMontant) / 100) * 100;
 
-        return {
+        return enrich({
           id: v.id,
           client_nom: v.clients?.nom || "Client inconnu",
           client_prenom: v.clients?.prenom || null,
@@ -322,7 +322,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           date_installation_reelle: v.date_installation_reelle,
           commission,
           decom_montant: decomMontant,
-        };
+        });
       });
 
       setVentes(billableVentes);
