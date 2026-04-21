@@ -280,7 +280,8 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
 
   const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
 
-  const actions = isSingle
+  const hasWarnings = (data.warnings || []).some((w) => visibleLetters.has(w.letter));
+  const baseActions = isSingle
     ? [
         "*Réponds:*",
         "• `OUI` → créer ce RDV",
@@ -295,7 +296,8 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
       ];
 
   // Inject warnings (only for letters still in remaining)
-  const visibleLetters = new Set(remaining.map((x) => x.letter));
+  const visibleLettersList = remaining.map((x) => x.letter);
+  void visibleLettersList;
   const warnLines = (data.warnings || [])
     .filter((w) => visibleLetters.has(w.letter))
     .map((w) => `• ${w.message}`);
@@ -303,7 +305,23 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
     ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
     : [];
 
-  return [header, "", blocks.join("\n\n"), ...warnBlock, "", ...actions].join("\n");
+  // Extra options when warnings detected: force-create + add context note
+  const forceActions = hasWarnings
+    ? [
+        "",
+        "_Si tu veux créer malgré l'avertissement:_",
+        "• `FORCER` → créer quand même",
+        "• `NOTE: ...` → ajouter un contexte (ex: `NOTE: nouveau dossier, client a changé d'avis`)",
+      ]
+    : [];
+
+  const noteLine = data.contextNote
+    ? ["", `📝 _Note ajoutée: ${data.contextNote}_`]
+    : [];
+
+  const actions = [...baseActions, ...forceActions];
+
+  return [header, "", blocks.join("\n\n"), ...warnBlock, ...noteLine, "", ...actions].join("\n");
 }
 
 /** Build a final recap message after RDVs were created */
