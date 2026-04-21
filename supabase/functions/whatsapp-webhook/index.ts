@@ -321,6 +321,47 @@ serve(async (req) => {
             })
             .eq("user_id", user.user_id);
         }
+
+        // If the agent created a pending workflow that expects an answer,
+        // map the response SID -> workflow snapshot so a quoted-reply to
+        // THIS exact message can be routed back to the right question.
+        if (agentResult.pendingActionToTrack) {
+          const { data: convRow } = await supabase
+            .from("whatsapp_conversations")
+            .select("pending_message_sids")
+            .eq("user_id", user.user_id)
+            .maybeSingle();
+
+          const existing = (convRow?.pending_message_sids || {}) as Record<
+            string,
+            { snapshot: unknown; createdAt: string }
+          >;
+
+          // Prune entries older than 24h before adding the new one
+          const TTL = 24 * 60 * 60 * 1000;
+          const now = Date.now();
+          const pruned: typeof existing = {};
+          for (const [sid, entry] of Object.entries(existing)) {
+            const ts = entry?.createdAt ? Date.parse(entry.createdAt) : 0;
+            if (ts && now - ts < TTL) pruned[sid] = entry;
+          }
+
+          pruned[responseTwilioSid] = {
+            snapshot: agentResult.pendingActionToTrack,
+            createdAt: new Date().toISOString(),
+          };
+
+          await supabase
+            .from("whatsapp_conversations")
+            .update({ pending_message_sids: pruned })
+            .eq("user_id", user.user_id);
+
+          console.log(
+            `[reply-routing] Tracked response SID ${responseTwilioSid} -> workflow ${
+              (agentResult.pendingActionToTrack as { workflowState?: string }).workflowState
+            }`,
+          );
+        }
       }
 
       return new Response(
