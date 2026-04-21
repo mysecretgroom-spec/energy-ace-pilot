@@ -37,6 +37,7 @@ import { PullToRefreshContainer } from "@/components/common/PullToRefreshContain
 import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { DashboardKPISkeleton, DashboardRdvListSkeleton } from "@/components/common/DashboardSkeletons";
 import { DashboardQuickActions } from "@/components/common/QuickActions";
+import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
 
 interface DashboardStats {
   // Ventes
@@ -662,6 +663,9 @@ const Dashboard = () => {
             </Button>
           </div>
         </div>
+
+        {/* Onboarding completion banner */}
+        <OnboardingBanner />
 
         {/* Régie filter */}
         {regies.length > 1 && (
