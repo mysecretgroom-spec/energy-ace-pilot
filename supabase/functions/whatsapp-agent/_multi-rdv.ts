@@ -37,6 +37,8 @@ export interface MultiRdvBatchData {
   editingLetter?: string | null;
   /** Field being edited if editing flow */
   editingField?: string | null;
+  /** Pre-computed duplicate / conflict warnings (per letter) */
+  warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>;
   /** Created at ISO */
   createdAt: string;
 }
@@ -290,7 +292,16 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
         "• `NON` → tout annuler",
       ];
 
-  return [header, "", blocks.join("\n\n"), "", ...actions].join("\n");
+  // Inject warnings (only for letters still in remaining)
+  const visibleLetters = new Set(remaining.map((x) => x.letter));
+  const warnLines = (data.warnings || [])
+    .filter((w) => visibleLetters.has(w.letter))
+    .map((w) => `• ${w.message}`);
+  const warnBlock = warnLines.length
+    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
+    : [];
+
+  return [header, "", blocks.join("\n\n"), ...warnBlock, "", ...actions].join("\n");
 }
 
 /** Build a final recap message after RDVs were created */
@@ -519,10 +530,11 @@ export async function createSingleRdvFromExtract(
   return { ok: true, clientName: fullName, isNewClient, rdvId: newRdv?.id, clientId: clientId || undefined };
 }
 
-/** Build régie selection message — includes recap of extracted RDVs */
+/** Build régie selection message — includes recap of extracted RDVs + warnings */
 export function buildRegieSelectionMessage(
   regies: Array<{ id: string; nom: string }>,
   countOrRdvs: number | ExtractedRdv[],
+  warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>,
 ): string {
   const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
   const isArray = Array.isArray(countOrRdvs);
@@ -539,8 +551,14 @@ export function buildRegieSelectionMessage(
       ).join("\n\n")
     : "";
 
+  const warnLines = (warnings || []).map((w) => `• ${w.message}`);
+  const warnBlock = warnLines.length
+    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
+    : [];
+
   return [
     head + recap,
+    ...warnBlock,
     "",
     "Pour quelle *Régie* ?",
     "",
