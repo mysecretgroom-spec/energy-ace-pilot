@@ -961,6 +961,12 @@ const EtudeForm = () => {
         setR2DateHeure(r2Date);
         setR2Time(format(r2Date, "HH:mm"));
       }
+      // CQ Date/Heure
+      if ((etude as any).cq_date_heure) {
+        const cqDt = new Date((etude as any).cq_date_heure);
+        setCqDate(cqDt);
+        setCqTime(format(cqDt, "HH:mm"));
+      }
       
       // Aides manuelles HEJJA
       if (etude.aides_manuelles && Array.isArray(etude.aides_manuelles)) {
@@ -1627,7 +1633,10 @@ const EtudeForm = () => {
       r2_date_heure: (classification === "r2" || classification === "r2_prestudy") && r2DateHeure
         ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString()
         : null,
-    };
+      cq_date_heure: classification === "positif" && cqDate
+        ? new Date(`${format(cqDate, "yyyy-MM-dd")}T${cqTime}:00`).toISOString()
+        : null,
+    } as any;
 
     let savedEtudeId: string | null = null;
     let error: Error | null = null;
