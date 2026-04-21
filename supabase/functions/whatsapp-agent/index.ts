@@ -3109,7 +3109,43 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       );
     }
 
-    const response: AgentResponse = {
+    // ========================================================
+    // POST-ACTION EDIT: build a "last_executed_action" snapshot
+    // and append a discreet edit hint to the recap message so the
+    // user can correct it by replying.
+    // ========================================================
+    let lastActionToRemember: LastExecutedAction | null = null;
+    const REMEMBERABLE_ENTITIES = new Set(["rdv", "client", "vente", "facture", "etude"]);
+    const wasSuccessful =
+      actionResult.actionTaken &&
+      !actionResult.actionTaken.startsWith("error") &&
+      !actionResult.actionTaken.includes("failed") &&
+      !actionResult.actionTaken.includes("invalid") &&
+      !actionResult.actionTaken.includes("awaiting") &&
+      !actionResult.actionTaken.includes("collected") &&
+      !actionResult.actionTaken.includes("unclear");
+    const isNonDestructiveExec =
+      wasSuccessful &&
+      !isDestructiveIntent(aiResponse!.intent) &&
+      actionResult.entityId &&
+      actionResult.entityType &&
+      REMEMBERABLE_ENTITIES.has(actionResult.entityType);
+
+    if (isNonDestructiveExec) {
+      lastActionToRemember = {
+        intent: aiResponse!.intent,
+        entityType: actionResult.entityType as LastExecutedAction["entityType"],
+        entityId: actionResult.entityId!,
+        snapshot: aiResponse!.entities,
+        label: actionResult.entityType === "rdv"
+          ? `RDV de ${(aiResponse!.entities as Record<string, unknown>).client_name || "client"}`
+          : `${actionResult.entityType} #${actionResult.entityId?.slice(0, 8)}`,
+        createdAt: new Date().toISOString(),
+      };
+      finalResponseMessage = appendEditHint(finalResponseMessage);
+    }
+
+    const response: AgentResponse & { lastActionToRemember?: LastExecutedAction | null } = {
       intent: aiResponse!.intent,
       confidence: aiResponse!.confidence,
       entities: aiResponse!.entities,
@@ -3117,6 +3153,7 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       entityId: actionResult.entityId,
       entityType: actionResult.entityType,
       responseMessage: finalResponseMessage,
+      lastActionToRemember,
     };
 
     return new Response(JSON.stringify(response), {
