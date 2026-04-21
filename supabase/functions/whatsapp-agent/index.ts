@@ -2528,6 +2528,68 @@ serve(async (req) => {
     }
     const activePendingSids = Object.keys(pendingMessageSids);
 
+    // Helper: human-readable label for a workflow state (used in ambiguity messages)
+    const describeWorkflow = (snap: PendingAction | undefined | null): string => {
+      if (!snap?.workflowState) return "Question en attente";
+      const batch = snap.collectedData?.multiRdvBatch;
+      const firstRdv = batch?.rdvs?.[0];
+      const who = firstRdv
+        ? [firstRdv.prenom, firstRdv.nom].filter(Boolean).join(" ").trim() || "client"
+        : "RDV";
+      const count = batch?.rdvs?.length ?? 0;
+      switch (snap.workflowState) {
+        case "awaiting_multi_rdv_regie":
+        case "awaiting_multi_rdv_regie_mode":
+          return count > 1
+            ? `Choix de la régie pour ${count} RDV (${who}, …)`
+            : `Choix de la régie pour le RDV de ${who}`;
+        case "awaiting_multi_rdv_regie_per_rdv":
+          return `Choix de la régie pour le RDV ${batch?.pendingRegieLetter || ""} (${who})`;
+        case "awaiting_multi_rdv_validation":
+          return count > 1
+            ? `Validation de ${count} RDV (${who}, …)`
+            : `Validation du RDV de ${who}`;
+        case "awaiting_confirmation":
+          return "Confirmation d'action";
+        case "collecting_missing_data":
+          return "Données manquantes à compléter";
+        case "awaiting_facture_confirmation":
+          return "Confirmation d'une note de frais";
+        case "awaiting_duplicate_confirmation":
+          return "Confirmation d'un doublon";
+        case "awaiting_regie_selection":
+          return "Choix de régie";
+        case "awaiting_choice_selection":
+          return "Choix entre plusieurs options";
+        default:
+          return `Question (${snap.workflowState})`;
+      }
+    };
+
+    // Deduplicate active SID entries by their underlying workflow snapshot
+    // (createdAt + workflowState). Several SIDs can map to the same logical
+    // question when a long agent response was split into multiple WhatsApp
+    // chunks — we count it as ONE pending question, not several.
+    const dedupedPendingSnapshots: Array<{ snapshot: PendingAction; sids: string[] }> = [];
+    {
+      const byKey = new Map<string, { snapshot: PendingAction; sids: string[] }>();
+      for (const sid of activePendingSids) {
+        const snap = pendingMessageSids[sid]?.snapshot;
+        if (!snap) continue;
+        const key = `${snap.workflowState || "?"}|${snap.createdAt || ""}|${
+          snap.collectedData?.multiRdvBatch?.createdAt || ""
+        }`;
+        const existing = byKey.get(key);
+        if (existing) {
+          existing.sids.push(sid);
+        } else {
+          const bucket = { snapshot: snap, sids: [sid] };
+          byKey.set(key, bucket);
+          dedupedPendingSnapshots.push(bucket);
+        }
+      }
+    }
+
     if (request.repliedToTwilioSid && pendingMessageSids[request.repliedToTwilioSid]) {
       const restored = pendingMessageSids[request.repliedToTwilioSid].snapshot;
       console.log(
@@ -2536,22 +2598,18 @@ serve(async (req) => {
       pendingAction = restored;
     } else if (
       !request.repliedToTwilioSid &&
-      activePendingSids.length > 1 &&
+      dedupedPendingSnapshots.length > 1 &&
       request.messageType === "text" &&
       pendingAction?.workflowState
     ) {
-      // Several questions are awaiting a reply and the user did not quote
-      // any of them. Ask them to clarify instead of guessing.
-      const summaries = activePendingSids
-        .map((sid, i) => {
-          const entry = pendingMessageSids[sid];
-          const state = entry?.snapshot?.workflowState || "?";
-          return `${i + 1}. ${state}`;
-        })
+      // Several DISTINCT questions are awaiting a reply and the user did
+      // not quote any of them. Ask them to clarify with human-readable labels.
+      const summaries = dedupedPendingSnapshots
+        .map((b, i) => `${i + 1}. ${describeWorkflow(b.snapshot)}`)
         .join("\n");
       const askMsg =
-        `🤔 J'ai plusieurs questions en attente :\n\n${summaries}\n\n` +
-        `👉 Réponds en *citant* (quoted reply) le message exact auquel tu réponds, sinon je ne sais pas auquel tu fais référence.`;
+        `🤔 J'ai *${dedupedPendingSnapshots.length} questions* en attente :\n\n${summaries}\n\n` +
+        `👉 Pour me répondre, *cite* (quoted reply) le message exact auquel tu réponds. Sinon je risque de mélanger les RDV.`;
       return new Response(
         JSON.stringify({
           intent: "conversation" as Intent,
@@ -2562,6 +2620,19 @@ serve(async (req) => {
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    } else if (
+      !request.repliedToTwilioSid &&
+      dedupedPendingSnapshots.length === 1 &&
+      pendingAction?.workflowState &&
+      // Make sure the loaded pending_action matches the single tracked workflow
+      // (i.e. it wasn't overwritten by a parallel webhook). If they diverge,
+      // restore from the SID snapshot so the user always answers the right one.
+      dedupedPendingSnapshots[0].snapshot.createdAt !== pendingAction.createdAt
+    ) {
+      console.log(
+        `[reply-routing] Single tracked workflow ${dedupedPendingSnapshots[0].snapshot.workflowState} differs from current pending_action — restoring tracked snapshot.`,
+      );
+      pendingAction = dedupedPendingSnapshots[0].snapshot;
     }
 
     console.log(`Loaded ${userMemories.length} memories and ${userPrompts.length} custom prompts for user`);
