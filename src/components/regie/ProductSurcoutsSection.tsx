@@ -243,7 +243,50 @@ export function ProductSurcoutsSection({
     }
   };
 
-  return (
+  const startEdit = (surcout: RegieSurcout) => {
+    setEditingId(surcout.id);
+    setEditForm({
+      categorie: surcout.categorie,
+      code: surcout.code,
+      nom: surcout.nom,
+      prix: surcout.prix,
+      type_calcul: surcout.type_calcul,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (surcout: RegieSurcout) => {
+    if (!editForm.nom.trim() || !editForm.code.trim()) {
+      toast.error("Le nom et le code sont requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("regies_surcouts")
+        .update({
+          categorie: editForm.categorie,
+          code: editForm.code.trim().toLowerCase().replace(/\s+/g, "_"),
+          nom: editForm.nom.trim(),
+          prix: editForm.prix,
+          type_calcul: editForm.type_calcul,
+        })
+        .eq("id", surcout.id);
+      if (error) throw error;
+      toast.success("Surcoût modifié");
+      setEditingId(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating surcout:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSaving(false);
+    }
+  };
+
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Surcoûts techniques spécifiques à cette régie par type de produit
