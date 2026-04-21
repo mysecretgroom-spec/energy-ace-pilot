@@ -58,6 +58,8 @@ interface BillableVente {
   date_installation_reelle: string | null;
   commission: number;
   decom_montant: number;
+  regie_id: string | null;
+  regie_nom: string;
 }
 
 interface Facture {
