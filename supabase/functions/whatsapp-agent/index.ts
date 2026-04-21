@@ -2375,8 +2375,61 @@ serve(async (req) => {
                 createdAt: new Date().toISOString(),
               };
 
+              // ============================================================
+              // SINGLE-RDV FAST PATH: when only 1 RDV is extracted, the régie
+              // is resolved and there are no blocking warnings, create the
+              // RDV immediately — no "OUI/NON" round-trip. This keeps the
+              // single-RDV flow simple and consistent (no multi-batch UI).
+              // ============================================================
+              if (
+                extractRes.rdvs.length === 1 &&
+                !regieRes.needsSelection &&
+                regieRes.regieId &&
+                batchWarnings.length === 0
+              ) {
+                const rdv = extractRes.rdvs[0];
+                const created = await createSingleRdvFromExtract(
+                  supabase, request.userId, rdv, regieRes.regieId, null,
+                );
+                if (created.ok) {
+                  const recap = appendEditHint(
+                    buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                  );
+                  const lastAction = {
+                    intent: "create_rdv" as Intent,
+                    entityType: "rdv",
+                    entityId: created.rdvId,
+                    snapshot: {},
+                    label: "RDV de client",
+                    createdAt: new Date().toISOString(),
+                  };
+                  await logMessage(
+                    supabase, request.userId, request.fromNumber, request.messageType,
+                    request.content, request.mediaUrl || null, null,
+                    "create_rdv", {}, "rdv_created", created.rdvId, "rdv",
+                    recap, "processed",
+                  );
+                  return new Response(
+                    JSON.stringify({
+                      intent: "create_rdv" as Intent,
+                      confidence: 1,
+                      entities: {},
+                      actionTaken: "rdv_created",
+                      entityId: created.rdvId,
+                      entityType: "rdv",
+                      responseMessage: recap,
+                      lastActionToRemember: lastAction,
+                    }),
+                    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                  );
+                }
+                // If creation failed, fall through to the confirmation flow
+                // so the user sees the error and can retry / adjust.
+                console.error(`Single-RDV fast path failed: ${created.error} — falling back to validation menu.`);
+              }
+
               // Multi-RDV → ask if all same régie OR one per RDV (mode selection)
-              // Single RDV → direct régie list (existing behavior)
+              // Single RDV with warnings or unresolved régie → standard validation flow
               const isMulti = extractRes.rdvs.length > 1;
               let responseMsg: string;
               let workflowState: WorkflowState;
@@ -2409,7 +2462,7 @@ serve(async (req) => {
               await logMessage(
                 supabase, request.userId, request.fromNumber, request.messageType,
                 request.content, request.mediaUrl || null, null,
-                "create_rdv", {}, "multi_rdv_proposed", null, null,
+                "create_rdv", {}, isMulti ? "multi_rdv_proposed" : "rdv_proposed", null, null,
                 responseMsg, "processed",
               );
 
@@ -2418,7 +2471,7 @@ serve(async (req) => {
                   intent: "create_rdv" as Intent,
                   confidence: 1,
                   entities: {},
-                  actionTaken: "multi_rdv_proposed",
+                  actionTaken: isMulti ? "multi_rdv_proposed" : "rdv_proposed",
                   responseMessage: responseMsg,
                   pendingActionToTrack: newPending,
                 }),
