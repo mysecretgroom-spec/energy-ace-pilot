@@ -39,6 +39,8 @@ import {
   Sparkles,
   CreditCard,
   Wrench,
+  Pencil,
+  X,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { RegieAIConfigImport } from "@/components/regie/RegieAIConfigImport";
