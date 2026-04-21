@@ -421,14 +421,14 @@ serve(async (req) => {
 
 // Helper function to send WhatsApp message via Twilio
 // Supports long messages by splitting into chunks (WhatsApp limit ~1600 chars)
-// Returns the Twilio message SID of the last sent chunk
+// Returns the Twilio message SIDs of ALL sent chunks (in order)
 async function sendWhatsAppMessage(
   accountSid: string,
   authToken: string,
   fromNumber: string,
   toNumber: string,
   message: string
-): Promise<string | null> {
+): Promise<string[]> {
   const MAX_CHARS = 1500; // Safe limit below WhatsApp's 1600
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
@@ -462,8 +462,8 @@ async function sendWhatsAppMessage(
     }
   }
 
-  // Send each chunk sequentially
-  let lastMessageSid: string | null = null;
+  // Send each chunk sequentially and collect all SIDs
+  const sentSids: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const chunkLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
@@ -490,7 +490,7 @@ async function sendWhatsAppMessage(
     // Parse response to get message SID
     try {
       const responseData = await response.json();
-      lastMessageSid = responseData.sid || null;
+      if (responseData.sid) sentSids.push(responseData.sid);
     } catch {
       // If we can't parse the response, just continue
     }
@@ -503,5 +503,5 @@ async function sendWhatsAppMessage(
     }
   }
 
-  return lastMessageSid;
+  return sentSids;
 }
