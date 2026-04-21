@@ -179,7 +179,7 @@ RÈGLES:
 }
 
 const ALLOWED_FIELDS_BY_ENTITY: Record<string, string[]> = {
-  rdv: ["date_heure", "adresse", "type_rdv", "type_projet", "status", "regie_id", "notes"],
+  rdv: ["date_heure", "adresse", "code_postal", "ville", "type_rdv", "type_projet", "status", "regie_id", "notes"],
   client: ["nom", "prenom", "telephone", "email", "adresse", "code_postal", "ville", "notes"],
   vente: ["puissance_kwc", "prix_ttc", "status", "pipeline_status", "date_signature", "notes"],
   facture: ["montant_ttc", "fournisseur", "categorie", "date_facture", "notes"],

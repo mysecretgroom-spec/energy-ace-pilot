@@ -57,8 +57,9 @@ Règles NOTES (capture les détails commerciaux):
 - Préserve les retours à la ligne logiques mais sans excès.
 
 Règles NOM/PRÉNOM:
-- Si une seule chaîne (ex: "Saint-Guirons"), mets-la dans nom et laisse prenom=null.
+- Si une seule chaîne après "Client :" (ex: "Saint-Guirons", "Dupont"), mets-la dans nom et laisse prenom=NULL. NE DUPLIQUE JAMAIS la même valeur dans nom ET prenom.
 - Si "Dupont Jean" ou "Jean Dupont", sépare correctement.
+- Si tu hésites, mets tout dans nom et laisse prenom=null.
 
 Confidence:
 - 0.9+ si nom + date + heure + adresse clairs.
