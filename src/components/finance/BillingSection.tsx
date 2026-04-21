@@ -418,8 +418,38 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const handleCreateInvoice = async () => {
     if (selectedVentes.length === 0 || !user) return;
 
+    // Guard 1 (UI state): the selection must be mono-régie
+    const uniqueRegieIdsLocal = new Set(selectedVentes.map(v => v.regie_id ?? "__none__"));
+    if (uniqueRegieIdsLocal.size > 1) {
+      toast.error("Une facture ne peut pas contenir des dossiers de régies différentes");
+      return;
+    }
+
     setCreating(true);
     try {
+      const venteIds = selectedVentes.map(v => v.id);
+
+      // Guard 2 (server truth): re-check régies directly in DB to defeat any UI tampering
+      const { data: dbVentes, error: checkError } = await supabase
+        .from("ventes")
+        .select("id, regie_id")
+        .in("id", venteIds);
+
+      if (checkError) throw checkError;
+
+      const dbRegieIds = new Set((dbVentes || []).map((v: any) => v.regie_id ?? "__none__"));
+      if (dbRegieIds.size > 1) {
+        toast.error("Génération bloquée : les dossiers sélectionnés appartiennent à plusieurs régies");
+        setCreating(false);
+        return;
+      }
+      if ((dbVentes || []).length !== venteIds.length) {
+        toast.error("Certains dossiers sont introuvables, actualisation nécessaire");
+        setCreating(false);
+        fetchBillableVentes();
+        return;
+      }
+
       const invoiceNumber = generateInvoiceNumber();
       
       // 1. Create the facture
@@ -429,7 +459,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           user_id: user.id,
           numero_facture: invoiceNumber,
           montant_total_ht: selectedTotal,
-          vente_ids: selectedVentes.map(v => v.id),
+          vente_ids: venteIds,
           statut: "emise",
         });
 
