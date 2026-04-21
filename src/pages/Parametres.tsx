@@ -33,6 +33,7 @@ import {
   Flame,
   MapPin,
   TrendingUp,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
