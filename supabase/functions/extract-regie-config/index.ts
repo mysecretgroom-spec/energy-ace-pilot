@@ -65,10 +65,18 @@ EXTRAIT les informations suivantes selon ce qui est visible dans les documents:
    - "par_panneau" : "/panneau", "par panneau", "/pann", "x N panneaux", "panneau additionnel/supplémentaire"
    - "par_m2" : "/m²", "par m²", "au mètre carré", surface
    - "par_ml" : "/ml", "/mètre linéaire", "ml de câble/liaison/gaine"
-   Indices FIXE : "forfait", "kit", prix unique sans mention de quantité (ex: "Triphasé : 1500€")
-   Règle: si une colonne ou en-tête mentionne "/panneau" "/m²" "/ml", applique-la à toutes les lignes du tableau.
-   Pour PV : si le prix est < 200€ et le contexte évoque les panneaux → préférer par_panneau.
-   Le prix doit toujours être UNITAIRE (par panneau/m²/ml), pas le total.
+   Indices FIXE : "forfait", "kit", prix unique sans référence à une puissance (ex: "Triphasé : 1500€")
+
+   🎯 CAS SPÉCIAL — Surcoût décliné par puissance (kWc/kW) :
+   Si le NOM d'un surcoût contient une puissance (ex: "Pergola 3kWc", "Carport 6kW", "Toiture 9kWc"), c'est un surcoût VARIABLE par_panneau dont le prix s'adapte à la taille de l'installation.
+   - Si plusieurs lignes du même surcoût existent avec différentes puissances (ex: "Pergola 3kWc : 4500€", "Pergola 6kWc : 9000€"), FUSIONNE-les en UNE SEULE entrée avec type_calcul=par_panneau et un prix UNITAIRE par panneau (1 panneau ≈ 0.5 kWc, donc 3kWc = 6 panneaux).
+   - Exemple : "Pergola 3kWc : 4500€" → 6 panneaux → 750€/panneau → { nom: "Pergola", type_calcul: "par_panneau", prix: 750 }
+   - Ne crée JAMAIS plusieurs entrées "Pergola 3kWc", "Pergola 6kWc"... une seule entrée "Pergola" suffit.
+
+   Règles complémentaires :
+   - Si une colonne ou en-tête mentionne "/panneau" "/m²" "/ml", applique-la à toutes les lignes du tableau.
+   - Pour PV : si le prix est < 200€ et le contexte évoque les panneaux → préférer par_panneau.
+   - Le prix doit toujours être UNITAIRE (par panneau/m²/ml), pas le total.
 
 3. **FINANCEMENTS** (options de financement proposées):
    Pour chaque option de financement, extrait:
