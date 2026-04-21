@@ -140,11 +140,12 @@ const WhatsAppAgentSettings = () => {
                 className="w-full mt-3 bg-green-600 hover:bg-green-700"
                 onClick={() => {
                   const clean = whatsappNumber?.replace(/[+\s\-()]/g, "") || "";
-                  window.open(`https://wa.me/${clean}?text=Bonjour`, "_blank");
+                  // Pas de ?text= : ouvre directement la conversation au lieu d'un brouillon de message
+                  window.open(`https://wa.me/${clean}`, "_blank");
                 }}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Ouvrir WhatsApp
+                Ouvrir la conversation WhatsApp
               </Button>
             </div>
           </CardContent>
