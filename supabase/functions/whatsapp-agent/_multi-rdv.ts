@@ -292,7 +292,16 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
         "• `NON` → tout annuler",
       ];
 
-  return [header, "", blocks.join("\n\n"), "", ...actions].join("\n");
+  // Inject warnings (only for letters still in remaining)
+  const visibleLetters = new Set(remaining.map((x) => x.letter));
+  const warnLines = (data.warnings || [])
+    .filter((w) => visibleLetters.has(w.letter))
+    .map((w) => `• ${w.message}`);
+  const warnBlock = warnLines.length
+    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
+    : [];
+
+  return [header, "", blocks.join("\n\n"), ...warnBlock, "", ...actions].join("\n");
 }
 
 /** Build a final recap message after RDVs were created */
