@@ -12,6 +12,7 @@ import {
   ocrImageToText,
   buildMenuMessage,
   buildRegieSelectionMessage,
+  buildCreatedRecap,
   parseValidationResponse,
   resolveDefaultRegie,
   createSingleRdvFromExtract,
