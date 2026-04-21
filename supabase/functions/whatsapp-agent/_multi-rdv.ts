@@ -241,7 +241,7 @@ export function formatRdvLine(letter: string, r: ExtractedRdv): string {
 }
 
 /** Format a detailed RDV block (multi-line) showing all extracted fields */
-export function formatRdvDetailed(letter: string | null, r: ExtractedRdv): string {
+export function formatRdvDetailed(letter: string | null, r: ExtractedRdv, regieName?: string | null): string {
   const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
   const dateLabel = r.date ? formatFrenchDate(r.date) : "❓ date manquante";
   const timeLabel = r.heure ? ` à ${r.heure}` : "";
@@ -255,6 +255,7 @@ export function formatRdvDetailed(letter: string | null, r: ExtractedRdv): strin
   if (r.telephone) lines.push(`📞 ${r.telephone}`);
   if (r.email) lines.push(`✉️ ${r.email}`);
   if (r.type_projet) lines.push(`🏷️ ${r.type_projet}`);
+  if (regieName) lines.push(`🏢 ${regieName}`);
   if (r.notes) {
     const notes = r.notes.length > 200 ? r.notes.slice(0, 200) + "…" : r.notes;
     lines.push(`📝 ${notes}`);
