@@ -221,13 +221,35 @@ export async function ocrImageToText(
   }
 }
 
-/** Format a single RDV summary line for the menu */
+/** Format a single RDV summary line for the menu (compact) */
 export function formatRdvLine(letter: string, r: ExtractedRdv): string {
   const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
   const dateLabel = r.date ? formatFrenchDate(r.date) : "❓ date";
   const timeLabel = r.heure ? ` ${r.heure}` : "";
   const cityLabel = r.ville ? ` — ${r.ville}` : "";
   return `*${letter}.* ${fullName} — ${dateLabel}${timeLabel}${cityLabel}`;
+}
+
+/** Format a detailed RDV block (multi-line) showing all extracted fields */
+export function formatRdvDetailed(letter: string | null, r: ExtractedRdv): string {
+  const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
+  const dateLabel = r.date ? formatFrenchDate(r.date) : "❓ date manquante";
+  const timeLabel = r.heure ? ` à ${r.heure}` : "";
+  const addressParts = [r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean);
+  const addressLine = addressParts.length ? addressParts.join(", ") : null;
+
+  const lines: string[] = [];
+  lines.push(letter ? `*${letter}. ${fullName}*` : `👤 *${fullName}*`);
+  lines.push(`📅 ${dateLabel}${timeLabel}`);
+  if (addressLine) lines.push(`📍 ${addressLine}`);
+  if (r.telephone) lines.push(`📞 ${r.telephone}`);
+  if (r.email) lines.push(`✉️ ${r.email}`);
+  if (r.type_projet) lines.push(`🏷️ ${r.type_projet}`);
+  if (r.notes) {
+    const notes = r.notes.length > 200 ? r.notes.slice(0, 200) + "…" : r.notes;
+    lines.push(`📝 ${notes}`);
+  }
+  return lines.join("\n");
 }
 
 /** Format YYYY-MM-DD → JJ/MM/AAAA */
@@ -237,7 +259,7 @@ function formatFrenchDate(iso: string): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-/** Build the validation menu message */
+/** Build the validation menu message with full per-RDV details */
 export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): string {
   const remaining = data.rdvs
     .map((r, i) => ({ letter: ALPHABET[i], rdv: r, idx: i }))
@@ -247,20 +269,56 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
     return "✅ Plus aucun RDV à valider.";
   }
 
-  const lines = remaining.map((x) => formatRdvLine(x.letter, x.rdv));
-  const header = intro || `📅 *${remaining.length} RDV détecté${remaining.length > 1 ? "s" : ""}* (Régie: ${data.regieName || "?"})`;
+  const isSingle = remaining.length === 1;
+  const header = intro || (isSingle
+    ? `📸 *RDV détecté* (Régie: ${data.regieName || "?"})`
+    : `📸 *${remaining.length} RDV détectés* (Régie: ${data.regieName || "?"})`);
 
-  return [
-    header,
-    "",
-    ...lines,
-    "",
-    "*Réponds:*",
-    "• `OUI` → tout créer",
-    `• \`${remaining.map((x) => x.letter).join(" ")}\` → créer seulement ces RDV (lettres séparées par espace)`,
-    "• `SUPPRIMER B` → retirer un RDV",
-    "• `NON` → tout annuler",
-  ].join("\n");
+  const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
+
+  const actions = isSingle
+    ? [
+        "*Réponds:*",
+        "• `OUI` → créer ce RDV",
+        "• `NON` → annuler",
+      ]
+    : [
+        "*Réponds:*",
+        "• `OUI` → tout créer",
+        `• \`${remaining.map((x) => x.letter).join(" ")}\` → créer seulement ces RDV (lettres séparées par espace)`,
+        "• `SUPPRIMER B` → retirer un RDV",
+        "• `NON` → tout annuler",
+      ];
+
+  return [header, "", blocks.join("\n\n"), "", ...actions].join("\n");
+}
+
+/** Build a final recap message after RDVs were created */
+export function buildCreatedRecap(
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean }>,
+  regieName: string | null,
+  failures: Array<{ clientName: string; error: string }> = [],
+): string {
+  if (created.length === 0) {
+    const failLines = failures.map((f) => `❌ ${f.clientName}: ${f.error}`);
+    return [`😕 Aucun RDV créé.`, "", ...failLines].join("\n");
+  }
+
+  const isSingle = created.length === 1;
+  const header = isSingle
+    ? `✅ *RDV créé* (Régie: ${regieName || "?"})`
+    : `✅ *${created.length} RDV créés* (Régie: ${regieName || "?"})`;
+
+  const blocks = created.map((c) => {
+    const detail = formatRdvDetailed(null, c.rdv);
+    return c.isNewClient ? `${detail}\n🆕 _Nouveau client_` : detail;
+  });
+
+  const failLines = failures.length
+    ? ["", "*Échecs:*", ...failures.map((f) => `❌ ${f.clientName}: ${f.error}`)]
+    : [];
+
+  return [header, "", blocks.join("\n\n"), ...failLines].join("\n");
 }
 
 /** Parse user response in awaiting_multi_rdv_validation state */
@@ -400,7 +458,7 @@ export async function createSingleRdvFromExtract(
   userId: string,
   rdv: ExtractedRdv,
   regieId: string | null,
-): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; error?: string }> {
+): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; rdvId?: string; clientId?: string; error?: string }> {
   const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
   if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
     return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
@@ -442,7 +500,7 @@ export async function createSingleRdvFromExtract(
   const dateHeure = buildParisDateHeure(rdv.date, heure);
   const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
 
-  const { error: rdvErr } = await supabase.from("rdv").insert({
+  const { data: newRdv, error: rdvErr } = await supabase.from("rdv").insert({
     user_id: userId,
     client_id: clientId,
     date_heure: dateHeure,
@@ -452,20 +510,37 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
-  });
+  }).select("id").single();
 
   if (rdvErr) {
     return { ok: false, clientName: fullName, isNewClient, error: rdvErr.message };
   }
 
-  return { ok: true, clientName: fullName, isNewClient };
+  return { ok: true, clientName: fullName, isNewClient, rdvId: newRdv?.id, clientId: clientId || undefined };
 }
 
-/** Build régie selection message */
-export function buildRegieSelectionMessage(regies: Array<{ id: string; nom: string }>, count: number): string {
+/** Build régie selection message — includes recap of extracted RDVs */
+export function buildRegieSelectionMessage(
+  regies: Array<{ id: string; nom: string }>,
+  countOrRdvs: number | ExtractedRdv[],
+): string {
   const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  const isArray = Array.isArray(countOrRdvs);
+  const count = isArray ? countOrRdvs.length : countOrRdvs;
+  const isSingle = count === 1;
+
+  const head = isSingle
+    ? `📸 *RDV détecté* dans ta capture`
+    : `📸 *${count} RDV détectés* dans tes captures`;
+
+  const recap = isArray
+    ? "\n\n" + countOrRdvs.map((r, i) =>
+        formatRdvDetailed(isSingle ? null : ALPHABET[i], r),
+      ).join("\n\n")
+    : "";
+
   return [
-    `📅 *${count} RDV détecté${count > 1 ? "s" : ""}* dans tes captures.`,
+    head + recap,
     "",
     "Pour quelle *Régie* ?",
     "",
