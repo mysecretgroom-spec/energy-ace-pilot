@@ -168,22 +168,38 @@ export function usePWAUpdate() {
     updateServiceWorker(true);
   }, [updateServiceWorker]);
 
-  // Show a persistent toast when update is available (only once per session)
+  // Show a persistent toast when update is available.
+  // Re-show after 5min if still needed (in case user dismissed it accidentally).
   useEffect(() => {
-    if (needRefresh && !toastShownRef.current) {
-      toastShownRef.current = true;
-      console.log('[PWA] Update available, showing notification...');
+    if (!needRefresh) {
+      toastShownRef.current = false;
+      return;
+    }
+    if (toastShownRef.current) return;
 
+    toastShownRef.current = true;
+    console.log('[PWA] Update available, showing notification...');
+
+    const showToast = () => {
       toast('Nouvelle version disponible 🚀', {
+        id: 'pwa-update-available',
         description: 'Actualisez pour profiter des dernières améliorations.',
         duration: Infinity,
         action: {
           label: 'Actualiser',
           onClick: applyUpdate,
         },
-        // Don't reset toastShownRef on dismiss — prevents repeated prompts
       });
-    }
+    };
+
+    showToast();
+
+    // Re-prompt every 5 minutes if user hasn't updated yet
+    const interval = setInterval(() => {
+      if (needRefresh) showToast();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, [needRefresh, applyUpdate]);
 
   // Listen for the new SW taking control → reload only if user triggered it
