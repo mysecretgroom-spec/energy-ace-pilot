@@ -4246,7 +4246,8 @@ async function handlePendingWorkflow(
         const idx = ALPHA.indexOf(letter);
         const rdv = batch.rdvs[idx];
         if (!rdv) continue;
-        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId, batch.contextNote || null);
+        const rdvRegieId = batch.perRdvRegie?.[letter] || batch.regieId;
+        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, rdvRegieId, batch.contextNote || null);
         if (res.ok) {
           created.push({ rdv: rdv as ExtractedRdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
         } else {
