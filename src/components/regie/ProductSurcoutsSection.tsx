@@ -132,6 +132,16 @@ export function ProductSurcoutsSection({
     type_calcul: "fixe" as string,
   });
 
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    categorie: "",
+    code: "",
+    nom: "",
+    prix: 0,
+    type_calcul: "fixe" as string,
+  });
+
   // Reset form when changing product type
   const handleTabChange = (productType: ProductType) => {
     setActiveProductTab(productType);
