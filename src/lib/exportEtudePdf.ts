@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.png";
 import enedisLogo from "@/assets/logos/enedis.png";
+import { formatClassification } from "@/lib/labels";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -1413,22 +1414,8 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
     doc.text("STATUT DU DOSSIER", 16, yPos + 5);
     yPos += 10;
 
-    // Mapping des codes techniques vers des libellés lisibles
-    const classificationLabels: Record<string, string> = {
-      nouveau: "Nouveau",
-      reporte: "Reporté",
-      r2: "R2 — Second rendez-vous",
-      r2_prestudy: "R2 — Pré-étude",
-      signe: "Signé",
-      positif: "Signé",
-      negatif: "Négatif",
-      annule: "Annulé",
-    };
-    const rawClassification = (data.classification || "").toLowerCase().trim();
-    const prettyClassification = rawClassification
-      ? classificationLabels[rawClassification] ||
-        rawClassification.charAt(0).toUpperCase() + rawClassification.slice(1).replace(/_/g, " ")
-      : "Non classifié";
+    // Libellé lisible pour la classification (mapping centralisé)
+    const prettyClassification = formatClassification(data.classification);
 
     autoTable(doc, {
       startY: yPos,

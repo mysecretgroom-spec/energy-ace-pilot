@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { formatNotificationStatus } from "@/lib/labels";
 import { AdminLayout } from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -496,7 +497,7 @@ export default function AdminNotifications() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {getStatusIcon(log.status)}
-                              <span className="text-sm">{log.status}</span>
+                              <span className="text-sm">{formatNotificationStatus(log.status)}</span>
                             </div>
                           </TableCell>
                           <TableCell>

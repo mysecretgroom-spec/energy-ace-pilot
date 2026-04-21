@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatProductType, formatTypeCalcul, humanise } from "@/lib/labels";
 import {
   Upload,
   FileImage,
@@ -358,7 +359,7 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
                     <Checkbox checked={b.selected} onCheckedChange={() => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{b.product_type}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{formatProductType(b.product_type)}</Badge>
                         <Input value={b.nom_bouquet} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, nom_bouquet: e.target.value } : x))} className="h-7 text-sm font-medium" />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
@@ -395,9 +396,9 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
                     <Checkbox checked={s.selected} onCheckedChange={() => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
                     <div className="flex-1 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-[10px]">{s.product_type}</Badge>
-                        <Badge variant="secondary" className="text-[10px]">{s.categorie}</Badge>
-                        <Badge className="text-[10px] bg-muted text-muted-foreground">{s.type_calcul}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{formatProductType(s.product_type)}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{humanise(s.categorie)}</Badge>
+                        <Badge className="text-[10px] bg-muted text-muted-foreground">{formatTypeCalcul(s.type_calcul)}</Badge>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
