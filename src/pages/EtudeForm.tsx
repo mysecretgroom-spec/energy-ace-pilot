@@ -758,18 +758,8 @@ const EtudeForm = () => {
             prix_recommande: b.prix_recommande,
             product_type: b.product_type || "PV",
           }));
-        
-        if (bouquetsData.length === 0) {
-          bouquetsData = bouquetsRes.data
-            .filter((b: any) => (!b.regie_ids || b.regie_ids.length === 0))
-            .map((b: any) => ({
-              id: b.id,
-              nom_bouquet: b.nom_bouquet,
-              puissance_kwc: b.puissance_kwc,
-              prix_recommande: b.prix_recommande,
-              product_type: b.product_type || "PV",
-            }));
-        }
+        // Note: pas de fallback vers les bouquets globaux. Une régie créée sans clonage
+        // n'affiche aucun bouquet tant qu'aucun n'a été configuré explicitement.
       }
       if (financementsRes.data) {
         financementsData = financementsRes.data.map(f => ({
