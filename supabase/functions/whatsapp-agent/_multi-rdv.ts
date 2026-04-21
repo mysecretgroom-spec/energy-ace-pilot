@@ -519,11 +519,28 @@ export async function createSingleRdvFromExtract(
   return { ok: true, clientName: fullName, isNewClient };
 }
 
-/** Build régie selection message */
-export function buildRegieSelectionMessage(regies: Array<{ id: string; nom: string }>, count: number): string {
+/** Build régie selection message — includes recap of extracted RDVs */
+export function buildRegieSelectionMessage(
+  regies: Array<{ id: string; nom: string }>,
+  countOrRdvs: number | ExtractedRdv[],
+): string {
   const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  const isArray = Array.isArray(countOrRdvs);
+  const count = isArray ? countOrRdvs.length : countOrRdvs;
+  const isSingle = count === 1;
+
+  const head = isSingle
+    ? `📸 *RDV détecté* dans ta capture`
+    : `📸 *${count} RDV détectés* dans tes captures`;
+
+  const recap = isArray
+    ? "\n\n" + countOrRdvs.map((r, i) =>
+        formatRdvDetailed(isSingle ? null : ALPHABET[i], r),
+      ).join("\n\n")
+    : "";
+
   return [
-    `📅 *${count} RDV détecté${count > 1 ? "s" : ""}* dans tes captures.`,
+    head + recap,
     "",
     "Pour quelle *Régie* ?",
     "",
