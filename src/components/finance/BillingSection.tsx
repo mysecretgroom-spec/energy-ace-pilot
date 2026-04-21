@@ -243,6 +243,11 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       };
 
       const billableVentes: BillableVente[] = filteredVentesData.map((v: any) => {
+        const enrich = (base: any) => ({
+          ...base,
+          regie_id: v.regie_id ?? null,
+          regie_nom: v.regie_id ? (regieNameMap.get(v.regie_id) || "Régie inconnue") : "Sans régie",
+        });
         const decomMontant = v.decom_montant || 0;
         
         // Commission figée (override)
