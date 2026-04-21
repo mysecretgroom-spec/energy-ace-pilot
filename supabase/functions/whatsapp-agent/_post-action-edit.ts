@@ -18,8 +18,6 @@
 
 // deno-lint-ignore-file no-explicit-any
 
-import { corsHeaders } from "../_shared/cache.ts";
-
 export interface LastExecutedAction {
   intent: string;
   entityType: "rdv" | "client" | "vente" | "facture" | "etude" | "multi_rdv";
@@ -297,6 +295,3 @@ export async function handlePostActionEdit(
     actionTaken: "edit_applied",
   };
 }
-
-// Re-export for convenience
-export { corsHeaders };
