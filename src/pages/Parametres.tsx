@@ -95,6 +95,7 @@ const settingsSections = [
     title: "Régies & Sources",
     items: [
       { icon: Building2, label: "Régies", description: "Sources RDV, emails, contacts, tarifs", path: "/parametres/regies" },
+      { icon: Sparkles, label: "Paramètres automatiques", description: "Configurer une régie via screenshots IA", path: "/parametres/regies-auto-config" },
     ],
   },
   {
