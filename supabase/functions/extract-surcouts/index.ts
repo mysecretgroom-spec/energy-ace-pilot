@@ -48,20 +48,30 @@ Indices VARIABLE (NE PAS utiliser "fixe"):
 - "par_m2": mention "/m²", "par m²", "au mètre carré", "par mètre carré", surface, "ml²"
 - "par_ml": mention "/ml", "/mètre", "par mètre linéaire", "ml de câble", "ml de liaison frigorifique", "ml de gaine", "/m linéaire"
 
+🎯 CAS SPÉCIAL — Surcoût décliné par puissance (kWc, kW) :
+Si tu vois PLUSIEURS lignes du même surcoût avec différentes puissances (ex: "Pergola 3kWc : 4500€", "Pergola 6kWc : 8500€", "Pergola 9kWc : 12000€"), cela signifie que le surcoût VARIE selon la puissance/le nombre de panneaux.
+👉 Dans ce cas, choisis "par_panneau" et calcule le prix UNITAIRE par panneau (puissance standard d'un panneau = 0.5 kWc, donc 3kWc = 6 panneaux, 6kWc = 12 panneaux, etc.).
+   Exemple : "Pergola 3kWc : 4500€" → 6 panneaux → prix unitaire = 750€/panneau → type_calcul=par_panneau, prix=750, nom="Pergola"
+👉 Crée UNE SEULE entrée par surcoût (pas une par puissance), avec le prix unitaire moyen.
+👉 Même logique pour PAC avec des puissances kW différentes.
+
 Indices FIXE ("fixe"):
 - "forfait", "prix global", "ensemble", "kit complet", "à l'unité" sans mention de quantité variable
-- prix unique pour une option ponctuelle (ex: "Linky monophasé : 250€")
+- prix unique pour une option ponctuelle SANS référence à une puissance (ex: "Linky monophasé : 250€")
 - pose simple sans variation
 
 RÈGLES STRICTES:
 - Si une colonne ou un en-tête mentionne "/panneau", "/m²", "/ml" → applique-la à TOUTES les lignes de ce tableau
-- Si le prix semble très bas (ex: 50€, 80€) ET le contexte évoque une quantité (panneaux, surface, longueur) → c'est probablement variable, PAS fixe
-- Si le prix est élevé et unique (ex: 1500€ pour "Triphasé") → fixe
-- En cas de doute entre fixe et par_panneau pour du PV : préfère par_panneau si le prix est < 200€
+- Si le NOM du surcoût contient une puissance (ex: "Pergola 3kWc", "Carport 6kW", "Sol 9kWc") → c'est VARIABLE par_panneau, calcule le prix par panneau
+- Si plusieurs lignes du même nom avec puissances différentes → fusionne en UNE entrée par_panneau
+- Si le prix semble très bas (ex: 50€, 80€) ET le contexte évoque une quantité (panneaux, surface, longueur) → variable, PAS fixe
+- Si le prix est élevé et unique SANS référence à une puissance (ex: 1500€ pour "Triphasé") → fixe
 - Le prix retourné doit toujours être le prix UNITAIRE (par panneau/m²/ml), pas le total
 
 EXEMPLES:
-- "Bac acier : 80€/panneau" → type_calcul=par_panneau, prix=80
+- "Bac acier : 80€/panneau" → type_calcul=par_panneau, prix=80, nom="Bac acier"
+- "Pergola 3kWc : 4500€" + "Pergola 6kWc : 9000€" → type_calcul=par_panneau, prix=750, nom="Pergola" (1 entrée)
+- "Carport 3kWc : 6000€" → type_calcul=par_panneau, prix=1000, nom="Carport" (3kWc = 6 panneaux)
 - "Sol béton : 1200€" → type_calcul=fixe, prix=1200
 - "Enduit organique : 45€/m²" → type_calcul=par_m2, prix=45
 - "Liaison frigo supplémentaire : 35€/ml" → type_calcul=par_ml, prix=35
