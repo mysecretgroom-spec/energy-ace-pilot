@@ -340,7 +340,7 @@ serve(async (req) => {
             { snapshot: unknown; createdAt: string }
           >;
 
-          // Prune entries older than 24h before adding the new one
+          // Prune entries older than 24h before adding the new ones
           const TTL = 24 * 60 * 60 * 1000;
           const now = Date.now();
           const pruned: typeof existing = {};
@@ -349,10 +349,16 @@ serve(async (req) => {
             if (ts && now - ts < TTL) pruned[sid] = entry;
           }
 
-          pruned[responseTwilioSid] = {
-            snapshot: agentResult.pendingActionToTrack,
-            createdAt: new Date().toISOString(),
-          };
+          // Map EVERY chunk SID to the same pending action snapshot.
+          // This way, if Twilio split the message into multiple parts,
+          // a quoted-reply to ANY chunk routes to the same workflow.
+          const createdAt = new Date().toISOString();
+          for (const sid of responseTwilioSids) {
+            pruned[sid] = {
+              snapshot: agentResult.pendingActionToTrack,
+              createdAt,
+            };
+          }
 
           await supabase
             .from("whatsapp_conversations")
@@ -360,7 +366,7 @@ serve(async (req) => {
             .eq("user_id", user.user_id);
 
           console.log(
-            `[reply-routing] Tracked response SID ${responseTwilioSid} -> workflow ${
+            `[reply-routing] Tracked ${responseTwilioSids.length} SID(s) -> workflow ${
               (agentResult.pendingActionToTrack as { workflowState?: string }).workflowState
             }`,
           );
