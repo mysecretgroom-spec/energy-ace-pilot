@@ -2790,6 +2790,47 @@ serve(async (req) => {
           createdAt: new Date().toISOString(),
         };
 
+        // SINGLE-RDV FAST PATH (same logic as direct image flow):
+        // 1 RDV + régie résolue + 0 warning → création directe sans OUI/NON.
+        if (
+          extractRes.rdvs.length === 1 &&
+          !regieRes.needsSelection &&
+          regieRes.regieId &&
+          batchWarnings.length === 0
+        ) {
+          const rdv = extractRes.rdvs[0];
+          const created = await createSingleRdvFromExtract(
+            supabase, request.userId, rdv, regieRes.regieId, null,
+          );
+          if (created.ok) {
+            const recap = appendEditHint(
+              buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+            );
+            const lastAction = {
+              intent: "create_rdv" as Intent,
+              entityType: "rdv",
+              entityId: created.rdvId,
+              snapshot: {},
+              label: "RDV de client",
+              createdAt: new Date().toISOString(),
+            };
+            return new Response(
+              JSON.stringify({
+                intent: "create_rdv" as Intent,
+                confidence: 1,
+                entities: {},
+                actionTaken: "rdv_created",
+                entityId: created.rdvId,
+                entityType: "rdv",
+                responseMessage: recap,
+                lastActionToRemember: lastAction,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+          console.error(`Single-RDV fast path (GO) failed: ${created.error} — falling back to validation menu.`);
+        }
+
         const isMulti = extractRes.rdvs.length > 1;
         let responseMsg: string;
         let workflowState: WorkflowState;
@@ -2824,7 +2865,7 @@ serve(async (req) => {
             intent: "create_rdv" as Intent,
             confidence: 1,
             entities: {},
-            actionTaken: "multi_rdv_proposed",
+            actionTaken: isMulti ? "multi_rdv_proposed" : "rdv_proposed",
             responseMessage: responseMsg,
             pendingActionToTrack: newPending,
           }),
