@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  MinusCircle
+  MinusCircle,
+  Building2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -58,6 +59,8 @@ interface BillableVente {
   date_installation_reelle: string | null;
   commission: number;
   decom_montant: number;
+  regie_id: string | null;
+  regie_nom: string;
 }
 
 interface Facture {
@@ -195,13 +198,14 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
-          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          ? supabase.from("regies").select("id, nom, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
         etudeIds.length > 0
           ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
       ]);
+      const regieNameMap = new Map((regiesRes.data || []).map((r: any) => [r.id, r.nom as string]));
 
       const allBouquets = bouquetsRes.data || [];
       const regies = regiesRes.data || [];
@@ -240,12 +244,17 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       };
 
       const billableVentes: BillableVente[] = filteredVentesData.map((v: any) => {
+        const enrich = (base: any) => ({
+          ...base,
+          regie_id: v.regie_id ?? null,
+          regie_nom: v.regie_id ? (regieNameMap.get(v.regie_id) || "Régie inconnue") : "Sans régie",
+        });
         const decomMontant = v.decom_montant || 0;
         
         // Commission figée (override)
         if (v.commission_override != null) {
           const commission = Math.round(Math.max(0, v.commission_override - decomMontant) / 100) * 100;
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -255,12 +264,12 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -270,7 +279,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
@@ -304,7 +313,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         
         const commission = Math.round(Math.max(0, baseCommission + bonusSurvente - decomMontant) / 100) * 100;
 
-        return {
+        return enrich({
           id: v.id,
           client_nom: v.clients?.nom || "Client inconnu",
           client_prenom: v.clients?.prenom || null,
@@ -314,7 +323,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           date_installation_reelle: v.date_installation_reelle,
           commission,
           decom_montant: decomMontant,
-        };
+        });
       });
 
       setVentes(billableVentes);
@@ -331,24 +340,48 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     return amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Determine the regie of the current selection (only one regie allowed per facture)
+  const selectedRegieId: string | null = (() => {
+    if (selectedIds.size === 0) return null;
+    const first = ventes.find(v => selectedIds.has(v.id));
+    return first?.regie_id ?? null;
+  })();
+
   const toggleSelection = (id: string) => {
+    const vente = ventes.find(v => v.id === id);
+    if (!vente) return;
+
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-      } else {
-        next.add(id);
+        return next;
       }
+      // Lock selection to a single regie
+      if (selectedRegieId !== null && vente.regie_id !== selectedRegieId) {
+        toast.error("Une facture ne peut contenir que des dossiers d'une même régie");
+        return prev;
+      }
+      next.add(id);
       return next;
     });
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === ventes.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(ventes.map(v => v.id)));
-    }
+  const toggleSelectAllForRegie = (regieId: string | null, regieVentes: BillableVente[]) => {
+    const allSelected = regieVentes.every(v => selectedIds.has(v.id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        regieVentes.forEach(v => next.delete(v.id));
+        return next;
+      }
+      // If switching to a different regie, clear previous selection
+      if (selectedRegieId !== null && selectedRegieId !== regieId) {
+        next.clear();
+      }
+      regieVentes.forEach(v => next.add(v.id));
+      return next;
+    });
   };
 
   const clearSelection = () => {
@@ -358,6 +391,19 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const selectedVentes = ventes.filter(v => selectedIds.has(v.id));
   const selectedTotal = selectedVentes.reduce((sum, v) => sum + v.commission, 0);
   const selectedDecom = selectedVentes.reduce((sum, v) => sum + v.decom_montant, 0);
+
+  // Group ventes by regie
+  const ventesByRegie = useMemo(() => {
+    const groups = new Map<string, { regieId: string | null; regieNom: string; ventes: BillableVente[]; total: number }>();
+    ventes.forEach(v => {
+      const key = v.regie_id ?? "__none__";
+      const group = groups.get(key) || { regieId: v.regie_id, regieNom: v.regie_nom, ventes: [], total: 0 };
+      group.ventes.push(v);
+      group.total += v.commission;
+      groups.set(key, group);
+    });
+    return Array.from(groups.values()).sort((a, b) => a.regieNom.localeCompare(b.regieNom));
+  }, [ventes]);
 
   // Generate unique invoice number
   const generateInvoiceNumber = () => {
@@ -505,7 +551,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
-          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          ? supabase.from("regies").select("id, nom, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
         etudeIds.length > 0
@@ -518,6 +564,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const globalSurventePct = configRes.data?.part_survente_pct || 50;
       const globalBouquets = allBouquets.filter((b: any) => !b.regie_ids || b.regie_ids.length === 0);
       const regieConfigMap = new Map(regies.map((r: any) => [r.id, r]));
+      const regieNameMap = new Map(regies.map((r: any) => [r.id, r.nom as string]));
       const regieBouquetsMap = new Map<string, any[]>();
       
       allBouquets.forEach((b: any) => {
@@ -547,13 +594,18 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         return { prixRecommande: puissance * 4500, commissionFixe: 0 };
       };
 
-      return ventesData.map((v: any) => {
+      return ventesData.map((v: any): BillableVente => {
         const decomMontant = v.decom_montant || 0;
+        const enrich = (base: any): BillableVente => ({
+          ...base,
+          regie_id: v.regie_id ?? null,
+          regie_nom: v.regie_id ? (regieNameMap.get(v.regie_id) || "Régie inconnue") : "Sans régie",
+        });
         
         // Commission figée (override)
         if (v.commission_override != null) {
           const commission = Math.round(Math.max(0, v.commission_override - decomMontant) / 100) * 100;
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -563,12 +615,12 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -578,7 +630,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
@@ -610,7 +662,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         
         const commission = Math.round(Math.max(0, baseCommission + bonusSurvente - decomMontant) / 100) * 100;
 
-        return {
+        return enrich({
           id: v.id,
           client_nom: v.clients?.nom || "Client inconnu",
           client_prenom: v.clients?.prenom || null,
@@ -620,7 +672,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
           date_installation_reelle: v.date_installation_reelle,
           commission,
           decom_montant: decomMontant,
-        };
+        });
       });
     } catch (error) {
       console.error("Error fetching facture ventes:", error);
@@ -1006,65 +1058,99 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             </p>
           ) : (
             <>
-              {/* Select all / Deselect */}
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleSelectAll}
-                  className="text-xs text-amber-700"
-                >
-                  {selectedIds.size === ventes.length ? "Tout désélectionner" : "Tout sélectionner"}
-                </Button>
-                {selectedIds.size > 0 && (
+              {selectedIds.size > 0 && (
+                <div className="flex items-center justify-end">
                   <Badge variant="outline" className="bg-amber-100 text-amber-800">
                     {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
                   </Badge>
-                )}
-              </div>
+                </div>
+              )}
 
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {ventes.map((vente) => (
-                  <div
-                    key={vente.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                      selectedIds.has(vente.id)
-                        ? "bg-amber-100 border-amber-300"
-                        : "bg-white border-amber-100 hover:bg-amber-50"
-                    }`}
-                  >
-                    <Checkbox
-                      checked={selectedIds.has(vente.id)}
-                      onCheckedChange={() => toggleSelection(vente.id)}
-                      className="border-amber-400 data-[state=checked]:bg-amber-600"
-                    />
-                    <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => navigate(`/ventes/${vente.id}`)}
-                    >
-                      <p className="font-medium text-sm truncate">
-                        {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{vente.puissance_kwc || "-"} kWc</span>
-                        {vente.date_installation_reelle && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              Posé le {format(new Date(vente.date_installation_reelle), "dd MMM", { locale: fr })}
-                            </span>
-                          </>
-                        )}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+                {ventesByRegie.map((group) => {
+                  const groupKey = group.regieId ?? "__none__";
+                  const allSelected = group.ventes.every(v => selectedIds.has(v.id));
+                  const isLockedOut = selectedRegieId !== null && selectedRegieId !== group.regieId;
+                  return (
+                    <div key={groupKey} className="space-y-2">
+                      {/* Regie header */}
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 className="h-4 w-4 text-amber-700 shrink-0" />
+                          <span className="font-semibold text-sm text-amber-900 truncate">
+                            {group.regieNom}
+                          </span>
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800 text-xs">
+                            {group.ventes.length}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleSelectAllForRegie(group.regieId, group.ventes)}
+                          className="text-xs text-amber-700 h-7"
+                        >
+                          {allSelected ? "Désélectionner" : "Tout sélectionner"}
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {group.ventes.map((vente) => {
+                          const disabled = isLockedOut && !selectedIds.has(vente.id);
+                          return (
+                            <div
+                              key={vente.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                                selectedIds.has(vente.id)
+                                  ? "bg-amber-100 border-amber-300"
+                                  : disabled
+                                    ? "bg-muted/30 border-amber-100 opacity-50"
+                                    : "bg-white border-amber-100 hover:bg-amber-50"
+                              }`}
+                            >
+                              <Checkbox
+                                checked={selectedIds.has(vente.id)}
+                                onCheckedChange={() => toggleSelection(vente.id)}
+                                disabled={disabled}
+                                className="border-amber-400 data-[state=checked]:bg-amber-600"
+                              />
+                              <div
+                                className="flex-1 min-w-0 cursor-pointer"
+                                onClick={() => navigate(`/ventes/${vente.id}`)}
+                              >
+                                <p className="font-medium text-sm truncate">
+                                  {vente.client_prenom && `${vente.client_prenom} `}{vente.client_nom}
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span>{vente.puissance_kwc || "-"} kWc</span>
+                                  {vente.date_installation_reelle && (
+                                    <>
+                                      <span>•</span>
+                                      <span>
+                                        Posé le {format(new Date(vente.date_installation_reelle), "dd MMM", { locale: fr })}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-amber-700">{formatCurrency(vente.commission)} €</p>
+                                {vente.decom_montant > 0 && (
+                                  <p className="text-xs text-destructive">-{formatCurrency(vente.decom_montant)} € décom</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Group total */}
+                      <div className="flex items-center justify-end px-1 text-xs text-amber-800">
+                        Sous-total : <span className="font-semibold ml-1">{formatCurrency(group.total)} €</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-amber-700">{formatCurrency(vente.commission)} €</p>
-                      {vente.decom_montant > 0 && (
-                        <p className="text-xs text-destructive">-{formatCurrency(vente.decom_montant)} € décom</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
