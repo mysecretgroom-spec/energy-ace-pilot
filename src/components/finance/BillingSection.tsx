@@ -765,9 +765,13 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     setSelectedAddIds(new Set());
     const ventesData = await fetchFactureVentes(facture);
     setFactureVentes(ventesData);
-    // Calculate addable ventes (billable ventes not in this facture)
+    // Determine the régie of the existing facture (mono-régie rule)
+    const factureRegieId = ventesData[0]?.regie_id ?? null;
+    // Calculate addable ventes: not yet in facture AND same régie
     const factureVenteIds = new Set(facture.vente_ids);
-    setAddableVentes(ventes.filter(v => !factureVenteIds.has(v.id)));
+    setAddableVentes(
+      ventes.filter(v => !factureVenteIds.has(v.id) && (v.regie_id ?? null) === factureRegieId)
+    );
     setLoadingFactureVentes(false);
   };
 
