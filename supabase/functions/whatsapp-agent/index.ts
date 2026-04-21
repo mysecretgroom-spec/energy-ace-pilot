@@ -4038,6 +4038,145 @@ async function handlePendingWorkflow(
   // ============================================================
   // Multi-RDV batch validation handler (A/B/C/D… menu)
   // ============================================================
+
+  // Step 1: user has multiple RDVs and multiple régies → ask "OUI = same régie / NON = per RDV"
+  if (pendingAction.workflowState === "awaiting_multi_rdv_regie_mode") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    const m = userMessage.trim().toLowerCase();
+    const regieRes = await resolveDefaultRegie(supabase, userId);
+    const regies = regieRes.regies;
+
+    if (["annuler", "cancel", "stop"].includes(m)) {
+      return { intent: "cancel_action", actionTaken: "cancelled", newPendingAction: null, responseMessage: "❌ Import annulé." };
+    }
+
+    // OUI → uniform régie list
+    if (["oui", "ok", "yes", "même", "meme", "tous", "toutes", "1"].includes(m)) {
+      const newPending: PendingAction = {
+        ...pendingAction,
+        workflowState: "awaiting_multi_rdv_regie",
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: batch },
+      };
+      return {
+        intent: "create_rdv",
+        actionTaken: "regie_mode_uniform",
+        newPendingAction: newPending,
+        responseMessage: buildRegieSelectionUniform(regies, batch.rdvs.length),
+      };
+    }
+
+    // NON → start per-RDV régie selection (begin with letter A)
+    if (["non", "no", "par", "chacun", "chaque", "individuel", "perRdv", "2"].includes(m)) {
+      const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+      const firstLetter = ALPHA[0];
+      const newBatch: MultiRdvBatchData = {
+        ...batch,
+        perRdvRegie: {},
+        perRdvRegieName: {},
+        pendingRegieLetter: firstLetter,
+      };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        workflowState: "awaiting_multi_rdv_regie_per_rdv",
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return {
+        intent: "create_rdv",
+        actionTaken: "regie_mode_per_rdv",
+        newPendingAction: newPending,
+        responseMessage: buildRegieSelectionForLetter(firstLetter, batch.rdvs[0], regies),
+      };
+    }
+
+    return {
+      intent: "create_rdv",
+      actionTaken: "invalid",
+      newPendingAction: pendingAction,
+      responseMessage: "❓ Réponds avec *OUI* (même régie pour tous) ou *NON* (une régie par RDV) — ou *ANNULER*.",
+    };
+  }
+
+  // Step 2 (per-RDV mode): user picks a régie number for the current letter
+  if (pendingAction.workflowState === "awaiting_multi_rdv_regie_per_rdv") {
+    const batch = pendingAction.collectedData?.multiRdvBatch;
+    if (!batch || !batch.pendingRegieLetter) {
+      return { intent: "cancel_action", actionTaken: "expired", newPendingAction: null, responseMessage: "❌ Session expirée." };
+    }
+    const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const num = parseInt(userMessage.trim(), 10);
+    const regieRes = await resolveDefaultRegie(supabase, userId);
+    const regies = regieRes.regies;
+    if (isNaN(num) || num < 1 || num > regies.length) {
+      const curLetter = batch.pendingRegieLetter;
+      const curIdx = ALPHA.indexOf(curLetter);
+      return {
+        intent: "create_rdv",
+        actionTaken: "invalid",
+        newPendingAction: pendingAction,
+        responseMessage: "❌ Numéro invalide.\n\n" +
+          buildRegieSelectionForLetter(curLetter, batch.rdvs[curIdx], regies, batch.perRdvRegie || {}, regieNameMap(regies)),
+      };
+    }
+    const selected = regies[num - 1];
+    const curLetter = batch.pendingRegieLetter;
+    const updatedPerRdv = { ...(batch.perRdvRegie || {}), [curLetter]: selected.id };
+    const updatedNames = { ...(batch.perRdvRegieName || {}), [curLetter]: selected.nom };
+
+    // Find next letter that still needs a régie (skip removed)
+    let nextLetter: string | null = null;
+    for (let i = ALPHA.indexOf(curLetter) + 1; i < batch.rdvs.length; i++) {
+      const l = ALPHA[i];
+      if (!batch.removed.includes(l) && !updatedPerRdv[l]) {
+        nextLetter = l;
+        break;
+      }
+    }
+
+    if (nextLetter) {
+      const newBatch: MultiRdvBatchData = {
+        ...batch,
+        perRdvRegie: updatedPerRdv,
+        perRdvRegieName: updatedNames,
+        pendingRegieLetter: nextLetter,
+      };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      const nextIdx = ALPHA.indexOf(nextLetter);
+      return {
+        intent: "create_rdv",
+        actionTaken: "regie_per_rdv_progress",
+        newPendingAction: newPending,
+        responseMessage: buildRegieSelectionForLetter(nextLetter, batch.rdvs[nextIdx], regies, updatedPerRdv, regieNameMap(regies)),
+      };
+    }
+
+    // All régies chosen → switch to validation menu
+    const newBatch: MultiRdvBatchData = {
+      ...batch,
+      perRdvRegie: updatedPerRdv,
+      perRdvRegieName: updatedNames,
+      pendingRegieLetter: null,
+      regieId: null,
+      regieName: null,
+    };
+    const newPending: PendingAction = {
+      ...pendingAction,
+      workflowState: "awaiting_multi_rdv_validation",
+      collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+    };
+    return {
+      intent: "create_rdv",
+      actionTaken: "regie_per_rdv_done",
+      newPendingAction: newPending,
+      responseMessage: buildMenuMessage(newBatch, "✅ Régies attribuées. Confirme la création :"),
+    };
+  }
+
   if (pendingAction.workflowState === "awaiting_multi_rdv_regie") {
     const batch = pendingAction.collectedData?.multiRdvBatch;
     if (!batch) {
@@ -4049,7 +4188,7 @@ async function handlePendingWorkflow(
     const regies = regieRes.regies;
     if (!isNaN(num) && num >= 1 && num <= regies.length) {
       const selected = regies[num - 1];
-      const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom };
+      const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom, perRdvRegie: undefined, perRdvRegieName: undefined };
       const newPending: PendingAction = {
         ...pendingAction,
         workflowState: "awaiting_multi_rdv_validation",
