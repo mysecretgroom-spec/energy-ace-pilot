@@ -12,6 +12,8 @@ import {
   ocrImageToText,
   buildMenuMessage,
   buildRegieSelectionMessage,
+  buildRegieSelectionForLetter,
+  buildRegieSelectionUniform,
   buildCreatedRecap,
   parseValidationResponse,
   resolveDefaultRegie,
@@ -166,7 +168,9 @@ type WorkflowState =
   | "awaiting_duplicate_confirmation"     // En attente de confirmation pour un doublon potentiel
   | "awaiting_multi_request_approval"     // En attente de validation multi-requêtes (approbation granulaire)
   | "collecting_missing_data"             // Collecte de données manquantes (question conversationnelle)
-  | "awaiting_multi_rdv_regie"            // En attente sélection de régie pour batch multi-RDV
+  | "awaiting_multi_rdv_regie"            // En attente sélection de régie pour batch multi-RDV (uniforme single-regie)
+  | "awaiting_multi_rdv_regie_mode"       // En attente de OUI/NON: même régie pour tous ou par RDV
+  | "awaiting_multi_rdv_regie_per_rdv"    // En attente sélection de régie pour le RDV courant (mode par-RDV)
   | "awaiting_multi_rdv_validation"       // En attente validation A/B/C/D… pour batch multi-RDV
   | null;
 
