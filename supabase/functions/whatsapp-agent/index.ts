@@ -2265,23 +2265,26 @@ serve(async (req) => {
         console.log(`Large file (${(mediaData.sizeBytes / 1024 / 1024).toFixed(1)} MB) - analysis will use first page only`);
       }
       
-      console.log("Analyzing media with 2-phase structured extraction...");
+      console.log("Analyzing media with RDV-first extraction...");
       
       // =================================================================
-      // PHASE 1: CONTENT-BASED CLASSIFICATION
-      // The AI READS the image and decides intent: rdv | finance | other.
-      // No keyword heuristics — pure content classification.
+      // RDV-FIRST STRATEGY
+      // We ALWAYS try RDV extraction first (cheap, structured tool call).
+      // If 0 RDVs are detected, we fall back to: (a) OCR text injection
+      // for note-like screenshots, then (b) finance analysis if nothing.
+      // The image classifier is used only as a hint to skip RDV extraction
+      // when we are VERY confident it's a receipt (avoids wasting a call).
       // =================================================================
 
       let isReceiptDocument = false;
       let typeDetectionConfidence = 0;
 
       if (!mediaData.isLargeFile) {
-        // Step 1: classify image content
+        // Quick classification (best-effort, non-blocking decision)
         let intent: "rdv" | "finance" | "other" = "other";
         let intentConfidence = 0;
         try {
-          console.log("Classifying image content...");
+          console.log("Classifying image content (hint only)...");
           const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
           const classifyResp = await fetch(
             `${Deno.env.get("SUPABASE_URL")}/functions/v1/classify-image-intent`,
@@ -2308,10 +2311,11 @@ serve(async (req) => {
           console.error("Classification error:", e);
         }
 
-        // Step 2: route based on classified intent
+        // Route: try RDV extraction UNLESS classifier is highly confident finance.
         let rdvExtracted = false;
+        const skipRdvExtraction = intent === "finance" && intentConfidence >= 0.85;
 
-        if (intent === "rdv") {
+        if (!skipRdvExtraction) {
           // ============================================================
           // DIRECT PROCESSING (no buffer, no "GO" trigger).
           // The image is extracted immediately. If RDVs are detected,
