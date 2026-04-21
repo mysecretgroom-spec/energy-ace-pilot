@@ -496,7 +496,7 @@ export default function AdminNotifications() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {getStatusIcon(log.status)}
-                              <span className="text-sm">{log.status}</span>
+                              <span className="text-sm">{formatNotificationStatus(log.status)}</span>
                             </div>
                           </TableCell>
                           <TableCell>
