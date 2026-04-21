@@ -327,54 +327,71 @@ export const useWhatsAppNotification = () => {
 
       // Partager le PDF pour "positif" et "r2_prestudy" via Web Share API
       if ((classification === "positif" || classification === "r2_prestudy") && pdfData) {
+        let pdfBlob: Blob;
+        let fileName: string;
         try {
-          const pdfBlob = await getEtudePdfBlob(pdfData);
-          const fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
-          const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+          pdfBlob = await getEtudePdfBlob(pdfData);
+          fileName = `Etude_${pdfData.clientNom}_${pdfData.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+        } catch (pdfErr) {
+          console.error("[WhatsApp] Erreur génération PDF:", pdfErr);
+          // Fallback: ouvrir WhatsApp sans PDF si possible
+          if (whatsappUrl) {
+            window.open(whatsappUrl, "_blank");
+            return true;
+          }
+          return false;
+        }
 
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            // Partager le PDF via Web Share API
+        const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+        const canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+
+        if (canShareFiles) {
+          // Partager via le partage natif (l'utilisateur choisit WhatsApp ou autre)
+          try {
             await navigator.share({
               files: [file],
               title: `Étude ${pdfData.clientPrenom} ${pdfData.clientNom}`,
               text: message,
             });
-          } else if (whatsappUrl) {
-            // Fallback: Télécharger le PDF et ouvrir WhatsApp
-            const url = URL.createObjectURL(pdfBlob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            // Ouvrir WhatsApp après le téléchargement
-            window.open(whatsappUrl, "_blank");
-          } else {
-            // No phone configured, just download the PDF
-            const url = URL.createObjectURL(pdfBlob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          }
-        } catch (shareError) {
-          console.log("[WhatsApp] Fallback vers WhatsApp classique:", shareError);
-          if (whatsappUrl) {
-            window.open(whatsappUrl, "_blank");
+            return true;
+          } catch (shareError: any) {
+            // L'utilisateur a annulé le partage natif → ne pas mentir avec un toast succès
+            if (shareError?.name === "AbortError") {
+              console.log("[WhatsApp] Partage natif annulé par l'utilisateur");
+              return false;
+            }
+            console.warn("[WhatsApp] Échec partage natif, fallback:", shareError);
+            // Fallback: télécharger + ouvrir WhatsApp
           }
         }
+
+        // Fallback: télécharger le PDF puis ouvrir WhatsApp si dispo
+        try {
+          const url = URL.createObjectURL(pdfBlob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (dlErr) {
+          console.error("[WhatsApp] Échec téléchargement PDF:", dlErr);
+        }
+
+        if (whatsappUrl) {
+          window.open(whatsappUrl, "_blank");
+        }
+        return true;
       } else if (whatsappUrl) {
         // Open WhatsApp in new tab (comportement standard)
         window.open(whatsappUrl, "_blank");
+        return true;
       }
 
-      return true;
+      // Aucun canal disponible
+      console.warn("[WhatsApp] Aucun canal de partage disponible (ni PDF, ni numéro)");
+      return false;
     } catch (error) {
       console.error("[WhatsApp] Erreur:", error);
       return false;
