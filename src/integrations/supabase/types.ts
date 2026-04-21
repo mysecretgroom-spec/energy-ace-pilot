@@ -3354,6 +3354,8 @@ export type Database = {
           context: Json | null
           created_at: string | null
           id: string
+          last_action_message_sid: string | null
+          last_executed_action: Json | null
           last_message_at: string | null
           pending_action: Json | null
           phone_number: string
@@ -3363,6 +3365,8 @@ export type Database = {
           context?: Json | null
           created_at?: string | null
           id?: string
+          last_action_message_sid?: string | null
+          last_executed_action?: Json | null
           last_message_at?: string | null
           pending_action?: Json | null
           phone_number: string
@@ -3372,6 +3376,8 @@ export type Database = {
           context?: Json | null
           created_at?: string | null
           id?: string
+          last_action_message_sid?: string | null
+          last_executed_action?: Json | null
           last_message_at?: string | null
           pending_action?: Json | null
           phone_number?: string

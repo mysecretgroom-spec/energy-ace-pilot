@@ -17,6 +17,14 @@ import {
   type MultiRdvBatchData,
   type ExtractedRdv,
 } from "./_multi-rdv.ts";
+import {
+  isDestructiveIntent,
+  appendEditHint,
+  rememberLastAction,
+  findEditTarget,
+  handlePostActionEdit,
+  type LastExecutedAction,
+} from "./_post-action-edit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -271,6 +279,8 @@ interface AgentRequest {
   isReplyToMessage?: boolean;
   replyToMessageId?: string | null;
   replyToMessageContent?: string | null;
+  /** Twilio SID of the message the user is replying to (for post-action edits) */
+  repliedToTwilioSid?: string | null;
 }
 
 interface AgentResponse {
@@ -2424,6 +2434,50 @@ serve(async (req) => {
 
     console.log(`Loaded ${userMemories.length} memories and ${userPrompts.length} custom prompts for user`);
 
+    // ============================================================
+    // POST-ACTION EDIT: if user is replying to a recap message we sent,
+    // route through the edit handler INSTEAD of normal pipeline.
+    // ============================================================
+    if (
+      !pendingAction?.workflowState &&
+      request.repliedToTwilioSid &&
+      request.messageType === "text"
+    ) {
+      const editTarget = await findEditTarget(supabase, request.userId, request.repliedToTwilioSid);
+      if (editTarget) {
+        console.log(`Post-action edit detected for ${editTarget.entityType}/${editTarget.entityId}`);
+        const editResult = await handlePostActionEdit(
+          supabase,
+          request.userId,
+          LOVABLE_API_KEY!,
+          editTarget,
+          processedContent,
+        );
+        if (editResult) {
+          // Clear the remembered action only if it was deleted; otherwise
+          // keep it so the user can chain further edits.
+          if (editResult.actionTaken === "edit_deleted") {
+            await supabase
+              .from("whatsapp_conversations")
+              .update({ last_executed_action: null, last_action_message_sid: null })
+              .eq("user_id", request.userId);
+          }
+          return new Response(
+            JSON.stringify({
+              intent: editResult.intent as Intent,
+              confidence: 1,
+              entities: {},
+              actionTaken: editResult.actionTaken,
+              entityId: editResult.entityId,
+              entityType: editResult.entityType,
+              responseMessage: editResult.responseMessage,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     // Check if we have a pending action that needs workflow handling
     let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
     let aiResponse: { intent: Intent; confidence: number; entities: Record<string, unknown>; requiresConfirmation: boolean; responseMessage: string };
@@ -2713,19 +2767,17 @@ serve(async (req) => {
 
     // Execute action based on intent (only if not already handled by workflow)
     if (!skipAiAnalysis && aiResponse!.intent !== "unknown" && aiResponse!.intent !== "conversation" && aiResponse!.intent !== "multi_request" && aiResponse!.confidence >= 70) {
-      // Actions that require MANDATORY confirmation before execution - ALWAYS enforce this
-      const actionIntents: Intent[] = [
-        "create_rdv", "update_rdv", "update_vente_status", "update_vente_pipeline", 
-        "mark_signe", "update_vente_data", "update_client_notes"
-      ];
-      
-      // FORCE confirmation for all action intents, regardless of AI response
-      // This ensures no data modification happens without explicit user confirmation
-      const needsConfirmation = actionIntents.includes(aiResponse!.intent);
-      
-      // SPECIAL CASE: For update_rdv, let executeAction handle confirmation 
-      // so it can show the actual list of RDVs that will be affected
-      // This avoids double confirmation and provides better UX
+      // NEW BEHAVIOR (2026-04): direct execution + recap + reply-to-edit.
+      // We only KEEP the explicit Yes/No confirmation for DESTRUCTIVE intents
+      // (delete_*, cancel_*). All other action intents now run immediately
+      // and the user can correct them by REPLYING to the recap message.
+      const destructive = isDestructiveIntent(aiResponse!.intent);
+
+      // Legacy "needs confirmation" is now strictly destructive-only.
+      const needsConfirmation = destructive;
+
+      // update_rdv still owns its own internal confirmation prompts
+      // (it shows the matching list before patching). Keep that path.
       const delegateConfirmationToAction = aiResponse!.intent === "update_rdv";
       
       if (needsConfirmation && !delegateConfirmationToAction) {
@@ -3057,7 +3109,43 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       );
     }
 
-    const response: AgentResponse = {
+    // ========================================================
+    // POST-ACTION EDIT: build a "last_executed_action" snapshot
+    // and append a discreet edit hint to the recap message so the
+    // user can correct it by replying.
+    // ========================================================
+    let lastActionToRemember: LastExecutedAction | null = null;
+    const REMEMBERABLE_ENTITIES = new Set(["rdv", "client", "vente", "facture", "etude"]);
+    const wasSuccessful =
+      actionResult.actionTaken &&
+      !actionResult.actionTaken.startsWith("error") &&
+      !actionResult.actionTaken.includes("failed") &&
+      !actionResult.actionTaken.includes("invalid") &&
+      !actionResult.actionTaken.includes("awaiting") &&
+      !actionResult.actionTaken.includes("collected") &&
+      !actionResult.actionTaken.includes("unclear");
+    const isNonDestructiveExec =
+      wasSuccessful &&
+      !isDestructiveIntent(aiResponse!.intent) &&
+      actionResult.entityId &&
+      actionResult.entityType &&
+      REMEMBERABLE_ENTITIES.has(actionResult.entityType);
+
+    if (isNonDestructiveExec) {
+      lastActionToRemember = {
+        intent: aiResponse!.intent,
+        entityType: actionResult.entityType as LastExecutedAction["entityType"],
+        entityId: actionResult.entityId!,
+        snapshot: aiResponse!.entities,
+        label: actionResult.entityType === "rdv"
+          ? `RDV de ${(aiResponse!.entities as Record<string, unknown>).client_name || "client"}`
+          : `${actionResult.entityType} #${actionResult.entityId?.slice(0, 8)}`,
+        createdAt: new Date().toISOString(),
+      };
+      finalResponseMessage = appendEditHint(finalResponseMessage);
+    }
+
+    const response: AgentResponse & { lastActionToRemember?: LastExecutedAction | null } = {
       intent: aiResponse!.intent,
       confidence: aiResponse!.confidence,
       entities: aiResponse!.entities,
@@ -3065,6 +3153,7 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       entityId: actionResult.entityId,
       entityType: actionResult.entityType,
       responseMessage: finalResponseMessage,
+      lastActionToRemember,
     };
 
     return new Response(JSON.stringify(response), {
