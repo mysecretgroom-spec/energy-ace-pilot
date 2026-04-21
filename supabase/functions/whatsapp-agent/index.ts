@@ -2578,17 +2578,24 @@ serve(async (req) => {
           );
         }
 
+        const batchWarnings = await analyzeBatchWarnings(
+          supabase,
+          request.userId,
+          extractRes.rdvs,
+        );
+
         const batchData: MultiRdvBatchData = {
           rdvs: extractRes.rdvs,
           validated: [],
           removed: [],
           regieId: regieRes.regieId,
           regieName: regieRes.regieName,
+          warnings: batchWarnings,
           createdAt: new Date().toISOString(),
         };
 
         const responseMsg = regieRes.needsSelection
-          ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs)
+          ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings)
           : buildMenuMessage(batchData);
         const workflowState: WorkflowState = regieRes.needsSelection
           ? "awaiting_multi_rdv_regie"
