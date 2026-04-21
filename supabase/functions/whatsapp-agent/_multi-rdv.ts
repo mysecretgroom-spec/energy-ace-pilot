@@ -280,9 +280,13 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
   }
 
   const isSingle = remaining.length === 1;
+  const isPerRdvRegie = !!data.perRdvRegie && Object.keys(data.perRdvRegie).length > 0;
+  const headerRegie = isPerRdvRegie
+    ? "Régie: par RDV"
+    : `Régie: ${data.regieName || "?"}`;
   const header = intro || (isSingle
-    ? `📸 *RDV détecté* (Régie: ${data.regieName || "?"})`
-    : `📸 *${remaining.length} RDV détectés* (Régie: ${data.regieName || "?"})`);
+    ? `📸 *RDV détecté* (${headerRegie})`
+    : `📸 *${remaining.length} RDV détectés* (${headerRegie})`);
 
   const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
 
