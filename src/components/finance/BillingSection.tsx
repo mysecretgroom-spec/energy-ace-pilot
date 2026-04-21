@@ -26,7 +26,8 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  MinusCircle
+  MinusCircle,
+  Building2
 } from "lucide-react";
 import {
   DropdownMenu,
