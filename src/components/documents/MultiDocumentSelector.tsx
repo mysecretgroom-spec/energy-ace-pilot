@@ -128,6 +128,20 @@ const resolveDocumentUrl = async (url: string): Promise<string> => {
   return url;
 };
 
+// Parse a Supabase storage URL into { bucket, path } if applicable
+const parseStorageUrl = (url: string): { bucket: string; path: string } | null => {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/);
+    if (!match) return null;
+    const [, bucket, rawPath] = match;
+    const decodedPath = decodeURIComponent(rawPath).split("?")[0].replace(/^\/+/, "");
+    return { bucket, path: decodedPath };
+  } catch {
+    return null;
+  }
+};
+
 const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
   if (url.startsWith("data:")) {
     const base64 = url.split(",")[1];
@@ -139,22 +153,53 @@ const fetchAsArrayBuffer = async (url: string): Promise<ArrayBuffer> => {
     return bytes.buffer;
   }
 
-  // Resolve URL first (signed URLs for Supabase storage)
+  // For Supabase Storage URLs, use the SDK's .download() first — bypasses
+  // Service Worker cache and CORS quirks that can produce empty/corrupted reads
+  // on iOS Safari PWAs (notably for in-app generated photos).
+  const storageRef = url.startsWith("http") ? parseStorageUrl(url) : null;
+  if (storageRef) {
+    try {
+      const { data: blob, error } = await supabase.storage
+        .from(storageRef.bucket)
+        .download(storageRef.path);
+      if (!error && blob) {
+        const buf = await blob.arrayBuffer();
+        if (buf.byteLength > 0) return buf;
+      }
+      console.warn(
+        `[fetchAsArrayBuffer] Storage download empty/failed for ${storageRef.path}, falling back to HTTP`,
+        error
+      );
+    } catch (err) {
+      console.warn("[fetchAsArrayBuffer] Storage SDK error, falling back to HTTP:", err);
+    }
+  }
+
+  // Resolve URL (signed URLs for private buckets), then standard HTTP fetch
   const resolvedUrl = await resolveDocumentUrl(url);
 
   try {
-    const response = await fetch(resolvedUrl, { mode: "cors" });
+    // cache: "no-store" to avoid stale Service Worker / CDN entries returning empty bodies
+    const response = await fetch(resolvedUrl, { mode: "cors", cache: "no-store" });
     if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
-    return response.arrayBuffer();
+    const buf = await response.arrayBuffer();
+    if (buf.byteLength > 0) return buf;
+    throw new Error("Empty response body from fetch");
   } catch (corsError) {
-    console.warn("CORS issue, trying XHR...", corsError);
+    console.warn("CORS/empty issue, trying XHR...", corsError);
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open("GET", resolvedUrl, true);
+      // Cache-busting param to force a fresh response from origin
+      const bust = resolvedUrl.includes("?") ? "&" : "?";
+      xhr.open("GET", `${resolvedUrl}${bust}_=${Date.now()}`, true);
       xhr.responseType = "arraybuffer";
       xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
-        else reject(new Error(`XHR failed: ${xhr.status}`));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.response && xhr.response.byteLength > 0) resolve(xhr.response);
+          else reject(new Error("XHR returned empty body"));
+        } else {
+          reject(new Error(`XHR failed: ${xhr.status}`));
+        }
       };
       xhr.onerror = () => reject(new Error("XHR network error"));
       xhr.send();
