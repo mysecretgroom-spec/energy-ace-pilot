@@ -253,7 +253,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         // Commission figée (override)
         if (v.commission_override != null) {
           const commission = Math.round(Math.max(0, v.commission_override - decomMontant) / 100) * 100;
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -263,7 +263,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         if (v.type_vente === "external_installation") {
