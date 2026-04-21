@@ -13,6 +13,7 @@ interface WhatsAppSendButtonProps {
   comment?: string;
   r2DateTime?: string | null;
   cqTime?: string;
+  cqDate?: string; // YYYY-MM-DD; defaults to tomorrow if omitted
   regieId?: string | null;
   pdfData?: EtudeData;
   venteDetails?: {
@@ -38,6 +39,7 @@ export function WhatsAppSendButton({
   comment,
   r2DateTime,
   cqTime,
+  cqDate,
   regieId,
   pdfData,
   venteDetails,
@@ -61,6 +63,7 @@ export function WhatsAppSendButton({
         r2DateTime,
         userId: user.id,
         cqTime,
+        cqDate,
         pdfData,
         regieId,
         venteDetails,

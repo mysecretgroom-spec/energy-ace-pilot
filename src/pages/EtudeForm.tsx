@@ -388,6 +388,12 @@ const EtudeForm = () => {
   const [r2DateHeure, setR2DateHeure] = useState<Date | undefined>(undefined);
   const [r2Time, setR2Time] = useState<string>("10:00");
   const [cqTime, setCqTime] = useState<string>("10:00");
+  const [cqDate, setCqDate] = useState<Date>(() => {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    t.setHours(0, 0, 0, 0);
+    return t;
+  });
   const [classificationHistory, setClassificationHistory] = useState<{
     id: string;
     classification: string;
@@ -5240,21 +5246,47 @@ _Envoyé depuis DébalePro_`;
                 </div>
               )}
 
-              {/* Heure du CQ pour statut Positif */}
+              {/* Date et heure du CQ pour statut Positif */}
               {classification === "positif" && (
                 <div className="p-3 bg-status-signed/10 rounded-lg border border-status-signed/30 space-y-3">
                   <Label className="text-xs font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-status-signed" />
-                    Heure du CQ (lendemain)
+                    Date et heure du CQ
                   </Label>
-                  <Input
-                    type="time"
-                    value={cqTime}
-                    onChange={(e) => setCqTime(e.target.value)}
-                    className="w-32"
-                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "justify-start text-left font-normal",
+                            !cqDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {cqDate ? format(cqDate, "PPP", { locale: fr }) : "Choisir une date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 z-[250]" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={cqDate}
+                          onSelect={(d) => d && setCqDate(d)}
+                          initialFocus
+                          locale={fr}
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      type="time"
+                      value={cqTime}
+                      onChange={(e) => setCqTime(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Contrôle Qualité prévu demain à {cqTime}
+                    Contrôle Qualité prévu le {format(cqDate, "EEEE d MMMM yyyy", { locale: fr })} à {cqTime}
                   </p>
                 </div>
               )}
@@ -5282,6 +5314,7 @@ _Envoyé depuis DébalePro_`;
                       : null
                   }
                   cqTime={classification === "positif" ? cqTime : undefined}
+                  cqDate={classification === "positif" ? format(cqDate, "yyyy-MM-dd") : undefined}
                   regieId={regieId}
                   pdfData={(classification === "positif" || classification === "r2_prestudy") ? (buildPdfData() || undefined) : undefined}
                   venteDetails={classification === "positif" && calculatedResults ? {
