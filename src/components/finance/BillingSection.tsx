@@ -796,6 +796,22 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     try {
       const newVenteIds = [...editingFacture.vente_ids, ...Array.from(selectedAddIds)];
       const addedVentes = addableVentes.filter(v => selectedAddIds.has(v.id));
+
+      // Server-side mono-régie guard: re-check that all involved ventes share the same régie
+      const { data: dbVentes, error: checkError } = await supabase
+        .from("ventes")
+        .select("id, regie_id")
+        .in("id", newVenteIds);
+
+      if (checkError) throw checkError;
+
+      const dbRegieIds = new Set((dbVentes || []).map((v: any) => v.regie_id ?? "__none__"));
+      if (dbRegieIds.size > 1) {
+        toast.error("Ajout bloqué : la facture ne peut contenir que des dossiers d'une même régie");
+        setAddingToFacture(false);
+        return;
+      }
+
       const addedCommission = addedVentes.reduce((sum, v) => sum + v.commission, 0);
       const newTotal = Number(editingFacture.montant_total_ht) + addedCommission;
 
