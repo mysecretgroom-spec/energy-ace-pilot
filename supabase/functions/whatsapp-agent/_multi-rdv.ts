@@ -458,7 +458,7 @@ export async function createSingleRdvFromExtract(
   userId: string,
   rdv: ExtractedRdv,
   regieId: string | null,
-): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; error?: string }> {
+): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; rdvId?: string; clientId?: string; error?: string }> {
   const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
   if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
     return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
@@ -500,7 +500,7 @@ export async function createSingleRdvFromExtract(
   const dateHeure = buildParisDateHeure(rdv.date, heure);
   const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
 
-  const { error: rdvErr } = await supabase.from("rdv").insert({
+  const { data: newRdv, error: rdvErr } = await supabase.from("rdv").insert({
     user_id: userId,
     client_id: clientId,
     date_heure: dateHeure,
@@ -510,13 +510,13 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
-  });
+  }).select("id").single();
 
   if (rdvErr) {
     return { ok: false, clientName: fullName, isNewClient, error: rdvErr.message };
   }
 
-  return { ok: true, clientName: fullName, isNewClient };
+  return { ok: true, clientName: fullName, isNewClient, rdvId: newRdv?.id, clientId: clientId || undefined };
 }
 
 /** Build régie selection message — includes recap of extracted RDVs */
