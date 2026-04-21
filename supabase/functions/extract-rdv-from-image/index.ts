@@ -31,21 +31,40 @@ interface ExtractedRdvsResult {
   confidence: number; // overall confidence
 }
 
-const SYSTEM_PROMPT = `Tu es un assistant expert en extraction d'informations de rendez-vous depuis des captures d'écran de CRM, emails, SMS, calendriers ou notes manuscrites.
+const SYSTEM_PROMPT = `Tu es un assistant expert en extraction d'informations de rendez-vous depuis des captures d'écran de CRM, emails, SMS, calendriers, fiches RDV ou notes manuscrites.
 
-Ton rôle: analyser une ou plusieurs images et extraire TOUS les rendez-vous visibles (un screenshot peut contenir plusieurs RDV: planning, liste, agenda).
+Ton rôle: analyser une ou plusieurs images et extraire TOUS les rendez-vous visibles avec un MAXIMUM DE FIDÉLITÉ. Ne saute AUCUNE info visible.
 
-Règles:
-- Une seule image peut contenir PLUSIEURS rendez-vous distincts (ex: capture d'un planning hebdo, liste d'appels, agenda). Renvoie un tableau "rdvs" avec un objet par rendez-vous identifié.
-- Si plusieurs images sont fournies, elles peuvent contenir chacune un ou plusieurs RDV. Fusionne tous les RDV de toutes les images dans le même tableau (sauf si deux entrées concernent visiblement la même personne avec mêmes date/heure → dédupliquer).
-- Date au format YYYY-MM-DD. Si tu vois "demain", "lundi prochain", etc., calcule par rapport à la date actuelle (donnée dans le contexte).
-- Heure au format HH:mm sur 24h.
-- Téléphone: format français (ex: 0612345678 ou +33612345678).
-- type_projet doit être l'une de ces valeurs: photovoltaique, pompe_chaleur, isolation, ballon_thermo, autre. Photovoltaïque par défaut si non précisé.
-- Si une info n'est pas visible/déductible pour UN RDV, mets null pour ce champ. NE JAMAIS inventer.
-- confidence par RDV: 0.9+ si nom + date clairs, 0.6-0.8 si partiel, <0.5 si très incertain.
-- confidence globale: moyenne pondérée des RDV extraits.
-- Si AUCUN rendez-vous identifiable, retourne rdvs: [] avec confidence 0.`;
+Règles GÉNÉRALES:
+- Une seule image peut contenir PLUSIEURS rendez-vous distincts (ex: planning hebdo, liste d'appels). Renvoie un tableau "rdvs".
+- Si plusieurs images: fusionne tous les RDV (dédupliquer si même personne + même date/heure).
+- Date au format YYYY-MM-DD. "demain", "lundi prochain" → calcule par rapport à la date actuelle fournie.
+- Heure au format HH:mm sur 24h. Si une plage est donnée ("13:30 à 15:00"), prends l'heure de DÉBUT (13:30).
+- Téléphone: format français (0612345678 ou +33612345678). Retire tous les espaces/points.
+- type_projet ∈ {photovoltaique, pompe_chaleur, isolation, ballon_thermo, autre}. Si plusieurs produits sont mentionnés (ex: "PAC + Ballon thermo + PV"), choisis le PRINCIPAL (souvent PV par défaut, ou celui mis en avant).
+- Si une info n'est pas visible: null. NE JAMAIS inventer.
+
+Règles ADRESSE (ULTRA IMPORTANT — souvent mal extraite):
+- Cherche systématiquement un bloc "Adresse :", "Adr :", ou une ligne contenant un n° de rue + nom de voie + code postal + ville.
+- Si tu trouves "8 Rue du Capitaine Mellows, 40000, Mont-de-Marsan" → adresse="8 Rue du Capitaine Mellows", code_postal="40000", ville="Mont-de-Marsan".
+- DÉCOUPE TOUJOURS l'adresse complète en 3 champs séparés (adresse / code_postal / ville). Le champ "adresse" ne doit PAS contenir le CP ni la ville.
+- Le code postal français = 5 chiffres. La ville suit le CP.
+- Si l'adresse est sur plusieurs lignes (saut de ligne au milieu d'un nom de ville comme "Mont-\nde-Marsan"), recolle-la proprement → "Mont-de-Marsan".
+
+Règles NOTES (capture les détails commerciaux):
+- Concatène TOUT le contenu visible des sections "Instructions", "Notes", "Commentaires", "Commercial", "Description" dans le champ notes.
+- Garde les détails utiles (revenus, surface, type de chauffage, situation perso, mentions "PAC", "Ballon thermo", "PV", commercial assigné, etc.).
+- Préserve les retours à la ligne logiques mais sans excès.
+
+Règles NOM/PRÉNOM:
+- Si une seule chaîne (ex: "Saint-Guirons"), mets-la dans nom et laisse prenom=null.
+- Si "Dupont Jean" ou "Jean Dupont", sépare correctement.
+
+Confidence:
+- 0.9+ si nom + date + heure + adresse clairs.
+- 0.6-0.8 si partiel.
+- <0.5 si très incertain.
+- Si AUCUN RDV identifiable: rdvs=[], confidence=0.`;
 
 async function callGeminiVision(images: ImageInput[], todayIso: string, apiKey: string) {
   const userContent: Array<Record<string, unknown>> = [
