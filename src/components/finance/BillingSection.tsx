@@ -339,24 +339,48 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
     return amount.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Determine the regie of the current selection (only one regie allowed per facture)
+  const selectedRegieId: string | null = (() => {
+    if (selectedIds.size === 0) return null;
+    const first = ventes.find(v => selectedIds.has(v.id));
+    return first?.regie_id ?? null;
+  })();
+
   const toggleSelection = (id: string) => {
+    const vente = ventes.find(v => v.id === id);
+    if (!vente) return;
+
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-      } else {
-        next.add(id);
+        return next;
       }
+      // Lock selection to a single regie
+      if (selectedRegieId !== null && vente.regie_id !== selectedRegieId) {
+        toast.error("Une facture ne peut contenir que des dossiers d'une même régie");
+        return prev;
+      }
+      next.add(id);
       return next;
     });
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === ventes.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(ventes.map(v => v.id)));
-    }
+  const toggleSelectAllForRegie = (regieId: string | null, regieVentes: BillableVente[]) => {
+    const allSelected = regieVentes.every(v => selectedIds.has(v.id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        regieVentes.forEach(v => next.delete(v.id));
+        return next;
+      }
+      // If switching to a different regie, clear previous selection
+      if (selectedRegieId !== null && selectedRegieId !== regieId) {
+        next.clear();
+      }
+      regieVentes.forEach(v => next.add(v.id));
+      return next;
+    });
   };
 
   const clearSelection = () => {
@@ -366,6 +390,19 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
   const selectedVentes = ventes.filter(v => selectedIds.has(v.id));
   const selectedTotal = selectedVentes.reduce((sum, v) => sum + v.commission, 0);
   const selectedDecom = selectedVentes.reduce((sum, v) => sum + v.decom_montant, 0);
+
+  // Group ventes by regie
+  const ventesByRegie = useMemo(() => {
+    const groups = new Map<string, { regieId: string | null; regieNom: string; ventes: BillableVente[]; total: number }>();
+    ventes.forEach(v => {
+      const key = v.regie_id ?? "__none__";
+      const group = groups.get(key) || { regieId: v.regie_id, regieNom: v.regie_nom, ventes: [], total: 0 };
+      group.ventes.push(v);
+      group.total += v.commission;
+      groups.set(key, group);
+    });
+    return Array.from(groups.values()).sort((a, b) => a.regieNom.localeCompare(b.regieNom));
+  }, [ventes]);
 
   // Generate unique invoice number
   const generateInvoiceNumber = () => {
