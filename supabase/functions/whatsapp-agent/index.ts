@@ -2420,6 +2420,7 @@ serve(async (req) => {
                   entities: {},
                   actionTaken: "multi_rdv_proposed",
                   responseMessage: responseMsg,
+                  pendingActionToTrack: newPending,
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
               );
