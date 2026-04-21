@@ -24,6 +24,7 @@ interface SendWhatsAppParams {
   r2DateTime?: string | null;
   userId: string;
   cqTime?: string;
+  cqDate?: string; // YYYY-MM-DD; defaults to tomorrow when omitted
   pdfData?: EtudeData;
   regieId?: string | null;
   venteDetails?: VenteDetails;
@@ -194,6 +195,7 @@ export const useWhatsAppNotification = () => {
     r2DateTime,
     userId,
     cqTime,
+    cqDate,
     pdfData,
     regieId,
     venteDetails,
@@ -264,15 +266,21 @@ export const useWhatsAppNotification = () => {
         r2DateStr = format(r2Date, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
-      // Calculate CQ date (next day at specified time or default 10:00)
+      // Calculate CQ date — uses provided cqDate or defaults to tomorrow
       let cqDateStr = "";
       if (classification === "positif") {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        // Use provided cqTime or defaultCqTime
+        let cqDateTime: Date;
+        if (cqDate) {
+          // Parse YYYY-MM-DD as local date to avoid timezone shifts
+          const [y, m, d] = cqDate.split("-").map(Number);
+          cqDateTime = new Date(y, (m || 1) - 1, d || 1);
+        } else {
+          cqDateTime = new Date(now);
+          cqDateTime.setDate(cqDateTime.getDate() + 1);
+        }
         const [hours, minutes] = (cqTime || defaultCqTime).split(":").map(Number);
-        tomorrow.setHours(hours, minutes, 0, 0);
-        cqDateStr = format(tomorrow, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
+        cqDateTime.setHours(hours, minutes, 0, 0);
+        cqDateStr = format(cqDateTime, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
       // Format comment
