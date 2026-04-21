@@ -289,7 +289,10 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
     ? `📸 *RDV détecté* (${headerRegie})`
     : `📸 *${remaining.length} RDV détectés* (${headerRegie})`);
 
-  const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
+  const blocks = remaining.map((x) => {
+    const perRdvName = isPerRdvRegie ? (data.perRdvRegieName?.[x.letter] || null) : null;
+    return formatRdvDetailed(isSingle ? null : x.letter, x.rdv, perRdvName);
+  });
 
   const visibleLetters = new Set(remaining.map((x) => x.letter));
   const visibleWarnings = (data.warnings || []).filter((w) => visibleLetters.has(w.letter));
