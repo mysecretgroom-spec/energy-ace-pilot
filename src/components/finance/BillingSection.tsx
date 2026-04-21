@@ -268,7 +268,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
         
         if (v.type_vente === "external_installation") {
           const commission = Math.max(0, v.montant_ht - decomMontant);
-          return {
+          return enrich({
             id: v.id,
             client_nom: v.clients?.nom || "Client inconnu",
             client_prenom: v.clients?.prenom || null,
@@ -278,7 +278,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
             date_installation_reelle: v.date_installation_reelle,
             commission,
             decom_montant: decomMontant,
-          };
+          });
         }
         
         const regieConfig = v.regie_id ? regieConfigMap.get(v.regie_id) : null;
