@@ -39,6 +39,8 @@ import {
   Sparkles,
   CreditCard,
   Wrench,
+  Pencil,
+  X,
 } from "lucide-react";
 import { BouquetExtractor } from "@/components/regie/BouquetExtractor";
 import { RegieAIConfigImport } from "@/components/regie/RegieAIConfigImport";
@@ -101,6 +103,7 @@ interface RegieFinancement {
   nom: string;
   taux_effectif: number;
   taeg: number;
+  duree_mois: number;
   actif: boolean;
 }
 
@@ -165,6 +168,14 @@ const RegiesSettings = () => {
     nom: "",
     taux_effectif: 0,
     taeg: 0,
+    duree_mois: 180,
+  });
+  const [editingFinancementId, setEditingFinancementId] = useState<string | null>(null);
+  const [editFinancementForm, setEditFinancementForm] = useState({
+    nom: "",
+    taux_effectif: 0,
+    taeg: 0,
+    duree_mois: 180,
   });
   const [newSurcout, setNewSurcout] = useState({
     categorie: 'support' as 'support' | 'emplacement_boitier' | 'compteur',
@@ -646,6 +657,7 @@ const RegiesSettings = () => {
         nom: "",
         taux_effectif: 0,
         taeg: 0,
+        duree_mois: 180,
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -677,6 +689,45 @@ const RegiesSettings = () => {
       ));
     } catch (error) {
       console.error("Error toggling financement:", error);
+    }
+  };
+
+  const startEditFinancement = (financement: RegieFinancement) => {
+    setEditingFinancementId(financement.id);
+    setEditFinancementForm({
+      nom: financement.nom,
+      taux_effectif: financement.taux_effectif,
+      taeg: financement.taeg,
+      duree_mois: financement.duree_mois ?? 180,
+    });
+  };
+
+  const cancelEditFinancement = () => {
+    setEditingFinancementId(null);
+  };
+
+  const saveEditFinancement = async (financement: RegieFinancement) => {
+    if (!editFinancementForm.nom.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("regies_financements")
+        .update({
+          nom: editFinancementForm.nom.trim(),
+          taux_effectif: editFinancementForm.taux_effectif,
+          taeg: editFinancementForm.taeg,
+          duree_mois: editFinancementForm.duree_mois,
+        })
+        .eq("id", financement.id);
+      if (error) throw error;
+      toast.success("Financement modifié");
+      setEditingFinancementId(null);
+      if (selectedRegie) fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error updating financement:", error);
+      toast.error("Erreur lors de la modification");
     }
   };
 
@@ -1421,7 +1472,7 @@ const RegiesSettings = () => {
                           value={newFinancement.nom}
                           onChange={(e) => setNewFinancement({ ...newFinancement, nom: e.target.value })}
                         />
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
                             <label className="text-xs text-muted-foreground">Taux effectif %</label>
                             <Input
@@ -1440,6 +1491,14 @@ const RegiesSettings = () => {
                               onChange={(e) => setNewFinancement({ ...newFinancement, taeg: parseFloat(e.target.value) || 0 })}
                             />
                           </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Durée (mois)</label>
+                            <Input
+                              type="number"
+                              value={newFinancement.duree_mois}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, duree_mois: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
                         </div>
                         <Button 
                           size="sm" 
@@ -1453,34 +1512,96 @@ const RegiesSettings = () => {
                       </CardContent>
                     </Card>
 
-                    {regieFinancements.map((financement) => (
-                      <Card key={financement.id} className={!financement.actif ? "opacity-50" : ""}>
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{financement.nom}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Taux {financement.taux_effectif}% • TAEG {financement.taeg}%
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Switch 
-                                checked={financement.actif} 
-                                onCheckedChange={() => handleToggleFinancementActif(financement)}
-                              />
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                className="text-destructive h-8 w-8"
-                                onClick={() => handleDeleteFinancement(financement.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {regieFinancements.map((financement) => {
+                      const isEditing = editingFinancementId === financement.id;
+                      return (
+                        <Card key={financement.id} className={!financement.actif ? "opacity-50" : ""}>
+                          <CardContent className="p-3">
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <Input
+                                  placeholder="Nom"
+                                  value={editFinancementForm.nom}
+                                  onChange={(e) => setEditFinancementForm({ ...editFinancementForm, nom: e.target.value })}
+                                  className="h-8 text-sm font-medium"
+                                />
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Taux %</label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editFinancementForm.taux_effectif}
+                                      onChange={(e) => setEditFinancementForm({ ...editFinancementForm, taux_effectif: parseFloat(e.target.value) || 0 })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">TAEG %</label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editFinancementForm.taeg}
+                                      onChange={(e) => setEditFinancementForm({ ...editFinancementForm, taeg: parseFloat(e.target.value) || 0 })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Durée (mois)</label>
+                                    <Input
+                                      type="number"
+                                      value={editFinancementForm.duree_mois}
+                                      onChange={(e) => setEditFinancementForm({ ...editFinancementForm, duree_mois: parseInt(e.target.value) || 0 })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 justify-end pt-1">
+                                  <Button size="sm" variant="ghost" onClick={cancelEditFinancement}>
+                                    <X className="h-4 w-4 mr-1" /> Annuler
+                                  </Button>
+                                  <Button size="sm" onClick={() => saveEditFinancement(financement)}>
+                                    <Check className="h-4 w-4 mr-1" /> Enregistrer
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{financement.nom}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    Taux {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Switch 
+                                    checked={financement.actif} 
+                                    onCheckedChange={() => handleToggleFinancementActif(financement)}
+                                  />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={() => startEditFinancement(financement)}
+                                    title="Modifier"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    className="text-destructive h-8 w-8"
+                                    onClick={() => handleDeleteFinancement(financement.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
 
                     {regieFinancements.length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-4">

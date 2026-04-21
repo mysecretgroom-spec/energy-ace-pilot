@@ -13,6 +13,8 @@ import {
   Home,
   Check,
   Loader2,
+  Pencil,
+  X,
 } from "lucide-react";
 import { BouquetExtractor } from "./BouquetExtractor";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +81,15 @@ export function ProductBouquetsSection({
   const [newBouquet, setNewBouquet] = useState({
     nom_bouquet: "",
     puissance_kwc: 3,
+    prix_recommande: 0,
+    commission_fixe: 0,
+  });
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    nom_bouquet: "",
+    puissance_kwc: 0,
     prix_recommande: 0,
     commission_fixe: 0,
   });
@@ -165,6 +176,49 @@ export function ProductBouquetsSection({
     } catch (error) {
       console.error("Error deleting bouquet:", error);
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const startEdit = (bouquet: RegieBouquet) => {
+    setEditingId(bouquet.id);
+    setEditForm({
+      nom_bouquet: bouquet.nom_bouquet,
+      puissance_kwc: bouquet.puissance_kwc,
+      prix_recommande: bouquet.prix_recommande,
+      commission_fixe: bouquet.commission_fixe,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (bouquet: RegieBouquet) => {
+    if (!editForm.nom_bouquet.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("bouquets")
+        .update({
+          nom_bouquet: editForm.nom_bouquet.trim(),
+          puissance_kwc: editForm.puissance_kwc,
+          prix_recommande: editForm.prix_recommande,
+          prix_max: editForm.prix_recommande,
+          commission_fixe: editForm.commission_fixe,
+        })
+        .eq("id", bouquet.id);
+      if (error) throw error;
+      toast.success("Bouquet modifié");
+      setEditingId(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating bouquet:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -333,55 +387,123 @@ export function ProductBouquetsSection({
                   </Card>
 
                   {/* Liste des bouquets */}
-                  {bouquets.map((bouquet) => (
-                    <Card key={bouquet.id} className={bouquet.isGlobal ? "border-dashed" : ""}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
-                          {bouquet.isGlobal && (
-                                <Badge variant="outline" className="text-[10px] h-4">
-                                  Par défaut
-                                </Badge>
-                              )}
-                              {!bouquet.actif && (
-                                <Badge variant="secondary" className="text-[10px] h-4 bg-destructive/10 text-destructive">
-                                  Désactivé
-                                </Badge>
-                              )}
+                  {bouquets.map((bouquet) => {
+                    const isEditing = editingId === bouquet.id;
+                    return (
+                      <Card key={bouquet.id} className={bouquet.isGlobal ? "border-dashed" : ""}>
+                        <CardContent className="p-3">
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <Input
+                                placeholder="Nom"
+                                value={editForm.nom_bouquet}
+                                onChange={(e) => setEditForm({ ...editForm, nom_bouquet: e.target.value })}
+                                className="h-8 text-sm font-medium"
+                              />
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">{cfg.unit}</label>
+                                  <Input
+                                    type="number"
+                                    step={productType === "ITE" ? "10" : "0.1"}
+                                    value={editForm.puissance_kwc}
+                                    onChange={(e) => setEditForm({ ...editForm, puissance_kwc: parseFloat(e.target.value) || 0 })}
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Prix reco. TTC</label>
+                                  <Input
+                                    type="number"
+                                    value={editForm.prix_recommande}
+                                    onChange={(e) => setEditForm({ ...editForm, prix_recommande: parseFloat(e.target.value) || 0 })}
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Commission HT</label>
+                                  <Input
+                                    type="number"
+                                    value={editForm.commission_fixe}
+                                    onChange={(e) => setEditForm({ ...editForm, commission_fixe: parseFloat(e.target.value) || 0 })}
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 justify-end pt-1">
+                                <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                                  <X className="h-4 w-4 mr-1" /> Annuler
+                                </Button>
+                                <Button size="sm" onClick={() => saveEdit(bouquet)} disabled={saving}>
+                                  {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                                  Enregistrer
+                                </Button>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {bouquet.puissance_kwc} {cfg.unit}
-                            </p>
-                          </div>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="text-destructive h-8 w-8"
-                            onClick={() => handleDeleteBouquet(bouquet)}
-                            title={bouquet.isGlobal ? "Désactiver pour cette régie" : "Désactiver"}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex gap-4 mt-3">
-                          <div className="flex-1">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Prix reco.</p>
-                            <p className="text-sm font-semibold text-foreground">
-                              {formatCurrency(bouquet.prix_recommande)}
-                            </p>
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Commission HT</p>
-                            <p className="text-sm font-semibold text-green-600">
-                              {formatCurrency(bouquet.commission_fixe)}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
+                                    {bouquet.isGlobal && (
+                                      <Badge variant="outline" className="text-[10px] h-4">
+                                        Par défaut
+                                      </Badge>
+                                    )}
+                                    {!bouquet.actif && (
+                                      <Badge variant="secondary" className="text-[10px] h-4 bg-destructive/10 text-destructive">
+                                        Désactivé
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {bouquet.puissance_kwc} {cfg.unit}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {!bouquet.isGlobal && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8"
+                                      onClick={() => startEdit(bouquet)}
+                                      title="Modifier"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    className="text-destructive h-8 w-8"
+                                    onClick={() => handleDeleteBouquet(bouquet)}
+                                    title={bouquet.isGlobal ? "Désactiver pour cette régie" : "Désactiver"}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="flex gap-4 mt-3">
+                                <div className="flex-1">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Prix reco.</p>
+                                  <p className="text-sm font-semibold text-foreground">
+                                    {formatCurrency(bouquet.prix_recommande)}
+                                  </p>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Commission HT</p>
+                                  <p className="text-sm font-semibold text-success">
+                                    {formatCurrency(bouquet.commission_fixe)}
+                                  </p>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
 
                   {bouquets.length === 0 && (
                     <Card className="bg-muted/30 border-dashed">

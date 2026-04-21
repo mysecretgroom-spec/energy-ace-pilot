@@ -13,6 +13,9 @@ import {
   Home,
   Loader2,
   Wrench,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -129,6 +132,16 @@ export function ProductSurcoutsSection({
     type_calcul: "fixe" as string,
   });
 
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    categorie: "",
+    code: "",
+    nom: "",
+    prix: 0,
+    type_calcul: "fixe" as string,
+  });
+
   // Reset form when changing product type
   const handleTabChange = (productType: ProductType) => {
     setActiveProductTab(productType);
@@ -227,6 +240,50 @@ export function ProductSurcoutsSection({
     } catch (error) {
       console.error("Error toggling surcout:", error);
       toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const startEdit = (surcout: RegieSurcout) => {
+    setEditingId(surcout.id);
+    setEditForm({
+      categorie: surcout.categorie,
+      code: surcout.code,
+      nom: surcout.nom,
+      prix: surcout.prix,
+      type_calcul: surcout.type_calcul,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (surcout: RegieSurcout) => {
+    if (!editForm.nom.trim() || !editForm.code.trim()) {
+      toast.error("Le nom et le code sont requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("regies_surcouts")
+        .update({
+          categorie: editForm.categorie,
+          code: editForm.code.trim().toLowerCase().replace(/\s+/g, "_"),
+          nom: editForm.nom.trim(),
+          prix: editForm.prix,
+          type_calcul: editForm.type_calcul,
+        })
+        .eq("id", surcout.id);
+      if (error) throw error;
+      toast.success("Surcoût modifié");
+      setEditingId(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating surcout:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -353,50 +410,131 @@ export function ProductSurcoutsSection({
                       <Wrench className="h-3 w-3" />
                       {catConfig.label}
                     </h4>
-                    {surcoutsCategorie.map((surcout) => (
-                      <Card key={surcout.id} className={`${!surcout.actif ? "opacity-50" : ""} ${surcout.isGlobal ? "border-dashed" : ""}`}>
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium text-sm">{surcout.nom}</p>
-                                {surcout.isGlobal && (
-                                  <Badge variant="outline" className="text-[10px] h-4">
-                                    Par défaut
-                                  </Badge>
-                                )}
+                    {surcoutsCategorie.map((surcout) => {
+                      const isEditing = editingId === surcout.id;
+                      return (
+                        <Card key={surcout.id} className={`${!surcout.actif ? "opacity-50" : ""} ${surcout.isGlobal ? "border-dashed" : ""}`}>
+                          <CardContent className="p-3">
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Catégorie</label>
+                                    <select
+                                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                      value={editForm.categorie}
+                                      onChange={(e) => setEditForm({ ...editForm, categorie: e.target.value })}
+                                    >
+                                      {cfg.categories.map(cat => (
+                                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Code</label>
+                                    <Input
+                                      value={editForm.code}
+                                      onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Nom</label>
+                                    <Input
+                                      value={editForm.nom}
+                                      onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Prix €</label>
+                                    <Input
+                                      type="number"
+                                      value={editForm.prix}
+                                      onChange={(e) => setEditForm({ ...editForm, prix: parseFloat(e.target.value) || 0 })}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-[10px] text-muted-foreground">Type calcul</label>
+                                    <select
+                                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                      value={editForm.type_calcul}
+                                      onChange={(e) => setEditForm({ ...editForm, type_calcul: e.target.value })}
+                                    >
+                                      {cfg.typeCalculOptions.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 justify-end pt-1">
+                                  <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
+                                    <X className="h-4 w-4 mr-1" /> Annuler
+                                  </Button>
+                                  <Button size="sm" onClick={() => saveEdit(surcout)} disabled={saving}>
+                                    {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                                    Enregistrer
+                                  </Button>
+                                </div>
                               </div>
-                              <p className="text-xs text-muted-foreground">{surcout.code}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-green-600">
-                                {surcout.type_calcul === 'par_panneau' 
-                                  ? `${formatCurrency(surcout.prix)}/pann.`
-                                  : surcout.type_calcul === 'par_m2'
-                                  ? `${formatCurrency(surcout.prix)}/m²`
-                                  : surcout.type_calcul === 'par_ml'
-                                  ? `${formatCurrency(surcout.prix)}/ml`
-                                  : formatCurrency(surcout.prix)}
-                              </span>
-                              <Switch 
-                                checked={surcout.actif} 
-                                onCheckedChange={() => handleToggleSurcoutActif(surcout)}
-                              />
-                              {!surcout.isGlobal && (
-                                <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="text-destructive h-8 w-8"
-                                  onClick={() => handleDeleteSurcout(surcout)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm">{surcout.nom}</p>
+                                    {surcout.isGlobal && (
+                                      <Badge variant="outline" className="text-[10px] h-4">
+                                        Par défaut
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{surcout.code}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-success">
+                                    {surcout.type_calcul === 'par_panneau' 
+                                      ? `${formatCurrency(surcout.prix)}/pann.`
+                                      : surcout.type_calcul === 'par_m2'
+                                      ? `${formatCurrency(surcout.prix)}/m²`
+                                      : surcout.type_calcul === 'par_ml'
+                                      ? `${formatCurrency(surcout.prix)}/ml`
+                                      : formatCurrency(surcout.prix)}
+                                  </span>
+                                  <Switch 
+                                    checked={surcout.actif} 
+                                    onCheckedChange={() => handleToggleSurcoutActif(surcout)}
+                                  />
+                                  {!surcout.isGlobal && (
+                                    <>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8"
+                                        onClick={() => startEdit(surcout)}
+                                        title="Modifier"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button 
+                                        size="icon" 
+                                        variant="ghost" 
+                                        className="text-destructive h-8 w-8"
+                                        onClick={() => handleDeleteSurcout(surcout)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 );
               })}
