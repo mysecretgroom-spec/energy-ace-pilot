@@ -1465,6 +1465,7 @@ export type Database = {
           classification_updated_by: string | null
           client_id: string
           consommation_annuelle_kwh: number | null
+          cq_date_heure: string | null
           created_at: string
           duree_financement_mois: number | null
           eco_tva: number | null
@@ -1569,6 +1570,7 @@ export type Database = {
           classification_updated_by?: string | null
           client_id: string
           consommation_annuelle_kwh?: number | null
+          cq_date_heure?: string | null
           created_at?: string
           duree_financement_mois?: number | null
           eco_tva?: number | null
@@ -1673,6 +1675,7 @@ export type Database = {
           classification_updated_by?: string | null
           client_id?: string
           consommation_annuelle_kwh?: number | null
+          cq_date_heure?: string | null
           created_at?: string
           duree_financement_mois?: number | null
           eco_tva?: number | null
