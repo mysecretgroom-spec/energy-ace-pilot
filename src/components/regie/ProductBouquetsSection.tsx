@@ -85,6 +85,15 @@ export function ProductBouquetsSection({
     commission_fixe: 0,
   });
 
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    nom_bouquet: "",
+    puissance_kwc: 0,
+    prix_recommande: 0,
+    commission_fixe: 0,
+  });
+
   // Filter bouquets by product type (null = PV for backwards compatibility)
   // Only show active bouquets
   const getBouquetsByProduct = (productType: ProductType) => {
