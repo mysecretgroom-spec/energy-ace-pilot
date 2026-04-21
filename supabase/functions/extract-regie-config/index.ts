@@ -5,16 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface ImageInput {
+  imageBase64: string;
+  mimeType?: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { imageBase64, mimeType, extractTypes = ["bouquets", "surcouts", "financements"] } = await req.json();
+    const body = await req.json();
+    // Backward compat: accept single image OR an array of images
+    const images: ImageInput[] = Array.isArray(body.images) && body.images.length > 0
+      ? body.images
+      : body.imageBase64
+        ? [{ imageBase64: body.imageBase64, mimeType: body.mimeType }]
+        : [];
 
-    if (!imageBase64) {
-      throw new Error("Image base64 requise");
+    if (images.length === 0) {
+      throw new Error("Au moins une image est requise");
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -22,13 +33,13 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY non configurée");
     }
 
-    console.log("Extract regie config, types:", extractTypes, "mime:", mimeType);
+    console.log(`Extract regie config from ${images.length} image(s)`);
 
     const systemPrompt = `Tu es un expert en extraction de données tarifaires pour des régies d'installations énergétiques (PV, PAC, ITE).
 
-Tu vas recevoir un document (PDF ou image) contenant les conditions commerciales d'une régie partenaire.
+Tu vas recevoir UN OU PLUSIEURS documents (PDF ou images) contenant les conditions commerciales d'une régie partenaire. Les documents peuvent contenir des informations complémentaires : par exemple un screenshot pour la grille PV, un autre pour PAC, un autre pour les surcoûts, et un dernier pour les financements. Analyse TOUS les documents et fusionne les données extraites.
 
-EXTRAIT les informations suivantes selon ce qui est visible dans le document:
+EXTRAIT les informations suivantes selon ce qui est visible dans les documents:
 
 1. **BOUQUETS/TARIFS** (grilles tarifaires par produit):
    Pour chaque ligne/bouquet, extrait:
@@ -56,10 +67,24 @@ EXTRAIT les informations suivantes selon ce qui est visible dans le document:
    - taeg: TAEG en % (0 pour comptant)
 
 IMPORTANT:
-- Extrait UNIQUEMENT ce qui est visible dans le document
+- Extrait UNIQUEMENT ce qui est visible dans les documents
 - Les prix sont généralement en TTC
 - Si une donnée n'est pas visible, ne l'invente pas
+- Évite les doublons si une même ligne apparaît dans plusieurs images
 - Retourne des tableaux vides si une catégorie n'est pas présente`;
+
+    const userContent: any[] = [
+      {
+        type: "text",
+        text: `Analyse ${images.length > 1 ? `ces ${images.length} documents` : "ce document"} de conditions commerciales d'une régie et extrait tous les bouquets/tarifs, surcoûts et options de financement. Fusionne les données et retourne-les structurées.`,
+      },
+      ...images.map((img) => ({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType || "image/jpeg"};base64,${img.imageBase64}`,
+        },
+      })),
+    ];
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -71,28 +96,14 @@ IMPORTANT:
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyse ce document de conditions commerciales d'une régie et extrait tous les bouquets/tarifs, surcoûts et options de financement. Retourne les données structurées.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
-                },
-              },
-            ],
-          },
+          { role: "user", content: userContent },
         ],
         tools: [
           {
             type: "function",
             function: {
               name: "extract_regie_config",
-              description: "Extrait la configuration complète d'une régie depuis un document",
+              description: "Extrait la configuration complète d'une régie depuis un ou plusieurs documents",
               parameters: {
                 type: "object",
                 properties: {
@@ -180,7 +191,6 @@ IMPORTANT:
       }
     }
 
-    // Fallback: parse from content
     if (!result.bouquets?.length && !result.surcouts?.length && !result.financements?.length) {
       const content = data.choices?.[0]?.message?.content;
       if (content) {
@@ -195,7 +205,6 @@ IMPORTANT:
       }
     }
 
-    // Normalize
     result.bouquets = (result.bouquets || []).map((b: any) => ({
       product_type: b.product_type || "PV",
       nom_bouquet: b.nom_bouquet || "Bouquet",

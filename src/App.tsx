@@ -51,6 +51,7 @@ const VentesSettings = React.lazy(() => import("./pages/settings/VentesSettings"
 const PushNotificationsSettings = React.lazy(() => import("./pages/settings/PushNotificationsSettings"));
 const ObjectifsSettings = React.lazy(() => import("./pages/settings/ObjectifsSettings"));
 const RegiesSettings = React.lazy(() => import("./pages/settings/RegiesSettings"));
+const AutoConfigRegie = React.lazy(() => import("./pages/settings/AutoConfigRegie"));
 const WhatsAppTemplatesSettings = React.lazy(() => import("./pages/settings/WhatsAppTemplatesSettings"));
 const WhatsAppAgentSettings = React.lazy(() => import("./pages/settings/WhatsAppAgentSettings"));
 const DataEnergiesPrix = React.lazy(() => import("./pages/settings/DataEnergiesPrix"));
@@ -180,6 +181,7 @@ const App = () => {
                       <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/regies-auto-config" element={<ProtectedRoute><AutoConfigRegie /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
                       <Route path="/parametres/agent-notifications" element={<ProtectedRoute><AgentNotificationsSettings /></ProtectedRoute>} />
