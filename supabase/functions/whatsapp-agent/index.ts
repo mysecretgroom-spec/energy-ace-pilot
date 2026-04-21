@@ -2948,6 +2948,56 @@ serve(async (req) => {
     let skipAiAnalysis = false;
 
     // ============================================================
+    // GLOBAL CANCEL: hard reset commands that work at any time, even
+    // when no workflow is loaded (e.g. ghost pending_action stuck in DB
+    // or images buffered in album debounce). Wipes pending_action,
+    // tracked SIDs, and unprocessed buffered images.
+    // ============================================================
+    if (request.messageType === "text") {
+      const trimmed = (processedContent || "").trim().toLowerCase();
+      const hardCancelPatterns = [
+        "/annule", "/annuler", "/cancel", "/stop", "/reset",
+        "annule tout", "annuler tout", "tout annuler", "reset",
+        "stop tout", "abandonne tout",
+      ];
+      const isHardCancel = hardCancelPatterns.some(
+        (p) => trimmed === p || trimmed === p + "." || trimmed === p + "!",
+      );
+      if (isHardCancel) {
+        console.log(`[global-cancel] User requested hard reset (msg="${trimmed}")`);
+        await Promise.all([
+          supabase
+            .from("whatsapp_conversations")
+            .update({
+              pending_action: null,
+              pending_message_sids: {},
+            })
+            .eq("user_id", request.userId),
+          supabase
+            .from("whatsapp_pending_images")
+            .update({ status: "cancelled" })
+            .eq("user_id", request.userId)
+            .eq("status", "pending"),
+        ]);
+        const hadSomething =
+          !!pendingAction?.workflowState || dedupedPendingSnapshots.length > 0;
+        const msg = hadSomething
+          ? "✅ Tout a été annulé. On repart à zéro 🧹\n\nQu'est-ce que je peux faire pour toi ?"
+          : "👌 Rien à annuler — aucune action n'était en cours.\n\nDis-moi ce que tu veux faire.";
+        return new Response(
+          JSON.stringify({
+            intent: "cancel_action" as Intent,
+            confidence: 1,
+            entities: {},
+            actionTaken: "global_cancel",
+            responseMessage: msg,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    // ============================================================
     // GO trigger: if user types "GO"/"OK" with NO active workflow,
     // and they have buffered images → batch-extract + show A/B/C menu.
     // ============================================================
