@@ -179,6 +179,49 @@ export function ProductBouquetsSection({
     }
   };
 
+  const startEdit = (bouquet: RegieBouquet) => {
+    setEditingId(bouquet.id);
+    setEditForm({
+      nom_bouquet: bouquet.nom_bouquet,
+      puissance_kwc: bouquet.puissance_kwc,
+      prix_recommande: bouquet.prix_recommande,
+      commission_fixe: bouquet.commission_fixe,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = async (bouquet: RegieBouquet) => {
+    if (!editForm.nom_bouquet.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("bouquets")
+        .update({
+          nom_bouquet: editForm.nom_bouquet.trim(),
+          puissance_kwc: editForm.puissance_kwc,
+          prix_recommande: editForm.prix_recommande,
+          prix_max: editForm.prix_recommande,
+          commission_fixe: editForm.commission_fixe,
+        })
+        .eq("id", bouquet.id);
+      if (error) throw error;
+      toast.success("Bouquet modifié");
+      setEditingId(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Error updating bouquet:", error);
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const config = productConfig[activeProductTab];
 
   return (
