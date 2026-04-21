@@ -29,10 +29,16 @@ export interface MultiRdvBatchData {
   validated: string[];
   /** Letters removed by user */
   removed: string[];
-  /** Régie selected for the whole batch */
+  /** Régie selected for the whole batch (when uniform) */
   regieId: string | null;
-  /** Régie name (display) */
+  /** Régie name (display, when uniform) */
   regieName: string | null;
+  /** Per-RDV régie override (letter → regieId). Used when each RDV has its own régie. */
+  perRdvRegie?: Record<string, string>;
+  /** Per-RDV régie name (letter → regieName) for display */
+  perRdvRegieName?: Record<string, string>;
+  /** Letter currently waiting for its régie (per-RDV mode) */
+  pendingRegieLetter?: string | null;
   /** True when user is editing a specific entry (e.g. "ÉDITER B") */
   editingLetter?: string | null;
   /** Field being edited if editing flow */
@@ -235,7 +241,7 @@ export function formatRdvLine(letter: string, r: ExtractedRdv): string {
 }
 
 /** Format a detailed RDV block (multi-line) showing all extracted fields */
-export function formatRdvDetailed(letter: string | null, r: ExtractedRdv): string {
+export function formatRdvDetailed(letter: string | null, r: ExtractedRdv, regieName?: string | null): string {
   const fullName = [r.prenom, r.nom].filter(Boolean).join(" ").trim() || "Client";
   const dateLabel = r.date ? formatFrenchDate(r.date) : "❓ date manquante";
   const timeLabel = r.heure ? ` à ${r.heure}` : "";
@@ -249,6 +255,7 @@ export function formatRdvDetailed(letter: string | null, r: ExtractedRdv): strin
   if (r.telephone) lines.push(`📞 ${r.telephone}`);
   if (r.email) lines.push(`✉️ ${r.email}`);
   if (r.type_projet) lines.push(`🏷️ ${r.type_projet}`);
+  if (regieName) lines.push(`🏢 ${regieName}`);
   if (r.notes) {
     const notes = r.notes.length > 200 ? r.notes.slice(0, 200) + "…" : r.notes;
     lines.push(`📝 ${notes}`);
@@ -274,11 +281,18 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
   }
 
   const isSingle = remaining.length === 1;
+  const isPerRdvRegie = !!data.perRdvRegie && Object.keys(data.perRdvRegie).length > 0;
+  const headerRegie = isPerRdvRegie
+    ? "Régie: par RDV"
+    : `Régie: ${data.regieName || "?"}`;
   const header = intro || (isSingle
-    ? `📸 *RDV détecté* (Régie: ${data.regieName || "?"})`
-    : `📸 *${remaining.length} RDV détectés* (Régie: ${data.regieName || "?"})`);
+    ? `📸 *RDV détecté* (${headerRegie})`
+    : `📸 *${remaining.length} RDV détectés* (${headerRegie})`);
 
-  const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
+  const blocks = remaining.map((x) => {
+    const perRdvName = isPerRdvRegie ? (data.perRdvRegieName?.[x.letter] || null) : null;
+    return formatRdvDetailed(isSingle ? null : x.letter, x.rdv, perRdvName);
+  });
 
   const visibleLetters = new Set(remaining.map((x) => x.letter));
   const visibleWarnings = (data.warnings || []).filter((w) => visibleLetters.has(w.letter));
@@ -587,7 +601,7 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
-    notes: mergedNotes,
+    commentaire: mergedNotes,
   }).select("id").single();
 
   if (rdvErr) {
@@ -646,6 +660,20 @@ export function buildRegieSelectionMessage(
     warnBlock.push("_Tu pourras choisir `OUI` / `FORCER` / `NOTE: ...` après avoir indiqué la régie._");
   }
 
+  // Multi-RDV → propose "all same régie" vs "one per RDV"
+  if (!isSingle) {
+    return [
+      head + recap,
+      ...warnBlock,
+      "",
+      "🏢 *Tous ces RDV sont-ils pour la même régie ?*",
+      "",
+      "• `OUI` → je te demande UNE seule régie pour tous",
+      "• `NON` → je te demande la régie pour CHAQUE RDV (A, B, C…)",
+      "• `ANNULER` → tout annuler",
+    ].join("\n");
+  }
+
   return [
     head + recap,
     ...warnBlock,
@@ -657,3 +685,52 @@ export function buildRegieSelectionMessage(
     "👆 Réponds avec le *numéro*",
   ].join("\n");
 }
+
+/** Build "choose régie for letter X" message (per-RDV mode) */
+export function buildRegieSelectionForLetter(
+  letter: string,
+  rdv: ExtractedRdv,
+  regies: Array<{ id: string; nom: string }>,
+  alreadyChosen: Record<string, string> = {},
+  regieNameById: Record<string, string> = {},
+): string {
+  const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  const detail = formatRdvDetailed(letter, rdv);
+  const progress = Object.keys(alreadyChosen).length;
+  const recapPrev = progress > 0
+    ? "\n\n_Régies déjà choisies:_\n" +
+      Object.entries(alreadyChosen)
+        .map(([l, rid]) => `   *${l}.* → ${regieNameById[rid] || rid}`)
+        .join("\n")
+    : "";
+  return [
+    `🏢 *Régie pour le RDV ${letter}*`,
+    "",
+    detail,
+    recapPrev,
+    "",
+    "Choisis la *Régie* :",
+    "",
+    ...lines,
+    "",
+    "👆 Réponds avec le *numéro*",
+  ].join("\n");
+}
+
+/** Build the simple "choose one régie for all" list */
+export function buildRegieSelectionUniform(
+  regies: Array<{ id: string; nom: string }>,
+  count: number,
+): string {
+  const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  return [
+    `🏢 *Une seule régie pour les ${count} RDV*`,
+    "",
+    "Choisis la *Régie* :",
+    "",
+    ...lines,
+    "",
+    "👆 Réponds avec le *numéro*",
+  ].join("\n");
+}
+
