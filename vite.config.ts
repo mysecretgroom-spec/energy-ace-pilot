@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt", "pwa-icons/*.png"],
       manifest: {
         name: "DébalePro - Gestion commerciale ENR",
