@@ -1,0 +1,2 @@
+DELETE FROM rdv WHERE id = 'd40d0152-e411-4af2-8f29-0bc81f289ba3';
+DELETE FROM clients WHERE id = 'fffa005c-cfa5-455a-885c-521b2685068d';
