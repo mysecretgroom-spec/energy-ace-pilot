@@ -99,16 +99,26 @@ export function isCancelMultiRdv(message: string): boolean {
   return ["non", "annule", "annuler", "stop", "oublie"].includes(t);
 }
 
-/** Fetch all pending images for user */
+/**
+ * Fetch pending images for user.
+ * IMPORTANT: only returns images buffered RECENTLY (last 10 min by default)
+ * so a stale image that failed to flip status can never pollute a new batch.
+ */
 export async function fetchPendingImages(
   supabase: any,
   userId: string,
+  options?: { sinceIso?: string; maxAgeMinutes?: number },
 ): Promise<Array<{ id: string; image_data: string; mime_type: string }>> {
+  const maxAgeMin = options?.maxAgeMinutes ?? 10;
+  const sinceIso =
+    options?.sinceIso ?? new Date(Date.now() - maxAgeMin * 60_000).toISOString();
+
   const { data, error } = await supabase
     .from("whatsapp_pending_images")
-    .select("id, image_data, mime_type")
+    .select("id, image_data, mime_type, created_at")
     .eq("user_id", userId)
     .eq("status", "pending")
+    .gte("created_at", sinceIso)
     .order("created_at", { ascending: true })
     .limit(10);
 
@@ -116,31 +126,75 @@ export async function fetchPendingImages(
     console.error("fetchPendingImages error:", error);
     return [];
   }
-  return data || [];
+
+  // Defensive: also flip any image OLDER than the window to "expired" so it
+  // never resurfaces (silent self-heal of a corrupted buffer).
+  await supabase
+    .from("whatsapp_pending_images")
+    .update({ status: "expired" })
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .lt("created_at", sinceIso);
+
+  return (data || []).map((d: any) => ({
+    id: d.id,
+    image_data: d.image_data,
+    mime_type: d.mime_type,
+  }));
 }
 
-/** Mark images as processed */
+/** Mark images as processed (no processed_at column on this table) */
 export async function markImagesProcessed(
   supabase: any,
   ids: string[],
 ): Promise<void> {
   if (!ids.length) return;
-  await supabase
+  const { error } = await supabase
     .from("whatsapp_pending_images")
-    .update({ status: "processed", processed_at: new Date().toISOString() })
+    .update({ status: "processed" })
     .in("id", ids);
+  if (error) {
+    console.error("markImagesProcessed error:", error);
+  }
 }
 
-/** Discard buffered images (cancel) */
+/** Discard buffered images (cancel). */
 export async function discardPendingImages(
   supabase: any,
   userId: string,
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("whatsapp_pending_images")
-    .update({ status: "discarded", processed_at: new Date().toISOString() })
+    .update({ status: "discarded" })
     .eq("user_id", userId)
     .eq("status", "pending");
+  if (error) {
+    console.error("discardPendingImages error:", error);
+  }
+}
+
+/**
+ * Force-clear ALL pending images for a user, regardless of age.
+ * Used after a batch is processed (defensive — guarantees nothing lingers).
+ */
+export async function clearAllPendingImages(
+  supabase: any,
+  userId: string,
+  excludeIds: string[] = [],
+): Promise<void> {
+  let q = supabase
+    .from("whatsapp_pending_images")
+    .update({ status: "cleared" })
+    .eq("user_id", userId)
+    .eq("status", "pending");
+  if (excludeIds.length > 0) {
+    // PostgREST `not.in` syntax
+    q = q.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+  const { error } = await q;
+  if (error) {
+    console.error("clearAllPendingImages error:", error);
+  }
 }
 
 /** Call extract-rdv-from-image with multiple images */
