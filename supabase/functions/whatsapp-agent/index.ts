@@ -4060,6 +4060,20 @@ async function handlePendingWorkflow(
       return { intent: "create_rdv", actionTaken: "rdv_removed", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch, `🗑️ *${parsed.letter}* retiré.`) };
     }
 
+    if (parsed.kind === "set_note") {
+      const newBatch: MultiRdvBatchData = { ...batch, contextNote: parsed.note };
+      const newPending: PendingAction = {
+        ...pendingAction,
+        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      };
+      return {
+        intent: "create_rdv",
+        actionTaken: "note_added",
+        newPendingAction: newPending,
+        responseMessage: buildMenuMessage(newBatch, `📝 Note enregistrée. Confirme avec *OUI* ou *FORCER* pour créer.`),
+      };
+    }
+
     if (parsed.kind === "create_all" || parsed.kind === "create_subset") {
       const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
       const lettersToCreate: string[] =
@@ -4073,7 +4087,7 @@ async function handlePendingWorkflow(
         const idx = ALPHA.indexOf(letter);
         const rdv = batch.rdvs[idx];
         if (!rdv) continue;
-        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId);
+        const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, batch.regieId, batch.contextNote || null);
         if (res.ok) {
           created.push({ rdv: rdv as ExtractedRdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
         } else {

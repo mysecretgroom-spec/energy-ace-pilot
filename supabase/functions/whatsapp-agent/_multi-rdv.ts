@@ -39,6 +39,8 @@ export interface MultiRdvBatchData {
   editingField?: string | null;
   /** Pre-computed duplicate / conflict warnings (per letter) */
   warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>;
+  /** Optional contextual note added by user (e.g. "client a déménagé") */
+  contextNote?: string | null;
   /** Created at ISO */
   createdAt: string;
 }
@@ -278,7 +280,9 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
 
   const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
 
-  const actions = isSingle
+  const visibleLetters = new Set(remaining.map((x) => x.letter));
+  const hasWarnings = (data.warnings || []).some((w) => visibleLetters.has(w.letter));
+  const baseActions = isSingle
     ? [
         "*Réponds:*",
         "• `OUI` → créer ce RDV",
@@ -293,7 +297,6 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
       ];
 
   // Inject warnings (only for letters still in remaining)
-  const visibleLetters = new Set(remaining.map((x) => x.letter));
   const warnLines = (data.warnings || [])
     .filter((w) => visibleLetters.has(w.letter))
     .map((w) => `• ${w.message}`);
@@ -301,7 +304,23 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
     ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
     : [];
 
-  return [header, "", blocks.join("\n\n"), ...warnBlock, "", ...actions].join("\n");
+  // Extra options when warnings detected: force-create + add context note
+  const forceActions = hasWarnings
+    ? [
+        "",
+        "_Si tu veux créer malgré l'avertissement:_",
+        "• `FORCER` → créer quand même",
+        "• `NOTE: ...` → ajouter un contexte (ex: `NOTE: nouveau dossier, client a changé d'avis`)",
+      ]
+    : [];
+
+  const noteLine = data.contextNote
+    ? ["", `📝 _Note ajoutée: ${data.contextNote}_`]
+    : [];
+
+  const actions = [...baseActions, ...forceActions];
+
+  return [header, "", blocks.join("\n\n"), ...warnBlock, ...noteLine, "", ...actions].join("\n");
 }
 
 /** Build a final recap message after RDVs were created */
@@ -334,15 +353,28 @@ export function buildCreatedRecap(
 
 /** Parse user response in awaiting_multi_rdv_validation state */
 export type MultiRdvParseResult =
-  | { kind: "create_all" }
-  | { kind: "create_subset"; letters: string[] }
+  | { kind: "create_all"; force?: boolean }
+  | { kind: "create_subset"; letters: string[]; force?: boolean }
   | { kind: "remove"; letter: string }
+  | { kind: "set_note"; note: string }
   | { kind: "cancel" }
   | { kind: "unknown" };
 
 export function parseValidationResponse(message: string, data: MultiRdvBatchData): MultiRdvParseResult {
   const raw = message.trim();
   const lower = raw.toLowerCase();
+
+  // NOTE: ... → attach a contextual note to the batch (does NOT create yet)
+  const noteMatch = raw.match(/^(?:note|contexte|context|info)\s*[:\-]\s*(.+)$/i);
+  if (noteMatch) {
+    const note = noteMatch[1].trim();
+    if (note.length > 0) return { kind: "set_note", note: note.slice(0, 500) };
+  }
+
+  // FORCER → bypass warnings and create everything
+  if (["forcer", "force", "force-create", "quand meme", "quand même", "malgré", "malgre", "ignore"].includes(lower)) {
+    return { kind: "create_all", force: true };
+  }
 
   if (["oui", "ok", "yes", "tout", "tous", "valide", "valider", "go"].includes(lower)) {
     return { kind: "create_all" };
@@ -358,12 +390,14 @@ export function parseValidationResponse(message: string, data: MultiRdvBatchData
     if (isLetterValid(letter, data)) return { kind: "remove", letter };
   }
 
-  // Subset: letters separated by space/comma/+ — e.g. "A C E" or "A,B" or "A+B"
-  const tokens = raw.split(/[\s,+;/]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
+  // Subset with optional FORCER prefix/suffix
+  const forceFlag = /\bforcer?\b/i.test(raw);
+  const cleaned = raw.replace(/\bforcer?\b/gi, " ").trim();
+  const tokens = cleaned.split(/[\s,+;/]+/).map((t) => t.trim().toUpperCase()).filter(Boolean);
   if (tokens.length > 0 && tokens.every((t) => /^[A-Z]$/.test(t))) {
     const valid = tokens.filter((t) => isLetterValid(t, data));
     if (valid.length > 0) {
-      return { kind: "create_subset", letters: Array.from(new Set(valid)) };
+      return { kind: "create_subset", letters: Array.from(new Set(valid)), force: forceFlag };
     }
   }
 
@@ -469,11 +503,17 @@ export async function createSingleRdvFromExtract(
   userId: string,
   rdv: ExtractedRdv,
   regieId: string | null,
+  contextNote?: string | null,
 ): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; rdvId?: string; clientId?: string; error?: string }> {
   const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
   if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
     return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
   }
+
+  // Merge any user-provided context note into the RDV / client notes
+  const mergedNotes = [rdv.notes, contextNote ? `📝 Note agent: ${contextNote}` : null]
+    .filter(Boolean)
+    .join("\n") || null;
 
   // 1) Find or create client
   let clientId: string | null = null;
@@ -493,7 +533,7 @@ export async function createSingleRdvFromExtract(
         adresse: rdv.adresse || null,
         code_postal: rdv.code_postal || null,
         ville: rdv.ville || null,
-        notes: rdv.notes || null,
+        notes: mergedNotes,
         regie_id: regieId,
         source: "whatsapp_agent_image",
       })
@@ -521,6 +561,7 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
+    notes: mergedNotes,
   }).select("id").single();
 
   if (rdvErr) {
