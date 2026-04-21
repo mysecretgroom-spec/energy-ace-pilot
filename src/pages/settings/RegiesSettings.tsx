@@ -333,11 +333,10 @@ const RegiesSettings = () => {
 
   const fetchRegieDetails = async (regieId: string) => {
     try {
-      const [emailsRes, contactsRes, regieBouquetsRes, globalBouquetsRes, financementsRes, regieSurcoutsRes] = await Promise.all([
+      const [emailsRes, contactsRes, regieBouquetsRes, financementsRes, regieSurcoutsRes] = await Promise.all([
         supabase.from("emails_autorises").select("*").eq("regie_id", regieId),
         supabase.from("regies_contacts").select("*").eq("regie_id", regieId).order("is_principal", { ascending: false }),
         supabase.from("bouquets").select("*").contains("regie_ids", [regieId]).order("puissance_kwc"),
-        supabase.from("bouquets").select("*").is("regie_ids", null).eq("actif", true).order("puissance_kwc"),
         supabase.from("regies_financements").select("*").eq("regie_id", regieId).order("duree_mois"),
         supabase.from("regies_surcouts").select("*").eq("regie_id", regieId).order("categorie"),
       ]);
@@ -345,23 +344,14 @@ const RegiesSettings = () => {
       setRegieEmails((emailsRes.data || []) as RegieEmail[]);
       setRegieContacts(contactsRes.data || []);
       
-      // Merge regie-specific and global bouquets
+      // Only show regie-specific bouquets (no global pre-configured bouquets)
       const regieBouquetsData = (regieBouquetsRes.data || []).map((b: any) => ({
         ...b,
         regie_id: regieId,
         isGlobal: false,
       }));
-      const globalBouquetsData = (globalBouquetsRes.data || []).map((b: any) => ({
-        ...b,
-        regie_id: regieId,
-        isGlobal: true,
-      }));
       
-      // Filter out global bouquets that have been overridden by regie-specific ones (same nom_bouquet + product_type)
-      const regieKeys = new Set(regieBouquetsData.map((b: any) => `${b.product_type || 'PV'}-${b.nom_bouquet}`));
-      const nonOverriddenGlobalBouquets = globalBouquetsData.filter((b: any) => !regieKeys.has(`${b.product_type || 'PV'}-${b.nom_bouquet}`));
-      
-      setRegieBouquets([...regieBouquetsData, ...nonOverriddenGlobalBouquets]);
+      setRegieBouquets(regieBouquetsData);
       setRegieFinancements(financementsRes.data || []);
       
       // Only use regie-specific surcouts (no global merge)
