@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,jpg,jpeg,webp}"],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       clientsClaim: true,
-      skipWaiting: false,
+      skipWaiting: true,
         importScripts: ["https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js"],
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
