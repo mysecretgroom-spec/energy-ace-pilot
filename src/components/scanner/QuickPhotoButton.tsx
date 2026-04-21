@@ -51,7 +51,7 @@ function triggerBlobDownload(blob: Blob, fileName: string) {
  * Merges all study photo documents into a single PDF.
  * Called after each photo upload to maintain one combined PDF.
  */
-async function mergeStudyPhotosIntoPdf(
+export async function mergeStudyPhotosIntoPdf(
   userId: string,
   clientId: string,
   etudeId: string
@@ -319,14 +319,10 @@ export function QuickPhotoButton({
 
       onPhotoSaved?.();
 
-      // Merge all study photos into a single PDF and auto-download it
+      // Merge all study photos into a single combined PDF in storage (no auto-download).
+      // The download is triggered manually from the EtudeForm classification section.
       if (etudeId) {
         mergeStudyPhotosIntoPdf(user.id, clientId, etudeId)
-          .then((pdfBlob) => {
-            if (pdfBlob) {
-              triggerBlobDownload(pdfBlob, `Photos_visite_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.pdf`);
-            }
-          })
           .catch((err) => console.warn("Background merge failed:", err));
       }
     } catch (error) {
