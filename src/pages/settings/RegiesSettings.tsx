@@ -103,6 +103,7 @@ interface RegieFinancement {
   nom: string;
   taux_effectif: number;
   taeg: number;
+  duree_mois: number;
   actif: boolean;
 }
 
