@@ -503,11 +503,17 @@ export async function createSingleRdvFromExtract(
   userId: string,
   rdv: ExtractedRdv,
   regieId: string | null,
+  contextNote?: string | null,
 ): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; rdvId?: string; clientId?: string; error?: string }> {
   const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
   if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
     return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
   }
+
+  // Merge any user-provided context note into the RDV / client notes
+  const mergedNotes = [rdv.notes, contextNote ? `📝 Note agent: ${contextNote}` : null]
+    .filter(Boolean)
+    .join("\n") || null;
 
   // 1) Find or create client
   let clientId: string | null = null;
@@ -527,7 +533,7 @@ export async function createSingleRdvFromExtract(
         adresse: rdv.adresse || null,
         code_postal: rdv.code_postal || null,
         ville: rdv.ville || null,
-        notes: rdv.notes || null,
+        notes: mergedNotes,
         regie_id: regieId,
         source: "whatsapp_agent_image",
       })
@@ -555,6 +561,7 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
+    notes: mergedNotes,
   }).select("id").single();
 
   if (rdvErr) {
