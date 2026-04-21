@@ -37,6 +37,8 @@ export interface MultiRdvBatchData {
   editingLetter?: string | null;
   /** Field being edited if editing flow */
   editingField?: string | null;
+  /** Pre-computed duplicate / conflict warnings (per letter) */
+  warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>;
   /** Created at ISO */
   createdAt: string;
 }
