@@ -2434,6 +2434,50 @@ serve(async (req) => {
 
     console.log(`Loaded ${userMemories.length} memories and ${userPrompts.length} custom prompts for user`);
 
+    // ============================================================
+    // POST-ACTION EDIT: if user is replying to a recap message we sent,
+    // route through the edit handler INSTEAD of normal pipeline.
+    // ============================================================
+    if (
+      !pendingAction?.workflowState &&
+      request.repliedToTwilioSid &&
+      request.messageType === "text"
+    ) {
+      const editTarget = await findEditTarget(supabase, request.userId, request.repliedToTwilioSid);
+      if (editTarget) {
+        console.log(`Post-action edit detected for ${editTarget.entityType}/${editTarget.entityId}`);
+        const editResult = await handlePostActionEdit(
+          supabase,
+          request.userId,
+          LOVABLE_API_KEY!,
+          editTarget,
+          processedContent,
+        );
+        if (editResult) {
+          // Clear the remembered action only if it was deleted; otherwise
+          // keep it so the user can chain further edits.
+          if (editResult.actionTaken === "edit_deleted") {
+            await supabase
+              .from("whatsapp_conversations")
+              .update({ last_executed_action: null, last_action_message_sid: null })
+              .eq("user_id", request.userId);
+          }
+          return new Response(
+            JSON.stringify({
+              intent: editResult.intent as Intent,
+              confidence: 1,
+              entities: {},
+              actionTaken: editResult.actionTaken,
+              entityId: editResult.entityId,
+              entityType: editResult.entityType,
+              responseMessage: editResult.responseMessage,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      }
+    }
+
     // Check if we have a pending action that needs workflow handling
     let actionResult: { actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; customResponse?: string } = {};
     let aiResponse: { intent: Intent; confidence: number; entities: Record<string, unknown>; requiresConfirmation: boolean; responseMessage: string };
