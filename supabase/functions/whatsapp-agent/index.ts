@@ -2362,7 +2362,7 @@ serve(async (req) => {
               };
 
               const responseMsg = regieRes.needsSelection
-                ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs.length)
+                ? buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs)
                 : buildMenuMessage(batchData);
               const workflowState: WorkflowState = regieRes.needsSelection
                 ? "awaiting_multi_rdv_regie"
