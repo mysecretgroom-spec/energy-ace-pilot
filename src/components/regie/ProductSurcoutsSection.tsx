@@ -287,6 +287,7 @@ export function ProductSurcoutsSection({
     }
   };
 
+  return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Surcoûts techniques spécifiques à cette régie par type de produit
