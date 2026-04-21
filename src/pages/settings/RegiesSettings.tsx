@@ -657,6 +657,7 @@ const RegiesSettings = () => {
         nom: "",
         taux_effectif: 0,
         taeg: 0,
+        duree_mois: 180,
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -688,6 +689,45 @@ const RegiesSettings = () => {
       ));
     } catch (error) {
       console.error("Error toggling financement:", error);
+    }
+  };
+
+  const startEditFinancement = (financement: RegieFinancement) => {
+    setEditingFinancementId(financement.id);
+    setEditFinancementForm({
+      nom: financement.nom,
+      taux_effectif: financement.taux_effectif,
+      taeg: financement.taeg,
+      duree_mois: financement.duree_mois ?? 180,
+    });
+  };
+
+  const cancelEditFinancement = () => {
+    setEditingFinancementId(null);
+  };
+
+  const saveEditFinancement = async (financement: RegieFinancement) => {
+    if (!editFinancementForm.nom.trim()) {
+      toast.error("Le nom est requis");
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("regies_financements")
+        .update({
+          nom: editFinancementForm.nom.trim(),
+          taux_effectif: editFinancementForm.taux_effectif,
+          taeg: editFinancementForm.taeg,
+          duree_mois: editFinancementForm.duree_mois,
+        })
+        .eq("id", financement.id);
+      if (error) throw error;
+      toast.success("Financement modifié");
+      setEditingFinancementId(null);
+      if (selectedRegie) fetchRegieDetails(selectedRegie.id);
+    } catch (error) {
+      console.error("Error updating financement:", error);
+      toast.error("Erreur lors de la modification");
     }
   };
 
