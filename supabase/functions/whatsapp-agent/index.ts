@@ -2495,7 +2495,7 @@ serve(async (req) => {
     const [conversationResult, userMemories, userPrompts] = await Promise.all([
       supabase
         .from("whatsapp_conversations")
-        .select("context, pending_action")
+        .select("context, pending_action, pending_message_sids")
         .eq("user_id", request.userId)
         .single(),
       loadUserMemories(supabase, request.userId),
@@ -2503,7 +2503,65 @@ serve(async (req) => {
     ]);
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
-    const pendingAction = conversationResult.data?.pending_action as PendingAction | null;
+    let pendingAction = conversationResult.data?.pending_action as PendingAction | null;
+
+    // ============================================================
+    // QUOTED-REPLY ROUTING: if the user replied to a specific agent
+    // message, restore the pending_action that was attached to THAT
+    // message (instead of the most recent one). This way the agent
+    // knows which question the user is answering, even if multiple
+    // workflow messages were sent in a row.
+    // ============================================================
+    type PendingSidEntry = { snapshot: PendingAction; createdAt: string };
+    const pendingMessageSidsRaw =
+      (conversationResult.data?.pending_message_sids || {}) as Record<string, PendingSidEntry>;
+    // Filter out entries older than 24h
+    const PENDING_SID_TTL_MS = 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const pendingMessageSids: Record<string, PendingSidEntry> = {};
+    for (const [sid, entry] of Object.entries(pendingMessageSidsRaw)) {
+      const ts = entry?.createdAt ? Date.parse(entry.createdAt) : 0;
+      if (ts && nowMs - ts < PENDING_SID_TTL_MS) {
+        pendingMessageSids[sid] = entry;
+      }
+    }
+    const activePendingSids = Object.keys(pendingMessageSids);
+
+    if (request.repliedToTwilioSid && pendingMessageSids[request.repliedToTwilioSid]) {
+      const restored = pendingMessageSids[request.repliedToTwilioSid].snapshot;
+      console.log(
+        `[reply-routing] User replied to SID ${request.repliedToTwilioSid} → restoring workflow ${restored.workflowState} (intent ${restored.intent})`,
+      );
+      pendingAction = restored;
+    } else if (
+      !request.repliedToTwilioSid &&
+      activePendingSids.length > 1 &&
+      request.messageType === "text" &&
+      pendingAction?.workflowState
+    ) {
+      // Several questions are awaiting a reply and the user did not quote
+      // any of them. Ask them to clarify instead of guessing.
+      const summaries = activePendingSids
+        .map((sid, i) => {
+          const entry = pendingMessageSids[sid];
+          const state = entry?.snapshot?.workflowState || "?";
+          return `${i + 1}. ${state}`;
+        })
+        .join("\n");
+      const askMsg =
+        `🤔 J'ai plusieurs questions en attente :\n\n${summaries}\n\n` +
+        `👉 Réponds en *citant* (quoted reply) le message exact auquel tu réponds, sinon je ne sais pas auquel tu fais référence.`;
+      return new Response(
+        JSON.stringify({
+          intent: "conversation" as Intent,
+          confidence: 1,
+          entities: {},
+          actionTaken: "ambiguous_reply",
+          responseMessage: askMsg,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     console.log(`Loaded ${userMemories.length} memories and ${userPrompts.length} custom prompts for user`);
 
