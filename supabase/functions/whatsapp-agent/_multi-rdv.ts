@@ -29,10 +29,16 @@ export interface MultiRdvBatchData {
   validated: string[];
   /** Letters removed by user */
   removed: string[];
-  /** Régie selected for the whole batch */
+  /** Régie selected for the whole batch (when uniform) */
   regieId: string | null;
-  /** Régie name (display) */
+  /** Régie name (display, when uniform) */
   regieName: string | null;
+  /** Per-RDV régie override (letter → regieId). Used when each RDV has its own régie. */
+  perRdvRegie?: Record<string, string>;
+  /** Per-RDV régie name (letter → regieName) for display */
+  perRdvRegieName?: Record<string, string>;
+  /** Letter currently waiting for its régie (per-RDV mode) */
+  pendingRegieLetter?: string | null;
   /** True when user is editing a specific entry (e.g. "ÉDITER B") */
   editingLetter?: string | null;
   /** Field being edited if editing flow */
@@ -587,7 +593,7 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
-    notes: mergedNotes,
+    commentaire: mergedNotes,
   }).select("id").single();
 
   if (rdvErr) {
