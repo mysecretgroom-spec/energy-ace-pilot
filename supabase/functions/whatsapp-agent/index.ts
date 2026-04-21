@@ -3298,7 +3298,10 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       finalResponseMessage = appendEditHint(finalResponseMessage);
     }
 
-    const response: AgentResponse & { lastActionToRemember?: LastExecutedAction | null } = {
+    const response: AgentResponse & {
+      lastActionToRemember?: LastExecutedAction | null;
+      pendingActionToTrack?: PendingAction | null;
+    } = {
       intent: aiResponse!.intent,
       confidence: aiResponse!.confidence,
       entities: aiResponse!.entities,
@@ -3307,6 +3310,11 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       entityType: actionResult.entityType,
       responseMessage: finalResponseMessage,
       lastActionToRemember,
+      // Tell the webhook to attach the response Twilio SID to this
+      // pending workflow, so a quoted-reply can later be routed back
+      // to the exact question.
+      pendingActionToTrack:
+        newPendingAction && newPendingAction.workflowState ? newPendingAction : null,
     };
 
     return new Response(JSON.stringify(response), {
