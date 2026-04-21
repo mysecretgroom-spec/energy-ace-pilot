@@ -281,44 +281,70 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
   const blocks = remaining.map((x) => formatRdvDetailed(isSingle ? null : x.letter, x.rdv));
 
   const visibleLetters = new Set(remaining.map((x) => x.letter));
-  const hasWarnings = (data.warnings || []).some((w) => visibleLetters.has(w.letter));
-  const baseActions = isSingle
-    ? [
-        "*Réponds:*",
-        "• `OUI` → créer ce RDV",
-        "• `NON` → annuler",
-      ]
-    : [
-        "*Réponds:*",
-        "• `OUI` → tout créer",
-        `• \`${remaining.map((x) => x.letter).join(" ")}\` → créer seulement ces RDV (lettres séparées par espace)`,
-        "• `SUPPRIMER B` → retirer un RDV",
-        "• `NON` → tout annuler",
-      ];
+  const visibleWarnings = (data.warnings || []).filter((w) => visibleLetters.has(w.letter));
+  const hasWarnings = visibleWarnings.length > 0;
 
-  // Inject warnings (only for letters still in remaining)
-  const warnLines = (data.warnings || [])
-    .filter((w) => visibleLetters.has(w.letter))
-    .map((w) => `• ${w.message}`);
-  const warnBlock = warnLines.length
-    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
-    : [];
+  // Group warnings by kind for a clearer display
+  const dupWarnings = visibleWarnings.filter((w) => w.kind === "duplicate");
+  const conflictWarnings = visibleWarnings.filter((w) => w.kind === "conflict");
 
-  // Extra options when warnings detected: force-create + add context note
-  const forceActions = hasWarnings
-    ? [
-        "",
-        "_Si tu veux créer malgré l'avertissement:_",
-        "• `FORCER` → créer quand même",
-        "• `NOTE: ...` → ajouter un contexte (ex: `NOTE: nouveau dossier, client a changé d'avis`)",
-      ]
-    : [];
+  const warnBlock: string[] = [];
+  if (hasWarnings) {
+    warnBlock.push("");
+    warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
+    warnBlock.push(`⚠️ *${visibleWarnings.length} alerte${visibleWarnings.length > 1 ? "s" : ""} détectée${visibleWarnings.length > 1 ? "s" : ""}*`);
+    if (dupWarnings.length) {
+      warnBlock.push("");
+      warnBlock.push(`🔁 *Doublon${dupWarnings.length > 1 ? "s" : ""} client* (${dupWarnings.length})`);
+      for (const w of dupWarnings) {
+        warnBlock.push(isSingle ? `   ${w.message}` : `   *${w.letter}.* ${w.message}`);
+      }
+    }
+    if (conflictWarnings.length) {
+      warnBlock.push("");
+      warnBlock.push(`⏰ *Conflit${conflictWarnings.length > 1 ? "s" : ""} de créneau* (${conflictWarnings.length})`);
+      for (const w of conflictWarnings) {
+        warnBlock.push(isSingle ? `   ${w.message}` : `   *${w.letter}.* ${w.message}`);
+      }
+    }
+    warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
+  }
+
+  // Build actions: base + bypass options when warnings exist
+  const actions: string[] = [];
+  actions.push("*👉 Que veux-tu faire ?*");
+  if (isSingle) {
+    if (hasWarnings) {
+      actions.push("• `OUI` → créer malgré l'alerte");
+      actions.push("• `FORCER` → forcer la création (équivalent OUI)");
+      actions.push("• `NOTE: ...` → ajouter un contexte avant validation");
+      actions.push("   _ex: `NOTE: client a déménagé, nouveau dossier`_");
+      actions.push("• `NON` → annuler");
+    } else {
+      actions.push("• `OUI` → créer ce RDV");
+      actions.push("• `NON` → annuler");
+    }
+  } else {
+    const lettersList = remaining.map((x) => x.letter).join(" ");
+    if (hasWarnings) {
+      actions.push("• `OUI` → tout créer (malgré les alertes)");
+      actions.push(`• \`${lettersList}\` → créer seulement certains (lettres séparées par espace)`);
+      actions.push("• `SUPPRIMER B` → retirer un RDV de la liste");
+      actions.push("• `FORCER` → forcer la création de tous");
+      actions.push("• `NOTE: ...` → ajouter un contexte commun");
+      actions.push("   _ex: `NOTE: tournée du jour, urgents`_");
+      actions.push("• `NON` → tout annuler");
+    } else {
+      actions.push("• `OUI` → tout créer");
+      actions.push(`• \`${lettersList}\` → créer seulement certains (lettres séparées par espace)`);
+      actions.push("• `SUPPRIMER B` → retirer un RDV");
+      actions.push("• `NON` → tout annuler");
+    }
+  }
 
   const noteLine = data.contextNote
     ? ["", `📝 _Note ajoutée: ${data.contextNote}_`]
     : [];
-
-  const actions = [...baseActions, ...forceActions];
 
   return [header, "", blocks.join("\n\n"), ...warnBlock, ...noteLine, "", ...actions].join("\n");
 }
@@ -592,10 +618,33 @@ export function buildRegieSelectionMessage(
       ).join("\n\n")
     : "";
 
-  const warnLines = (warnings || []).map((w) => `• ${w.message}`);
-  const warnBlock = warnLines.length
-    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
-    : [];
+  // Group warnings by kind for clarity
+  const dupWarnings = (warnings || []).filter((w) => w.kind === "duplicate");
+  const conflictWarnings = (warnings || []).filter((w) => w.kind === "conflict");
+  const totalWarn = dupWarnings.length + conflictWarnings.length;
+
+  const warnBlock: string[] = [];
+  if (totalWarn > 0) {
+    warnBlock.push("");
+    warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
+    warnBlock.push(`⚠️ *${totalWarn} alerte${totalWarn > 1 ? "s" : ""} détectée${totalWarn > 1 ? "s" : ""}*`);
+    if (dupWarnings.length) {
+      warnBlock.push("");
+      warnBlock.push(`🔁 *Doublon${dupWarnings.length > 1 ? "s" : ""} client*`);
+      for (const w of dupWarnings) {
+        warnBlock.push(isSingle ? `   ${w.message}` : `   *${w.letter}.* ${w.message}`);
+      }
+    }
+    if (conflictWarnings.length) {
+      warnBlock.push("");
+      warnBlock.push(`⏰ *Conflit${conflictWarnings.length > 1 ? "s" : ""} de créneau*`);
+      for (const w of conflictWarnings) {
+        warnBlock.push(isSingle ? `   ${w.message}` : `   *${w.letter}.* ${w.message}`);
+      }
+    }
+    warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
+    warnBlock.push("_Tu pourras choisir `OUI` / `FORCER` / `NOTE: ...` après avoir indiqué la régie._");
+  }
 
   return [
     head + recap,
