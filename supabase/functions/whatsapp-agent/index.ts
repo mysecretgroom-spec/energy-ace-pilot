@@ -6829,71 +6829,83 @@ async function executeAction(
         console.log(`New client created: ${client!.id}`);
       } else {
         const searchResult = await findClientByName(supabase, userId, clientName);
-        
-        if (searchResult.notFound) {
-          // No clients found - ask if user wants to create a new client
-          const pendingAction: PendingAction = {
-            intent: "create_rdv",
-            entities: { ...entities, is_new_client: true },
-            workflowState: "awaiting_confirmation",
-            collectedData: {
-              clientName: clientName,
-              isNewClient: true,
-              date: entities.date as string,
-              time: entities.time as string,
-            },
-            createdAt: new Date().toISOString(),
-          };
-          
+
+        // Detect if the user provided enough discriminating data (address) to safely create a new client
+        // even when fuzzy suggestions exist for similar names.
+        const hasAddressContext = !!(
+          (entities.address as string) ||
+          (entities.city as string) ||
+          (entities.postal_code as string)
+        );
+
+        // Helper: create a new client inline using the entities at hand.
+        const createNewClientInline = async (reason: string): Promise<ClientMatch | { error: string }> => {
+          console.log(`[create_rdv] Auto-creating client (${reason}): ${clientName}`);
+          const clientFirstNameInline = (entities.client_first_name as string) || null;
+          const { data: newClient, error: clientError } = await supabase
+            .from("clients")
+            .insert({
+              user_id: userId,
+              nom: clientName,
+              prenom: clientFirstNameInline,
+              telephone: (entities.phone as string) || null,
+              adresse: (entities.address as string) || null,
+              ville: (entities.city as string) || null,
+              code_postal: (entities.postal_code as string) || null,
+              notes: (entities.notes_content as string) || null,
+              source: "whatsapp_agent",
+            })
+            .select("id, nom, prenom")
+            .single();
+
+          if (clientError || !newClient) {
+            return { error: clientError?.message || "unknown" };
+          }
           return {
-            actionTaken: "needs_client_creation",
-            newPendingAction: pendingAction,
-            customResponse: `🆕 Client "${clientName}" non trouvé.\n\n*Veux-tu le créer et programmer le RDV ?*\n\n👆 Réponds *Oui* ou *Non*`,
+            id: newClient.id,
+            nom: newClient.nom,
+            prenom: newClient.prenom || "",
+            fullName: `${newClient.prenom || ""} ${newClient.nom}`.trim(),
+            score: 1,
+            matchType: "exact" as const,
           };
-        }
-        
-        // If no exact match but we have suggestions - check score
-        if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
+        };
+
+        if (searchResult.notFound) {
+          // No clients found at all → create directly (no Yes/No confirmation).
+          const result = await createNewClientInline("no match");
+          if ("error" in result) {
+            return { actionTaken: "error", customResponse: `❌ Erreur lors de la création du client: ${result.error}` };
+          }
+          client = result;
+        } else if (!searchResult.exactMatch && searchResult.suggestions.length > 0) {
           const bestScore = searchResult.suggestions[0]?.score || 0;
-          
-          if (bestScore >= 0.6) {
-            // Suggestions are relevant - generate a choice poll WITH a "nouveau client" option
+
+          if (bestScore >= 0.6 && !hasAddressContext) {
+            // Plausible namesakes AND no address provided → ambiguity poll (A/B/C + new client).
             const poll = generateChoicePollWithNewClient(
               searchResult.suggestions,
               clientName,
               "create_rdv",
               entities
             );
-            
             return {
               actionTaken: "client_ambiguous",
               newPendingAction: poll.pendingAction,
               customResponse: poll.responseMessage,
             };
-          } else {
-            // Suggestions are too weak - ask if user wants to create a new client
-            const pendingAction: PendingAction = {
-              intent: "create_rdv",
-              entities: { ...entities, is_new_client: true },
-              workflowState: "awaiting_confirmation",
-              collectedData: {
-                clientName: clientName,
-                isNewClient: true,
-                date: entities.date as string,
-                time: entities.time as string,
-              },
-              createdAt: new Date().toISOString(),
-            };
-            
-            return {
-              actionTaken: "needs_client_creation",
-              newPendingAction: pendingAction,
-              customResponse: `🆕 Aucun client correspondant à "${clientName}".\n\n*Veux-tu le créer et programmer le RDV ?*\n\n👆 Réponds *Oui* ou *Non*`,
-            };
           }
-        }
 
-        client = searchResult.exactMatch || searchResult.clients[0];
+          // Either weak suggestions, or an address was provided that disambiguates → create directly.
+          const reason = bestScore >= 0.6 ? "namesakes but address provided" : "weak suggestions";
+          const result = await createNewClientInline(reason);
+          if ("error" in result) {
+            return { actionTaken: "error", customResponse: `❌ Erreur lors de la création du client: ${result.error}` };
+          }
+          client = result;
+        } else {
+          client = searchResult.exactMatch || searchResult.clients[0];
+        }
       }
       
       // Guard against null client (should not happen at this point)
