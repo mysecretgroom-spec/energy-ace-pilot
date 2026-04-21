@@ -530,10 +530,11 @@ export async function createSingleRdvFromExtract(
   return { ok: true, clientName: fullName, isNewClient, rdvId: newRdv?.id, clientId: clientId || undefined };
 }
 
-/** Build régie selection message — includes recap of extracted RDVs */
+/** Build régie selection message — includes recap of extracted RDVs + warnings */
 export function buildRegieSelectionMessage(
   regies: Array<{ id: string; nom: string }>,
   countOrRdvs: number | ExtractedRdv[],
+  warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>,
 ): string {
   const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
   const isArray = Array.isArray(countOrRdvs);
@@ -550,8 +551,14 @@ export function buildRegieSelectionMessage(
       ).join("\n\n")
     : "";
 
+  const warnLines = (warnings || []).map((w) => `• ${w.message}`);
+  const warnBlock = warnLines.length
+    ? ["", "⚠️ *Attention — vérifie avant de valider:*", ...warnLines]
+    : [];
+
   return [
     head + recap,
+    ...warnBlock,
     "",
     "Pour quelle *Régie* ?",
     "",
