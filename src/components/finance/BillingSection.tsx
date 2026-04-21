@@ -197,13 +197,14 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
       const [bouquetsRes, regiesRes, configRes, etudesRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids").eq("actif", true),
         regieIds.length > 0
-          ? supabase.from("regies").select("id, part_survente_pct").in("id", regieIds)
+          ? supabase.from("regies").select("id, nom, part_survente_pct").in("id", regieIds)
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("part_survente_pct").maybeSingle(),
         etudeIds.length > 0
           ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
       ]);
+      const regieNameMap = new Map((regiesRes.data || []).map((r: any) => [r.id, r.nom as string]));
 
       const allBouquets = bouquetsRes.data || [];
       const regies = regiesRes.data || [];
