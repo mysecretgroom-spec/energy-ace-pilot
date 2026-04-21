@@ -17,6 +17,14 @@ import {
   type MultiRdvBatchData,
   type ExtractedRdv,
 } from "./_multi-rdv.ts";
+import {
+  isDestructiveIntent,
+  appendEditHint,
+  rememberLastAction,
+  findEditTarget,
+  handlePostActionEdit,
+  type LastExecutedAction,
+} from "./_post-action-edit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -271,6 +279,8 @@ interface AgentRequest {
   isReplyToMessage?: boolean;
   replyToMessageId?: string | null;
   replyToMessageContent?: string | null;
+  /** Twilio SID of the message the user is replying to (for post-action edits) */
+  repliedToTwilioSid?: string | null;
 }
 
 interface AgentResponse {
