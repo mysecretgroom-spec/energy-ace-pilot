@@ -364,7 +364,14 @@ export function MultiDocumentSelector({
         }
       }
 
-      if (mergedPdf.getPageCount() === 0) throw new Error("Aucune page n'a pu être ajoutée au PDF");
+      if (mergedPdf.getPageCount() === 0) {
+        const detail = failedDocs.length > 0
+          ? `Fichiers en échec : ${failedDocs.slice(0, 3).join(", ")}${failedDocs.length > 3 ? "…" : ""}. Vérifie qu'ils ne soient pas vides ou corrompus.`
+          : "Aucune page n'a pu être ajoutée. Réessaie ou contacte le support.";
+        toast({ title: "PDF impossible à générer", description: detail, variant: "destructive" });
+        setIsGenerating(false);
+        return;
+      }
 
       const pdfBytes = await mergedPdf.save();
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
@@ -398,7 +405,8 @@ export function MultiDocumentSelector({
       return; // already set isGenerating=false above
     } catch (error) {
       console.error("Error generating combined PDF:", error);
-      toast({ title: "Erreur", description: "Impossible de générer le PDF combiné", variant: "destructive" });
+      const message = error instanceof Error ? error.message : "Erreur inconnue";
+      toast({ title: "Erreur", description: `Impossible de générer le PDF combiné — ${message}`, variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
