@@ -652,6 +652,20 @@ export function buildRegieSelectionMessage(
     warnBlock.push("_Tu pourras choisir `OUI` / `FORCER` / `NOTE: ...` après avoir indiqué la régie._");
   }
 
+  // Multi-RDV → propose "all same régie" vs "one per RDV"
+  if (!isSingle) {
+    return [
+      head + recap,
+      ...warnBlock,
+      "",
+      "🏢 *Tous ces RDV sont-ils pour la même régie ?*",
+      "",
+      "• `OUI` → je te demande UNE seule régie pour tous",
+      "• `NON` → je te demande la régie pour CHAQUE RDV (A, B, C…)",
+      "• `ANNULER` → tout annuler",
+    ].join("\n");
+  }
+
   return [
     head + recap,
     ...warnBlock,
@@ -663,3 +677,52 @@ export function buildRegieSelectionMessage(
     "👆 Réponds avec le *numéro*",
   ].join("\n");
 }
+
+/** Build "choose régie for letter X" message (per-RDV mode) */
+export function buildRegieSelectionForLetter(
+  letter: string,
+  rdv: ExtractedRdv,
+  regies: Array<{ id: string; nom: string }>,
+  alreadyChosen: Record<string, string> = {},
+  regieNameById: Record<string, string> = {},
+): string {
+  const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  const detail = formatRdvDetailed(letter, rdv);
+  const progress = Object.keys(alreadyChosen).length;
+  const recapPrev = progress > 0
+    ? "\n\n_Régies déjà choisies:_\n" +
+      Object.entries(alreadyChosen)
+        .map(([l, rid]) => `   *${l}.* → ${regieNameById[rid] || rid}`)
+        .join("\n")
+    : "";
+  return [
+    `🏢 *Régie pour le RDV ${letter}*`,
+    "",
+    detail,
+    recapPrev,
+    "",
+    "Choisis la *Régie* :",
+    "",
+    ...lines,
+    "",
+    "👆 Réponds avec le *numéro*",
+  ].join("\n");
+}
+
+/** Build the simple "choose one régie for all" list */
+export function buildRegieSelectionUniform(
+  regies: Array<{ id: string; nom: string }>,
+  count: number,
+): string {
+  const lines = regies.slice(0, 9).map((r, i) => `${i + 1}️⃣ ${r.nom}`);
+  return [
+    `🏢 *Une seule régie pour les ${count} RDV*`,
+    "",
+    "Choisis la *Régie* :",
+    "",
+    ...lines,
+    "",
+    "👆 Réponds avec le *numéro*",
+  ].join("\n");
+}
+
