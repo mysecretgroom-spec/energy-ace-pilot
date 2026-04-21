@@ -39,6 +39,8 @@ export interface MultiRdvBatchData {
   editingField?: string | null;
   /** Pre-computed duplicate / conflict warnings (per letter) */
   warnings?: Array<{ letter: string; kind: "duplicate" | "conflict"; message: string }>;
+  /** Optional contextual note added by user (e.g. "client a déménagé") */
+  contextNote?: string | null;
   /** Created at ISO */
   createdAt: string;
 }
