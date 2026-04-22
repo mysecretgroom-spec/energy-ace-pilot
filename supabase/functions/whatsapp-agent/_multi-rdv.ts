@@ -417,6 +417,40 @@ export function buildMenuMessage(data: MultiRdvBatchData, intro?: string): strin
   return [header, "", blocks.join("\n\n"), ...warnBlock, ...noteLine, "", ...actions].join("\n");
 }
 
+/** Create ALL RDVs from a fully-resolved batch (régie + warnings already known).
+ *  Returns the created/failed lists, ready to feed buildCreatedRecap.
+ *  Used by the no-confirmation flow: as soon as régie is known, we create. */
+export async function createAllRdvsFromBatch(
+  supabase: any,
+  userId: string,
+  batch: MultiRdvBatchData,
+): Promise<{
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }>;
+  failures: Array<{ clientName: string; error: string }>;
+}> {
+  const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }> = [];
+  const failures: Array<{ clientName: string; error: string }> = [];
+  for (let i = 0; i < batch.rdvs.length; i++) {
+    const letter = ALPHABET[i];
+    if (batch.removed.includes(letter)) continue;
+    const rdv = batch.rdvs[i];
+    const rdvRegieId = batch.perRdvRegie?.[letter] || batch.regieId;
+    const res = await createSingleRdvFromExtract(
+      supabase,
+      userId,
+      rdv,
+      rdvRegieId,
+      batch.contextNote || null,
+    );
+    if (res.ok) {
+      created.push({ rdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
+    } else {
+      failures.push({ clientName: res.clientName, error: res.error || "erreur" });
+    }
+  }
+  return { created, failures };
+}
+
 /** Build a final recap message after RDVs were created */
 export function buildCreatedRecap(
   created: Array<{ rdv: ExtractedRdv; isNewClient: boolean }>,
