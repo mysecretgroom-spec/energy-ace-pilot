@@ -644,17 +644,29 @@ const ACTIVE_RDV_STATUSES = new Set([
   "nouveau", "confirme", "en_cours", "signe", "a_signer", "pre_etude",
 ]);
 
+/** Extract HH:MM from a date_heure ISO string (Paris-local format) */
+function extractHourMinute(dateHeure: string | null): string | null {
+  if (!dateHeure) return null;
+  const m = dateHeure.match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+
 /** Find an existing active RDV for this client to merge into.
- *  Priority:
- *   1. Same date (ignoring time) → very likely the same RDV
- *   2. Otherwise the most recent active RDV (created in last 14 days)
+ *  STRICT rule: merge ONLY when date matches AND time is compatible.
+ *  - Same date + no new time provided → merge (user is just adding info)
+ *  - Same date + same time → merge (clearly the same RDV)
+ *  - Same date + DIFFERENT time → DO NOT merge (it's a different RDV that day)
+ *  - Different date → DO NOT merge (it's a new RDV)
  */
 async function findMergeableRdv(
   supabase: any,
   userId: string,
   clientId: string,
   newDate: string | null,
+  newHeure: string | null,
 ): Promise<{ id: string; date_heure: string; commentaire: string | null; adresse: string | null; type_projet: string | null } | null> {
+  if (!newDate) return null; // Without a date we can't safely match — create new
+
   const { data } = await supabase
     .from("rdv")
     .select("id, date_heure, status, commentaire, adresse, type_projet, created_at")
@@ -667,21 +679,26 @@ async function findMergeableRdv(
   const active = data.filter((r: any) => ACTIVE_RDV_STATUSES.has(String(r.status)));
   if (active.length === 0) return null;
 
-  // 1. Match by same date
-  if (newDate) {
-    const sameDate = active.find((r: any) =>
-      typeof r.date_heure === "string" && r.date_heure.startsWith(newDate),
-    );
-    if (sameDate) return sameDate;
-  }
+  // Only match RDVs scheduled on the SAME calendar date
+  const sameDateRdvs = active.filter((r: any) =>
+    typeof r.date_heure === "string" && r.date_heure.startsWith(newDate),
+  );
+  if (sameDateRdvs.length === 0) return null;
 
-  // 2. Most recent active within 14 days
-  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
-  const recent = active.find((r: any) => {
-    const t = new Date(r.created_at).getTime();
-    return !isNaN(t) && t >= fourteenDaysAgo;
+  // Normalise the new time
+  const normNewHeure = newHeure && /^\d{1,2}:\d{2}/.test(newHeure)
+    ? newHeure.padStart(5, "0").slice(0, 5)
+    : null;
+
+  // If user provided no time, prefer the most recent same-date RDV (just adding info)
+  if (!normNewHeure) return sameDateRdvs[0];
+
+  // User provided a time → only merge if at least one same-date RDV has the same time
+  const sameTime = sameDateRdvs.find((r: any) => {
+    const existingHm = extractHourMinute(r.date_heure);
+    return existingHm === normNewHeure;
   });
-  return recent || null;
+  return sameTime || null;
 }
 
 /** Create one RDV (and client if needed) — returns summary.
