@@ -745,7 +745,7 @@ export function buildRegieSelectionMessage(
       }
     }
     warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
-    warnBlock.push("_Tu pourras choisir `OUI` / `FORCER` / `NOTE: ...` après avoir indiqué la régie._");
+    warnBlock.push("_💡 Si un RDV existe déjà pour ce client, je le compléterai avec les nouvelles infos au lieu d'en créer un nouveau._");
   }
 
   // Multi-RDV → propose "all same régie" vs "one per RDV"

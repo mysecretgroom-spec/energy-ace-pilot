@@ -4958,7 +4958,7 @@ async function handlePendingWorkflow(
         intent: "create_rdv",
         actionTaken: "note_added",
         newPendingAction: newPending,
-        responseMessage: buildMenuMessage(newBatch, `📝 Note enregistrée. Confirme avec *OUI* ou *FORCER* pour créer.`),
+        responseMessage: buildMenuMessage(newBatch, `📝 Note enregistrée.`),
       };
     }
 
