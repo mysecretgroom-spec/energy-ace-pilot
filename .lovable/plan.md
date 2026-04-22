@@ -1,48 +1,90 @@
 
 
-L'utilisateur confirme : sur WhatsApp, l'agent doit créer **à la fois le client ET le rdv** depuis l'image (logique conditionnelle existante : recherche client par téléphone d'abord, sinon création).
+## Refonte du workflow image WhatsApp — classification d'abord, action ensuite
 
-## Plan : Bouton "Image" + Intent agent IA WhatsApp
+### Problème actuel
+L'agent tente **systématiquement** une extraction RDV en premier (sauf si le classifier dit "finance" avec ≥ 0.85 de confiance). Résultat :
+- Une facture peu confiante est analysée comme RDV puis seulement après comme finance → faux positifs RDV.
+- Une photo de chantier ou un document client (CNI/RIB) tombe dans l'OCR fallback sans intent clair.
+- 2 à 3 appels IA en cascade au lieu d'1 décision claire.
 
-### 1. Bouton "Image" dans `QuickRdvForm`
-- Petit bouton **"Image"** (icône caméra) en haut du formulaire
-- Ouvre un dialogue qui demande :
-  - **Régie** (obligatoire)
-  - Upload 1 ou plusieurs screenshots (galerie/caméra)
-- L'IA extrait les champs → pré-remplit le formulaire
-- L'utilisateur valide/corrige → enregistre normalement (réutilise `createNewClient` + insert RDV existants)
+### Nouvelle logique : classifier = **chef d'orchestre**
 
-### 2. Edge function `extract-rdv-from-image`
-- Modèle vision : `google/gemini-2.5-flash`
-- Tool calling pour sortie structurée fiable (nom, prénom, téléphone, email, adresse, CP, ville, date, heure, type projet, notes)
-- Compression image côté client (max 1200px, qualité 0.7)
-- Gestion 429 / 402 avec messages clairs
+```text
+Image reçue
+    │
+    ▼
+┌──────────────────────────────────────────────────┐
+│ ÉTAPE 1 — Classifier (1 seul appel IA)           │
+│  classify-image-intent v2 (gemini-2.5-flash-lite)│
+│  Renvoie : { intent, confidence, reason }        │
+│  Intents possibles :                             │
+│   • rdv         → screenshot CRM / fiche RDV     │
+│   • finance     → ticket / facture / reçu        │
+│   • photo_etude → toiture / compteur / tableau   │
+│   • doc_client  → CNI / RIB / justif domicile    │
+│   • autre       → photo perso, illisible…        │
+└──────────────────────────────────────────────────┘
+    │
+    ▼
+┌──────────────────────────────────────────────────┐
+│ ÉTAPE 2 — Routage par intent (pas de cascade)    │
+│                                                  │
+│  rdv          → extract-rdv-from-image           │
+│                 → flux validation/création RDV   │
+│                                                  │
+│  finance      → analyzeMediaStructured("finance")│
+│                 → flux création frais            │
+│                                                  │
+│  photo_etude  → upload staging + lien client     │
+│                 actif → confirme "Photo ajoutée  │
+│                 au dossier {Client}"             │
+│                                                  │
+│  doc_client   → upload pending-documents         │
+│                 → "Document reçu, je le classe   │
+│                 dans le dossier {Client}"        │
+│                                                  │
+│  autre + conf<0.6 → OCR texte + demande          │
+│                 "C'est quoi ? RDV / Frais /      │
+│                 Photo / Document ?"              │
+└──────────────────────────────────────────────────┘
+```
 
-### 3. Intent agent IA WhatsApp (`whatsapp-agent`)
-- Nouvel intent `import_rdv_from_image`
-- Quand l'utilisateur envoie une image **sans contexte "frais/facture/reçu"** :
-  1. Appel `extract-rdv-from-image`
-  2. Si extraction réussie (nom + date trouvés) :
-     - Recherche client existant par téléphone (logique conditionnelle existante)
-     - Si trouvé → crée seulement le RDV lié
-     - Sinon → crée client + RDV
-     - Régie : prise depuis profil user (régie principale) ou demandée si plusieurs
-     - Géocodage auto déclenché par triggers existants
-  3. Confirme : "✅ RDV créé pour [Nom] le [date] à [heure] 📅"
-  4. Si échec extraction → fallback vers flux frais existant
-- Si infos critiques manquantes (date) → flux conversationnel `collecting_missing_data` existant
+### Règles de décision
+- **Confidence ≥ 0.7** : on suit l'intent du classifier sans appel supplémentaire.
+- **Confidence 0.4 – 0.7** : on suit l'intent mais on ajoute en réponse "Si je me trompe, réponds *frais* / *rdv* / *photo* / *document*".
+- **Confidence < 0.4 OU intent=`autre`** : on demande à l'utilisateur de préciser (4 boutons : RDV / Frais / Photo étude / Document).
+- **Album multi-images** : on classifie chaque image, puis on **regroupe par intent** (ex : 3 RDV + 1 facture → on traite les 3 RDV en batch puis la facture séparément).
 
-### Fichiers concernés
+### Fichiers modifiés
 
-**Nouveaux**
-- `supabase/functions/extract-rdv-from-image/index.ts`
-- `src/components/planning/ImageImportDialog.tsx`
+**`supabase/functions/classify-image-intent/index.ts`**
+- Étendre l'enum à `["rdv", "finance", "photo_etude", "doc_client", "autre"]`.
+- Mettre à jour le `SYSTEM_PROMPT` avec exemples concrets pour chaque catégorie (toiture/compteur pour `photo_etude`, CNI/RIB pour `doc_client`).
+- Garder `gemini-2.5-flash-lite` (rapide, ~1s).
 
-**Modifiés**
-- `src/components/planning/QuickRdvForm.tsx` — ajout bouton "Image" + retour pré-rempli
-- `supabase/functions/whatsapp-agent/index.ts` — nouvel intent + branchement détection image
+**`supabase/functions/whatsapp-agent/index.ts`** (lignes ~2496-2733 + ~2369-2489)
+- **Inverser la logique** : appeler `classify-image-intent` en **premier et seul** décideur.
+- Remplacer la stratégie "RDV-first" par un `switch(intent)` :
+  - `rdv` → garder le flux existant (`extractRdvsFromImages` + menu validation/fast-path).
+  - `finance` → appeler directement `analyzeMediaStructured("finance")`.
+  - `photo_etude` → upload dans `documents` (bucket `documents`, type `photo_chantier`) lié au client actif (résolu via dernière action ou conversation en cours) ; si pas de client actif → demander "Pour quel client ?".
+  - `doc_client` → upload dans `pending-documents` (admin inbox existante) avec confiance < 80% pour validation manuelle.
+  - `autre` → OCR texte + question multi-choix.
+- Pour les **albums multi-images** (~ligne 2369) : classifier chaque image en parallèle, regrouper par intent, traiter chaque groupe avec son flux.
+- Supprimer le fallback OCR systématique : il devient le comportement uniquement pour `autre`.
 
-### Hors périmètre
-- Multi-images en un message WhatsApp (1 image = 1 RDV)
-- Édition d'un RDV existant via image
+**`supabase/functions/whatsapp-agent/_multi-rdv.ts`**
+- Pas de modification (les helpers `extractRdvsFromImages` et `ocrImageToText` restent utilisés à la demande).
+
+### Bénéfices
+- **Latence** : 1 appel IA au lieu de 2-3 dans 80% des cas.
+- **Précision** : plus de faux RDV depuis une facture.
+- **Couverture** : photos étude et documents client enfin reconnus et routés correctement.
+- **UX** : si le classifier doute, on demande explicitement au lieu de deviner.
+
+### Hors périmètre (reste inchangé)
+- Debounce album 4s (à revoir séparément si besoin).
+- Authentification, RLS, structure des tables.
+- L'extraction RDV elle-même (`extract-rdv-from-image`) reste identique.
 
