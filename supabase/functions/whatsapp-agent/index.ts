@@ -31,6 +31,16 @@ import {
   type LastExecutedAction,
 } from "./_post-action-edit.ts";
 import { analyzeBatchWarnings } from "./_duplicate-check.ts";
+import {
+  classifyImage,
+  resolveActiveClientId,
+  uploadPhotoEtude,
+  uploadDocClient,
+  buildClarificationMessage,
+  buildSoftConfirmHint,
+  type ClassificationResult,
+  type ImageIntent as ClassifiedImageIntent,
+} from "./_image-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
