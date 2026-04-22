@@ -19,6 +19,7 @@ import {
   parseValidationResponse,
   resolveDefaultRegie,
   createSingleRdvFromExtract,
+  createAllRdvsFromBatch,
   type MultiRdvBatchData,
   type ExtractedRdv,
 } from "./_multi-rdv.ts";
@@ -2457,8 +2458,34 @@ serve(async (req) => {
                   responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
                   workflowState = "awaiting_multi_rdv_regie";
                 } else {
-                  responseMsg = buildMenuMessage(batchData);
-                  workflowState = "awaiting_multi_rdv_validation";
+                  // Régie résolue → création directe sans validation OUI/NON
+                  const { created, failures } = await createAllRdvsFromBatch(
+                    supabase, request.userId, batchData,
+                  );
+                  let recap = buildCreatedRecap(created, regieRes.regieName, failures);
+                  if (created.length > 0) recap = appendEditHint(recap);
+                  const singleCreated = created.length === 1 ? created[0] : null;
+                  await logMessage(
+                    supabase, request.userId, request.fromNumber, request.messageType,
+                    request.content, request.mediaUrl || null, null,
+                    "create_rdv", {}, "multi_rdv_created",
+                    singleCreated?.rdvId || null, singleCreated ? "rdv" : null,
+                    recap, "processed",
+                  );
+                  return new Response(
+                    JSON.stringify({
+                      intent: "create_rdv" as Intent, confidence: 1, entities: {},
+                      actionTaken: "multi_rdv_created",
+                      entityId: singleCreated?.rdvId,
+                      entityType: singleCreated ? "rdv" : undefined,
+                      responseMessage: recap,
+                      lastActionToRemember: singleCreated ? {
+                        intent: "create_rdv", entityType: "rdv", entityId: singleCreated.rdvId,
+                        snapshot: {}, label: "RDV de client", createdAt: new Date().toISOString(),
+                      } : undefined,
+                    }),
+                    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                  );
                 }
 
                 const newPending: PendingAction = {
@@ -2786,8 +2813,36 @@ serve(async (req) => {
                 responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
                 workflowState = "awaiting_multi_rdv_regie";
               } else {
-                responseMsg = buildMenuMessage(batchData);
-                workflowState = "awaiting_multi_rdv_validation";
+                // Régie résolue → création directe sans validation OUI/NON
+                const { created, failures } = await createAllRdvsFromBatch(
+                  supabase, request.userId, batchData,
+                );
+                let recap = buildCreatedRecap(created, regieRes.regieName, failures);
+                if (created.length > 0) recap = appendEditHint(recap);
+                if (softHint) recap += softHint;
+                const singleCreated = created.length === 1 ? created[0] : null;
+                await logMessage(
+                  supabase, request.userId, request.fromNumber, request.messageType,
+                  request.content, request.mediaUrl || null, null,
+                  "create_rdv", {}, "multi_rdv_created",
+                  singleCreated?.rdvId || null, singleCreated ? "rdv" : null,
+                  recap, "processed",
+                );
+                return new Response(
+                  JSON.stringify({
+                    intent: "create_rdv" as Intent,
+                    confidence: 1, entities: {},
+                    actionTaken: "multi_rdv_created",
+                    entityId: singleCreated?.rdvId,
+                    entityType: singleCreated ? "rdv" : undefined,
+                    responseMessage: recap,
+                    lastActionToRemember: singleCreated ? {
+                      intent: "create_rdv", entityType: "rdv", entityId: singleCreated.rdvId,
+                      snapshot: {}, label: "RDV de client", createdAt: new Date().toISOString(),
+                    } : undefined,
+                  }),
+                  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
               }
               if (softHint) responseMsg += softHint;
 
@@ -3235,8 +3290,28 @@ serve(async (req) => {
           responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
           workflowState = "awaiting_multi_rdv_regie";
         } else {
-          responseMsg = buildMenuMessage(batchData);
-          workflowState = "awaiting_multi_rdv_validation";
+          // Régie résolue → création directe sans validation OUI/NON
+          const { created, failures } = await createAllRdvsFromBatch(
+            supabase, request.userId, batchData,
+          );
+          let recap = buildCreatedRecap(created, regieRes.regieName, failures);
+          if (created.length > 0) recap = appendEditHint(recap);
+          const singleCreated = created.length === 1 ? created[0] : null;
+          return new Response(
+            JSON.stringify({
+              intent: "create_rdv" as Intent,
+              confidence: 1, entities: {},
+              actionTaken: "multi_rdv_created",
+              entityId: singleCreated?.rdvId,
+              entityType: singleCreated ? "rdv" : undefined,
+              responseMessage: recap,
+              lastActionToRemember: singleCreated ? {
+                intent: "create_rdv", entityType: "rdv", entityId: singleCreated.rdvId,
+                snapshot: {}, label: "RDV de client", createdAt: new Date().toISOString(),
+              } : undefined,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         }
 
         const newPending: PendingAction = {
@@ -4801,7 +4876,7 @@ async function handlePendingWorkflow(
       };
     }
 
-    // All régies chosen → switch to validation menu
+    // All régies chosen → création directe sans validation OUI/NON
     const newBatch: MultiRdvBatchData = {
       ...batch,
       perRdvRegie: updatedPerRdv,
@@ -4810,16 +4885,17 @@ async function handlePendingWorkflow(
       regieId: null,
       regieName: null,
     };
-    const newPending: PendingAction = {
-      ...pendingAction,
-      workflowState: "awaiting_multi_rdv_validation",
-      collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
-    };
+    const { created, failures } = await createAllRdvsFromBatch(supabase, userId, newBatch);
+    let recap = buildCreatedRecap(created, null, failures);
+    if (created.length > 0) recap = appendEditHint(recap);
+    const singleCreated = created.length === 1 ? created[0] : null;
     return {
       intent: "create_rdv",
-      actionTaken: "regie_per_rdv_done",
-      newPendingAction: newPending,
-      responseMessage: buildMenuMessage(newBatch, "✅ Régies attribuées. Confirme la création :"),
+      actionTaken: "multi_rdv_created",
+      entityId: singleCreated?.rdvId,
+      entityType: singleCreated ? "rdv" : undefined,
+      newPendingAction: null,
+      responseMessage: recap,
     };
   }
 
@@ -4835,12 +4911,19 @@ async function handlePendingWorkflow(
     if (!isNaN(num) && num >= 1 && num <= regies.length) {
       const selected = regies[num - 1];
       const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom, perRdvRegie: undefined, perRdvRegieName: undefined };
-      const newPending: PendingAction = {
-        ...pendingAction,
-        workflowState: "awaiting_multi_rdv_validation",
-        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      // Création directe sans validation OUI/NON
+      const { created, failures } = await createAllRdvsFromBatch(supabase, userId, newBatch);
+      let recap = buildCreatedRecap(created, selected.nom, failures);
+      if (created.length > 0) recap = appendEditHint(recap);
+      const singleCreated = created.length === 1 ? created[0] : null;
+      return {
+        intent: "create_rdv",
+        actionTaken: "multi_rdv_created",
+        entityId: singleCreated?.rdvId,
+        entityType: singleCreated ? "rdv" : undefined,
+        newPendingAction: null,
+        responseMessage: recap,
       };
-      return { intent: "create_rdv", actionTaken: "regie_selected", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch) };
     }
     return { intent: "create_rdv", actionTaken: "invalid", newPendingAction: pendingAction, responseMessage: "❌ Numéro invalide. Réponds avec un numéro de la liste." };
   }
