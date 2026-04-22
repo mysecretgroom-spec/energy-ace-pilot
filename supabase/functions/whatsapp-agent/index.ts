@@ -2813,8 +2813,36 @@ serve(async (req) => {
                 responseMsg = buildRegieSelectionMessage(regieRes.regies, extractRes.rdvs, batchWarnings);
                 workflowState = "awaiting_multi_rdv_regie";
               } else {
-                responseMsg = buildMenuMessage(batchData);
-                workflowState = "awaiting_multi_rdv_validation";
+                // Régie résolue → création directe sans validation OUI/NON
+                const { created, failures } = await createAllRdvsFromBatch(
+                  supabase, request.userId, batchData,
+                );
+                let recap = buildCreatedRecap(created, regieRes.regieName, failures);
+                if (created.length > 0) recap = appendEditHint(recap);
+                if (softHint) recap += softHint;
+                const singleCreated = created.length === 1 ? created[0] : null;
+                await logMessage(
+                  supabase, request.userId, request.fromNumber, request.messageType,
+                  request.content, request.mediaUrl || null, null,
+                  "create_rdv", {}, "multi_rdv_created",
+                  singleCreated?.rdvId || null, singleCreated ? "rdv" : null,
+                  recap, "processed",
+                );
+                return new Response(
+                  JSON.stringify({
+                    intent: "create_rdv" as Intent,
+                    confidence: 1, entities: {},
+                    actionTaken: "multi_rdv_created",
+                    entityId: singleCreated?.rdvId,
+                    entityType: singleCreated ? "rdv" : undefined,
+                    responseMessage: recap,
+                    lastActionToRemember: singleCreated ? {
+                      intent: "create_rdv", entityType: "rdv", entityId: singleCreated.rdvId,
+                      snapshot: {}, label: "RDV de client", createdAt: new Date().toISOString(),
+                    } : undefined,
+                  }),
+                  { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                );
               }
               if (softHint) responseMsg += softHint;
 
