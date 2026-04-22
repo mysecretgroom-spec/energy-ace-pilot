@@ -4876,7 +4876,7 @@ async function handlePendingWorkflow(
       };
     }
 
-    // All régies chosen → switch to validation menu
+    // All régies chosen → création directe sans validation OUI/NON
     const newBatch: MultiRdvBatchData = {
       ...batch,
       perRdvRegie: updatedPerRdv,
@@ -4885,16 +4885,17 @@ async function handlePendingWorkflow(
       regieId: null,
       regieName: null,
     };
-    const newPending: PendingAction = {
-      ...pendingAction,
-      workflowState: "awaiting_multi_rdv_validation",
-      collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
-    };
+    const { created, failures } = await createAllRdvsFromBatch(supabase, userId, newBatch);
+    let recap = buildCreatedRecap(created, null, failures);
+    if (created.length > 0) recap = appendEditHint(recap);
+    const singleCreated = created.length === 1 ? created[0] : null;
     return {
       intent: "create_rdv",
-      actionTaken: "regie_per_rdv_done",
-      newPendingAction: newPending,
-      responseMessage: buildMenuMessage(newBatch, "✅ Régies attribuées. Confirme la création :"),
+      actionTaken: "multi_rdv_created",
+      entityId: singleCreated?.rdvId,
+      entityType: singleCreated ? "rdv" : undefined,
+      newPendingAction: null,
+      responseMessage: recap,
     };
   }
 
