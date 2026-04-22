@@ -4911,12 +4911,19 @@ async function handlePendingWorkflow(
     if (!isNaN(num) && num >= 1 && num <= regies.length) {
       const selected = regies[num - 1];
       const newBatch: MultiRdvBatchData = { ...batch, regieId: selected.id, regieName: selected.nom, perRdvRegie: undefined, perRdvRegieName: undefined };
-      const newPending: PendingAction = {
-        ...pendingAction,
-        workflowState: "awaiting_multi_rdv_validation",
-        collectedData: { ...pendingAction.collectedData, multiRdvBatch: newBatch },
+      // Création directe sans validation OUI/NON
+      const { created, failures } = await createAllRdvsFromBatch(supabase, userId, newBatch);
+      let recap = buildCreatedRecap(created, selected.nom, failures);
+      if (created.length > 0) recap = appendEditHint(recap);
+      const singleCreated = created.length === 1 ? created[0] : null;
+      return {
+        intent: "create_rdv",
+        actionTaken: "multi_rdv_created",
+        entityId: singleCreated?.rdvId,
+        entityType: singleCreated ? "rdv" : undefined,
+        newPendingAction: null,
+        responseMessage: recap,
       };
-      return { intent: "create_rdv", actionTaken: "regie_selected", newPendingAction: newPending, responseMessage: buildMenuMessage(newBatch) };
     }
     return { intent: "create_rdv", actionTaken: "invalid", newPendingAction: pendingAction, responseMessage: "❌ Numéro invalide. Réponds avec un numéro de la liste." };
   }
