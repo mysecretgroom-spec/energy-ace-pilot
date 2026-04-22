@@ -2427,7 +2427,7 @@ serve(async (req) => {
                   );
                   if (created.ok) {
                     const recap = appendEditHint(
-                      buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                      buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
                     );
                     return new Response(
                       JSON.stringify({
@@ -2771,7 +2771,7 @@ serve(async (req) => {
                 );
                 if (created.ok) {
                   const recap = appendEditHint(
-                    buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                    buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
                   ) + softHint;
                   const lastAction = {
                     intent: "create_rdv" as Intent,
@@ -3253,7 +3253,7 @@ serve(async (req) => {
           );
           if (created.ok) {
             const recap = appendEditHint(
-              buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+              buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
             );
             const lastAction = {
               intent: "create_rdv" as Intent,
@@ -4958,7 +4958,7 @@ async function handlePendingWorkflow(
         intent: "create_rdv",
         actionTaken: "note_added",
         newPendingAction: newPending,
-        responseMessage: buildMenuMessage(newBatch, `📝 Note enregistrée. Confirme avec *OUI* ou *FORCER* pour créer.`),
+        responseMessage: buildMenuMessage(newBatch, `📝 Note enregistrée.`),
       };
     }
 
@@ -4969,7 +4969,7 @@ async function handlePendingWorkflow(
           ? ALPHA.slice(0, batch.rdvs.length).filter((l) => !batch.removed.includes(l) && !batch.validated.includes(l))
           : parsed.letters;
 
-      const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }> = [];
+      const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean; rdvId?: string }> = [];
       const failures: Array<{ clientName: string; error: string }> = [];
       for (const letter of lettersToCreate) {
         const idx = ALPHA.indexOf(letter);
@@ -4978,7 +4978,7 @@ async function handlePendingWorkflow(
         const rdvRegieId = batch.perRdvRegie?.[letter] || batch.regieId;
         const res = await createSingleRdvFromExtract(supabase, userId, rdv as ExtractedRdv, rdvRegieId, batch.contextNote || null);
         if (res.ok) {
-          created.push({ rdv: rdv as ExtractedRdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
+          created.push({ rdv: rdv as ExtractedRdv, isNewClient: res.isNewClient, merged: res.merged, rdvId: res.rdvId });
         } else {
           failures.push({ clientName: res.clientName, error: res.error || "erreur" });
         }

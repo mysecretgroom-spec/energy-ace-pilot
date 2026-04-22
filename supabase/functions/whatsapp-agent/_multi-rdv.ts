@@ -425,10 +425,10 @@ export async function createAllRdvsFromBatch(
   userId: string,
   batch: MultiRdvBatchData,
 ): Promise<{
-  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }>;
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean; rdvId?: string }>;
   failures: Array<{ clientName: string; error: string }>;
 }> {
-  const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }> = [];
+  const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean; rdvId?: string }> = [];
   const failures: Array<{ clientName: string; error: string }> = [];
   for (let i = 0; i < batch.rdvs.length; i++) {
     const letter = ALPHABET[i];
@@ -443,7 +443,7 @@ export async function createAllRdvsFromBatch(
       batch.contextNote || null,
     );
     if (res.ok) {
-      created.push({ rdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
+      created.push({ rdv, isNewClient: res.isNewClient, merged: res.merged, rdvId: res.rdvId });
     } else {
       failures.push({ clientName: res.clientName, error: res.error || "erreur" });
     }
@@ -451,24 +451,37 @@ export async function createAllRdvsFromBatch(
   return { created, failures };
 }
 
-/** Build a final recap message after RDVs were created */
+/** Build a final recap message after RDVs were created or merged */
 export function buildCreatedRecap(
-  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean }>,
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean }>,
   regieName: string | null,
   failures: Array<{ clientName: string; error: string }> = [],
 ): string {
   if (created.length === 0) {
     const failLines = failures.map((f) => `❌ ${f.clientName}: ${f.error}`);
-    return [`😕 Aucun RDV créé.`, "", ...failLines].join("\n");
+    return [`😕 Aucun RDV traité.`, "", ...failLines].join("\n");
   }
 
+  const mergedCount = created.filter((c) => c.merged).length;
+  const newCount = created.length - mergedCount;
   const isSingle = created.length === 1;
-  const header = isSingle
-    ? `✅ *RDV créé* (Régie: ${regieName || "?"})`
-    : `✅ *${created.length} RDV créés* (Régie: ${regieName || "?"})`;
+
+  let header: string;
+  if (isSingle) {
+    header = created[0].merged
+      ? `🔄 *RDV complété* (Régie: ${regieName || "?"})`
+      : `✅ *RDV créé* (Régie: ${regieName || "?"})`;
+  } else if (mergedCount > 0 && newCount > 0) {
+    header = `✅ *${newCount} RDV créé${newCount > 1 ? "s" : ""}* + 🔄 *${mergedCount} complété${mergedCount > 1 ? "s" : ""}* (Régie: ${regieName || "?"})`;
+  } else if (mergedCount > 0) {
+    header = `🔄 *${mergedCount} RDV complétés* (Régie: ${regieName || "?"})`;
+  } else {
+    header = `✅ *${newCount} RDV créés* (Régie: ${regieName || "?"})`;
+  }
 
   const blocks = created.map((c) => {
     const detail = formatRdvDetailed(null, c.rdv);
+    if (c.merged) return `${detail}\n🔄 _Infos ajoutées au RDV existant_`;
     return c.isNewClient ? `${detail}\n🆕 _Nouveau client_` : detail;
   });
 
@@ -625,23 +638,70 @@ export async function resolveDefaultRegie(
   return { regieId: null, regieName: null, needsSelection: true, regies };
 }
 
-/** Create one RDV (and client if needed) — returns summary */
+/** Statuses considered "active" — a new image referencing the same client should
+ *  MERGE into one of these RDVs instead of creating a duplicate. */
+const ACTIVE_RDV_STATUSES = new Set([
+  "nouveau", "confirme", "en_cours", "signe", "a_signer", "pre_etude",
+]);
+
+/** Find an existing active RDV for this client to merge into.
+ *  Priority:
+ *   1. Same date (ignoring time) → very likely the same RDV
+ *   2. Otherwise the most recent active RDV (created in last 14 days)
+ */
+async function findMergeableRdv(
+  supabase: any,
+  userId: string,
+  clientId: string,
+  newDate: string | null,
+): Promise<{ id: string; date_heure: string; commentaire: string | null; adresse: string | null; type_projet: string | null } | null> {
+  const { data } = await supabase
+    .from("rdv")
+    .select("id, date_heure, status, commentaire, adresse, type_projet, created_at")
+    .eq("user_id", userId)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  const active = data.filter((r: any) => ACTIVE_RDV_STATUSES.has(String(r.status)));
+  if (active.length === 0) return null;
+
+  // 1. Match by same date
+  if (newDate) {
+    const sameDate = active.find((r: any) =>
+      typeof r.date_heure === "string" && r.date_heure.startsWith(newDate),
+    );
+    if (sameDate) return sameDate;
+  }
+
+  // 2. Most recent active within 14 days
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const recent = active.find((r: any) => {
+    const t = new Date(r.created_at).getTime();
+    return !isNaN(t) && t >= fourteenDaysAgo;
+  });
+  return recent || null;
+}
+
+/** Create one RDV (and client if needed) — returns summary.
+ *  If an active RDV already exists for the same client (especially same date),
+ *  MERGE the new info into it instead of creating a duplicate. */
 export async function createSingleRdvFromExtract(
   supabase: any,
   userId: string,
   rdv: ExtractedRdv,
   regieId: string | null,
   contextNote?: string | null,
-): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; rdvId?: string; clientId?: string; error?: string }> {
+): Promise<{ ok: boolean; clientName: string; isNewClient: boolean; merged?: boolean; rdvId?: string; clientId?: string; error?: string }> {
   const fullName = [rdv.prenom, rdv.nom].filter(Boolean).join(" ").trim();
   if (!rdv.date || (!rdv.nom && !rdv.prenom)) {
     return { ok: false, clientName: fullName || "?", isNewClient: false, error: "Données incomplètes" };
   }
 
   // Merge any user-provided context note into the RDV / client notes
-  const mergedNotes = [rdv.notes, contextNote ? `📝 Note agent: ${contextNote}` : null]
-    .filter(Boolean)
-    .join("\n") || null;
+  const newNoteParts = [rdv.notes, contextNote ? `📝 Note agent: ${contextNote}` : null].filter(Boolean);
+  const newNotes = newNoteParts.length ? newNoteParts.join("\n") : null;
 
   // 1) Find or create client
   let clientId: string | null = null;
@@ -649,6 +709,28 @@ export async function createSingleRdvFromExtract(
   const existing = await findClientByPhone(supabase, userId, rdv.telephone);
   if (existing) {
     clientId = existing.id;
+
+    // Enrich client fiche with any new info (notes append, fill missing fields)
+    const { data: currentClient } = await supabase
+      .from("clients")
+      .select("notes, adresse, code_postal, ville, email, telephone")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (currentClient) {
+      const patch: Record<string, any> = {};
+      if (!currentClient.adresse && rdv.adresse) patch.adresse = rdv.adresse;
+      if (!currentClient.code_postal && rdv.code_postal) patch.code_postal = rdv.code_postal;
+      if (!currentClient.ville && rdv.ville) patch.ville = rdv.ville;
+      if (!currentClient.email && rdv.email) patch.email = rdv.email;
+      if (newNotes) {
+        patch.notes = currentClient.notes
+          ? `${currentClient.notes}\n---\n${newNotes}`
+          : newNotes;
+      }
+      if (Object.keys(patch).length > 0) {
+        await supabase.from("clients").update(patch).eq("id", clientId);
+      }
+    }
   } else {
     const { data: newClient, error: clientErr } = await supabase
       .from("clients")
@@ -661,7 +743,7 @@ export async function createSingleRdvFromExtract(
         adresse: rdv.adresse || null,
         code_postal: rdv.code_postal || null,
         ville: rdv.ville || null,
-        notes: mergedNotes,
+        notes: newNotes,
         regie_id: regieId,
         source: "whatsapp_agent_image",
       })
@@ -674,7 +756,41 @@ export async function createSingleRdvFromExtract(
     isNewClient = true;
   }
 
-  // 2) Build RDV
+  // 2) Try to MERGE into an existing active RDV (same client + same date / recent)
+  if (!isNewClient && clientId) {
+    const mergeable = await findMergeableRdv(supabase, userId, clientId, rdv.date);
+    if (mergeable) {
+      const heure = rdv.heure || null;
+      const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
+      const patch: Record<string, any> = {};
+      // Update slot only if user provided an explicit time and it differs
+      if (heure && rdv.date) {
+        const newDateHeure = buildParisDateHeure(rdv.date, heure);
+        if (newDateHeure !== mergeable.date_heure) patch.date_heure = newDateHeure;
+      }
+      if (!mergeable.adresse && adresseFull) patch.adresse = adresseFull;
+      if (!mergeable.type_projet && rdv.type_projet) patch.type_projet = rdv.type_projet;
+      if (newNotes) {
+        patch.commentaire = mergeable.commentaire
+          ? `${mergeable.commentaire}\n---\n${newNotes}`
+          : newNotes;
+      }
+      if (regieId) patch.regie_id = regieId;
+
+      if (Object.keys(patch).length > 0) {
+        const { error: updErr } = await supabase
+          .from("rdv")
+          .update(patch)
+          .eq("id", mergeable.id);
+        if (updErr) {
+          return { ok: false, clientName: fullName, isNewClient, error: updErr.message };
+        }
+      }
+      return { ok: true, clientName: fullName, isNewClient, merged: true, rdvId: mergeable.id, clientId };
+    }
+  }
+
+  // 3) Build new RDV (no mergeable found)
   const heure = rdv.heure || "10:00";
   const dateHeure = buildParisDateHeure(rdv.date, heure);
   const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
@@ -689,7 +805,7 @@ export async function createSingleRdvFromExtract(
     type_projet: rdv.type_projet || "photovoltaique",
     source: "whatsapp_agent_image",
     regie_id: regieId,
-    commentaire: mergedNotes,
+    commentaire: newNotes,
   }).select("id").single();
 
   if (rdvErr) {
@@ -745,7 +861,7 @@ export function buildRegieSelectionMessage(
       }
     }
     warnBlock.push("━━━━━━━━━━━━━━━━━━━━");
-    warnBlock.push("_Tu pourras choisir `OUI` / `FORCER` / `NOTE: ...` après avoir indiqué la régie._");
+    warnBlock.push("_💡 Si un RDV existe déjà pour ce client, je le compléterai avec les nouvelles infos au lieu d'en créer un nouveau._");
   }
 
   // Multi-RDV → propose "all same régie" vs "one per RDV"
