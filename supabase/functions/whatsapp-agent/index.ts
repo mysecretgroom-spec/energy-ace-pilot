@@ -31,6 +31,16 @@ import {
   type LastExecutedAction,
 } from "./_post-action-edit.ts";
 import { analyzeBatchWarnings } from "./_duplicate-check.ts";
+import {
+  classifyImage,
+  resolveActiveClientId,
+  uploadPhotoEtude,
+  uploadDocClient,
+  buildClarificationMessage,
+  buildSoftConfirmHint,
+  type ClassificationResult,
+  type ImageIntent as ClassifiedImageIntent,
+} from "./_image-routing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2494,76 +2504,203 @@ serve(async (req) => {
       }
 
       // =================================================================
-      // RDV-FIRST STRATEGY (fallback / single-image direct path)
-      // We ALWAYS try RDV extraction first (cheap, structured tool call).
-      // If 0 RDVs are detected, we fall back to: (a) OCR text injection
-      // for note-like screenshots, then (b) finance analysis if nothing.
-      // The image classifier is used only as a hint to skip RDV extraction
-      // when we are VERY confident it's a receipt (avoids wasting a call).
+      // CLASSIFY-FIRST STRATEGY (single-image direct path)
+      // 1) One AI call → classify intent (rdv | finance | photo_etude | doc_client | autre)
+      // 2) Switch on intent → route to the matching handler
+      //    - rdv         → extract RDVs + propose validation menu
+      //    - finance     → analyze as receipt/invoice
+      //    - photo_etude → upload to documents bucket linked to active client
+      //    - doc_client  → upload to pending-documents (admin inbox)
+      //    - autre/low conf → ask the user to clarify
+      // No more "always try RDV first" cascade.
       // =================================================================
 
       let isReceiptDocument = false;
       let typeDetectionConfidence = 0;
 
       if (!mediaData.isLargeFile) {
-        // Quick classification (best-effort, non-blocking decision)
-        let intent: "rdv" | "finance" | "other" = "other";
-        let intentConfidence = 0;
-        try {
-          console.log("Classifying image content (hint only)...");
-          const dataUrl = `data:${mediaData.contentType};base64,${mediaData.base64}`;
-          const classifyResp = await fetch(
-            `${Deno.env.get("SUPABASE_URL")}/functions/v1/classify-image-intent`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({ image_base64: dataUrl }),
-            }
-          );
-          if (classifyResp.ok) {
-            const cj = await classifyResp.json();
-            if (cj?.success) {
-              intent = cj.intent;
-              intentConfidence = cj.confidence ?? 0;
-              console.log(`Classification: ${intent} (${intentConfidence}) — ${cj.reason}`);
-            }
-          } else {
-            console.log("Classification failed status", classifyResp.status);
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+        const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+        // ---- STEP 1: classify ----
+        const classification: ClassificationResult = await classifyImage(
+          { base64: mediaData.base64, contentType: mediaData.contentType },
+          SUPABASE_URL,
+          SERVICE_ROLE_KEY,
+        );
+        const { intent: imgIntent, confidence: imgConf, reason: imgReason } = classification;
+        console.log(`[image-router] classified as ${imgIntent} (conf=${imgConf}) — ${imgReason || ""}`);
+
+        // Effective intent: low-confidence or "autre" → ask user
+        const lowConfidence = imgConf < 0.4;
+        const askUser = imgIntent === "autre" || lowConfidence;
+        // Soft confirmation hint when confidence is medium
+        const softHint = !askUser && imgConf < 0.7 ? buildSoftConfirmHint(imgIntent) : "";
+
+        // ---- STEP 2: route by intent ----
+        if (askUser) {
+          // Best-effort OCR to give the user some context in the clarification prompt
+          let ocrText: string | null = null;
+          try {
+            const ocrRes = await ocrImageToText(
+              mediaData.base64,
+              mediaData.contentType,
+              LOVABLE_API_KEY!,
+            );
+            if (ocrRes.ok) ocrText = ocrRes.text;
+          } catch (e) {
+            console.warn("[image-router] OCR for clarification failed:", e);
           }
-        } catch (e) {
-          console.error("Classification error:", e);
+
+          const askMsg = buildClarificationMessage(ocrText);
+          await logMessage(
+            supabase, request.userId, request.fromNumber, request.messageType,
+            request.content, request.mediaUrl || null, null,
+            "conversation", {}, "image_clarification_requested", null, null,
+            askMsg, "processed",
+          );
+          return new Response(
+            JSON.stringify({
+              intent: "conversation" as Intent,
+              confidence: 1,
+              entities: {},
+              actionTaken: "image_clarification_requested",
+              responseMessage: askMsg,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
         }
 
-        // Route: try RDV extraction UNLESS classifier is highly confident finance.
-        let rdvExtracted = false;
-        const skipRdvExtraction = intent === "finance" && intentConfidence >= 0.85;
+        // ---- ROUTE: photo_etude → upload to client dossier ----
+        if (imgIntent === "photo_etude") {
+          const active = await resolveActiveClientId(supabase, request.userId);
+          if (!active.clientId) {
+            const askMsg =
+              "📸 J'ai bien reçu une photo terrain (compteur / toiture / tableau). " +
+              "Mais je ne sais pas à quel client la rattacher.\n\n" +
+              "👉 Réponds-moi avec le *nom du client* (ex: \"Photo pour Dupont\") et je l'ajoute à son dossier.";
+            await logMessage(
+              supabase, request.userId, request.fromNumber, request.messageType,
+              request.content, request.mediaUrl || null, null,
+              "conversation", {}, "photo_etude_no_client", null, null,
+              askMsg, "processed",
+            );
+            return new Response(
+              JSON.stringify({
+                intent: "conversation" as Intent,
+                confidence: 1,
+                entities: {},
+                actionTaken: "photo_etude_no_client",
+                responseMessage: askMsg,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
 
-        if (!skipRdvExtraction) {
-          // ============================================================
-          // DIRECT PROCESSING (no buffer, no "GO" trigger).
-          // The image is extracted immediately. If RDVs are detected,
-          // the regie selection / validation menu is proposed right away.
-          // If 0 RDVs are detected, we OCR the image text and inject it
-          // into processedContent so the regular conversational pipeline
-          // (create_client / update_client / add_note) can pick it up
-          // — typically a project briefing, instructions or client info.
-          // ============================================================
+          const upload = await uploadPhotoEtude(
+            supabase,
+            request.userId,
+            active.clientId,
+            mediaData.base64,
+            mediaData.contentType,
+          );
+          if (!upload.ok) {
+            console.error("[image-router] photo_etude upload failed:", upload.error);
+            const errMsg = `❌ Impossible d'enregistrer la photo : ${upload.error || "erreur inconnue"}.`;
+            return new Response(
+              JSON.stringify({
+                intent: "conversation" as Intent,
+                confidence: 1, entities: {},
+                actionTaken: "photo_etude_failed",
+                responseMessage: errMsg,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const okMsg =
+            `📸 Photo ajoutée au dossier de *${active.clientName || "client"}*.${softHint}`;
+          await logMessage(
+            supabase, request.userId, request.fromNumber, request.messageType,
+            request.content, request.mediaUrl || null, null,
+            "conversation", {}, "photo_etude_saved", upload.documentId || null, "document",
+            okMsg, "processed",
+          );
+          return new Response(
+            JSON.stringify({
+              intent: "conversation" as Intent,
+              confidence: 1, entities: {},
+              actionTaken: "photo_etude_saved",
+              entityId: upload.documentId,
+              entityType: "document",
+              responseMessage: okMsg,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        // ---- ROUTE: doc_client → upload to pending-documents (admin inbox) ----
+        if (imgIntent === "doc_client") {
+          const active = await resolveActiveClientId(supabase, request.userId);
+          const upload = await uploadDocClient(
+            supabase,
+            request.userId,
+            mediaData.base64,
+            mediaData.contentType,
+            active.clientId,
+            active.clientName,
+          );
+          if (!upload.ok) {
+            console.error("[image-router] doc_client upload failed:", upload.error);
+            const errMsg = `❌ Impossible d'enregistrer le document : ${upload.error || "erreur inconnue"}.`;
+            return new Response(
+              JSON.stringify({
+                intent: "conversation" as Intent,
+                confidence: 1, entities: {},
+                actionTaken: "doc_client_failed",
+                responseMessage: errMsg,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+
+          const target = active.clientName
+            ? `dans le dossier de *${active.clientName}*`
+            : "dans la file d'attente admin pour classement manuel";
+          const okMsg =
+            `📄 Document client reçu. Je le range ${target}.${softHint}`;
+          await logMessage(
+            supabase, request.userId, request.fromNumber, request.messageType,
+            request.content, request.mediaUrl || null, null,
+            "conversation", {}, "doc_client_saved", upload.pendingId || null, "pending_document",
+            okMsg, "processed",
+          );
+          return new Response(
+            JSON.stringify({
+              intent: "conversation" as Intent,
+              confidence: 1, entities: {},
+              actionTaken: "doc_client_saved",
+              entityId: upload.pendingId,
+              entityType: "pending_document",
+              responseMessage: okMsg,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+
+        // ---- ROUTE: rdv → extract RDV(s) and propose validation menu ----
+        if (imgIntent === "rdv") {
           try {
-            console.log("Direct RDV extraction (single image, no buffer)...");
+            console.log("[image-router] Extracting RDV(s) from image...");
             const extractRes = await extractRdvsFromImages(
               [{ image_data: mediaData.base64, mime_type: mediaData.contentType }],
-              Deno.env.get("SUPABASE_URL") || "",
-              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+              SUPABASE_URL,
+              SERVICE_ROLE_KEY,
             );
 
             if (extractRes.ok && extractRes.rdvs.length > 0) {
-              rdvExtracted = true;
               isReceiptDocument = false;
 
-              // Resolve régie + build menu (same flow as the legacy GO trigger)
               const regieRes = await resolveDefaultRegie(supabase, request.userId);
               if (regieRes.regies.length === 0) {
                 return new Response(
@@ -2578,7 +2715,6 @@ serve(async (req) => {
                 );
               }
 
-              // Compute duplicate / slot conflict warnings BEFORE asking validation
               const batchWarnings = await analyzeBatchWarnings(
                 supabase,
                 request.userId,
@@ -2595,12 +2731,7 @@ serve(async (req) => {
                 createdAt: new Date().toISOString(),
               };
 
-              // ============================================================
-              // SINGLE-RDV FAST PATH: when only 1 RDV is extracted, the régie
-              // is resolved and there are no blocking warnings, create the
-              // RDV immediately — no "OUI/NON" round-trip. This keeps the
-              // single-RDV flow simple and consistent (no multi-batch UI).
-              // ============================================================
+              // Single-RDV fast path (1 RDV + régie résolue + pas de warnings)
               if (
                 extractRes.rdvs.length === 1 &&
                 !regieRes.needsSelection &&
@@ -2614,7 +2745,7 @@ serve(async (req) => {
                 if (created.ok) {
                   const recap = appendEditHint(
                     buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
-                  );
+                  ) + softHint;
                   const lastAction = {
                     intent: "create_rdv" as Intent,
                     entityType: "rdv",
@@ -2632,8 +2763,7 @@ serve(async (req) => {
                   return new Response(
                     JSON.stringify({
                       intent: "create_rdv" as Intent,
-                      confidence: 1,
-                      entities: {},
+                      confidence: 1, entities: {},
                       actionTaken: "rdv_created",
                       entityId: created.rdvId,
                       entityType: "rdv",
@@ -2643,13 +2773,9 @@ serve(async (req) => {
                     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
                   );
                 }
-                // If creation failed, fall through to the confirmation flow
-                // so the user sees the error and can retry / adjust.
                 console.error(`Single-RDV fast path failed: ${created.error} — falling back to validation menu.`);
               }
 
-              // Multi-RDV → ask if all same régie OR one per RDV (mode selection)
-              // Single RDV with warnings or unresolved régie → standard validation flow
               const isMulti = extractRes.rdvs.length > 1;
               let responseMsg: string;
               let workflowState: WorkflowState;
@@ -2663,6 +2789,7 @@ serve(async (req) => {
                 responseMsg = buildMenuMessage(batchData);
                 workflowState = "awaiting_multi_rdv_validation";
               }
+              if (softHint) responseMsg += softHint;
 
               const newPending: PendingAction = {
                 intent: "create_rdv",
@@ -2689,8 +2816,7 @@ serve(async (req) => {
               return new Response(
                 JSON.stringify({
                   intent: "create_rdv" as Intent,
-                  confidence: 1,
-                  entities: {},
+                  confidence: 1, entities: {},
                   actionTaken: isMulti ? "multi_rdv_proposed" : "rdv_proposed",
                   responseMessage: responseMsg,
                   pendingActionToTrack: newPending,
@@ -2699,38 +2825,34 @@ serve(async (req) => {
               );
             }
 
-            // ----- Fallback: 0 RDV → treat the image as text notes -----
-            console.log("No RDV detected → OCR fallback to extract text/notes");
-            const ocrRes = await ocrImageToText(mediaData.base64, mediaData.contentType, LOVABLE_API_KEY!);
-            if (ocrRes.ok && ocrRes.text.trim().length > 0) {
-              const noteBlock = `[Contenu image OCR]\n${ocrRes.text.trim()}`;
-              processedContent = request.content && request.content.trim().length > 0
-                ? `${request.content}\n\n${noteBlock}`
-                : noteBlock;
-              rdvExtracted = true; // skip the finance fallback below
-              isReceiptDocument = false;
-              console.log(`OCR extracted ${ocrRes.text.length} chars → injected into processedContent`);
-            } else {
-              console.log("OCR fallback failed or returned empty text:", ocrRes.error);
-            }
+            // RDV classification but extraction returned 0 RDVs → ask user
+            console.log("[image-router] RDV intent but extraction returned 0 RDVs — asking user.");
+            const askMsg = buildClarificationMessage(null);
+            return new Response(
+              JSON.stringify({
+                intent: "conversation" as Intent,
+                confidence: 1, entities: {},
+                actionTaken: "image_clarification_requested",
+                responseMessage: askMsg,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
           } catch (e) {
-            console.error("Direct RDV extraction failed:", e);
+            console.error("[image-router] RDV extraction failed:", e);
+            // Fall through to finance as last resort
           }
         }
 
-        // Fallback: finance analysis if not an RDV
-        if (!rdvExtracted) {
-          isReceiptDocument = true;
-          typeDetectionConfidence = Math.round((intent === "finance" ? intentConfidence : 0.6) * 100);
-
-          console.log(`Running finance analysis (intent=${intent})...`);
-          documentAnalysisResult = await analyzeMediaStructured(
-            mediaData,
-            "finance",
-            LOVABLE_API_KEY
-          );
-          console.log("Finance analysis result:", documentAnalysisResult);
-        }
+        // ---- ROUTE: finance (default for "finance" intent OR fallback after RDV crash) ----
+        isReceiptDocument = true;
+        typeDetectionConfidence = Math.round(imgConf * 100);
+        console.log(`[image-router] Running finance analysis (intent=${imgIntent}, conf=${imgConf})...`);
+        documentAnalysisResult = await analyzeMediaStructured(
+          mediaData,
+          "finance",
+          LOVABLE_API_KEY,
+        );
+        console.log("[image-router] Finance analysis result:", documentAnalysisResult);
       } else {
         // For large files, create a placeholder result
         isReceiptDocument = true;

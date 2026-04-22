@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+export type ImageIntent = "rdv" | "finance" | "photo_etude" | "doc_client" | "autre";
+
 interface ClassifyRequest {
   image_base64: string; // data URL or raw base64
   mime_type?: string;
@@ -12,7 +14,7 @@ interface ClassifyRequest {
 
 interface ClassifyResult {
   success: boolean;
-  intent: "rdv" | "finance" | "other";
+  intent: ImageIntent;
   confidence: number; // 0..1
   reason: string | null;
   error?: string;
@@ -20,20 +22,47 @@ interface ClassifyResult {
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-const SYSTEM_PROMPT = `Tu es un classifieur d'images pour un CRM commercial photovoltaïque.
+const SYSTEM_PROMPT = `Tu es un classifieur d'images pour un CRM commercial photovoltaïque (énergie solaire, PAC, isolation).
 Tu reçois UNE image et tu dois identifier sa NATURE en lisant son contenu visuel et textuel.
 
-Catégories possibles:
-- "rdv" : capture d'écran d'un CRM, calendrier, email, SMS, note ou fiche contenant un RENDEZ-VOUS client (nom + date/heure ou adresse). Exemples: fiche client d'une autre régie, capture de Google Agenda, email de prise de RDV, SMS d'un confirmateur.
-- "finance" : ticket de caisse, facture, reçu, note de frais (carburant, péage, restaurant, hôtel, parking…). Présence typique: montant TTC, TVA, fournisseur commerçant.
-- "other" : tout le reste (photo de chantier, document d'identité, photo perso, screenshot non pertinent…).
+Catégories possibles (choisis EXACTEMENT une) :
 
-Règles:
-- Lis VRAIMENT le contenu de l'image avant de décider. Ne te fie pas à des suppositions.
-- Si tu vois un nom de client + une date/heure de rendez-vous → "rdv".
-- Si tu vois un total à payer + un commerçant → "finance".
-- En cas de doute entre rdv et finance, regarde la STRUCTURE: tableau de RDV / fiche client = rdv, ticket avec montants en colonnes = finance.
-- confidence: 0.0 à 1.0.`;
+• "rdv" — Capture d'écran, photo de fiche, email ou note contenant un RENDEZ-VOUS client.
+  Exemples : fiche client d'une autre régie, capture Google Agenda, email de prise de RDV,
+  SMS d'un confirmateur, fiche papier avec nom + prénom + téléphone + adresse + date/heure.
+  Indices : présence d'un nom client + d'une date OU d'une heure OU d'une adresse.
+
+• "finance" — Ticket de caisse, facture, reçu, note de frais.
+  Exemples : ticket carburant, péage autoroute, restaurant, hôtel, parking, achat fournitures.
+  Indices : montant TTC, TVA, nom de commerçant, total à payer, structure tabulaire de prix.
+
+• "photo_etude" — Photo PRISE PAR LE COMMERCIAL sur le terrain pendant une étude technique.
+  Exemples : photo de toiture (tuiles, panneaux, cheminée), photo de compteur électrique
+  Linky/EDF, photo de tableau électrique, photo de disjoncteur, photo de façade de maison,
+  photo d'un mur extérieur (ITE), photo d'une chaudière, photo d'une PAC existante.
+  Indices : photo "brute" en intérieur/extérieur, pas de texte structuré dominant.
+
+• "doc_client" — Document administratif fourni par le client.
+  Exemples : carte d'identité (CNI/CNIE), passeport, RIB / IBAN bancaire, justificatif de
+  domicile (facture EDF, quittance de loyer), avis d'imposition, taxe foncière,
+  attestation MaPrimeRénov', livret de famille.
+  Indices : document officiel scanné/photographié, en-tête administratif, IBAN, MRZ
+  (carte d'identité), nom + adresse + numéro fiscal.
+
+• "autre" — Tout le reste : photo personnelle, mème, capture illisible, photo floue
+  sans contexte exploitable, screenshot d'application non pertinent.
+
+Règles de décision :
+- Lis VRAIMENT le contenu de l'image avant de décider.
+- En cas de doute entre "rdv" et "finance", regarde la STRUCTURE :
+  fiche/tableau de RDV → "rdv" ; ticket avec montants → "finance".
+- En cas de doute entre "doc_client" et "finance" : un IBAN, une CNI, un avis d'imposition
+  ou un justificatif de domicile sont TOUJOURS "doc_client", PAS "finance".
+- En cas de doute entre "photo_etude" et "autre" : si on devine clairement un compteur,
+  un tableau électrique, une toiture ou une façade exploitable → "photo_etude".
+- Si l'image est trop floue/illisible OU sans rapport avec le métier → "autre".
+- confidence : 0.0 (incertain) à 1.0 (certain).
+- reason : 1 phrase courte (≤120 caractères).`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -43,7 +72,7 @@ serve(async (req) => {
   try {
     if (!LOVABLE_API_KEY) {
       return new Response(
-        JSON.stringify({ success: false, intent: "other", confidence: 0, reason: null, error: "LOVABLE_API_KEY not configured" }),
+        JSON.stringify({ success: false, intent: "autre", confidence: 0, reason: null, error: "LOVABLE_API_KEY not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -51,7 +80,7 @@ serve(async (req) => {
     const { image_base64, mime_type }: ClassifyRequest = await req.json();
     if (!image_base64) {
       return new Response(
-        JSON.stringify({ success: false, intent: "other", confidence: 0, reason: null, error: "image_base64 required" }),
+        JSON.stringify({ success: false, intent: "autre", confidence: 0, reason: null, error: "image_base64 required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -81,7 +110,7 @@ serve(async (req) => {
             parameters: {
               type: "object",
               properties: {
-                intent: { type: "string", enum: ["rdv", "finance", "other"] },
+                intent: { type: "string", enum: ["rdv", "finance", "photo_etude", "doc_client", "autre"] },
                 confidence: { type: "number", minimum: 0, maximum: 1 },
                 reason: { type: "string", description: "Brève justification (max 120 caractères)." },
               },
@@ -113,7 +142,7 @@ serve(async (req) => {
       const text = await response.text().catch(() => "");
       console.error("AI gateway error:", response.status, text);
       return new Response(
-        JSON.stringify({ success: false, intent: "other", confidence: 0, reason: null, error: `ai_${response.status}` }),
+        JSON.stringify({ success: false, intent: "autre", confidence: 0, reason: null, error: `ai_${response.status}` }),
         { status: response.status === 429 || response.status === 402 ? response.status : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -122,15 +151,18 @@ serve(async (req) => {
     const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       return new Response(
-        JSON.stringify({ success: false, intent: "other", confidence: 0, reason: null, error: "no_tool_call" }),
+        JSON.stringify({ success: false, intent: "autre", confidence: 0, reason: null, error: "no_tool_call" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const parsed = JSON.parse(toolCall.function.arguments);
+    const allowed: ImageIntent[] = ["rdv", "finance", "photo_etude", "doc_client", "autre"];
+    const intent: ImageIntent = allowed.includes(parsed.intent) ? parsed.intent : "autre";
+
     const result: ClassifyResult = {
       success: true,
-      intent: (parsed.intent === "rdv" || parsed.intent === "finance") ? parsed.intent : "other",
+      intent,
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0,
       reason: parsed.reason ?? null,
     };
@@ -142,7 +174,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("classify-image-intent error:", e);
     return new Response(
-      JSON.stringify({ success: false, intent: "other", confidence: 0, reason: null, error: (e as Error).message }),
+      JSON.stringify({ success: false, intent: "autre", confidence: 0, reason: null, error: (e as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
