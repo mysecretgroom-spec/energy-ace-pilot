@@ -425,10 +425,10 @@ export async function createAllRdvsFromBatch(
   userId: string,
   batch: MultiRdvBatchData,
 ): Promise<{
-  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }>;
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean; rdvId?: string }>;
   failures: Array<{ clientName: string; error: string }>;
 }> {
-  const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; rdvId?: string }> = [];
+  const created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean; rdvId?: string }> = [];
   const failures: Array<{ clientName: string; error: string }> = [];
   for (let i = 0; i < batch.rdvs.length; i++) {
     const letter = ALPHABET[i];
@@ -443,7 +443,7 @@ export async function createAllRdvsFromBatch(
       batch.contextNote || null,
     );
     if (res.ok) {
-      created.push({ rdv, isNewClient: res.isNewClient, rdvId: res.rdvId });
+      created.push({ rdv, isNewClient: res.isNewClient, merged: res.merged, rdvId: res.rdvId });
     } else {
       failures.push({ clientName: res.clientName, error: res.error || "erreur" });
     }
@@ -451,24 +451,37 @@ export async function createAllRdvsFromBatch(
   return { created, failures };
 }
 
-/** Build a final recap message after RDVs were created */
+/** Build a final recap message after RDVs were created or merged */
 export function buildCreatedRecap(
-  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean }>,
+  created: Array<{ rdv: ExtractedRdv; isNewClient: boolean; merged?: boolean }>,
   regieName: string | null,
   failures: Array<{ clientName: string; error: string }> = [],
 ): string {
   if (created.length === 0) {
     const failLines = failures.map((f) => `❌ ${f.clientName}: ${f.error}`);
-    return [`😕 Aucun RDV créé.`, "", ...failLines].join("\n");
+    return [`😕 Aucun RDV traité.`, "", ...failLines].join("\n");
   }
 
+  const mergedCount = created.filter((c) => c.merged).length;
+  const newCount = created.length - mergedCount;
   const isSingle = created.length === 1;
-  const header = isSingle
-    ? `✅ *RDV créé* (Régie: ${regieName || "?"})`
-    : `✅ *${created.length} RDV créés* (Régie: ${regieName || "?"})`;
+
+  let header: string;
+  if (isSingle) {
+    header = created[0].merged
+      ? `🔄 *RDV complété* (Régie: ${regieName || "?"})`
+      : `✅ *RDV créé* (Régie: ${regieName || "?"})`;
+  } else if (mergedCount > 0 && newCount > 0) {
+    header = `✅ *${newCount} RDV créé${newCount > 1 ? "s" : ""}* + 🔄 *${mergedCount} complété${mergedCount > 1 ? "s" : ""}* (Régie: ${regieName || "?"})`;
+  } else if (mergedCount > 0) {
+    header = `🔄 *${mergedCount} RDV complétés* (Régie: ${regieName || "?"})`;
+  } else {
+    header = `✅ *${newCount} RDV créés* (Régie: ${regieName || "?"})`;
+  }
 
   const blocks = created.map((c) => {
     const detail = formatRdvDetailed(null, c.rdv);
+    if (c.merged) return `${detail}\n🔄 _Infos ajoutées au RDV existant_`;
     return c.isNewClient ? `${detail}\n🆕 _Nouveau client_` : detail;
   });
 
