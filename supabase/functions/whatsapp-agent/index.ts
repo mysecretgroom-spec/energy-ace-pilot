@@ -2427,7 +2427,7 @@ serve(async (req) => {
                   );
                   if (created.ok) {
                     const recap = appendEditHint(
-                      buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                      buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
                     );
                     return new Response(
                       JSON.stringify({
@@ -2771,7 +2771,7 @@ serve(async (req) => {
                 );
                 if (created.ok) {
                   const recap = appendEditHint(
-                    buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+                    buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
                   ) + softHint;
                   const lastAction = {
                     intent: "create_rdv" as Intent,
@@ -3253,7 +3253,7 @@ serve(async (req) => {
           );
           if (created.ok) {
             const recap = appendEditHint(
-              buildCreatedRecap([{ rdv, isNewClient: created.isNewClient }], regieRes.regieName),
+              buildCreatedRecap([{ rdv, isNewClient: created.isNewClient, merged: created.merged }], regieRes.regieName),
             );
             const lastAction = {
               intent: "create_rdv" as Intent,
