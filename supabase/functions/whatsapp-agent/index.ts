@@ -19,6 +19,7 @@ import {
   parseValidationResponse,
   resolveDefaultRegie,
   createSingleRdvFromExtract,
+  createAllRdvsFromBatch,
   type MultiRdvBatchData,
   type ExtractedRdv,
 } from "./_multi-rdv.ts";
