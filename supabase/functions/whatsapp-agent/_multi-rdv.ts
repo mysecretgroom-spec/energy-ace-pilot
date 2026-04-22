@@ -773,9 +773,9 @@ export async function createSingleRdvFromExtract(
     isNewClient = true;
   }
 
-  // 2) Try to MERGE into an existing active RDV (same client + same date / recent)
+  // 2) Try to MERGE into an existing active RDV (same client + same date + compatible time)
   if (!isNewClient && clientId) {
-    const mergeable = await findMergeableRdv(supabase, userId, clientId, rdv.date);
+    const mergeable = await findMergeableRdv(supabase, userId, clientId, rdv.date, rdv.heure);
     if (mergeable) {
       const heure = rdv.heure || null;
       const adresseFull = [rdv.adresse, rdv.code_postal, rdv.ville].filter(Boolean).join(" ") || null;
