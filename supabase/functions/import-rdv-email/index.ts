@@ -133,9 +133,14 @@ Certains emails contiennent des données dans des éléments HTML masqués (disp
 
 ## RÈGLES D'EXTRACTION CRITIQUES:
 
-1. **DATES** - PRIORITÉ AU SUJET puis au corps. Convertis TOUS les formats en YYYY-MM-DD:
-   - "29/01/2026" → "2026-01-29"
-   - "20260205" (format iCal) → "2026-02-05"
+1. **DATES** - ⚠️ RÈGLE ABSOLUE ⚠️
+   - PRIORITÉ MAXIMALE à la date numérique explicite (JJ/MM/AAAA, AAAA-MM-JJ, format iCal AAAAMMJJ) trouvée dans le SUJET puis dans le CORPS.
+   - IGNORE les mentions relatives ("Aujourd'hui", "Demain", "Hier", "Ce matin") si une date numérique explicite est présente. Ces mentions proviennent souvent du rendu de l'application mail (Gmail, Outlook) et NE reflètent PAS la vraie date du RDV.
+   - N'utilise une mention relative QUE si AUCUNE date numérique n'est trouvée. Date du jour de référence : ${new Date().toISOString().slice(0, 10)} (UTC).
+   - Convertis TOUS les formats en YYYY-MM-DD :
+     - "29/01/2026" → "2026-01-29"
+     - "20260205" (format iCal) → "2026-02-05"
+     - Sujet "Votre RDV du 23/04/2026 09:30" → date "2026-04-23", heure "09:30"
 
 2. **HEURES** - Convertis en HH:MM:
    - "10h00" → "10:00", "T130000" → "13:00"
