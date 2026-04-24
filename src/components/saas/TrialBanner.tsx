@@ -86,7 +86,7 @@ export function TrialBanner({ daysLeft }: TrialBannerProps) {
         <div className="px-4 pb-3 pt-1 text-xs space-y-3 border-t border-border/40">
           <div>
             <p className="font-semibold text-foreground mb-1.5 flex items-center gap-1">
-              <Check className="h-3.5 w-3.5 text-green-600" />
+              <Check className="h-3.5 w-3.5 text-primary" />
               Inclus dans votre essai
             </p>
             <ul className="space-y-1 text-muted-foreground pl-5">
