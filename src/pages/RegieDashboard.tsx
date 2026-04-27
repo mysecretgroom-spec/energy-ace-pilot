@@ -531,6 +531,9 @@ const RegieDashboard = () => {
           </Card>
         </div>
 
+        {/* Légende des statuts inclus / exclus */}
+        <RegieStatusLegend ventes={allVentes} />
+
         {/* Pipeline des ventes */}
         <Card>
           <CardHeader className="pb-2">
