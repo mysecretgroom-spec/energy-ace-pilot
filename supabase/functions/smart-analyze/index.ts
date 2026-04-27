@@ -124,15 +124,35 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
     
-    if (!jsonMatch) {
-      return new Response(JSON.stringify({ success: false, error_message: "AI response parse error" }), {
+    // Tolerant JSON extraction: strip markdown fences, find largest {...} block
+    let jsonStr = content.trim();
+    // Remove markdown code fences if present
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+    // Find first { and last } to extract JSON block even with surrounding text
+    const firstBrace = jsonStr.indexOf("{");
+    const lastBrace = jsonStr.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+      console.error("No JSON braces found in AI response:", content.slice(0, 500));
+      return new Response(JSON.stringify({ success: false, error_message: "Réponse IA sans JSON valide", raw_preview: content.slice(0, 200) }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    jsonStr = jsonStr.slice(firstBrace, lastBrace + 1);
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr, "Content:", content.slice(0, 500));
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error_message: "Impossible de traiter la réponse de l'IA (JSON malformé)",
+        raw_preview: jsonStr.slice(0, 200)
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // If document_id provided, update the document record in DB
     if (document_id && user_id) {
