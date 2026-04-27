@@ -89,7 +89,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
@@ -99,7 +99,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
             ],
           },
         ],
-        max_tokens: 800,
+        max_tokens: 2000,
       }),
       signal: controller.signal,
     });
