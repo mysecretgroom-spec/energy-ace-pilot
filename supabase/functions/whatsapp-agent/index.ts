@@ -4317,7 +4317,7 @@ Exemple échec:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
+      model: "google/gemini-2.5-flash",
       messages: [
         {
           role: "user",
@@ -4327,7 +4327,7 @@ Exemple échec:
           ],
         },
       ],
-      max_tokens: 1200,
+      max_tokens: 4000,
     }),
   });
 
@@ -4369,8 +4369,34 @@ Exemple échec:
   const content = aiResponse.choices?.[0]?.message?.content || "";
 
   try {
-    const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(cleanContent);
+    let cleanContent = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    // Slice to outermost JSON braces to tolerate prefix text or truncation noise
+    const firstBrace = cleanContent.indexOf("{");
+    const lastBrace = cleanContent.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleanContent = cleanContent.slice(firstBrace, lastBrace + 1);
+    }
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanContent);
+    } catch {
+      // Attempt to repair a truncated JSON: close open arrays/objects
+      let repaired = cleanContent.replace(/,\s*$/, "");
+      let depthObj = 0, depthArr = 0, inStr = false, esc = false;
+      for (const ch of repaired) {
+        if (esc) { esc = false; continue; }
+        if (ch === "\\") { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === "{") depthObj++;
+        else if (ch === "}") depthObj--;
+        else if (ch === "[") depthArr++;
+        else if (ch === "]") depthArr--;
+      }
+      if (inStr) repaired += '"';
+      repaired += "]".repeat(Math.max(0, depthArr)) + "}".repeat(Math.max(0, depthObj));
+      parsed = JSON.parse(repaired);
+    }
     
     if (context === "finance") {
       return {
