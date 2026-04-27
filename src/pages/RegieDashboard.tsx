@@ -26,6 +26,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { isCancellationStatus } from "@/lib/venteStatusConfig";
+import { RegieStatusLegend } from "@/components/regie/RegieStatusLegend";
 
 interface RegieData {
   id: string;
