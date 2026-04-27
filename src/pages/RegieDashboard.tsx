@@ -26,6 +26,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { isCancellationStatus } from "@/lib/venteStatusConfig";
+import { RegieStatusLegend } from "@/components/regie/RegieStatusLegend";
 
 interface RegieData {
   id: string;
@@ -529,6 +530,9 @@ const RegieDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Légende des statuts inclus / exclus */}
+        <RegieStatusLegend ventes={allVentes} />
 
         {/* Pipeline des ventes */}
         <Card>
