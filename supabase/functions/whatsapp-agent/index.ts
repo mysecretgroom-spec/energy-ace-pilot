@@ -39,6 +39,7 @@ import {
   uploadDocClient,
   buildClarificationMessage,
   buildSoftConfirmHint,
+  decideAlbumRouting,
   type ClassificationResult,
   type ImageIntent as ClassifiedImageIntent,
 } from "./_image-routing.ts";
