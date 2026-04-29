@@ -34,6 +34,8 @@ interface Vente {
   id: string;
   numero_contrat: string | null;
   date_signature: string | null;
+  date_installation_prevue?: string | null;
+  date_installation_reelle?: string | null;
   montant_ht: number;
   montant_ttc: number;
   puissance_kwc: number | null;
