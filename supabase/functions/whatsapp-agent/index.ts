@@ -2378,6 +2378,39 @@ serve(async (req) => {
             );
 
             if (pending.length > 0) {
+              // ---- Classify leader image FIRST to avoid hallucinated RDVs from receipts/photos ----
+              // We classify the most recent image (the one that just arrived) as it's the most
+              // representative of the user's current intent. If the classifier is confident it's
+              // NOT an RDV, we mark the album as processed and let the single-image classify-first
+              // path below handle it (finance / photo_etude / doc_client / clarification).
+              const leaderImg = pending[pending.length - 1];
+              const leaderClassification = await classifyImage(
+                { base64: leaderImg.image_data, contentType: leaderImg.mime_type },
+                Deno.env.get("SUPABASE_URL") || "",
+                Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+              );
+              console.log(
+                `[album-debounce] Leader classified as ${leaderClassification.intent} (conf=${leaderClassification.confidence})`,
+              );
+
+              // If single image AND classifier is confident it's NOT an RDV → fall through to
+              // the classify-first single-image router below, which knows how to route finance /
+              // photo_etude / doc_client correctly.
+              if (
+                pending.length === 1 &&
+                leaderClassification.intent !== "rdv" &&
+                leaderClassification.confidence >= 0.5
+              ) {
+                console.log(
+                  `[album-debounce] Non-RDV intent (${leaderClassification.intent}) — yielding to single-image router.`,
+                );
+                await markImagesProcessed(supabase, pending.map((p) => p.id));
+                await clearAllPendingImages(supabase, request.userId, pending.map((p) => p.id));
+                // Fall through to the classify-first path below by exiting the album block.
+                // We can't `break` here cleanly, so we use a labeled flag-like return path:
+                // simplest: do nothing more in this block and let execution continue past the
+                // outer `if (isImageMessage && ...)` guard.
+              } else {
               const extractRes = await extractRdvsFromImages(
                 pending.map((p) => ({ image_data: p.image_data, mime_type: p.mime_type })),
                 Deno.env.get("SUPABASE_URL") || "",
