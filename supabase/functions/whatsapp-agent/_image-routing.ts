@@ -286,3 +286,35 @@ export function buildSoftConfirmHint(intent: ImageIntent): string {
         : "document";
   return `\n\n_Si je me suis trompé : réponds *${label === "rdv" ? "frais" : "rdv"}* / *photo* / *document* pour rectifier._`;
 }
+
+// =============================================================
+// Pure decision helper for the album-debounce routing logic.
+//
+// Given the leader-image classification result and the size of the
+// pending album, decide whether the album-debounce path should:
+//   - "extract_rdvs": call extractRdvsFromImages (multi-image album,
+//     or single image classified as RDV, or low-confidence fallback)
+//   - "yield_to_single_router": skip RDV extraction and let the
+//     classify-first single-image router handle it (finance / photo /
+//     doc / clarification).
+//
+// This function is intentionally side-effect free so it can be unit
+// tested without mocking Supabase, fetch, or env vars.
+// =============================================================
+
+export type AlbumRoutingDecision = "extract_rdvs" | "yield_to_single_router";
+
+export function decideAlbumRouting(
+  leader: ClassificationResult,
+  pendingCount: number,
+): AlbumRoutingDecision {
+  // Multi-image albums almost always come from RDV reports → keep RDV path.
+  if (pendingCount > 1) return "extract_rdvs";
+  // Single image, classifier confident it's NOT an RDV → yield.
+  if (leader.intent !== "rdv" && leader.confidence >= 0.5) {
+    return "yield_to_single_router";
+  }
+  // Single image, classifier says RDV OR is unsure → keep the RDV path
+  // (it's the historical safe default, and the menu lets the user cancel).
+  return "extract_rdvs";
+}

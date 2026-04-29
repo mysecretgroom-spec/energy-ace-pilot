@@ -39,6 +39,7 @@ import {
   uploadDocClient,
   buildClarificationMessage,
   buildSoftConfirmHint,
+  decideAlbumRouting,
   type ClassificationResult,
   type ImageIntent as ClassifiedImageIntent,
 } from "./_image-routing.ts";
@@ -2396,20 +2397,14 @@ serve(async (req) => {
               // If single image AND classifier is confident it's NOT an RDV → fall through to
               // the classify-first single-image router below, which knows how to route finance /
               // photo_etude / doc_client correctly.
-              if (
-                pending.length === 1 &&
-                leaderClassification.intent !== "rdv" &&
-                leaderClassification.confidence >= 0.5
-              ) {
+              const routing = decideAlbumRouting(leaderClassification, pending.length);
+              if (routing === "yield_to_single_router") {
                 console.log(
                   `[album-debounce] Non-RDV intent (${leaderClassification.intent}) — yielding to single-image router.`,
                 );
                 await markImagesProcessed(supabase, pending.map((p) => p.id));
                 await clearAllPendingImages(supabase, request.userId, pending.map((p) => p.id));
-                // Fall through to the classify-first path below by exiting the album block.
-                // We can't `break` here cleanly, so we use a labeled flag-like return path:
-                // simplest: do nothing more in this block and let execution continue past the
-                // outer `if (isImageMessage && ...)` guard.
+                // Fall through to the classify-first path below.
               } else {
               const extractRes = await extractRdvsFromImages(
                 pending.map((p) => ({ image_data: p.image_data, mime_type: p.mime_type })),
