@@ -116,7 +116,14 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
         
         const updateData: any = { status: newStatus };
         if (newStatus === 'installe' && !vente.date_installation_reelle) {
-          updateData.date_installation_reelle = new Date().toISOString().split('T')[0];
+          const todayStr = new Date().toISOString().split('T')[0];
+          const prevue = vente.date_installation_prevue;
+          // Only auto-fill date_installation_reelle if there's no future planned date
+          if (!prevue || prevue <= todayStr) {
+            updateData.date_installation_reelle = todayStr;
+          } else {
+            updateData.date_installation_reelle = prevue;
+          }
         }
         
         const { error } = await supabase
