@@ -2556,6 +2556,7 @@ serve(async (req) => {
               // No RDV detected in the batch → fall through to OCR/finance fallback
               // using the LAST image (current request) as representative content.
               console.log(`[album-debounce] No RDV detected across ${pending.length} image(s) — falling back.`);
+              } // end else (intent === rdv branch)
             }
           }
         } catch (e) {
