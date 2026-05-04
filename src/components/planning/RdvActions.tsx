@@ -208,8 +208,8 @@ export function RdvActions({
         </Button>
       )}
 
-      {/* Switch type RDV */}
-      <DropdownMenu>
+      {/* Switch type RDV — masqué pour les poses */}
+      {!isInstallation && (
         <DropdownMenuTrigger asChild>
           <Button
             size="icon"
