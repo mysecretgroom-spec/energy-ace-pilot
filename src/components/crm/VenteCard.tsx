@@ -28,6 +28,7 @@ import { DecomDialog } from "./DecomDialog";
 import { VenteProgressBar } from "./VenteProgressBar";
 
 import { VenteStatus, VENTE_STATUS_LABELS, VENTE_STATUS_COLORS } from "@/lib/venteStatusConfig";
+import { getVenteCardDateDisplay } from "@/lib/venteCardDateDisplay";
 type VenteType = 'standard' | 'external_installation';
 
 interface Vente {
