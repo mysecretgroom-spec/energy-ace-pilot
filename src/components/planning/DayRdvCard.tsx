@@ -22,7 +22,7 @@ interface DayRdvCardProps {
     postalCode?: string;
     status: RdvStatus;
     type: string;
-    typeRdv: 'standard' | 'external_installation';
+    typeRdv: 'standard' | 'external_installation' | 'installation';
     isR2?: boolean;
     r2Type?: string | null;
     etudeId?: string | null;

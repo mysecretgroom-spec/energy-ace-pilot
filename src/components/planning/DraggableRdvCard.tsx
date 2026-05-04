@@ -12,7 +12,7 @@ interface DraggableRdvCardProps {
   time: string;
   client: string;
   status: RdvStatus;
-  typeRdv: "standard" | "external_installation";
+  typeRdv: "standard" | "external_installation" | "installation";
   isR2?: boolean;
   regieNom?: string | null;
   regieCouleur?: string | null;

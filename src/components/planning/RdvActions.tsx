@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type RdvType = 'standard' | 'external_installation';
+type RdvType = 'standard' | 'external_installation' | 'installation';
 
 interface RdvActionsProps {
   rdvId: string;
