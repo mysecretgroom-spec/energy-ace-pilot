@@ -508,18 +508,21 @@ const Planning = () => {
     <MobileLayout title="Planning">
       <PullToRefreshContainer onRefresh={fetchRdvs}>
       <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-5xl mx-auto">
-        {/* Sélecteur de vue - responsive sizing */}
-        <Tabs
-          value={viewMode}
-          onValueChange={(v) => setViewMode(v as ViewMode)}
-          className="w-full"
-        >
-          <TabsList className="w-full grid grid-cols-3 h-12 sm:h-10">
-            <TabsTrigger value="jour" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Jour</TabsTrigger>
-            <TabsTrigger value="semaine" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Semaine</TabsTrigger>
-            <TabsTrigger value="mois" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Mois</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Sélecteur de vue + légende */}
+        <div className="flex items-center gap-2">
+          <Tabs
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as ViewMode)}
+            className="flex-1"
+          >
+            <TabsList className="w-full grid grid-cols-3 h-12 sm:h-10">
+              <TabsTrigger value="jour" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Jour</TabsTrigger>
+              <TabsTrigger value="semaine" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Semaine</TabsTrigger>
+              <TabsTrigger value="mois" className="text-sm sm:text-base h-10 sm:h-8 touch-action-manipulation">Mois</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <PlanningLegend />
+        </div>
 
         {/* Navigation date */}
         <div className="flex items-center justify-between py-1">
