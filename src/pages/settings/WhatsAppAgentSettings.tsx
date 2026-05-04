@@ -274,7 +274,7 @@ const WhatsAppAgentSettings = () => {
                           {msg.raw_content || msg.transcribed_content || "(média)"}
                         </p>
                         
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                           <Badge variant="outline" className="text-xs">
                             {msg.message_type}
                           </Badge>
@@ -284,6 +284,36 @@ const WhatsAppAgentSettings = () => {
                             </Badge>
                           )}
                         </div>
+
+                        {/* Encart "Interprété comme" — lève l'ambiguïté sur ce que
+                            l'agent a compris (ex: "Envoi pose" vs "Posé") */}
+                        {(() => {
+                          const highlights = getEntityHighlights(msg.detected_entities);
+                          if (highlights.length === 0) return null;
+                          return (
+                            <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-1">
+                              <p className="text-[11px] font-medium text-blue-700 uppercase tracking-wide">
+                                Interprété comme
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {highlights.map((h, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="text-xs bg-background border-blue-500/30"
+                                  >
+                                    <span className="text-muted-foreground mr-1">
+                                      {h.label}:
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                      {h.value}
+                                    </span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {msg.response_sent && (
                           <div className="bg-primary/5 rounded p-2 text-xs">
