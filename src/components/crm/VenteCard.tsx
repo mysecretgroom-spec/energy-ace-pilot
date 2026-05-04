@@ -274,22 +274,22 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
             </div>
             <div className="text-right space-y-1">
               {(() => {
-                const installDate = vente.date_installation_reelle || vente.date_installation_prevue;
-                const showInstall = installDate && ['envoi_pose', 'en_installation', 'installe', 'attente_paiement', 'paye'].includes(vente.status);
-                if (showInstall) {
+                const display = getVenteCardDateDisplay(vente);
+                if (!display) return null;
+                if (display.kind === "install") {
                   return (
                     <p className="text-xs flex items-center gap-1 text-muted-foreground justify-end">
                       <Calendar className="h-3 w-3" />
-                      <span>{vente.date_installation_reelle ? 'Posé' : 'Pose'} {format(new Date(installDate!), "d MMM yyyy", { locale: fr })}</span>
+                      <span>{display.label} {format(new Date(display.date), "d MMM yyyy", { locale: fr })}</span>
                     </p>
                   );
                 }
-                return vente.date_signature ? (
+                return (
                   <p className="text-xs flex items-center gap-1 text-muted-foreground justify-end">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(vente.date_signature), "d MMM yyyy", { locale: fr })}
+                    {format(new Date(display.date), "d MMM yyyy", { locale: fr })}
                   </p>
-                ) : null;
+                );
               })()}
               {vente.numero_contrat && (
                 <p className="text-xs text-muted-foreground">
