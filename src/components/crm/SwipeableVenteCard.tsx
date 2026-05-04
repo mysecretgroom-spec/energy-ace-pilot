@@ -6,6 +6,7 @@ import { hapticFeedback } from "@/lib/haptics";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { VenteStatus, VENTE_STATUS_LABELS, isCancellationStatus } from "@/lib/venteStatusConfig";
+import { resolveInstallationRealDate } from "@/lib/installationDate";
 
 const PIPELINE_ORDER: VenteStatus[] = [
   'en_negociation',
@@ -115,14 +116,13 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
         onRefresh?.();
         
         const updateData: any = { status: newStatus };
-        if (newStatus === 'installe' && !vente.date_installation_reelle) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const prevue = vente.date_installation_prevue;
-          // Only auto-fill date_installation_reelle if there's no future planned date
-          if (!prevue || prevue <= todayStr) {
-            updateData.date_installation_reelle = todayStr;
-          } else {
-            updateData.date_installation_reelle = prevue;
+        if (newStatus === 'installe') {
+          const resolved = resolveInstallationRealDate(
+            vente.date_installation_reelle,
+            vente.date_installation_prevue,
+          );
+          if (resolved !== null) {
+            updateData.date_installation_reelle = resolved;
           }
         }
         
