@@ -86,13 +86,67 @@ const WhatsAppAgentSettings = () => {
       create_rdv: "Créer RDV",
       update_rdv: "Modifier RDV",
       update_vente_status: "Statut vente",
+      update_vente_pipeline: "Statut pipeline",
+      create_external_vente: "Vente externe",
       import_document: "Document",
       import_facture: "Facture",
       query_info: "Information",
+      query_rdv_planning: "Consultation planning",
+      query_ventes_by_filter: "Liste ventes",
+      query_ventes_a_facturer: "Ventes à facturer",
+      query_ventes_en_cours: "Ventes en cours",
+      query_regie_bilan: "Bilan régie",
       conversation: "Conversation",
       unknown: "Non compris",
     };
     return labels[intent || ""] || intent || "-";
+  };
+
+  // Traduction des valeurs d'enum pipeline_status / status pour affichage clair
+  const getPipelineStatusLabel = (value: string): string => {
+    const labels: Record<string, string> = {
+      en_negociation: "En négociation",
+      signe: "Signé",
+      cq_a_faire: "CQ à faire",
+      cq_fait: "CQ fait",
+      attente_financement: "Attente financement",
+      envoi_pose: "Envoi pose",
+      en_installation: "En installation",
+      installe: "Posé",
+      attente_paiement: "Attente paiement",
+      paye: "Payé",
+      annule: "Annulé",
+    };
+    return labels[value] || value;
+  };
+
+  // Extrait les entités lisibles à montrer en badges sous l'intention
+  const getEntityHighlights = (entities: unknown): { label: string; value: string }[] => {
+    if (!entities || typeof entities !== "object") return [];
+    const e = entities as Record<string, unknown>;
+    const out: { label: string; value: string }[] = [];
+    if (typeof e.pipeline_status === "string") {
+      out.push({ label: "Statut", value: getPipelineStatusLabel(e.pipeline_status) });
+    }
+    if (typeof e.status === "string") {
+      out.push({ label: "Statut RDV", value: e.status });
+    }
+    if (typeof e.client_name === "string") {
+      out.push({ label: "Client", value: e.client_name });
+    }
+    if (typeof e.date === "string") {
+      out.push({ label: "Date", value: e.date });
+    }
+    if (typeof e.time === "string") {
+      out.push({ label: "Heure", value: e.time });
+    }
+    if (typeof e.commission === "number") {
+      out.push({ label: "Commission", value: `${e.commission.toLocaleString("fr-FR")}€` });
+    }
+    if (typeof e.regie_name === "string") {
+      out.push({ label: "Régie", value: e.regie_name });
+    }
+    return out;
   };
 
   return (
@@ -220,7 +274,7 @@ const WhatsAppAgentSettings = () => {
                           {msg.raw_content || msg.transcribed_content || "(média)"}
                         </p>
                         
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                           <Badge variant="outline" className="text-xs">
                             {msg.message_type}
                           </Badge>
@@ -230,6 +284,36 @@ const WhatsAppAgentSettings = () => {
                             </Badge>
                           )}
                         </div>
+
+                        {/* Encart "Interprété comme" — lève l'ambiguïté sur ce que
+                            l'agent a compris (ex: "Envoi pose" vs "Posé") */}
+                        {(() => {
+                          const highlights = getEntityHighlights(msg.detected_entities);
+                          if (highlights.length === 0) return null;
+                          return (
+                            <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-1">
+                              <p className="text-[11px] font-medium text-blue-700 uppercase tracking-wide">
+                                Interprété comme
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {highlights.map((h, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="text-xs bg-background border-blue-500/30"
+                                  >
+                                    <span className="text-muted-foreground mr-1">
+                                      {h.label}:
+                                    </span>
+                                    <span className="font-medium text-foreground">
+                                      {h.value}
+                                    </span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {msg.response_sent && (
                           <div className="bg-primary/5 rounded p-2 text-xs">
