@@ -22,7 +22,7 @@ interface RdvData {
   clientId: string;
   status: RdvStatus;
   type: string;
-  typeRdv: 'standard' | 'external_installation';
+  typeRdv: 'standard' | 'external_installation' | 'installation';
   isR2?: boolean;
   etudeId?: string | null;
 }

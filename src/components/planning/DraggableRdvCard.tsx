@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
-import { Clock, Wrench, RefreshCw, GripVertical } from "lucide-react";
+import { Clock, Wrench, RefreshCw, GripVertical, HardHat } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -12,7 +12,7 @@ interface DraggableRdvCardProps {
   time: string;
   client: string;
   status: RdvStatus;
-  typeRdv: "standard" | "external_installation";
+  typeRdv: "standard" | "external_installation" | "installation";
   isR2?: boolean;
   regieNom?: string | null;
   regieCouleur?: string | null;
@@ -163,7 +163,9 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
           isHighlighted && !isDragging
             ? "ring-2 ring-primary shadow-lg scale-[1.02]"
             : "",
-          typeRdv === "external_installation"
+          typeRdv === "installation"
+            ? "border-l-2 border-l-indigo-500 bg-indigo-500/10 shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
+            : typeRdv === "external_installation"
             ? "border-l-2 border-l-amber-500 bg-amber-500/5 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]"
             : isR2
             ? "border-l-2 border-l-status-r2 bg-status-r2/5 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]"
@@ -177,10 +179,19 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
           <>
             <div className="flex items-center gap-1 mb-0.5">
               <GripVertical className="h-2.5 w-2.5 text-muted-foreground/50" />
-              <Clock className="h-2.5 w-2.5 text-primary" />
-              <span className="text-[10px] font-semibold text-primary">
+              <Clock className={cn(
+                "h-2.5 w-2.5",
+                typeRdv === "installation" ? "text-indigo-500" : "text-primary"
+              )} />
+              <span className={cn(
+                "text-[10px] font-semibold",
+                typeRdv === "installation" ? "text-indigo-600 dark:text-indigo-400" : "text-primary"
+              )}>
                 {time}
               </span>
+              {typeRdv === "installation" && (
+                <HardHat className="h-2.5 w-2.5 text-indigo-500" />
+              )}
               {typeRdv === "external_installation" && (
                 <Wrench className="h-2.5 w-2.5 text-amber-500" />
               )}
@@ -192,7 +203,13 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
               {client}
             </p>
             <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-              <StatusBadge status={status} className="text-[8px] px-1 py-0" />
+              {typeRdv === "installation" ? (
+                <span className="text-[8px] px-1.5 py-0 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/40">
+                  Pose
+                </span>
+              ) : (
+                <StatusBadge status={status} className="text-[8px] px-1 py-0" />
+              )}
               {regieNom && (
                 <span 
                   className="text-[8px] px-1.5 py-0 rounded-full border truncate max-w-[60px]"

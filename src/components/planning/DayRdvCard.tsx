@@ -1,4 +1,4 @@
-import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2, Copy, ShieldAlert } from "lucide-react";
+import { Clock, MapPin, FileText, Wrench, RefreshCw, Car, Building2, Copy, ShieldAlert, HardHat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ interface DayRdvCardProps {
     postalCode?: string;
     status: RdvStatus;
     type: string;
-    typeRdv: 'standard' | 'external_installation';
+    typeRdv: 'standard' | 'external_installation' | 'installation';
     isR2?: boolean;
     r2Type?: string | null;
     etudeId?: string | null;
@@ -46,6 +46,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
   const navigate = useNavigate();
 
   const isExternalInstallation = rdv.typeRdv === 'external_installation';
+  const isInstallation = rdv.typeRdv === 'installation';
   const isR2 = rdv.isR2;
 
   const handleNavigate = (path: string) => {
@@ -107,9 +108,10 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
         className={cn(
           "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
           rdv.needsReconfirmation && "ring-2 ring-amber-400 border-amber-400",
+          isInstallation && "border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-500/10 to-transparent shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)]",
           isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
           isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
-          rdv.alert && !isExternalInstallation && !isR2 && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
+          rdv.alert && !isExternalInstallation && !isR2 && !isInstallation && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
         )}
       >
         <CardContent className="p-5">
@@ -141,6 +143,13 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                   </Badge>
                 )}
                 
+                {isInstallation && (
+                  <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
+                    <HardHat className="h-3 w-3" />
+                    Pose
+                  </Badge>
+                )}
+
                 {isExternalInstallation && (
                   <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
                     <Wrench className="h-3 w-3" />
@@ -180,8 +189,10 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
               <div className="flex items-center gap-3 flex-wrap">
                 <div className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg",
-                  isR2 
-                    ? "bg-status-r2/10 text-status-r2" 
+                  isInstallation
+                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                    : isR2
+                    ? "bg-status-r2/10 text-status-r2"
                     : "bg-primary/10 text-primary"
                 )}>
                   <Clock className="h-4 w-4" />
@@ -190,7 +201,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 <span className="text-sm text-muted-foreground font-medium">
                   {rdv.duration}
                 </span>
-                <StatusBadge status={rdv.status} />
+                {!isInstallation && <StatusBadge status={rdv.status} />}
               </div>
 
               {/* Client et type */}

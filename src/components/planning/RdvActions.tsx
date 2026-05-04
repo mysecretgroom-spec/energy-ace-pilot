@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type RdvType = 'standard' | 'external_installation';
+type RdvType = 'standard' | 'external_installation' | 'installation';
 
 interface RdvActionsProps {
   rdvId: string;
@@ -124,20 +124,24 @@ export function RdvActions({
     onRefresh();
   };
 
+  const isInstallation = typeRdv === 'installation';
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Sélecteur de statut */}
-      <RdvStatusSelector
-        rdvId={rdvId}
-        currentStatus={currentStatus}
-        clientName={clientName}
-        clientId={clientId}
-        etudeId={etudeId}
-        regieId={regieId}
-        rdvDate={rdvDate}
-        onStatusChange={handleStatusChangeInternal}
-        compact
-      />
+      {/* Sélecteur de statut — masqué pour les RDV de pose (installation) */}
+      {!isInstallation && (
+        <RdvStatusSelector
+          rdvId={rdvId}
+          currentStatus={currentStatus}
+          clientName={clientName}
+          clientId={clientId}
+          etudeId={etudeId}
+          regieId={regieId}
+          rdvDate={rdvDate}
+          onStatusChange={handleStatusChangeInternal}
+          compact
+        />
+      )}
       
       {/* Sélecteur de régie */}
       <RegieSelector
@@ -204,42 +208,44 @@ export function RdvActions({
         </Button>
       )}
 
-      {/* Switch type RDV */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon"
-            variant="outline"
-            className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
-            disabled={switchingType}
-            title="Changer type RDV"
-          >
-            {switchingType ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem 
-            onClick={() => switchRdvType(rdvId, 'standard')}
-            disabled={typeRdv === 'standard'}
-            className="gap-2"
-          >
-            <Calculator className="h-4 w-4" />
-            RDV Standard
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={() => switchRdvType(rdvId, 'external_installation')}
-            disabled={typeRdv === 'external_installation'}
-            className="gap-2"
-          >
-            <Wrench className="h-4 w-4" />
-            Installation Externe
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Switch type RDV — masqué pour les poses */}
+      {!isInstallation && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
+              disabled={switchingType}
+              title="Changer type RDV"
+            >
+              {switchingType ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem 
+              onClick={() => switchRdvType(rdvId, 'standard')}
+              disabled={typeRdv === 'standard'}
+              className="gap-2"
+            >
+              <Calculator className="h-4 w-4" />
+              RDV Standard
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => switchRdvType(rdvId, 'external_installation')}
+              disabled={typeRdv === 'external_installation'}
+              className="gap-2"
+            >
+              <Wrench className="h-4 w-4" />
+              Installation Externe
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Créer vente (seulement pour installation externe) */}
       {typeRdv === 'external_installation' && (

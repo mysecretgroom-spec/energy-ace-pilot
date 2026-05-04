@@ -259,7 +259,7 @@ const Dashboard = () => {
         // Ventes du mois et année - include client info
         supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
-        supabase.from("rdv").select("id, date_heure, status, type_projet, client_id, regie_id, clients(nom, prenom)").eq("user_id", user.id),
+        supabase.from("rdv").select("id, date_heure, status, type_projet, type_rdv, client_id, regie_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
         supabase.from("clients").select("id, created_at").eq("user_id", user.id),
         // Placeholder for removed commissions query
@@ -278,7 +278,7 @@ const Dashboard = () => {
           .eq("lue", false)
           .order("created_at", { ascending: false })
           .limit(5),
-        // Prochains RDV
+        // Prochains RDV — exclure les RDV de pose (installation)
         supabase.from("rdv")
           .select(`
             id, date_heure, type_projet, status, type_rdv, etude_id, regie_id, needs_reconfirmation,
@@ -288,6 +288,7 @@ const Dashboard = () => {
           .eq("user_id", user.id)
           .gte("date_heure", new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString())
           .not("status", "eq", "annule")
+          .not("type_rdv", "eq", "installation")
           .order("date_heure", { ascending: true })
           .limit(5),
         // Premier RDV de demain pour recherche hôtel (exclure annulés)
@@ -351,8 +352,8 @@ const Dashboard = () => {
         enCoursStatuses.includes(v.status) && !isCancellationStatus(v.status)
       );
 
-      // Process RDV - also filter by régie
-      const rdvs = rdvRes.data || [];
+      // Process RDV - filter by régie + exclure les RDV de pose (installation)
+      const rdvs = (rdvRes.data || []).filter((r: any) => (r.type_rdv || 'standard') !== 'installation');
       const filteredRdvs = regieFilter.length > 0
         ? rdvs.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
         : rdvs;

@@ -64,7 +64,7 @@ interface Regie {
 
 type ViewMode = "jour" | "semaine" | "mois";
 
-type RdvType = 'standard' | 'external_installation';
+type RdvType = 'standard' | 'external_installation' | 'installation';
 
 interface RdvData {
   id: string;

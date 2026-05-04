@@ -43,7 +43,7 @@ interface RdvContextMenuProps {
     time: string;
     date: Date;
     status: RdvStatus;
-    typeRdv: "standard" | "external_installation";
+    typeRdv: "standard" | "external_installation" | "installation";
     etudeId?: string | null;
     regieId?: string | null;
     regieNom?: string | null;
