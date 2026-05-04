@@ -210,40 +210,42 @@ export function RdvActions({
 
       {/* Switch type RDV — masqué pour les poses */}
       {!isInstallation && (
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon"
-            variant="outline"
-            className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
-            disabled={switchingType}
-            title="Changer type RDV"
-          >
-            {switchingType ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem 
-            onClick={() => switchRdvType(rdvId, 'standard')}
-            disabled={typeRdv === 'standard'}
-            className="gap-2"
-          >
-            <Calculator className="h-4 w-4" />
-            RDV Standard
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={() => switchRdvType(rdvId, 'external_installation')}
-            disabled={typeRdv === 'external_installation'}
-            className="gap-2"
-          >
-            <Wrench className="h-4 w-4" />
-            Installation Externe
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
+              disabled={switchingType}
+              title="Changer type RDV"
+            >
+              {switchingType ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem 
+              onClick={() => switchRdvType(rdvId, 'standard')}
+              disabled={typeRdv === 'standard'}
+              className="gap-2"
+            >
+              <Calculator className="h-4 w-4" />
+              RDV Standard
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => switchRdvType(rdvId, 'external_installation')}
+              disabled={typeRdv === 'external_installation'}
+              className="gap-2"
+            >
+              <Wrench className="h-4 w-4" />
+              Installation Externe
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Créer vente (seulement pour installation externe) */}
       {typeRdv === 'external_installation' && (
