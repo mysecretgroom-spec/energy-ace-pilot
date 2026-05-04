@@ -124,20 +124,24 @@ export function RdvActions({
     onRefresh();
   };
 
+  const isInstallation = typeRdv === 'installation';
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Sélecteur de statut */}
-      <RdvStatusSelector
-        rdvId={rdvId}
-        currentStatus={currentStatus}
-        clientName={clientName}
-        clientId={clientId}
-        etudeId={etudeId}
-        regieId={regieId}
-        rdvDate={rdvDate}
-        onStatusChange={handleStatusChangeInternal}
-        compact
-      />
+      {/* Sélecteur de statut — masqué pour les RDV de pose (installation) */}
+      {!isInstallation && (
+        <RdvStatusSelector
+          rdvId={rdvId}
+          currentStatus={currentStatus}
+          clientName={clientName}
+          clientId={clientId}
+          etudeId={etudeId}
+          regieId={regieId}
+          rdvDate={rdvDate}
+          onStatusChange={handleStatusChangeInternal}
+          compact
+        />
+      )}
       
       {/* Sélecteur de régie */}
       <RegieSelector
