@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { getVenteCardDateDisplay } from "./venteCardDateDisplay";
 import type { VenteStatus } from "./venteStatusConfig";
