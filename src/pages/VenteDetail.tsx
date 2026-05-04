@@ -35,6 +35,7 @@ import { RegieSelector } from "@/components/planning/RegieSelector";
 import { VenteStatusTimeline } from "@/components/crm/VenteStatusTimeline";
 import { useEtudePdfDownload } from "@/hooks/useEtudePdfDownload";
 import { DecomDialog } from "@/components/crm/DecomDialog";
+import { resolveInstallationRealDate } from "@/lib/installationDate";
 
 type VenteStatus = Database["public"]["Enums"]["vente_status"];
 
@@ -194,10 +195,16 @@ const VenteDetail = () => {
       setDateCq(tomorrow.toISOString().split("T")[0]);
     }
     
-    // If changing to "installe" and no installation date set, set it to today
+    // If changing to "installe" and no installation date set, preserve a future planned date.
     if (newStatus === "installe" && !dateInstallationReelle) {
-      const today = new Date().toISOString().split("T")[0];
-      setDateInstallationReelle(today);
+      const resolvedDate = resolveInstallationRealDate(
+        null,
+        dateInstallationPrevue || null,
+      );
+
+      if (resolvedDate) {
+        setDateInstallationReelle(resolvedDate);
+      }
     }
   };
 
@@ -362,25 +369,33 @@ const VenteDetail = () => {
     const statusChanged = status !== previousStatus;
     setSaving(true);
 
+    const updatePayload: any = {
+      numero_contrat: numeroContrat || null,
+      status,
+      date_signature: dateSignature || null,
+      date_cq: dateCq || null,
+      date_installation_prevue: dateInstallationPrevue || null,
+      heure_installation_prevue: heureInstallationPrevue || "08:00",
+      date_installation_reelle: dateInstallationReelle || null,
+      montant_acompte: montantAcompte || null,
+      montant_solde: montantSolde || null,
+      notes: notes || null,
+      puissance_kwc: puissanceKwc || null,
+      nombre_panneaux: nombrePanneaux || null,
+      type_installation: typeInstallation || null,
+    };
+
+    if (montantHt !== "") {
+      updatePayload.montant_ht = montantHt;
+    }
+
+    if (montantTtc !== "") {
+      updatePayload.montant_ttc = montantTtc;
+    }
+
     const { error } = await supabase
       .from("ventes")
-      .update({
-        numero_contrat: numeroContrat || null,
-        status,
-        date_signature: dateSignature || null,
-        date_cq: dateCq || null,
-        date_installation_prevue: dateInstallationPrevue || null,
-        heure_installation_prevue: heureInstallationPrevue || "08:00",
-        date_installation_reelle: dateInstallationReelle || null,
-        montant_ht: montantHt || null,
-        montant_ttc: montantTtc || null,
-        montant_acompte: montantAcompte || null,
-        montant_solde: montantSolde || null,
-        notes: notes || null,
-        puissance_kwc: puissanceKwc || null,
-        nombre_panneaux: nombrePanneaux || null,
-        type_installation: typeInstallation || null,
-      } as any)
+      .update(updatePayload)
       .eq("id", id);
 
     setSaving(false);
