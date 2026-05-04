@@ -16,6 +16,7 @@ import { PullToRefreshContainer } from "@/components/common/PullToRefreshContain
 import { MonthCalendarView } from "@/components/planning/MonthCalendarView";
 import { DayRdvCard } from "@/components/planning/DayRdvCard";
 import { RouteMap } from "@/components/planning/RouteMap";
+import { PlanningLegend } from "@/components/planning/PlanningLegend";
 import {
   Dialog,
   DialogContent,
