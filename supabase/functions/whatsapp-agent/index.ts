@@ -6740,14 +6740,25 @@ async function handlePendingWorkflow(
           case "pipeline_status":
             if (!pendingAction.entities.pipeline_status) {
               const pipelineKeywords: Record<string, string> = {
-                "posé": "installe", "pose": "installe", "installé": "installe",
+                // ⚠️ Ordre = priorité de matching. Les expressions composées DOIVENT
+                // être testées avant leurs sous-mots (ex: "envoi pose" avant "pose")
+                // sinon "Envoi pose" est interprété comme "Posé" (installe).
+                "envoi pose": "envoi_pose", "envoi_pose": "envoi_pose", "envoie pose": "envoi_pose",
+                "en installation": "en_installation", "en_installation": "en_installation",
+                "attente paiement": "attente_paiement", "attente_paiement": "attente_paiement",
+                "attente financement": "attente_financement", "financement": "attente_financement",
+                "cq fait": "cq_fait", "cq ok": "cq_fait", "cq_fait": "cq_fait",
+                "cq a faire": "cq_a_faire", "cq à faire": "cq_a_faire", "cq_a_faire": "cq_a_faire",
+                "installé": "installe", "installe": "installe",
+                "posé": "installe", "pose": "installe",
                 "payé": "paye", "paye": "paye",
-                "cq fait": "cq_fait", "cq ok": "cq_fait",
                 "annulé": "annule", "annule": "annule",
-                "financement": "attente_financement",
-                "envoi pose": "envoi_pose",
               };
-              for (const [keyword, value] of Object.entries(pipelineKeywords)) {
+              // Tri par longueur décroissante en sécurité supplémentaire
+              const sortedEntries = Object.entries(pipelineKeywords).sort(
+                (a, b) => b[0].length - a[0].length
+              );
+              for (const [keyword, value] of sortedEntries) {
                 if (messageLower.includes(keyword)) {
                   pendingAction.entities.pipeline_status = value;
                   break;
