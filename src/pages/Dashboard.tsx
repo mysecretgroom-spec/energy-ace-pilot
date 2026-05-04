@@ -278,7 +278,7 @@ const Dashboard = () => {
           .eq("lue", false)
           .order("created_at", { ascending: false })
           .limit(5),
-        // Prochains RDV
+        // Prochains RDV — exclure les RDV de pose (installation)
         supabase.from("rdv")
           .select(`
             id, date_heure, type_projet, status, type_rdv, etude_id, regie_id, needs_reconfirmation,
@@ -288,6 +288,7 @@ const Dashboard = () => {
           .eq("user_id", user.id)
           .gte("date_heure", new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString())
           .not("status", "eq", "annule")
+          .not("type_rdv", "eq", "installation")
           .order("date_heure", { ascending: true })
           .limit(5),
         // Premier RDV de demain pour recherche hôtel (exclure annulés)
