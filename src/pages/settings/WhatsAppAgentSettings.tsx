@@ -86,13 +86,67 @@ const WhatsAppAgentSettings = () => {
       create_rdv: "Créer RDV",
       update_rdv: "Modifier RDV",
       update_vente_status: "Statut vente",
+      update_vente_pipeline: "Statut pipeline",
+      create_external_vente: "Vente externe",
       import_document: "Document",
       import_facture: "Facture",
       query_info: "Information",
+      query_rdv_planning: "Consultation planning",
+      query_ventes_by_filter: "Liste ventes",
+      query_ventes_a_facturer: "Ventes à facturer",
+      query_ventes_en_cours: "Ventes en cours",
+      query_regie_bilan: "Bilan régie",
       conversation: "Conversation",
       unknown: "Non compris",
     };
     return labels[intent || ""] || intent || "-";
+  };
+
+  // Traduction des valeurs d'enum pipeline_status / status pour affichage clair
+  const getPipelineStatusLabel = (value: string): string => {
+    const labels: Record<string, string> = {
+      en_negociation: "En négociation",
+      signe: "Signé",
+      cq_a_faire: "CQ à faire",
+      cq_fait: "CQ fait",
+      attente_financement: "Attente financement",
+      envoi_pose: "Envoi pose",
+      en_installation: "En installation",
+      installe: "Posé",
+      attente_paiement: "Attente paiement",
+      paye: "Payé",
+      annule: "Annulé",
+    };
+    return labels[value] || value;
+  };
+
+  // Extrait les entités lisibles à montrer en badges sous l'intention
+  const getEntityHighlights = (entities: unknown): { label: string; value: string }[] => {
+    if (!entities || typeof entities !== "object") return [];
+    const e = entities as Record<string, unknown>;
+    const out: { label: string; value: string }[] = [];
+    if (typeof e.pipeline_status === "string") {
+      out.push({ label: "Statut", value: getPipelineStatusLabel(e.pipeline_status) });
+    }
+    if (typeof e.status === "string") {
+      out.push({ label: "Statut RDV", value: e.status });
+    }
+    if (typeof e.client_name === "string") {
+      out.push({ label: "Client", value: e.client_name });
+    }
+    if (typeof e.date === "string") {
+      out.push({ label: "Date", value: e.date });
+    }
+    if (typeof e.time === "string") {
+      out.push({ label: "Heure", value: e.time });
+    }
+    if (typeof e.commission === "number") {
+      out.push({ label: "Commission", value: `${e.commission.toLocaleString("fr-FR")}€` });
+    }
+    if (typeof e.regie_name === "string") {
+      out.push({ label: "Régie", value: e.regie_name });
+    }
+    return out;
   };
 
   return (
