@@ -61,10 +61,13 @@ export function AIUsageGauge() {
           </span>
         </div>
 
-        <div className="relative">
-          <Progress value={Math.min(percent, 100)} className="h-2" indicatorClassName={color} />
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+          <div
+            className={cn("h-full transition-all", color)}
+            style={{ width: `${Math.min(percent, 100)}%` }}
+          />
           {percent > 100 && (
-            <div className="absolute inset-0 h-2 rounded-full bg-destructive/30 pointer-events-none" />
+            <div className="absolute inset-0 rounded-full ring-2 ring-destructive/40 pointer-events-none" />
           )}
         </div>
 
