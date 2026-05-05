@@ -93,6 +93,7 @@ export function InstallationContextMenu({
   const [loadingVente, setLoadingVente] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [decomOpen, setDecomOpen] = useState(false);
+  const [createVenteOpen, setCreateVenteOpen] = useState(false);
 
   const { callPhone, openWhatsApp, openClient, openClientDocuments, openWaze, openGoogleMaps, openAppleMaps } =
     useRdvActions({ onRefresh });
