@@ -50,6 +50,10 @@ interface DashboardStats {
   rdvAujourd: number;
   rdvSemaine: number;
   rdvTotal: number;
+
+  // Poses (installations) — séparées des RDV commerciaux
+  posesPlanifiees: number;
+  posesRealisees: number;
   
   // Clients
   nouveauxClientsMois: number;
