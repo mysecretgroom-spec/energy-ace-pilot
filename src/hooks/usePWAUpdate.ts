@@ -97,10 +97,19 @@ export function usePWAUpdate() {
     });
   }, []);
 
-  // Compare deployed version vs current bundle; reload if newer build is live.
+  // Compare deployed version vs current bundle; reload if a NEWER build is live.
+  // Anti-loop:
+  //  - sessionStorage tracks the last remote version we already reloaded for
+  //  - minimum interval between fetches
+  //  - hard cap of 2 reloads per session in case version.json itself is broken
+  const RELOADED_VERSION_KEY = '__pwa_reloaded_for_version__';
+  const RELOAD_COUNT_KEY = '__pwa_reload_count__';
+  const MAX_RELOADS_PER_SESSION = 2;
   const lastVersionCheckRef = useRef(0);
+
   const checkVersionAndReloadIfStale = useCallback(async (minIntervalMs = 60_000) => {
     if (!hasGoodConnection()) return false;
+    if (reloadingRef.current) return false;
     const now = Date.now();
     if (now - lastVersionCheckRef.current < minIntervalMs) return false;
     lastVersionCheckRef.current = now;
@@ -109,14 +118,31 @@ export function usePWAUpdate() {
       if (!res.ok) return false;
       const data = await res.json().catch(() => null);
       const remote = data?.version || data?.appVersion;
-      if (remote && remote !== CURRENT_SW_VERSION) {
-        console.log('[PWA] Version mismatch, reloading…', { remote, current: CURRENT_SW_VERSION });
-        reloadingRef.current = true;
-        window.location.reload();
-        return true;
+      if (!remote || remote === CURRENT_SW_VERSION) return false;
+
+      // Already reloaded for this exact remote version → don't loop
+      const alreadyReloadedFor = sessionStorage.getItem(RELOADED_VERSION_KEY);
+      if (alreadyReloadedFor === String(remote)) {
+        console.log('[PWA] Skip reload: already reloaded for', remote);
+        return false;
       }
-    } catch {}
-    return false;
+
+      // Hard cap per session
+      const count = Number(sessionStorage.getItem(RELOAD_COUNT_KEY) || '0');
+      if (count >= MAX_RELOADS_PER_SESSION) {
+        console.warn('[PWA] Reload cap reached for this session, skipping');
+        return false;
+      }
+
+      sessionStorage.setItem(RELOADED_VERSION_KEY, String(remote));
+      sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
+      reloadingRef.current = true;
+      console.log('[PWA] Newer version available, reloading…', { remote, current: CURRENT_SW_VERSION });
+      window.location.reload();
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   // Check for updates when app becomes visible
@@ -130,7 +156,6 @@ export function usePWAUpdate() {
       registration.update().catch(() => {});
     });
 
-    // Also compare published version (handles bfcache/back-forward case)
     checkVersionAndReloadIfStale();
   }, [checkVersionAndReloadIfStale]);
 
@@ -139,24 +164,12 @@ export function usePWAUpdate() {
       if (document.visibilityState === 'visible') checkForUpdates();
     };
 
-    // Triggered on bfcache restore (back/forward) AND normal page show.
-    // If a SW is already waiting/installing, force a reload immediately.
-    const handlePageShow = async (e: PageTransitionEvent) => {
+    // bfcache restore: ALWAYS verify against version.json (the only reliable
+    // signal of a newer deploy). The version check itself prevents loops.
+    const handlePageShow = (e: PageTransitionEvent) => {
       if (!e.persisted) return;
-      console.log('[PWA] bfcache restore detected');
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
-          await reg.update().catch(() => {});
-          if (reg.waiting || reg.installing) {
-            reloadingRef.current = true;
-            window.location.reload();
-            return;
-          }
-        }
-      }
-      // Fallback: compare version.json (forces reload, ignore throttle)
-      lastVersionCheckRef.current = 0;
+      console.log('[PWA] bfcache restore detected → version check');
+      lastVersionCheckRef.current = 0; // bypass throttle
       checkVersionAndReloadIfStale(0);
     };
 
