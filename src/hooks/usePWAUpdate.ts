@@ -138,6 +138,21 @@ export function usePWAUpdate() {
       sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1));
       reloadingRef.current = true;
       console.log('[PWA] Newer version available, reloading…', { remote, current: CURRENT_SW_VERSION });
+
+      // Optional: purge runtime caches so stale assets don't survive the reload.
+      // Keep Supabase storage cache (heavy media) to avoid re-downloading user files.
+      try {
+        if ('caches' in self) {
+          const names = await caches.keys();
+          const toDelete = names.filter((n) => !/supabase-storage-cache/i.test(n));
+          await Promise.all(toDelete.map((n) => caches.delete(n).catch(() => false)));
+          console.log('[PWA] Purged', toDelete.length, 'stale caches before reload');
+        }
+      } catch (err) {
+        console.warn('[PWA] Cache purge failed (non-blocking):', err);
+      }
+
+      localStorage.setItem(SW_VERSION_KEY, String(remote));
       window.location.reload();
       return true;
     } catch {
