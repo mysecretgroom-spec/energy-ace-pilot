@@ -42,6 +42,7 @@ interface RdvData {
   regieId?: string | null;
   regieNom?: string | null;
   regieCouleur?: string | null;
+  commissionNette?: number;
 }
 
 interface WeekCalendarViewProps {
