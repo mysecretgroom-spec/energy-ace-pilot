@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -488,9 +488,22 @@ const Planning = () => {
         return !regie?.is_hejja;
       });
 
+  // Compute commissions for installation RDVs
+  const { commissionByRdv } = useInstallationCommissions(filteredRdvList);
+
+  const filteredRdvListWithCom: RdvData[] = useMemo(
+    () =>
+      filteredRdvList.map((rdv) =>
+        rdv.typeRdv === "installation" && commissionByRdv.has(rdv.id)
+          ? { ...rdv, commissionNette: commissionByRdv.get(rdv.id) }
+          : rdv
+      ),
+    [filteredRdvList, commissionByRdv]
+  );
+
   // Merge route data with rdvList for day view
   const rdvListWithRoutes: RdvData[] = viewMode === "jour" && routeRdvs.length > 0
-    ? filteredRdvList.map((rdv) => {
+    ? filteredRdvListWithCom.map((rdv) => {
         const routeRdv = routeRdvs.find((r) => r.id === rdv.id);
         if (routeRdv) {
           return {
@@ -502,7 +515,7 @@ const Planning = () => {
         }
         return rdv;
       })
-    : filteredRdvList;
+    : filteredRdvListWithCom;
 
   useEffect(() => {
     fetchRdvs();
