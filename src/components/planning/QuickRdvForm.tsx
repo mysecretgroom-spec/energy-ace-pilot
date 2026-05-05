@@ -74,7 +74,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate, defaultClient, 
     defaultDate?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]
   );
   const [timeRdv, setTimeRdv] = useState(defaultTypeRdv === "installation" ? "08:00" : "10:00");
-  const [duration, setDuration] = useState(defaultTypeRdv === "installation" ? "240" : "90");
+  const [duration, setDuration] = useState(defaultTypeRdv === "installation" ? "60" : "90");
   const [projectType, setProjectType] = useState("photovoltaique");
   const [typeRdv, setTypeRdv] = useState<"standard" | "installation">(defaultTypeRdv || "standard");
   const [commentaire, setCommentaire] = useState("");
@@ -441,7 +441,7 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate, defaultClient, 
             const next = v as "standard" | "installation";
             setTypeRdv(next);
             if (next === "installation") {
-              setDuration("240");
+              setDuration("60");
               setTimeRdv("08:00");
             }
           }}>
