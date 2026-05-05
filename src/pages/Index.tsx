@@ -1,4 +1,5 @@
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
