@@ -712,6 +712,9 @@ const Dashboard = () => {
           />
         )}
 
+        {/* Période des statistiques (mois ou plage personnalisée) */}
+        <PeriodFilter value={period} onChange={setPeriod} className="w-full" />
+
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
         <BlurOverlay storageKey="dashboard_stats" blurAmount={12} opaque>
