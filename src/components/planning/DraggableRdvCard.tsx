@@ -206,8 +206,8 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
             </p>
             <div className="mt-0.5 flex items-center gap-1 flex-wrap">
               {typeRdv === "installation" ? (
-                <span className="text-[8px] px-1.5 py-0 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/40">
-                  Pose
+                <span className="text-[8px] px-1.5 py-0 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-500 text-white border-0 font-semibold">
+                  {commissionNette != null ? `${commissionNette.toLocaleString("fr-FR")} €` : "Pose"}
                 </span>
               ) : (
                 <StatusBadge status={status} className="text-[8px] px-1 py-0" />
