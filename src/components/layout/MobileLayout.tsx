@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { AIUsageBanner } from "@/components/saas/AIUsageBanner";
 import { RGECardDialog } from "./RGECardDialog";
 import { NotificationBell } from "./NotificationBell";
 import { AlignmentGuides } from "./AlignmentGuides";
