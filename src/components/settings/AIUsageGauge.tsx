@@ -93,7 +93,7 @@ export function AIUsageGauge() {
               {top3.map((item) => (
                 <span key={item.function_name} className="text-muted-foreground">
                   <span className="text-foreground font-medium">{getFunctionLabel(item.function_name)}</span>{" "}
-                  · {item.cost_eur.toFixed(2)} €
+                  · {formatTokens(item.tokens)}
                 </span>
               ))}
             </div>
