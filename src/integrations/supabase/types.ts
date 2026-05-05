@@ -98,6 +98,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_credit_topups: {
+        Row: {
+          amount_eur: number
+          amount_remaining_eur: number
+          created_at: string
+          id: string
+          paid_at: string | null
+          status: string
+          stripe_payment_intent: string | null
+          stripe_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_eur: number
+          amount_remaining_eur: number
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_eur?: number
+          amount_remaining_eur?: number
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent?: string | null
+          stripe_session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_usage: {
         Row: {
           created_at: string
@@ -3638,6 +3674,10 @@ export type Database = {
       }
       cleanup_expired_mfa_sessions: { Args: never; Returns: number }
       clear_mfa_session: { Args: never; Returns: undefined }
+      consume_topup_balance: {
+        Args: { p_amount_eur: number; p_user_id: string }
+        Returns: number
+      }
       create_support_ticket: {
         Args: { p_message: string; p_subject: string }
         Returns: string
@@ -3900,6 +3940,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_topup_balance: { Args: { p_user_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
