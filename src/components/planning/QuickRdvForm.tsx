@@ -23,6 +23,9 @@ interface QuickRdvFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   defaultDate?: Date;
+  defaultClient?: ClientOption;
+  defaultRegieId?: string;
+  defaultTypeRdv?: "standard" | "installation";
 }
 
 interface ClientOption {
