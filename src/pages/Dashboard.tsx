@@ -562,11 +562,12 @@ const Dashboard = () => {
         const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
+          new Date(v.date_signature) <= finMois &&
           !v.is_retape
         );
         return {
-          title: "Commissions du mois",
-          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          title: "Commissions de la période",
+          subtitle: periodeLabel,
           items: ventesMois.map(v => venteToItem(v, getCommission(v.id)?.commissionNette || 0)),
           total: commissionData.commissionsMois,
         };
