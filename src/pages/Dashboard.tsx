@@ -243,8 +243,8 @@ const Dashboard = () => {
     setLoading(true);
 
     const now = new Date();
-    const debutMois = startOfMonth(now).toISOString();
-    const finMois = endOfMonth(now).toISOString();
+    const debutMois = period.start.toISOString();
+    const finMois = period.end.toISOString();
     const debutAnnee = startOfYear(now).toISOString();
     const finAnnee = endOfYear(now).toISOString();
     const aujourd = format(now, "yyyy-MM-dd");
