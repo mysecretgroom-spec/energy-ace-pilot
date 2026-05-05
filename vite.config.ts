@@ -16,6 +16,12 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  // Force Vite à ré-optimiser ses dépendances en dev pour éviter les erreurs
+  // "Importing a module script failed" causées par un cache .vite obsolète
+  // après l'ajout / suppression de fichiers.
+  optimizeDeps: {
+    force: mode === "development",
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
