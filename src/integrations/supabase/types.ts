@@ -98,6 +98,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage: {
+        Row: {
+          created_at: string
+          estimated_cost_usd: number
+          function_name: string
+          id: string
+          image_count: number
+          input_tokens: number
+          model: string
+          month_key: string
+          output_tokens: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_cost_usd?: number
+          function_name: string
+          id?: string
+          image_count?: number
+          input_tokens?: number
+          model: string
+          month_key: string
+          output_tokens?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estimated_cost_usd?: number
+          function_name?: string
+          id?: string
+          image_count?: number
+          input_tokens?: number
+          model?: string
+          month_key?: string
+          output_tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_workflow_edges: {
         Row: {
           condition_config: Json | null
