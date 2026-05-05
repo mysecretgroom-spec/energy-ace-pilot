@@ -7,6 +7,7 @@ import { RdvActions } from "./RdvActions";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { SwipeableRdvCard } from "@/components/common/SwipeableRdvCard";
+import { getRdvTypeStyle, isInstallationType } from "./rdvCardStyles";
 
 interface DayRdvCardProps {
   rdv: {
@@ -49,6 +50,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
   const isExternalInstallation = rdv.typeRdv === 'external_installation';
   const isInstallation = rdv.typeRdv === 'installation';
   const isR2 = rdv.isR2;
+  const typeStyle = getRdvTypeStyle(rdv.typeRdv);
+  const isInstallType = isInstallationType(rdv.typeRdv);
 
   const handleNavigate = (path: string) => {
     onBeforeNavigate?.();
@@ -109,9 +112,9 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
         className={cn(
           "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
           rdv.needsReconfirmation && "ring-2 ring-amber-400 border-amber-400",
-          (isInstallation || isExternalInstallation) && "halo-multicolor",
-          isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
-          rdv.alert && !isExternalInstallation && !isR2 && !isInstallation && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
+          typeStyle.cardClass,
+          isR2 && !isInstallType && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
+          rdv.alert && !isInstallType && !isR2 && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
         )}
       >
         <CardContent className="p-5">
@@ -189,8 +192,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
               <div className="flex items-center gap-3 flex-wrap">
                 <div className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg",
-                  isInstallation
-                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                  isInstallType
+                    ? typeStyle.clockContainerClass
                     : isR2
                     ? "bg-status-r2/10 text-status-r2"
                     : "bg-primary/10 text-primary"

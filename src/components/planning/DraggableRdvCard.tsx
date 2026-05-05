@@ -6,6 +6,7 @@ import { Clock, Wrench, RefreshCw, GripVertical, HardHat } from "lucide-react";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { useLongPress } from "@/hooks/useLongPress";
+import { getRdvTypeStyle, isInstallationType } from "./rdvCardStyles";
 
 interface DraggableRdvCardProps {
   id: string;
@@ -165,9 +166,8 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
           isHighlighted && !isDragging
             ? "ring-2 ring-primary shadow-lg scale-[1.02]"
             : "",
-          (typeRdv === "installation" || typeRdv === "external_installation")
-            ? "halo-multicolor"
-            : isR2
+          getRdvTypeStyle(typeRdv).cardClass,
+          isR2 && !isInstallationType(typeRdv)
             ? "border-l-2 border-l-status-r2 bg-status-r2/5 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]"
             : "",
           className
@@ -179,14 +179,8 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
           <>
             <div className="flex items-center gap-1 mb-0.5">
               <GripVertical className="h-2.5 w-2.5 text-muted-foreground/50" />
-              <Clock className={cn(
-                "h-2.5 w-2.5",
-                typeRdv === "installation" ? "text-indigo-500" : "text-primary"
-              )} />
-              <span className={cn(
-                "text-[10px] font-semibold",
-                typeRdv === "installation" ? "text-indigo-600 dark:text-indigo-400" : "text-primary"
-              )}>
+              <Clock className={cn("h-2.5 w-2.5", getRdvTypeStyle(typeRdv).clockIconClass)} />
+              <span className={cn("text-[10px] font-semibold", getRdvTypeStyle(typeRdv).clockTextClass)}>
                 {time}
               </span>
               {typeRdv === "installation" && (
