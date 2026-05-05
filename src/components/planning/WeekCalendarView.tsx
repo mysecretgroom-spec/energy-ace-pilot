@@ -19,7 +19,9 @@ import { DraggableRdvCard } from "./DraggableRdvCard";
 import { DroppableDay } from "./DroppableDay";
 import { TimePickerDialog } from "./TimePickerDialog";
 import { RdvContextMenu } from "./RdvContextMenu";
+import { InstallationContextMenu } from "./InstallationContextMenu";
 import { useDragAndDropRdv } from "@/hooks/useDragAndDropRdv";
+import { isInstallationType } from "./rdvCardStyles";
 
 interface RdvData {
   id: string;
@@ -43,6 +45,7 @@ interface RdvData {
   regieNom?: string | null;
   regieCouleur?: string | null;
   commissionNette?: number;
+  venteId?: string | null;
 }
 
 interface WeekCalendarViewProps {
@@ -344,14 +347,24 @@ export function WeekCalendarView({
 
       {/* Context menu for long-press */}
       {contextMenuRdv && (
-        <RdvContextMenu
-          rdv={contextMenuRdv}
-          isOpen={contextMenuOpen}
-          onClose={handleContextMenuClose}
-          onStatusChange={onStatusChange}
-          onMoveRequest={handleContextMenuMove}
-          onRefresh={onRefresh}
-        />
+        isInstallationType(contextMenuRdv.typeRdv) ? (
+          <InstallationContextMenu
+            rdv={contextMenuRdv}
+            isOpen={contextMenuOpen}
+            onClose={handleContextMenuClose}
+            onMoveRequest={handleContextMenuMove}
+            onRefresh={onRefresh}
+          />
+        ) : (
+          <RdvContextMenu
+            rdv={contextMenuRdv}
+            isOpen={contextMenuOpen}
+            onClose={handleContextMenuClose}
+            onStatusChange={onStatusChange}
+            onMoveRequest={handleContextMenuMove}
+            onRefresh={onRefresh}
+          />
+        )
       )}
     </DndContext>
   );
