@@ -181,30 +181,7 @@ const Signup = () => {
             </Alert>
           )}
 
-          {/* Google Sign-up Button */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full gap-3"
-            onClick={handleGoogleSignUp}
-            disabled={googleLoading}
-          >
-            {googleLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
-            Continuer avec Google
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">ou</span>
-            </div>
-          </div>
+          {/* Google sign-up désactivé */}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
