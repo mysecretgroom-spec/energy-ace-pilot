@@ -48,6 +48,8 @@ import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { VenteCard } from "@/components/crm/VenteCard";
 import { VenteStatus } from "@/lib/venteStatusConfig";
 import { useTrialFeatures } from "@/hooks/useTrialFeatures";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
@@ -240,6 +242,7 @@ const ClientDetailInner = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [showNewRdvDialog, setShowNewRdvDialog] = useState(false);
   const [destinationPhone, setDestinationPhone] = useState("");
   const [clientRegie, setClientRegie] = useState<ClientRegie | null>(null);
   const [resultatPdfDialogEtudeId, setResultatPdfDialogEtudeId] = useState<string | null>(null);
@@ -630,7 +633,7 @@ const ClientDetailInner = () => {
 
           {/* Tab RDV */}
           <TabsContent value="rdv" className="space-y-3 mt-4">
-            <Button className="w-full bg-gradient-hero gap-2">
+            <Button className="w-full bg-gradient-hero gap-2" onClick={() => setShowNewRdvDialog(true)}>
               <Plus className="h-4 w-4" />
               Nouveau RDV
             </Button>
@@ -944,7 +947,33 @@ const ClientDetailInner = () => {
           />
         )}
 
-        {/* Retape Dialog - only mount when open */}
+        {showNewRdvDialog && client && (
+          <Dialog open={showNewRdvDialog} onOpenChange={setShowNewRdvDialog}>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Nouveau RDV</DialogTitle>
+              </DialogHeader>
+              <QuickRdvForm
+                defaultClient={{
+                  id: client.id,
+                  nom: client.nom,
+                  prenom: client.prenom,
+                  telephone: client.telephone,
+                  adresse: client.adresse,
+                  ville: client.ville,
+                  code_postal: client.code_postal,
+                }}
+                defaultRegieId={client.regie_id || undefined}
+                onSuccess={() => {
+                  setShowNewRdvDialog(false);
+                  fetchClientData();
+                }}
+                onCancel={() => setShowNewRdvDialog(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
         {showRetapeDialog && client && (
           <Suspense fallback={null}>
             <RetapeDialog
