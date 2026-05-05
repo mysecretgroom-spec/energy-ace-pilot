@@ -528,11 +528,12 @@ const Dashboard = () => {
         const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
+          new Date(v.date_signature) <= finMois &&
           !v.is_retape
         );
         return {
-          title: statDialogType === 'ca' ? "CA du mois" : "Ventes du mois",
-          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          title: statDialogType === 'ca' ? "CA de la période" : "Ventes de la période",
+          subtitle: periodeLabel,
           items: ventesMois.map(v => venteToItem(v)),
           total: ventesMois.reduce((sum, v) => sum + v.montant_ttc, 0),
         };
