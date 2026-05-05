@@ -28,6 +28,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { useInstallationCommissions } from "@/hooks/useInstallationCommissions";
 import {
   Clock,
   MapPin,
@@ -95,6 +96,8 @@ interface RdvData {
   regieCouleur?: string | null;
   isDuplicateClient?: boolean;
   needsReconfirmation?: boolean;
+  venteId?: string | null;
+  commissionNette?: number;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -323,6 +326,7 @@ const Planning = () => {
             regieCouleur: regieData?.couleur || null,
             isDuplicateClient: !!(rdv.metadata as any)?.is_duplicate_client,
             needsReconfirmation: (rdv.needs_reconfirmation as boolean) || false,
+            venteId: (rdv.metadata as any)?.vente_id || null,
           };
         });
       };
