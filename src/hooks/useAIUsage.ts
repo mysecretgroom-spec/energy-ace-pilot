@@ -2,18 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-const MONTHLY_BUDGET_USD = 10.87; // ~10 EUR
-const EUR_USD = 0.92;
+const MONTHLY_BUDGET_USD = 10.87; // ~10 EUR — utilisé en interne pour le statut/capping
 
 export interface AIUsageBreakdown {
   function_name: string;
-  cost_eur: number;
+  tokens: number;
 }
 
 export interface AIUsageSummary {
-  used_eur: number;
-  budget_eur: number;
-  ratio: number; // 0..1+
+  used_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  ratio: number; // 0..1+ (basé sur le coût USD interne)
   status: "ok" | "warning" | "soft_capped" | "hard_capped";
   breakdown: AIUsageBreakdown[];
   reset_date: Date;
@@ -28,6 +28,12 @@ function getNextMonthDate(): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 1);
 }
 
+export function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)} M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)} k`;
+  return `${n}`;
+}
+
 export function useAIUsage() {
   const { user } = useAuth();
 
@@ -40,39 +46,42 @@ export function useAIUsage() {
 
       const { data, error } = await supabase
         .from("ai_usage")
-        .select("function_name, estimated_cost_usd")
+        .select("function_name, estimated_cost_usd, input_tokens, output_tokens")
         .eq("user_id", user.id)
         .eq("month_key", getMonthKey());
 
       if (error) throw error;
 
-      const usedUsd = (data || []).reduce(
-        (sum, row: any) => sum + Number(row.estimated_cost_usd || 0),
-        0,
-      );
-      const usedEur = usedUsd * EUR_USD;
-      const budgetEur = MONTHLY_BUDGET_USD * EUR_USD;
-      const ratio = usedUsd / MONTHLY_BUDGET_USD;
+      let usedUsd = 0;
+      let inputTokens = 0;
+      let outputTokens = 0;
+      const byFn = new Map<string, number>();
 
+      for (const row of data || []) {
+        const r = row as any;
+        const cost = Number(r.estimated_cost_usd || 0);
+        const inT = Number(r.input_tokens || 0);
+        const outT = Number(r.output_tokens || 0);
+        usedUsd += cost;
+        inputTokens += inT;
+        outputTokens += outT;
+        byFn.set(r.function_name, (byFn.get(r.function_name) || 0) + inT + outT);
+      }
+
+      const ratio = usedUsd / MONTHLY_BUDGET_USD;
       let status: AIUsageSummary["status"] = "ok";
       if (ratio >= 1.5) status = "hard_capped";
       else if (ratio >= 1.0) status = "soft_capped";
       else if (ratio >= 0.8) status = "warning";
 
-      // Aggregate breakdown
-      const byFn = new Map<string, number>();
-      for (const row of data || []) {
-        const r = row as any;
-        const cur = byFn.get(r.function_name) || 0;
-        byFn.set(r.function_name, cur + Number(r.estimated_cost_usd || 0) * EUR_USD);
-      }
       const breakdown = Array.from(byFn.entries())
-        .map(([function_name, cost_eur]) => ({ function_name, cost_eur }))
-        .sort((a, b) => b.cost_eur - a.cost_eur);
+        .map(([function_name, tokens]) => ({ function_name, tokens }))
+        .sort((a, b) => b.tokens - a.tokens);
 
       return {
-        used_eur: usedEur,
-        budget_eur: budgetEur,
+        used_tokens: inputTokens + outputTokens,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
         ratio,
         status,
         breakdown,

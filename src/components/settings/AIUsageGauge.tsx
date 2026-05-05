@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 // Progress import removed (custom bar inlined)
 import { Sparkles, AlertTriangle } from "lucide-react";
-import { useAIUsage, getFunctionLabel } from "@/hooks/useAIUsage";
+import { useAIUsage, getFunctionLabel, formatTokens } from "@/hooks/useAIUsage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +57,7 @@ export function AIUsageGauge() {
             <h3 className="font-semibold text-sm">Consommation IA ce mois</h3>
           </div>
           <span className="text-sm font-bold tabular-nums">
-            {data.used_eur.toFixed(2)} € / {data.budget_eur.toFixed(0)} €
+            {formatTokens(data.used_tokens)} tokens
           </span>
         </div>
 
@@ -93,7 +93,7 @@ export function AIUsageGauge() {
               {top3.map((item) => (
                 <span key={item.function_name} className="text-muted-foreground">
                   <span className="text-foreground font-medium">{getFunctionLabel(item.function_name)}</span>{" "}
-                  · {item.cost_eur.toFixed(2)} €
+                  · {formatTokens(item.tokens)}
                 </span>
               ))}
             </div>
