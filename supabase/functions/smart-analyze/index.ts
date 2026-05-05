@@ -134,6 +134,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
     }
 
     const data = await response.json();
+    logUsage({ userId: resolvedUserId, functionName: "smart-analyze", model: chosenModel, usage: data.usage });
     const content = data.choices?.[0]?.message?.content || "";
     
     // Tolerant JSON extraction: strip markdown fences, find largest {...} block
