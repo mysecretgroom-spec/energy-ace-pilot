@@ -16,6 +16,7 @@ interface DraggableRdvCardProps {
   isR2?: boolean;
   regieNom?: string | null;
   regieCouleur?: string | null;
+  commissionNette?: number;
   children?: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -34,6 +35,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
       isR2,
       regieNom,
       regieCouleur,
+      commissionNette,
       children,
       className,
       disabled = false,
