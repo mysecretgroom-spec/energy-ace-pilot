@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+// Progress import removed (custom bar inlined)
 import { Sparkles, AlertTriangle } from "lucide-react";
 import { useAIUsage, getFunctionLabel } from "@/hooks/useAIUsage";
 import { Skeleton } from "@/components/ui/skeleton";
