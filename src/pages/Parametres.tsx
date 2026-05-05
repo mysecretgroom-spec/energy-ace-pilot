@@ -222,6 +222,14 @@ const Parametres = () => {
           </CardContent>
         </Card>
 
+        {/* AI usage gauge */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground px-1">
+            Consommation IA
+          </h3>
+          <AIUsageGauge />
+        </div>
+
         {/* Google Account Section */}
         <div className="space-y-2" data-onboarding="google-connect">
           <h3 className="text-sm font-semibold text-muted-foreground px-1">
