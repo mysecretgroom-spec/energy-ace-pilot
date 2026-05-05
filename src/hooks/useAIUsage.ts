@@ -13,6 +13,10 @@ export interface AIUsageSummary {
   used_tokens: number;
   input_tokens: number;
   output_tokens: number;
+  budget_tokens: number; // estimation tokens correspondant au budget mensuel
+  warning_tokens: number; // seuil 80%
+  soft_cap_tokens: number; // seuil 100%
+  hard_cap_tokens: number; // seuil 150%
   ratio: number; // 0..1+ (basé sur le coût USD interne)
   status: "ok" | "warning" | "soft_capped" | "hard_capped";
   breakdown: AIUsageBreakdown[];
