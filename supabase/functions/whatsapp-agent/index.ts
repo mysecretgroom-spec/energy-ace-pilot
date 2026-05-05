@@ -8069,12 +8069,27 @@ async function executeAction(
       // Use default or single regie (guaranteed to exist at this point)
       const regieId = regiePoll.defaultRegieId!;
 
-      // Build full address for RDV from available parts
-      const rdvAddress = [
+      // Build full address for RDV from available parts, fallback to client's stored address
+      let rdvAddress: string | null = [
         entities.address as string,
         entities.postal_code as string,
         entities.city as string,
       ].filter(Boolean).join(" ") || null;
+      let rdvLat: number | null = null;
+      let rdvLng: number | null = null;
+      const { data: existingClientFull } = await supabase
+        .from("clients")
+        .select("adresse, code_postal, ville, latitude, longitude")
+        .eq("id", client.id)
+        .single();
+      if (!rdvAddress && existingClientFull) {
+        rdvAddress = [existingClientFull.adresse, existingClientFull.code_postal, existingClientFull.ville]
+          .filter(Boolean).join(" ") || null;
+      }
+      if (existingClientFull) {
+        rdvLat = existingClientFull.latitude ?? null;
+        rdvLng = existingClientFull.longitude ?? null;
+      }
 
       // Create RDV
       const { data: rdv, error: rdvError } = await supabase
@@ -8084,6 +8099,8 @@ async function executeAction(
           client_id: client.id,
           date_heure: dateHeure,
           adresse: rdvAddress,
+          latitude: rdvLat,
+          longitude: rdvLng,
           status: "nouveau",
           type_rdv: "standard",
           type_projet: "photovoltaique",
