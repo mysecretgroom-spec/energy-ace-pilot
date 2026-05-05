@@ -6,6 +6,30 @@ import { installOfflineFetchInterceptor } from "./lib/offlineFetchInterceptor";
 // Install offline fetch interceptor before anything else
 installOfflineFetchInterceptor();
 
+// One-shot forced SW reset: bump this token to force ALL clients to unregister
+// their service workers + clear caches + reload once on next boot.
+const FORCE_SW_RESET_TOKEN = "2026-05-05-reload-broadcast";
+(async () => {
+  try {
+    const done = localStorage.getItem("__force_sw_reset__");
+    if (done === FORCE_SW_RESET_TOKEN) return;
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+    }
+    if ("caches" in self) {
+      const names = await caches.keys();
+      await Promise.all(names.map((n) => caches.delete(n).catch(() => false)));
+    }
+    localStorage.setItem("__force_sw_reset__", FORCE_SW_RESET_TOKEN);
+    console.log("[SW] Forced reset done, reloading…");
+    window.location.reload();
+  } catch (e) {
+    console.warn("[SW] Forced reset failed:", e);
+    localStorage.setItem("__force_sw_reset__", FORCE_SW_RESET_TOKEN);
+  }
+})();
+
 // Handle stale dynamic-import chunks after a redeploy: reload once to fetch fresh bundle.
 const RELOAD_KEY = "__chunk_reload_attempt__";
 const isChunkLoadError = (msg: string) =>
