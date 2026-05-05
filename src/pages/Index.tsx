@@ -1,4 +1,5 @@
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -218,6 +219,9 @@ const Index = () => {
             </span>
           </div>
         </div>
+
+        {/* Checklist d'onboarding */}
+        <OnboardingChecklist />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
