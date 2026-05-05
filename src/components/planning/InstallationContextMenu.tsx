@@ -376,7 +376,7 @@ export function InstallationContextMenu({
                       onClick={() => setCreateVenteOpen(true)}
                     >
                       <FileSignature className="h-4 w-4" />
-                      Créer la vente (appui long)
+                      Créer la vente
                     </Button>
                   )}
                 </div>
