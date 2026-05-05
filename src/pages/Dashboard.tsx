@@ -148,6 +148,8 @@ const Dashboard = () => {
     rdvAujourd: 0,
     rdvSemaine: 0,
     rdvTotal: 0,
+    posesPlanifiees: 0,
+    posesRealisees: 0,
     nouveauxClientsMois: 0,
     totalClients: 0,
     commissionsMois: 0,
