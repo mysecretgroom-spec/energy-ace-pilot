@@ -161,6 +161,7 @@ Exemple échec:
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
 
+    const chosenModel = budget.forceModel ?? "google/gemini-2.5-flash-lite";
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -168,7 +169,7 @@ Exemple échec:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: chosenModel,
         messages: [
           {
             role: "user",
