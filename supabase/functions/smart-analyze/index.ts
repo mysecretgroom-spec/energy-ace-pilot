@@ -92,6 +92,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
 
+    const chosenModel = budget.forceModel ?? "google/gemini-2.5-flash";
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -99,7 +100,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: chosenModel,
         messages: [
           {
             role: "user",
