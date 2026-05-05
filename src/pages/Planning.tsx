@@ -731,7 +731,7 @@ const Planning = () => {
         {!loading && viewMode === "semaine" && (
           <WeekCalendarView
             currentDate={currentDate}
-            rdvList={rdvList}
+            rdvList={filteredRdvListWithCom}
             workingDays={workingDays}
             onRdvClick={handleCalendarRdvClick}
             onDayClick={handleDayClick}
@@ -744,7 +744,7 @@ const Planning = () => {
         {!loading && viewMode === "mois" && (
           <MonthCalendarView
             currentDate={currentDate}
-            rdvList={rdvList}
+            rdvList={filteredRdvListWithCom}
             workingDays={workingDays}
             onDayClick={handleDayClick}
           />
