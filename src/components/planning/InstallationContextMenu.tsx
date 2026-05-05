@@ -370,7 +370,14 @@ export function InstallationContextMenu({
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">Aucune vente liée</p>
+                    <Button
+                      variant="default"
+                      className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                      onClick={() => setCreateVenteOpen(true)}
+                    >
+                      <FileSignature className="h-4 w-4" />
+                      Créer la vente (appui long)
+                    </Button>
                   )}
                 </div>
 
