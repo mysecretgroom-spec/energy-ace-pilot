@@ -109,6 +109,14 @@ serve(async (req) => {
       });
     }
 
+    // Log estimated usage for streaming response (output unknown, assume ~500 tokens)
+    logUsage({
+      userId,
+      functionName: "workflow-assistant",
+      model: chosenModel,
+      usage: { prompt_tokens: estimatedInputTokens, completion_tokens: 500 },
+    });
+
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
