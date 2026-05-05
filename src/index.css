@@ -367,41 +367,13 @@ body {
     box-shadow: 0 2px 6px -2px rgba(120, 53, 15, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
     transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
-  /* Force la couleur sombre uniquement sur le texte "neutre" — ne touche pas
-     aux badges/boutons qui ont leur propre fond ou couleur sémantique */
-  .halo-multicolor *:not([class*="bg-"]):not([class*="badge-"]):not([class*="text-status"]):not(svg):not(svg *) {
+  .halo-multicolor *:not(.commission-badge):not(.commission-badge *) {
     color: #1c1108 !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
   }
-  /* Préserver la lisibilité des badges de statut posés sur le fond or :
-     fond opaque + ring blanc pour les détacher du dégradé */
-  .halo-multicolor [class*="badge-"],
-  .halo-multicolor .bg-status-r2,
-  .halo-multicolor [class*="bg-status-"] {
-    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.25) !important;
-  }
-  .halo-multicolor:hover,
-  .halo-multicolor:focus-visible,
-  .halo-multicolor:focus-within,
-  .halo-multicolor:active {
+  .halo-multicolor:hover {
     filter: brightness(1.05) saturate(1.05);
     box-shadow: 0 4px 12px -2px rgba(120, 53, 15, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    transform: translateY(-1px);
-  }
-  .halo-multicolor:focus-visible {
-    outline: 2px solid #fbbf24;
-    outline-offset: 2px;
-  }
-  /* Drag actif : même rendu que hover/focus pour rester cohérent */
-  .halo-multicolor[data-dragging="true"],
-  .halo-multicolor.is-dragging {
-    filter: brightness(1.08) saturate(1.1);
-    box-shadow: 0 8px 20px -4px rgba(120, 53, 15, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  }
-  @media (hover: none) {
-    .halo-multicolor:active {
-      transform: scale(0.98);
-    }
   }
   .dark .halo-multicolor {
     background: linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #78350f 100%) !important;
@@ -409,12 +381,14 @@ body {
     color: #1c1108 !important;
     box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
-  .dark .halo-multicolor *:not([class*="bg-"]):not([class*="badge-"]):not([class*="text-status"]):not(svg):not(svg *) {
+  .dark .halo-multicolor *:not(.commission-badge):not(.commission-badge *) {
     color: #1c1108 !important;
   }
-  .dark .halo-multicolor [class*="badge-"],
-  .dark .halo-multicolor .bg-status-r2,
-  .dark .halo-multicolor [class*="bg-status-"] {
-    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85), 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+  /* Badge commission : marron foncé, texte blanc, prioritaire sur le halo */
+  .commission-badge {
+    background-color: #5b3a1a !important;
+    color: #ffffff !important;
+    text-shadow: none !important;
+    border: 0 !important;
   }
 }
