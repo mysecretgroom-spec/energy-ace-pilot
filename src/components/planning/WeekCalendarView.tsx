@@ -281,6 +281,7 @@ export function WeekCalendarView({
                           isR2={rdv.isR2}
                           regieNom={rdv.regieNom}
                           regieCouleur={rdv.regieCouleur}
+                          commissionNette={rdv.commissionNette}
                           isHighlighted={contextMenuRdv?.id === rdv.id}
                           onLongPress={() => handleLongPress(rdv)}
                         />
@@ -319,6 +320,7 @@ export function WeekCalendarView({
               isR2={activeRdv.isR2}
               regieNom={activeRdv.regieNom}
               regieCouleur={activeRdv.regieCouleur}
+              commissionNette={activeRdv.commissionNette}
               disabled
               className="bg-card border-2 border-primary"
             />
