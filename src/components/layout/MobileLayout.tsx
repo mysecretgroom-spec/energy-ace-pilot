@@ -87,6 +87,9 @@ export const MobileLayout = ({
       {/* Main Content - ensure proper spacing for bottom nav */}
       <main className={`flex-1 ${showNav ? "pb-28 sm:pb-24" : ""} max-w-5xl w-full md:mx-auto md:px-2`}>{children}</main>
 
+      {/* AI usage banner (shown only when warning/capped) */}
+      <AIUsageBanner />
+
       {/* Offline Indicator */}
       <OfflineIndicator />
 
