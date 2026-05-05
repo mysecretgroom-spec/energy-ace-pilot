@@ -29,6 +29,7 @@ import {
   Hotel,
   Flame,
   Building2,
+  HardHat,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -50,6 +51,10 @@ interface DashboardStats {
   rdvAujourd: number;
   rdvSemaine: number;
   rdvTotal: number;
+
+  // Poses (installations) — séparées des RDV commerciaux
+  posesPlanifiees: number;
+  posesRealisees: number;
   
   // Clients
   nouveauxClientsMois: number;
@@ -144,6 +149,8 @@ const Dashboard = () => {
     rdvAujourd: 0,
     rdvSemaine: 0,
     rdvTotal: 0,
+    posesPlanifiees: 0,
+    posesRealisees: 0,
     nouveauxClientsMois: 0,
     totalClients: 0,
     commissionsMois: 0,
@@ -353,11 +360,16 @@ const Dashboard = () => {
       );
 
       // Process RDV - filter by régie + exclure les RDV de pose (installation)
-      const rdvs = (rdvRes.data || []).filter((r: any) => (r.type_rdv || 'standard') !== 'installation');
+      const allRdvs = (rdvRes.data || []);
+      const rdvs = allRdvs.filter((r: any) => (r.type_rdv || 'standard') !== 'installation');
+      const posesAll = allRdvs.filter((r: any) => (r.type_rdv || 'standard') === 'installation');
       const filteredRdvs = regieFilter.length > 0
         ? rdvs.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
         : rdvs;
-      
+      const filteredPoses = regieFilter.length > 0
+        ? posesAll.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
+        : posesAll;
+
       // Store raw RDVs for dialog
       setRawRdvs(rdvs.map((r: any) => ({
         id: r.id,
@@ -372,6 +384,14 @@ const Dashboard = () => {
       const rdvSemaine = filteredRdvs.filter((r: any) => 
         new Date(r.date_heure) >= now && 
         new Date(r.date_heure) <= new Date(finSemaine)
+      ).length;
+
+      // Poses : planifiées (à venir) vs réalisées (passées, non annulées)
+      const posesPlanifiees = filteredPoses.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) >= now && r.status !== 'annule'
+      ).length;
+      const posesRealisees = filteredPoses.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) < now && r.status !== 'annule'
       ).length;
 
       // Process clients
@@ -391,6 +411,8 @@ const Dashboard = () => {
         rdvAujourd,
         rdvSemaine,
         rdvTotal: filteredRdvs.length,
+        posesPlanifiees,
+        posesRealisees,
         nouveauxClientsMois,
         totalClients: clients.length,
         commissionsMois: 0, // Will be calculated by hook
@@ -740,7 +762,23 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          {/* Commission card */}
+
+          {/* Poses (installations) — séparées des RDV commerciaux */}
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-purple-500/5"
+            onClick={() => navigate('/planning')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-indigo-500 mb-1">
+                <HardHat className="h-4 w-4" />
+                <span className="text-xs font-medium">Poses</span>
+              </div>
+              <p className="text-xl font-bold">{stats.posesPlanifiees}</p>
+              <p className="text-xs text-muted-foreground">
+                planifiées · {stats.posesRealisees} réalisées
+              </p>
+            </CardContent>
+          </Card>
           <Card 
             className="cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => openStatDialog('commissions')}
