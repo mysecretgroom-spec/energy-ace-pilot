@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         client_id: v.client_id,
         regie_id: v.regie_id,
         date_heure: dateHeureLocal,
-        duree_minutes: 240,
+        duree_minutes: 60,
         adresse: client?.adresse || "",
         type_projet: projectType,
         status: "nouveau",
