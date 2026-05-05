@@ -17,7 +17,9 @@ import {
   ExternalLink,
   MinusCircle,
   Receipt,
+  FileSignature,
 } from "lucide-react";
+import { QuickVenteFromPoseDialog } from "./QuickVenteFromPoseDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -91,6 +93,7 @@ export function InstallationContextMenu({
   const [loadingVente, setLoadingVente] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [decomOpen, setDecomOpen] = useState(false);
+  const [createVenteOpen, setCreateVenteOpen] = useState(false);
 
   const { callPhone, openWhatsApp, openClient, openClientDocuments, openWaze, openGoogleMaps, openAppleMaps } =
     useRdvActions({ onRefresh });
@@ -367,7 +370,14 @@ export function InstallationContextMenu({
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">Aucune vente liée</p>
+                    <Button
+                      variant="default"
+                      className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                      onClick={() => setCreateVenteOpen(true)}
+                    >
+                      <FileSignature className="h-4 w-4" />
+                      Créer la vente
+                    </Button>
                   )}
                 </div>
 
@@ -449,6 +459,32 @@ export function InstallationContextMenu({
         title="Supprimer ce RDV de pose ?"
         description={`Le RDV de pose pour ${rdv.client} sera supprimé. La vente associée n'est pas affectée.`}
         isLoading={isDeleting}
+      />
+
+      <QuickVenteFromPoseDialog
+        open={createVenteOpen}
+        onOpenChange={setCreateVenteOpen}
+        clientId={rdv.clientId}
+        clientName={rdv.client}
+        rdvId={rdv.id}
+        rdvDate={rdv.date instanceof Date ? rdv.date.toISOString().split("T")[0] : undefined}
+        regieId={rdv.regieId}
+        onSuccess={() => {
+          onRefresh?.();
+          // re-trigger vente loader
+          setVente(null);
+          setLoadingVente(true);
+          supabase
+            .from("ventes")
+            .select("id, status, decom_montant, decom_raison, montant_ttc")
+            .eq("client_id", rdv.clientId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .then(({ data }) => {
+              setVente((data?.[0] as VenteRow) || null);
+              setLoadingVente(false);
+            });
+        }}
       />
     </>
   );
