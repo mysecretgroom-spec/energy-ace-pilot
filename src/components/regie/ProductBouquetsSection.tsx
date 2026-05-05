@@ -16,7 +16,6 @@ import {
   Pencil,
   X,
 } from "lucide-react";
-import { BouquetExtractor } from "./BouquetExtractor";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -226,60 +225,9 @@ export function ProductBouquetsSection({
 
   return (
     <div className="space-y-4">
-      {/* Configuration du mode de calcul */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            <Euro className="h-4 w-4 text-primary" />
-            <h4 className="font-semibold text-sm">Mode de calcul des commissions</h4>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant={selectedRegie.mode_calcul_commission === 'bouquet' ? 'default' : 'outline'}
-              size="sm"
-              className="w-full justify-start gap-2"
-              onClick={() => onUpdateCommissionMode('bouquet')}
-            >
-              <Check className={selectedRegie.mode_calcul_commission === 'bouquet' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
-              Bouquet + Survente
-            </Button>
-            <Button
-              variant={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'default' : 'outline'}
-              size="sm"
-              className="w-full justify-start gap-2"
-              onClick={() => onUpdateCommissionMode('pourcentage')}
-            >
-              <Check className={selectedRegie.mode_calcul_commission === 'pourcentage' ? 'h-4 w-4' : 'h-4 w-4 opacity-0'} />
-              % sur CA
-            </Button>
-          </div>
-
-          {selectedRegie.mode_calcul_commission === 'bouquet' && (
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Part de survente reversée (%)</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={selectedRegie.part_survente_pct}
-                  onChange={(e) => onUpdateSurventePct(parseFloat(e.target.value) || 0)}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Commission = Fixe bouquet + {selectedRegie.part_survente_pct}% de (Prix vendu - Prix recommandé) HT
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {selectedRegie.mode_calcul_commission === 'bouquet' && (
+      {/* Onglets par type de produit */}
+      {true && (
         <>
-          {/* Onglets par type de produit */}
           <Tabs value={activeProductTab} onValueChange={(v) => setActiveProductTab(v as ProductType)}>
             <TabsList className="w-full grid grid-cols-3">
               {(Object.keys(productConfig) as ProductType[]).map((type) => {
@@ -309,23 +257,6 @@ export function ProductBouquetsSection({
                   <p className="text-sm text-muted-foreground">
                     Tarifs et commissions <span className="font-medium">{cfg.label}</span>
                   </p>
-
-                  {/* Extraction AI - tous produits */}
-                  <BouquetExtractor
-                    regieId={selectedRegie.id}
-                    userId={userId}
-                    onBouquetsCreated={onRefresh}
-                    productType={productType}
-                  />
-                  
-                  <div className="relative py-2">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">ou ajouter manuellement</span>
-                    </div>
-                  </div>
 
                   {/* Formulaire ajout bouquet */}
                   <Card>
@@ -525,15 +456,6 @@ export function ProductBouquetsSection({
         </>
       )}
 
-      {selectedRegie.mode_calcul_commission === 'pourcentage' && (
-        <Card className="bg-muted/30">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground text-center">
-              En mode pourcentage, les commissions sont calculées selon les tranches définies dans les paramètres globaux.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

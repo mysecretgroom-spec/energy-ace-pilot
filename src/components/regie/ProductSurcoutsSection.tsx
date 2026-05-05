@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { SurcoutsExtractor } from "./SurcoutsExtractor";
 
 type ProductType = "PV" | "PAC" | "ITE";
 
@@ -320,14 +319,6 @@ export function ProductSurcoutsSection({
           
           return (
             <TabsContent key={productType} value={productType} className="space-y-4 mt-4">
-              {/* Import IA */}
-              <SurcoutsExtractor
-                regieId={regieId}
-                userId={userId}
-                productType={productType}
-                onSurcoutsCreated={onRefresh}
-              />
-
               {/* Formulaire ajout surcoût */}
               <Card>
                 <CardContent className="p-3 space-y-2">
