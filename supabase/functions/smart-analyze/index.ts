@@ -22,6 +22,15 @@ serve(async (req) => {
       });
     }
 
+    // Budget check
+    const resolvedUserId = await resolveUserId(req, user_id);
+    const budget = await checkUsageBudget(resolvedUserId, "smart-analyze");
+    if (budget.blocked) {
+      return new Response(JSON.stringify({ success: false, error_message: HARD_CAP_MESSAGE, budget_exceeded: true }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const imageUrl = image_base64.startsWith("data:") ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
 
     // Combined prompt: OCR + Classification + Field extraction
