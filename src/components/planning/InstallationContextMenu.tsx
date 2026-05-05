@@ -460,6 +460,32 @@ export function InstallationContextMenu({
         description={`Le RDV de pose pour ${rdv.client} sera supprimé. La vente associée n'est pas affectée.`}
         isLoading={isDeleting}
       />
+
+      <QuickVenteFromPoseDialog
+        open={createVenteOpen}
+        onOpenChange={setCreateVenteOpen}
+        clientId={rdv.clientId}
+        clientName={rdv.client}
+        rdvId={rdv.id}
+        rdvDate={rdv.date instanceof Date ? rdv.date.toISOString().split("T")[0] : undefined}
+        regieId={rdv.regieId}
+        onSuccess={() => {
+          onRefresh?.();
+          // re-trigger vente loader
+          setVente(null);
+          setLoadingVente(true);
+          supabase
+            .from("ventes")
+            .select("id, status, decom_montant, decom_raison, montant_ttc")
+            .eq("client_id", rdv.clientId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .then(({ data }) => {
+              setVente((data?.[0] as VenteRow) || null);
+              setLoadingVente(false);
+            });
+        }}
+      />
     </>
   );
 }
