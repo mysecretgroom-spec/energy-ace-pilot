@@ -225,10 +225,7 @@ export function ProductBouquetsSection({
 
   return (
     <div className="space-y-4">
-      {/* Onglets par type de produit */}
-      {true && (
-        <>
-          <Tabs value={activeProductTab} onValueChange={(v) => setActiveProductTab(v as ProductType)}>
+      <Tabs value={activeProductTab} onValueChange={(v) => setActiveProductTab(v as ProductType)}>
             <TabsList className="w-full grid grid-cols-3">
               {(Object.keys(productConfig) as ProductType[]).map((type) => {
                 const cfg = productConfig[type];
@@ -449,13 +446,10 @@ export function ProductBouquetsSection({
                       </CardContent>
                     </Card>
                   )}
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </>
-      )}
-
+          </TabsContent>
+        );
+      })}
+    </Tabs>
     </div>
   );
 }
