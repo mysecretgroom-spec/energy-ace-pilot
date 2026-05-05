@@ -206,7 +206,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 </span>
                 {!isInstallation && <StatusBadge status={rdv.status} />}
                 {isInstallation && rdv.commissionNette != null && (
-                  <Badge className="bg-[#5b3a1a] hover:bg-[#4a2f15] text-white text-xs px-2.5 py-1 rounded-full shadow-sm border-0">
+                  <Badge className="commission-badge text-xs px-2.5 py-1 rounded-full shadow-sm">
                     Com: {rdv.commissionNette.toLocaleString("fr-FR")} €
                   </Badge>
                 )}
