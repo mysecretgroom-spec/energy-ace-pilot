@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
+import { AIUsageGauge } from "@/components/settings/AIUsageGauge";
 import { toast } from "sonner";
 import {
   User,
@@ -220,6 +221,14 @@ const Parametres = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* AI usage gauge */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground px-1">
+            Consommation IA
+          </h3>
+          <AIUsageGauge />
+        </div>
 
         {/* Google Account Section */}
         <div className="space-y-2" data-onboarding="google-connect">

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
+import { checkUsageBudget, logUsage, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 import {
   bufferImage,
   isGoTrigger,
@@ -1845,6 +1846,23 @@ serve(async (req) => {
     // WhatsApp webhook calls with service role key: userId already verified by webhook
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
+
+    // ==================== AI BUDGET CHECK ====================
+    const aiBudget = await checkUsageBudget(request.userId, "whatsapp-agent");
+    if (aiBudget.blocked) {
+      return new Response(
+        JSON.stringify({ responseMessage: HARD_CAP_MESSAGE, budget_exceeded: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Log a flat per-conversation estimate (the agent makes multiple internal AI calls; tracking each is too invasive)
+    // Average: ~3000 input tokens + ~500 output tokens per conversation turn
+    logUsage({
+      userId: request.userId,
+      functionName: "whatsapp-agent",
+      model: aiBudget.forceModel ?? "google/gemini-2.5-flash",
+      usage: { prompt_tokens: 3000, completion_tokens: 500 },
+    });
 
     // ==================== TRIAL ACCESS CHECK ====================
     // Trial users can ONLY use import_facture (expense receipts), limited to 30

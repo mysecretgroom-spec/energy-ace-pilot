@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,11 +43,22 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, currentWorkflow } = await req.json();
+    const body = await req.json();
+    const { messages, currentWorkflow, user_id: bodyUserId } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    // Budget check
+    const userId = await resolveUserId(req, bodyUserId);
+    const budget = await checkUsageBudget(userId, "workflow-assistant");
+    if (budget.blocked) {
+      return new Response(JSON.stringify({ error: HARD_CAP_MESSAGE, budget_exceeded: true }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Build context with current workflow state if provided
@@ -55,6 +67,11 @@ serve(async (req) => {
       contextMessage = `\n\nWORKFLOW ACTUEL:\n${JSON.stringify(currentWorkflow, null, 2)}`;
     }
 
+    const chosenModel = budget.forceModel ?? "google/gemini-2.5-flash";
+    const fullPrompt = WORKFLOW_SYSTEM_PROMPT + contextMessage;
+    // Rough token estimate for streaming (1 token ≈ 4 chars)
+    const estimatedInputTokens = Math.ceil((fullPrompt.length + JSON.stringify(messages).length) / 4);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -62,9 +79,9 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: chosenModel,
         messages: [
-          { role: "system", content: WORKFLOW_SYSTEM_PROMPT + contextMessage },
+          { role: "system", content: fullPrompt },
           ...messages,
         ],
         stream: true,
@@ -91,6 +108,14 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Log estimated usage for streaming response (output unknown, assume ~500 tokens)
+    logUsage({
+      userId,
+      functionName: "workflow-assistant",
+      model: chosenModel,
+      usage: { prompt_tokens: estimatedInputTokens, completion_tokens: 500 },
+    });
 
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },

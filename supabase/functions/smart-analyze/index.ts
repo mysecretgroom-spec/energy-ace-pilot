@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,15 @@ serve(async (req) => {
     if (!image_base64) {
       return new Response(JSON.stringify({ error: "image_base64 required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Budget check
+    const resolvedUserId = await resolveUserId(req, user_id);
+    const budget = await checkUsageBudget(resolvedUserId, "smart-analyze");
+    if (budget.blocked) {
+      return new Response(JSON.stringify({ success: false, error_message: HARD_CAP_MESSAGE, budget_exceeded: true }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -82,6 +92,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
 
+    const chosenModel = budget.forceModel ?? "google/gemini-2.5-flash";
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -89,7 +100,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: chosenModel,
         messages: [
           {
             role: "user",
@@ -123,6 +134,7 @@ Si l'image est illisible: {"success": false, "error_message": "raison", "ocr_qua
     }
 
     const data = await response.json();
+    logUsage({ userId: resolvedUserId, functionName: "smart-analyze", model: chosenModel, usage: data.usage });
     const content = data.choices?.[0]?.message?.content || "";
     
     // Tolerant JSON extraction: strip markdown fences, find largest {...} block

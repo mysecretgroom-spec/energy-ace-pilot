@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,7 +58,8 @@ serve(async (req) => {
   }
 
   try {
-    const { image_base64, context }: AnalyzeRequest = await req.json();
+    const body = await req.json();
+    const { image_base64, context, user_id: bodyUserId } = body as AnalyzeRequest & { user_id?: string };
 
     if (!image_base64) {
       return new Response(JSON.stringify({ error: "Image is required" }), {
@@ -73,8 +75,18 @@ serve(async (req) => {
       });
     }
 
-    const imageUrl = image_base64.startsWith("data:") 
-      ? image_base64 
+    // Budget check
+    const userId = await resolveUserId(req, bodyUserId);
+    const budget = await checkUsageBudget(userId, "analyze-document");
+    if (budget.blocked) {
+      return new Response(JSON.stringify({ error: HARD_CAP_MESSAGE, budget_exceeded: true }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const imageUrl = image_base64.startsWith("data:")
+      ? image_base64
       : `data:image/jpeg;base64,${image_base64}`;
 
     let prompt: string;
@@ -149,6 +161,7 @@ Exemple échec:
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
 
+    const chosenModel = budget.forceModel ?? "google/gemini-2.5-flash-lite";
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -156,7 +169,7 @@ Exemple échec:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: chosenModel,
         messages: [
           {
             role: "user",
@@ -198,6 +211,14 @@ Exemple échec:
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
+
+    // Track usage (non-blocking)
+    logUsage({
+      userId,
+      functionName: "analyze-document",
+      model: chosenModel,
+      usage: aiResponse.usage,
+    });
 
     let result: AnalyzeResult;
     try {

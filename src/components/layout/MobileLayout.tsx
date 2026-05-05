@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
 import { OfflineIndicator } from "./OfflineIndicator";
+import { AIUsageBanner } from "@/components/saas/AIUsageBanner";
 import { RGECardDialog } from "./RGECardDialog";
 import { NotificationBell } from "./NotificationBell";
 import { AlignmentGuides } from "./AlignmentGuides";
@@ -85,6 +86,9 @@ export const MobileLayout = ({
 
       {/* Main Content - ensure proper spacing for bottom nav */}
       <main className={`flex-1 ${showNav ? "pb-28 sm:pb-24" : ""} max-w-5xl w-full md:mx-auto md:px-2`}>{children}</main>
+
+      {/* AI usage banner (shown only when warning/capped) */}
+      <AIUsageBanner />
 
       {/* Offline Indicator */}
       <OfflineIndicator />
