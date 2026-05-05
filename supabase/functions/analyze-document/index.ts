@@ -58,7 +58,8 @@ serve(async (req) => {
   }
 
   try {
-    const { image_base64, context }: AnalyzeRequest = await req.json();
+    const body = await req.json();
+    const { image_base64, context, user_id: bodyUserId } = body as AnalyzeRequest & { user_id?: string };
 
     if (!image_base64) {
       return new Response(JSON.stringify({ error: "Image is required" }), {
@@ -74,8 +75,18 @@ serve(async (req) => {
       });
     }
 
-    const imageUrl = image_base64.startsWith("data:") 
-      ? image_base64 
+    // Budget check
+    const userId = await resolveUserId(req, bodyUserId);
+    const budget = await checkUsageBudget(userId, "analyze-document");
+    if (budget.blocked) {
+      return new Response(JSON.stringify({ error: HARD_CAP_MESSAGE, budget_exceeded: true }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    const imageUrl = image_base64.startsWith("data:")
+      ? image_base64
       : `data:image/jpeg;base64,${image_base64}`;
 
     let prompt: string;
