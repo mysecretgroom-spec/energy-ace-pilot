@@ -369,7 +369,7 @@ body {
     transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     overflow: hidden;
   }
-  /* Reflet brillant blanc diagonal pour effet "or poli" */
+  /* Reflet brillant blanc diagonal pour effet "or poli" - subtil */
   .halo-multicolor::after {
     content: "";
     position: absolute;
@@ -378,15 +378,15 @@ body {
     background: linear-gradient(
       115deg,
       transparent 0%,
-      transparent 38%,
-      rgba(255, 255, 255, 0.38) 48%,
-      rgba(255, 255, 255, 0.55) 52%,
-      rgba(255, 255, 255, 0.18) 60%,
-      transparent 72%,
+      transparent 44%,
+      rgba(255, 255, 255, 0.16) 49%,
+      rgba(255, 255, 255, 0.24) 51%,
+      rgba(255, 255, 255, 0.10) 55%,
+      transparent 62%,
       transparent 100%
     );
     mix-blend-mode: screen;
-    opacity: 0.85;
+    opacity: 0.6;
     border-radius: inherit;
   }
   .halo-multicolor *:not(.commission-badge):not(.commission-badge *) {
