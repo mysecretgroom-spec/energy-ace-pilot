@@ -52,7 +52,7 @@ const projectTypes = [
   { value: "autre", label: "Autre" },
 ];
 
-export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormProps) {
+export function QuickRdvForm({ onSuccess, onCancel, defaultDate, defaultClient, defaultRegieId, defaultTypeRdv }: QuickRdvFormProps) {
   const { user } = useAuth();
   const { pushRdvToCalendar } = usePushToGoogleCalendar();
   const [saving, setSaving] = useState(false);
@@ -60,22 +60,23 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate }: QuickRdvFormP
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [regies, setRegies] = useState<RegieOption[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
-  const [showClientSearch, setShowClientSearch] = useState(true);
+  const [showClientSearch, setShowClientSearch] = useState(!defaultClient);
 
   // Form state
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
-  const [selectedRegieId, setSelectedRegieId] = useState<string>("");
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [postalCode, setPostalCode] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string>(defaultClient?.id || "");
+  const [selectedRegieId, setSelectedRegieId] = useState<string>(defaultRegieId || "");
+  const [clientName, setClientName] = useState(defaultClient ? `${defaultClient.prenom || ""} ${defaultClient.nom}`.trim() : "");
+  const [clientPhone, setClientPhone] = useState(defaultClient?.telephone || "");
+  const [address, setAddress] = useState(defaultClient?.adresse || "");
+  const [city, setCity] = useState(defaultClient?.ville || "");
+  const [postalCode, setPostalCode] = useState(defaultClient?.code_postal || "");
   const [dateRdv, setDateRdv] = useState(
     defaultDate?.toISOString().split("T")[0] || new Date().toISOString().split("T")[0]
   );
-  const [timeRdv, setTimeRdv] = useState("10:00");
-  const [duration, setDuration] = useState("90");
+  const [timeRdv, setTimeRdv] = useState(defaultTypeRdv === "installation" ? "08:00" : "10:00");
+  const [duration, setDuration] = useState(defaultTypeRdv === "installation" ? "240" : "90");
   const [projectType, setProjectType] = useState("photovoltaique");
+  const [typeRdv, setTypeRdv] = useState<"standard" | "installation">(defaultTypeRdv || "standard");
   const [commentaire, setCommentaire] = useState("");
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
