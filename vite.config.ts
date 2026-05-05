@@ -25,6 +25,17 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
+    {
+      name: "emit-version-json",
+      apply: "build" as const,
+      generateBundle() {
+        (this as any).emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: JSON.stringify({ version: Date.now().toString() }),
+        });
+      },
+    },
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt", "pwa-icons/*.png"],
