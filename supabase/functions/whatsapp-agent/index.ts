@@ -1847,6 +1847,23 @@ serve(async (req) => {
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
 
+    // ==================== AI BUDGET CHECK ====================
+    const aiBudget = await checkUsageBudget(request.userId, "whatsapp-agent");
+    if (aiBudget.blocked) {
+      return new Response(
+        JSON.stringify({ responseMessage: HARD_CAP_MESSAGE, budget_exceeded: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Log a flat per-conversation estimate (the agent makes multiple internal AI calls; tracking each is too invasive)
+    // Average: ~3000 input tokens + ~500 output tokens per conversation turn
+    logUsage({
+      userId: request.userId,
+      functionName: "whatsapp-agent",
+      model: aiBudget.forceModel ?? "google/gemini-2.5-flash",
+      usage: { prompt_tokens: 3000, completion_tokens: 500 },
+    });
+
     // ==================== TRIAL ACCESS CHECK ====================
     // Trial users can ONLY use import_facture (expense receipts), limited to 30
     const TRIAL_FACTURE_LIMIT = 30;
