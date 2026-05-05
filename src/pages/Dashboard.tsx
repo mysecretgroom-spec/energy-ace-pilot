@@ -622,7 +622,7 @@ const Dashboard = () => {
       default:
         return { title: "", items: [], total: undefined };
     }
-  }, [statDialogType, filteredVentesForCommission, rawRdvs, getCommission, commissionData]);
+  }, [statDialogType, filteredVentesForCommission, rawRdvs, getCommission, commissionData, period]);
 
   const openBookingSearch = () => {
     const today = new Date();
