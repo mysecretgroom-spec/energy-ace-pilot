@@ -220,8 +220,6 @@ const Index = () => {
           </div>
         </div>
 
-        </div>
-
         {/* Checklist d'onboarding */}
         <OnboardingChecklist />
 
