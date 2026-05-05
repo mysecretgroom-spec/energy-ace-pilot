@@ -367,9 +367,18 @@ body {
     box-shadow: 0 2px 6px -2px rgba(120, 53, 15, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
     transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
-  .halo-multicolor * {
+  /* Force la couleur sombre uniquement sur le texte "neutre" — ne touche pas
+     aux badges/boutons qui ont leur propre fond ou couleur sémantique */
+  .halo-multicolor *:not([class*="bg-"]):not([class*="badge-"]):not([class*="text-status"]):not(svg):not(svg *) {
     color: #1c1108 !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  /* Préserver la lisibilité des badges de statut posés sur le fond or :
+     fond opaque + ring blanc pour les détacher du dégradé */
+  .halo-multicolor [class*="badge-"],
+  .halo-multicolor .bg-status-r2,
+  .halo-multicolor [class*="bg-status-"] {
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.25) !important;
   }
   .halo-multicolor:hover {
     filter: brightness(1.05) saturate(1.05);
@@ -381,7 +390,12 @@ body {
     color: #1c1108 !important;
     box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   }
-  .dark .halo-multicolor * {
+  .dark .halo-multicolor *:not([class*="bg-"]):not([class*="badge-"]):not([class*="text-status"]):not(svg):not(svg *) {
     color: #1c1108 !important;
+  }
+  .dark .halo-multicolor [class*="badge-"],
+  .dark .halo-multicolor .bg-status-r2,
+  .dark .halo-multicolor [class*="bg-status-"] {
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85), 0 1px 2px rgba(0, 0, 0, 0.5) !important;
   }
 }
