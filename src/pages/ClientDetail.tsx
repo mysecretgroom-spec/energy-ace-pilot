@@ -48,6 +48,8 @@ import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { VenteCard } from "@/components/crm/VenteCard";
 import { VenteStatus } from "@/lib/venteStatusConfig";
 import { useTrialFeatures } from "@/hooks/useTrialFeatures";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QuickRdvForm } from "@/components/planning/QuickRdvForm";
 
 // Lazy load heavy components to avoid blocking the main thread
 const MultiImportFlow = React.lazy(() => import("@/components/scanner/MultiImportFlow").then(m => ({ default: m.MultiImportFlow })));
