@@ -496,7 +496,9 @@ const Dashboard = () => {
   // Get dialog items based on type
   const getStatDialogData = useMemo(() => {
     const now = new Date();
-    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    const debutMois = period.start;
+    const finMois = period.end;
+    const periodeLabel = period.label;
     const aujourd = format(now, "yyyy-MM-dd");
 
     // Helper to enrich vente items with quick action data
