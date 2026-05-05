@@ -185,8 +185,8 @@ const Dashboard = () => {
 
   // Calculate commission stats from hook results
   const commissionData = useMemo(() => {
-    const now = new Date();
-    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    const debutPeriode = period.start;
+    const finPeriode = period.end;
     
     let commissionsMois = 0;
     let commissionsEnAttente = 0;
@@ -205,8 +205,11 @@ const Dashboard = () => {
         return;
       }
 
-      if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {
-        commissionsMois += net;
+      if (vente.date_signature) {
+        const d = new Date(vente.date_signature);
+        if (d >= debutPeriode && d <= finPeriode) {
+          commissionsMois += net;
+        }
       }
 
       if (vente.status !== "paye") {
@@ -215,7 +218,7 @@ const Dashboard = () => {
     });
 
     return { commissionsMois, commissionsEnAttente, commissionsHejja };
-  }, [filteredVentesForCommission, getCommission]);
+  }, [filteredVentesForCommission, getCommission, period]);
 
   useEffect(() => {
     if (user) {
