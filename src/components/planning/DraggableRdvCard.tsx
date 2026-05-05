@@ -166,7 +166,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
             ? "ring-2 ring-primary shadow-lg scale-[1.02]"
             : "",
           typeRdv === "installation"
-            ? "border-l-2 border-l-indigo-500 bg-indigo-500/10 shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
+            ? "halo-multicolor bg-indigo-500/5"
             : typeRdv === "external_installation"
             ? "border-l-2 border-l-amber-500 bg-amber-500/5 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]"
             : isR2
