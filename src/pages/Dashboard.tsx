@@ -359,11 +359,16 @@ const Dashboard = () => {
       );
 
       // Process RDV - filter by régie + exclure les RDV de pose (installation)
-      const rdvs = (rdvRes.data || []).filter((r: any) => (r.type_rdv || 'standard') !== 'installation');
+      const allRdvs = (rdvRes.data || []);
+      const rdvs = allRdvs.filter((r: any) => (r.type_rdv || 'standard') !== 'installation');
+      const posesAll = allRdvs.filter((r: any) => (r.type_rdv || 'standard') === 'installation');
       const filteredRdvs = regieFilter.length > 0
         ? rdvs.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
         : rdvs;
-      
+      const filteredPoses = regieFilter.length > 0
+        ? posesAll.filter((r: any) => r.regie_id && regieFilter.includes(r.regie_id))
+        : posesAll;
+
       // Store raw RDVs for dialog
       setRawRdvs(rdvs.map((r: any) => ({
         id: r.id,
@@ -378,6 +383,14 @@ const Dashboard = () => {
       const rdvSemaine = filteredRdvs.filter((r: any) => 
         new Date(r.date_heure) >= now && 
         new Date(r.date_heure) <= new Date(finSemaine)
+      ).length;
+
+      // Poses : planifiées (à venir) vs réalisées (passées, non annulées)
+      const posesPlanifiees = filteredPoses.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) >= now && r.status !== 'annule'
+      ).length;
+      const posesRealisees = filteredPoses.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) < now && r.status !== 'annule'
       ).length;
 
       // Process clients
@@ -397,6 +410,8 @@ const Dashboard = () => {
         rdvAujourd,
         rdvSemaine,
         rdvTotal: filteredRdvs.length,
+        posesPlanifiees,
+        posesRealisees,
         nouveauxClientsMois,
         totalClients: clients.length,
         commissionsMois: 0, // Will be calculated by hook
