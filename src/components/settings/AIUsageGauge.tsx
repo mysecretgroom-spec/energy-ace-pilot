@@ -32,14 +32,14 @@ export function AIUsageGauge() {
       ? "bg-yellow-500"
       : "bg-primary";
 
-  const statusLabel =
+  const statusBadge =
     data.status === "hard_capped"
-      ? "Budget dépassé — agent suspendu"
+      ? { label: "Hard cap atteint — agent suspendu", cls: "bg-destructive/15 text-destructive border-destructive/30" }
       : data.status === "soft_capped"
-      ? "Mode économique activé"
+      ? { label: "Soft cap — mode économique", cls: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30" }
       : data.status === "warning"
-      ? "Approche du budget mensuel"
-      : "Consommation normale";
+      ? { label: "Warning — approche du seuil", cls: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border-yellow-500/30" }
+      : { label: "OK — consommation normale", cls: "bg-primary/10 text-primary border-primary/20" };
 
   const resetLabel = data.reset_date.toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -47,6 +47,12 @@ export function AIUsageGauge() {
   });
 
   const top3 = data.breakdown.slice(0, 3);
+
+  // Position des seuils sur la barre (échelle 0..150% écrasée à 100%)
+  const SCALE_MAX = 150;
+  const warningPos = (80 / SCALE_MAX) * 100;
+  const softPos = (100 / SCALE_MAX) * 100;
+  const barWidth = Math.min((data.ratio * 100 / SCALE_MAX) * 100, 100);
 
   return (
     <Card className="shadow-card">
@@ -57,31 +63,44 @@ export function AIUsageGauge() {
             <h3 className="font-semibold text-sm">Consommation IA ce mois</h3>
           </div>
           <span className="text-sm font-bold tabular-nums">
-            {formatTokens(data.used_tokens)} tokens
+            {formatTokens(data.used_tokens)} / {formatTokens(data.soft_cap_tokens)} tokens
           </span>
         </div>
 
-        <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div className="relative h-2.5 w-full overflow-visible rounded-full bg-secondary">
           <div
-            className={cn("h-full transition-all", color)}
-            style={{ width: `${Math.min(percent, 100)}%` }}
+            className={cn("h-full rounded-full transition-all", color)}
+            style={{ width: `${barWidth}%` }}
           />
-          {percent > 100 && (
-            <div className="absolute inset-0 rounded-full ring-2 ring-destructive/40 pointer-events-none" />
-          )}
+          {/* Marqueurs de seuils */}
+          <div
+            className="absolute top-[-2px] bottom-[-2px] w-px bg-yellow-500/70"
+            style={{ left: `${warningPos}%` }}
+            title={`Warning: ${formatTokens(data.warning_tokens)}`}
+          />
+          <div
+            className="absolute top-[-2px] bottom-[-2px] w-px bg-orange-500/80"
+            style={{ left: `${softPos}%` }}
+            title={`Soft cap: ${formatTokens(data.soft_cap_tokens)}`}
+          />
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span
-            className={cn(
-              "flex items-center gap-1",
-              data.status !== "ok" ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground",
-            )}
-          >
-            {data.status !== "ok" && <AlertTriangle className="h-3 w-3" />}
-            {statusLabel}
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+          <span>0</span>
+          <span style={{ marginLeft: `${warningPos - 8}%` }}>
+            ⚠ {formatTokens(data.warning_tokens)}
           </span>
-          <span className="text-muted-foreground">Reset le {resetLabel}</span>
+          <span>
+            ⛔ {formatTokens(data.soft_cap_tokens)}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border", statusBadge.cls)}>
+            {data.status !== "ok" && <AlertTriangle className="h-3 w-3" />}
+            {statusBadge.label} · {Math.round(data.ratio * 100)} %
+          </span>
+          <span className="text-muted-foreground shrink-0">Reset le {resetLabel}</span>
         </div>
 
         {top3.length > 0 && (

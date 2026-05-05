@@ -13,6 +13,10 @@ export interface AIUsageSummary {
   used_tokens: number;
   input_tokens: number;
   output_tokens: number;
+  budget_tokens: number; // estimation tokens correspondant au budget mensuel
+  warning_tokens: number; // seuil 80%
+  soft_cap_tokens: number; // seuil 100%
+  hard_cap_tokens: number; // seuil 150%
   ratio: number; // 0..1+ (basé sur le coût USD interne)
   status: "ok" | "warning" | "soft_capped" | "hard_capped";
   breakdown: AIUsageBreakdown[];
@@ -74,14 +78,24 @@ export function useAIUsage() {
       else if (ratio >= 1.0) status = "soft_capped";
       else if (ratio >= 0.8) status = "warning";
 
+      const totalTokens = inputTokens + outputTokens;
+      // Estimation du budget en tokens à partir de la conso actuelle
+      // (rapport tokens/coût observé). Fallback heuristique si pas de données.
+      const tokensPerUsd = usedUsd > 0 ? totalTokens / usedUsd : 200_000;
+      const budgetTokens = Math.round(tokensPerUsd * MONTHLY_BUDGET_USD);
+
       const breakdown = Array.from(byFn.entries())
         .map(([function_name, tokens]) => ({ function_name, tokens }))
         .sort((a, b) => b.tokens - a.tokens);
 
       return {
-        used_tokens: inputTokens + outputTokens,
+        used_tokens: totalTokens,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
+        budget_tokens: budgetTokens,
+        warning_tokens: Math.round(budgetTokens * 0.8),
+        soft_cap_tokens: budgetTokens,
+        hard_cap_tokens: Math.round(budgetTokens * 1.5),
         ratio,
         status,
         breakdown,
