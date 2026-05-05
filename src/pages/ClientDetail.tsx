@@ -947,7 +947,33 @@ const ClientDetailInner = () => {
           />
         )}
 
-        {/* Retape Dialog - only mount when open */}
+        {showNewRdvDialog && client && (
+          <Dialog open={showNewRdvDialog} onOpenChange={setShowNewRdvDialog}>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Nouveau RDV</DialogTitle>
+              </DialogHeader>
+              <QuickRdvForm
+                defaultClient={{
+                  id: client.id,
+                  nom: client.nom,
+                  prenom: client.prenom,
+                  telephone: client.telephone,
+                  adresse: client.adresse,
+                  ville: client.ville,
+                  code_postal: client.code_postal,
+                }}
+                defaultRegieId={client.regie_id || undefined}
+                onSuccess={() => {
+                  setShowNewRdvDialog(false);
+                  fetchClientData();
+                }}
+                onCancel={() => setShowNewRdvDialog(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+
         {showRetapeDialog && client && (
           <Suspense fallback={null}>
             <RetapeDialog
