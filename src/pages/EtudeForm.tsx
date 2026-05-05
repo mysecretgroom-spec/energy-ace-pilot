@@ -2470,6 +2470,43 @@ _Envoyé depuis DébalePro_`;
     );
   }
 
+  // Blocage : régie sans bouquets configurés
+  if (regieId && dataBouquets.length === 0) {
+    return (
+      <MobileLayout title={isEditMode ? "Modifier l'étude" : "Nouvelle étude"}>
+        <div className="p-4 flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-md w-full border-amber-500/30 bg-amber-500/5">
+            <CardContent className="p-6 text-center space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/15 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-semibold text-base">Paramétrage régie incomplet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Veuillez compléter le paramétrage régie{regieNom ? ` « ${regieNom} »` : ""} avant de lancer une étude.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Aucun bouquet n'est configuré pour cette régie.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full"
+                  onClick={() => navigate(regieId ? `/regies/${regieId}` : "/parametres/regies")}
+                >
+                  Configurer la régie
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>
+                  Retour
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </MobileLayout>
+    );
+  }
+
   return (
     <MobileLayout>
       {/* Dialog: étude existante détectée */}
