@@ -57,7 +57,7 @@ export function AIUsageGauge() {
             <h3 className="font-semibold text-sm">Consommation IA ce mois</h3>
           </div>
           <span className="text-sm font-bold tabular-nums">
-            {data.used_eur.toFixed(2)} € / {data.budget_eur.toFixed(0)} €
+            {formatTokens(data.used_tokens)} tokens
           </span>
         </div>
 
