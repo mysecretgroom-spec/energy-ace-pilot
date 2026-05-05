@@ -242,6 +242,7 @@ const ClientDetailInner = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
+  const [showNewRdvDialog, setShowNewRdvDialog] = useState(false);
   const [destinationPhone, setDestinationPhone] = useState("");
   const [clientRegie, setClientRegie] = useState<ClientRegie | null>(null);
   const [resultatPdfDialogEtudeId, setResultatPdfDialogEtudeId] = useState<string | null>(null);
