@@ -54,7 +54,7 @@ export function OnboardingChecklist() {
 
       const [regies, bouquets, rdvs, etudes, ventes] = await Promise.all([
         supabase.from("regies").select("id", { count: "exact", head: true }).eq("user_id", uid),
-        supabase.from("regie_bouquets").select("id", { count: "exact", head: true }).eq("user_id", uid),
+        supabase.from("bouquets").select("id", { count: "exact", head: true }).eq("user_id", uid),
         supabase.from("rdv").select("id", { count: "exact", head: true }).eq("user_id", uid),
         supabase.from("etudes").select("id", { count: "exact", head: true }).eq("user_id", uid),
         supabase.from("ventes").select("id", { count: "exact", head: true }).eq("user_id", uid),
