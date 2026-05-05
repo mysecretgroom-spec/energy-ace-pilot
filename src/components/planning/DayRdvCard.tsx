@@ -203,6 +203,11 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                   {rdv.duration}
                 </span>
                 {!isInstallation && <StatusBadge status={rdv.status} />}
+                {isInstallation && rdv.commissionNette != null && (
+                  <Badge className="bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-500 text-white text-xs px-2.5 py-1 rounded-full shadow-sm border-0">
+                    Com: {rdv.commissionNette.toLocaleString("fr-FR")} €
+                  </Badge>
+                )}
               </div>
 
               {/* Client et type */}
