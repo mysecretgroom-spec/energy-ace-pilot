@@ -434,7 +434,27 @@ export function QuickRdvForm({ onSuccess, onCancel, defaultDate, defaultClient, 
           </div>
         </div>
 
-        {/* Duration and project type */}
+        {/* Type de RDV */}
+        <div className="space-y-2">
+          <Label>Type de RDV</Label>
+          <Select value={typeRdv} onValueChange={(v) => {
+            const next = v as "standard" | "installation";
+            setTypeRdv(next);
+            if (next === "installation") {
+              setDuration("240");
+              setTimeRdv("08:00");
+            }
+          }}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standard">RDV commercial</SelectItem>
+              <SelectItem value="installation">Pose / Installation</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="duration">Durée (min)</Label>
