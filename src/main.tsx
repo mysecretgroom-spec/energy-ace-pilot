@@ -9,7 +9,16 @@ installOfflineFetchInterceptor();
 // One-shot forced SW reset: bump this token to force ALL clients to unregister
 // their service workers + clear caches + reload once on next boot.
 const FORCE_SW_RESET_TOKEN = "2026-05-05-reload-broadcast";
+const isPreviewHost =
+  typeof window !== "undefined" &&
+  (window.location.hostname.includes("lovableproject.com") ||
+    window.location.hostname.includes("lovable.app") ||
+    window.location.hostname === "localhost");
+const isInIframe = (() => {
+  try { return window.self !== window.top; } catch { return true; }
+})();
 (async () => {
+  if (isPreviewHost || isInIframe) return;
   try {
     const done = localStorage.getItem("__force_sw_reset__");
     if (done === FORCE_SW_RESET_TOKEN) return;
