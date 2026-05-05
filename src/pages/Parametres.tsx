@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { GoogleAccountSettings } from "@/components/settings/GoogleAccountSettings";
+import { AIUsageGauge } from "@/components/settings/AIUsageGauge";
 import { toast } from "sonner";
 import {
   User,
