@@ -34,6 +34,7 @@ import {
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DashboardRdvCard } from "@/components/dashboard/DashboardRdvCard";
+import { PeriodFilter, makeMonthPeriod, type PeriodValue } from "@/components/dashboard/PeriodFilter";
 import { PullToRefreshContainer } from "@/components/common/PullToRefreshContainer";
 import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { DashboardKPISkeleton, DashboardRdvListSkeleton } from "@/components/common/DashboardSkeletons";
@@ -167,6 +168,7 @@ const Dashboard = () => {
   const [rawRdvs, setRawRdvs] = useState<RawRdv[]>([]);
   const [regies, setRegies] = useState<{ id: string; nom: string; couleur: string }[]>([]);
   const [regieFilter, setRegieFilter] = useState<string[]>([]);
+  const [period, setPeriod] = useState<PeriodValue>(() => makeMonthPeriod(new Date()));
   
   // Dialog state
   const [statDialogOpen, setStatDialogOpen] = useState(false);
@@ -183,8 +185,8 @@ const Dashboard = () => {
 
   // Calculate commission stats from hook results
   const commissionData = useMemo(() => {
-    const now = new Date();
-    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    const debutPeriode = period.start;
+    const finPeriode = period.end;
     
     let commissionsMois = 0;
     let commissionsEnAttente = 0;
@@ -203,8 +205,11 @@ const Dashboard = () => {
         return;
       }
 
-      if (vente.date_signature && new Date(vente.date_signature) >= debutMois) {
-        commissionsMois += net;
+      if (vente.date_signature) {
+        const d = new Date(vente.date_signature);
+        if (d >= debutPeriode && d <= finPeriode) {
+          commissionsMois += net;
+        }
       }
 
       if (vente.status !== "paye") {
@@ -213,14 +218,14 @@ const Dashboard = () => {
     });
 
     return { commissionsMois, commissionsEnAttente, commissionsHejja };
-  }, [filteredVentesForCommission, getCommission]);
+  }, [filteredVentesForCommission, getCommission, period]);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
       fetchRegies();
     }
-  }, [user, regieFilter]);
+  }, [user, regieFilter, period]);
 
   const fetchRegies = async () => {
     if (!user) return;
@@ -238,8 +243,8 @@ const Dashboard = () => {
     setLoading(true);
 
     const now = new Date();
-    const debutMois = startOfMonth(now).toISOString();
-    const finMois = endOfMonth(now).toISOString();
+    const debutMois = period.start.toISOString();
+    const finMois = period.end.toISOString();
     const debutAnnee = startOfYear(now).toISOString();
     const finAnnee = endOfYear(now).toISOString();
     const aujourd = format(now, "yyyy-MM-dd");
@@ -275,8 +280,8 @@ const Dashboard = () => {
         supabase.from("objectifs")
           .select("*")
           .eq("user_id", user.id)
-          .eq("mois", now.getMonth() + 1)
-          .eq("annee", now.getFullYear())
+          .eq("mois", period.start.getMonth() + 1)
+          .eq("annee", period.start.getFullYear())
           .maybeSingle(),
         // Notifications non lues
         supabase.from("notifications")
@@ -491,7 +496,9 @@ const Dashboard = () => {
   // Get dialog items based on type
   const getStatDialogData = useMemo(() => {
     const now = new Date();
-    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+    const debutMois = period.start;
+    const finMois = period.end;
+    const periodeLabel = period.label;
     const aujourd = format(now, "yyyy-MM-dd");
 
     // Helper to enrich vente items with quick action data
@@ -521,11 +528,12 @@ const Dashboard = () => {
         const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
+          new Date(v.date_signature) <= finMois &&
           !v.is_retape
         );
         return {
-          title: statDialogType === 'ca' ? "CA du mois" : "Ventes du mois",
-          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          title: statDialogType === 'ca' ? "CA de la période" : "Ventes de la période",
+          subtitle: periodeLabel,
           items: ventesMois.map(v => venteToItem(v)),
           total: ventesMois.reduce((sum, v) => sum + v.montant_ttc, 0),
         };
@@ -554,11 +562,12 @@ const Dashboard = () => {
         const ventesMois = filteredVentesForCommission.filter(v => 
           v.date_signature && 
           new Date(v.date_signature) >= debutMois &&
+          new Date(v.date_signature) <= finMois &&
           !v.is_retape
         );
         return {
-          title: "Commissions du mois",
-          subtitle: format(now, "MMMM yyyy", { locale: fr }),
+          title: "Commissions de la période",
+          subtitle: periodeLabel,
           items: ventesMois.map(v => venteToItem(v, getCommission(v.id)?.commissionNette || 0)),
           total: commissionData.commissionsMois,
         };
@@ -613,7 +622,7 @@ const Dashboard = () => {
       default:
         return { title: "", items: [], total: undefined };
     }
-  }, [statDialogType, filteredVentesForCommission, rawRdvs, getCommission, commissionData]);
+  }, [statDialogType, filteredVentesForCommission, rawRdvs, getCommission, commissionData, period]);
 
   const openBookingSearch = () => {
     const today = new Date();
@@ -702,6 +711,9 @@ const Dashboard = () => {
             className="w-full"
           />
         )}
+
+        {/* Période des statistiques (mois ou plage personnalisée) */}
+        <PeriodFilter value={period} onChange={setPeriod} className="w-full" />
 
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
