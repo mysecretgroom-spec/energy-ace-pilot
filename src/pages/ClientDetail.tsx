@@ -633,7 +633,7 @@ const ClientDetailInner = () => {
 
           {/* Tab RDV */}
           <TabsContent value="rdv" className="space-y-3 mt-4">
-            <Button className="w-full bg-gradient-hero gap-2">
+            <Button className="w-full bg-gradient-hero gap-2" onClick={() => setShowNewRdvDialog(true)}>
               <Plus className="h-4 w-4" />
               Nouveau RDV
             </Button>
