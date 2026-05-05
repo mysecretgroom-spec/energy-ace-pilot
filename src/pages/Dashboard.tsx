@@ -29,6 +29,7 @@ import {
   Hotel,
   Flame,
   Building2,
+  HardHat,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
