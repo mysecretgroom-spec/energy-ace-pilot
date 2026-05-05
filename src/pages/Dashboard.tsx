@@ -168,6 +168,7 @@ const Dashboard = () => {
   const [rawRdvs, setRawRdvs] = useState<RawRdv[]>([]);
   const [regies, setRegies] = useState<{ id: string; nom: string; couleur: string }[]>([]);
   const [regieFilter, setRegieFilter] = useState<string[]>([]);
+  const [period, setPeriod] = useState<PeriodValue>(() => makeMonthPeriod(new Date()));
   
   // Dialog state
   const [statDialogOpen, setStatDialogOpen] = useState(false);
