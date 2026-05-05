@@ -97,6 +97,28 @@ export function usePWAUpdate() {
     });
   }, []);
 
+  // Compare deployed version vs current bundle; reload if newer build is live.
+  const lastVersionCheckRef = useRef(0);
+  const checkVersionAndReloadIfStale = useCallback(async (minIntervalMs = 60_000) => {
+    if (!hasGoodConnection()) return false;
+    const now = Date.now();
+    if (now - lastVersionCheckRef.current < minIntervalMs) return false;
+    lastVersionCheckRef.current = now;
+    try {
+      const res = await fetch('/version.json', { cache: 'no-store' });
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => null);
+      const remote = data?.version || data?.appVersion;
+      if (remote && remote !== CURRENT_SW_VERSION) {
+        console.log('[PWA] Version mismatch, reloading…', { remote, current: CURRENT_SW_VERSION });
+        reloadingRef.current = true;
+        window.location.reload();
+        return true;
+      }
+    } catch {}
+    return false;
+  }, []);
+
   // Check for updates when app becomes visible
   const checkForUpdates = useCallback(() => {
     if (!hasGoodConnection()) return;
@@ -107,15 +129,35 @@ export function usePWAUpdate() {
       console.log('[PWA] Checking for updates…');
       registration.update().catch(() => {});
     });
-  }, []);
+
+    // Also compare published version (handles bfcache/back-forward case)
+    checkVersionAndReloadIfStale();
+  }, [checkVersionAndReloadIfStale]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') checkForUpdates();
     };
 
-    const handlePageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) checkForUpdates();
+    // Triggered on bfcache restore (back/forward) AND normal page show.
+    // If a SW is already waiting/installing, force a reload immediately.
+    const handlePageShow = async (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      console.log('[PWA] bfcache restore detected');
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update().catch(() => {});
+          if (reg.waiting || reg.installing) {
+            reloadingRef.current = true;
+            window.location.reload();
+            return;
+          }
+        }
+      }
+      // Fallback: compare version.json (forces reload, ignore throttle)
+      lastVersionCheckRef.current = 0;
+      checkVersionAndReloadIfStale(0);
     };
 
     const timer = setTimeout(checkForUpdates, 2000);
