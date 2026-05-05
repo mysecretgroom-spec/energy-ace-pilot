@@ -212,6 +212,14 @@ Exemple échec:
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
 
+    // Track usage (non-blocking)
+    logUsage({
+      userId,
+      functionName: "analyze-document",
+      model: chosenModel,
+      usage: aiResponse.usage,
+    });
+
     let result: AnalyzeResult;
     try {
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
