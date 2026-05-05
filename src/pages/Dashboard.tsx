@@ -426,8 +426,14 @@ const Dashboard = () => {
         new Date(c.created_at) >= new Date(debutMois)
       ).length;
 
-      // Objectifs
+      // Objectifs (déjà agrégés sur la période sélectionnée)
       const objectifs = objectifsRes.data;
+      // Nombre de mois couverts par la période (pour scaler les valeurs par défaut)
+      const monthsCovered = Math.max(
+        1,
+        (period.end.getFullYear() - period.start.getFullYear()) * 12 +
+          (period.end.getMonth() - period.start.getMonth()) + 1
+      );
 
       setStats({
         ventesSignesMois: ventesMois.length,
@@ -443,9 +449,9 @@ const Dashboard = () => {
         totalClients: clients.length,
         commissionsMois: 0, // Will be calculated by hook
         commissionsEnAttente: 0, // Will be calculated by hook
-        objectifCA: objectifs?.objectif_ca || 50000,
-        objectifVentes: objectifs?.objectif_ventes || 10,
-        objectifRdv: objectifs?.objectif_rdv || 30
+        objectifCA: objectifs?.objectif_ca ?? 50000 * monthsCovered,
+        objectifVentes: objectifs?.objectif_ventes ?? 10 * monthsCovered,
+        objectifRdv: objectifs?.objectif_rdv ?? 30 * monthsCovered,
       });
 
       setNotifications(notificationsRes.data || []);
