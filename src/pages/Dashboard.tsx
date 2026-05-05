@@ -225,7 +225,7 @@ const Dashboard = () => {
       fetchDashboardData();
       fetchRegies();
     }
-  }, [user, regieFilter]);
+  }, [user, regieFilter, period]);
 
   const fetchRegies = async () => {
     if (!user) return;
