@@ -521,6 +521,29 @@ const Planning = () => {
     fetchRdvs();
   }, [fetchRdvs]);
 
+  // Run installation reconciliation once per session on mount
+  useEffect(() => {
+    if (!user) return;
+    const key = `installation_reconcile_${user.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    supabase.functions
+      .invoke("reconcile-installation-rdvs")
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("[Planning] reconcile failed", error);
+          return;
+        }
+        const created = (data as any)?.created || 0;
+        const promoted = (data as any)?.promoted || 0;
+        if (created > 0 || promoted > 0) {
+          console.log(`[Planning] reconcile: +${created} créés, ${promoted} promus`);
+          fetchRdvs();
+        }
+      })
+      .catch((e) => console.warn("[Planning] reconcile error", e));
+  }, [user, fetchRdvs]);
+
   return (
     <MobileLayout title="Planning">
       <PullToRefreshContainer onRefresh={fetchRdvs}>
