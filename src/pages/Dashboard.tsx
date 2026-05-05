@@ -762,7 +762,23 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          {/* Commission card */}
+
+          {/* Poses (installations) — séparées des RDV commerciaux */}
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-purple-500/5"
+            onClick={() => navigate('/planning')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-indigo-500 mb-1">
+                <HardHat className="h-4 w-4" />
+                <span className="text-xs font-medium">Poses</span>
+              </div>
+              <p className="text-xl font-bold">{stats.posesPlanifiees}</p>
+              <p className="text-xs text-muted-foreground">
+                planifiées · {stats.posesRealisees} réalisées
+              </p>
+            </CardContent>
+          </Card>
           <Card 
             className="cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => openStatDialog('commissions')}
