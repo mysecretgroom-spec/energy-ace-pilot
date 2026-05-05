@@ -16,6 +16,7 @@ interface DraggableRdvCardProps {
   isR2?: boolean;
   regieNom?: string | null;
   regieCouleur?: string | null;
+  commissionNette?: number;
   children?: React.ReactNode;
   className?: string;
   disabled?: boolean;
@@ -34,6 +35,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
       isR2,
       regieNom,
       regieCouleur,
+      commissionNette,
       children,
       className,
       disabled = false,
@@ -164,7 +166,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
             ? "ring-2 ring-primary shadow-lg scale-[1.02]"
             : "",
           typeRdv === "installation"
-            ? "border-l-2 border-l-indigo-500 bg-indigo-500/10 shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
+            ? "halo-multicolor bg-indigo-500/5"
             : typeRdv === "external_installation"
             ? "border-l-2 border-l-amber-500 bg-amber-500/5 shadow-[0_0_12px_-2px_rgba(245,158,11,0.4)]"
             : isR2
@@ -204,8 +206,8 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
             </p>
             <div className="mt-0.5 flex items-center gap-1 flex-wrap">
               {typeRdv === "installation" ? (
-                <span className="text-[8px] px-1.5 py-0 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/40">
-                  Pose
+                <span className="text-[8px] px-1.5 py-0 rounded-full bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-500 text-white border-0 font-semibold">
+                  {commissionNette != null ? `${commissionNette.toLocaleString("fr-FR")} €` : "Pose"}
                 </span>
               ) : (
                 <StatusBadge status={status} className="text-[8px] px-1 py-0" />

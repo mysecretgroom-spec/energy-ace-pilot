@@ -36,6 +36,7 @@ interface DayRdvCardProps {
     regieCouleur?: string | null;
     isDuplicateClient?: boolean;
     needsReconfirmation?: boolean;
+    commissionNette?: number;
   };
   index: number;
   onRefresh: () => void;
@@ -108,7 +109,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
         className={cn(
           "shadow-card overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
           rdv.needsReconfirmation && "ring-2 ring-amber-400 border-amber-400",
-          isInstallation && "border-l-4 border-l-indigo-500 bg-gradient-to-r from-indigo-500/10 to-transparent shadow-[0_0_15px_-3px_rgba(99,102,241,0.4)]",
+          isInstallation && "halo-multicolor bg-gradient-to-r from-indigo-500/10 to-transparent",
           isExternalInstallation && "border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-500/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
           isR2 && "border-l-4 border-l-status-r2 bg-gradient-to-r from-status-r2/5 to-transparent shadow-[0_0_15px_-3px_rgba(245,158,11,0.4)]",
           rdv.alert && !isExternalInstallation && !isR2 && !isInstallation && "border-l-4 border-l-secondary bg-gradient-to-r from-secondary/5 to-transparent"
@@ -202,6 +203,11 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                   {rdv.duration}
                 </span>
                 {!isInstallation && <StatusBadge status={rdv.status} />}
+                {isInstallation && rdv.commissionNette != null && (
+                  <Badge className="bg-gradient-to-r from-indigo-500 via-pink-500 to-amber-500 text-white text-xs px-2.5 py-1 rounded-full shadow-sm border-0">
+                    Com: {rdv.commissionNette.toLocaleString("fr-FR")} €
+                  </Badge>
+                )}
               </div>
 
               {/* Client et type */}

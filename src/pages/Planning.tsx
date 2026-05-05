@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -28,6 +28,7 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { useOfflineData } from "@/hooks/useOfflineData";
+import { useInstallationCommissions } from "@/hooks/useInstallationCommissions";
 import {
   Clock,
   MapPin,
@@ -95,6 +96,8 @@ interface RdvData {
   regieCouleur?: string | null;
   isDuplicateClient?: boolean;
   needsReconfirmation?: boolean;
+  venteId?: string | null;
+  commissionNette?: number;
 }
 
 const projectTypeLabels: Record<string, string> = {
@@ -323,6 +326,7 @@ const Planning = () => {
             regieCouleur: regieData?.couleur || null,
             isDuplicateClient: !!(rdv.metadata as any)?.is_duplicate_client,
             needsReconfirmation: (rdv.needs_reconfirmation as boolean) || false,
+            venteId: (rdv.metadata as any)?.vente_id || null,
           };
         });
       };
@@ -484,9 +488,22 @@ const Planning = () => {
         return !regie?.is_hejja;
       });
 
+  // Compute commissions for installation RDVs
+  const { commissionByRdv } = useInstallationCommissions(filteredRdvList);
+
+  const filteredRdvListWithCom: RdvData[] = useMemo(
+    () =>
+      filteredRdvList.map((rdv) =>
+        rdv.typeRdv === "installation" && commissionByRdv.has(rdv.id)
+          ? { ...rdv, commissionNette: commissionByRdv.get(rdv.id) }
+          : rdv
+      ),
+    [filteredRdvList, commissionByRdv]
+  );
+
   // Merge route data with rdvList for day view
   const rdvListWithRoutes: RdvData[] = viewMode === "jour" && routeRdvs.length > 0
-    ? filteredRdvList.map((rdv) => {
+    ? filteredRdvListWithCom.map((rdv) => {
         const routeRdv = routeRdvs.find((r) => r.id === rdv.id);
         if (routeRdv) {
           return {
@@ -498,7 +515,7 @@ const Planning = () => {
         }
         return rdv;
       })
-    : filteredRdvList;
+    : filteredRdvListWithCom;
 
   useEffect(() => {
     fetchRdvs();
@@ -714,7 +731,7 @@ const Planning = () => {
         {!loading && viewMode === "semaine" && (
           <WeekCalendarView
             currentDate={currentDate}
-            rdvList={rdvList}
+            rdvList={filteredRdvListWithCom}
             workingDays={workingDays}
             onRdvClick={handleCalendarRdvClick}
             onDayClick={handleDayClick}
@@ -727,7 +744,7 @@ const Planning = () => {
         {!loading && viewMode === "mois" && (
           <MonthCalendarView
             currentDate={currentDate}
-            rdvList={rdvList}
+            rdvList={filteredRdvListWithCom}
             workingDays={workingDays}
             onDayClick={handleDayClick}
           />
