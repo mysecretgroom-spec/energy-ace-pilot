@@ -5456,14 +5456,39 @@ async function handlePendingWorkflow(
           const dateStr = pendingAction.entities.date as string || new Date().toISOString().split("T")[0];
           const timeStr = pendingAction.entities.time as string || "10:00";
           const dateHeure = buildParisDateHeure(dateStr, timeStr);
-          
+
+          // Build address from entities, fallback to existing client address
+          const entAddr = [
+            pendingAction.entities.address as string,
+            pendingAction.entities.postal_code as string,
+            pendingAction.entities.city as string,
+          ].filter(Boolean).join(" ");
+          let rdvAddress: string | null = entAddr || null;
+          let rdvLat: number | null = null;
+          let rdvLng: number | null = null;
+          const { data: existingClient } = await supabase
+            .from("clients")
+            .select("adresse, code_postal, ville, latitude, longitude, telephone")
+            .eq("id", collectedData.clientId)
+            .single();
+          if (!rdvAddress && existingClient) {
+            rdvAddress = [existingClient.adresse, existingClient.code_postal, existingClient.ville]
+              .filter(Boolean).join(" ") || null;
+          }
+          if (existingClient) {
+            rdvLat = existingClient.latitude ?? null;
+            rdvLng = existingClient.longitude ?? null;
+          }
+
           const { data: rdv, error: rdvError } = await supabase
             .from("rdv")
             .insert({
               user_id: userId,
               client_id: collectedData.clientId,
               date_heure: dateHeure,
-              adresse: pendingAction.entities.address as string || null,
+              adresse: rdvAddress,
+              latitude: rdvLat,
+              longitude: rdvLng,
               status: "nouveau",
               type_rdv: "standard",
               type_projet: "photovoltaique",
