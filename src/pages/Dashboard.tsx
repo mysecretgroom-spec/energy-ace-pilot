@@ -280,8 +280,8 @@ const Dashboard = () => {
         supabase.from("objectifs")
           .select("*")
           .eq("user_id", user.id)
-          .eq("mois", now.getMonth() + 1)
-          .eq("annee", now.getFullYear())
+          .eq("mois", period.start.getMonth() + 1)
+          .eq("annee", period.start.getFullYear())
           .maybeSingle(),
         // Notifications non lues
         supabase.from("notifications")
