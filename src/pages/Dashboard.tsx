@@ -34,6 +34,7 @@ import {
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import { fr } from "date-fns/locale";
 import { DashboardRdvCard } from "@/components/dashboard/DashboardRdvCard";
+import { PeriodFilter, makeMonthPeriod, type PeriodValue } from "@/components/dashboard/PeriodFilter";
 import { PullToRefreshContainer } from "@/components/common/PullToRefreshContainer";
 import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { DashboardKPISkeleton, DashboardRdvListSkeleton } from "@/components/common/DashboardSkeletons";
