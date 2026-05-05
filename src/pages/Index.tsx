@@ -220,6 +220,11 @@ const Index = () => {
           </div>
         </div>
 
+        </div>
+
+        {/* Checklist d'onboarding */}
+        <OnboardingChecklist />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 gap-3">
           <Card className="shadow-card">
