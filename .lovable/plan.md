@@ -1,70 +1,60 @@
 ## Objectif
 
-Permettre aux utilisateurs de recharger leur crédit IA (5€ ou 10€) lorsqu'ils approchent ou dépassent leur budget mensuel de 10€, via un paiement Stripe one-shot. Le crédit acheté **ne se réinitialise pas** chaque mois (il s'ajoute au budget jusqu'à épuisement).
+Dans l'écran d'import multi-factures (`MultiImportFlow` mode `finance`), permettre de saisir une seule instruction textuelle préfixée par les numéros des factures (ex. *« 1: TVA à 20%, 2: catégorie carburant + date 12/04, 3: fournisseur Total »*) que l'IA applique automatiquement aux bonnes lignes — comme on procède pour l'import multi des RDV (ImageImportDialog).
 
-## Comportement utilisateur
+## Comportement attendu
 
-- Dans **Paramètres**, sous la jauge `AIUsageGauge`, deux boutons : **+5 €** et **+10 €**.
-- Le bandeau global `AIUsageBanner` (à 80 %, soft cap, hard cap) gagne un bouton **« Recharger »** qui ouvre la même feuille de choix.
-- Clic → redirection Stripe Checkout (mode `payment`, one-time) → retour sur `/parametres?topup=success`.
-- Une fois le paiement confirmé, le solde apparaît dans la jauge sous la forme :
-  `2,40 € / 10 € + 5 € rechargés` (`used / monthly + topup_remaining`).
-- La logique de cap utilise désormais `budget_total = budget_mensuel + topup_remaining`. Tant qu'il reste du crédit rechargé, l'agent reste en mode normal (pas de soft/hard cap).
+1. Chaque carte facture porte un **badge numéroté** bien visible (`#1`, `#2`, `#3`…) calculé sur l'ordre courant.
+2. Sous la liste, un bloc **« Modifier avec l'IA »** apparaît dès qu'au moins 1 facture est analysée :
+   - Textarea libre avec placeholder *« Ex : 1 : TVA 20% ; 2 : catégorie carburant, fournisseur Total ; 3 : date 12/04 »*.
+   - Bouton **« Appliquer »** (disabled si vide / en cours).
+3. Au clic : envoi à une nouvelle edge function `apply-invoice-edits` avec :
+   - la liste `[ { index, current_data } ]` des factures actuellement à l'écran,
+   - l'instruction utilisateur brute.
+4. L'IA renvoie un tableau de patchs `[ { index, patch: { montant_ttc?, taux_tva?, tva?, date?, fournisseur?, description?, categorie? } } ]`.
+5. Les champs des cartes ciblées sont mis à jour côté client (toast récap : *« 2 factures modifiées »*). Les factures non citées restent intactes.
+6. Erreurs gérées : 429 (« trop de requêtes IA »), 402 (« crédits IA épuisés »), parsing invalide (« Aucune modification reconnue »).
 
-## Sections techniques
+## Périmètre UI (frontend)
 
-### 1. Base de données
+Fichier : `src/components/scanner/MultiImportFlow.tsx` (mode finance uniquement).
 
-Nouvelle table `ai_credit_topups` :
-- `id`, `user_id`, `amount_eur` (5 ou 10), `amount_remaining_eur`, `stripe_session_id` (unique), `stripe_payment_intent`, `status` (`pending` / `paid` / `refunded`), `created_at`, `paid_at`.
-- RLS : utilisateur lit ses propres lignes ; insertion/mise à jour via service role uniquement.
-- Index sur `(user_id, status)`.
+- Ajouter un badge `#{idx+1}` en haut-gauche de chaque `Card` de facture.
+- Ajouter sous la liste, juste avant les boutons d'action de bas de dialog :
+  ```
+  ┌─ Modifier avec l'IA ──────────────┐
+  │ [textarea instructions]            │
+  │              [Annuler] [Appliquer] │
+  └────────────────────────────────────┘
+  ```
+- Nouvel état local : `aiEditPrompt`, `isApplyingEdits`.
+- Nouvelle fonction `handleApplyAiEdits()` appelant l'edge function et mergeant les patchs reçus dans `files`.
 
-Fonction SQL `get_user_topup_balance(p_user_id uuid) returns numeric` (security definer) : somme `amount_remaining_eur` des lignes `paid`. Utilisée par les edge functions et le hook front.
+Le mode `client_docs` (carrousel) **n'est pas modifié**.
 
-Trigger / RPC `consume_topup_balance(p_user_id, p_amount_usd)` appelé après chaque `logUsage` pour décrémenter le pool si le mois courant a dépassé le budget de base.
+## Périmètre Backend
 
-### 2. Edge functions
+Nouvelle edge function `supabase/functions/apply-invoice-edits/index.ts` :
 
-- **`create-topup-checkout`** (nouvelle) : input `{ amount_eur: 5 | 10 }`. Vérifie JWT, crée une session Stripe Checkout `mode=payment`, `client_reference_id=user_id`, metadata `{ type: "ai_topup", amount_eur }`, succès → `/parametres?topup=success`, annulation → `/parametres?topup=cancel`. Retourne `{ url }`.
-- **`saas-stripe-webhook`** (existante, modifiée) : dans `checkout.session.completed`, si `metadata.type === "ai_topup"` :
-  - Insère/upsert la ligne dans `ai_credit_topups` (statut `paid`, `amount_remaining_eur = amount_eur`).
-  - Notifie l'admin via WhatsApp (réutilise `notifyAdminNewSubscription` adapté).
-  - Court-circuite la logique abonnement existante.
-- **`_shared/aiUsage.ts`** :
-  - `checkUsageBudget` : récupère `topup_balance`, calcule `budget_total = MONTHLY_BUDGET_USD + topup_balance_usd`, applique seuils sur `used / budget_total`.
-  - `logUsage` : si l'usage du mois dépasse le budget mensuel de base, décrémente `amount_remaining_eur` (FIFO : top-up le plus ancien d'abord) via RPC.
+- Auth via JWT, CORS standard.
+- Body validé via Zod : `{ invoices: [{ index, fournisseur?, date?, montant_ttc?, taux_tva?, categorie?, description? }], instruction: string }`.
+- Appel Lovable AI Gateway (`google/gemini-3-flash-preview`) avec `Output.object` (Vercel AI SDK) et schéma Zod :
+  ```
+  { patches: [{ index: number, patch: { fournisseur?, date?, montant_ttc?, taux_tva?, tva?, categorie?, description? } }] }
+  ```
+- Prompt système : *« Tu reçois une liste numérotée de factures et une instruction utilisateur référant aux factures par leur numéro (1, 2, 3…). Renvoie uniquement les champs à modifier pour chaque numéro mentionné. Catégories autorisées : carburant, peage, repas, hotel, parking, train, location_vehicule, autre. Dates ISO yyyy-mm-dd. »*
+- Retour `{ patches: [...] }` ou `{ patches: [] }` si rien d'interprétable.
+- Logs `ai_usage` via le helper existant (à reprendre depuis `analyze-document` si présent).
 
-### 3. Frontend
+## Détails techniques
 
-- **`useAIUsage`** : ajoute `topup_balance_eur` (via select sur `ai_credit_topups` filtré `paid` + remaining > 0) ; `budget_eur` devient `10 + topup_balance_eur` ; recalcule `ratio`.
-- **`AIUsageGauge`** : affiche `topup_balance` séparément, ajoute un bouton **« Recharger »** ouvrant `<TopupSheet />`.
-- **`AIUsageBanner`** : ajoute un bouton **« Recharger »** dans les variantes warning/soft/hard.
-- **Nouveau composant `TopupSheet.tsx`** : Sheet/Dialog avec deux cartes (5 € / 10 €), bouton appelle `supabase.functions.invoke('create-topup-checkout', { body: { amount_eur } })` puis `window.location.href = url`.
-- **`Parametres.tsx`** : détecte `?topup=success` au mount → toast succès + invalide la query `useAIUsage` ; `?topup=cancel` → toast info.
+- Le merge côté client recalcule `tva` automatiquement si `taux_tva` ou `montant_ttc` change (réutilise `calculerTVA` de `src/lib/tva.ts`).
+- Les dates renvoyées par l'IA passent par `clampDateToToday` avant application.
+- Si l'IA renvoie un `index` hors plage, il est ignoré silencieusement (toast info final indique `n appliquées / m ignorées`).
+- Aucune migration DB, aucun changement de schéma.
 
-### 4. Sécurité & cohérence
+## Hors périmètre
 
-- `create-topup-checkout` valide `amount_eur ∈ {5, 10}` avec Zod.
-- Webhook : idempotence garantie par contrainte unique sur `stripe_session_id`.
-- Pas de remboursement automatique côté app (admin manuel via Stripe dashboard).
-- Le top-up reste valable indéfiniment (pas d'expiration).
-
-## Fichiers touchés
-
-**Créés**
-- Migration `ai_credit_topups` + RPCs `get_user_topup_balance`, `consume_topup_balance`.
-- `supabase/functions/create-topup-checkout/index.ts`
-- `src/components/settings/TopupSheet.tsx`
-
-**Modifiés**
-- `supabase/functions/saas-stripe-webhook/index.ts` (branche top-up)
-- `supabase/functions/_shared/aiUsage.ts` (intégration solde rechargé)
-- `src/hooks/useAIUsage.ts` (lecture solde)
-- `src/components/settings/AIUsageGauge.tsx` (affichage + bouton)
-- `src/components/saas/AIUsageBanner.tsx` (bouton recharger)
-- `src/pages/Parametres.tsx` (gestion `?topup=...`)
-
-## Pré-requis
-
-L'intégration Stripe est déjà en place (`saas-stripe-webhook`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Aucun nouveau secret nécessaire.
+- Pas de modif du flux d'analyse initial (chaque facture continue d'être analysée individuellement par `analyze-document`).
+- Pas de chat conversationnel multi-tours (instruction unique → patch unique).
+- Pas d'édition dans le mode `client_docs`.
