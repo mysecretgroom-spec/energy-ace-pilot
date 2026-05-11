@@ -960,15 +960,26 @@ export function MultiImportFlow({
 
         <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
           <div className="space-y-3">
-            {files.map((f) => (
+            {(() => {
+              const editableIds = files
+                .filter((x) => x.status === "success" || x.status === "manual")
+                .map((x) => x.id);
+              return files.map((f) => {
+                const editableIdx = editableIds.indexOf(f.id);
+                return (
               <Card key={f.id} className={f.status === "manual" ? "border-amber-300" : ""}>
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                    <div className="w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => f.preview && setPreviewUrl(f.preview)}>
+                    <div className="relative w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => f.preview && setPreviewUrl(f.preview)}>
                       {f.preview && f.preview !== "/placeholder.svg" ? (
                         <img src={f.preview} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"><FileText className="h-6 w-6 text-muted-foreground" /></div>
+                      )}
+                      {editableIdx >= 0 && (
+                        <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[10px] font-bold rounded-br px-1.5 py-0.5">
+                          #{editableIdx + 1}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -998,8 +1009,44 @@ export function MultiImportFlow({
                   </div>
                 </CardContent>
               </Card>
-            ))}
+                );
+              });
+            })()}
           </div>
+
+          {(successCount + manualCount) > 0 && (
+            <div className="mt-4 rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Modifier avec l'IA</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Référencez les factures par leur numéro
+                </span>
+              </div>
+              <Textarea
+                value={aiEditPrompt}
+                onChange={(e) => setAiEditPrompt(e.target.value)}
+                placeholder="Ex : 1 : TVA 20% ; 2 : catégorie carburant, fournisseur Total ; 3 : date 12/04"
+                rows={2}
+                disabled={isApplyingEdits}
+                className="text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                {aiEditPrompt && (
+                  <Button size="sm" variant="ghost" onClick={() => setAiEditPrompt("")} disabled={isApplyingEdits}>
+                    Effacer
+                  </Button>
+                )}
+                <Button size="sm" onClick={handleApplyAiEdits} disabled={isApplyingEdits || !aiEditPrompt.trim()}>
+                  {isApplyingEdits ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Application…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-1" />Appliquer</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 pt-4 border-t">
