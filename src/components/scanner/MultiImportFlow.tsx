@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +29,7 @@ import {
   AlertCircle,
   X,
   Save,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -98,6 +100,8 @@ export function MultiImportFlow({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [aiEditPrompt, setAiEditPrompt] = useState("");
+  const [isApplyingEdits, setIsApplyingEdits] = useState(false);
 
   // Client docs carousel mode state
   const [carouselDocs, setCarouselDocs] = useState<ImportedDoc[]>([]);
@@ -577,6 +581,79 @@ export function MultiImportFlow({
   const handleRemoveFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
   const updateFileField = (id: string, field: string, value: any) => setFiles((prev) => prev.map((f) => f.id === id ? { ...f, [field]: value } : f));
 
+  const handleApplyAiEdits = async () => {
+    const editable = files.filter((f) => f.status === "success" || f.status === "manual");
+    if (editable.length === 0) {
+      toast.error("Analysez d'abord les factures");
+      return;
+    }
+    if (!aiEditPrompt.trim()) return;
+
+    setIsApplyingEdits(true);
+    try {
+      const invoices = editable.map((f, idx) => ({
+        index: idx,
+        fournisseur: f.fournisseur ?? null,
+        date: f.date ?? null,
+        montant_ttc: f.montant_ttc ?? null,
+        taux_tva: f.taux_tva ?? null,
+        categorie: f.categorie ?? null,
+        description: f.description ?? null,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("apply-invoice-edits", {
+        body: { invoices, instruction: aiEditPrompt.trim() },
+      });
+
+      if (error) {
+        const ctx = (error as { context?: { status?: number } }).context;
+        if (ctx?.status === 429) toast.error("Trop de requêtes IA. Réessayez dans un instant.");
+        else if (ctx?.status === 402) toast.error("Crédits IA épuisés.");
+        else toast.error("Erreur lors de l'application");
+        return;
+      }
+
+      const patches: Array<{ index: number; patch: Record<string, any> }> = data?.patches || [];
+      if (patches.length === 0) {
+        toast.info("Aucune modification reconnue");
+        return;
+      }
+
+      const idsByIndex = editable.map((f) => f.id);
+      const touched = new Set<string>();
+
+      setFiles((prev) =>
+        prev.map((f) => {
+          const idx = idsByIndex.indexOf(f.id);
+          if (idx < 0) return f;
+          const matching = patches.find((p) => p.index === idx);
+          if (!matching) return f;
+          touched.add(f.id);
+          const next = { ...f, ...matching.patch };
+          // Recompute TVA if taux_tva or montant_ttc changed
+          if (matching.patch.taux_tva != null || matching.patch.montant_ttc != null) {
+            const ttc = Number(next.montant_ttc) || 0;
+            const taux = Number(next.taux_tva) || 0;
+            if (ttc > 0 && taux > 0) {
+              const ht = ttc / (1 + taux / 100);
+              next.montant_ht = Math.round(ht * 100) / 100;
+              next.tva = Math.round((ttc - ht) * 100) / 100;
+            }
+          }
+          return next;
+        })
+      );
+
+      toast.success(`${touched.size} facture(s) modifiée(s)`);
+      setAiEditPrompt("");
+    } catch (e: any) {
+      console.error("apply-invoice-edits failed", e);
+      toast.error("Erreur lors de l'application");
+    } finally {
+      setIsApplyingEdits(false);
+    }
+  };
+
   const handleSaveAll = async () => {
     if (!user) return;
     const validFiles = files.filter((f) => f.status === "success" || f.status === "manual");
@@ -883,15 +960,26 @@ export function MultiImportFlow({
 
         <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
           <div className="space-y-3">
-            {files.map((f) => (
+            {(() => {
+              const editableIds = files
+                .filter((x) => x.status === "success" || x.status === "manual")
+                .map((x) => x.id);
+              return files.map((f) => {
+                const editableIdx = editableIds.indexOf(f.id);
+                return (
               <Card key={f.id} className={f.status === "manual" ? "border-amber-300" : ""}>
                 <CardContent className="p-3">
                   <div className="flex gap-3">
-                    <div className="w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => f.preview && setPreviewUrl(f.preview)}>
+                    <div className="relative w-16 h-16 rounded bg-muted flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => f.preview && setPreviewUrl(f.preview)}>
                       {f.preview && f.preview !== "/placeholder.svg" ? (
                         <img src={f.preview} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"><FileText className="h-6 w-6 text-muted-foreground" /></div>
+                      )}
+                      {editableIdx >= 0 && (
+                        <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[10px] font-bold rounded-br px-1.5 py-0.5">
+                          #{editableIdx + 1}
+                        </span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -921,8 +1009,44 @@ export function MultiImportFlow({
                   </div>
                 </CardContent>
               </Card>
-            ))}
+                );
+              });
+            })()}
           </div>
+
+          {(successCount + manualCount) > 0 && (
+            <div className="mt-4 rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Modifier avec l'IA</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Référencez les factures par leur numéro
+                </span>
+              </div>
+              <Textarea
+                value={aiEditPrompt}
+                onChange={(e) => setAiEditPrompt(e.target.value)}
+                placeholder="Ex : 1 : TVA 20% ; 2 : catégorie carburant, fournisseur Total ; 3 : date 12/04"
+                rows={2}
+                disabled={isApplyingEdits}
+                className="text-sm"
+              />
+              <div className="flex justify-end gap-2">
+                {aiEditPrompt && (
+                  <Button size="sm" variant="ghost" onClick={() => setAiEditPrompt("")} disabled={isApplyingEdits}>
+                    Effacer
+                  </Button>
+                )}
+                <Button size="sm" onClick={handleApplyAiEdits} disabled={isApplyingEdits || !aiEditPrompt.trim()}>
+                  {isApplyingEdits ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Application…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-1" />Appliquer</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 pt-4 border-t">
