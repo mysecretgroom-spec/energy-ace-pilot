@@ -100,6 +100,8 @@ export function MultiImportFlow({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setSaving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [aiEditPrompt, setAiEditPrompt] = useState("");
+  const [isApplyingEdits, setIsApplyingEdits] = useState(false);
 
   // Client docs carousel mode state
   const [carouselDocs, setCarouselDocs] = useState<ImportedDoc[]>([]);
