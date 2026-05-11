@@ -581,6 +581,79 @@ export function MultiImportFlow({
   const handleRemoveFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
   const updateFileField = (id: string, field: string, value: any) => setFiles((prev) => prev.map((f) => f.id === id ? { ...f, [field]: value } : f));
 
+  const handleApplyAiEdits = async () => {
+    const editable = files.filter((f) => f.status === "success" || f.status === "manual");
+    if (editable.length === 0) {
+      toast.error("Analysez d'abord les factures");
+      return;
+    }
+    if (!aiEditPrompt.trim()) return;
+
+    setIsApplyingEdits(true);
+    try {
+      const invoices = editable.map((f, idx) => ({
+        index: idx,
+        fournisseur: f.fournisseur ?? null,
+        date: f.date ?? null,
+        montant_ttc: f.montant_ttc ?? null,
+        taux_tva: f.taux_tva ?? null,
+        categorie: f.categorie ?? null,
+        description: f.description ?? null,
+      }));
+
+      const { data, error } = await supabase.functions.invoke("apply-invoice-edits", {
+        body: { invoices, instruction: aiEditPrompt.trim() },
+      });
+
+      if (error) {
+        const ctx = (error as { context?: { status?: number } }).context;
+        if (ctx?.status === 429) toast.error("Trop de requêtes IA. Réessayez dans un instant.");
+        else if (ctx?.status === 402) toast.error("Crédits IA épuisés.");
+        else toast.error("Erreur lors de l'application");
+        return;
+      }
+
+      const patches: Array<{ index: number; patch: Record<string, any> }> = data?.patches || [];
+      if (patches.length === 0) {
+        toast.info("Aucune modification reconnue");
+        return;
+      }
+
+      const idsByIndex = editable.map((f) => f.id);
+      const touched = new Set<string>();
+
+      setFiles((prev) =>
+        prev.map((f) => {
+          const idx = idsByIndex.indexOf(f.id);
+          if (idx < 0) return f;
+          const matching = patches.find((p) => p.index === idx);
+          if (!matching) return f;
+          touched.add(f.id);
+          const next = { ...f, ...matching.patch };
+          // Recompute TVA if taux_tva or montant_ttc changed
+          if (matching.patch.taux_tva != null || matching.patch.montant_ttc != null) {
+            const ttc = Number(next.montant_ttc) || 0;
+            const taux = Number(next.taux_tva) || 0;
+            if (ttc > 0 && taux > 0) {
+              const ht = ttc / (1 + taux / 100);
+              next.montant_ht = Math.round(ht * 100) / 100;
+              next.tva = Math.round((ttc - ht) * 100) / 100;
+            }
+          }
+          return next;
+        })
+      );
+
+      toast.success(`${touched.size} facture(s) modifiée(s)`);
+      setAiEditPrompt("");
+    } catch (e: any) {
+      console.error("apply-invoice-edits failed", e);
+      toast.error("Erreur lors de l'application");
+    } finally {
+      setIsApplyingEdits(false);
+    }
+  };
+
   const handleSaveAll = async () => {
     if (!user) return;
     const validFiles = files.filter((f) => f.status === "success" || f.status === "manual");
