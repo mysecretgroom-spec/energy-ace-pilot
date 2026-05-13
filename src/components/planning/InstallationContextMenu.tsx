@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
-import { useDeleteEntity } from "@/hooks/useDeleteEntity";
+// removed: useDeleteEntity (custom delete handles vente reset)
 import { useRdvActions } from "@/hooks/useRdvActions";
 import { DecomDialog } from "@/components/crm/DecomDialog";
 import {
