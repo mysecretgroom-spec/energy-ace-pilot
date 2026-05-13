@@ -26,7 +26,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
-import { useDeleteEntity } from "@/hooks/useDeleteEntity";
+// removed: useDeleteEntity (custom delete handles vente reset)
 import { useRdvActions } from "@/hooks/useRdvActions";
 import { DecomDialog } from "@/components/crm/DecomDialog";
 import {
@@ -98,14 +98,66 @@ export function InstallationContextMenu({
   const { callPhone, openWhatsApp, openClient, openClientDocuments, openWaze, openGoogleMaps, openAppleMaps } =
     useRdvActions({ onRefresh });
 
-  const { isDeleteDialogOpen, isDeleting, openDeleteDialog, confirmDelete, cancelDelete } = useDeleteEntity({
-    tableName: "rdv",
-    entityName: "RDV de pose",
-    onSuccess: () => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const STATUSES_TO_RESET: VenteStatus[] = [
+    "envoi_pose",
+    "en_installation",
+    "installe",
+    "attente_paiement",
+  ];
+
+  const resetVenteToEnvoiPose = async () => {
+    if (!vente?.id) return;
+    if (!STATUSES_TO_RESET.includes(vente.status)) return;
+    const { error } = await supabase
+      .from("ventes")
+      .update({
+        status: "envoi_pose",
+        date_installation_reelle: null,
+        date_installation_prevue: null,
+      })
+      .eq("id", vente.id);
+    if (error) throw error;
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsProcessing(true);
+    try {
+      await resetVenteToEnvoiPose();
+      const { error } = await supabase.from("rdv").delete().eq("id", rdv.id);
+      if (error) throw error;
+      toast.success("RDV de pose supprimé. Vente remise en « Envoi en pose ».");
+      setIsDeleteDialogOpen(false);
       onRefresh?.();
       onClose();
-    },
-  });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erreur lors de la suppression");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmReportNoDate = async () => {
+    setIsProcessing(true);
+    try {
+      await resetVenteToEnvoiPose();
+      const { error } = await supabase.from("rdv").delete().eq("id", rdv.id);
+      if (error) throw error;
+      toast.success("Pose reportée. Vente remise en « Envoi en pose ».");
+      setIsReportDialogOpen(false);
+      onRefresh?.();
+      onClose();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erreur lors du report");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -421,8 +473,17 @@ export function InstallationContextMenu({
 
                   <Button
                     variant="outline"
+                    className="h-12 flex-row gap-2 text-amber-700 hover:bg-amber-500/10"
+                    onClick={() => setIsReportDialogOpen(true)}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-sm">Reporter sans date</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
                     className="h-12 flex-row gap-2 text-destructive hover:bg-destructive/10 col-span-2"
-                    onClick={() => openDeleteDialog(rdv.id)}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
                     <span className="text-sm">Supprimer la pose</span>
@@ -454,11 +515,20 @@ export function InstallationContextMenu({
 
       <DeleteConfirmDialog
         open={isDeleteDialogOpen}
-        onOpenChange={cancelDelete}
-        onConfirm={confirmDelete}
+        onOpenChange={(o) => !o && setIsDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
         title="Supprimer ce RDV de pose ?"
-        description={`Le RDV de pose pour ${rdv.client} sera supprimé. La vente associée n'est pas affectée.`}
-        isLoading={isDeleting}
+        description={`Le RDV de pose pour ${rdv.client} sera supprimé et la vente sera remise en « Envoi en pose » (date d'installation effacée).`}
+        isLoading={isProcessing}
+      />
+
+      <DeleteConfirmDialog
+        open={isReportDialogOpen}
+        onOpenChange={(o) => !o && setIsReportDialogOpen(false)}
+        onConfirm={handleConfirmReportNoDate}
+        title="Reporter la pose sans nouvelle date ?"
+        description={`Le RDV de pose pour ${rdv.client} sera retiré du planning et la vente repassera en « Envoi en pose ». Vous pourrez replanifier la pose plus tard.`}
+        isLoading={isProcessing}
       />
 
       <QuickVenteFromPoseDialog
