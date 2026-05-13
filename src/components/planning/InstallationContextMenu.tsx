@@ -473,8 +473,17 @@ export function InstallationContextMenu({
 
                   <Button
                     variant="outline"
+                    className="h-12 flex-row gap-2 text-amber-700 hover:bg-amber-500/10"
+                    onClick={() => setIsReportDialogOpen(true)}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-sm">Reporter sans date</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
                     className="h-12 flex-row gap-2 text-destructive hover:bg-destructive/10 col-span-2"
-                    onClick={() => openDeleteDialog(rdv.id)}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
                     <span className="text-sm">Supprimer la pose</span>
