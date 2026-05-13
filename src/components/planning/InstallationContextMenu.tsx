@@ -515,11 +515,21 @@ export function InstallationContextMenu({
 
       <DeleteConfirmDialog
         open={isDeleteDialogOpen}
-        onOpenChange={cancelDelete}
-        onConfirm={confirmDelete}
+        onOpenChange={(o) => !o && setIsDeleteDialogOpen(false)}
+        onConfirm={handleConfirmDelete}
         title="Supprimer ce RDV de pose ?"
-        description={`Le RDV de pose pour ${rdv.client} sera supprimé. La vente associée n'est pas affectée.`}
-        isLoading={isDeleting}
+        description={`Le RDV de pose pour ${rdv.client} sera supprimé et la vente sera remise en « Envoi en pose » (date d'installation effacée).`}
+        isLoading={isProcessing}
+      />
+
+      <DeleteConfirmDialog
+        open={isReportDialogOpen}
+        onOpenChange={(o) => !o && setIsReportDialogOpen(false)}
+        onConfirm={handleConfirmReportNoDate}
+        title="Reporter la pose sans nouvelle date ?"
+        description={`Le RDV de pose pour ${rdv.client} sera retiré du planning et la vente repassera en « Envoi en pose ». Vous pourrez replanifier la pose plus tard.`}
+        isLoading={isProcessing}
+        confirmText="Reporter"
       />
 
       <QuickVenteFromPoseDialog
