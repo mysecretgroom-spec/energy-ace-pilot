@@ -529,7 +529,6 @@ export function InstallationContextMenu({
         title="Reporter la pose sans nouvelle date ?"
         description={`Le RDV de pose pour ${rdv.client} sera retiré du planning et la vente repassera en « Envoi en pose ». Vous pourrez replanifier la pose plus tard.`}
         isLoading={isProcessing}
-        confirmText="Reporter"
       />
 
       <QuickVenteFromPoseDialog
