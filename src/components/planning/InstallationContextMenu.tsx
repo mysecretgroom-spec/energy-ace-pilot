@@ -98,14 +98,66 @@ export function InstallationContextMenu({
   const { callPhone, openWhatsApp, openClient, openClientDocuments, openWaze, openGoogleMaps, openAppleMaps } =
     useRdvActions({ onRefresh });
 
-  const { isDeleteDialogOpen, isDeleting, openDeleteDialog, confirmDelete, cancelDelete } = useDeleteEntity({
-    tableName: "rdv",
-    entityName: "RDV de pose",
-    onSuccess: () => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const STATUSES_TO_RESET: VenteStatus[] = [
+    "envoi_pose",
+    "en_installation",
+    "installe",
+    "attente_paiement",
+  ];
+
+  const resetVenteToEnvoiPose = async () => {
+    if (!vente?.id) return;
+    if (!STATUSES_TO_RESET.includes(vente.status)) return;
+    const { error } = await supabase
+      .from("ventes")
+      .update({
+        status: "envoi_pose",
+        date_installation_reelle: null,
+        date_installation_prevue: null,
+      })
+      .eq("id", vente.id);
+    if (error) throw error;
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsProcessing(true);
+    try {
+      await resetVenteToEnvoiPose();
+      const { error } = await supabase.from("rdv").delete().eq("id", rdv.id);
+      if (error) throw error;
+      toast.success("RDV de pose supprimé. Vente remise en « Envoi en pose ».");
+      setIsDeleteDialogOpen(false);
       onRefresh?.();
       onClose();
-    },
-  });
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erreur lors de la suppression");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmReportNoDate = async () => {
+    setIsProcessing(true);
+    try {
+      await resetVenteToEnvoiPose();
+      const { error } = await supabase.from("rdv").delete().eq("id", rdv.id);
+      if (error) throw error;
+      toast.success("Pose reportée. Vente remise en « Envoi en pose ».");
+      setIsReportDialogOpen(false);
+      onRefresh?.();
+      onClose();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erreur lors du report");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
