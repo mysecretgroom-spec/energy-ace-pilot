@@ -8,7 +8,7 @@ installOfflineFetchInterceptor();
 
 // One-shot forced SW reset: bump this token to force ALL clients to unregister
 // their service workers + clear caches + reload once on next boot.
-const FORCE_SW_RESET_TOKEN = "2026-05-05-reload-broadcast";
+const FORCE_SW_RESET_TOKEN = "2026-05-30-sw-chunk-fix";
 const isPreviewHost =
   typeof window !== "undefined" &&
   (window.location.hostname.includes("lovableproject.com") ||
