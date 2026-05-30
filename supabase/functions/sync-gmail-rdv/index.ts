@@ -99,6 +99,89 @@ RETOURNE UNIQUEMENT le mot-clé exact, sans aucun autre texte.`,
   }
 }
 
+/**
+ * MULTI-RDV SPLITTER
+ *
+ * Detects emails containing several distinct appointments (numbered lists,
+ * recap emails) and returns each RDV as a self-contained sub-body that can
+ * be fed individually to import-rdv-email.
+ *
+ * Returns:
+ *   - null  → not a multi-RDV email (caller uses original body)
+ *   - []    → AI couldn't split (caller uses original body)
+ *   - [...] → one entry per detected RDV
+ */
+async function splitMultiRdvEmail(subject: string, body: string): Promise<string[] | null> {
+  // Heuristic pre-filter: must contain at least 2 date-like patterns OR a numbered list
+  const dateMatches = body.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g) || [];
+  const numberedItems = body.match(/(?:^|\n)\s*(?:\d{1,2}[.)]\s|[-*]\s)/g) || [];
+  if (dateMatches.length < 2 && numberedItems.length < 2) return null;
+
+  try {
+    const truncated = body.substring(0, 8000);
+    const response = await fetch(AI_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `Tu es un extracteur d'emails de récapitulatifs de rendez-vous commerciaux.
+
+MISSION: Si l'email contient PLUSIEURS rendez-vous distincts (liste numérotée, tableau, énumération de prospects), retourne un JSON avec chaque RDV reformaté en un bloc texte autonome contenant TOUTES les informations nécessaires (nom, prénom, adresse, code postal, ville, date, heure, téléphone, commentaires).
+
+Si l'email ne contient qu'UN SEUL RDV ou aucun RDV exploitable, retourne {"rdvs": []}.
+
+Format de sortie OBLIGATOIRE (JSON strict, sans markdown) :
+{
+  "rdvs": [
+    "Nom: DUPONT\\nPrénom: Jean\\nAdresse: 12 rue de la Paix\\nCode postal: 75002\\nVille: PARIS\\nDate: 02/06/2026\\nHeure: 14:00\\nTéléphone: 0612345678\\nCommentaire: ...",
+    "Nom: MARTIN\\nPrénom: Sophie\\n..."
+  ]
+}
+
+Règles :
+- Chaque bloc DOIT être autonome (ne fait pas référence aux autres RDV).
+- Ne fusionne JAMAIS deux clients dans un même bloc.
+- Si une info manque pour un RDV, ne mets pas le champ.
+- Retourne au minimum 2 entrées, sinon retourne {"rdvs": []}.`,
+          },
+          {
+            role: "user",
+            content: `Sujet: ${subject}\n\nContenu:\n${truncated}`,
+          },
+        ],
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Multi-RDV split AI failed:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    let content = data.choices?.[0]?.message?.content?.trim() || "";
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) content = jsonMatch[1].trim();
+
+    const parsed = JSON.parse(content);
+    const rdvs: unknown = parsed?.rdvs;
+    if (!Array.isArray(rdvs)) return null;
+    const valid = rdvs.filter((r): r is string => typeof r === "string" && r.trim().length > 20);
+    if (valid.length < 2) return null;
+    console.log(`Multi-RDV detected: ${valid.length} appointments in "${subject}"`);
+    return valid;
+  } catch (e) {
+    console.error("Multi-RDV split error:", e);
+    return null;
+  }
+}
+
 interface SyncResult {
   imported: number;
   updated: number;
