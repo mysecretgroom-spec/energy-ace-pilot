@@ -880,37 +880,117 @@ serve(async (req) => {
           continue;
         }
 
-        // ── DISPATCH TO IMPORT FUNCTION ────────────────────────────────────
-        const importResponse = await fetch(
-          `${SUPABASE_URL}/functions/v1/import-rdv-email`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-            },
-            body: JSON.stringify({
-              sender_email: senderEmail,
-              subject,
-              body: emailBody,
-              user_id: userId,
-              regie_id: regieId,
-              intent, // "nouveau_rdv" | "report" | "installation"
-            })
+        // ── MULTI-RDV DETECTION ────────────────────────────────────────────
+        // Some emails (recaps, planning summaries from régies) list several
+        // appointments in a single message. Split them and dispatch each one.
+        const subBodies = intent === "nouveau_rdv"
+          ? await splitMultiRdvEmail(subject, emailBody)
+          : null;
+        const bodiesToImport: string[] = subBodies && subBodies.length >= 2
+          ? subBodies
+          : [emailBody];
+
+        let anySuccess = false;
+        let lastSkipReason: string | null = null;
+        let lastError: string | null = null;
+        const createdRdvIds: string[] = [];
+        const createdClientIds: string[] = [];
+        let perItemImported = 0;
+        let perItemUpdated = 0;
+        let perItemSkipped = 0;
+        let perItemErrors = 0;
+
+        for (let i = 0; i < bodiesToImport.length; i++) {
+          const currentBody = bodiesToImport[i];
+          const currentSubject = bodiesToImport.length > 1
+            ? `${subject} (RDV ${i + 1}/${bodiesToImport.length})`
+            : subject;
+
+          // ── DISPATCH TO IMPORT FUNCTION ──────────────────────────────────
+          const importResponse = await fetch(
+            `${SUPABASE_URL}/functions/v1/import-rdv-email`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({
+                sender_email: senderEmail,
+                subject: currentSubject,
+                body: currentBody,
+                user_id: userId,
+                regie_id: regieId,
+                intent,
+              })
+            }
+          );
+
+          const importResult = await importResponse.json();
+          console.log(`Import result [${i + 1}/${bodiesToImport.length}]:`, importResult);
+
+          if (!importResponse.ok || !importResult.success) {
+            perItemErrors++;
+            lastError = importResult.error || "Import failed";
+            continue;
           }
-        );
 
-        const importResult = await importResponse.json();
-        console.log("Import result:", importResult);
+          if (importResult.action === "skipped") {
+            perItemSkipped++;
+            lastSkipReason = importResult.reason || "RDV existant";
+            if (importResult.client_id) createdClientIds.push(importResult.client_id);
+            continue;
+          }
 
-        if (!importResponse.ok || !importResult.success) {
+          anySuccess = true;
+          if (importResult.action === "created") perItemImported++;
+          else perItemUpdated++;
+          if (importResult.rdv_id) createdRdvIds.push(importResult.rdv_id);
+          if (importResult.client_id) createdClientIds.push(importResult.client_id);
+        }
+
+        // ── AGGREGATE RESULTS FOR THIS EMAIL ───────────────────────────────
+        result.imported += perItemImported;
+        result.updated += perItemUpdated;
+
+        if (bodiesToImport.length > 1) {
+          // Multi-RDV email: log a summary line
+          const summary = `Multi-RDV: ${perItemImported} créé(s), ${perItemUpdated} mis à jour, ${perItemSkipped} ignoré(s), ${perItemErrors} erreur(s)`;
+          result.details.push({
+            messageId: msg.id,
+            subject,
+            sender: senderEmail,
+            status: anySuccess ? "imported" : (perItemErrors > 0 ? "error" : "skipped"),
+            error: anySuccess ? undefined : (lastError || lastSkipReason || summary),
+            rdvId: createdRdvIds[0],
+          });
+          await supabase.from("gmail_imports").insert({
+            user_id: userId,
+            gmail_message_id: msg.id,
+            gmail_thread_id: msg.threadId,
+            sender_email: senderEmail,
+            subject,
+            status: anySuccess ? "processed" : (perItemErrors > 0 ? "error" : "skipped"),
+            error_message: anySuccess ? summary : (lastError || lastSkipReason || summary),
+            rdv_id: createdRdvIds[0] || null,
+            client_id: createdClientIds[0] || null,
+          });
+          if (!anySuccess) {
+            if (perItemErrors > 0) result.errors++;
+            else result.skipped++;
+          }
+          continue;
+        }
+
+        // Single-RDV email: preserve previous per-message reporting
+        if (perItemErrors > 0) {
           result.errors++;
           result.details.push({
             messageId: msg.id,
             subject,
             sender: senderEmail,
             status: "error",
-            error: importResult.error || "Import failed"
+            error: lastError || "Import failed"
           });
           await supabase.from("gmail_imports").insert({
             user_id: userId,
@@ -919,19 +999,19 @@ serve(async (req) => {
             sender_email: senderEmail,
             subject,
             status: "error",
-            error_message: importResult.error || "Import failed"
+            error_message: lastError || "Import failed"
           });
           continue;
         }
 
-        if (importResult.action === "skipped") {
+        if (perItemSkipped > 0 && !anySuccess) {
           result.skipped++;
           result.details.push({
             messageId: msg.id,
             subject,
             sender: senderEmail,
             status: "skipped",
-            error: importResult.reason || "RDV existant"
+            error: lastSkipReason || "RDV existant"
           });
           await supabase.from("gmail_imports").insert({
             user_id: userId,
@@ -940,23 +1020,19 @@ serve(async (req) => {
             sender_email: senderEmail,
             subject,
             status: "skipped",
-            error_message: importResult.reason || "RDV existant",
-            client_id: importResult.client_id
+            error_message: lastSkipReason || "RDV existant",
+            client_id: createdClientIds[0] || null,
           });
           continue;
         }
 
-        // Success
-        const action = importResult.action === "created" ? "imported" : "updated";
-        if (action === "imported") result.imported++;
-        else result.updated++;
-
+        const action = perItemImported > 0 ? "imported" : "updated";
         result.details.push({
           messageId: msg.id,
           subject,
           sender: senderEmail,
           status: action,
-          rdvId: importResult.rdv_id
+          rdvId: createdRdvIds[0],
         });
 
         await supabase.from("gmail_imports").insert({
@@ -966,8 +1042,8 @@ serve(async (req) => {
           sender_email: senderEmail,
           subject,
           status: "processed",
-          rdv_id: importResult.rdv_id,
-          client_id: importResult.client_id
+          rdv_id: createdRdvIds[0] || null,
+          client_id: createdClientIds[0] || null,
         });
 
       } catch (error) {
