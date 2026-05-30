@@ -155,25 +155,43 @@ export function GmailSync({ onSyncComplete, variant = "ghost" }: GmailSyncProps)
   );
 }
 
-function SyncResultContent({ 
-  result, 
-  onClose 
-}: { 
+type SkipCategory = "mise_a_jour" | "doublon" | "expediteur" | "regie" | "vide" | "autre";
+
+function categorizeSkip(error?: string): { label: string; tone: string } {
+  const e = (error || "").toLowerCase();
+  if (e.includes("mise à jour") || e.includes("mise a jour") || e.includes("statut"))
+    return { label: "Mise à jour de statut", tone: "bg-blue-100 text-blue-700 border-blue-200" };
+  if (e.includes("existant") || e.includes("doublon") || e.includes("déjà"))
+    return { label: "Doublon / RDV existant", tone: "bg-amber-100 text-amber-700 border-amber-200" };
+  if (e.includes("non autoris") || e.includes("unauthorized"))
+    return { label: "Expéditeur non autorisé", tone: "bg-rose-100 text-rose-700 border-rose-200" };
+  if (e.includes("régie") || e.includes("regie"))
+    return { label: "Aucune régie associée", tone: "bg-purple-100 text-purple-700 border-purple-200" };
+  if (e.includes("vide") || e.includes("empty"))
+    return { label: "Email vide", tone: "bg-slate-100 text-slate-700 border-slate-200" };
+  if (e.includes("newsletter") || e.includes("admin") || e.includes("ignore"))
+    return { label: "Non lié à un RDV", tone: "bg-slate-100 text-slate-700 border-slate-200" };
+  return { label: error || "Ignoré", tone: "bg-slate-100 text-slate-700 border-slate-200" };
+}
+
+function SyncResultContent({
+  result,
+  onClose
+}: {
   result: GmailSyncResult | null;
   onClose: () => void;
 }) {
   if (!result) return null;
 
-  const hasSuccess = result.imported > 0 || result.updated > 0;
   const hasErrors = result.errors > 0;
+  const skipped = result.details.filter((d) => d.status === "skipped");
+  const errors = result.details.filter((d) => d.status === "error");
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="font-medium">Résultat de la synchronisation</h4>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          ×
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>×</Button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -197,32 +215,48 @@ function SyncResultContent({
         )}
       </div>
 
-      {result.details.length > 0 && (
-        <div className="border-t pt-3 max-h-40 overflow-y-auto">
-          <p className="text-xs text-muted-foreground mb-2">Détails :</p>
-          <ul className="space-y-1 text-xs">
-            {result.details.slice(0, 5).map((detail, i) => (
-              <li key={i} className="flex items-start gap-2">
-                {detail.status === "imported" && <Check className="h-3 w-3 text-green-500 mt-0.5" />}
-                {detail.status === "updated" && <RefreshCw className="h-3 w-3 text-blue-500 mt-0.5" />}
-                {detail.status === "error" && <AlertCircle className="h-3 w-3 text-destructive mt-0.5" />}
-                {detail.status === "skipped" && <span className="h-3 w-3 text-center">—</span>}
-                <span className="truncate flex-1">
-                  {detail.subject || detail.sender}
-                  {detail.error && <span className="text-destructive"> - {detail.error}</span>}
-                </span>
-              </li>
-            ))}
-            {result.details.length > 5 && (
-              <li className="text-muted-foreground">
-                ...et {result.details.length - 5} autre(s)
-              </li>
-            )}
+      {skipped.length > 0 && (
+        <div className="border-t pt-3 max-h-60 overflow-y-auto space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Emails ignorés ({skipped.length}) — raison :
+          </p>
+          <ul className="space-y-1.5">
+            {skipped.map((detail, i) => {
+              const { label, tone } = categorizeSkip(detail.error);
+              return (
+                <li key={i} className="text-xs rounded-md border bg-muted/30 p-2 space-y-1">
+                  <div className="font-medium truncate">{detail.subject || detail.sender}</div>
+                  {detail.sender && detail.subject && (
+                    <div className="text-[10px] text-muted-foreground truncate">{detail.sender}</div>
+                  )}
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] border ${tone}`}>
+                    {label}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
 
-      {!hasSuccess && !hasErrors && result.message && (
+      {errors.length > 0 && (
+        <div className="border-t pt-3 space-y-1">
+          <p className="text-xs font-medium text-destructive">Erreurs :</p>
+          <ul className="space-y-1 text-xs">
+            {errors.map((detail, i) => (
+              <li key={i} className="flex items-start gap-2 text-destructive">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span className="truncate flex-1">
+                  {detail.subject || detail.sender}
+                  {detail.error && <span> — {detail.error}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {result.imported === 0 && result.updated === 0 && skipped.length === 0 && !hasErrors && result.message && (
         <p className="text-sm text-muted-foreground">{result.message}</p>
       )}
     </div>
