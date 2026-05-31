@@ -112,10 +112,17 @@ RETOURNE UNIQUEMENT le mot-clé exact, sans aucun autre texte.`,
  *   - [...] → one entry per detected RDV
  */
 async function splitMultiRdvEmail(subject: string, body: string): Promise<string[] | null> {
-  // Heuristic pre-filter: must contain at least 2 date-like patterns OR a numbered list
+  // Heuristic pre-filter — accept many recap formats:
+  //  - dates dd/mm/yyyy or dd-mm-yyyy or "12 juin"
+  //  - times "09h00" / "09:00"
+  //  - numbered/bulleted lists "1.", "1)", "1 -", "- ", "* "
   const dateMatches = body.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g) || [];
-  const numberedItems = body.match(/(?:^|\n)\s*(?:\d{1,2}[.)]\s|[-*]\s)/g) || [];
-  if (dateMatches.length < 2 && numberedItems.length < 2) return null;
+  const frenchDates = body.match(/\b\d{1,2}\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/gi) || [];
+  const timeMatches = body.match(/\b\d{1,2}[h:]\d{2}\b/gi) || [];
+  const numberedItems = body.match(/(?:^|\n)\s*(?:\d{1,2}\s*[.)\-]\s|[-*•]\s)/g) || [];
+  const totalDateLike = dateMatches.length + frenchDates.length + timeMatches.length;
+  if (totalDateLike < 2 && numberedItems.length < 2) return null;
+
 
   try {
     const truncated = body.substring(0, 8000);
@@ -822,10 +829,21 @@ serve(async (req) => {
         console.log(`Processing: ${subject} from ${senderEmail}`);
 
         // ── INTENT CLASSIFICATION ──────────────────────────────────────────
-        const intent = await classifyEmailIntent(subject, emailBody);
+        let intent = await classifyEmailIntent(subject, emailBody);
         console.log(`Intent for "${subject}": ${intent}`);
 
-        // Skip irrelevant emails
+        // ── MULTI-RDV PRE-CHECK ────────────────────────────────────────────
+        // Run the splitter BEFORE the ignore/mise_a_jour skip: recap emails
+        // are often mis-classified as "ignore" or "mise_a_jour" because the
+        // classifier sees a digest, not a single RDV. If the splitter returns
+        // ≥2 self-contained appointments, treat the email as nouveau_rdv.
+        const earlySplit = await splitMultiRdvEmail(subject, emailBody);
+        if (earlySplit && earlySplit.length >= 2) {
+          console.log(`Forcing intent → nouveau_rdv (multi-RDV detected: ${earlySplit.length})`);
+          intent = "nouveau_rdv";
+        }
+
+        // Skip irrelevant emails (only when NOT a multi-RDV recap)
         if (intent === "ignore" || intent === "mise_a_jour") {
           const reason = intent === "ignore"
             ? "Email non lié à un RDV (newsletter/admin)"
@@ -880,15 +898,12 @@ serve(async (req) => {
           continue;
         }
 
-        // ── MULTI-RDV DETECTION ────────────────────────────────────────────
-        // Some emails (recaps, planning summaries from régies) list several
-        // appointments in a single message. Split them and dispatch each one.
-        const subBodies = intent === "nouveau_rdv"
-          ? await splitMultiRdvEmail(subject, emailBody)
-          : null;
-        const bodiesToImport: string[] = subBodies && subBodies.length >= 2
-          ? subBodies
+        // ── MULTI-RDV DISPATCH ─────────────────────────────────────────────
+        // Reuse earlySplit when available; otherwise fall back to single body.
+        const bodiesToImport: string[] = earlySplit && earlySplit.length >= 2
+          ? earlySplit
           : [emailBody];
+
 
         let anySuccess = false;
         let lastSkipReason: string | null = null;
