@@ -6,19 +6,51 @@ import { installOfflineFetchInterceptor } from "./lib/offlineFetchInterceptor";
 // Install offline fetch interceptor before anything else
 installOfflineFetchInterceptor();
 
-// One-shot forced SW reset: bump this token to force ALL clients to unregister
-// their service workers + clear caches + reload once on next boot.
-const FORCE_SW_RESET_TOKEN = "2026-05-30-sw-chunk-fix";
-const isPreviewHost =
-  typeof window !== "undefined" &&
-  (window.location.hostname.includes("lovableproject.com") ||
-    window.location.hostname.includes("lovable.app") ||
-    window.location.hostname === "localhost");
+// Detect Lovable preview / iframe contexts where service workers MUST NOT run.
+// Stale SWs in preview iframes serve outdated bundles and break dynamic imports.
+const __host = typeof window !== "undefined" ? window.location.hostname : "";
+const isLovablePreviewHost =
+  __host.includes("id-preview--") ||
+  __host.includes("lovableproject.com") ||
+  __host.includes("lovable.app");
+const isPreviewHost = isLovablePreviewHost || __host === "localhost";
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
+const isPreviewOrIframe = isPreviewHost || isInIframe;
+
+// Hard guard: neutralize SW registration entirely in preview/iframe contexts
+// so no plugin (vite-plugin-pwa, OneSignal, third-party) can register one.
+if (isPreviewOrIframe && typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+  try {
+    const sw = navigator.serviceWorker;
+    const origRegister = sw.register.bind(sw);
+    (sw as any).register = (..._args: unknown[]) => {
+      console.log("[SW] Registration blocked in preview/iframe context");
+      return Promise.reject(new Error("SW registration blocked in preview/iframe"));
+    };
+    // Keep reference in case we ever need to restore (we don't, but useful for debug)
+    (window as any).__origSWRegister = origRegister;
+  } catch (e) {
+    console.warn("[SW] Failed to patch register():", e);
+  }
+  // Eagerly unregister anything already installed + purge caches.
+  (async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+      if ("caches" in self) {
+        const names = await caches.keys();
+        await Promise.all(names.map((n) => caches.delete(n).catch(() => false)));
+      }
+    } catch {}
+  })();
+}
+
+// One-shot forced SW reset for PRODUCTION clients only.
+const FORCE_SW_RESET_TOKEN = "2026-05-30-sw-chunk-fix";
 (async () => {
-  if (isPreviewHost || isInIframe) return;
+  if (isPreviewOrIframe) return;
   try {
     const done = localStorage.getItem("__force_sw_reset__");
     if (done === FORCE_SW_RESET_TOKEN) return;
