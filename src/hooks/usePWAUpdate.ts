@@ -246,6 +246,7 @@ export function usePWAUpdate() {
   // Silent reload when a new SW takes control (after skipWaiting + clientsClaim).
   // Guard: don't reload in the first 3s of boot (avoids reload during initial activation).
   useEffect(() => {
+    if (isPreviewOrIframe) return;
     if (!('serviceWorker' in navigator)) return;
 
     const onControllerChange = () => {
