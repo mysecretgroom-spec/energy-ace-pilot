@@ -63,15 +63,35 @@ async function cleanupStaleSWs(): Promise<boolean> {
  * - We listen for `controllerchange` and reload the page silently.
  * - Avoids reload storms by guarding with a ref + minimum interval since boot.
  */
+const isPreviewOrIframe = (() => {
+  if (typeof window === 'undefined') return true;
+  const host = window.location.hostname;
+  const isPreviewHost =
+    host.includes('id-preview--') ||
+    host.includes('lovableproject.com') ||
+    host.includes('lovable.app');
+  let inIframe = false;
+  try { inIframe = window.self !== window.top; } catch { inIframe = true; }
+  return isPreviewHost || inIframe;
+})();
+
 export function usePWAUpdate() {
   const reloadingRef = useRef(false);
   const bootTimeRef = useRef(Date.now());
 
   const { updateServiceWorker } = useRegisterSW({
     onRegisteredSW(swUrl, registration) {
+      if (isPreviewOrIframe) {
+        registration?.unregister().catch(() => {});
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            regs.forEach((r) => r.unregister().catch(() => {}));
+          });
+        }
+        return;
+      }
       console.log('[PWA] Service Worker registered:', swUrl);
 
-      // Periodically check for updates (every 30 min)
       if (registration) {
         setInterval(() => {
           if (hasGoodConnection()) {
@@ -82,6 +102,7 @@ export function usePWAUpdate() {
       }
     },
     onRegisterError(error) {
+      if (isPreviewOrIframe) return;
       console.error('[PWA] SW registration error:', error);
     },
   });
