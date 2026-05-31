@@ -124,8 +124,9 @@ export function usePWAUpdate() {
   }, []);
 
 
-  // Cleanup stale SWs on mount
+  // Cleanup stale SWs on mount (skip in preview/iframe — already neutralized)
   useEffect(() => {
+    if (isPreviewOrIframe) return;
     cleanupStaleSWs().then((cleaned) => {
       if (cleaned && 'serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistration().then((reg) => {
