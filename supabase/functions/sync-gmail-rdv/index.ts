@@ -829,10 +829,21 @@ serve(async (req) => {
         console.log(`Processing: ${subject} from ${senderEmail}`);
 
         // ── INTENT CLASSIFICATION ──────────────────────────────────────────
-        const intent = await classifyEmailIntent(subject, emailBody);
+        let intent = await classifyEmailIntent(subject, emailBody);
         console.log(`Intent for "${subject}": ${intent}`);
 
-        // Skip irrelevant emails
+        // ── MULTI-RDV PRE-CHECK ────────────────────────────────────────────
+        // Run the splitter BEFORE the ignore/mise_a_jour skip: recap emails
+        // are often mis-classified as "ignore" or "mise_a_jour" because the
+        // classifier sees a digest, not a single RDV. If the splitter returns
+        // ≥2 self-contained appointments, treat the email as nouveau_rdv.
+        const earlySplit = await splitMultiRdvEmail(subject, emailBody);
+        if (earlySplit && earlySplit.length >= 2) {
+          console.log(`Forcing intent → nouveau_rdv (multi-RDV detected: ${earlySplit.length})`);
+          intent = "nouveau_rdv";
+        }
+
+        // Skip irrelevant emails (only when NOT a multi-RDV recap)
         if (intent === "ignore" || intent === "mise_a_jour") {
           const reason = intent === "ignore"
             ? "Email non lié à un RDV (newsletter/admin)"
@@ -887,15 +898,12 @@ serve(async (req) => {
           continue;
         }
 
-        // ── MULTI-RDV DETECTION ────────────────────────────────────────────
-        // Some emails (recaps, planning summaries from régies) list several
-        // appointments in a single message. Split them and dispatch each one.
-        const subBodies = intent === "nouveau_rdv"
-          ? await splitMultiRdvEmail(subject, emailBody)
-          : null;
-        const bodiesToImport: string[] = subBodies && subBodies.length >= 2
-          ? subBodies
+        // ── MULTI-RDV DISPATCH ─────────────────────────────────────────────
+        // Reuse earlySplit when available; otherwise fall back to single body.
+        const bodiesToImport: string[] = earlySplit && earlySplit.length >= 2
+          ? earlySplit
           : [emailBody];
+
 
         let anySuccess = false;
         let lastSkipReason: string | null = null;
