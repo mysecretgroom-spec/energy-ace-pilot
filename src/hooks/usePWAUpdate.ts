@@ -201,6 +201,7 @@ export function usePWAUpdate() {
 
   // Check for updates when app becomes visible
   const checkForUpdates = useCallback(() => {
+    if (isPreviewOrIframe) return;
     if (!hasGoodConnection()) return;
     if (!('serviceWorker' in navigator)) return;
 
