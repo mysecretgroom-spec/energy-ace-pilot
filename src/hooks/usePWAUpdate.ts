@@ -79,19 +79,17 @@ export function usePWAUpdate() {
   const reloadingRef = useRef(false);
   const bootTimeRef = useRef(Date.now());
 
+  // In preview/iframe contexts we short-circuit ALL PWA behavior. We still
+  // call the hook (rules of hooks) but with `immediate: false` and no-op
+  // callbacks, and we make sure no registration ever happens.
   const { updateServiceWorker } = useRegisterSW({
+    immediate: !isPreviewOrIframe,
     onRegisteredSW(swUrl, registration) {
       if (isPreviewOrIframe) {
         registration?.unregister().catch(() => {});
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then((regs) => {
-            regs.forEach((r) => r.unregister().catch(() => {}));
-          });
-        }
         return;
       }
       console.log('[PWA] Service Worker registered:', swUrl);
-
       if (registration) {
         setInterval(() => {
           if (hasGoodConnection()) {
@@ -106,6 +104,25 @@ export function usePWAUpdate() {
       console.error('[PWA] SW registration error:', error);
     },
   });
+
+  // Belt-and-suspenders: on every mount in preview/iframe, unregister any
+  // leftover SW + purge caches so a stale registration can't survive HMR.
+  useEffect(() => {
+    if (!isPreviewOrIframe) return;
+    (async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+        }
+        if ('caches' in self) {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n).catch(() => false)));
+        }
+      } catch {}
+    })();
+  }, []);
+
 
   // Cleanup stale SWs on mount
   useEffect(() => {
