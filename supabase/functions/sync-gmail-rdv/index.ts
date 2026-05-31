@@ -112,10 +112,17 @@ RETOURNE UNIQUEMENT le mot-clé exact, sans aucun autre texte.`,
  *   - [...] → one entry per detected RDV
  */
 async function splitMultiRdvEmail(subject: string, body: string): Promise<string[] | null> {
-  // Heuristic pre-filter: must contain at least 2 date-like patterns OR a numbered list
+  // Heuristic pre-filter — accept many recap formats:
+  //  - dates dd/mm/yyyy or dd-mm-yyyy or "12 juin"
+  //  - times "09h00" / "09:00"
+  //  - numbered/bulleted lists "1.", "1)", "1 -", "- ", "* "
   const dateMatches = body.match(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g) || [];
-  const numberedItems = body.match(/(?:^|\n)\s*(?:\d{1,2}[.)]\s|[-*]\s)/g) || [];
-  if (dateMatches.length < 2 && numberedItems.length < 2) return null;
+  const frenchDates = body.match(/\b\d{1,2}\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\b/gi) || [];
+  const timeMatches = body.match(/\b\d{1,2}[h:]\d{2}\b/gi) || [];
+  const numberedItems = body.match(/(?:^|\n)\s*(?:\d{1,2}\s*[.)\-]\s|[-*•]\s)/g) || [];
+  const totalDateLike = dateMatches.length + frenchDates.length + timeMatches.length;
+  if (totalDateLike < 2 && numberedItems.length < 2) return null;
+
 
   try {
     const truncated = body.substring(0, 8000);
