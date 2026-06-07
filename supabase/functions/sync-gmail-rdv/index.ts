@@ -640,12 +640,9 @@ serve(async (req) => {
   }
 
   try {
-    let body: { days?: number; fromDate?: string; toDate?: string } = {};
-    try {
-      body = await req.json();
-    } catch {
-      // No body or invalid JSON, use defaults
-    }
+    const v = await validateJson(req, SyncBodySchema, corsHeaders, { allowEmpty: true });
+    if (!v.ok) return v.response;
+    const body = v.data;
 
     let userId = await getUserIdFromAuth(req.headers.get("Authorization"));
 
