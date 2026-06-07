@@ -10,12 +10,16 @@ Le backlog de refactor structurel (God components, monolithes) est documenté en
 
 Validation Zod stricte sur edge functions exposées :
 
-- ✅ `whatsapp-agent` (livré précédemment, `_validation.ts` + tests)
+- ✅ `whatsapp-agent` — `_validation.ts` + tests
 - ✅ `sync-gmail-rdv` — body validé (days 1..90, ISO dates strict)
 - ✅ `whatsapp-webhook` — schéma Twilio + URL média épinglée à `api/media.twilio.com` + **vérification de signature HMAC-SHA1 `X-Twilio-Signature`** (`_shared/twilioSignature.ts` + tests)
 - ✅ `saas-stripe-webhook` — comparaison de signature timing-safe
 - ✅ `analyze-document` — Zod sur `image_base64` (base64 only, max ~20MB) + `context` enum
-- ⏳ reste : `scheduled-gmail-sync`, `whatsapp-send`, `enhance-document-image`, `smart-analyze`, `weekly-recap`, `rdv-preparation`, `pipeline-tracker`, `check-relance-paiement`, `plaid`
+- ✅ `whatsapp-send` — Zod : `to` E.164, `mediaUrl` épinglée à api/media.twilio.com (anti-SSRF), `message` ≤4096
+- ✅ `enhance-document-image` — Zod : base64/data-url, `enhancement_type` enum
+- ✅ `smart-analyze` — Zod : base64/data-url, ids UUID
+- ✅ `plaid` — déjà validé (Zod + signature JWT existante)
+- ⏳ reste (P1, payloads moins sensibles) : `weekly-recap`, `rdv-preparation`, `pipeline-tracker`, `check-relance-paiement`, `scheduled-gmail-sync`
 
 ## Lot 2 — RLS & GRANT manquants
 

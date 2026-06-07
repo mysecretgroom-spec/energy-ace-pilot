@@ -1,11 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
+import { validateJson } from "../_shared/zodHttp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const MAX_IMAGE_BASE64 = 20_000_000;
+const dataUrlOrBase64 = z
+  .string()
+  .min(16)
+  .max(MAX_IMAGE_BASE64)
+  .regex(/^(data:image\/[a-zA-Z0-9.+-]+;base64,)?[A-Za-z0-9+/=\s]+$/, "Must be base64 or data:image URL");
+
+const SmartAnalyzeSchema = z.object({
+  image_base64: dataUrlOrBase64,
+  document_id: z.string().uuid().optional(),
+  user_id: z.string().uuid().optional(),
+  context: z.string().max(256).optional(),
+}).strict();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -14,13 +30,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { image_base64, document_id, user_id, context } = await req.json();
-
-    if (!image_base64) {
-      return new Response(JSON.stringify({ error: "image_base64 required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const v = await validateJson(req, SmartAnalyzeSchema, corsHeaders, { allowEmpty: false });
+    if (!v.ok) return v.response;
+    const { image_base64, document_id, user_id, context } = v.data;
 
     // Budget check
     const resolvedUserId = await resolveUserId(req, user_id);
