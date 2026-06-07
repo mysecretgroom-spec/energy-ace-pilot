@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://esm.sh/zod@3.23.8";
+import { validateJson } from "../_shared/zodHttp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const MAX_IMAGE_BASE64 = 20_000_000;
+// Accept raw base64 or a data:image/* URL. Both are pinned to base64 charset to
+// defend the downstream AI gateway against arbitrary URLs / SSRF.
+const dataUrlOrBase64 = z
+  .string()
+  .min(16)
+  .max(MAX_IMAGE_BASE64)
+  .regex(/^(data:image\/[a-zA-Z0-9.+-]+;base64,)?[A-Za-z0-9+/=\s]+$/, "Must be base64 or data:image URL");
+
+const EnhanceSchema = z.object({
+  image_base64: dataUrlOrBase64,
+  enhancement_type: z.enum(["shadow_removal", "unwrinkle", "clean_background", "auto"]).default("auto"),
+}).strict();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -12,13 +28,9 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { image_base64, enhancement_type } = await req.json();
-
-    if (!image_base64) {
-      return new Response(JSON.stringify({ error: "image_base64 required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const v = await validateJson(req, EnhanceSchema, corsHeaders, { allowEmpty: false });
+    if (!v.ok) return v.response;
+    const { image_base64, enhancement_type } = v.data;
 
     const imageUrl = image_base64.startsWith("data:") ? image_base64 : `data:image/jpeg;base64,${image_base64}`;
 
