@@ -65,15 +65,10 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    const { image_base64, context, user_id: bodyUserId } = body as AnalyzeRequest & { user_id?: string };
+    const v = await validateJson(req, AnalyzeRequestSchema, corsHeaders, { allowEmpty: false });
+    if (!v.ok) return v.response;
+    const { image_base64, context, user_id: bodyUserId } = v.data;
 
-    if (!image_base64) {
-      return new Response(JSON.stringify({ error: "Image is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
 
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
