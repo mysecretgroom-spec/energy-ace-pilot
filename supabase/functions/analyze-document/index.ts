@@ -1,15 +1,22 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
+import { validateJson } from "../_shared/zodHttp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface AnalyzeRequest {
-  image_base64: string;
-  context: "finance" | "client_docs";
-}
+// Cap base64 payloads at ~20MB raw text (~15MB decoded image) to prevent DoS.
+const MAX_IMAGE_BASE64 = 20_000_000;
+
+const AnalyzeRequestSchema = z.object({
+  image_base64: z.string().min(16).max(MAX_IMAGE_BASE64).regex(/^[A-Za-z0-9+/=\s]+$/, "image_base64 must be base64"),
+  context: z.enum(["finance", "client_docs"]),
+  user_id: z.string().uuid().optional(),
+}).strict();
+type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;
 
 interface FinanceLineItem {
   montant_ttc: number | null;
@@ -58,15 +65,10 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    const { image_base64, context, user_id: bodyUserId } = body as AnalyzeRequest & { user_id?: string };
+    const v = await validateJson(req, AnalyzeRequestSchema, corsHeaders, { allowEmpty: false });
+    if (!v.ok) return v.response;
+    const { image_base64, context, user_id: bodyUserId } = v.data;
 
-    if (!image_base64) {
-      return new Response(JSON.stringify({ error: "Image is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
 
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {

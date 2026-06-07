@@ -6,22 +6,16 @@ Le backlog de refactor structurel (God components, monolithes) est documenté en
 
 ---
 
-## Lot 1 — Sécurité edge functions (Zod validation)
+## Lot 1 — Sécurité edge functions (Zod validation) — en cours
 
-Ajouter validation Zod stricte (sur le modèle de `_validation.ts` whatsapp-agent déjà livré) sur les edge functions exposées sans `verify_jwt` ou qui acceptent un payload riche :
+Validation Zod stricte sur edge functions exposées :
 
-- `sync-gmail-rdv` (entrée webhook)
-- `scheduled-gmail-sync`
-- `whatsapp-webhook` (signature Twilio + validation body)
-- `whatsapp-send`
-- `analyze-document`
-- `enhance-document-image`
-- `smart-analyze`
-- `weekly-recap`, `rdv-preparation`, `pipeline-tracker`, `check-relance-paiement`
-- `saas-stripe-webhook` (vérif signature + payload)
-- `plaid`
-
-Pour chacune : `_validation.ts` + `_validation.test.ts` (payloads hostiles : SSRF, XSS, CRLF, DoS, type confusion).
+- ✅ `whatsapp-agent` (livré précédemment, `_validation.ts` + tests)
+- ✅ `sync-gmail-rdv` — body validé (days 1..90, ISO dates strict)
+- ✅ `whatsapp-webhook` — schéma Twilio + URL média épinglée à `api/media.twilio.com` + **vérification de signature HMAC-SHA1 `X-Twilio-Signature`** (`_shared/twilioSignature.ts` + tests)
+- ✅ `saas-stripe-webhook` — comparaison de signature timing-safe
+- ✅ `analyze-document` — Zod sur `image_base64` (base64 only, max ~20MB) + `context` enum
+- ⏳ reste : `scheduled-gmail-sync`, `whatsapp-send`, `enhance-document-image`, `smart-analyze`, `weekly-recap`, `rdv-preparation`, `pipeline-tracker`, `check-relance-paiement`, `plaid`
 
 ## Lot 2 — RLS & GRANT manquants
 

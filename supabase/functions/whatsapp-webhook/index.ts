@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { badRequest, httpUrl, mimeType } from "../_shared/zodHttp.ts";
+import { verifyTwilioSignature, reconstructPublicUrl } from "../_shared/twilioSignature.ts";
+
+// When true, accept requests without a valid X-Twilio-Signature. Defaults to
+// strict (false). Set TWILIO_SIGNATURE_VALIDATION=off only for local debugging.
+const SIGNATURE_VALIDATION_OFF =
+  (Deno.env.get("TWILIO_SIGNATURE_VALIDATION") ?? "on").toLowerCase() === "off";
 
 // =============================================================
 // Twilio WhatsApp webhook payload schema (form-urlencoded).
@@ -63,9 +69,21 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse Twilio webhook data (application/x-www-form-urlencoded) + validate
-    const formData = await req.formData();
+    // We must read the raw text first to verify Twilio's HMAC signature, then
+    // re-parse via URLSearchParams (req.formData() would consume the body).
+    const rawBody = await req.text();
     const rawForm: Record<string, string> = {};
-    formData.forEach((v, k) => { if (typeof v === "string") rawForm[k] = v; });
+    new URLSearchParams(rawBody).forEach((v, k) => { rawForm[k] = v; });
+
+    // Twilio signature verification (X-Twilio-Signature). Without this, the
+    // endpoint is a public webhook anyone can spam to impersonate users.
+    const sigHeader = req.headers.get("x-twilio-signature");
+    const publicUrl = reconstructPublicUrl(req);
+    const sigOk = await verifyTwilioSignature(TWILIO_AUTH_TOKEN, publicUrl, rawForm, sigHeader);
+    if (!sigOk && !SIGNATURE_VALIDATION_OFF) {
+      console.warn("[whatsapp-webhook] Rejected request: invalid X-Twilio-Signature");
+      return new Response("Invalid signature", { status: 403, headers: corsHeaders });
+    }
 
     const parsed = TwilioWebhookSchema.safeParse(rawForm);
     if (!parsed.success) {

@@ -40,7 +40,13 @@ const verifyStripeSignature = async (
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  return expectedSig === signature;
+  // Timing-safe comparison — defends against signature-timing oracles.
+  if (expectedSig.length !== signature.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expectedSig.length; i++) {
+    mismatch |= expectedSig.charCodeAt(i) ^ signature.charCodeAt(i);
+  }
+  return mismatch === 0;
 };
 
 serve(async (req) => {
