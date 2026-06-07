@@ -135,6 +135,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const unauthorized = requireCronAuth(req, { corsHeaders });
+  if (unauthorized) return unauthorized;
+
   try {
     console.log("Starting scheduled Gmail sync for all eligible users...");
 
