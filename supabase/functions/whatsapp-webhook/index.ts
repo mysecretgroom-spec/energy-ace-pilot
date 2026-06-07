@@ -1,5 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.23.8";
+import { badRequest, httpUrl, mimeType } from "../_shared/zodHttp.ts";
+
+// =============================================================
+// Twilio WhatsApp webhook payload schema (form-urlencoded).
+// All values arrive as strings; we coerce numbers, cap lengths,
+// and pin URLs to api.twilio.com to defend against SSRF via spoofed media.
+// =============================================================
+const TWILIO_MEDIA_URL_RE = /^https:\/\/(api|media)\.twilio\.com\//;
+const twilioMediaUrl = httpUrl.refine((u) => TWILIO_MEDIA_URL_RE.test(u), {
+  message: "Media URL must originate from api.twilio.com",
+});
+
+const TwilioWebhookSchema = z.object({
+  From: z.string().min(1).max(128).regex(/^whatsapp:\+?[0-9]+$/, "Invalid From"),
+  To: z.string().max(128).optional(),
+  Body: z.string().max(8000).default(""),
+  NumMedia: z.string().regex(/^\d+$/, "NumMedia must be a digit string").default("0"),
+  MessageSid: z.string().max(128).optional(),
+  ProfileName: z.string().max(256).optional(),
+  WaId: z.string().max(64).optional(),
+  OriginalRepliedMessageSid: z.string().max(128).optional(),
+  OriginalRepliedMessageBody: z.string().max(8000).optional(),
+}).passthrough(); // MediaUrl0..N and MediaContentType0..N are dynamic — validated below
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
