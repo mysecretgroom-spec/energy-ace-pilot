@@ -44,6 +44,7 @@ import {
   type ClassificationResult,
   type ImageIntent as ClassifiedImageIntent,
 } from "./_image-routing.ts";
+import { validateAgentRequest } from "./_validation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
