@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.23.8";
 import { corsHeaders, getUserIdFromAuth, getValidAccessToken } from "../_shared/google-auth.ts";
+import { validateJson, isoDate } from "../_shared/zodHttp.ts";
+
+// Bounded body schema — defends against injection / DoS via huge windows.
+const SyncBodySchema = z.object({
+  days: z.number().int().min(1).max(90).optional(),
+  fromDate: isoDate.optional(),
+  toDate: isoDate.optional(),
+}).strict();
 
 const GMAIL_API_BASE = "https://www.googleapis.com/gmail/v1";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -631,12 +640,9 @@ serve(async (req) => {
   }
 
   try {
-    let body: { days?: number; fromDate?: string; toDate?: string } = {};
-    try {
-      body = await req.json();
-    } catch {
-      // No body or invalid JSON, use defaults
-    }
+    const v = await validateJson(req, SyncBodySchema, corsHeaders, { allowEmpty: true });
+    if (!v.ok) return v.response;
+    const body = v.data;
 
     let userId = await getUserIdFromAuth(req.headers.get("Authorization"));
 
