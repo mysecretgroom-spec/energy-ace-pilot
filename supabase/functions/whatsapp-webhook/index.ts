@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { badRequest, httpUrl, mimeType } from "../_shared/zodHttp.ts";
+import { verifyTwilioSignature, reconstructPublicUrl } from "../_shared/twilioSignature.ts";
+
+// When true, accept requests without a valid X-Twilio-Signature. Defaults to
+// strict (false). Set TWILIO_SIGNATURE_VALIDATION=off only for local debugging.
+const SIGNATURE_VALIDATION_OFF =
+  (Deno.env.get("TWILIO_SIGNATURE_VALIDATION") ?? "on").toLowerCase() === "off";
 
 // =============================================================
 // Twilio WhatsApp webhook payload schema (form-urlencoded).
