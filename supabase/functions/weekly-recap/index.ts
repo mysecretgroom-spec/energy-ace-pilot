@@ -1,27 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://esm.sh/zod@3.23.8";
+import { validateJson } from "../_shared/zodHttp.ts";
+import { requireCronAuth } from "../_shared/cronAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
+
+// week_offset bounded to prevent attacker-driven sweeps of years of history
+// (massive DB scans + WhatsApp/OneSignal fan-out = DoS + $$$).
+const BodySchema = z.object({
+  week_offset: z.coerce.number().int().min(-52).max(0).default(0),
+}).strict();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const unauthorized = requireCronAuth(req, { corsHeaders });
+  if (unauthorized) return unauthorized;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Accept optional week_offset parameter (-1 = last week, 0 = current week)
-    let weekOffset = 0;
-    try {
-      const body = await req.json();
-      weekOffset = body?.week_offset ?? 0;
-    } catch { /* no body or invalid JSON, default to current week */ }
+    const v = await validateJson(req, BodySchema, corsHeaders, { allowEmpty: true });
+    if (!v.ok) return v.response;
+    const weekOffset = v.data.week_offset ?? 0;
     const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
     const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
 
