@@ -1804,7 +1804,25 @@ serve(async (req) => {
     supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
     const supabase = supabaseClient;
 
-    requestData = await req.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const validation = validateAgentRequest(rawBody);
+    if (!validation.ok) {
+      console.warn("[whatsapp-agent] Payload validation failed:", JSON.stringify(validation.body.details));
+      return new Response(
+        JSON.stringify(validation.body),
+        { status: validation.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    requestData = validation.data as AgentRequest;
     const request: AgentRequest = requestData!;
 
     // ==================== SECURITY: USER IDENTITY VERIFICATION ====================
