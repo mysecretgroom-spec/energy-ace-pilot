@@ -1,15 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://esm.sh/zod@3.23.8";
+import { validateJson, httpUrl } from "../_shared/zodHttp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface SendMessageRequest {
-  to: string;
-  message: string;
-  mediaUrl?: string;
-}
+// Pin outbound media to Twilio CDN to defend against SSRF via attacker-supplied URLs.
+const TWILIO_MEDIA_RE = /^https:\/\/(api|media)\.twilio\.com\//;
+const twilioMediaUrl = httpUrl.refine((u) => TWILIO_MEDIA_RE.test(u), {
+  message: "mediaUrl must be hosted on api.twilio.com",
+});
+
+// "to" must be E.164 (optionally prefixed with whatsapp:). Blocks header injection.
+const phoneE164 = z.string().regex(/^(whatsapp:)?\+?[1-9]\d{6,18}$/, "Invalid phone");
+
+const SendMessageSchema = z.object({
+  to: phoneE164,
+  message: z.string().min(1).max(4096),
+  mediaUrl: twilioMediaUrl.optional(),
+}).strict();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,14 +40,9 @@ serve(async (req) => {
       );
     }
 
-    const { to, message, mediaUrl }: SendMessageRequest = await req.json();
-
-    if (!to || !message) {
-      return new Response(
-        JSON.stringify({ error: "Missing 'to' or 'message' parameter" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const v = await validateJson(req, SendMessageSchema, corsHeaders, { allowEmpty: false });
+    if (!v.ok) return v.response;
+    const { to, message, mediaUrl } = v.data;
 
     // Ensure the 'to' number has whatsapp: prefix
     const toNumber = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
