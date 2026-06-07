@@ -19,7 +19,12 @@ Validation Zod stricte sur edge functions exposées :
 - ✅ `enhance-document-image` — Zod : base64/data-url, `enhancement_type` enum
 - ✅ `smart-analyze` — Zod : base64/data-url, ids UUID
 - ✅ `plaid` — déjà validé (Zod + signature JWT existante)
-- ⏳ reste (P1, payloads moins sensibles) : `weekly-recap`, `rdv-preparation`, `pipeline-tracker`, `check-relance-paiement`, `scheduled-gmail-sync`
+- ✅ `weekly-recap` — Zod `week_offset` ∈ [-52,0] + `requireCronAuth`
+- ✅ `rdv-preparation` — `requireCronAuth` (gate anti-DoS cron-only)
+- ✅ `pipeline-tracker` — `requireCronAuth`
+- ✅ `check-relance-paiement` — `requireCronAuth`
+- ✅ `scheduled-gmail-sync` — `requireCronAuth`
+- 🆕 `_shared/cronAuth.ts` — auth cron timing-safe (Bearer service key OR `x-cron-secret`) + tests Deno (6/6 ✅)
 
 ## Lot 2 — RLS & GRANT manquants
 
