@@ -62,29 +62,41 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse Twilio webhook data (application/x-www-form-urlencoded)
+    // Parse Twilio webhook data (application/x-www-form-urlencoded) + validate
     const formData = await req.formData();
-    const fromNumber = formData.get("From") as string; // whatsapp:+33649070391
-    const body = formData.get("Body") as string || "";
-    const numMedia = parseInt(formData.get("NumMedia") as string || "0", 10);
-    const messageSid = formData.get("MessageSid") as string | null;
-    
-    // Extract the original message context from Twilio (for quoted replies)
-    const originalMessageContext = formData.get("OriginalRepliedMessageSid") as string | null;
-    const quotedBody = formData.get("OriginalRepliedMessageBody") as string | null;
-    
-    // Collect all media URLs and types (up to MAX_MEDIA_COUNT)
+    const rawForm: Record<string, string> = {};
+    formData.forEach((v, k) => { if (typeof v === "string") rawForm[k] = v; });
+
+    const parsed = TwilioWebhookSchema.safeParse(rawForm);
+    if (!parsed.success) {
+      console.warn("[whatsapp-webhook] Invalid Twilio payload:", JSON.stringify(parsed.error.flatten().fieldErrors));
+      return badRequest("Invalid Twilio payload", parsed.error.flatten().fieldErrors, corsHeaders);
+    }
+    const data = parsed.data;
+    const fromNumber = data.From;
+    const body = data.Body;
+    const numMedia = parseInt(data.NumMedia, 10);
+    const messageSid = data.MessageSid ?? null;
+    const originalMessageContext = data.OriginalRepliedMessageSid ?? null;
+    const quotedBody = data.OriginalRepliedMessageBody ?? null;
+
+    // Collect all media URLs and types (up to MAX_MEDIA_COUNT) — validate each
     const mediaUrls: string[] = [];
     const mediaTypes: string[] = [];
-    const actualMediaCount = Math.min(numMedia, MAX_MEDIA_COUNT);
-    
+    const actualMediaCount = Math.min(Math.max(0, numMedia), MAX_MEDIA_COUNT);
+
     for (let i = 0; i < actualMediaCount; i++) {
-      const mediaUrl = formData.get(`MediaUrl${i}`) as string | null;
-      const mediaType = formData.get(`MediaContentType${i}`) as string | null;
-      if (mediaUrl) {
-        mediaUrls.push(mediaUrl);
-        mediaTypes.push(mediaType || "application/octet-stream");
+      const rawUrl = rawForm[`MediaUrl${i}`];
+      const rawType = rawForm[`MediaContentType${i}`];
+      if (!rawUrl) continue;
+      const urlOk = twilioMediaUrl.safeParse(rawUrl);
+      const typeOk = rawType ? mimeType.safeParse(rawType) : { success: true, data: "application/octet-stream" as string };
+      if (!urlOk.success) {
+        console.warn(`[whatsapp-webhook] Rejected media #${i}: invalid URL`);
+        continue;
       }
+      mediaUrls.push(urlOk.data);
+      mediaTypes.push(typeOk.success ? (typeOk.data as string) : "application/octet-stream");
     }
 
     console.log(`Received WhatsApp from ${fromNumber}: "${body.substring(0, 50)}..." with ${mediaUrls.length} media(s)`);
