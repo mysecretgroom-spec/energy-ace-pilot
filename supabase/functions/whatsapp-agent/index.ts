@@ -6534,8 +6534,28 @@ async function handlePendingWorkflow(
       }
       
       if (isConfirmed) {
-        // User confirmed - redirect to facture confirmation workflow
-        // The collectedData already has forceDuplicate: true set
+        // User confirmed the duplicate import: reuse the existing facture
+        // confirmation branch and force it to execute immediately.
+        const forcedAction: PendingAction = {
+          ...pendingAction,
+          workflowState: "awaiting_facture_confirmation",
+          collectedData: {
+            ...collectedData,
+            forceDuplicate: true,
+          },
+        };
+        return await handlePendingWorkflow(
+          supabase,
+          userId,
+          userName,
+          "oui",
+          forcedAction,
+          twilioAccountSid,
+          twilioAuthToken,
+        );
+      }
+
+      if (isConfirmed) {
         return {
           intent: "import_facture",
           actionTaken: "duplicate_confirmed",
