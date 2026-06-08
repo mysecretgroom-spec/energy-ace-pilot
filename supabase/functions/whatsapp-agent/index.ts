@@ -6261,8 +6261,9 @@ async function handlePendingWorkflow(
         await supabase
           .from("pending_documents")
           .update({
-            status: "processed",
+            status: "manually_assigned",
             assigned_document_type: "facture_frais",
+            assigned_at: new Date().toISOString(),
             processed_at: new Date().toISOString(),
             final_document_id: frais?.id,
           })
