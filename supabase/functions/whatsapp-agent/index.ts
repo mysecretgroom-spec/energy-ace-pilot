@@ -6243,6 +6243,7 @@ async function handlePendingWorkflow(
             montant: montant,
             date_frais: (() => { const today = new Date().toISOString().split('T')[0]; return dateStr > today ? today : dateStr; })(),
             description: description,
+            fournisseur: fournisseur || null,
             justificatif_url: urlData?.publicUrl || collectedData.factureStorageUrl,
             ocr_data: ocrData,
             date_debut: collectedData.factureDateDebut || null,
