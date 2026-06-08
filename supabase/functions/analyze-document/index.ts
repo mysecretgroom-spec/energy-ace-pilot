@@ -11,8 +11,20 @@ const corsHeaders = {
 // Cap base64 payloads at ~20MB raw text (~15MB decoded image) to prevent DoS.
 const MAX_IMAGE_BASE64 = 20_000_000;
 
+// Accept raw base64 or a `data:<mime>;base64,...` URL. The data-URL form is
+// what FileReader.readAsDataURL produces in the browser; the function strips
+// the prefix below when needed. Anything else is rejected.
+const imageBase64Schema = z
+  .string()
+  .min(16)
+  .max(MAX_IMAGE_BASE64)
+  .regex(
+    /^(data:[a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+;base64,)?[A-Za-z0-9+/=\s]+$/,
+    "image_base64 must be base64 or a data URL"
+  );
+
 const AnalyzeRequestSchema = z.object({
-  image_base64: z.string().min(16).max(MAX_IMAGE_BASE64).regex(/^[A-Za-z0-9+/=\s]+$/, "image_base64 must be base64"),
+  image_base64: imageBase64Schema,
   context: z.enum(["finance", "client_docs"]),
   user_id: z.string().uuid().optional(),
 }).strict();
