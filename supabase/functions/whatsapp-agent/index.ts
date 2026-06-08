@@ -1921,6 +1921,7 @@ serve(async (req) => {
     let documentAnalysisResult: DocumentAnalysisResult | null = null;
     let batchResults: BatchFileResult[] = [];
     let isBatchMode = false;
+    let shouldImportAnalyzedReceipt = false;
 
     // =================================================================
     // MULTI-FILE BATCH PROCESSING (Web Chat)
@@ -2997,6 +2998,7 @@ serve(async (req) => {
       // Build processed content from analysis (only if we ran finance analysis)
       if (documentAnalysisResult && documentAnalysisResult.success) {
         if (documentAnalysisResult.type === "finance") {
+          shouldImportAnalyzedReceipt = true;
           const fin = documentAnalysisResult as FinanceAnalysisResult;
           processedContent = request.content
             ? `${request.content}\n\n[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`
@@ -3500,7 +3502,16 @@ serve(async (req) => {
     }
 
     // If not handling a pending workflow, analyze intent with AI (with memories and custom prompts)
-    if (!skipAiAnalysis) {
+    if (!skipAiAnalysis && shouldImportAnalyzedReceipt && mediaData && documentAnalysisResult?.type === "finance") {
+      console.log("[image-router] Finance document detected — forcing import_facture workflow.");
+      aiResponse = {
+        intent: "import_facture",
+        confidence: 100,
+        entities: {},
+        requiresConfirmation: false,
+        responseMessage: "",
+      };
+    } else if (!skipAiAnalysis) {
       aiResponse = await analyzeIntent(
         processedContent,
         request.userName,
@@ -6232,6 +6243,7 @@ async function handlePendingWorkflow(
             montant: montant,
             date_frais: (() => { const today = new Date().toISOString().split('T')[0]; return dateStr > today ? today : dateStr; })(),
             description: description,
+            fournisseur: fournisseur || null,
             justificatif_url: urlData?.publicUrl || collectedData.factureStorageUrl,
             ocr_data: ocrData,
             date_debut: collectedData.factureDateDebut || null,
@@ -6249,8 +6261,9 @@ async function handlePendingWorkflow(
         await supabase
           .from("pending_documents")
           .update({
-            status: "processed",
+            status: "manually_assigned",
             assigned_document_type: "facture_frais",
+            assigned_at: new Date().toISOString(),
             processed_at: new Date().toISOString(),
             final_document_id: frais?.id,
           })
@@ -6523,19 +6536,27 @@ async function handlePendingWorkflow(
       }
       
       if (isConfirmed) {
-        // User confirmed - redirect to facture confirmation workflow
-        // The collectedData already has forceDuplicate: true set
-        return {
-          intent: "import_facture",
-          actionTaken: "duplicate_confirmed",
-          newPendingAction: {
-            ...pendingAction,
-            workflowState: "awaiting_facture_confirmation",
+        // User confirmed the duplicate import: reuse the existing facture
+        // confirmation branch and force it to execute immediately.
+        const forcedAction: PendingAction = {
+          ...pendingAction,
+          workflowState: "awaiting_facture_confirmation",
+          collectedData: {
+            ...collectedData,
+            forceDuplicate: true,
           },
-          responseMessage: "✅ Entendu, je procède à l'enregistrement...",
         };
+        return await handlePendingWorkflow(
+          supabase,
+          userId,
+          userName,
+          "oui",
+          forcedAction,
+          twilioAccountSid,
+          twilioAuthToken,
+        );
       }
-      
+
       // Unclear response - ask again
       return {
         intent: "import_facture",

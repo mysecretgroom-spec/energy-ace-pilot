@@ -303,9 +303,6 @@ serve(async (req) => {
         fromNumber,
         messageType,
         content: body,
-        // Single media (backward compatible)
-        mediaUrl: mediaUrls[0] || null,
-        mediaContentType: mediaTypes[0] || null,
         // Multi-media support
         mediaUrls: mediaUrls,
         mediaContentTypes: mediaTypes,
@@ -317,6 +314,12 @@ serve(async (req) => {
         repliedToTwilioSid: originalMessageContext,
       };
 
+      // Optional fields must be omitted when absent: the agent validator
+      // intentionally rejects null media URLs, and confirmation-only texts
+      // ("Oui") used to be dropped because of `mediaUrl: null`.
+      if (mediaUrls[0]) agentPayload.mediaUrl = mediaUrls[0];
+      if (mediaTypes[0]) agentPayload.mediaContentType = mediaTypes[0];
+
       const agentResponse = await fetch(`${supabaseUrl}/functions/v1/whatsapp-agent`, {
         method: "POST",
         headers: {
@@ -325,6 +328,11 @@ serve(async (req) => {
         },
         body: JSON.stringify(agentPayload),
       });
+
+      if (!agentResponse.ok) {
+        const errorBody = await agentResponse.text().catch(() => "");
+        throw new Error(`Agent returned HTTP ${agentResponse.status}: ${errorBody.slice(0, 500)}`);
+      }
 
       const agentResult = await agentResponse.json();
       console.log("Agent response:", agentResult);
