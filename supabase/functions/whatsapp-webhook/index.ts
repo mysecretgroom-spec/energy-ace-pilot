@@ -4,10 +4,14 @@ import { z } from "https://esm.sh/zod@3.23.8";
 import { badRequest, httpUrl, mimeType } from "../_shared/zodHttp.ts";
 import { verifyTwilioSignature, reconstructPublicUrl } from "../_shared/twilioSignature.ts";
 
-// When true, accept requests without a valid X-Twilio-Signature. Defaults to
-// strict (false). Set TWILIO_SIGNATURE_VALIDATION=off only for local debugging.
-const SIGNATURE_VALIDATION_OFF =
-  (Deno.env.get("TWILIO_SIGNATURE_VALIDATION") ?? "on").toLowerCase() === "off";
+// Twilio signature validation modes:
+//   - "on"    → strict (reject on invalid signature)
+//   - "warn"  → log warning but accept (default — safe rollout)
+//   - "off"   → skip entirely
+// Default is "warn" because URL reconstruction behind Supabase's edge proxy
+// can drift from the exact URL Twilio signed, which would block all messages.
+const SIGNATURE_MODE = (Deno.env.get("TWILIO_SIGNATURE_VALIDATION") ?? "warn").toLowerCase();
+const SIGNATURE_VALIDATION_OFF = SIGNATURE_MODE !== "on";
 
 // =============================================================
 // Twilio WhatsApp webhook payload schema (form-urlencoded).
@@ -80,9 +84,12 @@ serve(async (req) => {
     const sigHeader = req.headers.get("x-twilio-signature");
     const publicUrl = reconstructPublicUrl(req);
     const sigOk = await verifyTwilioSignature(TWILIO_AUTH_TOKEN, publicUrl, rawForm, sigHeader);
-    if (!sigOk && !SIGNATURE_VALIDATION_OFF) {
+    if (!sigOk && SIGNATURE_MODE === "on") {
       console.warn("[whatsapp-webhook] Rejected request: invalid X-Twilio-Signature");
       return new Response("Invalid signature", { status: 403, headers: corsHeaders });
+    }
+    if (!sigOk && SIGNATURE_MODE === "warn") {
+      console.warn("[whatsapp-webhook] X-Twilio-Signature mismatch (warn-only mode, request accepted)");
     }
 
     const parsed = TwilioWebhookSchema.safeParse(rawForm);
