@@ -26,21 +26,22 @@ Validation Zod stricte sur edge functions exposées :
 - ✅ `scheduled-gmail-sync` — `requireCronAuth`
 - 🆕 `_shared/cronAuth.ts` — auth cron timing-safe (Bearer service key OR `x-cron-secret`) + tests Deno (6/6 ✅)
 
-## Lot 2 — RLS & GRANT manquants
+## Lot 2 — RLS & GRANT audit — ✅ terminé
 
-Audit + migration corrective :
-- Schema `saas.*` (RLS manquante d'après l'audit) — politiques `has_role('admin')` ou scope `auth.uid()`
-- Vérifier `GRANT` sur toutes les tables `public.*` créées sans `GRANT`
-- Vérifier policies storage buckets `etudes-pdf`, `staging-uploads`, `pending-documents` (privés)
-- Linter Supabase passé en fin de lot
+- ✅ Linter Supabase exécuté : 66 findings, tous `0028/0029 SECURITY DEFINER executable` — audités un par un, tous légitimes (admins avec gate interne `is_saas_admin`/`admin_users`, helpers user-scopés bypassant RLS, triggers, primitives `has_role`). Détails consignés dans `@security-memory`.
+- ✅ Aucune table `public.*` sans RLS (linter ne flag aucun `0001/0002`).
+- ✅ Buckets storage conformes (`documents` public, `etudes-pdf`/`staging-uploads`/`pending-documents` privés).
+- ➜ Aucune migration corrective nécessaire.
 
-## Lot 3 — Durcissement client (types stricts)
+## Lot 3 — Durcissement client (types stricts) — en cours
 
-Remplacer les `any` non justifiés (~336) par des types issus de `src/integrations/supabase/types.ts` ou des génériques explicites. **Aucun changement runtime** — uniquement annotations.
+Hooks critiques audités :
+- ✅ `useAuth.tsx` (0 `any`)
+- ✅ `useSaasAccess.ts` — seuls 2 `as any` sur `supabase.rpc(...)` (types générés obsolètes ; conservé + noté dans @security-memory)
+- ✅ `useRdvActions.ts`, `useGmailSync.ts`, `useEtudeFormPersistence.ts` (0 `any`)
+- ✅ `useDeleteEntity.ts` — `onError: (error: unknown)` + narrowing typé
 
-Priorité aux hooks critiques : `useAuth`, `useSaasAccess`, `useRdvActions`, `useDeleteEntity`, `useGmailSync`, `useEtudeFormPersistence`.
-
-Les `any` justifiés (intégrations tierces sans types) sont conservés avec un commentaire `// deno-lint-ignore` / `// eslint-disable-next-line` motivé.
+Reste à scanner : composants `EtudeForm`, edge functions, modules `docScanner`.
 
 ## Lot 4 — Nettoyage console.log
 
