@@ -84,9 +84,12 @@ serve(async (req) => {
     const sigHeader = req.headers.get("x-twilio-signature");
     const publicUrl = reconstructPublicUrl(req);
     const sigOk = await verifyTwilioSignature(TWILIO_AUTH_TOKEN, publicUrl, rawForm, sigHeader);
-    if (!sigOk && !SIGNATURE_VALIDATION_OFF) {
+    if (!sigOk && SIGNATURE_MODE === "on") {
       console.warn("[whatsapp-webhook] Rejected request: invalid X-Twilio-Signature");
       return new Response("Invalid signature", { status: 403, headers: corsHeaders });
+    }
+    if (!sigOk && SIGNATURE_MODE === "warn") {
+      console.warn("[whatsapp-webhook] X-Twilio-Signature mismatch (warn-only mode, request accepted)");
     }
 
     const parsed = TwilioWebhookSchema.safeParse(rawForm);
