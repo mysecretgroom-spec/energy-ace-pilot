@@ -28,11 +28,12 @@ export function useDeleteEntity({ tableName, entityName, onSuccess }: UseDeleteE
       setEntityToDelete(null);
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("Delete error:", error);
-      
+
+      const err = error as { code?: string; message?: string } | null;
       // Handle foreign key constraint errors
-      if (error?.code === "23503" || error?.message?.includes("foreign key")) {
+      if (err?.code === "23503" || err?.message?.includes("foreign key")) {
         toast.error(`Impossible de supprimer : des données liées existent`);
       } else {
         toast.error(`Erreur lors de la suppression`);
