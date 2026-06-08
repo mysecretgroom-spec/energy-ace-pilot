@@ -1921,6 +1921,7 @@ serve(async (req) => {
     let documentAnalysisResult: DocumentAnalysisResult | null = null;
     let batchResults: BatchFileResult[] = [];
     let isBatchMode = false;
+    let shouldImportAnalyzedReceipt = false;
 
     // =================================================================
     // MULTI-FILE BATCH PROCESSING (Web Chat)
@@ -2997,6 +2998,7 @@ serve(async (req) => {
       // Build processed content from analysis (only if we ran finance analysis)
       if (documentAnalysisResult && documentAnalysisResult.success) {
         if (documentAnalysisResult.type === "finance") {
+          shouldImportAnalyzedReceipt = true;
           const fin = documentAnalysisResult as FinanceAnalysisResult;
           processedContent = request.content
             ? `${request.content}\n\n[Analyse note de frais: ${fin.fournisseur || "?"}, ${fin.montant_ttc || "?"}€, ${fin.date || "?"}, catégorie: ${fin.categorie || "?"}]`
@@ -3500,7 +3502,16 @@ serve(async (req) => {
     }
 
     // If not handling a pending workflow, analyze intent with AI (with memories and custom prompts)
-    if (!skipAiAnalysis) {
+    if (!skipAiAnalysis && shouldImportAnalyzedReceipt && mediaData && documentAnalysisResult?.type === "finance") {
+      console.log("[image-router] Finance document detected — forcing import_facture workflow.");
+      aiResponse = {
+        intent: "import_facture",
+        confidence: 100,
+        entities: {},
+        requiresConfirmation: false,
+        responseMessage: "",
+      };
+    } else if (!skipAiAnalysis) {
       aiResponse = await analyzeIntent(
         processedContent,
         request.userName,
