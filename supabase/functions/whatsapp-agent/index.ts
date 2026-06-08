@@ -6555,18 +6555,6 @@ async function handlePendingWorkflow(
         );
       }
 
-      if (isConfirmed) {
-        return {
-          intent: "import_facture",
-          actionTaken: "duplicate_confirmed",
-          newPendingAction: {
-            ...pendingAction,
-            workflowState: "awaiting_facture_confirmation",
-          },
-          responseMessage: "✅ Entendu, je procède à l'enregistrement...",
-        };
-      }
-      
       // Unclear response - ask again
       return {
         intent: "import_facture",
