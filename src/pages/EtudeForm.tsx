@@ -1389,6 +1389,14 @@ const EtudeForm = () => {
     const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
       ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
       : facture;
+
+    // === PRIME COUP DE POUCE PRODUCTEUR (remplace la prime à l'autoconsommation) ===
+    // = 12 × (Facture d'élec mensuelle - Mensualité crédit)
+    // Correspond à la première année de revente garantie. Plafonnée à 0 (jamais négative).
+    const primeAutoconsommation = Math.max(0, 12 * (factureElecPourPV - mensualite));
+
+    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
+    const totalAidesDeduites = prixTotalHorsAides - totalAides;
     // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
     const autoconsommationEuros = (autoconsoPctCapped / 100) * factureElecPourPV;
