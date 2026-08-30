@@ -1348,25 +1348,6 @@ const EtudeForm = () => {
 
     const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
-    // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
-    // Pas de prime pour ≤ 3 kWc, prime par tranche au-dessus
-    let primeAutoconsommation = 0;
-    if (puissance > 3) {
-      const primeAide = dataAides.find(
-        (a) => a.code.startsWith("prime_autoconso") && 
-               a.actif &&
-               puissance >= (a.puissance_min || 0) && 
-               puissance <= (a.puissance_max || 999)
-      );
-      if (primeAide) {
-        if (primeAide.type_calcul === "par_kwc") {
-          primeAutoconsommation = puissance * primeAide.valeur;
-        } else if (primeAide.type_calcul === "fixe") {
-          primeAutoconsommation = primeAide.valeur;
-        }
-      }
-    }
-
     // === ECO TVA ===
     // TVA à 20% : prix total TTC (surcoûts inclus) / 6
     const ecoTva = prixTotalHorsAides / 6;
