@@ -4714,7 +4714,7 @@ _Envoyé depuis DébalePro_`;
                     ) : (
                       <>
                         <div className="flex justify-between">
-                          <span>Prime Autoconso</span>
+                          <span>Prime Coup de Pouce Producteur</span>
                           <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
                         </div>
                         <div className="flex justify-between">
