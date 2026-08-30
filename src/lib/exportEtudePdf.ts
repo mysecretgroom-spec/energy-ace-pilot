@@ -689,7 +689,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
     startY: yPos,
     head: [["Investissement", "", "Aides Financières", ""]],
     body: [
-      ["Installation TTC", formatEuros(data.prixInstallation), "Prime à l'autoconsommation", formatEuros(data.primeAutoconsommation)],
+      ["Installation TTC", formatEuros(data.prixInstallation), "Prime Coup de Pouce Producteur", formatEuros(data.primeAutoconsommation)],
       ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
       ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
       ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
@@ -1728,7 +1728,7 @@ const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?:
     startY: yPos,
     head: [["Investissement", "", "Aides Financières", ""]],
     body: [
-      ["Installation TTC", formatEuros(data.prixInstallation), "Prime à l'autoconsommation", formatEuros(data.primeAutoconsommation)],
+      ["Installation TTC", formatEuros(data.prixInstallation), "Prime Coup de Pouce Producteur", formatEuros(data.primeAutoconsommation)],
       ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
       ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
       ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
