@@ -1364,9 +1364,6 @@ const EtudeForm = () => {
         }, 0)
       : 0;
 
-    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
-    const totalAidesDeduites = prixTotalHorsAides - totalAides;
-
     // === MENSUALITÉ AVEC REPORT 6 MOIS ===
     // Financement basé sur le montant TTC total hors aides
     let mensualite = 0;
