@@ -1348,25 +1348,6 @@ const EtudeForm = () => {
 
     const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
-    // === PRIME AUTOCONSOMMATION (depuis data_aides) ===
-    // Pas de prime pour ≤ 3 kWc, prime par tranche au-dessus
-    let primeAutoconsommation = 0;
-    if (puissance > 3) {
-      const primeAide = dataAides.find(
-        (a) => a.code.startsWith("prime_autoconso") && 
-               a.actif &&
-               puissance >= (a.puissance_min || 0) && 
-               puissance <= (a.puissance_max || 999)
-      );
-      if (primeAide) {
-        if (primeAide.type_calcul === "par_kwc") {
-          primeAutoconsommation = puissance * primeAide.valeur;
-        } else if (primeAide.type_calcul === "fixe") {
-          primeAutoconsommation = primeAide.valeur;
-        }
-      }
-    }
-
     // === ECO TVA ===
     // TVA à 20% : prix total TTC (surcoûts inclus) / 6
     const ecoTva = prixTotalHorsAides / 6;
@@ -1382,9 +1363,6 @@ const EtudeForm = () => {
           }
         }, 0)
       : 0;
-
-    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
-    const totalAidesDeduites = prixTotalHorsAides - totalAides;
 
     // === MENSUALITÉ AVEC REPORT 6 MOIS ===
     // Financement basé sur le montant TTC total hors aides
@@ -1411,6 +1389,14 @@ const EtudeForm = () => {
     const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
       ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
       : facture;
+
+    // === PRIME COUP DE POUCE PRODUCTEUR (remplace la prime à l'autoconsommation) ===
+    // = 12 × (Facture d'élec mensuelle - Mensualité crédit)
+    // Correspond à la première année de revente garantie. Plafonnée à 0 (jamais négative).
+    const primeAutoconsommation = Math.max(0, 12 * (factureElecPourPV - mensualite));
+
+    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
+    const totalAidesDeduites = prixTotalHorsAides - totalAides;
     // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
     const autoconsommationEuros = (autoconsoPctCapped / 100) * factureElecPourPV;
@@ -4683,7 +4669,7 @@ _Envoyé depuis DébalePro_`;
                         ) : (
                           <>
                             <div className="flex justify-between">
-                              <span>Prime Autoconso</span>
+                              <span>Prime Coup de Pouce Producteur</span>
                               <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
                             </div>
                             <div className="flex justify-between">
@@ -4728,7 +4714,7 @@ _Envoyé depuis DébalePro_`;
                     ) : (
                       <>
                         <div className="flex justify-between">
-                          <span>Prime Autoconso</span>
+                          <span>Prime Coup de Pouce Producteur</span>
                           <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
                         </div>
                         <div className="flex justify-between">

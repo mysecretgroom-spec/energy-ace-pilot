@@ -1,0 +1,1 @@
+UPDATE public.data_aides SET actif = false WHERE code LIKE 'prime_autoconso%';

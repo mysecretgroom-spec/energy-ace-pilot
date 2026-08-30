@@ -53,7 +53,7 @@ const FEATURES = [
     title: "Études Techniques",
     description: "Créez des études professionnelles avec calcul automatique",
     highlights: [
-      "Calcul des aides (MaPrimeRénov, Prime Autoconso...)",
+      "Calcul des aides (MaPrimeRénov, Prime Coup de Pouce Producteur...)",
       "Dimensionnement automatique",
       "Export PDF professionnel",
       "Mode Hejja pour simulations",
