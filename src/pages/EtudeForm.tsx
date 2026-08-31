@@ -4702,20 +4702,13 @@ _Envoyé depuis DébalePro_`;
                         onAidesChange={setAidesManuelles}
                         puissanceKwc={Number(puissanceKwc) || 0}
                         prixTotal={calculatedResults!.prixTotalHorsAides}
-                        primeAutoconso={calculatedResults!.primeAutoconsommation}
                         ecoTva={calculatedResults!.ecoTva}
                       />
                     ) : (
-                      <>
-                        <div className="flex justify-between">
-                          <span>Prime Coup de Pouce Producteur</span>
-                          <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>ECO TVA</span>
-                          <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between">
+                        <span>ECO TVA</span>
+                        <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                      </div>
                     )}
                   </>
                 )}
