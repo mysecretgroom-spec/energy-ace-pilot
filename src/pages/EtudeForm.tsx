@@ -1347,14 +1347,59 @@ const EtudeForm = () => {
     }, 0);
     const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + surcoutEmplacement + autreSurcout;
 
-    const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
+    const basePrixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
+
+    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
+    // Financement basé sur le montant TTC total hors aides
+    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
+    const dureeMois = dureeMoisManuelle || 120;
+    const tauxEffectif = selectedFinancement?.taux_effectif || 0;
+
+    const computeMensualite = (montant: number): number => {
+      if (mensualiteManuelle) return Number(mensualiteManuelle);
+      const resultat = calculerMensualiteAvecReport({
+        montantTTC: montant,
+        tauxEffectifAnnuel: tauxEffectif,
+        dureeMois,
+        dureeReportMois: 6,
+      });
+      return resultat.mensualiteAmortissement;
+    };
+
+    // === RENTABILITÉ FINANCIÈRE ===
+    // En multi-produit avec PAC, la facture élec de référence inclut le surcoût PAC
+    const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
+      ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
+      : facture;
+
+    // === PRIME COUP DE POUCE PRODUCTEUR (charge société, pas une aide) ===
+    // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
+    // Elle est répercutée sur le prix TTC, arrondie au multiple de 500€ supérieur.
+    // Itération car la mensualité dépend elle-même du prix TTC.
+    let prixTotalHorsAides = basePrixTotalHorsAides;
+    let mensualite = 0;
+    let primeAutoconsommation = 0;
+    let primeChargeArrondie = 0;
+    for (let i = 0; i < 10; i++) {
+      mensualite = computeMensualite(prixTotalHorsAides);
+      primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
+      const charge = Math.ceil(primeAutoconsommation / 500) * 500;
+      const nextPrice = basePrixTotalHorsAides + charge;
+      if (Math.abs(nextPrice - prixTotalHorsAides) < 0.01) {
+        primeChargeArrondie = charge;
+        prixTotalHorsAides = nextPrice;
+        break;
+      }
+      prixTotalHorsAides = nextPrice;
+      primeChargeArrondie = charge;
+    }
 
     // === ECO TVA ===
     // TVA à 20% : prix total TTC (surcoûts inclus) / 6
     const ecoTva = prixTotalHorsAides / 6;
 
     // Calculate aides manuelles HEJJA total
-    const aidesManuellesTotal = modeHejjaActive 
+    const aidesManuellesTotal = modeHejjaActive
       ? aidesManuelles.reduce((sum, aide) => {
           switch (aide.type_calcul) {
             case "fixe": return sum + aide.valeur;
@@ -1364,38 +1409,6 @@ const EtudeForm = () => {
           }
         }, 0)
       : 0;
-
-    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
-    // Financement basé sur le montant TTC total hors aides
-    let mensualite = 0;
-    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || 120;
-    const tauxEffectif = selectedFinancement?.taux_effectif || 0;
-    
-    if (mensualiteManuelle) {
-      mensualite = Number(mensualiteManuelle);
-    } else {
-      // Calcul avec report de 6 mois sur le montant TTC hors aides
-      const resultatFinancement = calculerMensualiteAvecReport({
-        montantTTC: prixTotalHorsAides, // Montant TTC complet
-        tauxEffectifAnnuel: tauxEffectif,
-        dureeMois: dureeMois,
-        dureeReportMois: 6,
-      });
-      mensualite = resultatFinancement.mensualiteAmortissement;
-    }
-
-    // === RENTABILITÉ FINANCIÈRE ===
-    // En multi-produit avec PAC, la facture élec de référence inclut le surcoût PAC
-    const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
-      ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
-      : facture;
-
-    // === PRIME COUP DE POUCE PRODUCTEUR (remplace la prime à l'autoconsommation) ===
-    // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
-    // Correspond à la première année de revente garantie. Plafonnée à 0 (jamais négative).
-    // Ce montant n'est pas une aide à déduire du prix : il ne doit pas apparaître dans le récapitulatif des aides.
-    const primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
 
     const totalAides = ecoTva + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
