@@ -433,6 +433,7 @@ const EtudeForm = () => {
     prixSurcouts: number;
     prixTotalHorsAides: number;
     primeAutoconsommation: number;
+    primeChargeArrondie: number;
     ecoTva: number;
     totalAides: number;
     totalAidesDeduites: number;
