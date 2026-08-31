@@ -26,7 +26,6 @@ interface HejjaAidesEditorProps {
   onAidesChange: (aides: AideManuelle[]) => void;
   puissanceKwc: number;
   prixTotal: number;
-  primeAutoconso: number;
   ecoTva: number;
 }
 
