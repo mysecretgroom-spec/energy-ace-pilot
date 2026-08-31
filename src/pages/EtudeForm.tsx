@@ -1410,7 +1410,7 @@ const EtudeForm = () => {
         }, 0)
       : 0;
 
-    const totalAides = ecoTva + aidesManuellesTotal;
+    const totalAides = ecoTva + primeAutoconsommation + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
     // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
@@ -4498,12 +4498,6 @@ _Envoyé depuis DébalePro_`;
                         className="h-6 w-16 text-right text-xs"
                       />
                     </div>
-                    {activeProducts.includes("PV") && calculatedResults && calculatedResults.primeChargeArrondie > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Charge Prime Coup de Pouce Producteur</span>
-                        <span className="text-amber-600 font-medium">+{calculatedResults.primeChargeArrondie.toLocaleString("fr-FR")}€</span>
-                      </div>
-                    )}
                     <div className="flex justify-between items-center text-status-signed">
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
@@ -4565,12 +4559,6 @@ _Envoyé depuis DébalePro_`;
                       <span>Autre Surcoût</span>
                       <Input type="number" value={autreSurcout} onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)} className="h-6 w-16 text-right text-xs" />
                     </div>
-                    {calculatedResults!.primeChargeArrondie > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Charge Prime Coup de Pouce Producteur</span>
-                        <span className="text-amber-600 font-medium">+{calculatedResults!.primeChargeArrondie.toLocaleString("fr-FR")}€</span>
-                      </div>
-                    )}
                     <div className="flex justify-between items-center text-status-signed">
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
@@ -4693,12 +4681,19 @@ _Envoyé depuis DébalePro_`;
                             puissanceKwc={Number(puissanceKwc) || 0}
                             prixTotal={calculatedResults.prixTotalHorsAides}
                             ecoTva={calculatedResults.ecoTva}
+                            primeAutoconso={calculatedResults.primeAutoconsommation}
                           />
                         ) : (
-                          <div className="flex justify-between">
-                            <span>ECO TVA</span>
-                            <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR")}€</span>
-                          </div>
+                          <>
+                            <div className="flex justify-between">
+                              <span>Prime Coup de Pouce Producteur</span>
+                              <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>ECO TVA</span>
+                              <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR")}€</span>
+                            </div>
+                          </>
                         )}
                         <div className="flex justify-between text-[10px] font-medium text-amber-600">
                           <span>Sous-total PV</span>
@@ -4731,12 +4726,19 @@ _Envoyé depuis DébalePro_`;
                         puissanceKwc={Number(puissanceKwc) || 0}
                         prixTotal={calculatedResults!.prixTotalHorsAides}
                         ecoTva={calculatedResults!.ecoTva}
+                        primeAutoconso={calculatedResults!.primeAutoconsommation}
                       />
                     ) : (
-                      <div className="flex justify-between">
-                        <span>ECO TVA</span>
-                        <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                      </div>
+                      <>
+                        <div className="flex justify-between">
+                          <span>Prime Coup de Pouce Producteur</span>
+                          <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ECO TVA</span>
+                          <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                        </div>
+                      </>
                     )}
                   </>
                 )}
