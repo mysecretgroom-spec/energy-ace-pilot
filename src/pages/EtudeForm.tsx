@@ -1447,6 +1447,7 @@ const EtudeForm = () => {
       prixSurcouts: Math.round(prixSurcouts * 100) / 100,
       prixTotalHorsAides: Math.round(prixTotalHorsAides * 100) / 100,
       primeAutoconsommation: Math.round(primeAutoconsommation * 100) / 100,
+      primeChargeArrondie: Math.round(primeChargeArrondie * 100) / 100,
       ecoTva: Math.round(ecoTva * 100) / 100,
       totalAides: Math.round(totalAides * 100) / 100,
       totalAidesDeduites: Math.round(totalAidesDeduites * 100) / 100,
