@@ -27,6 +27,7 @@ interface HejjaAidesEditorProps {
   puissanceKwc: number;
   prixTotal: number;
   ecoTva: number;
+  primeAutoconso?: number;
 }
 
 const typeCalculLabels: Record<string, string> = {
