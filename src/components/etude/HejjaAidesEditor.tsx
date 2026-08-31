@@ -26,7 +26,6 @@ interface HejjaAidesEditorProps {
   onAidesChange: (aides: AideManuelle[]) => void;
   puissanceKwc: number;
   prixTotal: number;
-  primeAutoconso: number;
   ecoTva: number;
 }
 
@@ -41,7 +40,6 @@ export function HejjaAidesEditor({
   onAidesChange,
   puissanceKwc,
   prixTotal,
-  primeAutoconso,
   ecoTva,
 }: HejjaAidesEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -106,7 +104,7 @@ export function HejjaAidesEditor({
   };
 
   const totalAidesManuelles = aides.reduce((sum, a) => sum + (a.montant_calcule || calculateMontant(a)), 0);
-  const totalAidesGlobal = primeAutoconso + ecoTva + totalAidesManuelles;
+  const totalAidesGlobal = ecoTva + totalAidesManuelles;
 
   return (
     <div className="space-y-3">
@@ -122,12 +120,6 @@ export function HejjaAidesEditor({
 
       {/* Aides standards (lecture seule, affichage) */}
       <div className="space-y-1 text-xs">
-        <div className="flex justify-between">
-          <span>Prime Coup de Pouce Producteur</span>
-          <span className="font-medium text-status-signed">
-            {primeAutoconso.toLocaleString("fr-FR")}€
-          </span>
-        </div>
         <div className="flex justify-between">
           <span>ECO TVA (standard)</span>
           <span className="font-medium text-status-signed">

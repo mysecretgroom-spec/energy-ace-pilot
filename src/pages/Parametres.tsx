@@ -56,7 +56,7 @@ const dataPvItems = [
   { icon: Euro, label: "Tarifs revente", description: "Prix kWh revente/autoconso", path: "/parametres/data-tarifs" },
   { icon: Zap, label: "Types de compteurs", description: "Monophasé, triphasé", path: "/parametres/data-compteurs" },
   { icon: Gauge, label: "Calibres disjoncteur", description: "Ampérage et puissances", path: "/parametres/data-calibres" },
-  { icon: Gift, label: "Aides & Primes PV", description: "Prime Coup de Pouce Producteur, éco TVA", path: "/parametres/data-aides" },
+  { icon: Gift, label: "Aides & Primes PV", description: "Éco TVA et aides manuelles", path: "/parametres/data-aides" },
 ];
 
 // Données PAC

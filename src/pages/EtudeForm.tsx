@@ -433,6 +433,7 @@ const EtudeForm = () => {
     prixSurcouts: number;
     prixTotalHorsAides: number;
     primeAutoconsommation: number;
+    primeChargeArrondie: number;
     ecoTva: number;
     totalAides: number;
     totalAidesDeduites: number;
@@ -1346,14 +1347,59 @@ const EtudeForm = () => {
     }, 0);
     const prixSurcouts = prixSurcoûtsOptions + surcoutSupport + surcoutCompteur + surcoutEmplacement + autreSurcout;
 
-    const prixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
+    const basePrixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
+
+    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
+    // Financement basé sur le montant TTC total hors aides
+    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
+    const dureeMois = dureeMoisManuelle || 120;
+    const tauxEffectif = selectedFinancement?.taux_effectif || 0;
+
+    const computeMensualite = (montant: number): number => {
+      if (mensualiteManuelle) return Number(mensualiteManuelle);
+      const resultat = calculerMensualiteAvecReport({
+        montantTTC: montant,
+        tauxEffectifAnnuel: tauxEffectif,
+        dureeMois,
+        dureeReportMois: 6,
+      });
+      return resultat.mensualiteAmortissement;
+    };
+
+    // === RENTABILITÉ FINANCIÈRE ===
+    // En multi-produit avec PAC, la facture élec de référence inclut le surcoût PAC
+    const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
+      ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
+      : facture;
+
+    // === PRIME COUP DE POUCE PRODUCTEUR (charge société, pas une aide) ===
+    // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
+    // Elle est répercutée sur le prix TTC, arrondie au multiple de 500€ supérieur.
+    // Itération car la mensualité dépend elle-même du prix TTC.
+    let prixTotalHorsAides = basePrixTotalHorsAides;
+    let mensualite = 0;
+    let primeAutoconsommation = 0;
+    let primeChargeArrondie = 0;
+    for (let i = 0; i < 10; i++) {
+      mensualite = computeMensualite(prixTotalHorsAides);
+      primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
+      const charge = Math.ceil(primeAutoconsommation / 500) * 500;
+      const nextPrice = basePrixTotalHorsAides + charge;
+      if (Math.abs(nextPrice - prixTotalHorsAides) < 0.01) {
+        primeChargeArrondie = charge;
+        prixTotalHorsAides = nextPrice;
+        break;
+      }
+      prixTotalHorsAides = nextPrice;
+      primeChargeArrondie = charge;
+    }
 
     // === ECO TVA ===
     // TVA à 20% : prix total TTC (surcoûts inclus) / 6
     const ecoTva = prixTotalHorsAides / 6;
 
     // Calculate aides manuelles HEJJA total
-    const aidesManuellesTotal = modeHejjaActive 
+    const aidesManuellesTotal = modeHejjaActive
       ? aidesManuelles.reduce((sum, aide) => {
           switch (aide.type_calcul) {
             case "fixe": return sum + aide.valeur;
@@ -1364,38 +1410,7 @@ const EtudeForm = () => {
         }, 0)
       : 0;
 
-    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
-    // Financement basé sur le montant TTC total hors aides
-    let mensualite = 0;
-    const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || 120;
-    const tauxEffectif = selectedFinancement?.taux_effectif || 0;
-    
-    if (mensualiteManuelle) {
-      mensualite = Number(mensualiteManuelle);
-    } else {
-      // Calcul avec report de 6 mois sur le montant TTC hors aides
-      const resultatFinancement = calculerMensualiteAvecReport({
-        montantTTC: prixTotalHorsAides, // Montant TTC complet
-        tauxEffectifAnnuel: tauxEffectif,
-        dureeMois: dureeMois,
-        dureeReportMois: 6,
-      });
-      mensualite = resultatFinancement.mensualiteAmortissement;
-    }
-
-    // === RENTABILITÉ FINANCIÈRE ===
-    // En multi-produit avec PAC, la facture élec de référence inclut le surcoût PAC
-    const factureElecPourPV = activeProducts.includes("PAC") && pacEconomiesCalculees
-      ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
-      : facture;
-
-    // === PRIME COUP DE POUCE PRODUCTEUR (remplace la prime à l'autoconsommation) ===
-    // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
-    // Correspond à la première année de revente garantie. Plafonnée à 0 (jamais négative).
-    const primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
-
-    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
+    const totalAides = ecoTva + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
     // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
@@ -1432,6 +1447,7 @@ const EtudeForm = () => {
       prixSurcouts: Math.round(prixSurcouts * 100) / 100,
       prixTotalHorsAides: Math.round(prixTotalHorsAides * 100) / 100,
       primeAutoconsommation: Math.round(primeAutoconsommation * 100) / 100,
+      primeChargeArrondie: Math.round(primeChargeArrondie * 100) / 100,
       ecoTva: Math.round(ecoTva * 100) / 100,
       totalAides: Math.round(totalAides * 100) / 100,
       totalAidesDeduites: Math.round(totalAidesDeduites * 100) / 100,
@@ -4351,7 +4367,8 @@ _Envoyé depuis DébalePro_`;
               + (activeProducts.includes("PAC") ? prixPACFinal : 0)
               + (activeProducts.includes("ITE") ? prixITEFinal : 0);
           }
-          const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale) : prixGlobalBrut;
+          const primeChargeMulti = activeProducts.includes("PV") ? (calculatedResults?.primeChargeArrondie || 0) : 0;
+          const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale + primeChargeMulti) : prixGlobalBrut;
 
           const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
           const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
@@ -4481,6 +4498,12 @@ _Envoyé depuis DébalePro_`;
                         className="h-6 w-16 text-right text-xs"
                       />
                     </div>
+                    {activeProducts.includes("PV") && calculatedResults && calculatedResults.primeChargeArrondie > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Charge Prime Coup de Pouce Producteur</span>
+                        <span className="text-amber-600 font-medium">+{calculatedResults.primeChargeArrondie.toLocaleString("fr-FR")}€</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-status-signed">
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
@@ -4542,6 +4565,12 @@ _Envoyé depuis DébalePro_`;
                       <span>Autre Surcoût</span>
                       <Input type="number" value={autreSurcout} onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)} className="h-6 w-16 text-right text-xs" />
                     </div>
+                    {calculatedResults!.primeChargeArrondie > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Charge Prime Coup de Pouce Producteur</span>
+                        <span className="text-amber-600 font-medium">+{calculatedResults!.primeChargeArrondie.toLocaleString("fr-FR")}€</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-status-signed">
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
@@ -4663,20 +4692,13 @@ _Envoyé depuis DébalePro_`;
                             onAidesChange={setAidesManuelles}
                             puissanceKwc={Number(puissanceKwc) || 0}
                             prixTotal={calculatedResults.prixTotalHorsAides}
-                            primeAutoconso={calculatedResults.primeAutoconsommation}
                             ecoTva={calculatedResults.ecoTva}
                           />
                         ) : (
-                          <>
-                            <div className="flex justify-between">
-                              <span>Prime Coup de Pouce Producteur</span>
-                              <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>ECO TVA</span>
-                              <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR")}€</span>
-                            </div>
-                          </>
+                          <div className="flex justify-between">
+                            <span>ECO TVA</span>
+                            <span className="font-medium text-status-signed">{calculatedResults.ecoTva.toLocaleString("fr-FR")}€</span>
+                          </div>
                         )}
                         <div className="flex justify-between text-[10px] font-medium text-amber-600">
                           <span>Sous-total PV</span>
@@ -4708,20 +4730,13 @@ _Envoyé depuis DébalePro_`;
                         onAidesChange={setAidesManuelles}
                         puissanceKwc={Number(puissanceKwc) || 0}
                         prixTotal={calculatedResults!.prixTotalHorsAides}
-                        primeAutoconso={calculatedResults!.primeAutoconsommation}
                         ecoTva={calculatedResults!.ecoTva}
                       />
                     ) : (
-                      <>
-                        <div className="flex justify-between">
-                          <span>Prime Coup de Pouce Producteur</span>
-                          <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>ECO TVA</span>
-                          <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                        </div>
-                      </>
+                      <div className="flex justify-between">
+                        <span>ECO TVA</span>
+                        <span className="font-medium text-status-signed">{calculatedResults!.ecoTva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                      </div>
                     )}
                   </>
                 )}
