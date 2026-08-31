@@ -4565,6 +4565,12 @@ _Envoyé depuis DébalePro_`;
                       <span>Autre Surcoût</span>
                       <Input type="number" value={autreSurcout} onChange={(e) => setAutreSurcout(Number(e.target.value) || 0)} className="h-6 w-16 text-right text-xs" />
                     </div>
+                    {calculatedResults!.primeChargeArrondie > 0 && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Charge Prime Coup de Pouce Producteur</span>
+                        <span className="text-amber-600 font-medium">+{calculatedResults!.primeChargeArrondie.toLocaleString("fr-FR")}€</span>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center text-status-signed">
                       <span className="flex items-center gap-1">
                         <Tag className="h-3 w-3" />
