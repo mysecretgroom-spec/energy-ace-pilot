@@ -40,7 +40,6 @@ export function HejjaAidesEditor({
   onAidesChange,
   puissanceKwc,
   prixTotal,
-  primeAutoconso,
   ecoTva,
 }: HejjaAidesEditorProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
