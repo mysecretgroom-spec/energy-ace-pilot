@@ -296,6 +296,7 @@ export const useWhatsAppNotification = () => {
         if (venteDetails.puissanceKwc) parts.push(`⚡ Puissance: *${venteDetails.puissanceKwc} kWc*`);
         if (venteDetails.prixTTC) parts.push(`💰 Prix: *${venteDetails.prixTTC.toLocaleString("fr-FR")}€ TTC*`);
         if (venteDetails.totalAides) parts.push(`🏛️ Total aides: *${venteDetails.totalAides.toLocaleString("fr-FR")}€*`);
+        if (venteDetails.primeAutoconsommation) parts.push(`☀️ Prime Coup de Pouce Producteur: ${venteDetails.primeAutoconsommation.toLocaleString("fr-FR")}€`);
         if (venteDetails.ecoTva) parts.push(`📊 ECO TVA: ${venteDetails.ecoTva.toLocaleString("fr-FR")}€`);
         if (venteDetails.productType) parts.push(`🔧 Type: ${venteDetails.productType}`);
         venteDetailsText = parts.join("\n");
