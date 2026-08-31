@@ -1393,9 +1393,10 @@ const EtudeForm = () => {
     // === PRIME COUP DE POUCE PRODUCTEUR (remplace la prime à l'autoconsommation) ===
     // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
     // Correspond à la première année de revente garantie. Plafonnée à 0 (jamais négative).
+    // Ce montant n'est pas une aide à déduire du prix : il ne doit pas apparaître dans le récapitulatif des aides.
     const primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
 
-    const totalAides = primeAutoconsommation + ecoTva + aidesManuellesTotal;
+    const totalAides = ecoTva + aidesManuellesTotal;
     const totalAidesDeduites = prixTotalHorsAides - totalAides;
     // Autoconsommation (€) = % autoconso (plafonné à 100%) × facture mensuelle (post-PAC si applicable)
     const autoconsoPctCapped = Math.min(autoconsoPct, 100);
