@@ -4367,7 +4367,8 @@ _Envoyé depuis DébalePro_`;
               + (activeProducts.includes("PAC") ? prixPACFinal : 0)
               + (activeProducts.includes("ITE") ? prixITEFinal : 0);
           }
-          const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale) : prixGlobalBrut;
+          const primeChargeMulti = activeProducts.includes("PV") ? (calculatedResults?.primeChargeArrondie || 0) : 0;
+          const prixGlobalHorsAides = isMulti ? (prixGlobalBrut - remiseCommerciale + primeChargeMulti) : prixGlobalBrut;
 
           const totalAidesPAC = aidesPAC.maPrimeRenov + aidesPAC.cee + aidesPAC.ecoTva + aidesPAC.aideLocale + (aidesPAC.deposeChaudiere || 0) + (aidesPAC.ballonThermo || 0) + (aidesPAC.raccordementReseau || 0);
           const totalAidesITE = aidesITE.maPrimeRenov + aidesITE.cee + aidesITE.ecoTva + aidesITE.aideLocale;
