@@ -689,8 +689,8 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
     startY: yPos,
     head: [["Investissement", "", "Aides Financières", ""]],
     body: [
-      ["Installation TTC", formatEuros(data.prixInstallation), "Prime Coup de Pouce Producteur", formatEuros(data.primeAutoconsommation)],
-      ["Surcoût support", formatEuros(data.surcoutSupport), "Éco-participation TVA", formatEuros(data.ecoTva)],
+      ["Installation TTC", formatEuros(data.prixInstallation), "Éco-participation TVA", formatEuros(data.ecoTva)],
+      ["Surcoût support", formatEuros(data.surcoutSupport), "", ""],
       ["Surcoût compteur", formatEuros(data.surcoutCompteur), "", ""],
       ["Autres frais", formatEuros(data.autreSurcout), "TOTAL DES AIDES", formatEuros(data.totalAides)],
       ...(data.remiseCommerciale ? [["Remise commerciale", `- ${formatEuros(data.remiseCommerciale)}`, "", ""]] : []),
