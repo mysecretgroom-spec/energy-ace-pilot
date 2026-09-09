@@ -263,6 +263,9 @@ const VenteDetail = () => {
     const newNotes = venteData.notes || "";
     const newPuissanceKwc = venteData.puissance_kwc || "";
     const newTypeInstallation = venteData.type_installation || "";
+    const newGamme = (venteData as any).gamme || "";
+    setGamme(newGamme);
+    
     
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
