@@ -9,8 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "lg-glass lg-glass-primary text-primary",
-        destructive: "lg-glass lg-glass-destructive text-destructive",
+        default: "lg-glass lg-glass-primary text-primary-foreground",
+        destructive: "lg-glass lg-glass-destructive text-destructive-foreground",
         outline: "lg-glass lg-glass-neutral text-foreground hover:text-accent-foreground",
         secondary: "lg-glass lg-glass-secondary text-secondary-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
