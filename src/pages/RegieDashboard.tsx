@@ -45,6 +45,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
 }
 
 interface VenteDetail {
@@ -219,6 +220,7 @@ const RegieDashboard = () => {
         regie_id: v.regie_id,
         etude_id: v.etude_id,
         status: v.status,
+        gamme: (v as any).gamme || null,
       })));
 
       // Count by status
