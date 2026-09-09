@@ -30,7 +30,10 @@ import {
   Loader2,
   AlertTriangle,
   Download,
+  Copy,
+  Check,
 } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
