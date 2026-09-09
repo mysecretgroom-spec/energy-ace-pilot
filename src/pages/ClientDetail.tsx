@@ -592,29 +592,33 @@ const ClientDetailInner = () => {
                 {client.telephone && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.telephone}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.telephone}</span>
+                    <CopyButton field="tel" value={client.telephone} />
                   </div>
                 )}
                 {client.telephone_secondaire && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.telephone_secondaire}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.telephone_secondaire}</span>
+                    <CopyButton field="tel2" value={client.telephone_secondaire} />
                   </div>
                 )}
                 {client.email && (
                   <div className="flex items-center gap-3">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.email}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.email}</span>
+                    <CopyButton field="email" value={client.email} />
                   </div>
                 )}
                 {client.adresse && (
                   <div className="flex items-start gap-3">
                     <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">
+                    <span className="text-sm flex-1 min-w-0 break-words">
                       {client.adresse}
                       {client.code_postal && `, ${client.code_postal}`}
                       {client.ville && ` ${client.ville}`}
                     </span>
+                    <CopyButton field="adresse" value={fullAddress} />
                   </div>
                 )}
                 {client.source && (
