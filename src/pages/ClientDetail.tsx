@@ -243,6 +243,7 @@ const ClientDetailInner = () => {
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showLiveScanner, setShowLiveScanner] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [showNewRdvDialog, setShowNewRdvDialog] = useState(false);
