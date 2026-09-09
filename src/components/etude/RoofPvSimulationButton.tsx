@@ -177,7 +177,7 @@ export function RoofPvSimulationButton({
               Zone de pose autorisée
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Précisez où l’IA doit placer les panneaux. Laissez vide pour laisser l’IA choisir le meilleur emplacement.
+              La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez ici une zone de pose supplémentaire si besoin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
