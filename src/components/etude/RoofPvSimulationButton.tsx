@@ -162,7 +162,7 @@ export function RoofPvSimulationButton({
 
       toast({
         title: "Simulation générée",
-        description: `${nbPanneaux || "Plusieurs"} panneaux posés sur le toit. Le rendu sera joint au rapport.`,
+        description: `${nbPanneaux || "Plusieurs"} panneaux — ${INSTALLATION_LABELS[installationType]}. Le rendu sera joint au rapport.`,
       });
       onSimulationSaved?.();
     } catch (err) {
