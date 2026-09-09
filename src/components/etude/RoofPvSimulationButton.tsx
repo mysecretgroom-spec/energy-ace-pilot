@@ -146,7 +146,7 @@ export function RoofPvSimulationButton({
         user_id: user.id,
         client_id: clientId,
         etude_id: etudeId || null,
-        nom: `Simulation panneaux (IA) - ${new Date().toLocaleDateString("fr-FR")}.png`,
+        nom: `Simulation ${INSTALLATION_LABELS[installationType]} (IA) - ${new Date().toLocaleDateString("fr-FR")}.png`,
         type_document: "photo_toiture",
         context_source: "simulation_pv",
         url: urlData.publicUrl,
