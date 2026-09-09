@@ -97,8 +97,11 @@ export function RoofPvSimulationButton({
     setConstraintOpen(false);
     setLoading(true);
     try {
+      const combinedConstraint = [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()]
+        .filter(Boolean)
+        .join(" ");
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: surfaceConstraint.trim() || undefined },
+        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint },
       });
 
       if (fnError || !data?.image) {
