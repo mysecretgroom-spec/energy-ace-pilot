@@ -28,10 +28,12 @@ function base64ToBlob(b64: string, mime = "image/png"): Blob {
   return new Blob(chunks as unknown as BlobPart[], { type: mime });
 }
 
+const BASE_MANDATORY_CONSTRAINT =
+  "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
+
 const PRESET_CONSTRAINTS = [
   { label: "Tuiles uniquement", value: "Poser les panneaux UNIQUEMENT sur le pan de toiture en tuiles. Ne rien installer sur les surfaces planes, les extensions, les garages, les terrasses ou les parties végétalisées." },
   { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
-  { label: "Sans dépasser les rives", value: "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent ni dépasser ni recouvrir les gouttières, lucarnes ou cheminées." },
 ];
 
 /**
