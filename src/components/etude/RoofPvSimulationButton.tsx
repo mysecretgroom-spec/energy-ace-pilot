@@ -36,6 +36,22 @@ const PRESET_CONSTRAINTS = [
   { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
 ];
 
+type InstallationType = "toiture" | "carport_bois" | "carport_alu" | "bac_leste";
+
+const INSTALLATION_TYPES: { value: InstallationType; label: string }[] = [
+  { value: "toiture", label: "Toiture" },
+  { value: "carport_bois", label: "Carport bois" },
+  { value: "carport_alu", label: "Carport alu" },
+  { value: "bac_leste", label: "Bac lesté (GSE)" },
+];
+
+const INSTALLATION_LABELS: Record<InstallationType, string> = {
+  toiture: "Toiture",
+  carport_bois: "Carport bois",
+  carport_alu: "Carport aluminium",
+  bac_leste: "Bacs lestés (GSE)",
+};
+
 /**
  * Génère, à partir de la dernière photo de toiture, un photomontage IA
  * avec le nombre de panneaux calculé dans l'étude.
