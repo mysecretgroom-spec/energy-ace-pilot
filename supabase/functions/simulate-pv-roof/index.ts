@@ -44,12 +44,19 @@ Deno.serve(async (req) => {
     Number.isFinite(nbPanneauxRaw) && nbPanneauxRaw > 0 && nbPanneauxRaw <= 200
       ? Math.round(nbPanneauxRaw)
       : 0;
+  const surfaceConstraint =
+    typeof payload.surfaceConstraint === "string"
+      ? payload.surfaceConstraint.trim()
+      : "";
 
   if (!imageUrl && !imageBase64) {
     return json({ error: "Photo manquante" }, 400);
   }
   if (imageUrl && !/^https:\/\//i.test(imageUrl)) {
     return json({ error: "URL de photo invalide" }, 400);
+  }
+  if (surfaceConstraint.length > 1500) {
+    return json({ error: "Consigne de surface trop longue" }, 400);
   }
 
   let dataUrl = "";
@@ -84,11 +91,16 @@ Deno.serve(async (req) => {
     ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément).`
     : `Installe un nombre réaliste de panneaux solaires sur le pan de toiture le mieux exposé.`;
 
+  const surfaceInstruction = surfaceConstraint
+    ? `Consigne de zone obligatoire : ${surfaceConstraint}`
+    : "Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.";
+
   const prompt = [
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
     "Modifie UNIQUEMENT cette photo réelle pour y ajouter des panneaux solaires posés sur la toiture.",
     countInstruction,
-    "Contraintes : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux rives du toit,",
+    surfaceInstruction,
+    "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux rives du toit,",
     "respect strict de la perspective, des pentes, des ombres et de la lumière existante.",
     "Ne modifie ni le bâtiment, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
