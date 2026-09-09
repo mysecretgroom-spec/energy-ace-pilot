@@ -59,8 +59,8 @@ body {
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Bleu accent SaaS pro */
-    --primary: 209 85% 47%;
+    /* Vert corporate (couleur historique) */
+    --primary: 152 60% 40%;
     --primary-foreground: 0 0% 100%;
 
     /* Ambre premium - accent secondaire */
@@ -82,7 +82,7 @@ body {
     /* Bordures - plus légères et professionnelles */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 209 85% 47%;
+    --ring: 152 60% 40%;
 
     --radius: 0.3rem;
 
@@ -129,8 +129,8 @@ body {
     --popover: 220 41% 13%;
     --popover-foreground: 215 47% 93%;
 
-    /* Bleu accent */
-    --primary: 209 85% 53%; /* #1E88E5 */
+    /* Vert corporate (dark) */
+    --primary: 152 58% 45%;
     --primary-foreground: 0 0% 100%;
 
     /* Ambre premium */
@@ -152,7 +152,7 @@ body {
     /* Bordures fines 1px */
     --border: 219 30% 22%;
     --input: 219 30% 22%;
-    --ring: 209 85% 53%;
+    --ring: 152 58% 45%;
 
     /* Statuts RDV dark */
     --status-new: 210 100% 60%;
@@ -166,12 +166,12 @@ body {
     /* Sidebar dark */
     --sidebar-background: 222 44% 8%;
     --sidebar-foreground: 215 47% 93%;
-    --sidebar-primary: 209 85% 53%;
+    --sidebar-primary: 152 58% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 30% 18%;
     --sidebar-accent-foreground: 215 47% 93%;
     --sidebar-border: 219 30% 22%;
-    --sidebar-ring: 209 85% 53%;
+    --sidebar-ring: 152 58% 45%;
   }
 }
 
@@ -412,5 +412,77 @@ body {
     color: #ffffff !important;
     text-shadow: none !important;
     border: 0 !important;
+  }
+}
+
+/* ============ Liquid Glass buttons ============ */
+@layer components {
+  .lg-glass {
+    position: relative;
+    isolation: isolate;
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid hsl(0 0% 100% / 0.28);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.45),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.08),
+      0 6px 18px -8px hsl(222 47% 11% / 0.35);
+    transition: box-shadow 0.25s ease, transform 0.15s ease, background-color 0.25s ease;
+  }
+  .lg-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      160deg,
+      hsl(0 0% 100% / 0.35) 0%,
+      hsl(0 0% 100% / 0.08) 38%,
+      hsl(0 0% 100% / 0) 62%
+    );
+    z-index: -1;
+  }
+  .lg-glass:hover {
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.55),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.1),
+      0 10px 26px -10px hsl(222 47% 11% / 0.45);
+  }
+  .lg-glass:active {
+    box-shadow:
+      inset 0 2px 6px hsl(222 47% 11% / 0.25),
+      0 2px 8px -6px hsl(222 47% 11% / 0.4);
+  }
+  .dark .lg-glass {
+    border-color: hsl(0 0% 100% / 0.14);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.16),
+      inset 0 -1px 0 hsl(0 0% 0% / 0.35),
+      0 8px 22px -12px hsl(0 0% 0% / 0.8);
+  }
+  .dark .lg-glass::before {
+    background: linear-gradient(
+      160deg,
+      hsl(0 0% 100% / 0.16) 0%,
+      hsl(0 0% 100% / 0.04) 40%,
+      hsl(0 0% 100% / 0) 65%
+    );
+  }
+  /* Teintes translucides par variante */
+  .lg-glass-primary { background-color: hsl(var(--primary) / 0.82); }
+  .lg-glass-primary:hover { background-color: hsl(var(--primary) / 0.92); }
+  .lg-glass-destructive { background-color: hsl(var(--destructive) / 0.82); }
+  .lg-glass-destructive:hover { background-color: hsl(var(--destructive) / 0.92); }
+  .lg-glass-secondary { background-color: hsl(var(--secondary) / 0.78); }
+  .lg-glass-secondary:hover { background-color: hsl(var(--secondary) / 0.9); }
+  .lg-glass-neutral { background-color: hsl(var(--card) / 0.55); }
+  .lg-glass-neutral:hover { background-color: hsl(var(--card) / 0.75); }
+  @media (prefers-reduced-transparency: reduce) {
+    .lg-glass { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .lg-glass-primary { background-color: hsl(var(--primary)); }
+    .lg-glass-destructive { background-color: hsl(var(--destructive)); }
+    .lg-glass-secondary { background-color: hsl(var(--secondary)); }
+    .lg-glass-neutral { background-color: hsl(var(--card)); }
   }
 }
