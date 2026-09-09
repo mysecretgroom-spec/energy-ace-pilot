@@ -60,6 +60,7 @@ import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, Financi
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
+import { SatelliteMapEmbed } from "@/components/etude/SatelliteMapEmbed";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
