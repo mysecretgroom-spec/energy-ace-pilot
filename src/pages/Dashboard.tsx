@@ -116,6 +116,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
   date_signature: string | null;
   is_retape: boolean;
   client_nom?: string;
