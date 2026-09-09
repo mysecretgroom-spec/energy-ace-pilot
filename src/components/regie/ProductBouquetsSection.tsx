@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Layers } from "lucide-react";
 import { 
   Plus, 
   Trash2, 
@@ -33,6 +35,7 @@ interface RegieBouquet {
   actif: boolean;
   product_type: ProductType | null;
   gamme?: string | null;
+  gamme_id?: string | null;
   isGlobal?: boolean;
 }
 
@@ -50,6 +53,12 @@ interface ProductBouquetsSectionProps {
   onRefresh: () => void;
   onUpdateCommissionMode: (mode: 'pourcentage' | 'bouquet') => void;
   onUpdateSurventePct: (pct: number) => void;
+}
+
+interface Gamme {
+  id: string;
+  nom: string;
+  product_type: ProductType;
 }
 
 const formatCurrency = (amount: number) => {
@@ -76,11 +85,70 @@ export function ProductBouquetsSection({
 }: ProductBouquetsSectionProps) {
   const [activeProductTab, setActiveProductTab] = useState<ProductType>("PV");
   const [saving, setSaving] = useState(false);
+
+  // Gammes (par régie et par produit)
+  const [gammes, setGammes] = useState<Gamme[]>([]);
+  const [newGammeNom, setNewGammeNom] = useState("");
+
+  const loadGammes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("regies_gammes")
+      .select("id, nom, product_type")
+      .eq("regie_id", selectedRegie.id)
+      .eq("actif", true)
+      .order("nom");
+    if (error) {
+      console.error("Error loading gammes:", error);
+      return;
+    }
+    setGammes((data || []).map((g) => ({ id: g.id, nom: g.nom, product_type: (g.product_type as ProductType) || "PV" })));
+  }, [selectedRegie.id]);
+
+  useEffect(() => { loadGammes(); }, [loadGammes]);
+
+  const getGammes = (productType: ProductType) => gammes.filter((g) => g.product_type === productType);
+
+  const handleAddGamme = async (productType: ProductType) => {
+    const nom = newGammeNom.trim();
+    if (!nom) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("regies_gammes").insert({
+        user_id: userId,
+        regie_id: selectedRegie.id,
+        product_type: productType,
+        nom,
+      });
+      if (error) throw error;
+      setNewGammeNom("");
+      toast.success("Gamme ajoutée");
+      await loadGammes();
+    } catch (error) {
+      console.error("Error adding gamme:", error);
+      toast.error("Cette gamme existe déjà ou n'a pas pu être créée");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGamme = async (gamme: Gamme) => {
+    try {
+      const { error } = await supabase.from("regies_gammes").update({ actif: false }).eq("id", gamme.id);
+      if (error) throw error;
+      await supabase.from("bouquets").update({ gamme_id: null, gamme: null }).eq("gamme_id", gamme.id);
+      toast.success("Gamme supprimée");
+      await loadGammes();
+      onRefresh();
+    } catch (error) {
+      console.error("Error deleting gamme:", error);
+      toast.error("Erreur lors de la suppression");
+    }
+  };
   
   // Form state for new bouquet
   const [newBouquet, setNewBouquet] = useState({
     nom_bouquet: "",
-    gamme: "",
+    gamme_id: "",
     puissance_kwc: 3,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -90,7 +158,7 @@ export function ProductBouquetsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     nom_bouquet: "",
-    gamme: "",
+    gamme_id: "",
     puissance_kwc: 0,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -118,7 +186,8 @@ export function ProductBouquetsSection({
       const { error } = await supabase.from("bouquets").insert({
         user_id: userId,
         nom_bouquet: newBouquet.nom_bouquet.trim(),
-        gamme: newBouquet.gamme.trim() || null,
+        gamme_id: newBouquet.gamme_id || null,
+        gamme: gammes.find((g) => g.id === newBouquet.gamme_id)?.nom || null,
         puissance_kwc: newBouquet.puissance_kwc,
         prix_recommande: newBouquet.prix_recommande,
         prix_max: newBouquet.prix_recommande,
@@ -133,7 +202,7 @@ export function ProductBouquetsSection({
       toast.success("Bouquet ajouté");
       setNewBouquet({
         nom_bouquet: "",
-        gamme: "",
+        gamme_id: "",
         puissance_kwc: productType === "ITE" ? 100 : 3,
         prix_recommande: 0,
         commission_fixe: 0,
@@ -187,7 +256,7 @@ export function ProductBouquetsSection({
     setEditingId(bouquet.id);
     setEditForm({
       nom_bouquet: bouquet.nom_bouquet,
-      gamme: bouquet.gamme || "",
+      gamme_id: bouquet.gamme_id || "",
       puissance_kwc: bouquet.puissance_kwc,
       prix_recommande: bouquet.prix_recommande,
       commission_fixe: bouquet.commission_fixe,
@@ -209,7 +278,8 @@ export function ProductBouquetsSection({
         .from("bouquets")
         .update({
           nom_bouquet: editForm.nom_bouquet.trim(),
-          gamme: editForm.gamme.trim() || null,
+          gamme_id: editForm.gamme_id || null,
+          gamme: gammes.find((g) => g.id === editForm.gamme_id)?.nom || null,
           puissance_kwc: editForm.puissance_kwc,
           prix_recommande: editForm.prix_recommande,
           prix_max: editForm.prix_recommande,
@@ -297,12 +367,21 @@ export function ProductBouquetsSection({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Gamme (optionnel)</label>
-                          <Input
-                            placeholder="Ex. Standard, Premium"
-                            value={newBouquet.gamme}
-                            onChange={(e) => setNewBouquet({ ...newBouquet, gamme: e.target.value })}
-                          />
+                          <label className="text-xs text-muted-foreground">Gamme</label>
+                          <Select
+                            value={newBouquet.gamme_id || "none"}
+                            onValueChange={(v) => setNewBouquet({ ...newBouquet, gamme_id: v === "none" ? "" : v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sans gamme" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sans gamme</SelectItem>
+                              {getGammes(productType).map((g) => (
+                                <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <Button 
@@ -335,12 +414,20 @@ export function ProductBouquetsSection({
                                 onChange={(e) => setEditForm({ ...editForm, nom_bouquet: e.target.value })}
                                 className="h-8 text-sm font-medium"
                               />
-                              <Input
-                                placeholder="Gamme (optionnel)"
-                                value={editForm.gamme}
-                                onChange={(e) => setEditForm({ ...editForm, gamme: e.target.value })}
-                                className="h-8 text-xs"
-                              />
+                              <Select
+                                value={editForm.gamme_id || "none"}
+                                onValueChange={(v) => setEditForm({ ...editForm, gamme_id: v === "none" ? "" : v })}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Sans gamme" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sans gamme</SelectItem>
+                                  {getGammes(productType).map((g) => (
+                                    <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
                                   <label className="text-[10px] text-muted-foreground">{cfg.unit}</label>
