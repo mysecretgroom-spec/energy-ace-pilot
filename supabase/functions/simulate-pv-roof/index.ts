@@ -91,9 +91,12 @@ Deno.serve(async (req) => {
     ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément).`
     : `Installe un nombre réaliste de panneaux solaires sur le pan de toiture le mieux exposé.`;
 
+  const edgeConstraint =
+    "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
+
   const surfaceInstruction = surfaceConstraint
-    ? `Consigne de zone obligatoire : ${surfaceConstraint}`
-    : "Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.";
+    ? `${edgeConstraint} Consigne de zone complémentaire : ${surfaceConstraint}`
+    : `${edgeConstraint} Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.`;
 
   const prompt = [
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",

@@ -28,10 +28,12 @@ function base64ToBlob(b64: string, mime = "image/png"): Blob {
   return new Blob(chunks as unknown as BlobPart[], { type: mime });
 }
 
+const BASE_MANDATORY_CONSTRAINT =
+  "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
+
 const PRESET_CONSTRAINTS = [
   { label: "Tuiles uniquement", value: "Poser les panneaux UNIQUEMENT sur le pan de toiture en tuiles. Ne rien installer sur les surfaces planes, les extensions, les garages, les terrasses ou les parties végétalisées." },
   { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
-  { label: "Sans dépasser les rives", value: "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent ni dépasser ni recouvrir les gouttières, lucarnes ou cheminées." },
 ];
 
 /**
@@ -95,8 +97,11 @@ export function RoofPvSimulationButton({
     setConstraintOpen(false);
     setLoading(true);
     try {
+      const combinedConstraint = [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()]
+        .filter(Boolean)
+        .join(" ");
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: surfaceConstraint.trim() || undefined },
+        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint },
       });
 
       if (fnError || !data?.image) {
@@ -127,7 +132,7 @@ export function RoofPvSimulationButton({
         taille_bytes: blob.size,
         mime_type: "image/png",
         metadata: {
-          surface_constraint: surfaceConstraint.trim() || undefined,
+          surface_constraint: [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()].filter(Boolean).join(" "),
           nb_panneaux: nbPanneaux,
         },
       });
@@ -172,7 +177,7 @@ export function RoofPvSimulationButton({
               Zone de pose autorisée
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Précisez où l’IA doit placer les panneaux. Laissez vide pour laisser l’IA choisir le meilleur emplacement.
+              La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez ici une zone de pose supplémentaire si besoin.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
