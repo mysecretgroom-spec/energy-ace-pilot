@@ -5597,50 +5597,56 @@ _Envoyé depuis DébalePro_`;
           </DialogContent>
         </Dialog>
 
-        {/* Actions secondaires - optimisées mobile */}
+        {/* Actions secondaires - optimisées mobile, icônes seules */}
         <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-2 pb-24">
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => navigate(-1)}
-            className="h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            aria-label="Annuler et revenir en arrière"
+            title="Annuler"
           >
-            Annuler
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            className="gap-1 h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handlePreview}
             disabled={!calculatedResults}
+            aria-label="Aperçu du rapport"
+            title="Aperçu"
           >
-            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Aperçu</span>
+            <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            className="gap-1 h-8 sm:h-9 text-xs sm:text-sm px-2.5 sm:px-3"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handleExportPdf}
             disabled={!calculatedResults || exporting}
+            aria-label="Télécharger le PDF"
+            title="PDF"
           >
             {exporting ? (
-              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
             ) : (
-              <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Download className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
-            PDF
           </Button>
           <Button
             variant="outline"
-            size="sm"
-            className="gap-1 h-8 sm:h-9 px-2.5 sm:px-3"
+            size="icon"
+            className="h-9 w-9 sm:h-10 sm:w-10"
             onClick={handleShare}
             disabled={!calculatedResults}
+            aria-label="Partager l'étude"
+            title="Partager"
           >
-            <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
-          </div>
+        </div>
         </div>
       </div>
       
