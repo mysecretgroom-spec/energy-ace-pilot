@@ -197,16 +197,15 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const ctx = canvas.getContext("2d");
     if (!ctx) { setIsCapturing(false); return; }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const rawImage = canvas.toDataURL("image/jpeg", 0.92);
+    // Full-resolution still (sensor photo) with video-frame fallback
+    const track = streamRef.current?.getVideoTracks()[0] ?? null;
+    const still = await captureStill(track, video, canvas);
+    const rawImage = still.dataUrl;
     reset();
 
-    // Auto-crop with perspective correction if quad was detected
+    // Auto-crop with perspective correction if quad detected and framing matches
     let finalImage = rawImage;
-    if (quad && quad.confidence > 0.3) {
+    if (quad && quad.confidence > 0.3 && still.matchesPreviewFraming) {
       try {
         const normalizedCorners = {
           topLeft: { x: quad.topLeft.x / video.videoWidth, y: quad.topLeft.y / video.videoHeight },
