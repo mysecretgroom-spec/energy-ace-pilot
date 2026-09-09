@@ -48,6 +48,13 @@ Deno.serve(async (req) => {
     typeof payload.surfaceConstraint === "string"
       ? payload.surfaceConstraint.trim()
       : "";
+  const ALLOWED_TYPES = ["toiture", "carport_bois", "carport_alu", "bac_leste"] as const;
+  type InstallationType = (typeof ALLOWED_TYPES)[number];
+  const installationType: InstallationType =
+    typeof payload.installationType === "string" &&
+    (ALLOWED_TYPES as readonly string[]).includes(payload.installationType)
+      ? (payload.installationType as InstallationType)
+      : "toiture";
 
   if (!imageUrl && !imageBase64) {
     return json({ error: "Photo manquante" }, 400);
