@@ -72,19 +72,26 @@
           style={{ touchAction: "manipulation" }}
           {...handlers}
        >
-         <div className="flex items-center gap-3">
-           {getStatusIcon(rdv.status)}
-           <div>
-              <p className="font-medium text-sm">
-                {rdv.client_nom}
-                {rdv.needs_reconfirmation && <span className="ml-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">À CONFIRMER</span>}
-                {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-xs text-primary font-semibold">EN COURS</span>}
-             </p>
-              <p className="text-xs text-muted-foreground">
-                {format(rdvDate, "dd/MM/yyyy à HH:mm", { locale: fr })}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex-none w-11 text-center">
+              <p className="text-xs font-semibold text-primary tabular-nums leading-tight">
+                {format(rdvDate, "HH:mm")}
               </p>
-           </div>
-         </div>
+              <p className="text-[9px] text-muted-foreground tabular-nums uppercase">
+                {format(rdvDate, "dd/MM")}
+              </p>
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-[13px] uppercase tracking-tight truncate">
+                {rdv.client_nom}
+                {rdv.needs_reconfirmation && <span className="ml-2 text-[9px] text-amber-600 dark:text-amber-400 font-bold tracking-wider">À CONFIRMER</span>}
+                {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-[9px] text-primary font-bold tracking-wider">EN COURS</span>}
+              </p>
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                {format(rdvDate, "EEEE d MMMM", { locale: fr })}
+              </p>
+            </div>
+          </div>
          <div className="flex items-center gap-2">
            {rdv.regie_nom && (
              <Badge 
