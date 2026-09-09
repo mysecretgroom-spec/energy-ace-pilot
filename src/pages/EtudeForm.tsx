@@ -660,7 +660,7 @@ const EtudeForm = () => {
 
   // Recalculate when inputs change (including cross-product dependencies)
   // IMPORTANT: inclure remiseCommerciale, aidesManuelles et selectedBouquetPV
-  // pour que la Prime Coup de Pouce Producteur et les totaux se mettent à jour
+  // pour que la Prime Coup de Pouce et les totaux se mettent à jour
   // instantanément, sans sauvegarde.
   useEffect(() => {
     if (puissanceKwc && consoAnnuelle) {
@@ -4693,7 +4693,7 @@ _Envoyé depuis DébalePro_`;
                         ) : (
                           <>
                             <div className="flex justify-between">
-                              <span>Prime Coup de Pouce Producteur</span>
+                              <span>Prime Coup de Pouce</span>
                               <span className="font-medium text-status-signed">{calculatedResults.primeAutoconsommation.toLocaleString("fr-FR")}€</span>
                             </div>
                             <div className="flex justify-between">
@@ -4738,7 +4738,7 @@ _Envoyé depuis DébalePro_`;
                     ) : (
                       <>
                         <div className="flex justify-between">
-                          <span>Prime Coup de Pouce Producteur</span>
+                          <span>Prime Coup de Pouce</span>
                           <span className="font-medium text-status-signed">{calculatedResults!.primeAutoconsommation.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                         </div>
                         <div className="flex justify-between">
