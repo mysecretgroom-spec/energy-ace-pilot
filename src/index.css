@@ -571,3 +571,17 @@ body {
     .lg-field { background-color: hsl(var(--background)); }
   }
 }
+
+/* Réfraction liquide sur les grandes surfaces (Chrome/Edge) */
+@layer components {
+  @supports (backdrop-filter: url(#lg-liquid-soft)) {
+    .lg-surface {
+      backdrop-filter: url(#lg-liquid-soft) blur(18px) saturate(185%);
+      -webkit-backdrop-filter: url(#lg-liquid-soft) blur(18px) saturate(185%);
+    }
+    .lg-overlay {
+      backdrop-filter: url(#lg-liquid-soft) blur(24px) saturate(195%);
+      -webkit-backdrop-filter: url(#lg-liquid-soft) blur(24px) saturate(195%);
+    }
+  }
+}
