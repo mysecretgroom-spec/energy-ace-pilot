@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -287,17 +288,21 @@ export function SurcoutsExtractor({
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground">Catégorie</label>
-                        <select
-                          className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                        <Select
                           value={s.categorie}
-                          onChange={(e) => update(index, "categorie", e.target.value)}
+                          onValueChange={(value) => update(index, "categorie", value)}
                         >
-                          {cats.map((c) => (
-                            <option key={c.value} value={c.value}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Catégorie" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cats.map((c) => (
+                              <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground">Code</label>
@@ -323,17 +328,21 @@ export function SurcoutsExtractor({
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground">Type calcul</label>
-                        <select
-                          className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                        <Select
                           value={s.type_calcul}
-                          onChange={(e) => update(index, "type_calcul", e.target.value as any)}
+                          onValueChange={(value) => update(index, "type_calcul", value as SurcoutExtrait["type_calcul"])}
                         >
-                          {Object.entries(typeCalcLabels).map(([v, l]) => (
-                            <option key={v} value={v}>
-                              {l}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(typeCalcLabels).map(([v, l]) => (
+                              <SelectItem key={v} value={v}>
+                                {l}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
