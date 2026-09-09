@@ -324,13 +324,72 @@ export function ProductBouquetsSection({
 
             {(Object.keys(productConfig) as ProductType[]).map((productType) => {
               const cfg = productConfig[productType];
-              const bouquets = getBouquetsByProduct(productType);
+              const productGammes = getGammes(productType);
+              const gammeLabel = (b: RegieBouquet) =>
+                productGammes.find((g) => g.id === b.gamme_id)?.nom || b.gamme || "Sans gamme";
+              const bouquets = [...getBouquetsByProduct(productType)].sort((a, b) => {
+                const ga = gammeLabel(a), gb = gammeLabel(b);
+                if (ga !== gb) {
+                  if (ga === "Sans gamme") return 1;
+                  if (gb === "Sans gamme") return -1;
+                  return ga.localeCompare(gb);
+                }
+                return a.puissance_kwc - b.puissance_kwc;
+              });
               
               return (
                 <TabsContent key={productType} value={productType} className="space-y-4 mt-4">
                   <p className="text-sm text-muted-foreground">
                     Tarifs et commissions <span className="font-medium">{cfg.label}</span>
                   </p>
+
+                  {/* Gammes du produit */}
+                  <Card>
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-medium">Gammes {cfg.label}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Regroupez vos {productType === "ITE" ? "forfaits" : "bouquets"} par gamme (ex. Standard, Premium) pour distinguer deux offres de même puissance.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {productGammes.map((g) => (
+                          <Badge key={g.id} variant="secondary" className="gap-1 pr-1">
+                            {g.nom}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-4 w-4 text-destructive"
+                              onClick={() => handleDeleteGamme(g)}
+                              title="Supprimer la gamme"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                        {productGammes.length === 0 && (
+                          <span className="text-xs text-muted-foreground">Aucune gamme</span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Nom de la gamme"
+                          value={newGammeNom}
+                          onChange={(e) => setNewGammeNom(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddGamme(productType)}
+                          disabled={!newGammeNom.trim() || saving}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Formulaire ajout bouquet */}
                   <Card>
@@ -401,10 +460,18 @@ export function ProductBouquetsSection({
                   </Card>
 
                   {/* Liste des bouquets */}
-                  {bouquets.map((bouquet) => {
+                  {bouquets.map((bouquet, idx) => {
                     const isEditing = editingId === bouquet.id;
+                    const label = gammeLabel(bouquet);
+                    const showHeader = idx === 0 || gammeLabel(bouquets[idx - 1]) !== label;
                     return (
-                      <Card key={bouquet.id} className={bouquet.isGlobal ? "border-dashed" : ""}>
+                      <div key={bouquet.id} className="space-y-2">
+                      {showHeader && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2">
+                          {label}
+                        </p>
+                      )}
+                      <Card className={bouquet.isGlobal ? "border-dashed" : ""}>
                         <CardContent className="p-3">
                           {isEditing ? (
                             <div className="space-y-2">
@@ -487,7 +554,6 @@ export function ProductBouquetsSection({
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {bouquet.puissance_kwc} {cfg.unit}
-                                    {bouquet.gamme ? ` · ${bouquet.gamme}` : ""}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -531,6 +597,7 @@ export function ProductBouquetsSection({
                           )}
                         </CardContent>
                       </Card>
+                      </div>
                     );
                   })}
 
