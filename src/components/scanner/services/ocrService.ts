@@ -87,24 +87,33 @@ function extractDataFromText(text: string): OcrResult['extractedData'] {
   // Clean up text
   const cleanText = text.replace(/\s+/g, ' ').trim();
 
-  // Extract amount (look for patterns like "12,34 €", "12.34€", "TOTAL: 12,34")
-  const amountPatterns = [
-    /TOTAL\s*(?:TTC)?[:\s]*(\d+[.,]\d{2})\s*€?/i,
-    /MONTANT\s*(?:TTC)?[:\s]*(\d+[.,]\d{2})\s*€?/i,
-    /(?:A PAYER|NET A PAYER)[:\s]*(\d+[.,]\d{2})\s*€?/i,
-    /(\d+[.,]\d{2})\s*€\s*(?:TTC)?/i,
-    /€\s*(\d+[.,]\d{2})/i,
+  // Amounts: accept "1 234,56", "1.234,56", "12.34€", OCR "€"->"E" confusions
+  const NUM = String.raw`(\d{1,3}(?:[ .\u00a0]\d{3})*|\d+)[.,](\d{2})`;
+  const parseAmount = (intPart: string, dec: string) =>
+    parseFloat(`${intPart.replace(/[ .\u00a0]/g, '')}.${dec}`);
+
+  const labelled: { amount: number; weight: number }[] = [];
+  const labelPatterns: { re: RegExp; weight: number }[] = [
+    { re: new RegExp(String.raw`(?:NET\s*)?A\s*PAYER[^0-9]{0,12}` + NUM, 'gi'), weight: 5 },
+    { re: new RegExp(String.raw`TOTAL\s*(?:TTC|C\.?B\.?)?[^0-9]{0,12}` + NUM, 'gi'), weight: 4 },
+    { re: new RegExp(String.raw`MONTANT\s*(?:TTC)?[^0-9]{0,12}` + NUM, 'gi'), weight: 3 },
+    { re: new RegExp(NUM + String.raw`\s*(?:€|EUR|EURO?S?)`, 'gi'), weight: 1 },
+    { re: new RegExp(String.raw`(?:€|EUR)\s*` + NUM, 'gi'), weight: 1 },
   ];
 
-  for (const pattern of amountPatterns) {
-    const match = cleanText.match(pattern);
-    if (match) {
-      const amount = parseFloat(match[1].replace(',', '.'));
-      if (amount > 0 && amount < 100000) {
-        result.montant = amount;
-        break;
-      }
+  for (const { re, weight } of labelPatterns) {
+    for (const m of cleanText.matchAll(re)) {
+      const amount = parseAmount(m[1], m[2]);
+      if (amount > 0 && amount < 100000) labelled.push({ amount, weight });
     }
+  }
+
+  if (labelled.length) {
+    // Highest-priority label wins; among equals, keep the largest value (total).
+    const maxWeight = Math.max(...labelled.map((l) => l.weight));
+    result.montant = Math.max(
+      ...labelled.filter((l) => l.weight === maxWeight).map((l) => l.amount)
+    );
   }
 
   // Extract VAT
