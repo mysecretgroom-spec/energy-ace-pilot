@@ -586,6 +586,26 @@ const VenteDetail = () => {
               </div>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="gamme">Gamme du produit</Label>
+              {gammesDisponibles.length > 0 ? (
+                <Select value={gamme || "none"} onValueChange={(v) => setGamme(v === "none" ? "" : v)}>
+                  <SelectTrigger id="gamme">
+                    <SelectValue placeholder="Sélectionner une gamme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non renseignée</SelectItem>
+                    {gammesDisponibles.map((g) => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50">
+                  <span className="text-sm text-muted-foreground">{gamme || "Non renseignée"}</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="typeInstallation">Type d'installation</Label>
               <Select value={typeInstallation} onValueChange={setTypeInstallation}>
                 <SelectTrigger id="typeInstallation">
