@@ -124,6 +124,8 @@ const VenteDetail = () => {
   const [notes, setNotes] = useState("");
   const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
   const [typeInstallation, setTypeInstallation] = useState("");
+  const [gamme, setGamme] = useState("");
+  const [gammesDisponibles, setGammesDisponibles] = useState<string[]>([]);
   
   // Auto-calculate panels: 2 per kWc, 1 for 0.5 kWc
   const nombrePanneaux = useMemo(() => {
