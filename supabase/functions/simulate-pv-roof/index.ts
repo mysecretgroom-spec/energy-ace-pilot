@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
       return json({ error: "Aucune image générée." }, 502);
     }
 
-    return json({ image: b64, nbPanneaux });
+    return json({ image: b64, nbPanneaux, installationType });
   } catch (err) {
     console.error("[simulate-pv-roof] unexpected", err);
     return json({ error: "Erreur inattendue." }, 500);
