@@ -2,7 +2,7 @@
  import { format } from "date-fns";
  import { fr } from "date-fns/locale";
  import { Badge } from "@/components/ui/badge";
- import { Clock, CheckCircle2, AlertCircle } from "lucide-react";
+ 
  import { useLongPress } from "@/hooks/useLongPress";
  import { RdvContextMenu } from "@/components/planning/RdvContextMenu";
  import { RdvStatus } from "@/components/ui/status-badge";
