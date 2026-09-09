@@ -23,7 +23,7 @@ function base64ToBlob(b64: string, mime = "image/png"): Blob {
     for (let j = 0; j < slice.length; j++) bytes[j] = slice.charCodeAt(j);
     chunks.push(bytes);
   }
-  return new Blob(chunks, { type: mime });
+  return new Blob(chunks as unknown as BlobPart[], { type: mime });
 }
 
 /**
