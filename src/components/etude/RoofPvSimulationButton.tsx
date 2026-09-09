@@ -70,6 +70,7 @@ export function RoofPvSimulationButton({
   const [preview, setPreview] = useState<string | null>(null);
   const [constraintOpen, setConstraintOpen] = useState(false);
   const [surfaceConstraint, setSurfaceConstraint] = useState("");
+  const [installationType, setInstallationType] = useState<InstallationType>("toiture");
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
 
   const nbPanneaux = Math.ceil((Number(puissanceKwc) || 0) / 0.5);
