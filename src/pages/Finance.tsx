@@ -171,6 +171,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
   date_signature: string | null;
   date_installation_reelle: string | null;
   client_nom?: string;
@@ -489,7 +490,7 @@ const Finance = () => {
         // Fetch all ventes for the user with client info
         const { data: ventes, error } = await supabase
           .from("ventes")
-          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, decom_raison, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)")
+          .select("id, montant_ttc, montant_ht, status, puissance_kwc, decom_montant, decom_raison, date_signature, date_installation_reelle, created_at, regie_id, etude_id, type_vente, client_id, gamme, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)")
           .eq("user_id", user.id);
 
         if (error) throw error;
@@ -508,6 +509,7 @@ const Finance = () => {
           regie_id: v.regie_id,
           etude_id: v.etude_id,
           status: v.status,
+          gamme: v.gamme || null,
           date_signature: v.date_signature,
           date_installation_reelle: v.date_installation_reelle,
           client_nom: v.clients?.nom || "Client",

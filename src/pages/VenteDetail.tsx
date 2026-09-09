@@ -124,6 +124,8 @@ const VenteDetail = () => {
   const [notes, setNotes] = useState("");
   const [puissanceKwc, setPuissanceKwc] = useState<number | "">("");
   const [typeInstallation, setTypeInstallation] = useState("");
+  const [gamme, setGamme] = useState("");
+  const [gammesDisponibles, setGammesDisponibles] = useState<string[]>([]);
   
   // Auto-calculate panels: 2 per kWc, 1 for 0.5 kWc
   const nombrePanneaux = useMemo(() => {
@@ -149,6 +151,7 @@ const VenteDetail = () => {
     notes: "",
     puissanceKwc: "" as number | "",
     typeInstallation: "",
+    gamme: "",
   });
 
   // Check if form has changes
@@ -167,12 +170,13 @@ const VenteDetail = () => {
       montantSolde !== originalValues.montantSolde ||
       notes !== originalValues.notes ||
       puissanceKwc !== originalValues.puissanceKwc ||
-      typeInstallation !== originalValues.typeInstallation
+      typeInstallation !== originalValues.typeInstallation ||
+      gamme !== originalValues.gamme
     );
   }, [
     numeroContrat, status, dateSignature, dateCq, dateInstallationPrevue, heureInstallationPrevue,
     dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
-    puissanceKwc, typeInstallation,
+    puissanceKwc, typeInstallation, gamme,
     originalValues
   ]);
 
@@ -181,6 +185,30 @@ const VenteDetail = () => {
       loadVente();
     }
   }, [id]);
+
+  // Charge les gammes disponibles (bouquets de la régie / du type de produit)
+  useEffect(() => {
+    const loadGammes = async () => {
+      if (!vente) return;
+      const productType = (vente as any).product_type || "PV";
+      const { data } = await supabase
+        .from("bouquets")
+        .select("gamme, product_type, regie_ids")
+        .eq("actif", true);
+      const venteRegie = (vente as any).regie_id as string | null;
+      const noms = (data || [])
+        .filter((b: any) => !b.product_type || b.product_type === productType)
+        .filter((b: any) =>
+          !venteRegie || !b.regie_ids || b.regie_ids.length === 0 || b.regie_ids.includes(venteRegie)
+        )
+        .map((b: any) => (b.gamme || "").trim())
+        .filter(Boolean);
+      setGammesDisponibles(Array.from(new Set(noms)).sort());
+    };
+    loadGammes();
+  }, [vente]);
+
+  
 
   
 
@@ -259,6 +287,9 @@ const VenteDetail = () => {
     const newNotes = venteData.notes || "";
     const newPuissanceKwc = venteData.puissance_kwc || "";
     const newTypeInstallation = venteData.type_installation || "";
+    const newGamme = (venteData as any).gamme || "";
+    setGamme(newGamme);
+    
     
     setNumeroContrat(newNumeroContrat);
     setStatus(newStatus);
@@ -311,6 +342,7 @@ const VenteDetail = () => {
       notes: newNotes,
       puissanceKwc: newPuissanceKwc,
       typeInstallation: newTypeInstallation,
+      gamme: newGamme,
     });
 
     setLoading(false);
@@ -383,6 +415,7 @@ const VenteDetail = () => {
       puissance_kwc: puissanceKwc || null,
       nombre_panneaux: nombrePanneaux || null,
       type_installation: typeInstallation || null,
+      gamme: gamme || null,
     };
 
     if (montantHt !== "") {
@@ -425,6 +458,7 @@ const VenteDetail = () => {
       notes,
       puissanceKwc,
       typeInstallation,
+      gamme,
     });
 
   };
@@ -550,6 +584,26 @@ const VenteDetail = () => {
                   <span className="text-xs text-muted-foreground ml-2">(2/kWc)</span>
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gamme">Gamme du produit</Label>
+              {gammesDisponibles.length > 0 ? (
+                <Select value={gamme || "none"} onValueChange={(v) => setGamme(v === "none" ? "" : v)}>
+                  <SelectTrigger id="gamme">
+                    <SelectValue placeholder="Sélectionner une gamme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non renseignée</SelectItem>
+                    {gammesDisponibles.map((g) => (
+                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted/50">
+                  <span className="text-sm text-muted-foreground">{gamme || "Non renseignée"}</span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="typeInstallation">Type d'installation</Label>

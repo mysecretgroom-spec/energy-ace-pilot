@@ -116,6 +116,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
   date_signature: string | null;
   is_retape: boolean;
   client_nom?: string;
@@ -269,7 +270,7 @@ const Dashboard = () => {
         rdvDemainRes
       ] = await Promise.all([
         // Ventes du mois et année - include client info
-        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
+        supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, gamme, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
         supabase.from("rdv").select("id, date_heure, status, type_projet, type_rdv, client_id, regie_id, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
@@ -349,6 +350,7 @@ const Dashboard = () => {
         regie_id: v.regie_id,
         etude_id: v.etude_id,
         status: v.status,
+        gamme: v.gamme || null,
         date_signature: v.date_signature,
         is_retape: v.is_retape || false,
         client_nom: v.clients?.nom || "Client",

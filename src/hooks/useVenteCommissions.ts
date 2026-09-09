@@ -36,6 +36,7 @@ interface BouquetData {
   commission_fixe: number | null;
   regie_id?: string;
   product_type?: string | null;
+  gamme?: string | null;
 }
 
 interface VenteInput {
@@ -49,6 +50,7 @@ interface VenteInput {
   etude_id?: string | null;
   status?: string;
   product_type?: "PV" | "PAC" | "ITE" | null;
+  gamme?: string | null;
   commission_override?: number | null;
 }
 
@@ -83,7 +85,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       const productTypes = [...new Set(ventes.map(v => v.product_type).filter(Boolean))] as string[];
 
       const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
-        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type").eq("actif", true),
+        supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type, gamme").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct, cout_panneau_supplementaire").in("id", regieIds)
           : Promise.resolve({ data: [] }),
@@ -115,6 +117,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           prix_recommande: Number(b.prix_recommande),
           commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
           product_type: b.product_type,
+          gamme: b.gamme ?? null,
         }));
 
       const regieBouquetsMapAll = new Map<string, BouquetData[]>();
@@ -128,6 +131,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
               commission_fixe: b.commission_fixe ? Number(b.commission_fixe) : null,
               regie_id: regieId,
               product_type: b.product_type,
+              gamme: b.gamme ?? null,
             });
             regieBouquetsMapAll.set(regieId, existing);
           });
@@ -222,11 +226,19 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
             : globalBouquetsAll;
           
           // Apply product_type filter
-          const bouquets = vente.product_type
+          const bouquetsByProduct = vente.product_type
             ? (regieBouquetsRaw.filter(b => b.product_type === vente.product_type).length > 0
               ? regieBouquetsRaw.filter(b => b.product_type === vente.product_type)
               : regieBouquetsRaw)
             : regieBouquetsRaw;
+
+          // Filtre par gamme : deux gammes peuvent avoir la même puissance à des
+          // prix / commissions différents. Sans gamme renseignée, on garde tout.
+          const venteGamme = (vente.gamme || "").trim();
+          const bouquetsByGamme = venteGamme
+            ? bouquetsByProduct.filter(b => (b.gamme || "").trim() === venteGamme)
+            : [];
+          const bouquets = bouquetsByGamme.length > 0 ? bouquetsByGamme : bouquetsByProduct;
 
           const coutPanneau = regieConfig?.cout_panneau_supplementaire ?? 500;
           const interpolated = findOrInterpolateBouquet(bouquets, puissanceKwc, coutPanneau);

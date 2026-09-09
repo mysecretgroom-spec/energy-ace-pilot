@@ -45,6 +45,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
 }
 
 interface VenteDetail {
@@ -154,7 +155,7 @@ const RegieDashboard = () => {
           .order("date_heure", { ascending: false }),
         supabase
           .from("ventes")
-          .select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, commission_override, clients(nom, prenom)")
+          .select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, type_vente, date_signature, gamme, commission_override, clients(nom, prenom)")
           .eq("regie_id", id)
           .order("date_signature", { ascending: false }),
         supabase
@@ -219,6 +220,7 @@ const RegieDashboard = () => {
         regie_id: v.regie_id,
         etude_id: v.etude_id,
         status: v.status,
+        gamme: (v as any).gamme || null,
       })));
 
       // Count by status
