@@ -171,6 +171,7 @@ interface VenteForCommission {
   regie_id: string | null;
   etude_id: string | null;
   status: string;
+  gamme?: string | null;
   date_signature: string | null;
   date_installation_reelle: string | null;
   client_nom?: string;
@@ -508,6 +509,7 @@ const Finance = () => {
           regie_id: v.regie_id,
           etude_id: v.etude_id,
           status: v.status,
+          gamme: v.gamme || null,
           date_signature: v.date_signature,
           date_installation_reelle: v.date_installation_reelle,
           client_nom: v.clients?.nom || "Client",

@@ -349,6 +349,7 @@ const Dashboard = () => {
         regie_id: v.regie_id,
         etude_id: v.etude_id,
         status: v.status,
+        gamme: v.gamme || null,
         date_signature: v.date_signature,
         is_retape: v.is_retape || false,
         client_nom: v.clients?.nom || "Client",
