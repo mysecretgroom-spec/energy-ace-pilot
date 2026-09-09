@@ -286,7 +286,7 @@ const Login = () => {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-hero"
+                className="w-full bg-gradient-hero text-primary-foreground"
                 disabled={loading}
               >
                 {loading ? (
