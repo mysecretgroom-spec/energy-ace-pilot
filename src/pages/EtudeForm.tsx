@@ -4451,6 +4451,8 @@ _Envoyé depuis DébalePro_`;
                 <Select value={selectedGammePV || "all"} onValueChange={(v) => {
                   setSelectedGammePV(v === "all" ? "" : v);
                   setSelectedBouquetPV("");
+                  // Laisser le prix se recalculer automatiquement (bouquet exact ou interpolation)
+                  setPrixInstallationManuel("");
                 }}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Toutes les gammes" />
