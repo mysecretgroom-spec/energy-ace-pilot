@@ -58,6 +58,7 @@ import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
+import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -3367,13 +3368,21 @@ _Envoyé depuis DébalePro_`;
                 Toiture
               </CardTitle>
               {clientId && (
-                <QuickPhotoButton
-                  clientId={clientId}
-                  category="photo_toiture"
-                  label="Photo"
-                  etudeId={currentEtudeId}
-                  onPhotoSaved={triggerImmediateSave}
-                />
+                <div className="flex items-center gap-1.5">
+                  <QuickPhotoButton
+                    clientId={clientId}
+                    category="photo_toiture"
+                    label="Photo"
+                    etudeId={currentEtudeId}
+                    onPhotoSaved={triggerImmediateSave}
+                  />
+                  <RoofPvSimulationButton
+                    clientId={clientId}
+                    etudeId={currentEtudeId}
+                    puissanceKwc={puissanceKwc}
+                    onSimulationSaved={triggerImmediateSave}
+                  />
+                </div>
               )}
             </div>
           </CardHeader>

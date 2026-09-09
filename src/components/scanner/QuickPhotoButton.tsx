@@ -140,7 +140,10 @@ export async function mergeStudyPhotosIntoPdf(
       const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
 
       // Add label at top
-      const label = categoryLabels[doc.type_document] || doc.nom;
+      const label =
+        doc.context_source === "simulation_pv"
+          ? "Projection panneaux solaires (simulation)"
+          : categoryLabels[doc.type_document] || doc.nom;
       page.drawText(label, {
         x: MARGIN,
         y: A4_HEIGHT - MARGIN,
