@@ -267,7 +267,7 @@ export function RoofPvSimulationButton({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm">
-              Simulation — {nbPanneaux} panneaux
+              Simulation {INSTALLATION_LABELS[installationType]} — {nbPanneaux} panneaux
             </DialogTitle>
           </DialogHeader>
           {preview && (
