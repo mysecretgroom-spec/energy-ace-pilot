@@ -3087,6 +3087,32 @@ _Envoyé depuis DébalePro_`;
                               </Select>
                             </div>
                           )}
+                          {activeProducts.includes("PV") && (() => {
+                            const gammesLocal = Array.from(new Set(pvBouquetsLocal.map(b => b.gamme).filter(Boolean))) as string[];
+                            if (gammesLocal.length < 2) return null;
+                            return (
+                              <div>
+                                <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                                  <Tag className="h-3 w-3" /> Gamme PV
+                                </Label>
+                                <Select value={selectedGammePV || "all"} onValueChange={(v) => {
+                                  setSelectedGammePV(v === "all" ? "" : v);
+                                  setSelectedBouquetPV("");
+                                  setPrixInstallationManuel("");
+                                }}>
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue placeholder="Toutes les gammes" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Toutes les gammes</SelectItem>
+                                    {gammesLocal.map(g => (
+                                      <SelectItem key={g} value={g}>{g}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            );
+                          })()}
                           {activeProducts.includes("PV") && pvBouquetsLocal.length > 0 && (
                             <div>
                               <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
@@ -3101,7 +3127,7 @@ _Envoyé depuis DébalePro_`;
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="none">Auto (interpolation)</SelectItem>
-                                  {pvBouquetsLocal.map(b => (
+                                  {pvBouquetsLocal.filter(b => !selectedGammePV || (b.gamme || "") === selectedGammePV).map(b => (
                                     <SelectItem key={b.id} value={b.id}>
                                       {b.nom_bouquet} ({b.puissance_kwc} kWc){b.gamme ? ` · ${b.gamme}` : ""} — {b.prix_recommande.toLocaleString("fr-FR")}€
                                     </SelectItem>
@@ -4451,6 +4477,8 @@ _Envoyé depuis DébalePro_`;
                 <Select value={selectedGammePV || "all"} onValueChange={(v) => {
                   setSelectedGammePV(v === "all" ? "" : v);
                   setSelectedBouquetPV("");
+                  // Laisser le prix se recalculer automatiquement (bouquet exact ou interpolation)
+                  setPrixInstallationManuel("");
                 }}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Toutes les gammes" />
