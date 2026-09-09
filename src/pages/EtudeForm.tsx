@@ -111,6 +111,7 @@ interface DataBouquet {
   puissance_kwc: number;
   prix_recommande: number;
   product_type: string | null;
+  gamme?: string | null;
 }
 
 interface DataSurcout {
@@ -343,6 +344,7 @@ const EtudeForm = () => {
   
   // Bouquet selectors
   const [selectedBouquetPV, setSelectedBouquetPV] = useState<string>("");
+  const [selectedGammePV, setSelectedGammePV] = useState<string>("");
   const [selectedBouquetPAC, setSelectedBouquetPAC] = useState<string>("");
   const [selectedBouquetITE, setSelectedBouquetITE] = useState<string>("");
   const [selectedBouquetCombo, setSelectedBouquetCombo] = useState<string>("");
@@ -633,6 +635,7 @@ const EtudeForm = () => {
     if (draft.itePrixManuel !== undefined) setItePrixManuel(draft.itePrixManuel);
     if (draft.aidesITE) setAidesITE(draft.aidesITE);
     if (draft.selectedBouquetPV) setSelectedBouquetPV(draft.selectedBouquetPV);
+    if (draft.selectedGammePV) setSelectedGammePV(draft.selectedGammePV);
     if (draft.selectedBouquetPAC) setSelectedBouquetPAC(draft.selectedBouquetPAC);
     if (draft.selectedBouquetITE) setSelectedBouquetITE(draft.selectedBouquetITE);
     if (draft.selectedBouquetCombo) setSelectedBouquetCombo(draft.selectedBouquetCombo);
@@ -677,6 +680,7 @@ const EtudeForm = () => {
     typeRevente,
     selectedSurcouts,
     selectedBouquetPV,
+    selectedGammePV,
     modeHejjaPsh,
     modeHejjaPrix,
     prixManuel,
@@ -751,7 +755,7 @@ const EtudeForm = () => {
 
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type").eq("actif", true),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true),
         supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
@@ -766,6 +770,7 @@ const EtudeForm = () => {
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
             product_type: b.product_type || "PV",
+            gamme: b.gamme || null,
           }));
         // Note: pas de fallback vers les bouquets globaux. Une régie créée sans clonage
         // n'affiche aucun bouquet tant qu'aucun n'a été configuré explicitement.
@@ -792,7 +797,7 @@ const EtudeForm = () => {
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type").eq("actif", true).order("puissance_kwc"),
+        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true).order("puissance_kwc"),
         supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
       ]);
       
@@ -805,6 +810,7 @@ const EtudeForm = () => {
             puissance_kwc: b.puissance_kwc,
             prix_recommande: b.prix_recommande,
             product_type: b.product_type || "PV",
+            gamme: b.gamme || null,
           }));
       }
       if (financementsRes.data) financementsData = financementsRes.data;
@@ -935,6 +941,7 @@ const EtudeForm = () => {
           setRemiseCommerciale(overrides.remiseCommerciale);
         }
         if (overrides.selectedBouquetPV) setSelectedBouquetPV(overrides.selectedBouquetPV);
+        if (overrides.selectedGammePV) setSelectedGammePV(overrides.selectedGammePV);
         if (overrides.selectedBouquetPAC) setSelectedBouquetPAC(overrides.selectedBouquetPAC);
         if (overrides.selectedBouquetITE) setSelectedBouquetITE(overrides.selectedBouquetITE);
         if (overrides.selectedBouquetCombo) setSelectedBouquetCombo(overrides.selectedBouquetCombo);
@@ -1332,7 +1339,12 @@ const EtudeForm = () => {
     } else if (dataBouquets.length > 0) {
       // Fallback: interpolate from PV bouquets only
       const pvBouquets = dataBouquets.filter(b => b.product_type === "PV" || !b.product_type);
-      const bouquetsForInterp = pvBouquets.length > 0 ? pvBouquets : dataBouquets.filter(b => b.product_type === "PV");
+      // Si une gamme est choisie, on ne prend en compte que ses bouquets (évite
+      // l'ambiguïté entre deux gammes de même puissance)
+      const pvGamme = selectedGammePV
+        ? pvBouquets.filter(b => (b.gamme || "") === selectedGammePV)
+        : pvBouquets;
+      const bouquetsForInterp = pvGamme.length > 0 ? pvGamme : pvBouquets;
       const interpolatedBouquet = findOrInterpolateBouquet(bouquetsForInterp, puissance);
       prixInstallation = modeHejjaPrix 
         ? (prixManuel ? Number(prixManuel) : 0)
@@ -1622,6 +1634,7 @@ const EtudeForm = () => {
         hasPrixInstallationManuel: !!prixInstallationManuel,
         remiseCommerciale: remiseCommerciale || 0,
         selectedBouquetPV: selectedBouquetPV || undefined,
+        selectedGammePV: selectedGammePV || undefined,
         selectedBouquetPAC: selectedBouquetPAC || undefined,
         selectedBouquetITE: selectedBouquetITE || undefined,
         selectedBouquetCombo: selectedBouquetCombo || undefined,
