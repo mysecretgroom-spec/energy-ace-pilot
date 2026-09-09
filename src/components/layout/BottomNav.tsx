@@ -19,12 +19,17 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
     const prefetch = useRoutePrefetch();
 
     return (
-      <nav ref={ref} className="fixed bottom-0 left-0 right-0 z-[60] bg-background/95 backdrop-blur-sm border-t border-border/60 safe-bottom will-change-transform" style={{ transform: 'translateZ(0)' }} {...props}>
+      <nav
+        ref={ref}
+        className="fixed bottom-0 left-0 right-0 z-[60] bg-card border-t border-border safe-bottom will-change-transform"
+        style={{ transform: "translateZ(0)" }}
+        {...props}
+      >
         {/* Background jobs indicator - fixed top right of nav */}
         <div className="absolute -top-10 right-2">
           <BackgroundJobsIndicator />
         </div>
-        <div className="flex items-center justify-around h-16 max-w-lg md:max-w-2xl mx-auto px-2">
+        <div className="grid grid-cols-5 h-16 max-w-lg md:max-w-2xl mx-auto">
           {navItems.map(({ icon: Icon, label, path }) => {
             const isActive = location.pathname === path;
             return (
@@ -34,28 +39,27 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                 onMouseEnter={() => prefetch(path)}
                 onTouchStart={() => prefetch(path)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 px-1 rounded-lg transition-all duration-150 active:scale-95 touch-action-manipulation",
+                  "relative flex flex-col items-center justify-center gap-1 transition-colors duration-100 touch-action-manipulation",
                   isActive
                     ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground/70 hover:text-foreground active:text-foreground"
                 )}
               >
-                <div className={cn(
-                  "flex items-center justify-center w-10 h-7 md:w-12 md:h-8 rounded-md transition-all duration-150",
-                  isActive && "bg-primary/10"
-                )}>
-                  <Icon
-                    className={cn(
-                      "h-5 w-5 transition-transform duration-150",
-                      isActive && "scale-105"
-                    )}
-                    strokeWidth={isActive ? 2.25 : 1.75}
-                  />
-                </div>
+                {/* Active indicator — trait supérieur */}
                 <span
-                    className={cn(
-                      "text-[10px] md:text-xs font-medium tracking-tight transition-all duration-150",
-                    isActive && "font-semibold text-primary"
+                  className={cn(
+                    "absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 bg-primary transition-opacity duration-100",
+                    isActive ? "opacity-100" : "opacity-0"
+                  )}
+                />
+                <Icon
+                  className="h-5 w-5"
+                  strokeWidth={isActive ? 2.25 : 1.75}
+                />
+                <span
+                  className={cn(
+                    "text-[9px] font-bold uppercase tracking-tighter leading-none",
+                    !isActive && "font-medium"
                   )}
                 >
                   {label}

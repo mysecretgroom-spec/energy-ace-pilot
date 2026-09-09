@@ -745,58 +745,58 @@ const Dashboard = () => {
         {/* KPIs principaux - avec floutage opaque */}
         {loading ? <DashboardKPISkeleton /> : (
         <BlurOverlay storageKey="dashboard_stats" blurAmount={12} opaque>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-px bg-border border border-border">
           <Card 
-            className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 cursor-pointer hover:shadow-md transition-shadow"
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
             onClick={() => openStatDialog('ca')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-primary mb-1">
-                <Euro className="h-4 w-4" />
-                <span className="text-xs font-medium">CA Mois</span>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-primary mb-1">
+                <Euro className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">CA Mois</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(stats.caMois)}</p>
+              <p className="text-lg font-bold tabular-nums tracking-tight">{formatCurrency(stats.caMois)}</p>
               <Progress 
                 value={getProgressPercent(stats.caMois, stats.objectifCA)} 
-                className="h-1.5 mt-2"
+                className="h-1 mt-2"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Obj: {formatCurrency(stats.objectifCA)}
+              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                Obj : {formatCurrency(stats.objectifCA)}
               </p>
             </CardContent>
           </Card>
 
           <Card 
-            className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20 cursor-pointer hover:shadow-md transition-shadow"
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
             onClick={() => openStatDialog('ventes')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-green-600 mb-1">
-                <FileText className="h-4 w-4" />
-                <span className="text-xs font-medium">Ventes</span>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-status-signed mb-1">
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Ventes</span>
               </div>
-              <p className="text-xl font-bold">{stats.ventesSignesMois}</p>
+              <p className="text-lg font-bold tabular-nums tracking-tight">{stats.ventesSignesMois}</p>
               <Progress 
                 value={getProgressPercent(stats.ventesSignesMois, stats.objectifVentes)} 
-                className="h-1.5 mt-2"
+                className="h-1 mt-2"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Obj: {stats.objectifVentes} ventes
+              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                Obj : {stats.objectifVentes} ventes
               </p>
             </CardContent>
           </Card>
 
           <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
             onClick={() => openStatDialog('rdv')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-blue-500 mb-1">
-                <Calendar className="h-4 w-4" />
-                <span className="text-xs font-medium">RDV Aujourd'hui</span>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-status-new mb-1">
+                <Calendar className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">RDV Aujourd'hui</span>
               </div>
-              <p className="text-xl font-bold">{stats.rdvAujourd}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-lg font-bold tabular-nums tracking-tight">{stats.rdvAujourd}</p>
+              <p className="text-[10px] text-muted-foreground tabular-nums">
                 {stats.rdvSemaine} cette semaine
               </p>
             </CardContent>
@@ -804,32 +804,32 @@ const Dashboard = () => {
 
           {/* Poses (installations) — séparées des RDV commerciaux */}
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-purple-500/5"
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
             onClick={() => navigate('/planning')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-indigo-500 mb-1">
-                <HardHat className="h-4 w-4" />
-                <span className="text-xs font-medium">Poses</span>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+                <HardHat className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Poses</span>
               </div>
-              <p className="text-xl font-bold">{stats.posesPlanifiees}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-lg font-bold tabular-nums tracking-tight">{stats.posesPlanifiees}</p>
+              <p className="text-[10px] text-muted-foreground tabular-nums">
                 planifiées · {stats.posesRealisees} réalisées
               </p>
             </CardContent>
           </Card>
           <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
             onClick={() => openStatDialog('commissions')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-amber-500 mb-1">
-                <TrendingUp className="h-4 w-4" />
-                <span className="text-xs font-medium">Commissions</span>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-status-reported mb-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Commissions</span>
               </div>
-              <p className="text-xl font-bold">{formatCurrency(commissionData.commissionsMois)}</p>
+              <p className="text-lg font-bold tabular-nums tracking-tight">{formatCurrency(commissionData.commissionsMois)}</p>
               <p 
-                className="text-xs text-muted-foreground underline cursor-pointer"
+                className="text-[10px] text-muted-foreground underline cursor-pointer tabular-nums"
                 onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
               >
                 {formatCurrency(commissionData.commissionsEnAttente)} en attente
@@ -864,12 +864,12 @@ const Dashboard = () => {
 
         {/* Prochains RDV */}
         {loading ? <DashboardRdvListSkeleton /> : (
-        <Card>
+        <Card className="rounded-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Prochains RDV</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate("/planning")}>
-                Voir tout <ArrowRight className="h-4 w-4 ml-1" />
+              <CardTitle className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Prochains RDV</CardTitle>
+              <Button variant="ghost" size="sm" className="text-[11px] font-semibold text-primary h-7" onClick={() => navigate("/planning")}>
+                Voir tout <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
           </CardHeader>
