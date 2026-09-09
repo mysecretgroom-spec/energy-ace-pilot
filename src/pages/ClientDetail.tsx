@@ -368,6 +368,39 @@ const ClientDetailInner = () => {
     }
   };
 
+  const fullAddress = [client?.adresse, client?.code_postal, client?.ville]
+    .filter(Boolean)
+    .join(", ");
+
+  const handleCopy = async (field: string, value?: string | null) => {
+    if (!value) return;
+    const ok = await copyToClipboard(value);
+    if (ok) {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+      toast({ title: "Copié", description: value });
+    } else {
+      toast({ title: "Copie impossible", variant: "destructive" });
+    }
+  };
+
+  const CopyButton = ({ field, value }: { field: string; value?: string | null }) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 flex-shrink-0"
+      aria-label="Copier"
+      onClick={() => handleCopy(field, value)}
+      disabled={!value}
+    >
+      {copiedField === field ? (
+        <Check className="h-4 w-4 text-status-signed" />
+      ) : (
+        <Copy className="h-4 w-4 text-muted-foreground" />
+      )}
+    </Button>
+  );
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
       day: "numeric",
