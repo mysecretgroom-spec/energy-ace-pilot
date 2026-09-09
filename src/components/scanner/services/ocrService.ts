@@ -13,31 +13,68 @@ export interface OcrResult {
   };
 }
 
-/**
- * Extract text from an image using Tesseract.js
- */
-export async function performOcr(
-  imageData: string,
+async function runTesseract(
+  image: string,
+  psm: string,
   onProgress?: (progress: number) => void
-): Promise<OcrResult> {
-  const result = await Tesseract.recognize(imageData, 'fra', {
+) {
+  return Tesseract.recognize(image, 'fra', {
     logger: (m) => {
       if (m.status === 'recognizing text' && onProgress) {
         onProgress(Math.round(m.progress * 100));
       }
     },
+    // @ts-expect-error tesseract.js accepts engine params here
+    tessedit_pageseg_mode: psm,
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300',
   });
+}
 
-  const text = result.data.text;
-  const confidence = result.data.confidence;
+/**
+ * Extract text from a receipt/invoice image.
+ *
+ * The image is first normalised (illumination correction + Sauvola adaptive
+ * binarisation + upscaling) which is what makes thermal receipts readable.
+ * A second pass on the greyscale version runs when confidence stays low.
+ */
+export async function performOcr(
+  imageData: string,
+  onProgress?: (progress: number) => void
+): Promise<OcrResult> {
+  let prepared: { grey: string; binary: string } | null = null;
+  try {
+    prepared = await preprocessForOcr(imageData);
+  } catch (err) {
+    console.warn('OCR preprocessing failed, using raw image:', err);
+  }
 
-  // Extract structured data from the text
-  const extractedData = extractDataFromText(text);
+  // Pass 1 — binarised image, single column of text (receipts).
+  let best = await runTesseract(prepared?.binary ?? imageData, '4', (p) =>
+    onProgress?.(Math.round(p * (prepared ? 0.6 : 1)))
+  );
 
+  // Pass 2 — greyscale + block layout when the first pass is weak.
+  if (prepared && (best.data.confidence < 70 || best.data.text.trim().length < 20)) {
+    try {
+      const second = await runTesseract(prepared.grey, '6', (p) =>
+        onProgress?.(60 + Math.round(p * 0.4))
+      );
+      const scoreA = best.data.confidence * Math.min(1, best.data.text.trim().length / 40);
+      const scoreB = second.data.confidence * Math.min(1, second.data.text.trim().length / 40);
+      if (scoreB > scoreA) best = second;
+    } catch (err) {
+      console.warn('OCR second pass failed:', err);
+    }
+  }
+
+  onProgress?.(100);
+
+  const text = best.data.text;
   return {
     text,
-    confidence,
-    extractedData,
+    confidence: best.data.confidence,
+    extractedData: extractDataFromText(text),
   };
 }
 
