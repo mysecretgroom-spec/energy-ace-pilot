@@ -3553,6 +3553,11 @@ _Envoyé depuis DébalePro_`;
                 className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>
+            <SatelliteMapEmbed
+              address={[clientAdresse, clientCodePostal, clientVille]
+                .filter(Boolean)
+                .join(", ")}
+            />
           </CardContent>
         </Card>
 
