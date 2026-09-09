@@ -106,19 +106,23 @@ export function RoofPvSimulationButton({
     if (!url) return;
     setSourceUrl(url);
     setSurfaceConstraint("");
+    setInstallationType("toiture");
     setConstraintOpen(true);
   };
+
+  const buildConstraint = () =>
+    [installationType === "toiture" ? BASE_MANDATORY_CONSTRAINT : "", surfaceConstraint.trim()]
+      .filter(Boolean)
+      .join(" ");
 
   const runGeneration = async () => {
     if (!user || !sourceUrl) return;
     setConstraintOpen(false);
     setLoading(true);
     try {
-      const combinedConstraint = [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()]
-        .filter(Boolean)
-        .join(" ");
+      const combinedConstraint = buildConstraint();
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint },
+        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint, installationType },
       });
 
       if (fnError || !data?.image) {
