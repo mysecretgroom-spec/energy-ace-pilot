@@ -60,7 +60,7 @@ import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
-import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
+import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
