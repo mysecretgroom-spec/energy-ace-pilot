@@ -153,8 +153,9 @@ export function RoofPvSimulationButton({
         taille_bytes: blob.size,
         mime_type: "image/png",
         metadata: {
-          surface_constraint: [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()].filter(Boolean).join(" "),
+          surface_constraint: buildConstraint(),
           nb_panneaux: nbPanneaux,
+          installation_type: installationType,
         },
       });
       if (insertError) throw insertError;
