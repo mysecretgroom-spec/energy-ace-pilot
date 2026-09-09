@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Figtree:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -49,129 +49,129 @@ body {
 /* DébalePro Design System - Corporate Professional */
 @layer base {
   :root {
-    /* Fond sable clair */
-    --background: 40 33% 96%;
-    --foreground: 180 35% 11%;
+    /* Ardoise froide très claire */
+    --background: 222 25% 97%;
+    --foreground: 224 45% 11%;
 
     /* Surfaces */
-    --card: 45 40% 99%;
-    --card-foreground: 180 35% 11%;
-    --popover: 45 40% 99%;
-    --popover-foreground: 180 35% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 45% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 45% 11%;
 
-    /* Teal profond */
-    --primary: 174 84% 32%;
-    --primary-foreground: 45 60% 98%;
+    /* Cobalt profond */
+    --primary: 221 83% 42%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Sable doré - accent secondaire */
-    --secondary: 41 63% 66%;
-    --secondary-foreground: 180 40% 14%;
+    /* Ambre solaire - accent secondaire */
+    --secondary: 38 92% 50%;
+    --secondary-foreground: 224 45% 11%;
 
-    /* Neutres chauds */
-    --muted: 40 20% 92%;
-    --muted-foreground: 185 12% 40%;
+    /* Neutres froids */
+    --muted: 222 18% 93%;
+    --muted-foreground: 222 12% 42%;
 
     /* Accent */
-    --accent: 174 30% 92%;
-    --accent-foreground: 180 40% 14%;
+    --accent: 221 50% 93%;
+    --accent-foreground: 224 45% 14%;
 
     /* États */
     --destructive: 4 74% 47%;
     --destructive-foreground: 0 0% 100%;
 
     /* Bordures */
-    --border: 40 18% 87%;
-    --input: 40 18% 87%;
-    --ring: 174 84% 32%;
+    --border: 222 16% 88%;
+    --input: 222 16% 88%;
+    --ring: 221 83% 42%;
 
     --radius: 0.75rem;
 
     /* Statuts RDV */
-    --status-new: 199 89% 42%;
-    --status-reported: 41 80% 48%;
-    --status-r2: 174 84% 32%;
-    --status-r2-prestudy: 187 72% 36%;
-    --status-signed: 160 75% 32%;
+    --status-new: 221 83% 48%;
+    --status-reported: 38 92% 46%;
+    --status-r2: 258 72% 50%;
+    --status-r2-prestudy: 199 80% 40%;
+    --status-signed: 158 72% 32%;
     --status-negative: 4 74% 47%;
-    --status-cancelled: 185 10% 48%;
+    --status-cancelled: 222 10% 48%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(180 45% 17%) 0%, hsl(174 84% 32%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(41 63% 66%) 0%, hsl(35 65% 52%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(180 45% 10%) 0%, hsl(180 30% 15%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(224 55% 18%) 0%, hsl(221 83% 42%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(38 92% 54%) 0%, hsl(28 90% 50%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(224 50% 9%) 0%, hsl(224 40% 14%) 100%);
 
     /* Ombres douces teintées */
-    --shadow-xs: 0 1px 2px 0 hsl(180 35% 11% / 0.04);
-    --shadow-sm: 0 1px 3px 0 hsl(180 35% 11% / 0.05), 0 1px 2px -1px hsl(180 35% 11% / 0.03);
-    --shadow-md: 0 4px 10px -2px hsl(180 35% 11% / 0.08), 0 2px 4px -2px hsl(180 35% 11% / 0.05);
-    --shadow-lg: 0 12px 24px -6px hsl(180 35% 11% / 0.10), 0 4px 8px -4px hsl(180 35% 11% / 0.06);
-    --shadow-card: 0 1px 3px 0 hsl(180 35% 11% / 0.05), 0 1px 2px -1px hsl(180 35% 11% / 0.03);
+    --shadow-xs: 0 1px 2px 0 hsl(224 45% 11% / 0.04);
+    --shadow-sm: 0 1px 3px 0 hsl(224 45% 11% / 0.05), 0 1px 2px -1px hsl(224 45% 11% / 0.03);
+    --shadow-md: 0 4px 10px -2px hsl(224 45% 11% / 0.08), 0 2px 4px -2px hsl(224 45% 11% / 0.05);
+    --shadow-lg: 0 12px 24px -6px hsl(224 45% 11% / 0.10), 0 4px 8px -4px hsl(224 45% 11% / 0.06);
+    --shadow-card: 0 1px 3px 0 hsl(224 45% 11% / 0.05), 0 1px 2px -1px hsl(224 45% 11% / 0.03);
 
     /* Sidebar (pour compatibilité) */
-    --sidebar-background: 45 40% 99%;
-    --sidebar-foreground: 180 35% 11%;
-    --sidebar-primary: 174 84% 32%;
-    --sidebar-primary-foreground: 45 60% 98%;
-    --sidebar-accent: 174 30% 92%;
-    --sidebar-accent-foreground: 180 40% 14%;
-    --sidebar-border: 40 18% 87%;
-    --sidebar-ring: 174 84% 32%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 224 45% 11%;
+    --sidebar-primary: 221 83% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 221 50% 93%;
+    --sidebar-accent-foreground: 224 45% 14%;
+    --sidebar-border: 222 16% 88%;
+    --sidebar-ring: 221 83% 42%;
   }
 
   .dark {
-    /* Teal profond & sable — version sombre */
-    --background: 183 42% 7%;
-    --foreground: 45 30% 94%;
+    /* Cobalt & ardoise — version sombre */
+    --background: 224 50% 7%;
+    --foreground: 220 25% 94%;
 
     /* Surfaces sombres */
-    --card: 182 32% 11%;
-    --card-foreground: 45 30% 94%;
-    --popover: 182 32% 11%;
-    --popover-foreground: 45 30% 94%;
+    --card: 224 40% 11%;
+    --card-foreground: 220 25% 94%;
+    --popover: 224 40% 11%;
+    --popover-foreground: 220 25% 94%;
 
-    /* Teal (dark) */
-    --primary: 173 70% 42%;
-    --primary-foreground: 183 45% 8%;
+    /* Cobalt (dark) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 224 55% 8%;
 
-    /* Sable doré */
-    --secondary: 41 60% 62%;
-    --secondary-foreground: 183 45% 8%;
+    /* Ambre solaire */
+    --secondary: 38 92% 55%;
+    --secondary-foreground: 224 55% 8%;
 
     /* Neutres sombres */
-    --muted: 182 22% 17%;
-    --muted-foreground: 45 12% 68%;
+    --muted: 224 28% 16%;
+    --muted-foreground: 220 12% 66%;
 
     /* Accent */
-    --accent: 182 24% 18%;
-    --accent-foreground: 45 30% 94%;
+    --accent: 224 30% 18%;
+    --accent-foreground: 220 25% 94%;
 
     /* États */
     --destructive: 4 68% 52%;
     --destructive-foreground: 0 0% 100%;
 
     /* Bordures */
-    --border: 182 20% 21%;
-    --input: 182 20% 21%;
-    --ring: 173 70% 42%;
+    --border: 224 22% 20%;
+    --input: 224 22% 20%;
+    --ring: 217 91% 60%;
 
     /* Statuts RDV dark */
-    --status-new: 199 85% 55%;
-    --status-reported: 41 80% 58%;
-    --status-r2: 173 70% 45%;
-    --status-r2-prestudy: 187 68% 48%;
-    --status-signed: 160 65% 45%;
+    --status-new: 217 91% 62%;
+    --status-reported: 38 90% 58%;
+    --status-r2: 258 80% 66%;
+    --status-r2-prestudy: 199 80% 55%;
+    --status-signed: 158 64% 46%;
     --status-negative: 4 74% 58%;
-    --status-cancelled: 185 10% 55%;
+    --status-cancelled: 222 10% 56%;
 
     /* Sidebar dark */
-    --sidebar-background: 183 42% 7%;
-    --sidebar-foreground: 45 30% 94%;
-    --sidebar-primary: 173 70% 42%;
-    --sidebar-primary-foreground: 183 45% 8%;
-    --sidebar-accent: 182 24% 18%;
-    --sidebar-accent-foreground: 45 30% 94%;
-    --sidebar-border: 182 20% 21%;
-    --sidebar-ring: 173 70% 42%;
+    --sidebar-background: 224 50% 7%;
+    --sidebar-foreground: 220 25% 94%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 224 55% 8%;
+    --sidebar-accent: 224 30% 18%;
+    --sidebar-accent-foreground: 220 25% 94%;
+    --sidebar-border: 224 22% 20%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -182,7 +182,7 @@ body {
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     line-height: 1.5;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
@@ -191,7 +191,7 @@ body {
 
   /* Compact professional typography hierarchy */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+    font-family: 'Sora', 'Figtree', system-ui, sans-serif;
     letter-spacing: -0.02em;
     font-weight: 600;
   }
