@@ -40,16 +40,7 @@
      delay: 500,
    });
  
-   const getStatusIcon = (status: string) => {
-     switch (status) {
-       case 'nouveau': return <Clock className="h-3 w-3 text-blue-500" />;
-       case 'confirme': return <CheckCircle2 className="h-3 w-3 text-green-500" />;
-       case 'annule': return <AlertCircle className="h-3 w-3 text-red-500" />;
-       default: return <Clock className="h-3 w-3 text-muted-foreground" />;
-     }
-   };
- 
-   const handleStatusChange = (rdvId: string, newStatus: RdvStatus) => {
+  const handleStatusChange = (rdvId: string, newStatus: RdvStatus) => {
      onRefresh?.();
    };
  
