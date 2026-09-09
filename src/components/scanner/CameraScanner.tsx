@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 import { EdgeOverlay } from "./EdgeOverlay";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
+import { captureStill, applyDocumentFocus } from "./services/stillCapture";
 
 interface CapturedPage {
   id: string;
@@ -96,8 +97,8 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 4096 },
+          height: { ideal: 2160 },
         },
         audio: false,
       });
@@ -107,6 +108,8 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const track = stream.getVideoTracks()[0];
       const caps = track.getCapabilities?.() as any;
       if (caps?.torch) setTorchSupported(true);
+      // Continuous autofocus / exposure / white balance for documents
+      await applyDocumentFocus(track);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
