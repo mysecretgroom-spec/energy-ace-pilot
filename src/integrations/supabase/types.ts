@@ -3246,6 +3246,8 @@ export type Database = {
           decom_montant: number | null
           decom_raison: string | null
           etude_id: string | null
+          gamme: string | null
+          gamme_id: string | null
           heure_installation_prevue: string | null
           id: string
           is_retape: boolean | null
@@ -3277,6 +3279,8 @@ export type Database = {
           decom_montant?: number | null
           decom_raison?: string | null
           etude_id?: string | null
+          gamme?: string | null
+          gamme_id?: string | null
           heure_installation_prevue?: string | null
           id?: string
           is_retape?: boolean | null
@@ -3308,6 +3312,8 @@ export type Database = {
           decom_montant?: number | null
           decom_raison?: string | null
           etude_id?: string | null
+          gamme?: string | null
+          gamme_id?: string | null
           heure_installation_prevue?: string | null
           id?: string
           is_retape?: boolean | null
@@ -3340,6 +3346,13 @@ export type Database = {
             columns: ["etude_id"]
             isOneToOne: false
             referencedRelation: "etudes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ventes_gamme_id_fkey"
+            columns: ["gamme_id"]
+            isOneToOne: false
+            referencedRelation: "regies_gammes"
             referencedColumns: ["id"]
           },
           {
