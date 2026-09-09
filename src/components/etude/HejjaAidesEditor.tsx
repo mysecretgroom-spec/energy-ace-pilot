@@ -123,7 +123,7 @@ export function HejjaAidesEditor({
       {/* Aides standards (lecture seule, affichage) */}
       <div className="space-y-1 text-xs">
         <div className="flex justify-between">
-          <span>Prime Coup de Pouce Producteur (standard)</span>
+          <span>Prime Coup de Pouce (standard)</span>
           <span className="font-medium text-status-signed">
             {primeAutoconso.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€
           </span>
