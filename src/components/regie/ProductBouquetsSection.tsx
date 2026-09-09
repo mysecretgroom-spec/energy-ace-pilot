@@ -32,6 +32,7 @@ interface RegieBouquet {
   description: string | null;
   actif: boolean;
   product_type: ProductType | null;
+  gamme?: string | null;
   isGlobal?: boolean;
 }
 
@@ -79,6 +80,7 @@ export function ProductBouquetsSection({
   // Form state for new bouquet
   const [newBouquet, setNewBouquet] = useState({
     nom_bouquet: "",
+    gamme: "",
     puissance_kwc: 3,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -88,6 +90,7 @@ export function ProductBouquetsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     nom_bouquet: "",
+    gamme: "",
     puissance_kwc: 0,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -115,6 +118,7 @@ export function ProductBouquetsSection({
       const { error } = await supabase.from("bouquets").insert({
         user_id: userId,
         nom_bouquet: newBouquet.nom_bouquet.trim(),
+        gamme: newBouquet.gamme.trim() || null,
         puissance_kwc: newBouquet.puissance_kwc,
         prix_recommande: newBouquet.prix_recommande,
         prix_max: newBouquet.prix_recommande,
@@ -129,6 +133,7 @@ export function ProductBouquetsSection({
       toast.success("Bouquet ajouté");
       setNewBouquet({
         nom_bouquet: "",
+        gamme: "",
         puissance_kwc: productType === "ITE" ? 100 : 3,
         prix_recommande: 0,
         commission_fixe: 0,
@@ -182,6 +187,7 @@ export function ProductBouquetsSection({
     setEditingId(bouquet.id);
     setEditForm({
       nom_bouquet: bouquet.nom_bouquet,
+      gamme: bouquet.gamme || "",
       puissance_kwc: bouquet.puissance_kwc,
       prix_recommande: bouquet.prix_recommande,
       commission_fixe: bouquet.commission_fixe,
@@ -203,6 +209,7 @@ export function ProductBouquetsSection({
         .from("bouquets")
         .update({
           nom_bouquet: editForm.nom_bouquet.trim(),
+          gamme: editForm.gamme.trim() || null,
           puissance_kwc: editForm.puissance_kwc,
           prix_recommande: editForm.prix_recommande,
           prix_max: editForm.prix_recommande,
@@ -290,11 +297,11 @@ export function ProductBouquetsSection({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Commission HT €</label>
+                          <label className="text-xs text-muted-foreground">Gamme (optionnel)</label>
                           <Input
-                            type="number"
-                            value={newBouquet.commission_fixe}
-                            onChange={(e) => setNewBouquet({ ...newBouquet, commission_fixe: parseFloat(e.target.value) || 0 })}
+                            placeholder="Ex. Standard, Premium"
+                            value={newBouquet.gamme}
+                            onChange={(e) => setNewBouquet({ ...newBouquet, gamme: e.target.value })}
                           />
                         </div>
                       </div>
@@ -327,6 +334,12 @@ export function ProductBouquetsSection({
                                 value={editForm.nom_bouquet}
                                 onChange={(e) => setEditForm({ ...editForm, nom_bouquet: e.target.value })}
                                 className="h-8 text-sm font-medium"
+                              />
+                              <Input
+                                placeholder="Gamme (optionnel)"
+                                value={editForm.gamme}
+                                onChange={(e) => setEditForm({ ...editForm, gamme: e.target.value })}
+                                className="h-8 text-xs"
                               />
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
@@ -387,6 +400,7 @@ export function ProductBouquetsSection({
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {bouquet.puissance_kwc} {cfg.unit}
+                                    {bouquet.gamme ? ` · ${bouquet.gamme}` : ""}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1">
