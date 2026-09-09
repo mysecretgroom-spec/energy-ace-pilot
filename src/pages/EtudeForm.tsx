@@ -60,6 +60,7 @@ import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, Financi
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
+import { SatelliteMapEmbed } from "@/components/etude/SatelliteMapEmbed";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -3553,6 +3554,11 @@ _Envoyé depuis DébalePro_`;
                 className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>
+            <SatelliteMapEmbed
+              address={[clientAdresse, clientCodePostal, clientVille]
+                .filter(Boolean)
+                .join(", ")}
+            />
           </CardContent>
         </Card>
 
