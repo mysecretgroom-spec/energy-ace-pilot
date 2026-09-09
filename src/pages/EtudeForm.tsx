@@ -2335,7 +2335,7 @@ const EtudeForm = () => {
     if (!pdfData) return;
     
     try {
-      const blob = await getEtudePdfBlob(pdfData);
+      const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       
@@ -2369,7 +2369,7 @@ const EtudeForm = () => {
     if (!pdfData || !user) return;
     
     try {
-      const blob = await getEtudePdfBlob(pdfData);
+      const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       
