@@ -86,6 +86,7 @@ export function useInstallationCommissions(rdvList: RdvLike[]) {
         etude_id: v.etude_id,
         status: v.status,
         product_type: v.product_type,
+        gamme: v.gamme,
         commission_override: v.commission_override,
       })),
     [ventes]

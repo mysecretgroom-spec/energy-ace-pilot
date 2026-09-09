@@ -1835,6 +1835,7 @@ const EtudeForm = () => {
               puissance_kwc: Number(puissanceKwc) || null,
               nombre_panneaux: Math.ceil((Number(puissanceKwc) || 0) / 0.5),
               type_installation: supportInstallation, status: "signe",
+              gamme: selectedGammePV || null,
               date_signature: new Date().toISOString(),
               notes: classificationComment || "Vente créée automatiquement depuis étude positive",
             });
