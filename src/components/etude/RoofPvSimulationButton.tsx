@@ -28,6 +28,12 @@ function base64ToBlob(b64: string, mime = "image/png"): Blob {
   return new Blob(chunks as unknown as BlobPart[], { type: mime });
 }
 
+const PRESET_CONSTRAINTS = [
+  { label: "Tuiles uniquement", value: "Poser les panneaux UNIQUEMENT sur le pan de toiture en tuiles. Ne rien installer sur les surfaces planes, les extensions, les garages, les terrasses ou les parties végétalisées." },
+  { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
+  { label: "Sans dépasser les rives", value: "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent ni dépasser ni recouvrir les gouttières, lucarnes ou cheminées." },
+];
+
 /**
  * Génère, à partir de la dernière photo de toiture, un photomontage IA
  * avec le nombre de panneaux calculé dans l'étude.
@@ -44,39 +50,53 @@ export function RoofPvSimulationButton({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [constraintOpen, setConstraintOpen] = useState(false);
+  const [surfaceConstraint, setSurfaceConstraint] = useState("");
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
 
   const nbPanneaux = Math.ceil((Number(puissanceKwc) || 0) / 0.5);
 
-  const handleSimulate = async () => {
+  const loadSourcePhoto = async () => {
+    const { data: photos, error } = await supabase
+      .from("documents")
+      .select("id, url, nom, context_source")
+      .eq("client_id", clientId)
+      .eq("type_document", "photo_toiture")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+    const source = (photos || []).find(
+      (p) => p.context_source !== "simulation_pv" && p.context_source !== "merged_photos"
+    );
+
+    if (!source?.url) {
+      toast({
+        variant: "destructive",
+        title: "Aucune photo de toiture",
+        description: "Prenez d'abord une photo du toit.",
+      });
+      return null;
+    }
+    return source.url;
+  };
+
+  const startSimulationFlow = async () => {
     if (!user) return;
+    const url = await loadSourcePhoto();
+    if (!url) return;
+    setSourceUrl(url);
+    setSurfaceConstraint("");
+    setConstraintOpen(true);
+  };
+
+  const runGeneration = async () => {
+    if (!user || !sourceUrl) return;
+    setConstraintOpen(false);
     setLoading(true);
     try {
-      // 1. Dernière photo de toiture (hors simulations et PDF fusionné)
-      const { data: photos, error } = await supabase
-        .from("documents")
-        .select("id, url, nom, context_source")
-        .eq("client_id", clientId)
-        .eq("type_document", "photo_toiture")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      const source = (photos || []).find(
-        (p) => p.context_source !== "simulation_pv" && p.context_source !== "merged_photos"
-      );
-
-      if (!source?.url) {
-        toast({
-          variant: "destructive",
-          title: "Aucune photo de toiture",
-          description: "Prenez d'abord une photo du toit.",
-        });
-        return;
-      }
-
-      // 2. Génération IA
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: source.url, nbPanneaux },
+        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: surfaceConstraint.trim() || undefined },
       });
 
       if (fnError || !data?.image) {
@@ -87,7 +107,7 @@ export function RoofPvSimulationButton({
       const objectUrl = URL.createObjectURL(blob);
       setPreview(objectUrl);
 
-      // 3. Enregistrement comme photo supplémentaire (l'originale est conservée)
+      // Enregistrement comme photo supplémentaire (l'originale est conservée)
       const path = `${user.id}/${clientId}/simulation_pv_${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage
         .from("documents")
@@ -106,6 +126,10 @@ export function RoofPvSimulationButton({
         url: urlData.publicUrl,
         taille_bytes: blob.size,
         mime_type: "image/png",
+        metadata: {
+          surface_constraint: surfaceConstraint.trim() || undefined,
+          nb_panneaux: nbPanneaux,
+        },
       });
       if (insertError) throw insertError;
 
@@ -132,13 +156,64 @@ export function RoofPvSimulationButton({
         type="button"
         variant="outline"
         size="sm"
-        onClick={handleSimulate}
+        onClick={startSimulationFlow}
         disabled={loading}
         className="h-8 gap-1.5 text-[11px]"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
         Simuler les panneaux
       </Button>
+
+      <Dialog open={constraintOpen} onOpenChange={setConstraintOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Zone de pose autorisée
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Précisez où l’IA doit placer les panneaux. Laissez vide pour laisser l’IA choisir le meilleur emplacement.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {PRESET_CONSTRAINTS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-7"
+                  onClick={() => setSurfaceConstraint(preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="surface-constraint" className="text-xs">
+                Consigne (facultative)
+              </Label>
+              <Textarea
+                id="surface-constraint"
+                value={surfaceConstraint}
+                onChange={(e) => setSurfaceConstraint(e.target.value)}
+                placeholder="Ex. : poser les panneaux uniquement sur le pan de tuiles visible à gauche, pas sur l’extension plate."
+                className="min-h-[80px] text-xs"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConstraintOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="button" size="sm" onClick={runGeneration} disabled={loading}>
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Générer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
         <DialogContent className="max-w-lg">
