@@ -85,9 +85,9 @@
           </div>
          <div className="flex items-center gap-2">
            {rdv.regie_nom && (
-             <Badge 
-               variant="outline" 
-               className="text-[10px] px-1.5"
+              <Badge 
+                variant="outline" 
+                className="text-[9px] px-1.5 rounded-sm uppercase tracking-wider font-bold"
                style={{ 
                  borderColor: rdv.regie_couleur || undefined,
                  color: rdv.regie_couleur || undefined,
