@@ -19,6 +19,7 @@ interface VenteRow {
   etude_id: string | null;
   status: string;
   product_type: "PV" | "PAC" | "ITE" | null;
+  gamme: string | null;
   commission_override: number | null;
 }
 
@@ -60,7 +61,7 @@ export function useInstallationCommissions(rdvList: RdvLike[]) {
       const { data } = await supabase
         .from("ventes")
         .select(
-          "id, montant_ht, montant_ttc, puissance_kwc, decom_montant, type_vente, regie_id, etude_id, status, product_type, commission_override"
+          "id, montant_ht, montant_ttc, puissance_kwc, decom_montant, type_vente, regie_id, etude_id, status, product_type, gamme, commission_override"
         )
         .in("id", uniqueIds);
       if (!cancelled) setVentes((data as VenteRow[]) || []);
