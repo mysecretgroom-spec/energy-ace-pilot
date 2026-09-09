@@ -94,25 +94,45 @@ Deno.serve(async (req) => {
     return json({ error: "Impossible de lire la photo" }, 400);
   }
 
+  const supportLabel =
+    installationType === "carport_bois"
+      ? "un carport en bois"
+      : installationType === "carport_alu"
+        ? "un carport en aluminium"
+        : installationType === "bac_leste"
+          ? "des bacs lestés type GSE posés sur la surface plate"
+          : "la toiture existante";
+
   const countInstruction = nbPanneaux
-    ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément).`
-    : `Installe un nombre réaliste de panneaux solaires sur le pan de toiture le mieux exposé.`;
+    ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément) sur ${supportLabel}.`
+    : `Installe un nombre réaliste de panneaux solaires sur ${supportLabel}.`;
 
   const edgeConstraint =
     "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
 
+  const supportInstruction =
+    installationType === "carport_bois"
+      ? "Construis dans la photo un carport en bois massif (poteaux et poutres en bois lamellé-collé teinte naturelle) posé sur une zone dégagée (allée, place de stationnement, terrain plat devant la maison). Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
+      : installationType === "carport_alu"
+        ? "Construis dans la photo un carport en aluminium anthracite (structure fine, poteaux carrés, finition mate) posé sur une zone dégagée (allée, place de stationnement, terrain plat). Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
+        : installationType === "bac_leste"
+          ? "Installe les panneaux sur des bacs lestés (type GSE / bacs à lester) posés sur la surface plate : supports noirs inclinés d'environ 10 à 15°, rangées régulières espacées pour éviter l'ombrage, aucun perçement de l'étanchéité, retrait d'au moins un mètre par rapport aux acrotères et aux bords de la toiture plate."
+          : edgeConstraint;
+
   const surfaceInstruction = surfaceConstraint
-    ? `${edgeConstraint} Consigne de zone complémentaire : ${surfaceConstraint}`
-    : `${edgeConstraint} Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.`;
+    ? `${supportInstruction} Consigne de zone complémentaire : ${surfaceConstraint}`
+    : installationType === "toiture"
+      ? `${supportInstruction} Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.`
+      : supportInstruction;
 
   const prompt = [
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
-    "Modifie UNIQUEMENT cette photo réelle pour y ajouter des panneaux solaires posés sur la toiture.",
+    `Modifie UNIQUEMENT cette photo réelle pour y ajouter une installation photovoltaïque sur ${supportLabel}.`,
     countInstruction,
     surfaceInstruction,
-    "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux rives du toit,",
+    "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux lignes de la structure,",
     "respect strict de la perspective, des pentes, des ombres et de la lumière existante.",
-    "Ne modifie ni le bâtiment, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
+    "Ne modifie ni le bâtiment existant, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
   ].join(" ");
 
