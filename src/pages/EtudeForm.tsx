@@ -3103,7 +3103,7 @@ _Envoyé depuis DébalePro_`;
                                   <SelectItem value="none">Auto (interpolation)</SelectItem>
                                   {pvBouquetsLocal.map(b => (
                                     <SelectItem key={b.id} value={b.id}>
-                                      {b.nom_bouquet} ({b.puissance_kwc} kWc) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                      {b.nom_bouquet} ({b.puissance_kwc} kWc){b.gamme ? ` · ${b.gamme}` : ""} — {b.prix_recommande.toLocaleString("fr-FR")}€
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
