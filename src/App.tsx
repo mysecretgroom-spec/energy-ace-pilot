@@ -15,6 +15,7 @@ import React, { Suspense, useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { Loader2 } from "lucide-react";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
+import { GlassFilterDefs } from "@/components/ui/GlassFilterDefs";
 
 // ─── Lazy-loaded pages for code-splitting ───
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -132,6 +133,7 @@ const App = () => {
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          <GlassFilterDefs />
           <Toaster />
           <Sonner />
           <BrowserRouter>
