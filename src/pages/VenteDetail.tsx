@@ -170,12 +170,13 @@ const VenteDetail = () => {
       montantSolde !== originalValues.montantSolde ||
       notes !== originalValues.notes ||
       puissanceKwc !== originalValues.puissanceKwc ||
-      typeInstallation !== originalValues.typeInstallation
+      typeInstallation !== originalValues.typeInstallation ||
+      gamme !== originalValues.gamme
     );
   }, [
     numeroContrat, status, dateSignature, dateCq, dateInstallationPrevue, heureInstallationPrevue,
     dateInstallationReelle, montantHt, montantTtc, montantAcompte, montantSolde, notes,
-    puissanceKwc, typeInstallation,
+    puissanceKwc, typeInstallation, gamme,
     originalValues
   ]);
 
