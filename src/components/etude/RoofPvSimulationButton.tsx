@@ -196,27 +196,48 @@ export function RoofPvSimulationButton({
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
-              Zone de pose autorisée
+              Type de pose et zone autorisée
             </DialogTitle>
             <DialogDescription className="text-xs">
-              La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez ici une zone de pose supplémentaire si besoin.
+              {installationType === "toiture"
+                ? "La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez une zone de pose supplémentaire si besoin."
+                : "Le support sera généré dans la photo. Précisez son emplacement si besoin."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {PRESET_CONSTRAINTS.map((preset) => (
-                <Button
-                  key={preset.label}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-[11px] h-7"
-                  onClick={() => setSurfaceConstraint(preset.value)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type d'installation</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {INSTALLATION_TYPES.map((t) => (
+                  <Button
+                    key={t.value}
+                    type="button"
+                    variant={installationType === t.value ? "default" : "outline"}
+                    size="sm"
+                    className="text-[11px] h-7"
+                    onClick={() => setInstallationType(t.value)}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
             </div>
+            {installationType === "toiture" && (
+              <div className="flex flex-wrap gap-2">
+                {PRESET_CONSTRAINTS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7"
+                    onClick={() => setSurfaceConstraint(preset.value)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="surface-constraint" className="text-xs">
                 Consigne (facultative)
