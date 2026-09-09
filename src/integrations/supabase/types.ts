@@ -369,6 +369,7 @@ export type Database = {
           commission_pct: number | null
           created_at: string
           description: string | null
+          gamme: string | null
           id: string
           nom_bouquet: string
           prix_hejja: number | null
@@ -386,6 +387,7 @@ export type Database = {
           commission_pct?: number | null
           created_at?: string
           description?: string | null
+          gamme?: string | null
           id?: string
           nom_bouquet: string
           prix_hejja?: number | null
@@ -403,6 +405,7 @@ export type Database = {
           commission_pct?: number | null
           created_at?: string
           description?: string | null
+          gamme?: string | null
           id?: string
           nom_bouquet?: string
           prix_hejja?: number | null

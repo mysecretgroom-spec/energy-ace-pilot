@@ -1,0 +1,1 @@
+ALTER TABLE public.bouquets ADD COLUMN IF NOT EXISTS gamme text;
