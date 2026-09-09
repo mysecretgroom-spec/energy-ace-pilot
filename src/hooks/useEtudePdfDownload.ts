@@ -31,12 +31,21 @@ export function useEtudePdfDownload() {
       const filename = `${prefix}_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
 
       // Generate PDF based on mode
-      const blob = await generatePdfFromEtude(etude, client, mode, options);
-      
+      const baseBlob = await generatePdfFromEtude(etude, client, mode, options);
+
+      // Ajoute les photos d'étude à la fin du même PDF
+      const blob = await appendStudyPhotosToPdf(
+        baseBlob,
+        etude.user_id,
+        etude.client_id,
+        etude.id
+      );
+
       // Upload/replace for future use (only for pre-etude to keep backward compat)
       if (mode === "pre-etude") {
         await uploadGeneratedPdf(blob, etude, client);
       }
+
 
       // Share or download
       const file = new File([blob], filename, { type: "application/pdf" });
