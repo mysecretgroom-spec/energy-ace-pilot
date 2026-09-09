@@ -286,8 +286,10 @@ const Planning = () => {
           
           // Prefer RDV address (appointment location), fall back to client home address
           const finalAddress = rdvAddress ? parsed.address : (clientData?.adresse || "");
-          const finalPostalCode = rdvAddress ? parsed.postalCode : (clientData?.code_postal || "");
-          const finalCity = rdvAddress ? parsed.city : (clientData?.ville || "");
+          // Always complete with the client's postal code / city when the RDV address
+          // doesn't contain them, otherwise GPS navigation can target the wrong town.
+          const finalPostalCode = (rdvAddress ? parsed.postalCode : (clientData?.code_postal || "")) || clientData?.code_postal || "";
+          const finalCity = (rdvAddress ? parsed.city : (clientData?.ville || "")) || clientData?.ville || "";
 
           const durationMinutes = (rdv.duree_minutes as number) || 90;
           const hours = Math.floor(durationMinutes / 60);
