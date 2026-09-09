@@ -330,7 +330,7 @@ export function SurcoutsExtractor({
                         <label className="text-[10px] text-muted-foreground">Type calcul</label>
                         <Select
                           value={s.type_calcul}
-                          onValueChange={(value) => update(index, "type_calcul", value as SurcoutExtrait["type_calcul"])}
+                          onValueChange={(value) => update(index, "type_calcul", value as ExtractedSurcout["type_calcul"])}
                         >
                           <SelectTrigger className="h-8 text-xs">
                             <SelectValue placeholder="Type" />
