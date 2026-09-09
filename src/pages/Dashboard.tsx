@@ -864,12 +864,12 @@ const Dashboard = () => {
 
         {/* Prochains RDV */}
         {loading ? <DashboardRdvListSkeleton /> : (
-        <Card>
+        <Card className="rounded-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Prochains RDV</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate("/planning")}>
-                Voir tout <ArrowRight className="h-4 w-4 ml-1" />
+              <CardTitle className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Prochains RDV</CardTitle>
+              <Button variant="ghost" size="sm" className="text-[11px] font-semibold text-primary h-7" onClick={() => navigate("/planning")}>
+                Voir tout <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
           </CardHeader>

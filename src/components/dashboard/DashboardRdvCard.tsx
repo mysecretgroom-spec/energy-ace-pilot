@@ -60,14 +60,14 @@
    return (
      <>
        <div 
-          className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all select-none ${
+          className={`flex items-center justify-between p-3 rounded-sm border cursor-pointer transition-all select-none ${
             isPressing 
               ? "bg-primary/20 scale-[0.98]" 
               : rdv.needs_reconfirmation
-                ? "bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-400"
+                ? "bg-amber-500/10 border-amber-500/40"
                 : isOngoing
-                  ? "bg-primary/10 border border-primary/30"
-                  : "bg-muted/50 hover:bg-muted"
+                  ? "bg-primary/10 border-primary/30"
+                  : "bg-card border-border hover:bg-muted/40"
           }`}
           style={{ touchAction: "manipulation" }}
           {...handlers}
