@@ -36,6 +36,22 @@ const PRESET_CONSTRAINTS = [
   { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
 ];
 
+type InstallationType = "toiture" | "carport_bois" | "carport_alu" | "bac_leste";
+
+const INSTALLATION_TYPES: { value: InstallationType; label: string }[] = [
+  { value: "toiture", label: "Toiture" },
+  { value: "carport_bois", label: "Carport bois" },
+  { value: "carport_alu", label: "Carport alu" },
+  { value: "bac_leste", label: "Bac lesté (GSE)" },
+];
+
+const INSTALLATION_LABELS: Record<InstallationType, string> = {
+  toiture: "Toiture",
+  carport_bois: "Carport bois",
+  carport_alu: "Carport aluminium",
+  bac_leste: "Bacs lestés (GSE)",
+};
+
 /**
  * Génère, à partir de la dernière photo de toiture, un photomontage IA
  * avec le nombre de panneaux calculé dans l'étude.
@@ -54,6 +70,7 @@ export function RoofPvSimulationButton({
   const [preview, setPreview] = useState<string | null>(null);
   const [constraintOpen, setConstraintOpen] = useState(false);
   const [surfaceConstraint, setSurfaceConstraint] = useState("");
+  const [installationType, setInstallationType] = useState<InstallationType>("toiture");
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
 
   const nbPanneaux = Math.ceil((Number(puissanceKwc) || 0) / 0.5);
@@ -89,19 +106,23 @@ export function RoofPvSimulationButton({
     if (!url) return;
     setSourceUrl(url);
     setSurfaceConstraint("");
+    setInstallationType("toiture");
     setConstraintOpen(true);
   };
+
+  const buildConstraint = () =>
+    [installationType === "toiture" ? BASE_MANDATORY_CONSTRAINT : "", surfaceConstraint.trim()]
+      .filter(Boolean)
+      .join(" ");
 
   const runGeneration = async () => {
     if (!user || !sourceUrl) return;
     setConstraintOpen(false);
     setLoading(true);
     try {
-      const combinedConstraint = [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()]
-        .filter(Boolean)
-        .join(" ");
+      const combinedConstraint = buildConstraint();
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint },
+        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint, installationType },
       });
 
       if (fnError || !data?.image) {
@@ -125,22 +146,23 @@ export function RoofPvSimulationButton({
         user_id: user.id,
         client_id: clientId,
         etude_id: etudeId || null,
-        nom: `Simulation panneaux (IA) - ${new Date().toLocaleDateString("fr-FR")}.png`,
+        nom: `Simulation ${INSTALLATION_LABELS[installationType]} (IA) - ${new Date().toLocaleDateString("fr-FR")}.png`,
         type_document: "photo_toiture",
         context_source: "simulation_pv",
         url: urlData.publicUrl,
         taille_bytes: blob.size,
         mime_type: "image/png",
         metadata: {
-          surface_constraint: [BASE_MANDATORY_CONSTRAINT, surfaceConstraint.trim()].filter(Boolean).join(" "),
+          surface_constraint: buildConstraint(),
           nb_panneaux: nbPanneaux,
+          installation_type: installationType,
         },
       });
       if (insertError) throw insertError;
 
       toast({
         title: "Simulation générée",
-        description: `${nbPanneaux || "Plusieurs"} panneaux posés sur le toit. Le rendu sera joint au rapport.`,
+        description: `${nbPanneaux || "Plusieurs"} panneaux — ${INSTALLATION_LABELS[installationType]}. Le rendu sera joint au rapport.`,
       });
       onSimulationSaved?.();
     } catch (err) {
@@ -174,27 +196,48 @@ export function RoofPvSimulationButton({
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
-              Zone de pose autorisée
+              Type de pose et zone autorisée
             </DialogTitle>
             <DialogDescription className="text-xs">
-              La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez ici une zone de pose supplémentaire si besoin.
+              {installationType === "toiture"
+                ? "La consigne « sans dépasser les rives » est appliquée automatiquement. Précisez une zone de pose supplémentaire si besoin."
+                : "Le support sera généré dans la photo. Précisez son emplacement si besoin."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {PRESET_CONSTRAINTS.map((preset) => (
-                <Button
-                  key={preset.label}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="text-[11px] h-7"
-                  onClick={() => setSurfaceConstraint(preset.value)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type d'installation</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {INSTALLATION_TYPES.map((t) => (
+                  <Button
+                    key={t.value}
+                    type="button"
+                    variant={installationType === t.value ? "default" : "outline"}
+                    size="sm"
+                    className="text-[11px] h-7"
+                    onClick={() => setInstallationType(t.value)}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
             </div>
+            {installationType === "toiture" && (
+              <div className="flex flex-wrap gap-2">
+                {PRESET_CONSTRAINTS.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7"
+                    onClick={() => setSurfaceConstraint(preset.value)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="surface-constraint" className="text-xs">
                 Consigne (facultative)
@@ -224,7 +267,7 @@ export function RoofPvSimulationButton({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm">
-              Simulation — {nbPanneaux} panneaux
+              Simulation {INSTALLATION_LABELS[installationType]} — {nbPanneaux} panneaux
             </DialogTitle>
           </DialogHeader>
           {preview && (
