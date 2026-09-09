@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Plus, 
   Trash2, 
@@ -325,15 +326,19 @@ export function ProductSurcoutsSection({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-xs text-muted-foreground">Catégorie</label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      <Select
                         value={newSurcout.categorie}
-                        onChange={(e) => setNewSurcout({ ...newSurcout, categorie: e.target.value })}
+                        onValueChange={(value) => setNewSurcout({ ...newSurcout, categorie: value })}
                       >
-                        {cfg.categories.map(cat => (
-                          <option key={cat.value} value={cat.value}>{cat.label}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Catégorie" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cfg.categories.map(cat => (
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Code</label>
@@ -363,15 +368,19 @@ export function ProductSurcoutsSection({
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground">Type calcul</label>
-                      <select
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      <Select
                         value={newSurcout.type_calcul}
-                        onChange={(e) => setNewSurcout({ ...newSurcout, type_calcul: e.target.value })}
+                        onValueChange={(value) => setNewSurcout({ ...newSurcout, type_calcul: value })}
                       >
-                        {cfg.typeCalculOptions.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cfg.typeCalculOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <Button 
@@ -411,15 +420,19 @@ export function ProductSurcoutsSection({
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
                                     <label className="text-[10px] text-muted-foreground">Catégorie</label>
-                                    <select
-                                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                    <Select
                                       value={editForm.categorie}
-                                      onChange={(e) => setEditForm({ ...editForm, categorie: e.target.value })}
+                                      onValueChange={(value) => setEditForm({ ...editForm, categorie: value })}
                                     >
-                                      {cfg.categories.map(cat => (
-                                        <option key={cat.value} value={cat.value}>{cat.label}</option>
-                                      ))}
-                                    </select>
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Catégorie" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {cfg.categories.map(cat => (
+                                          <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   <div>
                                     <label className="text-[10px] text-muted-foreground">Code</label>
@@ -450,15 +463,19 @@ export function ProductSurcoutsSection({
                                   </div>
                                   <div>
                                     <label className="text-[10px] text-muted-foreground">Type calcul</label>
-                                    <select
-                                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
+                                    <Select
                                       value={editForm.type_calcul}
-                                      onChange={(e) => setEditForm({ ...editForm, type_calcul: e.target.value })}
+                                      onValueChange={(value) => setEditForm({ ...editForm, type_calcul: value })}
                                     >
-                                      {cfg.typeCalculOptions.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                      ))}
-                                    </select>
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Type" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {cfg.typeCalculOptions.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                                 <div className="flex gap-2 justify-end pt-1">
