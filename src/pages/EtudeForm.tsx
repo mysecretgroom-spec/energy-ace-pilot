@@ -3367,13 +3367,21 @@ _Envoyé depuis DébalePro_`;
                 Toiture
               </CardTitle>
               {clientId && (
-                <QuickPhotoButton
-                  clientId={clientId}
-                  category="photo_toiture"
-                  label="Photo"
-                  etudeId={currentEtudeId}
-                  onPhotoSaved={triggerImmediateSave}
-                />
+                <div className="flex items-center gap-1.5">
+                  <QuickPhotoButton
+                    clientId={clientId}
+                    category="photo_toiture"
+                    label="Photo"
+                    etudeId={currentEtudeId}
+                    onPhotoSaved={triggerImmediateSave}
+                  />
+                  <RoofPvSimulationButton
+                    clientId={clientId}
+                    etudeId={currentEtudeId}
+                    puissanceKwc={puissanceKwc}
+                    onSimulationSaved={triggerImmediateSave}
+                  />
+                </div>
               )}
             </div>
           </CardHeader>
