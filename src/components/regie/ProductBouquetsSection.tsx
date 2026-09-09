@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Layers } from "lucide-react";
 import { 
   Plus, 
   Trash2, 
@@ -33,6 +35,7 @@ interface RegieBouquet {
   actif: boolean;
   product_type: ProductType | null;
   gamme?: string | null;
+  gamme_id?: string | null;
   isGlobal?: boolean;
 }
 
@@ -50,6 +53,12 @@ interface ProductBouquetsSectionProps {
   onRefresh: () => void;
   onUpdateCommissionMode: (mode: 'pourcentage' | 'bouquet') => void;
   onUpdateSurventePct: (pct: number) => void;
+}
+
+interface Gamme {
+  id: string;
+  nom: string;
+  product_type: ProductType;
 }
 
 const formatCurrency = (amount: number) => {
@@ -76,11 +85,70 @@ export function ProductBouquetsSection({
 }: ProductBouquetsSectionProps) {
   const [activeProductTab, setActiveProductTab] = useState<ProductType>("PV");
   const [saving, setSaving] = useState(false);
+
+  // Gammes (par régie et par produit)
+  const [gammes, setGammes] = useState<Gamme[]>([]);
+  const [newGammeNom, setNewGammeNom] = useState("");
+
+  const loadGammes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("regies_gammes")
+      .select("id, nom, product_type")
+      .eq("regie_id", selectedRegie.id)
+      .eq("actif", true)
+      .order("nom");
+    if (error) {
+      console.error("Error loading gammes:", error);
+      return;
+    }
+    setGammes((data || []).map((g) => ({ id: g.id, nom: g.nom, product_type: (g.product_type as ProductType) || "PV" })));
+  }, [selectedRegie.id]);
+
+  useEffect(() => { loadGammes(); }, [loadGammes]);
+
+  const getGammes = (productType: ProductType) => gammes.filter((g) => g.product_type === productType);
+
+  const handleAddGamme = async (productType: ProductType) => {
+    const nom = newGammeNom.trim();
+    if (!nom) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("regies_gammes").insert({
+        user_id: userId,
+        regie_id: selectedRegie.id,
+        product_type: productType,
+        nom,
+      });
+      if (error) throw error;
+      setNewGammeNom("");
+      toast.success("Gamme ajoutée");
+      await loadGammes();
+    } catch (error) {
+      console.error("Error adding gamme:", error);
+      toast.error("Cette gamme existe déjà ou n'a pas pu être créée");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGamme = async (gamme: Gamme) => {
+    try {
+      const { error } = await supabase.from("regies_gammes").update({ actif: false }).eq("id", gamme.id);
+      if (error) throw error;
+      await supabase.from("bouquets").update({ gamme_id: null, gamme: null }).eq("gamme_id", gamme.id);
+      toast.success("Gamme supprimée");
+      await loadGammes();
+      onRefresh();
+    } catch (error) {
+      console.error("Error deleting gamme:", error);
+      toast.error("Erreur lors de la suppression");
+    }
+  };
   
   // Form state for new bouquet
   const [newBouquet, setNewBouquet] = useState({
     nom_bouquet: "",
-    gamme: "",
+    gamme_id: "",
     puissance_kwc: 3,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -90,7 +158,7 @@ export function ProductBouquetsSection({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     nom_bouquet: "",
-    gamme: "",
+    gamme_id: "",
     puissance_kwc: 0,
     prix_recommande: 0,
     commission_fixe: 0,
@@ -118,7 +186,8 @@ export function ProductBouquetsSection({
       const { error } = await supabase.from("bouquets").insert({
         user_id: userId,
         nom_bouquet: newBouquet.nom_bouquet.trim(),
-        gamme: newBouquet.gamme.trim() || null,
+        gamme_id: newBouquet.gamme_id || null,
+        gamme: gammes.find((g) => g.id === newBouquet.gamme_id)?.nom || null,
         puissance_kwc: newBouquet.puissance_kwc,
         prix_recommande: newBouquet.prix_recommande,
         prix_max: newBouquet.prix_recommande,
@@ -133,7 +202,7 @@ export function ProductBouquetsSection({
       toast.success("Bouquet ajouté");
       setNewBouquet({
         nom_bouquet: "",
-        gamme: "",
+        gamme_id: "",
         puissance_kwc: productType === "ITE" ? 100 : 3,
         prix_recommande: 0,
         commission_fixe: 0,
@@ -187,7 +256,7 @@ export function ProductBouquetsSection({
     setEditingId(bouquet.id);
     setEditForm({
       nom_bouquet: bouquet.nom_bouquet,
-      gamme: bouquet.gamme || "",
+      gamme_id: bouquet.gamme_id || "",
       puissance_kwc: bouquet.puissance_kwc,
       prix_recommande: bouquet.prix_recommande,
       commission_fixe: bouquet.commission_fixe,
@@ -209,7 +278,8 @@ export function ProductBouquetsSection({
         .from("bouquets")
         .update({
           nom_bouquet: editForm.nom_bouquet.trim(),
-          gamme: editForm.gamme.trim() || null,
+          gamme_id: editForm.gamme_id || null,
+          gamme: gammes.find((g) => g.id === editForm.gamme_id)?.nom || null,
           puissance_kwc: editForm.puissance_kwc,
           prix_recommande: editForm.prix_recommande,
           prix_max: editForm.prix_recommande,
@@ -254,13 +324,72 @@ export function ProductBouquetsSection({
 
             {(Object.keys(productConfig) as ProductType[]).map((productType) => {
               const cfg = productConfig[productType];
-              const bouquets = getBouquetsByProduct(productType);
+              const productGammes = getGammes(productType);
+              const gammeLabel = (b: RegieBouquet) =>
+                productGammes.find((g) => g.id === b.gamme_id)?.nom || b.gamme || "Sans gamme";
+              const bouquets = [...getBouquetsByProduct(productType)].sort((a, b) => {
+                const ga = gammeLabel(a), gb = gammeLabel(b);
+                if (ga !== gb) {
+                  if (ga === "Sans gamme") return 1;
+                  if (gb === "Sans gamme") return -1;
+                  return ga.localeCompare(gb);
+                }
+                return a.puissance_kwc - b.puissance_kwc;
+              });
               
               return (
                 <TabsContent key={productType} value={productType} className="space-y-4 mt-4">
                   <p className="text-sm text-muted-foreground">
                     Tarifs et commissions <span className="font-medium">{cfg.label}</span>
                   </p>
+
+                  {/* Gammes du produit */}
+                  <Card>
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-sm font-medium">Gammes {cfg.label}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Regroupez vos {productType === "ITE" ? "forfaits" : "bouquets"} par gamme (ex. Standard, Premium) pour distinguer deux offres de même puissance.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {productGammes.map((g) => (
+                          <Badge key={g.id} variant="secondary" className="gap-1 pr-1">
+                            {g.nom}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-4 w-4 text-destructive"
+                              onClick={() => handleDeleteGamme(g)}
+                              title="Supprimer la gamme"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                        {productGammes.length === 0 && (
+                          <span className="text-xs text-muted-foreground">Aucune gamme</span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Nom de la gamme"
+                          value={newGammeNom}
+                          onChange={(e) => setNewGammeNom(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddGamme(productType)}
+                          disabled={!newGammeNom.trim() || saving}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Formulaire ajout bouquet */}
                   <Card>
@@ -297,12 +426,21 @@ export function ProductBouquetsSection({
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-muted-foreground">Gamme (optionnel)</label>
-                          <Input
-                            placeholder="Ex. Standard, Premium"
-                            value={newBouquet.gamme}
-                            onChange={(e) => setNewBouquet({ ...newBouquet, gamme: e.target.value })}
-                          />
+                          <label className="text-xs text-muted-foreground">Gamme</label>
+                          <Select
+                            value={newBouquet.gamme_id || "none"}
+                            onValueChange={(v) => setNewBouquet({ ...newBouquet, gamme_id: v === "none" ? "" : v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sans gamme" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sans gamme</SelectItem>
+                              {getGammes(productType).map((g) => (
+                                <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                       <Button 
@@ -322,10 +460,18 @@ export function ProductBouquetsSection({
                   </Card>
 
                   {/* Liste des bouquets */}
-                  {bouquets.map((bouquet) => {
+                  {bouquets.map((bouquet, idx) => {
                     const isEditing = editingId === bouquet.id;
+                    const label = gammeLabel(bouquet);
+                    const showHeader = idx === 0 || gammeLabel(bouquets[idx - 1]) !== label;
                     return (
-                      <Card key={bouquet.id} className={bouquet.isGlobal ? "border-dashed" : ""}>
+                      <div key={bouquet.id} className="space-y-2">
+                      {showHeader && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2">
+                          {label}
+                        </p>
+                      )}
+                      <Card className={bouquet.isGlobal ? "border-dashed" : ""}>
                         <CardContent className="p-3">
                           {isEditing ? (
                             <div className="space-y-2">
@@ -335,12 +481,20 @@ export function ProductBouquetsSection({
                                 onChange={(e) => setEditForm({ ...editForm, nom_bouquet: e.target.value })}
                                 className="h-8 text-sm font-medium"
                               />
-                              <Input
-                                placeholder="Gamme (optionnel)"
-                                value={editForm.gamme}
-                                onChange={(e) => setEditForm({ ...editForm, gamme: e.target.value })}
-                                className="h-8 text-xs"
-                              />
+                              <Select
+                                value={editForm.gamme_id || "none"}
+                                onValueChange={(v) => setEditForm({ ...editForm, gamme_id: v === "none" ? "" : v })}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Sans gamme" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sans gamme</SelectItem>
+                                  {getGammes(productType).map((g) => (
+                                    <SelectItem key={g.id} value={g.id}>{g.nom}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
                                   <label className="text-[10px] text-muted-foreground">{cfg.unit}</label>
@@ -400,7 +554,6 @@ export function ProductBouquetsSection({
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     {bouquet.puissance_kwc} {cfg.unit}
-                                    {bouquet.gamme ? ` · ${bouquet.gamme}` : ""}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -444,6 +597,7 @@ export function ProductBouquetsSection({
                           )}
                         </CardContent>
                       </Card>
+                      </div>
                     );
                   })}
 

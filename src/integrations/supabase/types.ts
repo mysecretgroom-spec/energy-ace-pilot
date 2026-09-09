@@ -370,6 +370,7 @@ export type Database = {
           created_at: string
           description: string | null
           gamme: string | null
+          gamme_id: string | null
           id: string
           nom_bouquet: string
           prix_hejja: number | null
@@ -388,6 +389,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           gamme?: string | null
+          gamme_id?: string | null
           id?: string
           nom_bouquet: string
           prix_hejja?: number | null
@@ -406,6 +408,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           gamme?: string | null
+          gamme_id?: string | null
           id?: string
           nom_bouquet?: string
           prix_hejja?: number | null
@@ -417,7 +420,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bouquets_gamme_id_fkey"
+            columns: ["gamme_id"]
+            isOneToOne: false
+            referencedRelation: "regies_gammes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -2864,6 +2875,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "regies_financements_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regies_gammes: {
+        Row: {
+          actif: boolean
+          created_at: string
+          id: string
+          nom: string
+          product_type: string
+          regie_id: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom: string
+          product_type?: string
+          regie_id: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          id?: string
+          nom?: string
+          product_type?: string
+          regie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regies_gammes_regie_id_fkey"
             columns: ["regie_id"]
             isOneToOne: false
             referencedRelation: "regies"
