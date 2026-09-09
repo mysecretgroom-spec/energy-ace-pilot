@@ -60,7 +60,8 @@ import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
-import { exportEtudePdf, getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
+import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
+import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2274,6 +2275,12 @@ const EtudeForm = () => {
     buildPdfData,
   });
 
+  /** Génère le PDF de l'étude avec les photos d'étude ajoutées à la fin */
+  const buildReportBlobWithPhotos = async (pdfData: EtudeData): Promise<Blob> => {
+    const base = await getEtudePdfBlob(pdfData);
+    return appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
+  };
+
   const handleExportPdf = async () => {
     if (!calculatedResults) return;
     
@@ -2283,15 +2290,24 @@ const EtudeForm = () => {
       const pdfData = buildPdfData();
       if (!pdfData) throw new Error("Données PDF manquantes");
       
-      // Export and download
-      await exportEtudePdf(pdfData);
+      // Export and download (photos d'étude incluses dans le même PDF)
+      const blob = await buildReportBlobWithPhotos(pdfData);
+      const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 200);
       
       // Also store in cloud for future access
       await generateAndStorePdf();
       
       toast({
         title: "PDF exporté",
-        description: "L'étude a été téléchargée et sauvegardée",
+        description: "L'étude et les photos ont été téléchargées",
       });
     } catch (error) {
       console.error("Erreur export PDF:", error);
@@ -2319,7 +2335,7 @@ const EtudeForm = () => {
     if (!pdfData) return;
     
     try {
-      const blob = await getEtudePdfBlob(pdfData);
+      const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       
@@ -2330,8 +2346,15 @@ const EtudeForm = () => {
           files: [file],
         });
       } else {
-        // Fallback: télécharger le PDF
-        await exportEtudePdf(pdfData);
+        // Fallback: télécharger le PDF (photos incluses)
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 200);
         toast({
           title: "PDF téléchargé",
           description: "Partagez-le depuis vos fichiers",
@@ -2353,7 +2376,7 @@ const EtudeForm = () => {
     if (!pdfData || !user) return;
     
     try {
-      const blob = await getEtudePdfBlob(pdfData);
+      const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
       
