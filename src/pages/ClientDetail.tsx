@@ -30,7 +30,10 @@ import {
   Loader2,
   AlertTriangle,
   Download,
+  Copy,
+  Check,
 } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
@@ -240,6 +243,7 @@ const ClientDetailInner = () => {
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showLiveScanner, setShowLiveScanner] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showRetapeDialog, setShowRetapeDialog] = useState(false);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [showNewRdvDialog, setShowNewRdvDialog] = useState(false);
@@ -364,6 +368,39 @@ const ClientDetailInner = () => {
       window.open(`mailto:${client.email}`, "_self");
     }
   };
+
+  const fullAddress = [client?.adresse, client?.code_postal, client?.ville]
+    .filter(Boolean)
+    .join(", ");
+
+  const handleCopy = async (field: string, value?: string | null) => {
+    if (!value) return;
+    const ok = await copyToClipboard(value);
+    if (ok) {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+      toast({ title: "Copié", description: value });
+    } else {
+      toast({ title: "Copie impossible", variant: "destructive" });
+    }
+  };
+
+  const CopyButton = ({ field, value }: { field: string; value?: string | null }) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 flex-shrink-0"
+      aria-label="Copier"
+      onClick={() => handleCopy(field, value)}
+      disabled={!value}
+    >
+      {copiedField === field ? (
+        <Check className="h-4 w-4 text-status-signed" />
+      ) : (
+        <Copy className="h-4 w-4 text-muted-foreground" />
+      )}
+    </Button>
+  );
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("fr-FR", {
@@ -555,29 +592,33 @@ const ClientDetailInner = () => {
                 {client.telephone && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.telephone}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.telephone}</span>
+                    <CopyButton field="tel" value={client.telephone} />
                   </div>
                 )}
                 {client.telephone_secondaire && (
                   <div className="flex items-center gap-3">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.telephone_secondaire}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.telephone_secondaire}</span>
+                    <CopyButton field="tel2" value={client.telephone_secondaire} />
                   </div>
                 )}
                 {client.email && (
                   <div className="flex items-center gap-3">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{client.email}</span>
+                    <span className="text-sm flex-1 min-w-0 break-words">{client.email}</span>
+                    <CopyButton field="email" value={client.email} />
                   </div>
                 )}
                 {client.adresse && (
                   <div className="flex items-start gap-3">
                     <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">
+                    <span className="text-sm flex-1 min-w-0 break-words">
                       {client.adresse}
                       {client.code_postal && `, ${client.code_postal}`}
                       {client.ville && ` ${client.ville}`}
                     </span>
+                    <CopyButton field="adresse" value={fullAddress} />
                   </div>
                 )}
                 {client.source && (
