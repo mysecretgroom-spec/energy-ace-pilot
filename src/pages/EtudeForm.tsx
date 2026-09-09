@@ -659,6 +659,9 @@ const EtudeForm = () => {
   };
 
   // Recalculate when inputs change (including cross-product dependencies)
+  // IMPORTANT: inclure remiseCommerciale, aidesManuelles et selectedBouquetPV
+  // pour que la Prime Coup de Pouce Producteur et les totaux se mettent à jour
+  // instantanément, sans sauvegarde.
   useEffect(() => {
     if (puissanceKwc && consoAnnuelle) {
       calculateResults();
@@ -672,13 +675,17 @@ const EtudeForm = () => {
     inclinaison,
     typeRevente,
     selectedSurcouts,
+    selectedBouquetPV,
     modeHejjaPsh,
+    modeHejjaPrix,
     prixManuel,
     prixInstallationManuel,
     rendementProductivite,
     financementId,
     dureeMoisManuelle,
     mensualiteManuelle,
+    remiseCommerciale,
+    aidesManuelles,
     surcoutSupport,
     surcoutCompteur,
     surcoutEmplacement,
