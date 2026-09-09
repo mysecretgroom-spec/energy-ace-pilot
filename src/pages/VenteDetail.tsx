@@ -186,6 +186,30 @@ const VenteDetail = () => {
     }
   }, [id]);
 
+  // Charge les gammes disponibles (bouquets de la régie / du type de produit)
+  useEffect(() => {
+    const loadGammes = async () => {
+      if (!vente) return;
+      const productType = (vente as any).product_type || "PV";
+      const { data } = await supabase
+        .from("bouquets")
+        .select("gamme, product_type, regie_ids")
+        .eq("actif", true);
+      const venteRegie = (vente as any).regie_id as string | null;
+      const noms = (data || [])
+        .filter((b: any) => !b.product_type || b.product_type === productType)
+        .filter((b: any) =>
+          !venteRegie || !b.regie_ids || b.regie_ids.length === 0 || b.regie_ids.includes(venteRegie)
+        )
+        .map((b: any) => (b.gamme || "").trim())
+        .filter(Boolean);
+      setGammesDisponibles(Array.from(new Set(noms)).sort());
+    };
+    loadGammes();
+  }, [vente]);
+
+  
+
   
 
   // Auto-set installation date when status changes to "installe"
