@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } from "@/lib/exportEtudePdf";
+import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { toast } from "sonner";
 
 type PdfMode = "pre-etude" | "resultat";
