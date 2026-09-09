@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 import { EdgeOverlay } from "./EdgeOverlay";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
+import { captureStill, applyDocumentFocus } from "./services/stillCapture";
 
 interface CapturedPage {
   id: string;
@@ -96,8 +97,8 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 4096 },
+          height: { ideal: 2160 },
         },
         audio: false,
       });
@@ -107,6 +108,8 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const track = stream.getVideoTracks()[0];
       const caps = track.getCapabilities?.() as any;
       if (caps?.torch) setTorchSupported(true);
+      // Continuous autofocus / exposure / white balance for documents
+      await applyDocumentFocus(track);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -194,16 +197,15 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const ctx = canvas.getContext("2d");
     if (!ctx) { setIsCapturing(false); return; }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const rawImage = canvas.toDataURL("image/jpeg", 0.92);
+    // Full-resolution still (sensor photo) with video-frame fallback
+    const track = streamRef.current?.getVideoTracks()[0] ?? null;
+    const still = await captureStill(track, video, canvas);
+    const rawImage = still.dataUrl;
     reset();
 
-    // Auto-crop with perspective correction if quad was detected
+    // Auto-crop with perspective correction if quad detected and framing matches
     let finalImage = rawImage;
-    if (quad && quad.confidence > 0.3) {
+    if (quad && quad.confidence > 0.3 && still.matchesPreviewFraming) {
       try {
         const normalizedCorners = {
           topLeft: { x: quad.topLeft.x / video.videoWidth, y: quad.topLeft.y / video.videoHeight },
