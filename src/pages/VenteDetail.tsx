@@ -318,6 +318,7 @@ const VenteDetail = () => {
       notes: newNotes,
       puissanceKwc: newPuissanceKwc,
       typeInstallation: newTypeInstallation,
+      gamme: newGamme,
     });
 
     setLoading(false);
@@ -390,6 +391,7 @@ const VenteDetail = () => {
       puissance_kwc: puissanceKwc || null,
       nombre_panneaux: nombrePanneaux || null,
       type_installation: typeInstallation || null,
+      gamme: gamme || null,
     };
 
     if (montantHt !== "") {
@@ -432,6 +434,7 @@ const VenteDetail = () => {
       notes,
       puissanceKwc,
       typeInstallation,
+      gamme,
     });
 
   };
