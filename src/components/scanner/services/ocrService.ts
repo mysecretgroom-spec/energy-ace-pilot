@@ -1,4 +1,5 @@
 import Tesseract from 'tesseract.js';
+import { preprocessForOcr } from './ocrPreprocess';
 
 export interface OcrResult {
   text: string;
