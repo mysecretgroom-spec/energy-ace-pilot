@@ -49,56 +49,56 @@ body {
 /* DébalePro Design System - Corporate Professional */
 @layer base {
   :root {
-    /* Fond clair professionnel */
-    --background: 220 14% 97%;
-    --foreground: 222 47% 11%;
+    /* Fond sable clair */
+    --background: 40 33% 96%;
+    --foreground: 180 35% 11%;
 
     /* Surfaces */
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --card: 45 40% 99%;
+    --card-foreground: 180 35% 11%;
+    --popover: 45 40% 99%;
+    --popover-foreground: 180 35% 11%;
 
-    /* Vert corporate (couleur historique) */
-    --primary: 152 60% 40%;
-    --primary-foreground: 0 0% 100%;
+    /* Teal profond */
+    --primary: 174 84% 32%;
+    --primary-foreground: 45 60% 98%;
 
-    /* Ambre premium - accent secondaire */
-    --secondary: 40 90% 50%;
-    --secondary-foreground: 30 60% 15%;
+    /* Sable doré - accent secondaire */
+    --secondary: 41 63% 66%;
+    --secondary-foreground: 180 40% 14%;
 
-    /* Gris neutres - plus subtils */
-    --muted: 220 13% 95%;
-    --muted-foreground: 220 9% 46%;
+    /* Neutres chauds */
+    --muted: 40 20% 92%;
+    --muted-foreground: 185 12% 40%;
 
-    /* Accent slate */
-    --accent: 220 14% 93%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent */
+    --accent: 174 30% 92%;
+    --accent-foreground: 180 40% 14%;
 
     /* États */
-    --destructive: 0 72% 51%;
+    --destructive: 4 74% 47%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Bordures - plus légères et professionnelles */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 152 60% 40%;
+    /* Bordures */
+    --border: 40 18% 87%;
+    --input: 40 18% 87%;
+    --ring: 174 84% 32%;
 
-    --radius: 0.3rem;
+    --radius: 0.75rem;
 
     /* Statuts RDV */
-    --status-new: 210 100% 50%;
-    --status-reported: 40 90% 50%;
-    --status-r2: 152 60% 40%;
-    --status-r2-prestudy: 175 70% 40%;
-    --status-signed: 142 76% 36%;
-    --status-negative: 0 72% 51%;
-    --status-cancelled: 220 9% 46%;
+    --status-new: 199 89% 42%;
+    --status-reported: 41 80% 48%;
+    --status-r2: 174 84% 32%;
+    --status-r2-prestudy: 187 72% 36%;
+    --status-signed: 160 75% 32%;
+    --status-negative: 4 74% 47%;
+    --status-cancelled: 185 10% 48%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(152 60% 40%) 0%, hsl(175 70% 40%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(40 90% 50%) 0%, hsl(30 90% 45%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(215 28% 17%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(180 45% 17%) 0%, hsl(174 84% 32%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(41 63% 66%) 0%, hsl(35 65% 52%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(180 45% 10%) 0%, hsl(180 30% 15%) 100%);
 
     /* Ombres - plus subtiles et professionnelles */
     --shadow-xs: 0 1px 2px 0 hsl(222 47% 11% / 0.03);
