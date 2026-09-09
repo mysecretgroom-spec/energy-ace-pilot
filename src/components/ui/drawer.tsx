@@ -33,7 +33,7 @@ const DrawerContent = React.forwardRef<
       className={cn(
         "fixed inset-x-0 bottom-0 z-[70] mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
         // Mobile scroll support
-        "max-h-[90vh] overflow-y-auto overscroll-contain",
+        "max-h-[90dvh] overflow-y-auto overscroll-contain",
         className,
       )}
       {...props}
