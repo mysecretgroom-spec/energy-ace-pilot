@@ -151,6 +151,7 @@ const VenteDetail = () => {
     notes: "",
     puissanceKwc: "" as number | "",
     typeInstallation: "",
+    gamme: "",
   });
 
   // Check if form has changes
