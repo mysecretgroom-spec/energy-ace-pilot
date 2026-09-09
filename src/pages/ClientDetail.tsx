@@ -39,6 +39,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 import { AIExtractedInfo } from "@/components/client/AIExtractedInfo";
+import { ClientMapEmbed } from "@/components/client/ClientMapEmbed";
 import { EditClientDialog } from "@/components/client/EditClientDialog";
 import { RegieSelector } from "@/components/planning/RegieSelector";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
@@ -628,6 +629,7 @@ const ClientDetailInner = () => {
                     </span>
                   </div>
                 )}
+                {fullAddress && <ClientMapEmbed address={fullAddress} />}
               </CardContent>
             </Card>
 
