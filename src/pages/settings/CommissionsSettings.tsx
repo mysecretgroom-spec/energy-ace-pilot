@@ -74,6 +74,8 @@ const CommissionsSettings = () => {
   // IA
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiEditId, setAiEditId] = useState<string | null>(null);
+  const [aiEditText, setAiEditText] = useState("");
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
