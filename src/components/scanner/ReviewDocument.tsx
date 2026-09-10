@@ -211,14 +211,8 @@ export function ReviewDocument({
         throw new Error("No content for OCR");
       }
       
-      // Call the AI-powered edge function
-      const { data, error } = await supabase.functions.invoke("ocr-receipt", {
-        body: { image_base64: imageBase64 },
-      });
-
-      if (error) throw error;
-
-      const result = data as AIExtractedData;
+      // Lecture du justificatif (IA serveur, repli sur le moteur embarqué hors ligne)
+      const result = (await recognizeReceipt(imageBase64)) as AIExtractedData;
       setOcrResult(result);
 
       // Auto-fill fields from AI extraction
