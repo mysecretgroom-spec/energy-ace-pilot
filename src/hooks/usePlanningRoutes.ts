@@ -31,12 +31,18 @@ function formatTravelTime(minutes: number): string {
   return m > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
 
-export function usePlanningRoutes(date: Date) {
+interface UserPosition {
+  latitude: number;
+  longitude: number;
+}
+
+export function usePlanningRoutes(date: Date, userPosition?: UserPosition | null) {
   const { user } = useAuth();
   const [rdvs, setRdvs] = useState<RdvWithRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalDistance, setTotalDistance] = useState(0);
   const [tomorrowFirstDistance, setTomorrowFirstDistance] = useState<RouteInfo | null>(null);
+  const [userToNextDistance, setUserToNextDistance] = useState<RouteInfo | null>(null);
 
   const projectTypeLabels: Record<string, string> = {
     photovoltaique: "Photovoltaïque",
@@ -173,6 +179,34 @@ export function usePlanningRoutes(date: Date) {
       setRdvs(processedRdvs);
       setTotalDistance(Math.round(totalDist * 10) / 10);
 
+      // Distance entre la position actuelle du commercial et son prochain RDV
+      // (uniquement pour aujourd'hui, vers le premier RDV à venir avec coordonnées)
+      setUserToNextDistance(null);
+      const isToday = new Date(date).toDateString() === new Date().toDateString();
+      if (isToday && userPosition) {
+        const now = new Date();
+        const nextRdv = filteredRdvData.find((r) => {
+          const rdvDate = new Date(r.date_heure);
+          return rdvDate >= now && r.latitude && r.longitude;
+        }) || filteredRdvData.find((r) => r.latitude && r.longitude);
+
+        if (nextRdv?.latitude && nextRdv?.longitude) {
+          try {
+            const response = await supabase.functions.invoke("calculate-route", {
+              body: {
+                origin: { lat: userPosition.latitude, lon: userPosition.longitude },
+                destination: { lat: nextRdv.latitude, lon: nextRdv.longitude },
+              },
+            });
+            if (response.data && !response.error) {
+              setUserToNextDistance(response.data);
+            }
+          } catch (err) {
+            console.error("User-to-RDV route error:", err);
+          }
+        }
+      }
+
       // Calculate distance from last RDV today to first RDV tomorrow
       if (processedRdvs.length > 0) {
         const lastRdv = processedRdvs[processedRdvs.length - 1];
@@ -214,7 +248,7 @@ export function usePlanningRoutes(date: Date) {
     } finally {
       setLoading(false);
     }
-  }, [user, date]);
+  }, [user, date, userPosition?.latitude, userPosition?.longitude]);
 
   useEffect(() => {
     fetchRoutes();
@@ -225,6 +259,7 @@ export function usePlanningRoutes(date: Date) {
     loading,
     totalDistance,
     tomorrowFirstDistance,
+    userToNextDistance,
     refetch: fetchRoutes,
   };
 }

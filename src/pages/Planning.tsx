@@ -26,6 +26,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
+import { useUserGeolocation } from "@/hooks/useUserGeolocation";
+
+function formatTravelTimeShort(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { useOfflineData } from "@/hooks/useOfflineData";
 import { useInstallationCommissions } from "@/hooks/useInstallationCommissions";
@@ -123,14 +131,18 @@ const Planning = () => {
   const [selectedRegieId, setSelectedRegieId] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
+  // Géolocalisation du commercial (demande l'accès à la position de l'appareil)
+  const { position: userPosition, permission: geoPermission } = useUserGeolocation(true);
+
   // Use planning routes hook for day view distances
   const { 
     rdvs: routeRdvs, 
     loading: routesLoading, 
     totalDistance, 
     tomorrowFirstDistance,
+    userToNextDistance,
     refetch: refetchRoutes 
-  } = usePlanningRoutes(currentDate);
+  } = usePlanningRoutes(currentDate, userPosition);
 
   // Use working days settings
   const { workingDays } = useWorkingDays();
@@ -608,6 +620,24 @@ const Planning = () => {
               <div className="flex items-center gap-2 text-primary font-medium text-sm">
                 <Route className="h-4 w-4" />
                 <span>{totalDistance} km</span>
+              </div>
+            )}
+            {viewMode === "jour" && userToNextDistance && (
+              <div
+                className="flex items-center gap-1.5 text-sm font-medium text-accent-foreground bg-accent/60 border border-border rounded-md px-2 py-1"
+                title="Distance entre votre position actuelle et votre prochain RDV"
+              >
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="tabular-nums">{userToNextDistance.distance_km} km</span>
+                <span className="text-muted-foreground text-xs">
+                  ({formatTravelTimeShort(userToNextDistance.duration_minutes)})
+                </span>
+              </div>
+            )}
+            {viewMode === "jour" && geoPermission === "denied" && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>Localisation désactivée</span>
               </div>
             )}
           </div>
