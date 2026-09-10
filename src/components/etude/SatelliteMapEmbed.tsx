@@ -48,6 +48,22 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setZoom((z) => Math.max(16, z - 1))}
+            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            title="Dézoomer (image plus nette)"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.min(20, z + 1))}
+            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            title="Zoomer"
+          >
+            +
+          </button>
+          <button
+            type="button"
             onClick={() => setSatellite((s) => !s)}
             className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
             title={satellite ? "Afficher le plan" : "Afficher le satellite"}
