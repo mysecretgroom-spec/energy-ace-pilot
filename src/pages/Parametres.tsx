@@ -36,6 +36,7 @@ import {
   TrendingUp,
   RefreshCw,
   Sparkles,
+  GraduationCap,
 } from "lucide-react";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
