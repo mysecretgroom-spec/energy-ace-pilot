@@ -217,6 +217,7 @@ const ConfigAssistant = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={MODEL_KEY}>Modèle de régie complet</SelectItem>
                 {CONFIG_DOMAINS.map((d) => (
                   <SelectItem key={d.key} value={d.key}>
                     {d.label}
@@ -225,8 +226,14 @@ const ConfigAssistant = () => {
               </SelectContent>
             </Select>
             {domain && <p className="text-xs text-muted-foreground">{domain.description}</p>}
+            {isModel && (
+              <p className="text-xs text-muted-foreground">
+                Dictez ou collez tout le fonctionnement d'une régie : gammes, grilles de prix et
+                commissions, surcoûts, financements et aides. Chaque partie est proposée séparément.
+              </p>
+            )}
 
-            {domain?.regieScoped && (
+            {needsRegie && (
               <Select value={regieId ?? ""} onValueChange={(v) => setRegieId(v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choisir une régie" />
