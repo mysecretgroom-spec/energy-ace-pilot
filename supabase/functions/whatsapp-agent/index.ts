@@ -7778,6 +7778,20 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     ticket_message: { type: "string", description: "Detailed description of the issue/bug/feedback for support ticket" }
                   }
                 },
+                reasoning: { type: "string", description: "Raisonnement interne court (2-3 phrases), jamais montré à l'utilisateur: ce qu'il veut, ce qui manque, le niveau de risque." },
+                memory_suggestions: {
+                  type: "array",
+                  description: "0 à 2 apprentissages durables à mémoriser sur l'utilisateur (habitude, alias, préférence, raccourci). Vide si rien de durable.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      memory_type: { type: "string", enum: ["preference", "pattern", "alias", "shortcut", "context"] },
+                      key: { type: "string", description: "Clé courte et stable, ex: 'expression:ma tournée'" },
+                      value: { type: "string", description: "Ce qu'il faut retenir, formulé clairement" }
+                    },
+                    required: ["memory_type", "key", "value"]
+                  }
+                },
                 requiresConfirmation: { type: "boolean" },
                 responseMessage: { type: "string" },
                 is_multi_request: { type: "boolean", description: "True if message contains multiple distinct requests" },
