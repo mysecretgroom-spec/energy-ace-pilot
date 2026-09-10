@@ -221,6 +221,11 @@ const EtudeForm = () => {
   const [clientVille, setClientVille] = useState("");
   const [clientCodePostal, setClientCodePostal] = useState("");
   const [clientTelephone, setClientTelephone] = useState("");
+  // Adresse d'installation (si le chantier n'est pas la résidence principale)
+  const [adresseInstallation, setAdresseInstallation] = useState("");
+  const [codePostalInstallation, setCodePostalInstallation] = useState("");
+  const [villeInstallation, setVilleInstallation] = useState("");
+  const [showClientDialog, setShowClientDialog] = useState(false);
   const [departement, setDepartement] = useState("");
   
   // Régie associée au RDV
@@ -881,6 +886,10 @@ const EtudeForm = () => {
       if (!rdvIdFromUrl && etude.rdv_id) {
         setResolvedRdvId(etude.rdv_id);
       }
+      // Adresse d'installation spécifique à l'étude
+      setAdresseInstallation((etude as any).adresse_installation || "");
+      setCodePostalInstallation((etude as any).code_postal_installation || "");
+      setVilleInstallation((etude as any).ville_installation || "");
       // ═══════════════════════════════════════════════════════════════════════════
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1579,6 +1588,9 @@ const EtudeForm = () => {
         if (hasITE && itePrixManuel) total += Number(itePrixManuel);
         return total || null;
       })(),
+      adresse_installation: adresseInstallation || null,
+      code_postal_installation: codePostalInstallation || null,
+      ville_installation: villeInstallation || null,
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
@@ -1906,6 +1918,9 @@ const EtudeForm = () => {
       ite_surface_isoler: productType === "ITE" && iteSurfaceIsoler ? Number(iteSurfaceIsoler) : null,
       ite_type_facade: productType === "ITE" ? iteTypeFacade : null,
       prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
+      adresse_installation: adresseInstallation || null,
+      code_postal_installation: codePostalInstallation || null,
+      ville_installation: villeInstallation || null,
       surcouts: selectedSurcouts,
       autre_surcout: autreSurcout,
       // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
@@ -3574,7 +3589,11 @@ _Envoyé depuis DébalePro_`;
               />
             </div>
             <SatelliteMapEmbed
-              address={[clientAdresse, clientCodePostal, clientVille]
+              address={[
+                adresseInstallation || clientAdresse,
+                codePostalInstallation || clientCodePostal,
+                villeInstallation || clientVille,
+              ]
                 .filter(Boolean)
                 .join(", ")}
             />
