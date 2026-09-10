@@ -31,11 +31,20 @@ import {
 } from "lucide-react";
 import { CONFIG_DOMAINS, formatChangeValues, getConfigDomain } from "@/lib/configDomains";
 import { useConfigAssistant } from "@/hooks/useConfigAssistant";
+import { useRegieModel } from "@/hooks/useRegieModel";
 
 interface RegieOption {
   id: string;
   nom: string;
 }
+
+/** Mode « tout la régie d'un coup » : gammes, prix, surcoûts, financements, aides */
+const MODEL_KEY = "regie_modele";
+
+const MODEL_EXAMPLES = [
+  "Régie ISH : gammes Full Black et Standard. Full Black 3 kWc 18 900 €, 6 kWc 26 900 €, 9 kWc 34 900 €, commission fixe 3 000 €. Triphasé 1 500 €, pergola 750 € par panneau. Financement 180 mois à 5,9 % de TAEG. Prime coup de pouce 80 € par kWc jusqu'à 9 kWc.",
+  "Reprends la grille du document joint pour cette régie : gammes, prix recommandés, prix max, commissions, surcoûts et financements.",
+];
 
 const actionMeta = {
   creer: { label: "Ajout", icon: Plus, className: "border-emerald-500 text-emerald-600" },
