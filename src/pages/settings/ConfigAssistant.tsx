@@ -30,8 +30,8 @@ import {
   X,
 } from "lucide-react";
 import { CONFIG_DOMAINS, formatChangeValues, getConfigDomain } from "@/lib/configDomains";
-import { useConfigAssistant } from "@/hooks/useConfigAssistant";
-import { useRegieModel } from "@/hooks/useRegieModel";
+import { useConfigAssistant, ConfigHistoryEntry } from "@/hooks/useConfigAssistant";
+import { useRegieModel, ModelHistoryEntry } from "@/hooks/useRegieModel";
 
 interface RegieOption {
   id: string;
@@ -533,7 +533,7 @@ const ConfigAssistant = () => {
                           className="gap-1 text-xs"
                           onClick={async () => {
                             try {
-                              await assistant.rollback(h);
+                              await doRollback(h);
                               toast.success("Paramétrage restauré");
                             } catch {
                               toast.error("Restauration impossible");
