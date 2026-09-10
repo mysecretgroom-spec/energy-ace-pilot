@@ -35,7 +35,7 @@ export function OfflineIndicator() {
   }, [isOnline]);
 
   const isSyncing = isSyncingDocs || isSyncingData;
-  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount + pendingMutationsCount;
+  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
 
   // Show brief "back online" pill
   if (showBackOnline && totalPending === 0) {
@@ -56,25 +56,7 @@ export function OfflineIndicator() {
   // L'état hors ligne est déjà confirmé par sondes réseau en amont : pas de délai ici.
 
   const handleSync = async () => {
-    const replayMutations = async () => {
-      if (pendingMutationsCount > 0) {
-        try {
-          const result = await replayPendingMutations(window.fetch.bind(window));
-          if (result.succeeded.length > 0) {
-            toast.success(`${result.succeeded.length} action(s) synchronisée(s)`, { duration: 3000 });
-          }
-          if (result.failed.length > 0) {
-            toast.error(`${result.failed.length} action(s) échouée(s)`, { duration: 4000 });
-          }
-          const count = await getPendingMutationCount();
-          setPendingMutationsCount(count);
-        } catch (err) {
-          console.error("Error replaying mutations:", err);
-        }
-      }
-    };
-
-    await Promise.all([syncPendingDocuments(), syncAll(), replayMutations()]);
+    await Promise.all([syncPendingDocuments(), syncAll()]);
     setDismissed(true);
   };
 
