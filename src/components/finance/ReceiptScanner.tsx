@@ -394,6 +394,9 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           </div>
         )}
 
+        {/* Erreurs de lecture */}
+        {ocrResult && !scanning && <OcrIssuesBanner issues={issues} />}
+
         {/* Form (shown after OCR or if user wants to fill manually) */}
         {(ocrResult || imagePreview || pdfPreview) && !scanning && (
           <div className="space-y-4">
