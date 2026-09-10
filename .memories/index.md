@@ -5,3 +5,4 @@
 
 ## features
 - [OCR factures](features/scanner/ocr-receipt-quality.md) — Double lecture IA, contrôles de cohérence et affichage des erreurs de lecture
+- [Modèle de commissionnement](features/financial/commission-model-switching.md) — Changement complet de style de commissionnement raisonné par l'IA, schema_nom/raisonnement/condition_base
