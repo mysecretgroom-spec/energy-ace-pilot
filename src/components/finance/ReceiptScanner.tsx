@@ -211,7 +211,15 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         if (result.date_debut) setDateDebut(result.date_debut);
         if (result.date_fin) setDateFin(result.date_fin);
 
-        toast.success("Facture analysée avec succès");
+        const erreurs = (result.issues ?? []).filter((i) => i.level === "error").length;
+        const doutes = (result.issues ?? []).filter((i) => i.level === "warning").length;
+        if (erreurs > 0) {
+          toast.warning(`Lecture incomplète : ${erreurs} champ${erreurs > 1 ? "s" : ""} à corriger`);
+        } else if (doutes > 0) {
+          toast.warning(`Lecture à vérifier : ${doutes} point${doutes > 1 ? "s" : ""} incertain${doutes > 1 ? "s" : ""}`);
+        } else {
+          toast.success("Facture analysée avec succès");
+        }
       } catch (err) {
         console.error("OCR error:", err);
         toast.error("Erreur lors de l'analyse");
