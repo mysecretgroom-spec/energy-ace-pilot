@@ -77,6 +77,19 @@ interface SchemaProposal {
   rules: Partial<DraftRule>[];
 }
 
+/** Version historisée d'un modèle de commissionnement */
+interface SchemaVersion {
+  id: string;
+  schema_nom: string;
+  version: number;
+  statut: "brouillon" | "actif" | "archive";
+  raisonnement: string | null;
+  source_prompt: string | null;
+  rules: Partial<DraftRule>[];
+  activated_at: string | null;
+  created_at: string;
+}
+
 const CommissionsSettings = () => {
   const { user } = useAuth();
   const [rules, setRules] = useState<CommissionRule[]>([]);
