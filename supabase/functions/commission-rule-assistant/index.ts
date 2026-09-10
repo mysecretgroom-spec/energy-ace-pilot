@@ -81,13 +81,29 @@ serve(async (req) => {
       });
     }
 
+    const ruleToEdit =
+      body.rule && typeof body.rule === "object" ? JSON.stringify(body.rule).slice(0, 4000) : "";
+    const existingRules = Array.isArray(body.existingRules)
+      ? JSON.stringify(body.existingRules.slice(0, 30)).slice(0, 6000)
+      : "";
+
     const content: Record<string, unknown>[] = [];
-    content.push({
-      type: "text",
-      text: texte
-        ? `Description de l'utilisateur :\n${texte}`
-        : "Extrais les règles de commission de ce contenu.",
-    });
+    if (ruleToEdit) {
+      content.push({
+        type: "text",
+        text: `Règle existante à corriger :\n${ruleToEdit}\n\nCorrection demandée :\n${texte || "(voir contenu joint)"}\n\nRenvoie UNE seule règle corrigée.`,
+      });
+    } else {
+      if (existingRules) {
+        content.push({ type: "text", text: `Règles déjà configurées (contexte) :\n${existingRules}` });
+      }
+      content.push({
+        type: "text",
+        text: texte
+          ? `Description de l'utilisateur :\n${texte}`
+          : "Extrais les règles de commission de ce contenu.",
+      });
+    }
     if (audioBase64) {
       content.push({ type: "input_audio", input_audio: { data: audioBase64, format: audioFormat } });
     }
