@@ -15,23 +15,9 @@ export function OfflineIndicator() {
   } = useOfflineData();
 
   const [showBackOnline, setShowBackOnline] = useState(false);
-  const [pendingMutationsCount, setPendingMutationsCount] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const wasOffline = useRef(false);
   const offlineSince = useRef<number | null>(null);
-
-  // Track pending mutations count — only when offline or when queue changes
-  useEffect(() => {
-    const refresh = async () => {
-      const count = await getPendingMutationCount();
-      setPendingMutationsCount(count);
-    };
-    refresh();
-    window.addEventListener("offline-queue-changed", refresh);
-    return () => {
-      window.removeEventListener("offline-queue-changed", refresh);
-    };
-  }, []);
 
   // Detect transition from offline → online
   useEffect(() => {
