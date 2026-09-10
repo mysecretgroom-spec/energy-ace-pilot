@@ -34,6 +34,9 @@ export type RuleBase =
 
 export type RuleModeValeur = "fixe" | "pourcentage";
 
+/** Grandeur sur laquelle portent condition_min / condition_max */
+export type RuleConditionBase = "montant_ht" | "montant_ttc" | "puissance_kwc";
+
 export interface CommissionRule {
   id: string;
   user_id: string;
@@ -47,10 +50,15 @@ export interface CommissionRule {
   mode_valeur: RuleModeValeur;
   valeur: number;
   part_appliquee_pct: number;
+  condition_base: RuleConditionBase;
   condition_min: number | null;
   condition_max: number | null;
   ordre: number;
   actif: boolean;
+  /** Nom du modèle de commissionnement auquel appartient la règle (null = règle isolée) */
+  schema_nom: string | null;
+  /** Raisonnement de l'IA ayant conduit à cette règle */
+  raisonnement: string | null;
   source: "manuel" | "ia_texte" | "ia_vocal" | "ia_document";
   source_prompt: string | null;
 }
