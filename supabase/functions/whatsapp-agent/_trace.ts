@@ -79,6 +79,9 @@ export class AgentTracer {
     };
     this.logs.push(entry);
     console.log(`[trace ${this.runId.slice(0, 8)}] ${step} (${status}, ${duration}ms)`);
+    // Écriture immédiate en tâche de fond: même si le traitement sort par un
+    // chemin court, l'étape est déjà journalisée.
+    void this.flush();
   }
 
   /** Écrit tous les pas en base. Ne casse jamais le flux principal. */
