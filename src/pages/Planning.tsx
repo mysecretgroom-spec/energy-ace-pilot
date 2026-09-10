@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
+import { useUserGeolocation } from "@/hooks/useUserGeolocation";
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { useOfflineData } from "@/hooks/useOfflineData";
 import { useInstallationCommissions } from "@/hooks/useInstallationCommissions";
@@ -123,14 +124,18 @@ const Planning = () => {
   const [selectedRegieId, setSelectedRegieId] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
+  // Géolocalisation du commercial (demande l'accès à la position de l'appareil)
+  const { position: userPosition, permission: geoPermission } = useUserGeolocation(true);
+
   // Use planning routes hook for day view distances
   const { 
     rdvs: routeRdvs, 
     loading: routesLoading, 
     totalDistance, 
     tomorrowFirstDistance,
+    userToNextDistance,
     refetch: refetchRoutes 
-  } = usePlanningRoutes(currentDate);
+  } = usePlanningRoutes(currentDate, userPosition);
 
   // Use working days settings
   const { workingDays } = useWorkingDays();
