@@ -1954,7 +1954,10 @@ const EtudeForm = () => {
     surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
     selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
-    classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement
+    classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
+    remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
+    selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
+    selectedBouquetCombo, precoMode
   ]);
 
   // Perform auto-save
