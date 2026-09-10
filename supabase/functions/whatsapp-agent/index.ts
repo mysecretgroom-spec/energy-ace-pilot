@@ -7875,6 +7875,16 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
         parsed.responseMessage = getDefaultResponseForIntent(parsed.intent, parsed.entities);
       }
       
+      // Garde-fou serveur: la confirmation reste obligatoire sur les actions sensibles,
+      // quelle que soit la décision du modèle (confirmation intelligente encadrée).
+      parsed.requiresConfirmation = enforceConfirmation(
+        parsed.intent,
+        parsed.entities || {},
+        parsed.confidence,
+        !!parsed.requiresConfirmation,
+      );
+      if (parsed.reasoning) console.log(`[agent] reasoning: ${String(parsed.reasoning).slice(0, 400)}`);
+      
       return parsed;
     } catch (jsonError) {
       console.error("Failed to parse tool call arguments:", jsonError, toolCall.function.arguments);
