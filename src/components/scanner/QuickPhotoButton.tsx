@@ -26,6 +26,8 @@ interface QuickPhotoButtonProps {
   label: string;
   etudeId?: string | null;
   onPhotoSaved?: () => void;
+  /** N'affiche que les icônes (gain de place dans l'outil d'étude) */
+  iconOnly?: boolean;
 }
 
 /** Auto-download a blob to device Downloads folder */
