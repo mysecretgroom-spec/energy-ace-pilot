@@ -191,6 +191,16 @@ const ConfigAssistant = () => {
     }
   };
 
+  const rejectedList = isModel
+    ? model.blocks.flatMap((b) => b.rejected)
+    : assistant.rejected;
+  const historyList = isModel ? model.history : assistant.history;
+  const doRollback = async (entry: (typeof historyList)[number]) => {
+    if (isModel) await model.rollback(entry as ModelHistoryEntry);
+    else await assistant.rollback(entry as ConfigHistoryEntry);
+  };
+  const busy = isModel ? model.asking : assistant.asking;
+
   return (
     <MobileLayout title="Paramétrage assisté" showBackButton>
       <div className="p-4 space-y-4 pb-32">
