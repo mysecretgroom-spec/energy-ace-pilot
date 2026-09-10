@@ -2171,7 +2171,8 @@ const EtudeForm = () => {
     amperageDisjoncteur, potentielFaisabilite, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId,
     classification, classificationComment, typeRaccordement, typeCompteurElectrique,
-    numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation
+    numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation,
+    remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel
   ]);
 
 
