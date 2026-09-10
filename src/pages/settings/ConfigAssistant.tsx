@@ -267,15 +267,18 @@ const ConfigAssistant = () => {
               value={texte}
               onChange={(e) => setTexte(e.target.value)}
               rows={4}
+              rows={isModel ? 7 : 4}
               placeholder={
-                domain?.examples?.[0]
-                  ? `Ex : ${domain.examples[0]}`
-                  : "Décrivez la modification souhaitée"
+                isModel
+                  ? `Ex : ${MODEL_EXAMPLES[0]}`
+                  : domain?.examples?.[0]
+                    ? `Ex : ${domain.examples[0]}`
+                    : "Décrivez la modification souhaitée"
               }
             />
-            {domain?.examples && (
+            {(isModel ? MODEL_EXAMPLES : domain?.examples) && (
               <div className="flex flex-wrap gap-2">
-                {domain.examples.map((ex) => (
+                {(isModel ? MODEL_EXAMPLES : domain!.examples).map((ex) => (
                   <button
                     key={ex}
                     type="button"
