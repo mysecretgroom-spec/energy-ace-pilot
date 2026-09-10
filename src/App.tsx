@@ -181,6 +181,7 @@ const App = () => {
                       <Route path="/parametres/data-evolution-prix" element={<ProtectedRoute><DataEvolutionPrix /></ProtectedRoute>} />
                       <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                       <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/commissions" element={<ProtectedRoute><CommissionsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
