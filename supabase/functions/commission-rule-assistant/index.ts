@@ -118,8 +118,23 @@ serve(async (req) => {
       ? JSON.stringify(body.existingRules.slice(0, 30)).slice(0, 6000)
       : "";
 
+    const isSchemaMode = body.mode === "schema";
+
     const content: Record<string, unknown>[] = [];
-    if (ruleToEdit) {
+    if (isSchemaMode) {
+      if (existingRules) {
+        content.push({
+          type: "text",
+          text: `Modèle actuellement en place (à remplacer) :\n${existingRules}`,
+        });
+      }
+      content.push({
+        type: "text",
+        text: texte
+          ? `Nouveau style de commissionnement décrit par l'utilisateur :\n${texte}`
+          : "Déduis le nouveau modèle de commissionnement du contenu joint.",
+      });
+    } else if (ruleToEdit) {
       content.push({
         type: "text",
         text: `Règle existante à corriger :\n${ruleToEdit}\n\nCorrection demandée :\n${texte || "(voir contenu joint)"}\n\nRenvoie UNE seule règle corrigée.`,
