@@ -3980,9 +3980,16 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
 
     console.log(`Pending action to store: ${newPendingAction ? JSON.stringify({ intent: newPendingAction.intent, workflowState: newPendingAction.workflowState, hasRdvIds: !!newPendingAction.collectedData?.rdvIds }) : "null"}`);
 
-    // Update conversation context (keep last 5 messages)
+    tracer.step("action_executee", {
+      action: actionResult.actionTaken || "aucune",
+      entite: actionResult.entityType || null,
+      entite_id: actionResult.entityId?.startsWith("{") ? "(données)" : actionResult.entityId || null,
+      en_attente: newPendingAction?.workflowState || null,
+    }, actionResult.actionTaken?.startsWith("error") ? "error" : "ok");
+
+    // Update conversation context (mémoire court terme: 20 derniers messages)
     const newContext = [
-      ...conversationContext.slice(-4),
+      ...conversationContext.slice(-18),
       {
         role: "user",
         content: processedContent,
