@@ -3386,6 +3386,7 @@ _Envoyé depuis DébalePro_`;
                     clientId={clientId}
                     category="photo_toiture"
                     label="Photo"
+                    iconOnly
                     etudeId={currentEtudeId}
                     onPhotoSaved={triggerImmediateSave}
                   />
@@ -3507,6 +3508,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_compteur"
                   label="Photo"
+                  iconOnly
                   etudeId={currentEtudeId}
                   onPhotoSaved={triggerImmediateSave}
                 />
@@ -3585,6 +3587,7 @@ _Envoyé depuis DébalePro_`;
                   clientId={clientId}
                   category="photo_tableau"
                   label="Photo"
+                  iconOnly
                   etudeId={currentEtudeId}
                   onPhotoSaved={triggerImmediateSave}
                 />
