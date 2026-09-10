@@ -2729,9 +2729,24 @@ _Envoyé depuis DébalePro_`;
                   )}
                 </div>
               )}
+              {adresseInstallation && (
+                <p className="text-[10px] sm:text-xs text-amber-600 truncate">
+                  Installation : {adresseInstallation} {codePostalInstallation} {villeInstallation}
+                </p>
+              )}
             </div>
             {/* Auto-save indicator and HEJJA Mode Switch */}
             <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                onClick={() => setShowClientDialog(true)}
+                aria-label="Modifier les informations client"
+                title="Modifier les informations client"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
               <AutoSaveIndicator
                 isSaving={autoSaveStatus.isSaving}
                 lastSaved={autoSaveStatus.lastSaved}
