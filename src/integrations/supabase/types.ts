@@ -698,6 +698,51 @@ export type Database = {
           },
         ]
       }
+      config_ai_changes: {
+        Row: {
+          changements: Json
+          created_at: string
+          domaine: string
+          id: string
+          raisonnement: string | null
+          regie_id: string | null
+          resume: string | null
+          snapshot_avant: Json
+          source_prompt: string | null
+          statut: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          changements?: Json
+          created_at?: string
+          domaine: string
+          id?: string
+          raisonnement?: string | null
+          regie_id?: string | null
+          resume?: string | null
+          snapshot_avant?: Json
+          source_prompt?: string | null
+          statut?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          changements?: Json
+          created_at?: string
+          domaine?: string
+          id?: string
+          raisonnement?: string | null
+          regie_id?: string | null
+          resume?: string | null
+          snapshot_avant?: Json
+          source_prompt?: string | null
+          statut?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       config_commissions: {
         Row: {
           created_at: string
