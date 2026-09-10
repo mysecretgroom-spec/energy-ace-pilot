@@ -7700,9 +7700,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...conversationContext.slice(-4).map(m => ({
+    ...conversationContext.slice(-12).map(m => ({
       role: m.role as "user" | "assistant",
-      content: (m.content || "").substring(0, 2000)
+      content: (m.content || "").substring(0, 1500)
     })),
     { role: "user", content: userMessage }
   ];
