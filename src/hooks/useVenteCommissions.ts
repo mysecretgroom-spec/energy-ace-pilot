@@ -13,7 +13,7 @@ import {
 import {
   CommissionRule,
   RuleContext,
-  applyCommissionRules,
+  applyCommissionRulesSafe,
 } from "@/lib/commissionRules";
 
 /**
