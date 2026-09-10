@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
 import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
+import { recognizeReceipt } from "@/lib/receiptRecognition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
