@@ -1,10 +1,12 @@
 import { useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { EtudeData, getEtudePdfBlob, getResultatPdfBlob } from "@/lib/exportEtudePdf";
+import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { toast } from "sonner";
 
 interface UseEtudePdfAutoSaveProps {
   etudeId: string | null;
+  clientId?: string | null;
   clientName: string;
   clientPrenom: string;
   userId: string | null;
@@ -23,6 +25,7 @@ const PDF_AUTO_SAVE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 export const useEtudePdfAutoSave = ({
   etudeId,
+  clientId,
   clientName,
   clientPrenom,
   userId,
@@ -48,7 +51,8 @@ export const useEtudePdfAutoSave = ({
 
     try {
       console.log("[PDF AutoSave] Generating PDF...");
-      const pdfBlob = await getEtudePdfBlob(pdfData);
+      const basePdfBlob = await getEtudePdfBlob(pdfData);
+      const pdfBlob = await appendStudyPhotosToPdf(basePdfBlob, userId, clientId, etudeId);
       
       // Create filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -97,7 +101,7 @@ export const useEtudePdfAutoSave = ({
       console.error("[PDF AutoSave] Error generating/storing PDF:", error);
       return null;
     }
-  }, [etudeId, userId, clientName, clientPrenom, buildPdfData]);
+  }, [etudeId, clientId, userId, clientName, clientPrenom, buildPdfData]);
 
   // Generate Résultat d'étude PDF (CEPC formal) and upload
   const generateAndStoreResultatPdf = useCallback(async (): Promise<string | null> => {
@@ -114,7 +118,8 @@ export const useEtudePdfAutoSave = ({
 
     try {
       console.log("[PDF Résultat] Generating Résultat d'étude PDF...");
-      const pdfBlob = await getResultatPdfBlob(pdfData);
+      const baseResultatBlob = await getResultatPdfBlob(pdfData);
+      const pdfBlob = await appendStudyPhotosToPdf(baseResultatBlob, userId, clientId, etudeId);
 
       const safeName = `${clientPrenom}_${clientName}`.replace(/[^a-zA-Z0-9_-]/g, "_");
       const fileName = `${userId}/${etudeId}/Resultat_${safeName}.pdf`;
@@ -141,7 +146,7 @@ export const useEtudePdfAutoSave = ({
       console.error("[PDF Résultat] Error generating/storing Résultat PDF:", error);
       return null;
     }
-  }, [etudeId, userId, clientName, clientPrenom, buildPdfData]);
+  }, [etudeId, clientId, userId, clientName, clientPrenom, buildPdfData]);
 
   // Get latest PDF URL from storage
   const getLatestPdfUrl = useCallback(async (): Promise<string | null> => {
