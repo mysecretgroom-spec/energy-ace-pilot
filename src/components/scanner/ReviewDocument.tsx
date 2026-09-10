@@ -709,6 +709,7 @@ export function ReviewDocument({
                       value={montantTTC}
                       onChange={(e) => setMontantTTC(e.target.value)}
                       placeholder="0,00"
+                      className={issueFieldClass(ocrIssues, "montant_ttc")}
                     />
                   </div>
                   <div className="space-y-2">
@@ -731,6 +732,7 @@ export function ReviewDocument({
                     value={fournisseur}
                     onChange={(e) => setFournisseur(e.target.value)}
                     placeholder="Nom du fournisseur"
+                    className={issueFieldClass(ocrIssues, "commercant")}
                   />
                 </div>
               </>
