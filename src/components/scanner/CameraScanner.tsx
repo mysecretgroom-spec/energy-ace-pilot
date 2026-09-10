@@ -343,6 +343,20 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </div>
       );
     }
+    if (tooFar) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+          Rapprochez-vous du document
+        </div>
+      );
+    }
+    if (tooSkewed) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+          Placez l'appareil bien à plat
+        </div>
+      );
+    }
     if (isStable && detectedQuad && detectedQuad.confidence > 0.5) {
       return (
         <div className="bg-teal-500/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
