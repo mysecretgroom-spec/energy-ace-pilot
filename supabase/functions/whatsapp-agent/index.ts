@@ -8085,7 +8085,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
   return {
     intent: "unknown" as Intent,
     confidence: 0,
-    entities: { _debug: JSON.stringify(result).slice(0, 600) },
+    entities: {},
     requiresConfirmation: false,
     responseMessage: "Je n'ai pas compris votre demande. Pouvez-vous reformuler ? 🤔"
   };
