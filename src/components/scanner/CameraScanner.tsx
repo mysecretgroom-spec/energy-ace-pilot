@@ -29,6 +29,35 @@ type CameraState = "requesting" | "active" | "error" | "denied";
 const BLUR_THRESHOLD = 80;
 // Brightness thresholds
 const LOW_BRIGHTNESS = 60;
+// Cadrage : surface minimale occupée par le document dans l'image
+const MIN_COVERAGE = 0.28;
+// Cadrage : inclinaison max tolérée (0 = parfaitement de face)
+const MAX_SKEW = 0.22;
+
+/** Part de l'image occupée par le document détecté (0-1). */
+function quadCoverage(quad: DetectedQuad, w: number, h: number): number {
+  if (!w || !h) return 0;
+  const pts = [quad.topLeft, quad.topRight, quad.bottomRight, quad.bottomLeft];
+  let area = 0;
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    area += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+  }
+  return Math.abs(area) / 2 / (w * h);
+}
+
+/** Écart entre côtés opposés : 0 = document bien de face, >0 = photo prise de biais. */
+function quadSkew(quad: DetectedQuad): number {
+  const len = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+  const top = len(quad.topLeft, quad.topRight);
+  const bottom = len(quad.bottomLeft, quad.bottomRight);
+  const left = len(quad.topLeft, quad.bottomLeft);
+  const right = len(quad.topRight, quad.bottomRight);
+  const h = Math.abs(top - bottom) / Math.max(1, Math.max(top, bottom));
+  const v = Math.abs(left - right) / Math.max(1, Math.max(left, right));
+  return Math.max(h, v);
+}
 
 function generateThumbnail(dataUrl: string, size = 80): Promise<string> {
   return new Promise((resolve) => {
@@ -56,7 +85,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [autoCapture, setAutoCapture] = useState(false);
+  const [autoCapture, setAutoCapture] = useState(true);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
@@ -70,9 +99,14 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     videoRef,
     enabled: cameraState === "active" && !isCapturing,
     onStableDetection: (quad) => {
-      // Auto-capture only if enabled AND image is sharp AND confidence high
-      if (autoCapture && !isCapturing && !captureCooldownRef.current &&
-          blurScore > BLUR_THRESHOLD && quad.confidence > 0.5) {
+      // Déclenchement auto : net, bien cadré (assez grand) et pris de face
+      const video = videoRef.current;
+      const coverage = video ? quadCoverage(quad, video.videoWidth, video.videoHeight) : 0;
+      if (
+        autoCapture && !isCapturing && !captureCooldownRef.current &&
+        blurScore > BLUR_THRESHOLD && quad.confidence > 0.5 &&
+        coverage >= MIN_COVERAGE && quadSkew(quad) <= MAX_SKEW
+      ) {
         performCapture(quad);
       }
     },
@@ -80,6 +114,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const isBlurry = blurScore > 0 && blurScore < BLUR_THRESHOLD;
   const isDark = brightness < LOW_BRIGHTNESS;
+  const coverage = detectedQuad
+    ? quadCoverage(detectedQuad, videoDimensions.width, videoDimensions.height)
+    : 0;
+  const skew = detectedQuad ? quadSkew(detectedQuad) : 0;
+  const tooFar = !!detectedQuad && coverage > 0 && coverage < MIN_COVERAGE;
+  const tooSkewed = !!detectedQuad && skew > MAX_SKEW;
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -303,11 +343,25 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </div>
       );
     }
+    if (tooFar) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+          Rapprochez-vous du document
+        </div>
+      );
+    }
+    if (tooSkewed) {
+      return (
+        <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
+          Placez l'appareil bien à plat
+        </div>
+      );
+    }
     if (isStable && detectedQuad && detectedQuad.confidence > 0.5) {
       return (
         <div className="bg-teal-500/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          Document détecté ✓
+          {autoCapture ? "Cadrage OK — capture auto" : "Document détecté ✓"}
         </div>
       );
     }

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
 import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
+import { recognizeReceipt } from "@/lib/receiptRecognition";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -184,19 +185,9 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         setScanning(true);
       }
 
-      // Run OCR
+      // Lecture du justificatif (IA serveur, repli sur le moteur embarqué hors ligne)
       try {
-        const response = await supabase.functions.invoke("ocr-receipt", {
-          body: { image_base64: imageForOcr },
-        });
-
-        if (response.error) {
-          toast.error("Erreur lors de l'analyse de l'image");
-          console.error("OCR error:", response.error);
-          return;
-        }
-
-        const result = response.data as OCRResult;
+        const result = await recognizeReceipt(imageForOcr);
         setOcrResult(result);
 
         // Pre-fill form with OCR results

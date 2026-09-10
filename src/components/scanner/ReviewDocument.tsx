@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
 import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
+import { recognizeReceipt } from "@/lib/receiptRecognition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,14 +211,8 @@ export function ReviewDocument({
         throw new Error("No content for OCR");
       }
       
-      // Call the AI-powered edge function
-      const { data, error } = await supabase.functions.invoke("ocr-receipt", {
-        body: { image_base64: imageBase64 },
-      });
-
-      if (error) throw error;
-
-      const result = data as AIExtractedData;
+      // Lecture du justificatif (IA serveur, repli sur le moteur embarqué hors ligne)
+      const result = (await recognizeReceipt(imageBase64)) as AIExtractedData;
       setOcrResult(result);
 
       // Auto-fill fields from AI extraction
