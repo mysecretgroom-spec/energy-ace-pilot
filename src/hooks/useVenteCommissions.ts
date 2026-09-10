@@ -91,7 +91,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("mode_calcul, part_survente_pct").maybeSingle(),
         etudeIds.length > 0
-          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
+          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout, prime_autoconsommation").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
         // Tranches pour le mode pourcentage
         supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente, product_type").order("tranche_min", { ascending: true }),
