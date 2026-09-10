@@ -56,6 +56,13 @@ interface DashboardStats {
   // Poses (installations) — séparées des RDV commerciaux
   posesPlanifiees: number;
   posesRealisees: number;
+
+  // Canal de vente : taux de transformation
+  tauxSignature: number;
+  tauxInstallation: number;
+  nbRdvEffectifs: number;
+  nbVentesSignees: number;
+  nbVentesInstallees: number;
   
   // Clients
   nouveauxClientsMois: number;
