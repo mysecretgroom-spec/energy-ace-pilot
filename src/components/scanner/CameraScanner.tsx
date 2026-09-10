@@ -361,7 +361,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       return (
         <div className="bg-teal-500/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          Document détecté ✓
+          {autoCapture ? "Cadrage OK — capture auto" : "Document détecté ✓"}
         </div>
       );
     }
