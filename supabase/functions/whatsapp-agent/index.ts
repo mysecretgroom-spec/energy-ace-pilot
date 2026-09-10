@@ -7950,6 +7950,8 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     }),
   });
 
+  let response = await callModel("google/gemini-2.5-flash-lite");
+
   if (!response.ok) {
     const error = await response.text();
     console.error("AI API error:", error);
@@ -7977,7 +7979,27 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     };
   }
 
+  // Le modèle "lite" rate parfois l'appel d'outil (MALFORMED_FUNCTION_CALL) quand le
+  // contexte métier est volumineux → on relance une fois sur un modèle plus robuste.
+  const firstChoice = result?.choices?.[0];
+  const malformed =
+    !firstChoice?.message?.tool_calls?.[0] &&
+    !(typeof firstChoice?.message?.content === "string" && firstChoice.message.content.trim());
+  if (malformed) {
+    console.warn("Lite model failed to emit tool call, retrying with gemini-2.5-flash", firstChoice?.native_finish_reason);
+    try {
+      const retry = await callModel("google/gemini-2.5-flash");
+      if (retry.ok) {
+        const retryResult = await retry.json();
+        if (retryResult?.choices?.[0]) result = retryResult;
+      }
+    } catch (retryError) {
+      console.error("Retry model call failed:", retryError);
+    }
+  }
+
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+
   
   if (toolCall?.function?.arguments) {
     try {
