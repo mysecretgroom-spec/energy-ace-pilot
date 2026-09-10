@@ -86,6 +86,7 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { findOrInterpolateBouquet, getInterpolationExplanation } from "@/lib/bouquetInterpolation";
+import { EtudeClientDialog } from "@/components/etude/EtudeClientDialog";
 
 interface DataPsh {
   department_code: string;
@@ -537,12 +538,14 @@ const EtudeForm = () => {
 
   // ═══ Auto-lookup cadastre from address via BAN + IGN ═══
   useEffect(() => {
-    if (!clientAdresse || !clientCodePostal || numeroCadastre) return;
+    const adresseCible = adresseInstallation || clientAdresse;
+    const cpCible = codePostalInstallation || clientCodePostal;
+    if (!adresseCible || !cpCible || numeroCadastre) return;
     const lookup = async () => {
       setCadastreLoading(true);
       try {
         // Step 1: Get coordinates from BAN
-        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(clientAdresse)}&postcode=${clientCodePostal}&limit=1`;
+        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresseCible)}&postcode=${cpCible}&limit=1`;
         const banRes = await fetch(banUrl);
         if (!banRes.ok) return;
         const banData = await banRes.json();
@@ -568,7 +571,7 @@ const EtudeForm = () => {
     };
     const timer = setTimeout(lookup, 500);
     return () => clearTimeout(timer);
-  }, [clientAdresse, clientCodePostal]);
+  }, [clientAdresse, clientCodePostal, adresseInstallation, codePostalInstallation]);
 
   const restoreFormFromDraft = (draft: Record<string, any>) => {
     console.log("[EtudeForm] Restoring draft from sessionStorage");
@@ -1966,7 +1969,8 @@ const EtudeForm = () => {
     classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
-    selectedBouquetCombo, precoMode
+    selectedBouquetCombo, precoMode,
+    adresseInstallation, codePostalInstallation, villeInstallation
   ]);
 
   // Perform auto-save
