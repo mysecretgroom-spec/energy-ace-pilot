@@ -210,7 +210,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           const commissionTiers: CommissionTier[] = allCommissionTiers
             .filter(t => !vente.product_type || !t.productType || t.productType === vente.product_type)
             .map(t => ({ trancheMin: t.trancheMin, trancheMax: t.trancheMax, tauxCommission: t.tauxCommission, bonusSurvente: t.bonusSurvente }));
-          const result = calculatePourcentageCommission(vente, commissionTiers, decom);
+          const result = calculatePourcentageCommission(vente, commissionTiers, decom + primeDeduction);
           results.set(vente.id, result);
         } else {
           // ═══════════════════════════════════════════════════════════════
@@ -269,7 +269,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           }
 
           // Arrondir la commission finale à la centaine d'euros
-          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) / 100) * 100;
+          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom - primeDeduction) / 100) * 100;
 
           results.set(vente.id, {
             venteId: vente.id,
