@@ -56,6 +56,13 @@ interface DashboardStats {
   // Poses (installations) — séparées des RDV commerciaux
   posesPlanifiees: number;
   posesRealisees: number;
+
+  // Canal de vente : taux de transformation
+  tauxSignature: number;
+  tauxInstallation: number;
+  nbRdvEffectifs: number;
+  nbVentesSignees: number;
+  nbVentesInstallees: number;
   
   // Clients
   nouveauxClientsMois: number;
@@ -153,6 +160,11 @@ const Dashboard = () => {
     rdvTotal: 0,
     posesPlanifiees: 0,
     posesRealisees: 0,
+    tauxSignature: 0,
+    tauxInstallation: 0,
+    nbRdvEffectifs: 0,
+    nbVentesSignees: 0,
+    nbVentesInstallees: 0,
     nouveauxClientsMois: 0,
     totalClients: 0,
     commissionsMois: 0,
@@ -437,8 +449,32 @@ const Dashboard = () => {
           (period.end.getMonth() - period.start.getMonth()) + 1
       );
 
+      // Transformation canal de vente (sur la période)
+      const rdvPeriode = filteredRdvs.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) >= new Date(debutMois) && new Date(r.date_heure) <= new Date(finMois)
+      );
+      const effectifStatuses = ['signe', 'negatif', 'en_negociation', 'r2', 'r2_prestudy'];
+      const rdvEffectifs = rdvPeriode.filter((r: any) => effectifStatuses.includes(r.status));
+      const rdvSignes = rdvEffectifs.filter((r: any) => r.status === 'signe').length;
+      const tauxSignature = rdvEffectifs.length > 0 ? Math.round((rdvSignes / rdvEffectifs.length) * 100) : 0;
+
+      const ventesPeriode = filteredVentes.filter((v: any) =>
+        v.date_signature &&
+        new Date(v.date_signature) >= new Date(debutMois) &&
+        new Date(v.date_signature) <= new Date(finMois) &&
+        !isCancellationStatus(v.status)
+      );
+      const installeStatuses = ['installe', 'paye', 'attente_paiement'];
+      const ventesInstallees = ventesPeriode.filter((v: any) => installeStatuses.includes(v.status)).length;
+      const tauxInstallation = ventesPeriode.length > 0 ? Math.round((ventesInstallees / ventesPeriode.length) * 100) : 0;
+
       setStats({
         ventesSignesMois: ventesMois.length,
+        tauxSignature,
+        tauxInstallation,
+        nbRdvEffectifs: rdvEffectifs.length,
+        nbVentesSignees: ventesPeriode.length,
+        nbVentesInstallees: ventesInstallees,
         caMois: ventesMois.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0),
         caAnnee: ventesAnnee.reduce((sum, v) => sum + Number(v.montant_ttc || 0), 0),
         ventesEnCours: ventesEnCours.length,
@@ -835,6 +871,32 @@ const Dashboard = () => {
                 onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
               >
                 {formatCurrency(commissionData.commissionsEnAttente)} en attente
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Transformation canal de vente */}
+          <Card
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
+            onClick={() => navigate('/crm')}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-primary mb-1">
+                <Target className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Transformation</span>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxSignature}%</p>
+                  <p className="text-[10px] text-muted-foreground">signé</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxInstallation}%</p>
+                  <p className="text-[10px] text-muted-foreground">installé</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                {stats.nbRdvEffectifs} RDV effectués · {stats.nbVentesInstallees}/{stats.nbVentesSignees} posées
               </p>
             </CardContent>
           </Card>
