@@ -55,13 +55,23 @@ const emptyDraft = (): DraftRule => ({
   mode_valeur: "fixe",
   valeur: 0,
   part_appliquee_pct: 100,
+  condition_base: "montant_ht",
   condition_min: null,
   condition_max: null,
   ordre: 0,
   actif: true,
+  schema_nom: null,
+  raisonnement: null,
   source: "manuel",
   source_prompt: null,
 });
+
+/** Proposition de modèle complet renvoyée par l'IA */
+interface SchemaProposal {
+  schema_nom: string;
+  raisonnement: string;
+  rules: Partial<DraftRule>[];
+}
 
 const CommissionsSettings = () => {
   const { user } = useAuth();
