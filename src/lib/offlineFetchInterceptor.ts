@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { queueMutation, replayPendingMutations, type ReplayResult } from "./offlineMutationQueue";
+import { isOfflineConfirmed } from "@/hooks/useConnectionQuality";
 
 let originalFetch: typeof window.fetch;
 let isReplaying = false;
@@ -59,7 +60,9 @@ export function installOfflineFetchInterceptor() {
     }
 
     // Queue mutations when offline
-    if (isMutation && !navigator.onLine) {
+    // On ne bascule en file d'attente que si le hors-ligne est CONFIRMÉ,
+    // pour ne pas intercepter des requêtes valides lors d'une micro-coupure.
+    if (isMutation && !navigator.onLine && isOfflineConfirmed()) {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
 
       // Extract headers
