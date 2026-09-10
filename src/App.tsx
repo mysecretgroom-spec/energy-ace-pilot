@@ -66,6 +66,7 @@ const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomies
 const DataEstimateurCoefficients = React.lazy(() => import("./pages/settings/DataEstimateurCoefficients"));
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
 const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
+const AgentLearnings = React.lazy(() => import("./pages/settings/AgentLearnings"));
 const DataEvolutionPrix = React.lazy(() => import("./pages/settings/DataEvolutionPrix"));
 
 // Other pages
