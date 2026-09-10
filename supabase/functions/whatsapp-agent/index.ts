@@ -1877,6 +1877,7 @@ serve(async (req) => {
       request.userId,
       request.fromNumber === "web_chat" ? "chat" : "whatsapp",
     );
+    activeTracer = tracer;
     tracer.step("message_recu", {
       type: request.messageType,
       longueur: (request.content || "").length,
