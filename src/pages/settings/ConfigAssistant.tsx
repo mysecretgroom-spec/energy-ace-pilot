@@ -1,0 +1,446 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { MobileLayout } from "@/components/layout/MobileLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  Check,
+  FileUp,
+  History,
+  Loader2,
+  Mic,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Square,
+  Trash2,
+  Wand2,
+  X,
+} from "lucide-react";
+import { CONFIG_DOMAINS, formatChangeValues, getConfigDomain } from "@/lib/configDomains";
+import { useConfigAssistant } from "@/hooks/useConfigAssistant";
+
+interface RegieOption {
+  id: string;
+  nom: string;
+}
+
+const actionMeta = {
+  creer: { label: "Ajout", icon: Plus, className: "border-emerald-500 text-emerald-600" },
+  modifier: { label: "Modification", icon: Wand2, className: "border-amber-500 text-amber-600" },
+  supprimer: { label: "Suppression", icon: Trash2, className: "border-destructive text-destructive" },
+} as const;
+
+const ConfigAssistant = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [domainKey, setDomainKey] = useState(searchParams.get("domaine") || CONFIG_DOMAINS[0].key);
+  const [regieId, setRegieId] = useState<string | null>(searchParams.get("regie"));
+  const [regies, setRegies] = useState<RegieOption[]>([]);
+  const [texte, setTexte] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const domain = useMemo(() => getConfigDomain(domainKey), [domainKey]);
+  const assistant = useConfigAssistant(domain, regieId);
+
+  useEffect(() => {
+    const params: Record<string, string> = { domaine: domainKey };
+    if (regieId) params.regie = regieId;
+    setSearchParams(params, { replace: true });
+  }, [domainKey, regieId, setSearchParams]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("regies").select("id, nom").order("nom");
+      const list = (data as RegieOption[]) || [];
+      setRegies(list);
+      setRegieId((current) => current ?? list[0]?.id ?? null);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!domain) return;
+    if (domain.regieScoped && !regieId) return;
+    assistant.fetchRows();
+    assistant.fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [domainKey, regieId]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const buffer = await blob.arrayBuffer();
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.length; i += 8192) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        }
+        await runAsk({ audioBase64: btoa(binary), audioFormat: "webm" });
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setRecording(true);
+    } catch {
+      toast.error("Micro indisponible");
+    }
+  };
+
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    setRecording(false);
+  };
+
+  const onPickFile = async (file: File) => {
+    if (file.size > 12 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 12 Mo)");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFileDataUrl(String(reader.result));
+      setFileName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const runAsk = async (extra: Record<string, unknown> = {}) => {
+    if (!domain) return;
+    if (domain.regieScoped && !regieId) {
+      toast.error("Choisissez d'abord une régie");
+      return;
+    }
+    const payload = {
+      texte: texte.trim() || undefined,
+      fileDataUrl: fileDataUrl || undefined,
+      fileName: fileName || undefined,
+      ...extra,
+    };
+    if (!payload.texte && !payload.fileDataUrl && !payload.audioBase64) {
+      toast.error("Décrivez ce que vous voulez changer");
+      return;
+    }
+    try {
+      await assistant.ask(payload);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "L'assistant n'a pas pu répondre");
+    }
+  };
+
+  const onApply = async () => {
+    try {
+      await assistant.apply(texte);
+      setTexte("");
+      setFileDataUrl(null);
+      setFileName(null);
+      toast.success("Paramétrage mis à jour");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Échec de l'enregistrement");
+    }
+  };
+
+  return (
+    <MobileLayout title="Paramétrage assisté" showBackButton>
+      <div className="p-4 space-y-4 pb-32">
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-sm">Réglez tout à la voix ou à l'écrit</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Grilles de prix, surcoûts, financements, gammes et aides. Rien n'est enregistré tant que
+                vous n'avez pas validé la proposition.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Que voulez-vous régler ?</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Select value={domainKey} onValueChange={(v) => setDomainKey(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONFIG_DOMAINS.map((d) => (
+                  <SelectItem key={d.key} value={d.key}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {domain && <p className="text-xs text-muted-foreground">{domain.description}</p>}
+
+            {domain?.regieScoped && (
+              <Select value={regieId ?? ""} onValueChange={(v) => setRegieId(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choisir une régie" />
+                </SelectTrigger>
+                <SelectContent>
+                  {regies.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.nom}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {assistant.loading ? "Chargement…" : `${assistant.rows.length} ligne(s) actuellement configurée(s)`}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Votre demande</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={texte}
+              onChange={(e) => setTexte(e.target.value)}
+              rows={4}
+              placeholder={
+                domain?.examples?.[0]
+                  ? `Ex : ${domain.examples[0]}`
+                  : "Décrivez la modification souhaitée"
+              }
+            />
+            {domain?.examples && (
+              <div className="flex flex-wrap gap-2">
+                {domain.examples.map((ex) => (
+                  <button
+                    key={ex}
+                    type="button"
+                    onClick={() => setTexte(ex)}
+                    className="text-xs rounded-full border px-3 py-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {fileName && (
+              <div className="flex items-center justify-between text-xs bg-muted rounded-md px-3 py-2">
+                <span className="truncate">{fileName}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setFileDataUrl(null);
+                    setFileName(null);
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Joindre un document"
+                title="Joindre un document"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <FileUp className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && onPickFile(e.target.files[0])}
+              />
+              <Button
+                variant={recording ? "destructive" : "outline"}
+                size="icon"
+                aria-label={recording ? "Arrêter la dictée" : "Dicter la demande"}
+                title={recording ? "Arrêter la dictée" : "Dicter la demande"}
+                onClick={recording ? stopRecording : startRecording}
+              >
+                {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+              <Button className="flex-1 gap-2" onClick={() => runAsk()} disabled={assistant.asking}>
+                {assistant.asking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Proposer les changements
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {assistant.rejected.length > 0 && (
+          <Card className="border-destructive/40">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                Changements écartés
+              </div>
+              {assistant.rejected.map((r) => (
+                <p key={r} className="text-xs text-muted-foreground">
+                  {r}
+                </p>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {assistant.proposal && (
+          <Card className="border-primary/40">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Proposition</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {assistant.proposal.resume && (
+                <p className="text-sm font-medium">{assistant.proposal.resume}</p>
+              )}
+              {assistant.proposal.raisonnement && (
+                <p className="text-xs text-muted-foreground whitespace-pre-line">
+                  {assistant.proposal.raisonnement}
+                </p>
+              )}
+
+              {assistant.proposal.changements.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun changement applicable.</p>
+              ) : (
+                <div className="space-y-2">
+                  {assistant.proposal.changements.map((c, i) => {
+                    const meta = actionMeta[c.action];
+                    const Icon = meta.icon;
+                    return (
+                      <div key={`${c.action}-${c.id ?? i}`} className="rounded-md border p-3 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`gap-1 ${meta.className}`}>
+                            <Icon className="h-3 w-3" />
+                            {meta.label}
+                          </Badge>
+                          <span className="text-sm font-medium truncate">{c.cible || "Nouvelle ligne"}</span>
+                        </div>
+                        {domain && c.action !== "supprimer" && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatChangeValues(domain, c.valeurs)}
+                          </p>
+                        )}
+                        {c.motif && <p className="text-xs text-muted-foreground italic">{c.motif}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1 gap-2" onClick={assistant.discard}>
+                  <X className="h-4 w-4" />
+                  Abandonner
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={onApply}
+                  disabled={assistant.applying || assistant.proposal.changements.length === 0}
+                >
+                  {assistant.applying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Appliquer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader className="pb-2">
+            <button
+              type="button"
+              className="flex items-center justify-between w-full"
+              onClick={() => setShowHistory((s) => !s)}
+            >
+              <CardTitle className="text-sm flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Historique ({assistant.history.length})
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">{showHistory ? "Masquer" : "Afficher"}</span>
+            </button>
+          </CardHeader>
+          {showHistory && (
+            <CardContent className="space-y-2">
+              {assistant.history.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucune modification enregistrée.</p>
+              ) : (
+                assistant.history.map((h) => (
+                  <div key={h.id} className="rounded-md border p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium truncate">{h.resume || "Modification"}</span>
+                      {h.statut === "annule" ? (
+                        <Badge variant="outline">Annulée</Badge>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs"
+                          onClick={async () => {
+                            try {
+                              await assistant.rollback(h);
+                              toast.success("Paramétrage restauré");
+                            } catch {
+                              toast.error("Restauration impossible");
+                            }
+                          }}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Annuler
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(h.created_at).toLocaleString("fr-FR")}
+                    </p>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          )}
+        </Card>
+      </div>
+    </MobileLayout>
+  );
+};
+
+export default ConfigAssistant;
