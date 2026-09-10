@@ -580,6 +580,63 @@ const CommissionsSettings = () => {
           </CardContent>
         </Card>
 
+        {/* Historique des versions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4 text-primary" />
+              Historique des modèles ({versions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {versions.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aucune version enregistrée pour l'instant.
+              </p>
+            )}
+            {versions.map((v) => (
+              <div key={v.id} className="rounded-lg border p-3 space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {v.schema_nom} <span className="text-muted-foreground">v{v.version}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(v.created_at).toLocaleDateString("fr-FR")} · {(v.rules || []).length} règle(s)
+                    </p>
+                    {v.raisonnement && (
+                      <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
+                        {v.raisonnement}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant={v.statut === "actif" ? "default" : "outline"}
+                      className="text-[10px]"
+                    >
+                      {v.statut === "actif" ? "Activé" : v.statut === "brouillon" ? "Brouillon" : "Archivé"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => restoreVersion(v)}
+                      disabled={schemaLoading}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="ml-1">Restaurer</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground">
+              Restaurer une version archive le modèle en cours et réactive celui-ci. Si une règle est incohérente,
+              le calcul revient automatiquement à la méthode historique (bouquet / pourcentage / pose externe).
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Assistant IA */}
         <Card>
           <CardHeader className="pb-3">
@@ -688,6 +745,18 @@ const CommissionsSettings = () => {
                       {rule.schema_nom && (
                         <Badge variant="secondary" className="text-[10px]">{rule.schema_nom}</Badge>
                       )}
+                      {rule.version != null && (
+                        <Badge variant="outline" className="text-[10px]">v{rule.version}</Badge>
+                      )}
+                      <Badge
+                        variant={(rule.statut ?? "actif") === "actif" ? "default" : "outline"}
+                        className="text-[10px] cursor-pointer"
+                        onClick={() => toggleStatut(rule)}
+                      >
+                        {(rule.statut ?? "actif") === "actif"
+                          ? "Actif"
+                          : (rule.statut === "archive" ? "Archivée" : "Brouillon")}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
