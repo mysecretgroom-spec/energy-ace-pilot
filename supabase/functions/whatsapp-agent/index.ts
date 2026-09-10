@@ -1867,6 +1867,19 @@ serve(async (req) => {
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
 
+    // ==================== TRACE: journal pas à pas ====================
+    const tracer = new AgentTracer(
+      supabase,
+      request.userId,
+      request.fromNumber === "web_chat" ? "chat" : "whatsapp",
+    );
+    tracer.step("message_recu", {
+      type: request.messageType,
+      longueur: (request.content || "").length,
+      media: !!request.mediaUrl,
+      reponse_a: !!request.isReplyToMessage,
+    });
+
     // ==================== AI BUDGET CHECK ====================
     const aiBudget = await checkUsageBudget(request.userId, "whatsapp-agent");
     if (aiBudget.blocked) {
