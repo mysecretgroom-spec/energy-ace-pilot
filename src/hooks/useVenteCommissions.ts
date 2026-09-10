@@ -101,6 +101,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
         // Tranches pour le mode pourcentage
         supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente, product_type").order("tranche_min", { ascending: true }),
         // Règles de commission personnalisées (RLS = uniquement celles de l'utilisateur)
+        // Les brouillons et versions archivées sont exclus du calcul réel
         supabase.from("commission_rules").select("*").eq("actif", true).order("ordre", { ascending: true }),
       ]);
 
@@ -191,7 +192,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           surcouts: extras.surcouts || 0,
           decom: result.decomMontant,
         };
-        const { commission } = applyCommissionRules(customRules, ctx, result.commissionNette);
+        const { commission } = applyCommissionRulesSafe(customRules, ctx, result.commissionNette);
         return { ...result, commissionNette: Math.max(0, Math.round(commission * 100) / 100) };
       };
 
