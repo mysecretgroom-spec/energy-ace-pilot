@@ -3010,15 +3010,16 @@ serve(async (req) => {
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
     }
-    // Get conversation context, user memories, and custom prompts in parallel
-    const [conversationResult, userMemories, userPrompts] = await Promise.all([
+    // Get conversation context, user memories, custom prompts and business config in parallel
+    const [conversationResult, userMemories, userPrompts, userConfigContext] = await Promise.all([
       supabase
         .from("whatsapp_conversations")
         .select("context, pending_action, pending_message_sids")
         .eq("user_id", request.userId)
         .single(),
       loadUserMemories(supabase, request.userId),
-      loadUserPrompts(supabase, request.userId)
+      loadUserPrompts(supabase, request.userId),
+      loadUserConfigContext(supabase, request.userId)
     ]);
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
