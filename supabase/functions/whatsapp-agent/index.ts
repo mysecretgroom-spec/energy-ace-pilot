@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
 import { checkUsageBudget, logUsage, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
+import { loadUserConfigContext } from "./_config-context.ts";
 import {
   bufferImage,
   isGoTrigger,
