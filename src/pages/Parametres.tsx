@@ -116,6 +116,7 @@ const settingsSections = [
     title: "Automatisations",
     items: [
       { icon: Clock, label: "Transition ventes", description: "Délai Posé → Attente paiement", path: "/parametres/ventes" },
+      { icon: Target, label: "Calcul des commissions", description: "Règles modulables + assistant IA", path: "/parametres/commissions" },
     ],
   },
   {
