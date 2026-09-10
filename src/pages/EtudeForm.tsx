@@ -52,6 +52,7 @@ import {
   ChevronDown,
   Link2,
   Thermometer,
+  Pencil,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
@@ -86,6 +87,7 @@ import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { findOrInterpolateBouquet, getInterpolationExplanation } from "@/lib/bouquetInterpolation";
+import { EtudeClientDialog } from "@/components/etude/EtudeClientDialog";
 
 interface DataPsh {
   department_code: string;
@@ -221,6 +223,11 @@ const EtudeForm = () => {
   const [clientVille, setClientVille] = useState("");
   const [clientCodePostal, setClientCodePostal] = useState("");
   const [clientTelephone, setClientTelephone] = useState("");
+  // Adresse d'installation (si le chantier n'est pas la résidence principale)
+  const [adresseInstallation, setAdresseInstallation] = useState("");
+  const [codePostalInstallation, setCodePostalInstallation] = useState("");
+  const [villeInstallation, setVilleInstallation] = useState("");
+  const [showClientDialog, setShowClientDialog] = useState(false);
   const [departement, setDepartement] = useState("");
   
   // Régie associée au RDV
@@ -532,12 +539,14 @@ const EtudeForm = () => {
 
   // ═══ Auto-lookup cadastre from address via BAN + IGN ═══
   useEffect(() => {
-    if (!clientAdresse || !clientCodePostal || numeroCadastre) return;
+    const adresseCible = adresseInstallation || clientAdresse;
+    const cpCible = codePostalInstallation || clientCodePostal;
+    if (!adresseCible || !cpCible || numeroCadastre) return;
     const lookup = async () => {
       setCadastreLoading(true);
       try {
         // Step 1: Get coordinates from BAN
-        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(clientAdresse)}&postcode=${clientCodePostal}&limit=1`;
+        const banUrl = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresseCible)}&postcode=${cpCible}&limit=1`;
         const banRes = await fetch(banUrl);
         if (!banRes.ok) return;
         const banData = await banRes.json();
@@ -563,7 +572,7 @@ const EtudeForm = () => {
     };
     const timer = setTimeout(lookup, 500);
     return () => clearTimeout(timer);
-  }, [clientAdresse, clientCodePostal]);
+  }, [clientAdresse, clientCodePostal, adresseInstallation, codePostalInstallation]);
 
   const restoreFormFromDraft = (draft: Record<string, any>) => {
     console.log("[EtudeForm] Restoring draft from sessionStorage");
@@ -881,6 +890,10 @@ const EtudeForm = () => {
       if (!rdvIdFromUrl && etude.rdv_id) {
         setResolvedRdvId(etude.rdv_id);
       }
+      // Adresse d'installation spécifique à l'étude
+      setAdresseInstallation((etude as any).adresse_installation || "");
+      setCodePostalInstallation((etude as any).code_postal_installation || "");
+      setVilleInstallation((etude as any).ville_installation || "");
       // ═══════════════════════════════════════════════════════════════════════════
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1579,6 +1592,9 @@ const EtudeForm = () => {
         if (hasITE && itePrixManuel) total += Number(itePrixManuel);
         return total || null;
       })(),
+      adresse_installation: adresseInstallation || null,
+      code_postal_installation: codePostalInstallation || null,
+      ville_installation: villeInstallation || null,
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
@@ -1906,6 +1922,9 @@ const EtudeForm = () => {
       ite_surface_isoler: productType === "ITE" && iteSurfaceIsoler ? Number(iteSurfaceIsoler) : null,
       ite_type_facade: productType === "ITE" ? iteTypeFacade : null,
       prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
+      adresse_installation: adresseInstallation || null,
+      code_postal_installation: codePostalInstallation || null,
+      ville_installation: villeInstallation || null,
       surcouts: selectedSurcouts,
       autre_surcout: autreSurcout,
       // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
@@ -1951,7 +1970,8 @@ const EtudeForm = () => {
     classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
-    selectedBouquetCombo, precoMode
+    selectedBouquetCombo, precoMode,
+    adresseInstallation, codePostalInstallation, villeInstallation
   ]);
 
   // Perform auto-save
@@ -2709,9 +2729,24 @@ _Envoyé depuis DébalePro_`;
                   )}
                 </div>
               )}
+              {adresseInstallation && (
+                <p className="text-[10px] sm:text-xs text-amber-600 truncate">
+                  Installation : {adresseInstallation} {codePostalInstallation} {villeInstallation}
+                </p>
+              )}
             </div>
             {/* Auto-save indicator and HEJJA Mode Switch */}
             <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                onClick={() => setShowClientDialog(true)}
+                aria-label="Modifier les informations client"
+                title="Modifier les informations client"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
               <AutoSaveIndicator
                 isSaving={autoSaveStatus.isSaving}
                 lastSaved={autoSaveStatus.lastSaved}
@@ -2750,6 +2785,37 @@ _Envoyé depuis DébalePro_`;
             title="Mode HEJJA"
             description="Entrez le code PIN interne pour activer le mode HEJJA"
           />
+
+          {/* Édition rapide des infos client + adresse d'installation */}
+          <EtudeClientDialog
+            open={showClientDialog}
+            onOpenChange={setShowClientDialog}
+            clientId={clientId || null}
+            values={{
+              nom: clientName,
+              prenom: clientPrenom,
+              telephone: clientTelephone,
+              adresse: clientAdresse,
+              codePostal: clientCodePostal,
+              ville: clientVille,
+              adresseInstallation,
+              codePostalInstallation,
+              villeInstallation,
+            }}
+            onSaved={(v) => {
+              setClientName(v.nom);
+              setClientPrenom(v.prenom);
+              setClientTelephone(v.telephone);
+              setClientAdresse(v.adresse);
+              setClientCodePostal(v.codePostal);
+              setClientVille(v.ville);
+              setAdresseInstallation(v.adresseInstallation);
+              setCodePostalInstallation(v.codePostalInstallation);
+              setVilleInstallation(v.villeInstallation);
+              if (v.codePostal) setDepartement(v.codePostal.substring(0, 2));
+            }}
+          />
+
 
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* SÉLECTEUR TYPE DE PRODUIT */}
@@ -3574,7 +3640,11 @@ _Envoyé depuis DébalePro_`;
               />
             </div>
             <SatelliteMapEmbed
-              address={[clientAdresse, clientCodePostal, clientVille]
+              address={[
+                adresseInstallation || clientAdresse,
+                codePostalInstallation || clientCodePostal,
+                villeInstallation || clientVille,
+              ]
                 .filter(Boolean)
                 .join(", ")}
             />

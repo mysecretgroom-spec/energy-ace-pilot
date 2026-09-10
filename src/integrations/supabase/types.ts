@@ -1722,6 +1722,7 @@ export type Database = {
       etudes: {
         Row: {
           active_products: string[] | null
+          adresse_installation: string | null
           aides_manuelles: Json | null
           amperage_disjoncteur: number | null
           autoconsommation_kwh: number | null
@@ -1732,6 +1733,7 @@ export type Database = {
           classification_updated_at: string | null
           classification_updated_by: string | null
           client_id: string
+          code_postal_installation: string | null
           consommation_annuelle_kwh: number | null
           cq_date_heure: string | null
           created_at: string
@@ -1824,9 +1826,11 @@ export type Database = {
           updated_at: string
           user_id: string
           verdict: Database["public"]["Enums"]["etude_verdict"] | null
+          ville_installation: string | null
         }
         Insert: {
           active_products?: string[] | null
+          adresse_installation?: string | null
           aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
@@ -1837,6 +1841,7 @@ export type Database = {
           classification_updated_at?: string | null
           classification_updated_by?: string | null
           client_id: string
+          code_postal_installation?: string | null
           consommation_annuelle_kwh?: number | null
           cq_date_heure?: string | null
           created_at?: string
@@ -1929,9 +1934,11 @@ export type Database = {
           updated_at?: string
           user_id: string
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
+          ville_installation?: string | null
         }
         Update: {
           active_products?: string[] | null
+          adresse_installation?: string | null
           aides_manuelles?: Json | null
           amperage_disjoncteur?: number | null
           autoconsommation_kwh?: number | null
@@ -1942,6 +1949,7 @@ export type Database = {
           classification_updated_at?: string | null
           classification_updated_by?: string | null
           client_id?: string
+          code_postal_installation?: string | null
           consommation_annuelle_kwh?: number | null
           cq_date_heure?: string | null
           created_at?: string
@@ -2034,6 +2042,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           verdict?: Database["public"]["Enums"]["etude_verdict"] | null
+          ville_installation?: string | null
         }
         Relationships: [
           {
