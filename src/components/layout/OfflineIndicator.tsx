@@ -3,9 +3,7 @@ import { WifiOff, CloudOff, RefreshCw, Wifi } from "lucide-react";
 
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
-import { getPendingMutationCount, replayPendingMutations } from "@/lib/offlineMutationQueue";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 export function OfflineIndicator() {
   const { pendingCount: pendingDocsCount, isSyncing: isSyncingDocs, isOnline, syncPendingDocuments } = useOfflineDocuments();

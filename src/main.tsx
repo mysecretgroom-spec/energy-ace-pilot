@@ -1,10 +1,11 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { installOfflineFetchInterceptor } from "./lib/offlineFetchInterceptor";
+import { clearLegacyMutationQueue } from "./lib/clearLegacyMutationQueue";
 
-// Install offline fetch interceptor before anything else
-installOfflineFetchInterceptor();
+// Plus d'interception globale du réseau : le hors-ligne est limité au planning
+// (cache de lecture) et à l'outil d'étude (brouillons). On purge l'ancienne file.
+clearLegacyMutationQueue();
 
 // Detect Lovable preview / iframe contexts where service workers MUST NOT run.
 // Stale SWs in preview iframes serve outdated bundles and break dynamic imports.
