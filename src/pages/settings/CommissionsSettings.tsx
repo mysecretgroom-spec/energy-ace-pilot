@@ -91,6 +91,14 @@ const CommissionsSettings = () => {
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Modèle de commissionnement (raisonnement complet)
+  const [schemaText, setSchemaText] = useState("");
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [proposal, setProposal] = useState<SchemaProposal | null>(null);
+  const [schemaRecording, setSchemaRecording] = useState(false);
+  const schemaRecorderRef = useRef<MediaRecorder | null>(null);
+  const schemaChunksRef = useRef<Blob[]>([]);
+
   useEffect(() => {
     if (user) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
