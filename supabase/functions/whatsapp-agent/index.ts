@@ -4,6 +4,9 @@ import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
 import { checkUsageBudget, logUsage, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 import { loadUserConfigContext } from "./_config-context.ts";
+import { AgentTracer } from "./_trace.ts";
+import { loadAgentSkills, selectSkills, formatSkillsForPrompt, bumpSkillUsage } from "./_skills.ts";
+import { loadSessionMemory, formatSessionMemoryForPrompt, updateSessionMemory } from "./_session-memory.ts";
 import {
   bufferImage,
   isGoTrigger,
@@ -1790,6 +1793,7 @@ serve(async (req) => {
   // deno-lint-ignore no-explicit-any
   let supabaseClient: any = null;
   let requestData: AgentRequest | null = null;
+  let activeTracer: AgentTracer | null = null;
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -1866,6 +1870,20 @@ serve(async (req) => {
     // WhatsApp webhook calls with service role key: userId already verified by webhook
     
     console.log(`Processing agent request for user ${request.userId} (source: ${request.fromNumber})`);
+
+    // ==================== TRACE: journal pas à pas ====================
+    const tracer = new AgentTracer(
+      supabase,
+      request.userId,
+      request.fromNumber === "web_chat" ? "chat" : "whatsapp",
+    );
+    activeTracer = tracer;
+    tracer.step("message_recu", {
+      type: request.messageType,
+      longueur: (request.content || "").length,
+      media: !!request.mediaUrl,
+      reponse_a: !!request.isReplyToMessage,
+    });
 
     // ==================== AI BUDGET CHECK ====================
     const aiBudget = await checkUsageBudget(request.userId, "whatsapp-agent");
@@ -3011,8 +3029,9 @@ serve(async (req) => {
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
     }
-    // Get conversation context, user memories, custom prompts and business config in parallel
-    const [conversationResult, userMemories, userPrompts, userConfigContext] = await Promise.all([
+    // Get conversation context, memories, prompts, business config, skills and session memory in parallel
+    const [conversationResult, userMemories, userPrompts, userConfigContext, agentSkills, sessionMemory] =
+      await Promise.all([
       supabase
         .from("whatsapp_conversations")
         .select("context, pending_action, pending_message_sids")
@@ -3020,8 +3039,25 @@ serve(async (req) => {
         .single(),
       loadUserMemories(supabase, request.userId),
       loadUserPrompts(supabase, request.userId),
-      loadUserConfigContext(supabase, request.userId)
+      loadUserConfigContext(supabase, request.userId),
+      loadAgentSkills(supabase, request.userId),
+      loadSessionMemory(supabase, request.userId)
     ]);
+
+    // Savoir-faire pertinents pour ce message + reprise du fil de la session précédente
+    const matchedSkills = selectSkills(agentSkills, processedContent || "");
+    const skillsSection = formatSkillsForPrompt(matchedSkills);
+    const sessionSection = formatSessionMemoryForPrompt(sessionMemory);
+    if (matchedSkills.length) bumpSkillUsage(supabase, matchedSkills.map(s => s.id)).catch(() => {});
+
+    tracer.step("contexte_charge", {
+      memoires: userMemories.length,
+      prompts: userPrompts.length,
+      skills: matchedSkills.map(s => s.nom),
+      config_chars: (userConfigContext || "").length,
+      reprise_session: !!sessionSection,
+    });
+
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
     let pendingAction = conversationResult.data?.pending_action as PendingAction | null;
@@ -3527,20 +3563,32 @@ serve(async (req) => {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
         },
-        userConfigContext
+        `${userConfigContext || ""}${skillsSection}${sessionSection}`
       );
+
+      tracer.step("intention_analysee", {
+        intent: aiResponse.intent,
+        confiance: aiResponse.confidence,
+        confirmation: aiResponse.requiresConfirmation,
+        raisonnement: (aiResponse as { reasoning?: string }).reasoning || null,
+      });
 
       // Mémoire apprenante: l'agent retient spontanément les habitudes durables
       const suggestions = (aiResponse as { memory_suggestions?: Array<{ memory_type: string; key: string; value: string }> })
         .memory_suggestions;
       if (Array.isArray(suggestions) && suggestions.length) {
-        const existingKeys = new Set(userMemories.map((m) => m.key));
+        const existingKeys = new Map(userMemories.map((m) => [m.key, m]));
         for (const s of suggestions.slice(0, 2)) {
-          if (!s?.key || !s?.value || existingKeys.has(s.key)) continue;
+          if (!s?.key || !s?.value) continue;
+          const known = existingKeys.get(s.key);
           try {
-            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, 0.7);
+            // Une notion déjà vue est renforcée (confiance qui monte) plutôt que dupliquée
+            const confidence = known ? Math.min(0.98, (known.confidence || 0.7) + 0.1) : 0.7;
+            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, confidence);
+            tracer.step("memoire_apprise", { cle: s.key, type: s.memory_type, renforcee: !!known, confiance: confidence });
           } catch (e) {
             console.error("[agent] memory suggestion save failed (non-blocking):", e);
+            tracer.step("memoire_apprise", { cle: s.key }, "error", e);
           }
         }
       }
@@ -3934,9 +3982,16 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
 
     console.log(`Pending action to store: ${newPendingAction ? JSON.stringify({ intent: newPendingAction.intent, workflowState: newPendingAction.workflowState, hasRdvIds: !!newPendingAction.collectedData?.rdvIds }) : "null"}`);
 
-    // Update conversation context (keep last 5 messages)
+    tracer.step("action_executee", {
+      action: actionResult.actionTaken || "aucune",
+      entite: actionResult.entityType || null,
+      entite_id: actionResult.entityId?.startsWith("{") ? "(données)" : actionResult.entityId || null,
+      en_attente: newPendingAction?.workflowState || null,
+    }, actionResult.actionTaken?.startsWith("error") ? "error" : "ok");
+
+    // Update conversation context (mémoire court terme: 20 derniers messages)
     const newContext = [
-      ...conversationContext.slice(-4),
+      ...conversationContext.slice(-18),
       {
         role: "user",
         content: processedContent,
@@ -3978,6 +4033,18 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
     await supabase
       .from("whatsapp_conversations")
       .upsert(conversationUpdate, { onConflict: "user_id" });
+
+    // Mémoire court terme inter-sessions: résumé roulant de ce sur quoi on travaille
+    updateSessionMemory(supabase, request.userId, {
+      previous: sessionMemory,
+      userMessage: processedContent,
+      agentMessage: finalResponseMessage,
+      intent: aiResponse!.intent,
+      pendingLabel: newPendingAction
+        ? `${newPendingAction.intent} (${newPendingAction.workflowState || "en attente"})`
+        : null,
+    }).catch(() => {});
+
 
     // Log message for web chat sources (WhatsApp via webhook already logs separately)
     if (request.fromNumber === "web_chat" || (request as { source?: string }).source === "onboarding_demo") {
@@ -4054,6 +4121,12 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
         newPendingAction && newPendingAction.workflowState ? newPendingAction : null,
     };
 
+    tracer.step("reponse_envoyee", {
+      intent: aiResponse!.intent,
+      longueur: finalResponseMessage.length,
+    });
+    await tracer.flush();
+
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -4061,6 +4134,11 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
 
   } catch (error) {
     console.error("Agent error:", error);
+    if (activeTracer) {
+      activeTracer.step("echec", {}, "error", error);
+      await activeTracer.flush();
+    }
+
     
     // Log failed message for web chat sources (using outer-scope variables)
     if (requestData?.fromNumber === "web_chat" && supabaseClient) {
