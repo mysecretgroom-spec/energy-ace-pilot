@@ -7471,8 +7471,13 @@ INTENTIONS DISPONIBLES:
 - undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
 - create_support_ticket: "j'ai un bug", "problème avec l'app", "ça ne marche pas", "signaler un souci", "je veux remonter un problème", "ticket support", "l'app plante", "erreur dans l'app" → Créer un ticket de support. Entities: ticket_subject (sujet court), ticket_message (description détaillée du problème)
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
-- conversation: salutations simples
+- conversation: salutations simples ET questions sur le PARAMÉTRAGE (prix conseillé, grille, gamme, surcoût, financement, aide, règle de commission). Dans ce cas, réponds DIRECTEMENT et précisément à partir de la section "PARAMÉTRAGE MÉTIER" ci-dessus (cite les chiffres exacts). Si l'info n'y est pas, dis-le franchement et propose de la paramétrer dans l'app (Paramètres → Paramétrage assisté par IA).
 - unknown: non compris
+
+🧠 MÉMOIRE ACTIVE:
+- Utilise spontanément la mémoire utilisateur ci-dessus (habitudes, alias, régies favorites, préférences de format) sans qu'on te le redemande.
+- À CHAQUE message, si tu apprends quelque chose de durable et utile (une expression perso, une habitude, une préférence, un raccourci, un client récurrent), ajoute-le dans "memory_suggestions" (0 à 2 max, jamais de données ponctuelles ni de doublon avec la mémoire existante).
+
 
 CATÉGORIES FRAIS: carburant, repas, hotel, peage, parking, train, location_vehicule, autre
 
