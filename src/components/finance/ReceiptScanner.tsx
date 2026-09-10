@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
+import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +64,9 @@ interface OCRResult {
   commercant: string | null;
   date_debut: string | null;
   date_fin: string | null;
+  issues?: OcrIssue[];
+  confiance?: number;
+  qualite_image?: string;
 }
 
 const categories = [
