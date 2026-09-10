@@ -2786,6 +2786,37 @@ _Envoyé depuis DébalePro_`;
             description="Entrez le code PIN interne pour activer le mode HEJJA"
           />
 
+          {/* Édition rapide des infos client + adresse d'installation */}
+          <EtudeClientDialog
+            open={showClientDialog}
+            onOpenChange={setShowClientDialog}
+            clientId={clientId || null}
+            values={{
+              nom: clientName,
+              prenom: clientPrenom,
+              telephone: clientTelephone,
+              adresse: clientAdresse,
+              codePostal: clientCodePostal,
+              ville: clientVille,
+              adresseInstallation,
+              codePostalInstallation,
+              villeInstallation,
+            }}
+            onSaved={(v) => {
+              setClientName(v.nom);
+              setClientPrenom(v.prenom);
+              setClientTelephone(v.telephone);
+              setClientAdresse(v.adresse);
+              setClientCodePostal(v.codePostal);
+              setClientVille(v.ville);
+              setAdresseInstallation(v.adresseInstallation);
+              setCodePostalInstallation(v.codePostalInstallation);
+              setVilleInstallation(v.villeInstallation);
+              if (v.codePostal) setDepartement(v.codePostal.substring(0, 2));
+            }}
+          />
+
+
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
           {/* SÉLECTEUR TYPE DE PRODUIT */}
           {/* ═══════════════════════════════════════════════════════════════════════════ */}
