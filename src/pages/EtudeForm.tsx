@@ -1397,27 +1397,13 @@ const EtudeForm = () => {
       ? facture + (pacEconomiesCalculees.surcoutElecEuros / 12)
       : facture;
 
-    // === PRIME COUP DE POUCE PRODUCTEUR (charge société, pas une aide) ===
+    // === PRIME COUP DE POUCE (charge société, pas une aide) ===
     // = 12 × (Mensualité crédit - Facture d'élec mensuelle)
-    // Elle est répercutée sur le prix TTC, arrondie au multiple de 500€ supérieur.
-    // Itération car la mensualité dépend elle-même du prix TTC.
-    let prixTotalHorsAides = basePrixTotalHorsAides;
-    let mensualite = 0;
-    let primeAutoconsommation = 0;
-    let primeChargeArrondie = 0;
-    for (let i = 0; i < 10; i++) {
-      mensualite = computeMensualite(prixTotalHorsAides);
-      primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
-      const charge = Math.ceil(primeAutoconsommation / 500) * 500;
-      const nextPrice = basePrixTotalHorsAides + charge;
-      if (Math.abs(nextPrice - prixTotalHorsAides) < 0.01) {
-        primeChargeArrondie = charge;
-        prixTotalHorsAides = nextPrice;
-        break;
-      }
-      prixTotalHorsAides = nextPrice;
-      primeChargeArrondie = charge;
-    }
+    // Charge pour la société : déduite de la commission (pas répercutée sur le prix).
+    const prixTotalHorsAides = basePrixTotalHorsAides;
+    const mensualite = computeMensualite(prixTotalHorsAides);
+    const primeAutoconsommation = Math.max(0, 12 * (mensualite - factureElecPourPV));
+    const primeChargeArrondie = 0;
 
     // === ECO TVA ===
     // TVA à 20% : prix total TTC (surcoûts inclus) / 6
