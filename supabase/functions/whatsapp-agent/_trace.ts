@@ -43,6 +43,7 @@ function sanitize(details: Record<string, unknown>): Record<string, unknown> {
 
 export class AgentTracer {
   private logs: StepLog[] = [];
+  private pending: Promise<void> = Promise.resolve();
   private lastMark: number;
   readonly runId: string;
 
