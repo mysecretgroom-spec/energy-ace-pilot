@@ -85,7 +85,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [autoCapture, setAutoCapture] = useState(false);
+  const [autoCapture, setAutoCapture] = useState(true);
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
@@ -99,9 +99,14 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     videoRef,
     enabled: cameraState === "active" && !isCapturing,
     onStableDetection: (quad) => {
-      // Auto-capture only if enabled AND image is sharp AND confidence high
-      if (autoCapture && !isCapturing && !captureCooldownRef.current &&
-          blurScore > BLUR_THRESHOLD && quad.confidence > 0.5) {
+      // Déclenchement auto : net, bien cadré (assez grand) et pris de face
+      const video = videoRef.current;
+      const coverage = video ? quadCoverage(quad, video.videoWidth, video.videoHeight) : 0;
+      if (
+        autoCapture && !isCapturing && !captureCooldownRef.current &&
+        blurScore > BLUR_THRESHOLD && quad.confidence > 0.5 &&
+        coverage >= MIN_COVERAGE && quadSkew(quad) <= MAX_SKEW
+      ) {
         performCapture(quad);
       }
     },
@@ -109,6 +114,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const isBlurry = blurScore > 0 && blurScore < BLUR_THRESHOLD;
   const isDark = brightness < LOW_BRIGHTNESS;
+  const coverage = detectedQuad
+    ? quadCoverage(detectedQuad, videoDimensions.width, videoDimensions.height)
+    : 0;
+  const skew = detectedQuad ? quadSkew(detectedQuad) : 0;
+  const tooFar = !!detectedQuad && coverage > 0 && coverage < MIN_COVERAGE;
+  const tooSkewed = !!detectedQuad && skew > MAX_SKEW;
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
