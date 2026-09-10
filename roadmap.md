@@ -8,3 +8,5 @@
 
 ## Reste à faire
 - [ ] Assainir l'architecture globale (suite du chantier de nettoyage)
+- [ ] Appliquer une règle de prix + une aide via Paramétrage assisté et vérifier études/commissions
+- [ ] Outil d'étude : bouton d'édition des infos client + adresse d'installation distincte
