@@ -4032,6 +4032,18 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       .from("whatsapp_conversations")
       .upsert(conversationUpdate, { onConflict: "user_id" });
 
+    // Mémoire court terme inter-sessions: résumé roulant de ce sur quoi on travaille
+    updateSessionMemory(supabase, request.userId, {
+      previous: sessionMemory,
+      userMessage: processedContent,
+      agentMessage: finalResponseMessage,
+      intent: aiResponse!.intent,
+      pendingLabel: newPendingAction
+        ? `${newPendingAction.intent} (${newPendingAction.workflowState || "en attente"})`
+        : null,
+    }).catch(() => {});
+
+
     // Log message for web chat sources (WhatsApp via webhook already logs separately)
     if (request.fromNumber === "web_chat" || (request as { source?: string }).source === "onboarding_demo") {
       await logMessage(
