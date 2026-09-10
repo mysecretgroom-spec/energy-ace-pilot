@@ -134,7 +134,13 @@ const ConfigAssistant = () => {
       toast.error("Choisissez d'abord une régie");
       return;
     }
-    const payload = {
+    const payload: {
+      texte?: string;
+      fileDataUrl?: string;
+      fileName?: string;
+      audioBase64?: string;
+      audioFormat?: string;
+    } = {
       texte: texte.trim() || undefined,
       fileDataUrl: fileDataUrl || undefined,
       fileName: fileName || undefined,
