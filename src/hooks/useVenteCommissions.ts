@@ -196,9 +196,10 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
 
         // CAS 3: Vente standard → Selon le mode de la régie
         const decom = vente.decom_montant || 0;
-        // Prime Coup de Pouce : charge société versée au client, déduite de la commission
+        // Prime Coup de Pouce : charge société versée au client, partagée 50/50
+        // avec la régie (comme les surcharges) → on ne déduit que 50 % de la commission.
         const etudeRow = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
-        const primeDeduction = Math.max(0, Number(etudeRow?.prime_autoconsommation) || 0);
+        const primeDeduction = Math.max(0, Number(etudeRow?.prime_autoconsommation) || 0) / 2;
         const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
         const mode: CommissionMode = regieConfig?.mode_calcul_commission || globalConfig.mode;
 
