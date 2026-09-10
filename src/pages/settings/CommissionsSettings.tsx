@@ -586,7 +586,7 @@ const CommissionsSettings = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <History className="h-4 w-4 text-primary" />
+              <HistoryIcon className="h-4 w-4 text-primary" />
               Historique des modèles ({versions.length})
             </CardTitle>
           </CardHeader>
