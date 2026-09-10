@@ -40,7 +40,38 @@ en n'appliquant que les ajustements demandés et en conservant à l'identique to
 
 Si des règles existantes te sont fournies en contexte, évite de créer un doublon : préfère corriger.
 
+Champs additionnels possibles :
+- condition_base : "montant_ht" | "montant_ttc" | "puissance_kwc" (grandeur testée par condition_min/condition_max, défaut "montant_ht")
+
 Réponds UNIQUEMENT en JSON : { "rules": [ ... ] }. Aucun texte autour.`;
+
+const SCHEMA_PROMPT = `Tu es un expert en modèles de rémunération commerciale (photovoltaïque, PAC, isolation).
+
+L'utilisateur veut CHANGER DE STYLE DE COMMISSIONNEMENT : il décrit, avec ses mots, un nouveau raisonnement complet
+(ex : "je passe à 120 € par kWc au-delà de 3 kWc, moins la moitié des surcoûts", "commission = 8% du HT jusqu'à
+20 000 € puis 12% au-delà, et la prime coup de pouce est à ma charge à 50%").
+
+Tu dois RAISONNER puis traduire ce modèle en un ENSEMBLE COHÉRENT de règles applicables automatiquement.
+
+Méthode :
+1. Identifie la commission de BASE du nouveau modèle → une règle "remplace_base" (ordre 0).
+   Si le modèle conserve le calcul historique (bouquet / pourcentage régie), n'ajoute PAS de "remplace_base".
+2. Traduis chaque tranche en une règle distincte "remplace_base" bornée par condition_min / condition_max
+   (avec condition_base = "montant_ht", "montant_ttc" ou "puissance_kwc" selon ce qui est décrit).
+3. Ajoute ensuite les bonus et déductions (ordre croissant : 10, 20, 30...).
+4. Vérifie la cohérence : pas de double comptage, bornes qui se suivent sans trou ni recouvrement,
+   parts partagées exprimées via part_appliquee_pct.
+
+Champs par règle : nom, description, effet ("deduction"|"bonus"|"remplace_base"),
+base ("fixe"|"montant_ht"|"montant_ttc"|"commission_base"|"prime_coup_pouce"|"surcouts"|"decom"|"puissance_kwc"),
+mode_valeur ("fixe"|"pourcentage"), valeur, part_appliquee_pct, product_type ("PV"|"PAC"|"ITE"|null),
+gamme (ou null), condition_base, condition_min, condition_max, ordre.
+
+Note : avec base "puissance_kwc" et mode_valeur "fixe", valeur = montant en € par kWc.
+
+Réponds UNIQUEMENT en JSON :
+{ "schema_nom": "...", "raisonnement": "explication en français, 3 à 6 phrases, du modèle retenu et de sa logique",
+  "rules": [ ... ] }`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -87,8 +118,23 @@ serve(async (req) => {
       ? JSON.stringify(body.existingRules.slice(0, 30)).slice(0, 6000)
       : "";
 
+    const isSchemaMode = body.mode === "schema";
+
     const content: Record<string, unknown>[] = [];
-    if (ruleToEdit) {
+    if (isSchemaMode) {
+      if (existingRules) {
+        content.push({
+          type: "text",
+          text: `Modèle actuellement en place (à remplacer) :\n${existingRules}`,
+        });
+      }
+      content.push({
+        type: "text",
+        text: texte
+          ? `Nouveau style de commissionnement décrit par l'utilisateur :\n${texte}`
+          : "Déduis le nouveau modèle de commissionnement du contenu joint.",
+      });
+    } else if (ruleToEdit) {
       content.push({
         type: "text",
         text: `Règle existante à corriger :\n${ruleToEdit}\n\nCorrection demandée :\n${texte || "(voir contenu joint)"}\n\nRenvoie UNE seule règle corrigée.`,
@@ -124,7 +170,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3.8-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: isSchemaMode ? SCHEMA_PROMPT : SYSTEM_PROMPT },
           { role: "user", content },
         ],
       }),
@@ -148,7 +194,7 @@ serve(async (req) => {
     const data = await res.json();
     const raw: string = data?.choices?.[0]?.message?.content ?? "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let parsed: { rules?: unknown[] } = {};
+    let parsed: { rules?: unknown[]; schema_nom?: unknown; raisonnement?: unknown } = {};
     try {
       parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
     } catch {
@@ -170,9 +216,15 @@ serve(async (req) => {
       "puissance_kwc",
     ];
 
+    const allowedConditionBases = ["montant_ht", "montant_ttc", "puissance_kwc"];
+
     const rules = (Array.isArray(parsed.rules) ? parsed.rules : [])
       .slice(0, 20)
-      .map((r: Record<string, unknown>) => ({
+      .map((r: Record<string, unknown>, index: number) => ({
+        ordre: r?.ordre == null ? index * 10 : Math.max(0, Number(r.ordre) || 0),
+        condition_base: allowedConditionBases.includes(String(r?.condition_base))
+          ? String(r.condition_base)
+          : "montant_ht",
         nom: String(r?.nom ?? "Règle").slice(0, 120),
         description: r?.description ? String(r.description).slice(0, 500) : null,
         effet: allowedEffets.includes(String(r?.effet)) ? String(r.effet) : "deduction",
@@ -187,7 +239,10 @@ serve(async (req) => {
         condition_max: r?.condition_max == null ? null : Number(r.condition_max) || null,
       }));
 
-    return new Response(JSON.stringify({ rules }), {
+    const schemaNom = parsed.schema_nom ? String(parsed.schema_nom).slice(0, 120) : null;
+    const raisonnement = parsed.raisonnement ? String(parsed.raisonnement).slice(0, 2000) : null;
+
+    return new Response(JSON.stringify({ rules, schema_nom: schemaNom, raisonnement }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

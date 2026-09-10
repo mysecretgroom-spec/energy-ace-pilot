@@ -518,6 +518,7 @@ export type Database = {
         Row: {
           actif: boolean
           base: string
+          condition_base: string
           condition_max: number | null
           condition_min: number | null
           created_at: string
@@ -530,7 +531,9 @@ export type Database = {
           ordre: number
           part_appliquee_pct: number
           product_type: string | null
+          raisonnement: string | null
           regie_id: string | null
+          schema_nom: string | null
           source: string
           source_prompt: string | null
           updated_at: string
@@ -540,6 +543,7 @@ export type Database = {
         Insert: {
           actif?: boolean
           base?: string
+          condition_base?: string
           condition_max?: number | null
           condition_min?: number | null
           created_at?: string
@@ -552,7 +556,9 @@ export type Database = {
           ordre?: number
           part_appliquee_pct?: number
           product_type?: string | null
+          raisonnement?: string | null
           regie_id?: string | null
+          schema_nom?: string | null
           source?: string
           source_prompt?: string | null
           updated_at?: string
@@ -562,6 +568,7 @@ export type Database = {
         Update: {
           actif?: boolean
           base?: string
+          condition_base?: string
           condition_max?: number | null
           condition_min?: number | null
           created_at?: string
@@ -574,7 +581,9 @@ export type Database = {
           ordre?: number
           part_appliquee_pct?: number
           product_type?: string | null
+          raisonnement?: string | null
           regie_id?: string | null
+          schema_nom?: string | null
           source?: string
           source_prompt?: string | null
           updated_at?: string
