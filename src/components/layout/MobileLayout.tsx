@@ -1,15 +1,16 @@
 import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
-import { OfflineIndicator } from "./OfflineIndicator";
 import { AIUsageBanner } from "@/components/saas/AIUsageBanner";
 import { RGECardDialog } from "./RGECardDialog";
 import { NotificationBell } from "./NotificationBell";
 import { AlignmentGuides } from "./AlignmentGuides";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
 import { HejjaToggle } from "@/components/layout/HejjaToggle";
+import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
+import { useOfflineData } from "@/hooks/useOfflineData";
 
 interface MobileLayoutProps {
   children: ReactNode;
@@ -31,6 +32,30 @@ export const MobileLayout = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [agentOpen, setAgentOpen] = useState(false);
+
+  const {
+    pendingCount: pendingDocsCount,
+    isSyncing: isSyncingDocs,
+    isOnline: isOnlineDocs,
+    syncPendingDocuments,
+  } = useOfflineDocuments();
+  const {
+    pendingEtudesCount,
+    pendingWhatsAppCount,
+    isSyncing: isSyncingData,
+    isOnline: isOnlineData,
+    syncAll,
+  } = useOfflineData();
+
+  const isOnline = isOnlineDocs && isOnlineData;
+  const totalPending =
+    pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
+  const isSyncing = isSyncingDocs || isSyncingData;
+
+  const handleHeaderSync = async () => {
+    if (!isOnline || totalPending === 0 || isSyncing) return;
+    await Promise.all([syncPendingDocuments(), syncAll()]);
+  };
 
   // Hide RGE card on etude pages
   const isEtudePage = location.pathname.includes("/etude");
@@ -77,6 +102,26 @@ export const MobileLayout = ({
                   <span className="text-base">🤖</span>
                 </Button>
               )}
+              {!isOnline && (
+                <button
+                  onClick={handleHeaderSync}
+                  disabled={isSyncing}
+                  className="relative p-2 rounded-full hover:bg-muted transition-colors disabled:opacity-60"
+                  aria-label="Hors-ligne"
+                  title="Hors-ligne"
+                >
+                  {isSyncing ? (
+                    <RefreshCw className="h-5 w-5 text-destructive animate-spin" />
+                  ) : (
+                    <WifiOff className="h-5 w-5 text-destructive" />
+                  )}
+                  {totalPending > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                      {totalPending > 9 ? "9+" : totalPending}
+                    </span>
+                  )}
+                </button>
+              )}
               <NotificationBell />
               {shouldShowRGECard && <RGECardDialog />}
             </div>
@@ -90,8 +135,7 @@ export const MobileLayout = ({
       {/* AI usage banner (shown only when warning/capped) */}
       <AIUsageBanner />
 
-      {/* Offline Indicator */}
-      <OfflineIndicator />
+      {/* Offline indicator moved to header */}
 
       {/* Agent Chat - controlled by header button */}
       {shouldShowAgent && (
