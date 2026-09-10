@@ -248,7 +248,7 @@ export function usePlanningRoutes(date: Date, userPosition?: UserPosition | null
     } finally {
       setLoading(false);
     }
-  }, [user, date]);
+  }, [user, date, userPosition?.latitude, userPosition?.longitude]);
 
   useEffect(() => {
     fetchRoutes();
@@ -259,6 +259,7 @@ export function usePlanningRoutes(date: Date, userPosition?: UserPosition | null
     loading,
     totalDistance,
     tomorrowFirstDistance,
+    userToNextDistance,
     refetch: fetchRoutes,
   };
 }
