@@ -8058,6 +8058,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
   }
 
   // Fallback response
+  console.error("AI returned no tool call and no content:", JSON.stringify(result).slice(0, 1000));
   return {
     intent: "unknown" as Intent,
     confidence: 0,
