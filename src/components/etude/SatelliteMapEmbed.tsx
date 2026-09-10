@@ -18,13 +18,16 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
   label = "Vue satellite (repère toiture / carport)",
 }: SatelliteMapEmbedProps) {
   const [satellite, setSatellite] = useState(true);
+  // z=20 dépasse souvent la résolution disponible en zone rurale : Google
+  // ré-agrandit alors une tuile z=19 et l'image apparaît floue en permanence.
+  const [zoom, setZoom] = useState(19);
 
   const embedUrl = useMemo(
     () =>
-      `https://www.google.com/maps?q=${encodeURIComponent(address)}&z=20&t=${
+      `https://www.google.com/maps?q=${encodeURIComponent(address)}&z=${zoom}&t=${
         satellite ? "k" : "m"
       }&output=embed`,
-    [address, satellite]
+    [address, satellite, zoom]
   );
 
   const openUrl = useMemo(
