@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
 import { checkUsageBudget, logUsage, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
+import { loadUserConfigContext } from "./_config-context.ts";
 import {
   bufferImage,
   isGoTrigger,
@@ -3010,15 +3011,16 @@ serve(async (req) => {
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
     }
-    // Get conversation context, user memories, and custom prompts in parallel
-    const [conversationResult, userMemories, userPrompts] = await Promise.all([
+    // Get conversation context, user memories, custom prompts and business config in parallel
+    const [conversationResult, userMemories, userPrompts, userConfigContext] = await Promise.all([
       supabase
         .from("whatsapp_conversations")
         .select("context, pending_action, pending_message_sids")
         .eq("user_id", request.userId)
         .single(),
       loadUserMemories(supabase, request.userId),
-      loadUserPrompts(supabase, request.userId)
+      loadUserPrompts(supabase, request.userId),
+      loadUserConfigContext(supabase, request.userId)
     ]);
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
@@ -3524,8 +3526,24 @@ serve(async (req) => {
         {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
-        }
+        },
+        userConfigContext
       );
+
+      // Mémoire apprenante: l'agent retient spontanément les habitudes durables
+      const suggestions = (aiResponse as { memory_suggestions?: Array<{ memory_type: string; key: string; value: string }> })
+        .memory_suggestions;
+      if (Array.isArray(suggestions) && suggestions.length) {
+        const existingKeys = new Set(userMemories.map((m) => m.key));
+        for (const s of suggestions.slice(0, 2)) {
+          if (!s?.key || !s?.value || existingKeys.has(s.key)) continue;
+          try {
+            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, 0.7);
+          } catch (e) {
+            console.error("[agent] memory suggestion save failed (non-blocking):", e);
+          }
+        }
+      }
     }
 
     console.log("AI analysis result:", aiResponse!);
@@ -7347,6 +7365,43 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
   }
 }
 
+// Actions financières / destructives: confirmation non négociable
+const ALWAYS_CONFIRM_INTENTS = new Set<string>([
+  "mark_signe",
+  "create_external_vente",
+  "update_vente_pipeline",
+  "update_vente_data",
+  "update_vente_status",
+  "add_decom",
+  "import_facture",
+  "multi_request",
+]);
+
+// Actions peu risquées et réversibles: l'agent peut exécuter directement s'il est sûr
+const LOW_RISK_INTENTS = new Set<string>([
+  "create_rdv",
+  "update_rdv",
+  "update_client_notes",
+  "update_client_data",
+  "create_support_ticket",
+]);
+
+function enforceConfirmation(
+  intent: string,
+  entities: Record<string, unknown>,
+  confidence: number,
+  modelDecision: boolean,
+): boolean {
+  if (intent?.startsWith("query_") || intent === "user_feedback" || intent === "conversation") return false;
+  if (ALWAYS_CONFIRM_INTENTS.has(intent)) return true;
+  if (entities?.action === "supprime") return true;
+  if (LOW_RISK_INTENTS.has(intent)) {
+    if (!Number.isFinite(confidence) || confidence < 85) return true;
+    return modelDecision;
+  }
+  return modelDecision;
+}
+
 // Analyze intent with AI
 async function analyzeIntent(
   content: string,
@@ -7357,13 +7412,16 @@ async function analyzeIntent(
   userPrompts: AgentPrompt[],
   apiKey: string,
   userId: string,
-  replyContext?: { isReply: boolean; replyToContent: string | null }
+  replyContext?: { isReply: boolean; replyToContent: string | null },
+  userConfigContext?: string
 ): Promise<{
   intent: Intent;
   confidence: number;
   entities: Record<string, unknown>;
   requiresConfirmation: boolean;
   responseMessage: string;
+  reasoning?: string;
+  memory_suggestions?: Array<{ memory_type: string; key: string; value: string }>;
 }> {
   const now = new Date();
   const today = now.toISOString().split("T")[0];
@@ -7373,6 +7431,20 @@ async function analyzeIntent(
   const customPromptsSection = formatPromptsForSystem(userPrompts);
   
   const systemPrompt = `Tu es le secrétaire de poche de ${userName}, un(e) commercial(e) terrain en énergies renouvelables. Tu communiques via WhatsApp comme un collègue de confiance : ton informel, tutoiement, phrases courtes, emojis naturels (pas en excès). Tu es réactif, efficace, parfois un peu taquin mais toujours bienveillant. Tu connais bien le quotidien du terrain (rdv, signatures, frais, route) et tu t'exprimes comme quelqu'un qui comprend la réalité du métier. Évite le ton corporate/robot, privilégie le naturel. Tu peux utiliser des expressions familières ("c'est noté chef", "ça roule", "nickel", "top", "allez go") mais reste professionnel sur le fond.
+
+🧠 AVANT DE RÉPONDRE — RAISONNE:
+Remplis d'abord le champ "reasoning" (2-3 phrases max, jamais montré à l'utilisateur):
+1. Que veut-il vraiment ? (relis les échanges précédents, ils comptent)
+2. Ai-je toutes les infos ? Sinon, que me manque-t-il exactement ?
+3. Est-ce risqué (argent, suppression, vente) ou anodin ?
+4. Le paramétrage métier ci-dessous change-t-il ma réponse (prix, gamme, aide, commission) ?
+Puis seulement, choisis l'intent et rédige ta réponse.
+
+💬 TON — LIBERTÉ ENCADRÉE:
+- Tu n'es pas un formulaire. Adapte tes phrases au contexte, anticipe ("je te prépare aussi tes coms de la semaine ?"), sois direct.
+- Les formats de récapitulatif ci-dessous sont des repères, pas des gabarits à recopier mot pour mot.
+- Une seule question à la fois, jamais d'interrogatoire.
+${userConfigContext || ""}
 
 Application: DébalePro (gestion commerciale ENR).
 
@@ -7451,8 +7523,13 @@ INTENTIONS DISPONIBLES:
 - undo_last_action: "annule ça", "annule la dernière action", "défais", "reviens en arrière", "c'était une erreur", "annule ce que tu viens de faire" → Annuler/défaire la DERNIÈRE action effectuée par l'agent. UTILISER UNIQUEMENT quand l'utilisateur veut REVENIR EN ARRIÈRE sur une action DÉJÀ EXÉCUTÉE.
 - create_support_ticket: "j'ai un bug", "problème avec l'app", "ça ne marche pas", "signaler un souci", "je veux remonter un problème", "ticket support", "l'app plante", "erreur dans l'app" → Créer un ticket de support. Entities: ticket_subject (sujet court), ticket_message (description détaillée du problème)
 - user_feedback: Corrections/préférences → EXTRAIRE feedback_type, feedback_key, feedback_value
-- conversation: salutations simples
+- conversation: salutations simples ET questions sur le PARAMÉTRAGE (prix conseillé, grille, gamme, surcoût, financement, aide, règle de commission). Dans ce cas, réponds DIRECTEMENT et précisément à partir de la section "PARAMÉTRAGE MÉTIER" ci-dessus (cite les chiffres exacts). Si l'info n'y est pas, dis-le franchement et propose de la paramétrer dans l'app (Paramètres → Paramétrage assisté par IA).
 - unknown: non compris
+
+🧠 MÉMOIRE ACTIVE:
+- Utilise spontanément la mémoire utilisateur ci-dessus (habitudes, alias, régies favorites, préférences de format) sans qu'on te le redemande.
+- À CHAQUE message, si tu apprends quelque chose de durable et utile (une expression perso, une habitude, une préférence, un raccourci, un client récurrent), ajoute-le dans "memory_suggestions" (0 à 2 max, jamais de données ponctuelles ni de doublon avec la mémoire existante).
+
 
 CATÉGORIES FRAIS: carburant, repas, hotel, peage, parking, train, location_vehicule, autre
 
@@ -7571,21 +7648,20 @@ RÈGLES CRITIQUES:
 - INTERDIT de bloquer avec un message d'erreur sur le client - laisse le backend gérer
 - Exemple: "signé chez Poirier 4kwc 19900€" → mark_signe avec entities: {"client_name":"Poirier","puissance_kwc":4,"amount":19900} - PAS de message d'erreur!
 
-⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
-- Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data, create_support_ticket
-- FORMAT OBLIGATOIRE du responseMessage:
-  📋 *[TYPE ACTION]*
-  • Client: [Nom complet]
-  • [Détail 1]: [Valeur] (ex: Puissance: 9kWc)
-  • [Détail 2]: [Valeur] (ex: Prix: 18 500€)
-  • [Action]: [Description précise]
-  
-  *Confirmes-tu ?* (Oui/Non)
-- JAMAIS de confirmation intermédiaire (pas de "quel est le prix?", puis "quelle régie?" puis "confirme")
-- Si des données manquent, LISTE ce qu'il te faut en UNE SEULE question
-- Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
-- Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
+⚠️ CONFIRMATION INTELLIGENTE (tu décides selon le risque):
+- CONFIRMATION TOUJOURS OBLIGATOIRE (requiresConfirmation: true), sans exception:
+  mark_signe, create_external_vente, update_vente_pipeline, update_vente_data, update_vente_status,
+  add_decom, import_facture, toute suppression (action="supprime"), toute action en masse (>1 élément).
+- CONFIRMATION FACULTATIVE si TOUT est réuni : demande claire, aucune ambiguïté sur le client,
+  confidence >= 85, action peu risquée et facilement réversible (create_rdv complet, update_rdv simple,
+  update_client_notes, update_client_data, create_support_ticket) → requiresConfirmation: false,
+  exécute et annonce le résultat ("c'est calé ✅ …, dis-moi si je corrige").
+- DOUTE = CONFIRMATION. Si confidence < 85, si plusieurs clients peuvent correspondre, si un montant
+  ou une date est déduit et non dit explicitement → requiresConfirmation: true.
+- Quand tu confirmes: UN SEUL message avec un récapitulatif complet et lisible (client, chiffres, action),
+  puis "Je valide ?". Le format exact est libre, l'exhaustivité ne l'est pas.
+- JAMAIS de confirmation intermédiaire en chaîne. Si des données manquent, demande-les en UNE fois.
+
 
 📱 EXTRACTION DE DONNÉES CLIENT DANS LES RDV:
 - TOUJOURS extraire le numéro de téléphone (entity "phone") s'il est mentionné dans le message de création de RDV
@@ -7597,8 +7673,8 @@ RÈGLES CRITIQUES:
 - Si des notes sont détectées, les INCLURE dans le récapitulatif (ex: "📝 Note: Client intéressé par 9kwc")
 - Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
 - Toutes ces données seront automatiquement sauvegardées sur la fiche client
-- Mets requiresConfirmation: true dans ta réponse JSON
-- Seules les requêtes (query_*), user_feedback et conversations ne nécessitent PAS de confirmation
+- Applique la règle de CONFIRMATION INTELLIGENTE ci-dessus pour fixer requiresConfirmation
+- Les requêtes (query_*), user_feedback et conversations ne nécessitent JAMAIS de confirmation
 
 EXEMPLES DE CLASSIFICATION:
 - "Dupont posé" → update_vente_pipeline (ACTION: client + statut)
@@ -7676,9 +7752,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
 
   const messages = [
     { role: "system", content: systemPrompt },
-    ...conversationContext.slice(-4).map(m => ({
+    ...conversationContext.slice(-12).map(m => ({
       role: m.role as "user" | "assistant",
-      content: (m.content || "").substring(0, 2000)
+      content: (m.content || "").substring(0, 1500)
     })),
     { role: "user", content: userMessage }
   ];
@@ -7752,6 +7828,20 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
                     new_postal_code: { type: "string", description: "New postal code for client update" },
                     ticket_subject: { type: "string", description: "Short subject for support ticket (max 100 chars)" },
                     ticket_message: { type: "string", description: "Detailed description of the issue/bug/feedback for support ticket" }
+                  }
+                },
+                reasoning: { type: "string", description: "Raisonnement interne court (2-3 phrases), jamais montré à l'utilisateur: ce qu'il veut, ce qui manque, le niveau de risque." },
+                memory_suggestions: {
+                  type: "array",
+                  description: "0 à 2 apprentissages durables à mémoriser sur l'utilisateur (habitude, alias, préférence, raccourci). Vide si rien de durable.",
+                  items: {
+                    type: "object",
+                    properties: {
+                      memory_type: { type: "string", enum: ["preference", "pattern", "alias", "shortcut", "context"] },
+                      key: { type: "string", description: "Clé courte et stable, ex: 'expression:ma tournée'" },
+                      value: { type: "string", description: "Ce qu'il faut retenir, formulé clairement" }
+                    },
+                    required: ["memory_type", "key", "value"]
                   }
                 },
                 requiresConfirmation: { type: "boolean" },
@@ -7836,6 +7926,16 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
       if (!parsed.responseMessage || parsed.responseMessage.trim() === "") {
         parsed.responseMessage = getDefaultResponseForIntent(parsed.intent, parsed.entities);
       }
+      
+      // Garde-fou serveur: la confirmation reste obligatoire sur les actions sensibles,
+      // quelle que soit la décision du modèle (confirmation intelligente encadrée).
+      parsed.requiresConfirmation = enforceConfirmation(
+        parsed.intent,
+        parsed.entities || {},
+        parsed.confidence,
+        !!parsed.requiresConfirmation,
+      );
+      if (parsed.reasoning) console.log(`[agent] reasoning: ${String(parsed.reasoning).slice(0, 400)}`);
       
       return parsed;
     } catch (jsonError) {
