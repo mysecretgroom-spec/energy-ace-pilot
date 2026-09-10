@@ -875,6 +875,32 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
+          {/* Transformation canal de vente */}
+          <Card
+            className="rounded-none border-0 bg-card cursor-pointer hover:bg-muted/40 transition-colors"
+            onClick={() => navigate('/crm')}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 text-primary mb-1">
+                <Target className="h-3.5 w-3.5" />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Transformation</span>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxSignature}%</p>
+                  <p className="text-[10px] text-muted-foreground">signé</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxInstallation}%</p>
+                  <p className="text-[10px] text-muted-foreground">installé</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+                {stats.nbRdvEffectifs} RDV effectués · {stats.nbVentesInstallees}/{stats.nbVentesSignees} posées
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Commission HEJJA - Only visible in HEJJA mode */}
           {modeHejjaActive && (
             <Card 
