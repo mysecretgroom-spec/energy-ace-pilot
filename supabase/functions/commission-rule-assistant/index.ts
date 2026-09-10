@@ -40,7 +40,38 @@ en n'appliquant que les ajustements demandés et en conservant à l'identique to
 
 Si des règles existantes te sont fournies en contexte, évite de créer un doublon : préfère corriger.
 
+Champs additionnels possibles :
+- condition_base : "montant_ht" | "montant_ttc" | "puissance_kwc" (grandeur testée par condition_min/condition_max, défaut "montant_ht")
+
 Réponds UNIQUEMENT en JSON : { "rules": [ ... ] }. Aucun texte autour.`;
+
+const SCHEMA_PROMPT = `Tu es un expert en modèles de rémunération commerciale (photovoltaïque, PAC, isolation).
+
+L'utilisateur veut CHANGER DE STYLE DE COMMISSIONNEMENT : il décrit, avec ses mots, un nouveau raisonnement complet
+(ex : "je passe à 120 € par kWc au-delà de 3 kWc, moins la moitié des surcoûts", "commission = 8% du HT jusqu'à
+20 000 € puis 12% au-delà, et la prime coup de pouce est à ma charge à 50%").
+
+Tu dois RAISONNER puis traduire ce modèle en un ENSEMBLE COHÉRENT de règles applicables automatiquement.
+
+Méthode :
+1. Identifie la commission de BASE du nouveau modèle → une règle "remplace_base" (ordre 0).
+   Si le modèle conserve le calcul historique (bouquet / pourcentage régie), n'ajoute PAS de "remplace_base".
+2. Traduis chaque tranche en une règle distincte "remplace_base" bornée par condition_min / condition_max
+   (avec condition_base = "montant_ht", "montant_ttc" ou "puissance_kwc" selon ce qui est décrit).
+3. Ajoute ensuite les bonus et déductions (ordre croissant : 10, 20, 30...).
+4. Vérifie la cohérence : pas de double comptage, bornes qui se suivent sans trou ni recouvrement,
+   parts partagées exprimées via part_appliquee_pct.
+
+Champs par règle : nom, description, effet ("deduction"|"bonus"|"remplace_base"),
+base ("fixe"|"montant_ht"|"montant_ttc"|"commission_base"|"prime_coup_pouce"|"surcouts"|"decom"|"puissance_kwc"),
+mode_valeur ("fixe"|"pourcentage"), valeur, part_appliquee_pct, product_type ("PV"|"PAC"|"ITE"|null),
+gamme (ou null), condition_base, condition_min, condition_max, ordre.
+
+Note : avec base "puissance_kwc" et mode_valeur "fixe", valeur = montant en € par kWc.
+
+Réponds UNIQUEMENT en JSON :
+{ "schema_nom": "...", "raisonnement": "explication en français, 3 à 6 phrases, du modèle retenu et de sa logique",
+  "rules": [ ... ] }`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
