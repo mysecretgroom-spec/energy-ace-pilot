@@ -364,6 +364,18 @@ const CommissionsSettings = () => {
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="h-8 w-8 text-primary"
+                      title="Ajuster avec l'IA"
+                      onClick={() => {
+                        setAiEditId(aiEditId === rule.id ? null : rule.id);
+                        setAiEditText("");
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       className="h-8 w-8 text-destructive"
                       onClick={() => deleteRule(rule.id)}
                     >
@@ -371,6 +383,34 @@ const CommissionsSettings = () => {
                     </Button>
                   </div>
                 </div>
+
+                {aiEditId === rule.id && (
+                  <div className="pt-2 space-y-2 border-t mt-2">
+                    <Input
+                      value={aiEditText}
+                      onChange={(e) => setAiEditText(e.target.value)}
+                      placeholder="Ex : passe la part à 30% et applique-la seulement au PV"
+                      className="text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => adjustRuleWithAI(rule)}
+                        disabled={aiLoading || !aiEditText.trim()}
+                      >
+                        {aiLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        <span className="ml-1">Corriger</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setAiEditId(null)}>
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>
