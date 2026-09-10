@@ -4121,6 +4121,12 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
         newPendingAction && newPendingAction.workflowState ? newPendingAction : null,
     };
 
+    tracer.step("reponse_envoyee", {
+      intent: aiResponse!.intent,
+      longueur: finalResponseMessage.length,
+    });
+    await tracer.flush();
+
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -4128,6 +4134,11 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
 
   } catch (error) {
     console.error("Agent error:", error);
+    if (activeTracer) {
+      activeTracer.step("echec", {}, "error", error);
+      await activeTracer.flush();
+    }
+
     
     // Log failed message for web chat sources (using outer-scope variables)
     if (requestData?.fromNumber === "web_chat" && supabaseClient) {
