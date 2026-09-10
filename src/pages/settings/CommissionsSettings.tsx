@@ -34,8 +34,10 @@ import {
 import {
   CommissionRule,
   RuleBase,
+  RuleConditionBase,
   RuleEffet,
   RULE_BASE_LABELS,
+  RULE_CONDITION_BASE_LABELS,
   RULE_EFFET_LABELS,
 } from "@/lib/commissionRules";
 
