@@ -66,6 +66,8 @@ const emptyDraft = (): DraftRule => ({
   condition_max: null,
   ordre: 0,
   actif: true,
+  statut: "actif",
+  version: 1,
   schema_nom: null,
   raisonnement: null,
   source: "manuel",
