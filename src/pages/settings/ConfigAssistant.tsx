@@ -30,12 +30,21 @@ import {
   X,
 } from "lucide-react";
 import { CONFIG_DOMAINS, formatChangeValues, getConfigDomain } from "@/lib/configDomains";
-import { useConfigAssistant } from "@/hooks/useConfigAssistant";
+import { useConfigAssistant, ConfigHistoryEntry } from "@/hooks/useConfigAssistant";
+import { useRegieModel, ModelHistoryEntry } from "@/hooks/useRegieModel";
 
 interface RegieOption {
   id: string;
   nom: string;
 }
+
+/** Mode « tout la régie d'un coup » : gammes, prix, surcoûts, financements, aides */
+const MODEL_KEY = "regie_modele";
+
+const MODEL_EXAMPLES = [
+  "Régie ISH : gammes Full Black et Standard. Full Black 3 kWc 18 900 €, 6 kWc 26 900 €, 9 kWc 34 900 €, commission fixe 3 000 €. Triphasé 1 500 €, pergola 750 € par panneau. Financement 180 mois à 5,9 % de TAEG. Prime coup de pouce 80 € par kWc jusqu'à 9 kWc.",
+  "Reprends la grille du document joint pour cette régie : gammes, prix recommandés, prix max, commissions, surcoûts et financements.",
+];
 
 const actionMeta = {
   creer: { label: "Ajout", icon: Plus, className: "border-emerald-500 text-emerald-600" },
@@ -58,8 +67,11 @@ const ConfigAssistant = () => {
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const domain = useMemo(() => getConfigDomain(domainKey), [domainKey]);
+  const isModel = domainKey === MODEL_KEY;
+  const domain = useMemo(() => (isModel ? undefined : getConfigDomain(domainKey)), [domainKey, isModel]);
   const assistant = useConfigAssistant(domain, regieId);
+  const model = useRegieModel(regieId);
+  const needsRegie = isModel || !!domain?.regieScoped;
 
   useEffect(() => {
     const params: Record<string, string> = { domaine: domainKey };
@@ -77,6 +89,10 @@ const ConfigAssistant = () => {
   }, []);
 
   useEffect(() => {
+    if (isModel) {
+      model.fetchHistory();
+      return;
+    }
     if (!domain) return;
     if (domain.regieScoped && !regieId) return;
     assistant.fetchRows();
@@ -129,8 +145,8 @@ const ConfigAssistant = () => {
   };
 
   const runAsk = async (extra: Record<string, unknown> = {}) => {
-    if (!domain) return;
-    if (domain.regieScoped && !regieId) {
+    if (!isModel && !domain) return;
+    if (needsRegie && !regieId) {
       toast.error("Choisissez d'abord une régie");
       return;
     }
@@ -151,7 +167,8 @@ const ConfigAssistant = () => {
       return;
     }
     try {
-      await assistant.ask(payload);
+      if (isModel) await model.ask(payload);
+      else await assistant.ask(payload);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "L'assistant n'a pas pu répondre");
     }
@@ -159,15 +176,30 @@ const ConfigAssistant = () => {
 
   const onApply = async () => {
     try {
-      await assistant.apply(texte);
+      if (isModel) await model.apply(texte);
+      else await assistant.apply(texte);
       setTexte("");
       setFileDataUrl(null);
       setFileName(null);
-      toast.success("Paramétrage mis à jour");
+      toast.success(
+        isModel
+          ? "Modèle de régie enregistré — les études l'utiliseront à la prochaine ouverture"
+          : "Paramétrage mis à jour"
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Échec de l'enregistrement");
     }
   };
+
+  const rejectedList = isModel
+    ? model.blocks.flatMap((b) => b.rejected)
+    : assistant.rejected;
+  const historyList = isModel ? model.history : assistant.history;
+  const doRollback = async (entry: (typeof historyList)[number]) => {
+    if (isModel) await model.rollback(entry as ModelHistoryEntry);
+    else await assistant.rollback(entry as ConfigHistoryEntry);
+  };
+  const busy = isModel ? model.asking : assistant.asking;
 
   return (
     <MobileLayout title="Paramétrage assisté" showBackButton>
@@ -195,6 +227,7 @@ const ConfigAssistant = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={MODEL_KEY}>Modèle de régie complet</SelectItem>
                 {CONFIG_DOMAINS.map((d) => (
                   <SelectItem key={d.key} value={d.key}>
                     {d.label}
@@ -203,8 +236,14 @@ const ConfigAssistant = () => {
               </SelectContent>
             </Select>
             {domain && <p className="text-xs text-muted-foreground">{domain.description}</p>}
+            {isModel && (
+              <p className="text-xs text-muted-foreground">
+                Dictez ou collez tout le fonctionnement d'une régie : gammes, grilles de prix et
+                commissions, surcoûts, financements et aides. Chaque partie est proposée séparément.
+              </p>
+            )}
 
-            {domain?.regieScoped && (
+            {needsRegie && (
               <Select value={regieId ?? ""} onValueChange={(v) => setRegieId(v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choisir une régie" />
@@ -219,9 +258,13 @@ const ConfigAssistant = () => {
               </Select>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              {assistant.loading ? "Chargement…" : `${assistant.rows.length} ligne(s) actuellement configurée(s)`}
-            </p>
+            {!isModel && (
+              <p className="text-xs text-muted-foreground">
+                {assistant.loading
+                  ? "Chargement…"
+                  : `${assistant.rows.length} ligne(s) actuellement configurée(s)`}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -233,16 +276,18 @@ const ConfigAssistant = () => {
             <Textarea
               value={texte}
               onChange={(e) => setTexte(e.target.value)}
-              rows={4}
+              rows={isModel ? 7 : 4}
               placeholder={
-                domain?.examples?.[0]
-                  ? `Ex : ${domain.examples[0]}`
-                  : "Décrivez la modification souhaitée"
+                isModel
+                  ? `Ex : ${MODEL_EXAMPLES[0]}`
+                  : domain?.examples?.[0]
+                    ? `Ex : ${domain.examples[0]}`
+                    : "Décrivez la modification souhaitée"
               }
             />
-            {domain?.examples && (
+            {(isModel ? MODEL_EXAMPLES : domain?.examples) && (
               <div className="flex flex-wrap gap-2">
-                {domain.examples.map((ex) => (
+                {(isModel ? MODEL_EXAMPLES : domain!.examples).map((ex) => (
                   <button
                     key={ex}
                     type="button"
@@ -298,26 +343,28 @@ const ConfigAssistant = () => {
               >
                 {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
-              <Button className="flex-1 gap-2" onClick={() => runAsk()} disabled={assistant.asking}>
-                {assistant.asking ? (
+              <Button className="flex-1 gap-2" onClick={() => runAsk()} disabled={busy}>
+                {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                Proposer les changements
+                {busy && isModel && model.progress
+                  ? `Analyse : ${model.progress}…`
+                  : "Proposer les changements"}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {assistant.rejected.length > 0 && (
+        {rejectedList.length > 0 && (
           <Card className="border-destructive/40">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-destructive">
                 <AlertTriangle className="h-4 w-4" />
                 Changements écartés
               </div>
-              {assistant.rejected.map((r) => (
+              {rejectedList.map((r) => (
                 <p key={r} className="text-xs text-muted-foreground">
                   {r}
                 </p>
@@ -326,7 +373,72 @@ const ConfigAssistant = () => {
           </Card>
         )}
 
-        {assistant.proposal && (
+        {isModel && model.blocks.length > 0 && (
+          <Card className="border-primary/40">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Modèle proposé ({model.totalChanges} changement(s))
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {model.blocks.map((block) => (
+                <div key={block.domain.key} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{block.domain.label}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {block.changements.length} changement(s)
+                    </span>
+                  </div>
+                  {block.resume && <p className="text-sm">{block.resume}</p>}
+                  {block.changements.map((c, i) => {
+                    const meta = actionMeta[c.action];
+                    const Icon = meta.icon;
+                    return (
+                      <div key={`${block.domain.key}-${c.id ?? i}`} className="rounded-md border p-3 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`gap-1 ${meta.className}`}>
+                            <Icon className="h-3 w-3" />
+                            {meta.label}
+                          </Badge>
+                          <span className="text-sm font-medium truncate">
+                            {c.cible || "Nouvelle ligne"}
+                          </span>
+                        </div>
+                        {c.action !== "supprimer" && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatChangeValues(block.domain, c.valeurs)}
+                          </p>
+                        )}
+                        {c.motif && <p className="text-xs text-muted-foreground italic">{c.motif}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1 gap-2" onClick={model.discard}>
+                  <X className="h-4 w-4" />
+                  Abandonner
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={onApply}
+                  disabled={model.applying || model.totalChanges === 0}
+                >
+                  {model.applying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Appliquer le modèle
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isModel && assistant.proposal && (
           <Card className="border-primary/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Proposition</CardTitle>
@@ -400,17 +512,17 @@ const ConfigAssistant = () => {
             >
               <CardTitle className="text-sm flex items-center gap-2">
                 <History className="h-4 w-4" />
-                Historique ({assistant.history.length})
+                Historique ({historyList.length})
               </CardTitle>
               <span className="text-xs text-muted-foreground">{showHistory ? "Masquer" : "Afficher"}</span>
             </button>
           </CardHeader>
           {showHistory && (
             <CardContent className="space-y-2">
-              {assistant.history.length === 0 ? (
+              {historyList.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Aucune modification enregistrée.</p>
               ) : (
-                assistant.history.map((h) => (
+                historyList.map((h) => (
                   <div key={h.id} className="rounded-md border p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium truncate">{h.resume || "Modification"}</span>
@@ -423,7 +535,7 @@ const ConfigAssistant = () => {
                           className="gap-1 text-xs"
                           onClick={async () => {
                             try {
-                              await assistant.rollback(h);
+                              await doRollback(h);
                               toast.success("Paramétrage restauré");
                             } catch {
                               toast.error("Restauration impossible");
