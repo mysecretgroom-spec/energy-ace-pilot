@@ -248,9 +248,13 @@ const ConfigAssistant = () => {
               </Select>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              {assistant.loading ? "Chargement…" : `${assistant.rows.length} ligne(s) actuellement configurée(s)`}
-            </p>
+            {!isModel && (
+              <p className="text-xs text-muted-foreground">
+                {assistant.loading
+                  ? "Chargement…"
+                  : `${assistant.rows.length} ligne(s) actuellement configurée(s)`}
+              </p>
+            )}
           </CardContent>
         </Card>
 
