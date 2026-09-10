@@ -887,16 +887,20 @@ const Dashboard = () => {
               </div>
               <div className="flex items-baseline gap-3">
                 <div>
-                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxSignature}%</p>
-                  <p className="text-[10px] text-muted-foreground">signé</p>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.nbVentesSignees}</p>
+                  <p className="text-[10px] text-muted-foreground">signés</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.tauxInstallation}%</p>
-                  <p className="text-[10px] text-muted-foreground">installé</p>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.nbVentesInstallees}</p>
+                  <p className="text-[10px] text-muted-foreground">installés</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums tracking-tight">{stats.ventesEnCours}</p>
+                  <p className="text-[10px] text-muted-foreground">en cours</p>
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-                {stats.nbRdvEffectifs} RDV effectués · {stats.nbVentesInstallees}/{stats.nbVentesSignees} posées
+                {stats.tauxSignature}% signé · {stats.tauxInstallation}% installé
               </p>
             </CardContent>
           </Card>
