@@ -167,7 +167,8 @@ const ConfigAssistant = () => {
       return;
     }
     try {
-      await assistant.ask(payload);
+      if (isModel) await model.ask(payload);
+      else await assistant.ask(payload);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "L'assistant n'a pas pu répondre");
     }
@@ -175,11 +176,16 @@ const ConfigAssistant = () => {
 
   const onApply = async () => {
     try {
-      await assistant.apply(texte);
+      if (isModel) await model.apply(texte);
+      else await assistant.apply(texte);
       setTexte("");
       setFileDataUrl(null);
       setFileName(null);
-      toast.success("Paramétrage mis à jour");
+      toast.success(
+        isModel
+          ? "Modèle de régie enregistré — les études l'utiliseront à la prochaine ouverture"
+          : "Paramétrage mis à jour"
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Échec de l'enregistrement");
     }
