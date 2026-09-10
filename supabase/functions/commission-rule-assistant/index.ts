@@ -239,7 +239,10 @@ serve(async (req) => {
         condition_max: r?.condition_max == null ? null : Number(r.condition_max) || null,
       }));
 
-    return new Response(JSON.stringify({ rules }), {
+    const schemaNom = parsed.schema_nom ? String(parsed.schema_nom).slice(0, 120) : null;
+    const raisonnement = parsed.raisonnement ? String(parsed.raisonnement).slice(0, 2000) : null;
+
+    return new Response(JSON.stringify({ rules, schema_nom: schemaNom, raisonnement }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
