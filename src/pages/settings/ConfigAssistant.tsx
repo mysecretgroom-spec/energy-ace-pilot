@@ -266,7 +266,6 @@ const ConfigAssistant = () => {
             <Textarea
               value={texte}
               onChange={(e) => setTexte(e.target.value)}
-              rows={4}
               rows={isModel ? 7 : 4}
               placeholder={
                 isModel
