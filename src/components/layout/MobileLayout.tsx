@@ -1,15 +1,16 @@
 import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
-import { OfflineIndicator } from "./OfflineIndicator";
 import { AIUsageBanner } from "@/components/saas/AIUsageBanner";
 import { RGECardDialog } from "./RGECardDialog";
 import { NotificationBell } from "./NotificationBell";
 import { AlignmentGuides } from "./AlignmentGuides";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
 import { HejjaToggle } from "@/components/layout/HejjaToggle";
+import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
+import { useOfflineData } from "@/hooks/useOfflineData";
 
 interface MobileLayoutProps {
   children: ReactNode;
