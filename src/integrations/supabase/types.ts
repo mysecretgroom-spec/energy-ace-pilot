@@ -536,9 +536,11 @@ export type Database = {
           schema_nom: string | null
           source: string
           source_prompt: string | null
+          statut: string
           updated_at: string
           user_id: string
           valeur: number
+          version: number
         }
         Insert: {
           actif?: boolean
@@ -561,9 +563,11 @@ export type Database = {
           schema_nom?: string | null
           source?: string
           source_prompt?: string | null
+          statut?: string
           updated_at?: string
           user_id: string
           valeur?: number
+          version?: number
         }
         Update: {
           actif?: boolean
@@ -586,9 +590,11 @@ export type Database = {
           schema_nom?: string | null
           source?: string
           source_prompt?: string | null
+          statut?: string
           updated_at?: string
           user_id?: string
           valeur?: number
+          version?: number
         }
         Relationships: [
           {
@@ -599,6 +605,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      commission_schema_versions: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          id: string
+          raisonnement: string | null
+          rules: Json
+          schema_nom: string
+          source_prompt: string | null
+          statut: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          raisonnement?: string | null
+          rules?: Json
+          schema_nom: string
+          source_prompt?: string | null
+          statut?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          id?: string
+          raisonnement?: string | null
+          rules?: Json
+          schema_nom?: string
+          source_prompt?: string | null
+          statut?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
       }
       commissions: {
         Row: {
