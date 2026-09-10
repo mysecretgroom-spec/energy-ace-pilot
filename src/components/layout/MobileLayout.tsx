@@ -102,6 +102,26 @@ export const MobileLayout = ({
                   <span className="text-base">🤖</span>
                 </Button>
               )}
+              {!isOnline && (
+                <button
+                  onClick={handleHeaderSync}
+                  disabled={isSyncing}
+                  className="relative p-2 rounded-full hover:bg-muted transition-colors disabled:opacity-60"
+                  aria-label="Hors-ligne"
+                  title="Hors-ligne"
+                >
+                  {isSyncing ? (
+                    <RefreshCw className="h-5 w-5 text-destructive animate-spin" />
+                  ) : (
+                    <WifiOff className="h-5 w-5 text-destructive" />
+                  )}
+                  {totalPending > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
+                      {totalPending > 9 ? "9+" : totalPending}
+                    </span>
+                  )}
+                </button>
+              )}
               <NotificationBell />
               {shouldShowRGECard && <RGECardDialog />}
             </div>
@@ -115,8 +135,7 @@ export const MobileLayout = ({
       {/* AI usage banner (shown only when warning/capped) */}
       <AIUsageBanner />
 
-      {/* Offline Indicator */}
-      <OfflineIndicator />
+      {/* Offline indicator moved to header */}
 
       {/* Agent Chat - controlled by header button */}
       {shouldShowAgent && (
