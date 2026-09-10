@@ -109,6 +109,25 @@ export function ReviewDocument({
   const [tauxTva, setTauxTva] = useState("20");
   const [fournisseur, setFournisseur] = useState("");
 
+  // Erreurs de lecture : alertes photo du serveur + contrôles recalculés à l'édition
+  const ocrIssues = useMemo<OcrIssue[]>(() => {
+    if (!ocrResult || context !== "finance") return [];
+    return [
+      ...(ocrResult.issues ?? []).filter((i) => i.field === "image"),
+      ...recomputeLocalIssues({
+        montantTTC,
+        montantHT,
+        tva,
+        tauxTva,
+        date,
+        commercant: fournisseur,
+        categorie: category,
+      }),
+    ];
+  }, [ocrResult, context, montantTTC, montantHT, tva, tauxTva, date, fournisseur, category]);
+
+
+
   
 
   // Generate PDF on mount
