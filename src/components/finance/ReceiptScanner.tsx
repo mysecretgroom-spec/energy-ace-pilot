@@ -411,6 +411,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                 value={commercant}
                 onChange={(e) => setCommercant(e.target.value)}
                 placeholder="Ex: Total, Sodexo, Ibis..."
+                className={issueFieldClass(issues, "commercant")}
               />
             </div>
 
@@ -436,7 +437,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                       if (tauxTva) calculateFromTTC(e.target.value, tauxTva);
                     }}
                     placeholder="0.00"
-                    className="font-semibold"
+                    className={`font-semibold ${issueFieldClass(issues, "montant_ttc")}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -453,6 +454,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                       if (montantTTC) calculateFromTTC(montantTTC, e.target.value);
                     }}
                     placeholder="20"
+                    className={issueFieldClass(issues, "taux_tva")}
                   />
                 </div>
               </div>
@@ -469,7 +471,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                     value={montantHT}
                     onChange={(e) => setMontantHT(e.target.value)}
                     placeholder="0.00"
-                    className="text-muted-foreground"
+                    className={`text-muted-foreground ${issueFieldClass(issues, "montant_ht")}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -498,12 +500,13 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                   type="date"
                   value={dateFrais}
                   onChange={(e) => setDateFrais(e.target.value)}
+                  className={issueFieldClass(issues, "date")}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="categorie">Catégorie *</Label>
                 <Select value={categorie} onValueChange={setCategorie}>
-                  <SelectTrigger>
+                  <SelectTrigger className={issueFieldClass(issues, "categorie")}>
                     <SelectValue placeholder="Sélectionner" />
                   </SelectTrigger>
                   <SelectContent>
