@@ -514,6 +514,83 @@ export type Database = {
           },
         ]
       }
+      commission_rules: {
+        Row: {
+          actif: boolean
+          base: string
+          condition_max: number | null
+          condition_min: number | null
+          created_at: string
+          description: string | null
+          effet: string
+          gamme: string | null
+          id: string
+          mode_valeur: string
+          nom: string
+          ordre: number
+          part_appliquee_pct: number
+          product_type: string | null
+          regie_id: string | null
+          source: string
+          source_prompt: string | null
+          updated_at: string
+          user_id: string
+          valeur: number
+        }
+        Insert: {
+          actif?: boolean
+          base?: string
+          condition_max?: number | null
+          condition_min?: number | null
+          created_at?: string
+          description?: string | null
+          effet?: string
+          gamme?: string | null
+          id?: string
+          mode_valeur?: string
+          nom: string
+          ordre?: number
+          part_appliquee_pct?: number
+          product_type?: string | null
+          regie_id?: string | null
+          source?: string
+          source_prompt?: string | null
+          updated_at?: string
+          user_id: string
+          valeur?: number
+        }
+        Update: {
+          actif?: boolean
+          base?: string
+          condition_max?: number | null
+          condition_min?: number | null
+          created_at?: string
+          description?: string | null
+          effet?: string
+          gamme?: string | null
+          id?: string
+          mode_valeur?: string
+          nom?: string
+          ordre?: number
+          part_appliquee_pct?: number
+          product_type?: string | null
+          regie_id?: string | null
+          source?: string
+          source_prompt?: string | null
+          updated_at?: string
+          user_id?: string
+          valeur?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_rules_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commissions: {
         Row: {
           bonus_survente: number | null

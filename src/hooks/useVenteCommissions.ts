@@ -10,6 +10,11 @@ import {
   createZeroCommission, 
   createExternalCommission 
 } from "@/lib/commissionTypes";
+import {
+  CommissionRule,
+  RuleContext,
+  applyCommissionRules,
+} from "@/lib/commissionRules";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -84,7 +89,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       // Collect unique product types for filtering bouquets
       const productTypes = [...new Set(ventes.map(v => v.product_type).filter(Boolean))] as string[];
 
-      const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes] = await Promise.all([
+      const [bouquetsRes, regiesRes, configRes, etudesRes, tiersRes, rulesRes] = await Promise.all([
         supabase.from("bouquets").select("puissance_kwc, prix_recommande, commission_fixe, regie_ids, product_type, gamme").eq("actif", true),
         regieIds.length > 0
           ? supabase.from("regies").select("id, mode_calcul_commission, part_survente_pct, cout_panneau_supplementaire").in("id", regieIds)
@@ -95,7 +100,11 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           : Promise.resolve({ data: [] }),
         // Tranches pour le mode pourcentage
         supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente, product_type").order("tranche_min", { ascending: true }),
+        // Règles de commission personnalisées (RLS = uniquement celles de l'utilisateur)
+        supabase.from("commission_rules").select("*").eq("actif", true).order("ordre", { ascending: true }),
       ]);
+
+      const customRules = ((rulesRes as { data?: unknown[] })?.data || []) as unknown as CommissionRule[];
 
       // ─────────────────────────────────────────────────────────────────────
       // ÉTAPE 2: Préparer les lookups
@@ -163,6 +172,29 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
       // ─────────────────────────────────────────────────────────────────────
       const results = new Map<string, CommissionResult>();
 
+      /** Applique les règles personnalisées par-dessus le calcul de base */
+      const withRules = (
+        vente: VenteInput,
+        result: CommissionResult,
+        extras: { prime?: number; surcouts?: number; montantTTC?: number }
+      ): CommissionResult => {
+        if (customRules.length === 0) return result;
+        const ctx: RuleContext = {
+          regieId: vente.regie_id,
+          productType: vente.product_type,
+          gamme: vente.gamme,
+          montantHT: vente.montant_ht || 0,
+          montantTTC: extras.montantTTC || vente.montant_ttc || 0,
+          puissanceKwc: Number(vente.puissance_kwc) || 0,
+          commissionBase: result.commissionBase,
+          primeCoupDePouce: extras.prime || 0,
+          surcouts: extras.surcouts || 0,
+          decom: result.decomMontant,
+        };
+        const { commission } = applyCommissionRules(customRules, ctx, result.commissionNette);
+        return { ...result, commissionNette: Math.max(0, Math.round(commission * 100) / 100) };
+      };
+
       for (const vente of ventes) {
         // CAS 1: Vente annulée → Commission = 0
         if (vente.status === "annule") {
@@ -190,7 +222,10 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
 
         // CAS 2: Pose externe → Commission = montant HT - décom
         if (vente.type_vente === "external_installation") {
-          results.set(vente.id, createExternalCommission(vente.id, vente.montant_ht, vente.decom_montant || 0));
+          results.set(
+            vente.id,
+            withRules(vente, createExternalCommission(vente.id, vente.montant_ht, vente.decom_montant || 0), {})
+          );
           continue;
         }
 
@@ -212,7 +247,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
             .filter(t => !vente.product_type || !t.productType || t.productType === vente.product_type)
             .map(t => ({ trancheMin: t.trancheMin, trancheMax: t.trancheMax, tauxCommission: t.tauxCommission, bonusSurvente: t.bonusSurvente }));
           const result = calculatePourcentageCommission(vente, commissionTiers, decom + primeDeduction);
-          results.set(vente.id, result);
+          results.set(vente.id, withRules(vente, result, { prime: primeDeduction * 2 }));
         } else {
           // ═══════════════════════════════════════════════════════════════
           // MODE BOUQUET: Commission fixe + survente
@@ -272,17 +307,24 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           // Arrondir la commission finale à la centaine d'euros
           const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom - primeDeduction) / 100) * 100;
 
-          results.set(vente.id, {
-            venteId: vente.id,
-            type: "standard",
-            mode: "bouquet",
-            commissionBase,
-            bonusSurvente,
-            decomMontant: decom,
-            commissionNette,
-            montantHT: vente.montant_ht,
-            isInterpolated: interpolated.isInterpolated,
-          });
+          results.set(
+            vente.id,
+            withRules(
+              vente,
+              {
+                venteId: vente.id,
+                type: "standard",
+                mode: "bouquet",
+                commissionBase,
+                bonusSurvente,
+                decomMontant: decom,
+                commissionNette,
+                montantHT: vente.montant_ht,
+                isInterpolated: interpolated.isInterpolated,
+              },
+              { prime: primeDeduction * 2, surcouts: totalSurcoutsTTC, montantTTC }
+            )
+          );
         }
       }
 
