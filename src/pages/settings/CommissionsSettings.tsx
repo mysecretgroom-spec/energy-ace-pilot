@@ -74,6 +74,8 @@ const CommissionsSettings = () => {
   // IA
   const [aiText, setAiText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiEditId, setAiEditId] = useState<string | null>(null);
+  const [aiEditText, setAiEditText] = useState("");
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -132,12 +134,49 @@ const CommissionsSettings = () => {
   };
 
   // ── IA ────────────────────────────────────────────────────────────────────
+  /** Correction d'une règle existante via une consigne en langage naturel */
+  const adjustRuleWithAI = async (rule: CommissionRule) => {
+    const instruction = aiEditText.trim();
+    if (!instruction) return;
+    setAiLoading(true);
+    try {
+      const { id, user_id, ...rest } = rule;
+      const { data, error } = await supabase.functions.invoke("commission-rule-assistant", {
+        body: { texte: instruction, rule: rest },
+      });
+      if (error) throw error;
+      const proposed = (data?.rules || []) as Partial<DraftRule>[];
+      if (proposed.length === 0) {
+        toast.error("L'IA n'a pas compris la correction");
+        return;
+      }
+      const updated = { ...rest, ...proposed[0], source_prompt: instruction };
+      const { error: updateError } = await supabase
+        .from("commission_rules")
+        .update(updated)
+        .eq("id", rule.id);
+      if (updateError) throw updateError;
+      toast.success("Règle corrigée");
+      setAiEditId(null);
+      setAiEditText("");
+      load();
+    } catch (e) {
+      console.error(e);
+      toast.error("Correction impossible");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const callAssistant = async (payload: Record<string, unknown>, source: CommissionRule["source"]) => {
     if (!user) return;
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("commission-rule-assistant", {
-        body: payload,
+        body: {
+          ...payload,
+          existingRules: rules.map(({ id, user_id, ...rest }) => rest),
+        },
       });
       if (error) throw error;
       const proposed = (data?.rules || []) as Partial<DraftRule>[];
@@ -328,6 +367,18 @@ const CommissionsSettings = () => {
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="h-8 w-8 text-primary"
+                      title="Ajuster avec l'IA"
+                      onClick={() => {
+                        setAiEditId(aiEditId === rule.id ? null : rule.id);
+                        setAiEditText("");
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
                       className="h-8 w-8 text-destructive"
                       onClick={() => deleteRule(rule.id)}
                     >
@@ -335,6 +386,34 @@ const CommissionsSettings = () => {
                     </Button>
                   </div>
                 </div>
+
+                {aiEditId === rule.id && (
+                  <div className="pt-2 space-y-2 border-t mt-2">
+                    <Input
+                      value={aiEditText}
+                      onChange={(e) => setAiEditText(e.target.value)}
+                      placeholder="Ex : passe la part à 30% et applique-la seulement au PV"
+                      className="text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => adjustRuleWithAI(rule)}
+                        disabled={aiLoading || !aiEditText.trim()}
+                      >
+                        {aiLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                        <span className="ml-1">Corriger</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setAiEditId(null)}>
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>
