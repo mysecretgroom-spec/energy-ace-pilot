@@ -89,6 +89,10 @@ const ConfigAssistant = () => {
   }, []);
 
   useEffect(() => {
+    if (isModel) {
+      model.fetchHistory();
+      return;
+    }
     if (!domain) return;
     if (domain.regieScoped && !regieId) return;
     assistant.fetchRows();
