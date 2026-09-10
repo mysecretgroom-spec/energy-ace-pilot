@@ -33,6 +33,30 @@ export const MobileLayout = ({
   const location = useLocation();
   const [agentOpen, setAgentOpen] = useState(false);
 
+  const {
+    pendingCount: pendingDocsCount,
+    isSyncing: isSyncingDocs,
+    isOnline: isOnlineDocs,
+    syncPendingDocuments,
+  } = useOfflineDocuments();
+  const {
+    pendingEtudesCount,
+    pendingWhatsAppCount,
+    isSyncing: isSyncingData,
+    isOnline: isOnlineData,
+    syncAll,
+  } = useOfflineData();
+
+  const isOnline = isOnlineDocs && isOnlineData;
+  const totalPending =
+    pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
+  const isSyncing = isSyncingDocs || isSyncingData;
+
+  const handleHeaderSync = async () => {
+    if (!isOnline || totalPending === 0 || isSyncing) return;
+    await Promise.all([syncPendingDocuments(), syncAll()]);
+  };
+
   // Hide RGE card on etude pages
   const isEtudePage = location.pathname.includes("/etude");
   const shouldShowRGECard = showRGECard && !isEtudePage;
