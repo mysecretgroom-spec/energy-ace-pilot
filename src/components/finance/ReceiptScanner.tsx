@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
+import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +64,9 @@ interface OCRResult {
   commercant: string | null;
   date_debut: string | null;
   date_fin: string | null;
+  issues?: OcrIssue[];
+  confiance?: number;
+  qualite_image?: string;
 }
 
 const categories = [
@@ -100,6 +105,25 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   // Rental period fields (for location_vehicule)
   const [dateDebut, setDateDebut] = useState<string>("");
   const [dateFin, setDateFin] = useState<string>("");
+
+  // Erreurs de lecture : alertes serveur sur la photo + contrôles recalculés à chaque édition
+  const issues = useMemo<OcrIssue[]>(() => {
+    if (!ocrResult) return [];
+    const globales = (ocrResult.issues ?? []).filter((i) => i.field === "image");
+    return [
+      ...globales,
+      ...recomputeLocalIssues({
+        montantTTC,
+        montantHT,
+        tva,
+        tauxTva,
+        date: dateFrais,
+        commercant,
+        categorie,
+      }),
+    ];
+  }, [ocrResult, montantTTC, montantHT, tva, tauxTva, dateFrais, commercant, categorie]);
+
 
   // Convert PDF to image using PDF.js
   const convertPdfToImage = async (pdfDataUrl: string): Promise<string> => {
@@ -187,7 +211,15 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
         if (result.date_debut) setDateDebut(result.date_debut);
         if (result.date_fin) setDateFin(result.date_fin);
 
-        toast.success("Facture analysée avec succès");
+        const erreurs = (result.issues ?? []).filter((i) => i.level === "error").length;
+        const doutes = (result.issues ?? []).filter((i) => i.level === "warning").length;
+        if (erreurs > 0) {
+          toast.warning(`Lecture incomplète : ${erreurs} champ${erreurs > 1 ? "s" : ""} à corriger`);
+        } else if (doutes > 0) {
+          toast.warning(`Lecture à vérifier : ${doutes} point${doutes > 1 ? "s" : ""} incertain${doutes > 1 ? "s" : ""}`);
+        } else {
+          toast.success("Facture analysée avec succès");
+        }
       } catch (err) {
         console.error("OCR error:", err);
         toast.error("Erreur lors de l'analyse");
@@ -362,6 +394,9 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
           </div>
         )}
 
+        {/* Erreurs de lecture */}
+        {ocrResult && !scanning && <OcrIssuesBanner issues={issues} />}
+
         {/* Form (shown after OCR or if user wants to fill manually) */}
         {(ocrResult || imagePreview || pdfPreview) && !scanning && (
           <div className="space-y-4">
@@ -376,6 +411,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                 value={commercant}
                 onChange={(e) => setCommercant(e.target.value)}
                 placeholder="Ex: Total, Sodexo, Ibis..."
+                className={issueFieldClass(issues, "commercant")}
               />
             </div>
 
@@ -401,7 +437,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                       if (tauxTva) calculateFromTTC(e.target.value, tauxTva);
                     }}
                     placeholder="0.00"
-                    className="font-semibold"
+                    className={`font-semibold ${issueFieldClass(issues, "montant_ttc")}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -418,6 +454,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                       if (montantTTC) calculateFromTTC(montantTTC, e.target.value);
                     }}
                     placeholder="20"
+                    className={issueFieldClass(issues, "taux_tva")}
                   />
                 </div>
               </div>
@@ -434,7 +471,7 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                     value={montantHT}
                     onChange={(e) => setMontantHT(e.target.value)}
                     placeholder="0.00"
-                    className="text-muted-foreground"
+                    className={`text-muted-foreground ${issueFieldClass(issues, "montant_ht")}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -463,12 +500,13 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
                   type="date"
                   value={dateFrais}
                   onChange={(e) => setDateFrais(e.target.value)}
+                  className={issueFieldClass(issues, "date")}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="categorie">Catégorie *</Label>
                 <Select value={categorie} onValueChange={setCategorie}>
-                  <SelectTrigger>
+                  <SelectTrigger className={issueFieldClass(issues, "categorie")}>
                     <SelectValue placeholder="Sélectionner" />
                   </SelectTrigger>
                   <SelectContent>

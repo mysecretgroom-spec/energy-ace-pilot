@@ -78,6 +78,8 @@ body {
     /* États */
     --destructive: 4 74% 47%;
     --destructive-foreground: 0 0% 100%;
+    --warning: 38 92% 42%;
+    --warning-foreground: 0 0% 100%;
 
     /* Bordures */
     --border: 222 16% 88%;
@@ -148,6 +150,8 @@ body {
     /* États */
     --destructive: 4 68% 52%;
     --destructive-foreground: 0 0% 100%;
+    --warning: 38 90% 58%;
+    --warning-foreground: 224 45% 10%;
 
     /* Bordures */
     --border: 224 22% 20%;

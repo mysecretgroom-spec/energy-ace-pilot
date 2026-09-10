@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
+import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,7 @@ interface AIExtractedData {
   categorie: string | null;
   description: string | null;
   commercant: string | null;
+  issues?: OcrIssue[];
   raw_text?: string;
 }
 
@@ -105,6 +108,25 @@ export function ReviewDocument({
   const [tva, setTva] = useState("");
   const [tauxTva, setTauxTva] = useState("20");
   const [fournisseur, setFournisseur] = useState("");
+
+  // Erreurs de lecture : alertes photo du serveur + contrôles recalculés à l'édition
+  const ocrIssues = useMemo<OcrIssue[]>(() => {
+    if (!ocrResult || context !== "finance") return [];
+    return [
+      ...(ocrResult.issues ?? []).filter((i) => i.field === "image"),
+      ...recomputeLocalIssues({
+        montantTTC,
+        montantHT,
+        tva,
+        tauxTva,
+        date,
+        commercant: fournisseur,
+        categorie: category,
+      }),
+    ];
+  }, [ocrResult, context, montantTTC, montantHT, tva, tauxTva, date, fournisseur, category]);
+
+
 
   
 
@@ -601,10 +623,13 @@ export function ReviewDocument({
               )}
 
               {ocrResult && (
-                <div className="text-xs text-green-600 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Extraction IA terminée
-                  {ocrResult.commercant && ` • ${ocrResult.commercant}`}
+                <div className="space-y-2">
+                  <div className="text-xs text-primary flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Extraction IA terminée
+                    {ocrResult.commercant && ` • ${ocrResult.commercant}`}
+                  </div>
+                  <OcrIssuesBanner issues={ocrIssues} />
                 </div>
               )}
             </div>
@@ -684,6 +709,7 @@ export function ReviewDocument({
                       value={montantTTC}
                       onChange={(e) => setMontantTTC(e.target.value)}
                       placeholder="0,00"
+                      className={issueFieldClass(ocrIssues, "montant_ttc")}
                     />
                   </div>
                   <div className="space-y-2">
@@ -706,6 +732,7 @@ export function ReviewDocument({
                     value={fournisseur}
                     onChange={(e) => setFournisseur(e.target.value)}
                     placeholder="Nom du fournisseur"
+                    className={issueFieldClass(ocrIssues, "commercant")}
                   />
                 </div>
               </>
