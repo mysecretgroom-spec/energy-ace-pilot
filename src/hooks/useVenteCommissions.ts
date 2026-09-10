@@ -91,7 +91,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           : Promise.resolve({ data: [] }),
         supabase.from("config_commissions").select("mode_calcul, part_survente_pct").maybeSingle(),
         etudeIds.length > 0
-          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout").in("id", etudeIds)
+          ? supabase.from("etudes").select("id, surcout_support, surcout_compteur, autre_surcout, prime_autoconsommation").in("id", etudeIds)
           : Promise.resolve({ data: [] }),
         // Tranches pour le mode pourcentage
         supabase.from("data_commissions").select("tranche_min, tranche_max, taux_commission, bonus_survente, product_type").order("tranche_min", { ascending: true }),
@@ -196,6 +196,9 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
 
         // CAS 3: Vente standard → Selon le mode de la régie
         const decom = vente.decom_montant || 0;
+        // Prime Coup de Pouce : charge société versée au client, déduite de la commission
+        const etudeRow = vente.etude_id ? etudeSurcoutsMap.get(vente.etude_id) : null;
+        const primeDeduction = Math.max(0, Number(etudeRow?.prime_autoconsommation) || 0);
         const regieConfig = vente.regie_id ? regieConfigMap.get(vente.regie_id) : null;
         const mode: CommissionMode = regieConfig?.mode_calcul_commission || globalConfig.mode;
 
@@ -207,7 +210,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           const commissionTiers: CommissionTier[] = allCommissionTiers
             .filter(t => !vente.product_type || !t.productType || t.productType === vente.product_type)
             .map(t => ({ trancheMin: t.trancheMin, trancheMax: t.trancheMax, tauxCommission: t.tauxCommission, bonusSurvente: t.bonusSurvente }));
-          const result = calculatePourcentageCommission(vente, commissionTiers, decom);
+          const result = calculatePourcentageCommission(vente, commissionTiers, decom + primeDeduction);
           results.set(vente.id, result);
         } else {
           // ═══════════════════════════════════════════════════════════════
@@ -266,7 +269,7 @@ export const useVenteCommissions = (ventes: VenteInput[]) => {
           }
 
           // Arrondir la commission finale à la centaine d'euros
-          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom) / 100) * 100;
+          const commissionNette = Math.round(Math.max(0, commissionBase + bonusSurvente - decom - primeDeduction) / 100) * 100;
 
           results.set(vente.id, {
             venteId: vente.id,
