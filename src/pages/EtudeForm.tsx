@@ -577,6 +577,8 @@ const EtudeForm = () => {
     if (draft.mensualiteManuelle !== undefined) setMensualiteManuelle(draft.mensualiteManuelle);
     if (draft.selectedSurcouts) setSelectedSurcouts(draft.selectedSurcouts);
     if (draft.autreSurcout !== undefined) setAutreSurcout(draft.autreSurcout);
+    if (draft.remiseCommerciale !== undefined) setRemiseCommerciale(draft.remiseCommerciale);
+    if (draft.selectedGammePV !== undefined) setSelectedGammePV(draft.selectedGammePV);
     if (draft.classification) setClassification(draft.classification);
     if (draft.classificationComment) setClassificationComment(draft.classificationComment);
     if (draft.r2DateHeure) setR2DateHeure(new Date(draft.r2DateHeure));
