@@ -194,7 +194,7 @@ serve(async (req) => {
     const data = await res.json();
     const raw: string = data?.choices?.[0]?.message?.content ?? "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    let parsed: { rules?: unknown[] } = {};
+    let parsed: { rules?: unknown[]; schema_nom?: unknown; raisonnement?: unknown } = {};
     try {
       parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
     } catch {
