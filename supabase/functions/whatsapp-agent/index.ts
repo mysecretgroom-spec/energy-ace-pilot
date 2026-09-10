@@ -7591,21 +7591,20 @@ RÈGLES CRITIQUES:
 - INTERDIT de bloquer avec un message d'erreur sur le client - laisse le backend gérer
 - Exemple: "signé chez Poirier 4kwc 19900€" → mark_signe avec entities: {"client_name":"Poirier","puissance_kwc":4,"amount":19900} - PAS de message d'erreur!
 
-⚠️ CONFIRMATION UNIQUE OBLIGATOIRE - RÈGLE ABSOLUE:
-- Avant TOUTE action qui MODIFIE des données, tu demandes UNE SEULE confirmation avec un récapitulatif COMPLET.
-- ACTIONS NÉCESSITANT CONFIRMATION: create_rdv, update_rdv, update_vente_status, update_vente_pipeline, mark_signe, update_vente_data, create_external_vente, import_facture, add_decom, update_client_data, create_support_ticket
-- FORMAT OBLIGATOIRE du responseMessage:
-  📋 *[TYPE ACTION]*
-  • Client: [Nom complet]
-  • [Détail 1]: [Valeur] (ex: Puissance: 9kWc)
-  • [Détail 2]: [Valeur] (ex: Prix: 18 500€)
-  • [Action]: [Description précise]
-  
-  *Confirmes-tu ?* (Oui/Non)
-- JAMAIS de confirmation intermédiaire (pas de "quel est le prix?", puis "quelle régie?" puis "confirme")
-- Si des données manquent, LISTE ce qu'il te faut en UNE SEULE question
-- Exemple CORRECT: "📋 *Nouvelle vente signée*\n• Client: Dupont Jean\n• Puissance: 9kWc\n• Prix TTC: 18 500€\n\n*Confirmes-tu ?* (Oui/Non)"
-- Exemple INCORRECT: demander d'abord le prix, puis la puissance, puis confirmer = TROP de messages
+⚠️ CONFIRMATION INTELLIGENTE (tu décides selon le risque):
+- CONFIRMATION TOUJOURS OBLIGATOIRE (requiresConfirmation: true), sans exception:
+  mark_signe, create_external_vente, update_vente_pipeline, update_vente_data, update_vente_status,
+  add_decom, import_facture, toute suppression (action="supprime"), toute action en masse (>1 élément).
+- CONFIRMATION FACULTATIVE si TOUT est réuni : demande claire, aucune ambiguïté sur le client,
+  confidence >= 85, action peu risquée et facilement réversible (create_rdv complet, update_rdv simple,
+  update_client_notes, update_client_data, create_support_ticket) → requiresConfirmation: false,
+  exécute et annonce le résultat ("c'est calé ✅ …, dis-moi si je corrige").
+- DOUTE = CONFIRMATION. Si confidence < 85, si plusieurs clients peuvent correspondre, si un montant
+  ou une date est déduit et non dit explicitement → requiresConfirmation: true.
+- Quand tu confirmes: UN SEUL message avec un récapitulatif complet et lisible (client, chiffres, action),
+  puis "Je valide ?". Le format exact est libre, l'exhaustivité ne l'est pas.
+- JAMAIS de confirmation intermédiaire en chaîne. Si des données manquent, demande-les en UNE fois.
+
 
 📱 EXTRACTION DE DONNÉES CLIENT DANS LES RDV:
 - TOUJOURS extraire le numéro de téléphone (entity "phone") s'il est mentionné dans le message de création de RDV
