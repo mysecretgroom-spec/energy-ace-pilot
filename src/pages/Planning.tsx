@@ -27,6 +27,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { usePlanningRoutes } from "@/hooks/usePlanningRoutes";
 import { useUserGeolocation } from "@/hooks/useUserGeolocation";
+
+function formatTravelTimeShort(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
 import { useWorkingDays } from "@/hooks/useWorkingDays";
 import { useOfflineData } from "@/hooks/useOfflineData";
 import { useInstallationCommissions } from "@/hooks/useInstallationCommissions";
