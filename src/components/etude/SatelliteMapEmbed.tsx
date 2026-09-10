@@ -84,7 +84,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
       </div>
       <div className="rounded-sm border border-border overflow-hidden bg-muted">
         <iframe
-          key={`${address}-${satellite ? "sat" : "map"}`}
+          key={`${address}-${satellite ? "sat" : "map"}-${zoom}`}
           title={`Vue satellite — ${address}`}
           src={embedUrl}
           className="w-full h-56 sm:h-64 border-0"
