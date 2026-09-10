@@ -7350,6 +7350,43 @@ function getDefaultResponseForIntent(intent: Intent, entities: Record<string, un
   }
 }
 
+// Actions financières / destructives: confirmation non négociable
+const ALWAYS_CONFIRM_INTENTS = new Set<string>([
+  "mark_signe",
+  "create_external_vente",
+  "update_vente_pipeline",
+  "update_vente_data",
+  "update_vente_status",
+  "add_decom",
+  "import_facture",
+  "multi_request",
+]);
+
+// Actions peu risquées et réversibles: l'agent peut exécuter directement s'il est sûr
+const LOW_RISK_INTENTS = new Set<string>([
+  "create_rdv",
+  "update_rdv",
+  "update_client_notes",
+  "update_client_data",
+  "create_support_ticket",
+]);
+
+function enforceConfirmation(
+  intent: string,
+  entities: Record<string, unknown>,
+  confidence: number,
+  modelDecision: boolean,
+): boolean {
+  if (intent?.startsWith("query_") || intent === "user_feedback" || intent === "conversation") return false;
+  if (ALWAYS_CONFIRM_INTENTS.has(intent)) return true;
+  if (entities?.action === "supprime") return true;
+  if (LOW_RISK_INTENTS.has(intent)) {
+    if (!Number.isFinite(confidence) || confidence < 85) return true;
+    return modelDecision;
+  }
+  return modelDecision;
+}
+
 // Analyze intent with AI
 async function analyzeIntent(
   content: string,
