@@ -3529,6 +3529,21 @@ serve(async (req) => {
         },
         userConfigContext
       );
+
+      // Mémoire apprenante: l'agent retient spontanément les habitudes durables
+      const suggestions = (aiResponse as { memory_suggestions?: Array<{ memory_type: string; key: string; value: string }> })
+        .memory_suggestions;
+      if (Array.isArray(suggestions) && suggestions.length) {
+        const existingKeys = new Set(userMemories.map((m) => m.key));
+        for (const s of suggestions.slice(0, 2)) {
+          if (!s?.key || !s?.value || existingKeys.has(s.key)) continue;
+          try {
+            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, 0.7);
+          } catch (e) {
+            console.error("[agent] memory suggestion save failed (non-blocking):", e);
+          }
+        }
+      }
     }
 
     console.log("AI analysis result:", aiResponse!);
