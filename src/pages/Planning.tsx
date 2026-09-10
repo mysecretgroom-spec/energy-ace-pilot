@@ -615,6 +615,24 @@ const Planning = () => {
                 <span>{totalDistance} km</span>
               </div>
             )}
+            {viewMode === "jour" && userToNextDistance && (
+              <div
+                className="flex items-center gap-1.5 text-sm font-medium text-accent-foreground bg-accent/60 border border-border rounded-md px-2 py-1"
+                title="Distance entre votre position actuelle et votre prochain RDV"
+              >
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="tabular-nums">{userToNextDistance.distance_km} km</span>
+                <span className="text-muted-foreground text-xs">
+                  ({formatTravelTimeShort(userToNextDistance.duration_minutes)})
+                </span>
+              </div>
+            )}
+            {viewMode === "jour" && geoPermission === "denied" && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>Localisation désactivée</span>
+              </div>
+            )}
           </div>
           
           {/* Actions regroupées - responsive wrap */}
