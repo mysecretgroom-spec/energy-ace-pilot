@@ -1793,6 +1793,7 @@ serve(async (req) => {
   // deno-lint-ignore no-explicit-any
   let supabaseClient: any = null;
   let requestData: AgentRequest | null = null;
+  let activeTracer: AgentTracer | null = null;
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
