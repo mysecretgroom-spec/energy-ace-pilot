@@ -21,7 +21,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
     return (
       <nav
         ref={ref}
-        className="fixed bottom-0 left-0 right-0 z-[60] lg-surface border-t rounded-none safe-bottom will-change-transform"
+        className="fixed bottom-0 left-0 right-0 z-[60] bg-card border-t rounded-none safe-bottom will-change-transform"
         style={{ transform: "translateZ(0)" }}
         {...props}
       >
