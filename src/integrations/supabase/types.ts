@@ -98,6 +98,120 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_session_memory: {
+        Row: {
+          derniere_intent: string | null
+          resume: string
+          sujets_ouverts: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          derniere_intent?: string | null
+          resume?: string
+          sujets_ouverts?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          derniere_intent?: string | null
+          resume?: string
+          sujets_ouverts?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      agent_skills: {
+        Row: {
+          actif: boolean
+          created_at: string
+          description: string | null
+          exemples: Json
+          id: string
+          intents: string[]
+          nom: string
+          priorite: number
+          procedure: string
+          source: string
+          triggers: string[]
+          updated_at: string
+          usage_count: number
+          user_id: string | null
+        }
+        Insert: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          exemples?: Json
+          id?: string
+          intents?: string[]
+          nom: string
+          priorite?: number
+          procedure: string
+          source?: string
+          triggers?: string[]
+          updated_at?: string
+          usage_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          actif?: boolean
+          created_at?: string
+          description?: string | null
+          exemples?: Json
+          id?: string
+          intents?: string[]
+          nom?: string
+          priorite?: number
+          procedure?: string
+          source?: string
+          triggers?: string[]
+          updated_at?: string
+          usage_count?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      agent_step_logs: {
+        Row: {
+          channel: string
+          created_at: string
+          details: Json
+          duration_ms: number | null
+          error: string | null
+          id: string
+          run_id: string
+          status: string
+          step: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          details?: Json
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          run_id: string
+          status?: string
+          step: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          details?: Json
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          run_id?: string
+          status?: string
+          step?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_credit_topups: {
         Row: {
           amount_eur: number
