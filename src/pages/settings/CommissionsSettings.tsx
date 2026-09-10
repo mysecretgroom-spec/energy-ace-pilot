@@ -132,6 +132,40 @@ const CommissionsSettings = () => {
   };
 
   // ── IA ────────────────────────────────────────────────────────────────────
+  /** Correction d'une règle existante via une consigne en langage naturel */
+  const adjustRuleWithAI = async (rule: CommissionRule) => {
+    const instruction = aiEditText.trim();
+    if (!instruction) return;
+    setAiLoading(true);
+    try {
+      const { id, user_id, ...rest } = rule;
+      const { data, error } = await supabase.functions.invoke("commission-rule-assistant", {
+        body: { texte: instruction, rule: rest },
+      });
+      if (error) throw error;
+      const proposed = (data?.rules || []) as Partial<DraftRule>[];
+      if (proposed.length === 0) {
+        toast.error("L'IA n'a pas compris la correction");
+        return;
+      }
+      const updated = { ...rest, ...proposed[0], source_prompt: instruction };
+      const { error: updateError } = await supabase
+        .from("commission_rules")
+        .update(updated)
+        .eq("id", rule.id);
+      if (updateError) throw updateError;
+      toast.success("Règle corrigée");
+      setAiEditId(null);
+      setAiEditText("");
+      load();
+    } catch (e) {
+      console.error(e);
+      toast.error("Correction impossible");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const callAssistant = async (payload: Record<string, unknown>, source: CommissionRule["source"]) => {
     if (!user) return;
     setAiLoading(true);
