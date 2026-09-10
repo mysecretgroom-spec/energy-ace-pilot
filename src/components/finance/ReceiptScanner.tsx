@@ -106,6 +106,25 @@ export function ReceiptScanner({ onSuccess, onCancel }: ReceiptScannerProps) {
   const [dateDebut, setDateDebut] = useState<string>("");
   const [dateFin, setDateFin] = useState<string>("");
 
+  // Erreurs de lecture : alertes serveur sur la photo + contrôles recalculés à chaque édition
+  const issues = useMemo<OcrIssue[]>(() => {
+    if (!ocrResult) return [];
+    const globales = (ocrResult.issues ?? []).filter((i) => i.field === "image");
+    return [
+      ...globales,
+      ...recomputeLocalIssues({
+        montantTTC,
+        montantHT,
+        tva,
+        tauxTva,
+        date: dateFrais,
+        commercant,
+        categorie,
+      }),
+    ];
+  }, [ocrResult, montantTTC, montantHT, tva, tauxTva, dateFrais, commercant, categorie]);
+
+
   // Convert PDF to image using PDF.js
   const convertPdfToImage = async (pdfDataUrl: string): Promise<string> => {
     const pdfData = atob(pdfDataUrl.split(",")[1]);
