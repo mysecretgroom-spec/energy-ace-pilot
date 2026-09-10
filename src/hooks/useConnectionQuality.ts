@@ -171,3 +171,8 @@ export async function verifyConnectivity(): Promise<boolean> {
   }
   return reachable;
 }
+
+/** État confirmé (hors React) : utilisé par l'intercepteur réseau. */
+export function isOfflineConfirmed(): boolean {
+  return offlineConfirmed;
+}
