@@ -145,8 +145,8 @@ const ConfigAssistant = () => {
   };
 
   const runAsk = async (extra: Record<string, unknown> = {}) => {
-    if (!domain) return;
-    if (domain.regieScoped && !regieId) {
+    if (!isModel && !domain) return;
+    if (needsRegie && !regieId) {
       toast.error("Choisissez d'abord une régie");
       return;
     }
