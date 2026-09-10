@@ -2125,7 +2125,8 @@ const EtudeForm = () => {
     iteEpaisseurIsolant, iteTypeIsolant, iteRActuel, iteRCible, iteNombreFacades,
     iteSurfaceOuvertures, iteFinition, iteEconomieChauffagePct, iteFactureChaufActuelle,
     itePrixManuel, aidesPAC, aidesITE, aidesManuelles, classification, classificationComment,
-    r2DateHeure, r2Time,
+    r2DateHeure, r2Time, remiseCommerciale, selectedGammePV, selectedBouquetPV,
+    selectedBouquetPAC, selectedBouquetITE, selectedBouquetCombo, precoMode,
   ]);
 
   // Immediate save for important actions (photo upload, status change)
