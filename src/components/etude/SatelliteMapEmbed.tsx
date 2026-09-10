@@ -18,13 +18,16 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
   label = "Vue satellite (repère toiture / carport)",
 }: SatelliteMapEmbedProps) {
   const [satellite, setSatellite] = useState(true);
+  // z=20 dépasse souvent la résolution disponible en zone rurale : Google
+  // ré-agrandit alors une tuile z=19 et l'image apparaît floue en permanence.
+  const [zoom, setZoom] = useState(19);
 
   const embedUrl = useMemo(
     () =>
-      `https://www.google.com/maps?q=${encodeURIComponent(address)}&z=20&t=${
+      `https://www.google.com/maps?q=${encodeURIComponent(address)}&z=${zoom}&t=${
         satellite ? "k" : "m"
       }&output=embed`,
-    [address, satellite]
+    [address, satellite, zoom]
   );
 
   const openUrl = useMemo(
@@ -43,6 +46,22 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
           {label}
         </span>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.max(16, z - 1))}
+            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            title="Dézoomer (image plus nette)"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom((z) => Math.min(20, z + 1))}
+            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            title="Zoomer"
+          >
+            +
+          </button>
           <button
             type="button"
             onClick={() => setSatellite((s) => !s)}
@@ -65,7 +84,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
       </div>
       <div className="rounded-sm border border-border overflow-hidden bg-muted">
         <iframe
-          key={`${address}-${satellite ? "sat" : "map"}`}
+          key={`${address}-${satellite ? "sat" : "map"}-${zoom}`}
           title={`Vue satellite — ${address}`}
           src={embedUrl}
           className="w-full h-56 sm:h-64 border-0"
