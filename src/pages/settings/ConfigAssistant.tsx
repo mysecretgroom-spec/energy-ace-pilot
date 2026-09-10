@@ -67,8 +67,11 @@ const ConfigAssistant = () => {
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const domain = useMemo(() => getConfigDomain(domainKey), [domainKey]);
+  const isModel = domainKey === MODEL_KEY;
+  const domain = useMemo(() => (isModel ? undefined : getConfigDomain(domainKey)), [domainKey, isModel]);
   const assistant = useConfigAssistant(domain, regieId);
+  const model = useRegieModel(regieId);
+  const needsRegie = isModel || !!domain?.regieScoped;
 
   useEffect(() => {
     const params: Record<string, string> = { domaine: domainKey };
