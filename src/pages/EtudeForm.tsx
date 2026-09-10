@@ -1914,6 +1914,21 @@ const EtudeForm = () => {
       prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
       surcouts: selectedSurcouts,
       autre_surcout: autreSurcout,
+      // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
+      // remise commerciale (et la gamme / les bouquets choisis) par 0.
+      param_overrides: {
+        heuresEnsoleillement,
+        usePshCalculation,
+        estimationDetails: estimationDetailsRef.current || undefined,
+        hasPrixInstallationManuel: !!prixInstallationManuel,
+        remiseCommerciale: remiseCommerciale || 0,
+        selectedBouquetPV: selectedBouquetPV || undefined,
+        selectedGammePV: selectedGammePV || undefined,
+        selectedBouquetPAC: selectedBouquetPAC || undefined,
+        selectedBouquetITE: selectedBouquetITE || undefined,
+        selectedBouquetCombo: selectedBouquetCombo || undefined,
+        precoMode: precoMode || "sur_mesure",
+      } as any,
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       notes: classificationComment || null,
