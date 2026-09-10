@@ -3561,20 +3561,32 @@ serve(async (req) => {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
         },
-        userConfigContext
+        `${userConfigContext || ""}${skillsSection}${sessionSection}`
       );
+
+      tracer.step("intention_analysee", {
+        intent: aiResponse.intent,
+        confiance: aiResponse.confidence,
+        confirmation: aiResponse.requiresConfirmation,
+        raisonnement: (aiResponse as { reasoning?: string }).reasoning || null,
+      });
 
       // Mémoire apprenante: l'agent retient spontanément les habitudes durables
       const suggestions = (aiResponse as { memory_suggestions?: Array<{ memory_type: string; key: string; value: string }> })
         .memory_suggestions;
       if (Array.isArray(suggestions) && suggestions.length) {
-        const existingKeys = new Set(userMemories.map((m) => m.key));
+        const existingKeys = new Map(userMemories.map((m) => [m.key, m]));
         for (const s of suggestions.slice(0, 2)) {
-          if (!s?.key || !s?.value || existingKeys.has(s.key)) continue;
+          if (!s?.key || !s?.value) continue;
+          const known = existingKeys.get(s.key);
           try {
-            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, 0.7);
+            // Une notion déjà vue est renforcée (confiance qui monte) plutôt que dupliquée
+            const confidence = known ? Math.min(0.98, (known.confidence || 0.7) + 0.1) : 0.7;
+            await saveMemory(supabase, request.userId, s.memory_type || "pattern", s.key, { texte: s.value }, confidence);
+            tracer.step("memoire_apprise", { cle: s.key, type: s.memory_type, renforcee: !!known, confiance: confidence });
           } catch (e) {
             console.error("[agent] memory suggestion save failed (non-blocking):", e);
+            tracer.step("memoire_apprise", { cle: s.key }, "error", e);
           }
         }
       }
