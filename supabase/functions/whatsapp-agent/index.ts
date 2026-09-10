@@ -3027,8 +3027,9 @@ serve(async (req) => {
           : `[Document reçu mais analyse échouée: ${documentAnalysisResult.error_message || "erreur inconnue"}]`;
       }
     }
-    // Get conversation context, user memories, custom prompts and business config in parallel
-    const [conversationResult, userMemories, userPrompts, userConfigContext] = await Promise.all([
+    // Get conversation context, memories, prompts, business config, skills and session memory in parallel
+    const [conversationResult, userMemories, userPrompts, userConfigContext, agentSkills, sessionMemory] =
+      await Promise.all([
       supabase
         .from("whatsapp_conversations")
         .select("context, pending_action, pending_message_sids")
@@ -3036,8 +3037,25 @@ serve(async (req) => {
         .single(),
       loadUserMemories(supabase, request.userId),
       loadUserPrompts(supabase, request.userId),
-      loadUserConfigContext(supabase, request.userId)
+      loadUserConfigContext(supabase, request.userId),
+      loadAgentSkills(supabase, request.userId),
+      loadSessionMemory(supabase, request.userId)
     ]);
+
+    // Savoir-faire pertinents pour ce message + reprise du fil de la session précédente
+    const matchedSkills = selectSkills(agentSkills, processedContent || "");
+    const skillsSection = formatSkillsForPrompt(matchedSkills);
+    const sessionSection = formatSessionMemoryForPrompt(sessionMemory);
+    if (matchedSkills.length) bumpSkillUsage(supabase, matchedSkills.map(s => s.id)).catch(() => {});
+
+    tracer.step("contexte_charge", {
+      memoires: userMemories.length,
+      prompts: userPrompts.length,
+      skills: matchedSkills.map(s => s.nom),
+      config_chars: (userConfigContext || "").length,
+      reprise_session: !!sessionSection,
+    });
+
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
     let pendingAction = conversationResult.data?.pending_action as PendingAction | null;
