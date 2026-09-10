@@ -170,7 +170,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3.8-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: isSchemaMode ? SCHEMA_PROMPT : SYSTEM_PROMPT },
           { role: "user", content },
         ],
       }),
