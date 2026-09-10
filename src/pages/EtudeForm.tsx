@@ -450,6 +450,12 @@ const EtudeForm = () => {
     verdict: "valide" | "a_etudier" | "invalide" | null;
   } | null>(null);
 
+  // Restaure l'ancienne palette (vert solaire) uniquement sur le module d'étude
+  useEffect(() => {
+    document.documentElement.classList.add("etude-theme");
+    return () => document.documentElement.classList.remove("etude-theme");
+  }, []);
+
   // Load data on mount
   useEffect(() => {
     const init = async () => {
