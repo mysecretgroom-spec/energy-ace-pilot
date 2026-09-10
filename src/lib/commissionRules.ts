@@ -101,14 +101,34 @@ export const RULE_EFFET_LABELS: Record<RuleEffet, string> = {
   remplace_base: "Remplace la commission de base",
 };
 
+export const RULE_CONDITION_BASE_LABELS: Record<RuleConditionBase, string> = {
+  montant_ht: "Montant HT",
+  montant_ttc: "Montant TTC",
+  puissance_kwc: "Puissance (kWc)",
+};
+
+/** Grandeur testée par condition_min / condition_max */
+function conditionValue(rule: CommissionRule, ctx: RuleContext): number {
+  switch (rule.condition_base) {
+    case "montant_ttc":
+      return ctx.montantTTC;
+    case "puissance_kwc":
+      return ctx.puissanceKwc;
+    case "montant_ht":
+    default:
+      return ctx.montantHT;
+  }
+}
+
 /** Une règle s'applique-t-elle à cette vente ? */
 export function ruleMatches(rule: CommissionRule, ctx: RuleContext): boolean {
   if (!rule.actif) return false;
   if (rule.regie_id && rule.regie_id !== ctx.regieId) return false;
   if (rule.product_type && rule.product_type !== ctx.productType) return false;
   if (rule.gamme && (rule.gamme || "").trim() !== (ctx.gamme || "").trim()) return false;
-  if (rule.condition_min != null && ctx.montantHT < rule.condition_min) return false;
-  if (rule.condition_max != null && ctx.montantHT > rule.condition_max) return false;
+  const cond = conditionValue(rule, ctx);
+  if (rule.condition_min != null && cond < rule.condition_min) return false;
+  if (rule.condition_max != null && cond > rule.condition_max) return false;
   return true;
 }
 
