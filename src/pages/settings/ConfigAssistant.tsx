@@ -345,14 +345,14 @@ const ConfigAssistant = () => {
           </CardContent>
         </Card>
 
-        {assistant.rejected.length > 0 && (
+        {rejectedList.length > 0 && (
           <Card className="border-destructive/40">
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-destructive">
                 <AlertTriangle className="h-4 w-4" />
                 Changements écartés
               </div>
-              {assistant.rejected.map((r) => (
+              {rejectedList.map((r) => (
                 <p key={r} className="text-xs text-muted-foreground">
                   {r}
                 </p>
@@ -361,7 +361,72 @@ const ConfigAssistant = () => {
           </Card>
         )}
 
-        {assistant.proposal && (
+        {isModel && model.blocks.length > 0 && (
+          <Card className="border-primary/40">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">
+                Modèle proposé ({model.totalChanges} changement(s))
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {model.blocks.map((block) => (
+                <div key={block.domain.key} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{block.domain.label}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {block.changements.length} changement(s)
+                    </span>
+                  </div>
+                  {block.resume && <p className="text-sm">{block.resume}</p>}
+                  {block.changements.map((c, i) => {
+                    const meta = actionMeta[c.action];
+                    const Icon = meta.icon;
+                    return (
+                      <div key={`${block.domain.key}-${c.id ?? i}`} className="rounded-md border p-3 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={`gap-1 ${meta.className}`}>
+                            <Icon className="h-3 w-3" />
+                            {meta.label}
+                          </Badge>
+                          <span className="text-sm font-medium truncate">
+                            {c.cible || "Nouvelle ligne"}
+                          </span>
+                        </div>
+                        {c.action !== "supprimer" && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatChangeValues(block.domain, c.valeurs)}
+                          </p>
+                        )}
+                        {c.motif && <p className="text-xs text-muted-foreground italic">{c.motif}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1 gap-2" onClick={model.discard}>
+                  <X className="h-4 w-4" />
+                  Abandonner
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={onApply}
+                  disabled={model.applying || model.totalChanges === 0}
+                >
+                  {model.applying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Appliquer le modèle
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isModel && assistant.proposal && (
           <Card className="border-primary/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Proposition</CardTitle>
@@ -435,17 +500,17 @@ const ConfigAssistant = () => {
             >
               <CardTitle className="text-sm flex items-center gap-2">
                 <History className="h-4 w-4" />
-                Historique ({assistant.history.length})
+                Historique ({historyList.length})
               </CardTitle>
               <span className="text-xs text-muted-foreground">{showHistory ? "Masquer" : "Afficher"}</span>
             </button>
           </CardHeader>
           {showHistory && (
             <CardContent className="space-y-2">
-              {assistant.history.length === 0 ? (
+              {historyList.length === 0 ? (
                 <p className="text-xs text-muted-foreground">Aucune modification enregistrée.</p>
               ) : (
-                assistant.history.map((h) => (
+                historyList.map((h) => (
                   <div key={h.id} className="rounded-md border p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium truncate">{h.resume || "Modification"}</span>
