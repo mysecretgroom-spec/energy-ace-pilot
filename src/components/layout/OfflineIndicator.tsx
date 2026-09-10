@@ -3,9 +3,7 @@ import { WifiOff, CloudOff, RefreshCw, Wifi } from "lucide-react";
 
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
-import { getPendingMutationCount, replayPendingMutations } from "@/lib/offlineMutationQueue";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 export function OfflineIndicator() {
   const { pendingCount: pendingDocsCount, isSyncing: isSyncingDocs, isOnline, syncPendingDocuments } = useOfflineDocuments();
@@ -17,23 +15,9 @@ export function OfflineIndicator() {
   } = useOfflineData();
 
   const [showBackOnline, setShowBackOnline] = useState(false);
-  const [pendingMutationsCount, setPendingMutationsCount] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const wasOffline = useRef(false);
   const offlineSince = useRef<number | null>(null);
-
-  // Track pending mutations count — only when offline or when queue changes
-  useEffect(() => {
-    const refresh = async () => {
-      const count = await getPendingMutationCount();
-      setPendingMutationsCount(count);
-    };
-    refresh();
-    window.addEventListener("offline-queue-changed", refresh);
-    return () => {
-      window.removeEventListener("offline-queue-changed", refresh);
-    };
-  }, []);
 
   // Detect transition from offline → online
   useEffect(() => {
@@ -51,7 +35,7 @@ export function OfflineIndicator() {
   }, [isOnline]);
 
   const isSyncing = isSyncingDocs || isSyncingData;
-  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount + pendingMutationsCount;
+  const totalPending = pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
 
   // Show brief "back online" pill
   if (showBackOnline && totalPending === 0) {
@@ -72,25 +56,7 @@ export function OfflineIndicator() {
   // L'état hors ligne est déjà confirmé par sondes réseau en amont : pas de délai ici.
 
   const handleSync = async () => {
-    const replayMutations = async () => {
-      if (pendingMutationsCount > 0) {
-        try {
-          const result = await replayPendingMutations(window.fetch.bind(window));
-          if (result.succeeded.length > 0) {
-            toast.success(`${result.succeeded.length} action(s) synchronisée(s)`, { duration: 3000 });
-          }
-          if (result.failed.length > 0) {
-            toast.error(`${result.failed.length} action(s) échouée(s)`, { duration: 4000 });
-          }
-          const count = await getPendingMutationCount();
-          setPendingMutationsCount(count);
-        } catch (err) {
-          console.error("Error replaying mutations:", err);
-        }
-      }
-    };
-
-    await Promise.all([syncPendingDocuments(), syncAll(), replayMutations()]);
+    await Promise.all([syncPendingDocuments(), syncAll()]);
     setDismissed(true);
   };
 
