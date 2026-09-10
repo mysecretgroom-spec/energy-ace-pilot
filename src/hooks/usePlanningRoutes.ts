@@ -31,12 +31,18 @@ function formatTravelTime(minutes: number): string {
   return m > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
 }
 
-export function usePlanningRoutes(date: Date) {
+interface UserPosition {
+  latitude: number;
+  longitude: number;
+}
+
+export function usePlanningRoutes(date: Date, userPosition?: UserPosition | null) {
   const { user } = useAuth();
   const [rdvs, setRdvs] = useState<RdvWithRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalDistance, setTotalDistance] = useState(0);
   const [tomorrowFirstDistance, setTomorrowFirstDistance] = useState<RouteInfo | null>(null);
+  const [userToNextDistance, setUserToNextDistance] = useState<RouteInfo | null>(null);
 
   const projectTypeLabels: Record<string, string> = {
     photovoltaique: "Photovoltaïque",
