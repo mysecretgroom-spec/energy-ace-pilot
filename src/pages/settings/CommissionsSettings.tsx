@@ -755,8 +755,22 @@ const CommissionsSettings = () => {
                     placeholder="Toutes"
                   />
                 </div>
+                <div className="space-y-1 col-span-2">
+                  <Label className="text-xs">Condition portant sur</Label>
+                  <Select
+                    value={draft.condition_base}
+                    onValueChange={(v) => setDraft({ ...draft, condition_base: v as RuleConditionBase })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(RULE_CONDITION_BASE_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">HT min</Label>
+                  <Label className="text-xs">Min</Label>
                   <Input
                     type="number"
                     value={draft.condition_min ?? ""}
@@ -766,7 +780,7 @@ const CommissionsSettings = () => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">HT max</Label>
+                  <Label className="text-xs">Max</Label>
                   <Input
                     type="number"
                     value={draft.condition_max ?? ""}
