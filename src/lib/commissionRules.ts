@@ -37,6 +37,9 @@ export type RuleModeValeur = "fixe" | "pourcentage";
 /** Grandeur sur laquelle portent condition_min / condition_max */
 export type RuleConditionBase = "montant_ht" | "montant_ttc" | "puissance_kwc";
 
+/** Cycle de vie d'une règle : brouillon (non appliquée) → actif → archive */
+export type RuleStatut = "brouillon" | "actif" | "archive";
+
 export interface CommissionRule {
   id: string;
   user_id: string;
@@ -55,6 +58,10 @@ export interface CommissionRule {
   condition_max: number | null;
   ordre: number;
   actif: boolean;
+  /** brouillon = jamais utilisée dans les calculs ; archive = ancienne version */
+  statut?: RuleStatut;
+  /** Version du modèle auquel appartient la règle */
+  version?: number;
   /** Nom du modèle de commissionnement auquel appartient la règle (null = règle isolée) */
   schema_nom: string | null;
   /** Raisonnement de l'IA ayant conduit à cette règle */
@@ -203,4 +210,102 @@ export function applyCommissionRules(
   }
 
   return { commission, applied };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * GARDE-FOUS : application sécurisée avec repli sur le calcul historique
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface SafeApplyResult {
+  commission: number;
+  applied: AppliedRule[];
+  /** true si les règles ont été ignorées et la commission historique conservée */
+  fallback: boolean;
+  /** Raison du repli (affichable à l'utilisateur) */
+  fallbackRaison: string | null;
+}
+
+/** Une règle en brouillon ou archivée n'entre jamais dans un calcul réel */
+export function isRuleApplicable(rule: CommissionRule): boolean {
+  const statut = rule.statut ?? "actif";
+  return rule.actif && statut === "actif";
+}
+
+/** Contrôles de plausibilité sur une règle */
+export function validateRule(rule: CommissionRule): string | null {
+  const v = Number(rule.valeur);
+  if (!Number.isFinite(v)) return `« ${rule.nom} » : valeur invalide`;
+  if (rule.mode_valeur === "pourcentage" && (v < -100 || v > 100))
+    return `« ${rule.nom} » : pourcentage hors bornes (${v}%)`;
+  const part = Number(rule.part_appliquee_pct);
+  if (!Number.isFinite(part) || part < 0 || part > 100)
+    return `« ${rule.nom} » : part appliquée invalide`;
+  if (
+    rule.condition_min != null &&
+    rule.condition_max != null &&
+    rule.condition_min > rule.condition_max
+  )
+    return `« ${rule.nom} » : bornes min/max incohérentes`;
+  return null;
+}
+
+/**
+ * Applique les règles avec garde-fous :
+ *  - seules les règles actives (statut « actif ») sont prises en compte,
+ *  - toute règle invalide ou tout résultat aberrant déclenche un repli
+ *    complet sur la commission historique.
+ */
+export function applyCommissionRulesSafe(
+  rules: CommissionRule[],
+  ctx: RuleContext,
+  commissionAvantRegles: number
+): SafeApplyResult {
+  const applicables = rules.filter(isRuleApplicable);
+  if (applicables.length === 0) {
+    return { commission: commissionAvantRegles, applied: [], fallback: false, fallbackRaison: null };
+  }
+
+  for (const rule of applicables) {
+    const erreur = validateRule(rule);
+    if (erreur) {
+      return {
+        commission: commissionAvantRegles,
+        applied: [],
+        fallback: true,
+        fallbackRaison: erreur,
+      };
+    }
+  }
+
+  try {
+    const { commission, applied } = applyCommissionRules(applicables, ctx, commissionAvantRegles);
+    if (!Number.isFinite(commission)) {
+      return {
+        commission: commissionAvantRegles,
+        applied: [],
+        fallback: true,
+        fallbackRaison: "Résultat non calculable",
+      };
+    }
+    if (commission < 0) {
+      return { commission: 0, applied, fallback: false, fallbackRaison: null };
+    }
+    // Résultat aberrant : plus de 100 % du montant HT de la vente
+    if (ctx.montantHT > 0 && commission > ctx.montantHT) {
+      return {
+        commission: commissionAvantRegles,
+        applied: [],
+        fallback: true,
+        fallbackRaison: "Commission supérieure au montant HT de la vente",
+      };
+    }
+    return { commission, applied, fallback: false, fallbackRaison: null };
+  } catch {
+    return {
+      commission: commissionAvantRegles,
+      applied: [],
+      fallback: true,
+      fallbackRaison: "Erreur lors de l'application des règles",
+    };
+  }
 }

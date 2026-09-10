@@ -30,6 +30,8 @@ import {
   Loader2,
   Percent,
   Save,
+  History as HistoryIcon,
+  RotateCcw,
 } from "lucide-react";
 import {
   CommissionRule,
@@ -64,6 +66,8 @@ const emptyDraft = (): DraftRule => ({
   condition_max: null,
   ordre: 0,
   actif: true,
+  statut: "actif",
+  version: 1,
   schema_nom: null,
   raisonnement: null,
   source: "manuel",
@@ -75,6 +79,19 @@ interface SchemaProposal {
   schema_nom: string;
   raisonnement: string;
   rules: Partial<DraftRule>[];
+}
+
+/** Version historisée d'un modèle de commissionnement */
+interface SchemaVersion {
+  id: string;
+  schema_nom: string;
+  version: number;
+  statut: "brouillon" | "actif" | "archive";
+  raisonnement: string | null;
+  source_prompt: string | null;
+  rules: Partial<DraftRule>[];
+  activated_at: string | null;
+  created_at: string;
 }
 
 const CommissionsSettings = () => {
@@ -102,6 +119,8 @@ const CommissionsSettings = () => {
   const [schemaRecording, setSchemaRecording] = useState(false);
   const schemaRecorderRef = useRef<MediaRecorder | null>(null);
   const schemaChunksRef = useRef<Blob[]>([]);
+  const [versions, setVersions] = useState<SchemaVersion[]>([]);
+
 
   useEffect(() => {
     if (user) load();
@@ -110,12 +129,18 @@ const CommissionsSettings = () => {
 
   const load = async () => {
     setLoading(true);
-    const [rulesRes, regiesRes] = await Promise.all([
+    const [rulesRes, regiesRes, versionsRes] = await Promise.all([
       supabase.from("commission_rules").select("*").order("ordre", { ascending: true }),
       supabase.from("regies").select("id, nom").order("nom"),
+      supabase
+        .from("commission_schema_versions")
+        .select("*")
+        .order("version", { ascending: false })
+        .limit(20),
     ]);
     setRules(((rulesRes.data as unknown as CommissionRule[]) || []));
     setRegies(((regiesRes.data as Regie[]) || []));
+    setVersions(((versionsRes.data as unknown as SchemaVersion[]) || []));
     setLoading(false);
   };
 
@@ -296,42 +321,127 @@ const CommissionsSettings = () => {
     }
   };
 
-  /** Applique le modèle proposé : désactive l'existant puis enregistre les nouvelles règles */
-  const applyProposal = async () => {
+  /** Archive les règles actuellement actives (conservées, mais plus utilisées) */
+  const archiveActiveRules = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("commission_rules")
+      .update({ actif: false, statut: "archive" } as never)
+      .eq("user_id", user.id)
+      .eq("actif", true);
+    if (error) throw error;
+  };
+
+  /**
+   * Enregistre un modèle : en brouillon (aucun impact sur les calculs)
+   * ou en actif (les règles précédentes sont archivées).
+   */
+  const applyProposal = async (statut: "brouillon" | "actif") => {
     if (!user || !proposal) return;
     setSchemaLoading(true);
     try {
-      if (rules.some((r) => r.actif)) {
-        const { error: offError } = await supabase
-          .from("commission_rules")
-          .update({ actif: false })
-          .eq("user_id", user.id)
-          .eq("actif", true);
-        if (offError) throw offError;
-      }
+      const nextVersion = (versions[0]?.version ?? 0) + 1;
       const rows = proposal.rules.map((r, i) => ({
         ...emptyDraft(),
         ...r,
         ordre: r.ordre ?? i * 10,
-        actif: true,
+        actif: statut === "actif",
+        statut,
+        version: nextVersion,
         schema_nom: proposal.schema_nom,
         raisonnement: proposal.raisonnement,
         source: "ia_texte" as const,
         source_prompt: schemaText || null,
         user_id: user.id,
       }));
-      const { error } = await supabase.from("commission_rules").insert(rows);
+
+      if (statut === "actif") await archiveActiveRules();
+
+      const { error } = await supabase.from("commission_rules").insert(rows as never);
       if (error) throw error;
-      toast.success(`Modèle « ${proposal.schema_nom} » appliqué`);
+
+      // Snapshot dans l'historique des versions
+      await supabase.from("commission_schema_versions").insert({
+        user_id: user.id,
+        schema_nom: proposal.schema_nom,
+        version: nextVersion,
+        statut,
+        raisonnement: proposal.raisonnement,
+        source_prompt: schemaText || null,
+        rules: rows.map(({ user_id: _u, ...r }) => r) as never,
+        activated_at: statut === "actif" ? new Date().toISOString() : null,
+      } as never);
+
+      toast.success(
+        statut === "actif"
+          ? `Modèle « ${proposal.schema_nom} » activé (v${nextVersion})`
+          : `Brouillon « ${proposal.schema_nom} » enregistré (v${nextVersion})`
+      );
       setProposal(null);
       setSchemaText("");
       load();
     } catch (e) {
       console.error(e);
-      toast.error("Impossible d'appliquer ce modèle");
+      toast.error("Impossible d'enregistrer ce modèle");
     } finally {
       setSchemaLoading(false);
     }
+  };
+
+  /** Réactive une version passée : les règles actuelles sont archivées */
+  const restoreVersion = async (v: SchemaVersion) => {
+    if (!user) return;
+    setSchemaLoading(true);
+    try {
+      await archiveActiveRules();
+      const nextVersion = (versions[0]?.version ?? 0) + 1;
+      const rows = (v.rules || []).map((r, i) => ({
+        ...emptyDraft(),
+        ...r,
+        ordre: r.ordre ?? i * 10,
+        actif: true,
+        statut: "actif",
+        version: nextVersion,
+        schema_nom: v.schema_nom,
+        raisonnement: v.raisonnement,
+        user_id: user.id,
+      }));
+      const { error } = await supabase.from("commission_rules").insert(rows as never);
+      if (error) throw error;
+      await supabase.from("commission_schema_versions").insert({
+        user_id: user.id,
+        schema_nom: v.schema_nom,
+        version: nextVersion,
+        statut: "actif",
+        raisonnement: v.raisonnement,
+        source_prompt: v.source_prompt,
+        rules: rows.map(({ user_id: _u, ...r }) => r) as never,
+        activated_at: new Date().toISOString(),
+      } as never);
+      toast.success(`Version « ${v.schema_nom} » restaurée`);
+      load();
+    } catch (e) {
+      console.error(e);
+      toast.error("Restauration impossible");
+    } finally {
+      setSchemaLoading(false);
+    }
+  };
+
+  /** Bascule une règle entre brouillon et actif */
+  const toggleStatut = async (rule: CommissionRule) => {
+    const next = (rule.statut ?? "actif") === "actif" ? "brouillon" : "actif";
+    const { error } = await supabase
+      .from("commission_rules")
+      .update({ statut: next, actif: next === "actif" } as never)
+      .eq("id", rule.id);
+    if (error) {
+      toast.error("Modification impossible");
+      return;
+    }
+    setRules((prev) =>
+      prev.map((r) => (r.id === rule.id ? { ...r, statut: next, actif: next === "actif" } : r))
+    );
   };
 
   const startSchemaRecording = async () => {
@@ -439,24 +549,95 @@ const CommissionsSettings = () => {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={applyProposal} disabled={schemaLoading}>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => applyProposal("brouillon")}
+                    disabled={schemaLoading}
+                  >
+                    {schemaLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    <span className="ml-1">Enregistrer en brouillon</span>
+                  </Button>
+                  <Button size="sm" onClick={() => applyProposal("actif")} disabled={schemaLoading}>
                     {schemaLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Check className="h-4 w-4" />
                     )}
-                    <span className="ml-1">Appliquer ce modèle</span>
+                    <span className="ml-1">Activer ce modèle</span>
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setProposal(null)}>
                     Annuler
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Les règles actuellement actives seront désactivées (conservées dans l'historique).
+                  Un brouillon n'a aucun effet sur les commissions tant qu'il n'est pas activé. À l'activation,
+                  le modèle actuel est archivé et reste restaurable depuis l'historique.
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Historique des versions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HistoryIcon className="h-4 w-4 text-primary" />
+              Historique des modèles ({versions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {versions.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aucune version enregistrée pour l'instant.
+              </p>
+            )}
+            {versions.map((v) => (
+              <div key={v.id} className="rounded-lg border p-3 space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {v.schema_nom} <span className="text-muted-foreground">v{v.version}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(v.created_at).toLocaleDateString("fr-FR")} · {(v.rules || []).length} règle(s)
+                    </p>
+                    {v.raisonnement && (
+                      <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
+                        {v.raisonnement}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge
+                      variant={v.statut === "actif" ? "default" : "outline"}
+                      className="text-[10px]"
+                    >
+                      {v.statut === "actif" ? "Activé" : v.statut === "brouillon" ? "Brouillon" : "Archivé"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => restoreVersion(v)}
+                      disabled={schemaLoading}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="ml-1">Restaurer</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground">
+              Restaurer une version archive le modèle en cours et réactive celui-ci. Si une règle est incohérente,
+              le calcul revient automatiquement à la méthode historique (bouquet / pourcentage / pose externe).
+            </p>
           </CardContent>
         </Card>
 
@@ -568,6 +749,18 @@ const CommissionsSettings = () => {
                       {rule.schema_nom && (
                         <Badge variant="secondary" className="text-[10px]">{rule.schema_nom}</Badge>
                       )}
+                      {rule.version != null && (
+                        <Badge variant="outline" className="text-[10px]">v{rule.version}</Badge>
+                      )}
+                      <Badge
+                        variant={(rule.statut ?? "actif") === "actif" ? "default" : "outline"}
+                        className="text-[10px] cursor-pointer"
+                        onClick={() => toggleStatut(rule)}
+                      >
+                        {(rule.statut ?? "actif") === "actif"
+                          ? "Actif"
+                          : (rule.statut === "archive" ? "Archivée" : "Brouillon")}
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
