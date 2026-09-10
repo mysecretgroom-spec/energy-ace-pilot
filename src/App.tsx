@@ -192,6 +192,7 @@ const App = () => {
                       <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
                       <Route path="/parametres/agent-notifications" element={<ProtectedRoute><AgentNotificationsSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/apprentissages" element={<ProtectedRoute><AgentLearnings /></ProtectedRoute>} />
                       <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
                       <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
