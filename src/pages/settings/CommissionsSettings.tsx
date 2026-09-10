@@ -173,7 +173,10 @@ const CommissionsSettings = () => {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("commission-rule-assistant", {
-        body: payload,
+        body: {
+          ...payload,
+          existingRules: rules.map(({ id, user_id, ...rest }) => rest),
+        },
       });
       if (error) throw error;
       const proposed = (data?.rules || []) as Partial<DraftRule>[];
