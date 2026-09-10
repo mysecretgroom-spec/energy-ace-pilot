@@ -69,9 +69,7 @@ export function OfflineIndicator() {
   if (isOnline && totalPending === 0) return null;
   if (dismissed && isOnline) return null;
 
-  // Only show offline bar after 3s to avoid flashing on brief network hiccups
-  const offlineDuration = offlineSince.current ? Date.now() - offlineSince.current : 0;
-  if (!isOnline && offlineDuration < 3000 && totalPending === 0) return null;
+  // L'état hors ligne est déjà confirmé par sondes réseau en amont : pas de délai ici.
 
   const handleSync = async () => {
     const replayMutations = async () => {
