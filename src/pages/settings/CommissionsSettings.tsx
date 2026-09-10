@@ -258,9 +258,204 @@ const CommissionsSettings = () => {
     callAssistant({ fileDataUrl: dataUrl, fileName: file.name, texte: aiText }, "ia_document");
   };
 
+  // ── Modèle de commissionnement complet ────────────────────────────────────
+  /** Demande à l'IA de raisonner un nouveau style de commissionnement complet */
+  const askSchema = async (payload: Record<string, unknown>) => {
+    setSchemaLoading(true);
+    setProposal(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("commission-rule-assistant", {
+        body: {
+          ...payload,
+          mode: "schema",
+          existingRules: rules
+            .filter((r) => r.actif)
+            .map(({ id, user_id, ...rest }) => rest),
+        },
+      });
+      if (error) throw error;
+      const proposed = (data?.rules || []) as Partial<DraftRule>[];
+      if (proposed.length === 0) {
+        toast.error("L'IA n'a pas su traduire ce modèle");
+        return;
+      }
+      setProposal({
+        schema_nom: data?.schema_nom || "Nouveau modèle",
+        raisonnement: data?.raisonnement || "",
+        rules: proposed,
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Analyse du modèle impossible");
+    } finally {
+      setSchemaLoading(false);
+    }
+  };
+
+  /** Applique le modèle proposé : désactive l'existant puis enregistre les nouvelles règles */
+  const applyProposal = async () => {
+    if (!user || !proposal) return;
+    setSchemaLoading(true);
+    try {
+      if (rules.some((r) => r.actif)) {
+        const { error: offError } = await supabase
+          .from("commission_rules")
+          .update({ actif: false })
+          .eq("user_id", user.id)
+          .eq("actif", true);
+        if (offError) throw offError;
+      }
+      const rows = proposal.rules.map((r, i) => ({
+        ...emptyDraft(),
+        ...r,
+        ordre: r.ordre ?? i * 10,
+        actif: true,
+        schema_nom: proposal.schema_nom,
+        raisonnement: proposal.raisonnement,
+        source: "ia_texte" as const,
+        source_prompt: schemaText || null,
+        user_id: user.id,
+      }));
+      const { error } = await supabase.from("commission_rules").insert(rows);
+      if (error) throw error;
+      toast.success(`Modèle « ${proposal.schema_nom} » appliqué`);
+      setProposal(null);
+      setSchemaText("");
+      load();
+    } catch (e) {
+      console.error(e);
+      toast.error("Impossible d'appliquer ce modèle");
+    } finally {
+      setSchemaLoading(false);
+    }
+  };
+
+  const startSchemaRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      schemaChunksRef.current = [];
+      recorder.ondataavailable = (e) => e.data.size > 0 && schemaChunksRef.current.push(e.data);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(schemaChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const base64 = await blobToBase64(blob);
+        const format = (recorder.mimeType || "").includes("mp4") ? "m4a" : "webm";
+        askSchema({ audioBase64: base64, audioFormat: format, texte: schemaText });
+      };
+      recorder.start();
+      schemaRecorderRef.current = recorder;
+      setSchemaRecording(true);
+    } catch {
+      toast.error("Micro indisponible");
+    }
+  };
+
+  const stopSchemaRecording = () => {
+    schemaRecorderRef.current?.stop();
+    schemaRecorderRef.current = null;
+    setSchemaRecording(false);
+  };
+
   return (
     <MobileLayout title="Calcul des commissions" showBackButton>
       <div className="p-4 space-y-4 pb-28">
+        {/* Changer de modèle de commissionnement */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" />
+              Changer de modèle de commissionnement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={schemaText}
+              onChange={(e) => setSchemaText(e.target.value)}
+              placeholder="Ex : je passe à 120 € par kWc au-delà de 3 kWc, moins la moitié des surcoûts et de la prime coup de pouce ; au-dessus de 25 000 € HT j'ajoute 2% de bonus."
+              rows={4}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => askSchema({ texte: schemaText })}
+                disabled={schemaLoading || !schemaText.trim()}
+              >
+                {schemaLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
+                <span className="ml-1">Analyser le raisonnement</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={schemaRecording ? "destructive" : "outline"}
+                onClick={schemaRecording ? stopSchemaRecording : startSchemaRecording}
+                disabled={schemaLoading}
+              >
+                {schemaRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                <span className="ml-1">{schemaRecording ? "Arrêter" : "Expliquer à l'oral"}</span>
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Explique ton mode de rémunération comme tu le dirais à un collègue : l'IA en déduit le raisonnement
+              complet (base, tranches, partages, bonus) et te le montre avant de l'appliquer.
+            </p>
+
+            {proposal && (
+              <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                <div>
+                  <p className="text-sm font-medium">{proposal.schema_nom}</p>
+                  {proposal.raisonnement && (
+                    <p className="text-xs text-muted-foreground whitespace-pre-line mt-1">
+                      {proposal.raisonnement}
+                    </p>
+                  )}
+                </div>
+                <Separator />
+                <div className="space-y-1">
+                  {proposal.rules.map((r, i) => (
+                    <div key={i} className="text-xs">
+                      <span className="font-medium">{r.nom}</span>
+                      {" — "}
+                      {RULE_EFFET_LABELS[(r.effet || "deduction") as RuleEffet]} ·{" "}
+                      {RULE_BASE_LABELS[(r.base || "fixe") as RuleBase]} ·{" "}
+                      {r.mode_valeur === "pourcentage" ? `${r.valeur}%` : `${r.valeur}`}
+                      {r.part_appliquee_pct != null && r.part_appliquee_pct !== 100 && (
+                        <> · part {r.part_appliquee_pct}%</>
+                      )}
+                      {(r.condition_min != null || r.condition_max != null) && (
+                        <>
+                          {" "}
+                          · de {r.condition_min ?? 0} à {r.condition_max ?? "∞"}{" "}
+                          {r.condition_base === "puissance_kwc" ? "kWc" : "€"}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={applyProposal} disabled={schemaLoading}>
+                    {schemaLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
+                    <span className="ml-1">Appliquer ce modèle</span>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setProposal(null)}>
+                    Annuler
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Les règles actuellement actives seront désactivées (conservées dans l'historique).
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Assistant IA */}
         <Card>
           <CardHeader className="pb-3">
