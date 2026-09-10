@@ -35,6 +35,11 @@ Exemples :
 - "bonus de 2% du montant HT au dessus de 20000€" =>
   { effet: "bonus", base: "montant_ht", mode_valeur: "pourcentage", valeur: 2, part_appliquee_pct: 100, condition_min: 20000 }
 
+MODE CORRECTION : si une règle existante t'est fournie, tu dois la RENVOYER CORRIGÉE (mêmes champs),
+en n'appliquant que les ajustements demandés et en conservant à l'identique tout ce qui n'est pas mentionné.
+
+Si des règles existantes te sont fournies en contexte, évite de créer un doublon : préfère corriger.
+
 Réponds UNIQUEMENT en JSON : { "rules": [ ... ] }. Aucun texte autour.`;
 
 serve(async (req) => {
