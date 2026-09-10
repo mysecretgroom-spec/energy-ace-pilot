@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 
 const DB_NAME = "debalepro_offline";
 const DB_VERSION = 3;
@@ -135,23 +136,10 @@ async function openDatabase(): Promise<IDBDatabase> {
 export function useOfflineDocuments() {
   const [pendingCount, setPendingCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // État de connexion confirmé (partagé, anti faux "hors ligne")
+  const { isOnline } = useConnectionQuality();
   const { user } = useAuth();
   const { toast } = useToast();
-
-  // Track online/offline status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
 
   // Load pending count on mount
   useEffect(() => {
