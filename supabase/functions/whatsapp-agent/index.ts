@@ -3525,7 +3525,8 @@ serve(async (req) => {
         {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
-        }
+        },
+        userConfigContext
       );
     }
 
