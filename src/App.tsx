@@ -66,6 +66,7 @@ const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomies
 const DataEstimateurCoefficients = React.lazy(() => import("./pages/settings/DataEstimateurCoefficients"));
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
 const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
+const AgentLearnings = React.lazy(() => import("./pages/settings/AgentLearnings"));
 const DataEvolutionPrix = React.lazy(() => import("./pages/settings/DataEvolutionPrix"));
 
 // Other pages
@@ -191,6 +192,7 @@ const App = () => {
                       <Route path="/parametres/whatsapp-templates" element={<ProtectedRoute><WhatsAppTemplatesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/whatsapp-agent" element={<ProtectedRoute><WhatsAppAgentSettings /></ProtectedRoute>} />
                       <Route path="/parametres/agent-notifications" element={<ProtectedRoute><AgentNotificationsSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/apprentissages" element={<ProtectedRoute><AgentLearnings /></ProtectedRoute>} />
                       <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
                       <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
