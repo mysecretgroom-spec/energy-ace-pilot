@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
+import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,7 @@ interface AIExtractedData {
   categorie: string | null;
   description: string | null;
   commercant: string | null;
+  issues?: OcrIssue[];
   raw_text?: string;
 }
 
@@ -601,10 +604,13 @@ export function ReviewDocument({
               )}
 
               {ocrResult && (
-                <div className="text-xs text-green-600 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Extraction IA terminée
-                  {ocrResult.commercant && ` • ${ocrResult.commercant}`}
+                <div className="space-y-2">
+                  <div className="text-xs text-primary flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Extraction IA terminée
+                    {ocrResult.commercant && ` • ${ocrResult.commercant}`}
+                  </div>
+                  <OcrIssuesBanner issues={ocrIssues} />
                 </div>
               )}
             </div>
