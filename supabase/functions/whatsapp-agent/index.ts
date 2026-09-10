@@ -4,6 +4,9 @@ import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { cache, CACHE_KEYS, CACHE_TTL } from "../_shared/cache.ts";
 import { checkUsageBudget, logUsage, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
 import { loadUserConfigContext } from "./_config-context.ts";
+import { AgentTracer } from "./_trace.ts";
+import { loadAgentSkills, selectSkills, formatSkillsForPrompt, bumpSkillUsage } from "./_skills.ts";
+import { loadSessionMemory, formatSessionMemoryForPrompt, updateSessionMemory } from "./_session-memory.ts";
 import {
   bufferImage,
   isGoTrigger,
