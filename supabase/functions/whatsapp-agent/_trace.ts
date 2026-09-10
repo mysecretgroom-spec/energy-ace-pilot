@@ -84,8 +84,13 @@ export class AgentTracer {
     void this.flush();
   }
 
-  /** Écrit tous les pas en base. Ne casse jamais le flux principal. */
-  async flush(): Promise<void> {
+  /** Écrit tous les pas en base, en série. Ne casse jamais le flux principal. */
+  flush(): Promise<void> {
+    this.pending = this.pending.then(() => this.doFlush());
+    return this.pending;
+  }
+
+  private async doFlush(): Promise<void> {
     if (!this.logs.length) return;
     const batch = this.logs.splice(0, this.logs.length);
     try {
