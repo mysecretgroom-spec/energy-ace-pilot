@@ -50,6 +50,7 @@ const DataFinitionsITE = React.lazy(() => import("./pages/settings/DataFinitions
 const SecuritySettings = React.lazy(() => import("./pages/settings/SecuritySettings"));
 const VentesSettings = React.lazy(() => import("./pages/settings/VentesSettings"));
 const CommissionsSettings = React.lazy(() => import("./pages/settings/CommissionsSettings"));
+const ConfigAssistant = React.lazy(() => import("./pages/settings/ConfigAssistant"));
 const PushNotificationsSettings = React.lazy(() => import("./pages/settings/PushNotificationsSettings"));
 const ObjectifsSettings = React.lazy(() => import("./pages/settings/ObjectifsSettings"));
 const RegiesSettings = React.lazy(() => import("./pages/settings/RegiesSettings"));
@@ -182,6 +183,7 @@ const App = () => {
                       <Route path="/parametres/securite" element={<ProtectedRoute><SecuritySettings /></ProtectedRoute>} />
                       <Route path="/parametres/ventes" element={<ProtectedRoute><VentesSettings /></ProtectedRoute>} />
                       <Route path="/parametres/commissions" element={<ProtectedRoute><CommissionsSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/assistant" element={<ProtectedRoute><ConfigAssistant /></ProtectedRoute>} />
                       <Route path="/parametres/notifications-push" element={<ProtectedRoute><PushNotificationsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/objectifs" element={<ProtectedRoute><ObjectifsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/regies" element={<ProtectedRoute><RegiesSettings /></ProtectedRoute>} />
