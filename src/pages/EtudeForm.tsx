@@ -52,6 +52,7 @@ import {
   ChevronDown,
   Link2,
   Thermometer,
+  Pencil,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
