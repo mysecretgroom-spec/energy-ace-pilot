@@ -2104,10 +2104,12 @@ const EtudeForm = () => {
       r2DateHeure: r2DateHeure?.toISOString(),
       r2Time,
       selectedBouquetPV,
+      selectedGammePV,
       selectedBouquetPAC,
       selectedBouquetITE,
       selectedBouquetCombo,
       precoMode,
+      remiseCommerciale,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
