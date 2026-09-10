@@ -577,6 +577,8 @@ const EtudeForm = () => {
     if (draft.mensualiteManuelle !== undefined) setMensualiteManuelle(draft.mensualiteManuelle);
     if (draft.selectedSurcouts) setSelectedSurcouts(draft.selectedSurcouts);
     if (draft.autreSurcout !== undefined) setAutreSurcout(draft.autreSurcout);
+    if (draft.remiseCommerciale !== undefined) setRemiseCommerciale(draft.remiseCommerciale);
+    if (draft.selectedGammePV !== undefined) setSelectedGammePV(draft.selectedGammePV);
     if (draft.classification) setClassification(draft.classification);
     if (draft.classificationComment) setClassificationComment(draft.classificationComment);
     if (draft.r2DateHeure) setR2DateHeure(new Date(draft.r2DateHeure));
@@ -1914,6 +1916,21 @@ const EtudeForm = () => {
       prix_installation: productType === "PV" ? calculatedResults?.prixInstallation : (pacPrixManuel || itePrixManuel || null),
       surcouts: selectedSurcouts,
       autre_surcout: autreSurcout,
+      // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
+      // remise commerciale (et la gamme / les bouquets choisis) par 0.
+      param_overrides: {
+        heuresEnsoleillement,
+        usePshCalculation,
+        estimationDetails: estimationDetailsRef.current || undefined,
+        hasPrixInstallationManuel: !!prixInstallationManuel,
+        remiseCommerciale: remiseCommerciale || 0,
+        selectedBouquetPV: selectedBouquetPV || undefined,
+        selectedGammePV: selectedGammePV || undefined,
+        selectedBouquetPAC: selectedBouquetPAC || undefined,
+        selectedBouquetITE: selectedBouquetITE || undefined,
+        selectedBouquetCombo: selectedBouquetCombo || undefined,
+        precoMode: precoMode || "sur_mesure",
+      } as any,
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
       duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
       notes: classificationComment || null,
@@ -1939,7 +1956,10 @@ const EtudeForm = () => {
     surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
     selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
-    classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement
+    classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
+    remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
+    selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
+    selectedBouquetCombo, precoMode
   ]);
 
   // Perform auto-save
@@ -2086,10 +2106,12 @@ const EtudeForm = () => {
       r2DateHeure: r2DateHeure?.toISOString(),
       r2Time,
       selectedBouquetPV,
+      selectedGammePV,
       selectedBouquetPAC,
       selectedBouquetITE,
       selectedBouquetCombo,
       precoMode,
+      remiseCommerciale,
     };
   }, [
     productType, consoAnnuelle, factureMensuelle, ombreToiture, surfaceToiture,
@@ -2105,7 +2127,8 @@ const EtudeForm = () => {
     iteEpaisseurIsolant, iteTypeIsolant, iteRActuel, iteRCible, iteNombreFacades,
     iteSurfaceOuvertures, iteFinition, iteEconomieChauffagePct, iteFactureChaufActuelle,
     itePrixManuel, aidesPAC, aidesITE, aidesManuelles, classification, classificationComment,
-    r2DateHeure, r2Time,
+    r2DateHeure, r2Time, remiseCommerciale, selectedGammePV, selectedBouquetPV,
+    selectedBouquetPAC, selectedBouquetITE, selectedBouquetCombo, precoMode,
   ]);
 
   // Immediate save for important actions (photo upload, status change)
@@ -2148,7 +2171,8 @@ const EtudeForm = () => {
     amperageDisjoncteur, potentielFaisabilite, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId,
     classification, classificationComment, typeRaccordement, typeCompteurElectrique,
-    numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation
+    numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation,
+    remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel
   ]);
 
 
