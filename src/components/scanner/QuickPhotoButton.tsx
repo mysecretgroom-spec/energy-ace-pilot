@@ -26,6 +26,8 @@ interface QuickPhotoButtonProps {
   label: string;
   etudeId?: string | null;
   onPhotoSaved?: () => void;
+  /** N'affiche que les icônes (gain de place dans l'outil d'étude) */
+  iconOnly?: boolean;
 }
 
 /** Auto-download a blob to device Downloads folder */
@@ -221,6 +223,7 @@ export function QuickPhotoButton({
   label,
   etudeId,
   onPhotoSaved,
+  iconOnly = false,
 }: QuickPhotoButtonProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
@@ -377,8 +380,10 @@ export function QuickPhotoButton({
       <Button
         type="button"
         variant="outline"
-        size="sm"
-        className={`gap-1.5 text-xs h-8 ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
+        size={iconOnly ? "icon" : "sm"}
+        aria-label={label}
+        title={label}
+        className={`${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
         onClick={handleCameraClick}
         disabled={isUploading}
       >
@@ -391,7 +396,7 @@ export function QuickPhotoButton({
         ) : (
           <Camera className="h-3.5 w-3.5" />
         )}
-        {label}
+        {!iconOnly && label}
       </Button>
 
       <Button

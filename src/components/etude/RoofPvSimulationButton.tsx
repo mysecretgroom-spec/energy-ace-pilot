@@ -182,13 +182,14 @@ export function RoofPvSimulationButton({
       <Button
         type="button"
         variant="outline"
-        size="sm"
+        size="icon"
         onClick={startSimulationFlow}
         disabled={loading}
-        className="h-8 gap-1.5 text-[11px]"
+        aria-label="Simuler les panneaux"
+        title="Simuler les panneaux"
+        className="h-8 w-8"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-        Simuler les panneaux
       </Button>
 
       <Dialog open={constraintOpen} onOpenChange={setConstraintOpen}>
