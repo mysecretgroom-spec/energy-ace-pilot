@@ -343,13 +343,15 @@ const ConfigAssistant = () => {
               >
                 {recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </Button>
-              <Button className="flex-1 gap-2" onClick={() => runAsk()} disabled={assistant.asking}>
-                {assistant.asking ? (
+              <Button className="flex-1 gap-2" onClick={() => runAsk()} disabled={busy}>
+                {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                Proposer les changements
+                {busy && isModel && model.progress
+                  ? `Analyse : ${model.progress}…`
+                  : "Proposer les changements"}
               </Button>
             </div>
           </CardContent>
