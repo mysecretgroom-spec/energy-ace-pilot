@@ -296,42 +296,127 @@ const CommissionsSettings = () => {
     }
   };
 
-  /** Applique le modèle proposé : désactive l'existant puis enregistre les nouvelles règles */
-  const applyProposal = async () => {
+  /** Archive les règles actuellement actives (conservées, mais plus utilisées) */
+  const archiveActiveRules = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("commission_rules")
+      .update({ actif: false, statut: "archive" } as never)
+      .eq("user_id", user.id)
+      .eq("actif", true);
+    if (error) throw error;
+  };
+
+  /**
+   * Enregistre un modèle : en brouillon (aucun impact sur les calculs)
+   * ou en actif (les règles précédentes sont archivées).
+   */
+  const applyProposal = async (statut: "brouillon" | "actif") => {
     if (!user || !proposal) return;
     setSchemaLoading(true);
     try {
-      if (rules.some((r) => r.actif)) {
-        const { error: offError } = await supabase
-          .from("commission_rules")
-          .update({ actif: false })
-          .eq("user_id", user.id)
-          .eq("actif", true);
-        if (offError) throw offError;
-      }
+      const nextVersion = (versions[0]?.version ?? 0) + 1;
       const rows = proposal.rules.map((r, i) => ({
         ...emptyDraft(),
         ...r,
         ordre: r.ordre ?? i * 10,
-        actif: true,
+        actif: statut === "actif",
+        statut,
+        version: nextVersion,
         schema_nom: proposal.schema_nom,
         raisonnement: proposal.raisonnement,
         source: "ia_texte" as const,
         source_prompt: schemaText || null,
         user_id: user.id,
       }));
-      const { error } = await supabase.from("commission_rules").insert(rows);
+
+      if (statut === "actif") await archiveActiveRules();
+
+      const { error } = await supabase.from("commission_rules").insert(rows as never);
       if (error) throw error;
-      toast.success(`Modèle « ${proposal.schema_nom} » appliqué`);
+
+      // Snapshot dans l'historique des versions
+      await supabase.from("commission_schema_versions").insert({
+        user_id: user.id,
+        schema_nom: proposal.schema_nom,
+        version: nextVersion,
+        statut,
+        raisonnement: proposal.raisonnement,
+        source_prompt: schemaText || null,
+        rules: rows.map(({ user_id: _u, ...r }) => r) as never,
+        activated_at: statut === "actif" ? new Date().toISOString() : null,
+      } as never);
+
+      toast.success(
+        statut === "actif"
+          ? `Modèle « ${proposal.schema_nom} » activé (v${nextVersion})`
+          : `Brouillon « ${proposal.schema_nom} » enregistré (v${nextVersion})`
+      );
       setProposal(null);
       setSchemaText("");
       load();
     } catch (e) {
       console.error(e);
-      toast.error("Impossible d'appliquer ce modèle");
+      toast.error("Impossible d'enregistrer ce modèle");
     } finally {
       setSchemaLoading(false);
     }
+  };
+
+  /** Réactive une version passée : les règles actuelles sont archivées */
+  const restoreVersion = async (v: SchemaVersion) => {
+    if (!user) return;
+    setSchemaLoading(true);
+    try {
+      await archiveActiveRules();
+      const nextVersion = (versions[0]?.version ?? 0) + 1;
+      const rows = (v.rules || []).map((r, i) => ({
+        ...emptyDraft(),
+        ...r,
+        ordre: r.ordre ?? i * 10,
+        actif: true,
+        statut: "actif",
+        version: nextVersion,
+        schema_nom: v.schema_nom,
+        raisonnement: v.raisonnement,
+        user_id: user.id,
+      }));
+      const { error } = await supabase.from("commission_rules").insert(rows as never);
+      if (error) throw error;
+      await supabase.from("commission_schema_versions").insert({
+        user_id: user.id,
+        schema_nom: v.schema_nom,
+        version: nextVersion,
+        statut: "actif",
+        raisonnement: v.raisonnement,
+        source_prompt: v.source_prompt,
+        rules: rows.map(({ user_id: _u, ...r }) => r) as never,
+        activated_at: new Date().toISOString(),
+      } as never);
+      toast.success(`Version « ${v.schema_nom} » restaurée`);
+      load();
+    } catch (e) {
+      console.error(e);
+      toast.error("Restauration impossible");
+    } finally {
+      setSchemaLoading(false);
+    }
+  };
+
+  /** Bascule une règle entre brouillon et actif */
+  const toggleStatut = async (rule: CommissionRule) => {
+    const next = (rule.statut ?? "actif") === "actif" ? "brouillon" : "actif";
+    const { error } = await supabase
+      .from("commission_rules")
+      .update({ statut: next, actif: next === "actif" } as never)
+      .eq("id", rule.id);
+    if (error) {
+      toast.error("Modification impossible");
+      return;
+    }
+    setRules((prev) =>
+      prev.map((r) => (r.id === rule.id ? { ...r, statut: next, actif: next === "actif" } : r))
+    );
   };
 
   const startSchemaRecording = async () => {
