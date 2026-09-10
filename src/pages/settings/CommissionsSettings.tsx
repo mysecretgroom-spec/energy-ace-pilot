@@ -565,6 +565,9 @@ const CommissionsSettings = () => {
                       {rule.source !== "manuel" && (
                         <Badge variant="secondary" className="text-[10px]">IA</Badge>
                       )}
+                      {rule.schema_nom && (
+                        <Badge variant="secondary" className="text-[10px]">{rule.schema_nom}</Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
