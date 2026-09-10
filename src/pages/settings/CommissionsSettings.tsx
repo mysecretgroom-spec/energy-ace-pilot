@@ -545,21 +545,35 @@ const CommissionsSettings = () => {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={applyProposal} disabled={schemaLoading}>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => applyProposal("brouillon")}
+                    disabled={schemaLoading}
+                  >
+                    {schemaLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    <span className="ml-1">Enregistrer en brouillon</span>
+                  </Button>
+                  <Button size="sm" onClick={() => applyProposal("actif")} disabled={schemaLoading}>
                     {schemaLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Check className="h-4 w-4" />
                     )}
-                    <span className="ml-1">Appliquer ce modèle</span>
+                    <span className="ml-1">Activer ce modèle</span>
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setProposal(null)}>
                     Annuler
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Les règles actuellement actives seront désactivées (conservées dans l'historique).
+                  Un brouillon n'a aucun effet sur les commissions tant qu'il n'est pas activé. À l'activation,
+                  le modèle actuel est archivé et reste restaurable depuis l'historique.
                 </p>
               </div>
             )}
