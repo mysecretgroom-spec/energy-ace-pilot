@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
 import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
+import { recognizeReceipt } from "@/lib/receiptRecognition";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
