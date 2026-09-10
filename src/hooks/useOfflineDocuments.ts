@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 
 const DB_NAME = "debalepro_offline";
 const DB_VERSION = 3;
