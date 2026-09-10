@@ -115,6 +115,8 @@ const CommissionsSettings = () => {
   const [schemaRecording, setSchemaRecording] = useState(false);
   const schemaRecorderRef = useRef<MediaRecorder | null>(null);
   const schemaChunksRef = useRef<Blob[]>([]);
+  const [versions, setVersions] = useState<SchemaVersion[]>([]);
+
 
   useEffect(() => {
     if (user) load();
@@ -123,12 +125,18 @@ const CommissionsSettings = () => {
 
   const load = async () => {
     setLoading(true);
-    const [rulesRes, regiesRes] = await Promise.all([
+    const [rulesRes, regiesRes, versionsRes] = await Promise.all([
       supabase.from("commission_rules").select("*").order("ordre", { ascending: true }),
       supabase.from("regies").select("id, nom").order("nom"),
+      supabase
+        .from("commission_schema_versions")
+        .select("*")
+        .order("version", { ascending: false })
+        .limit(20),
     ]);
     setRules(((rulesRes.data as unknown as CommissionRule[]) || []));
     setRegies(((regiesRes.data as Regie[]) || []));
+    setVersions(((versionsRes.data as unknown as SchemaVersion[]) || []));
     setLoading(false);
   };
 
