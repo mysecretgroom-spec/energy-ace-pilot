@@ -216,9 +216,15 @@ serve(async (req) => {
       "puissance_kwc",
     ];
 
+    const allowedConditionBases = ["montant_ht", "montant_ttc", "puissance_kwc"];
+
     const rules = (Array.isArray(parsed.rules) ? parsed.rules : [])
       .slice(0, 20)
-      .map((r: Record<string, unknown>) => ({
+      .map((r: Record<string, unknown>, index: number) => ({
+        ordre: r?.ordre == null ? index * 10 : Math.max(0, Number(r.ordre) || 0),
+        condition_base: allowedConditionBases.includes(String(r?.condition_base))
+          ? String(r.condition_base)
+          : "montant_ht",
         nom: String(r?.nom ?? "Règle").slice(0, 120),
         description: r?.description ? String(r.description).slice(0, 500) : null,
         effet: allowedEffets.includes(String(r?.effet)) ? String(r.effet) : "deduction",
