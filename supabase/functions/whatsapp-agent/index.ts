@@ -615,6 +615,7 @@ async function saveMemory(
       .from("whatsapp_agent_memory")
       .upsert({
         user_id: userId,
+        scope: "user",
         memory_type: memoryType,
         key: key,
         value: value,
