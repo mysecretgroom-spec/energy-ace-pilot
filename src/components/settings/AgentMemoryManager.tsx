@@ -23,7 +23,8 @@ import { toast } from "sonner";
 
 interface AgentMemory {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  scope: string;
   memory_type: string;
   key: string;
   value: Record<string, unknown>;
