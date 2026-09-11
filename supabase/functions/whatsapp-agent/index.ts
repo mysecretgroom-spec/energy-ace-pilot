@@ -685,7 +685,7 @@ function formatMemoriesForPrompt(memories: AgentMemory[]): string {
       display = `${mem.key}: ${JSON.stringify(v)}`;
     }
     
-    grouped[type].push(display);
+    grouped[type].push(mem.scope === "global" ? `${display} [commun]` : display);
   }
   
   let result = "";
