@@ -4,18 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  Brain, 
-  Trash2, 
+import { useUserRole } from "@/hooks/useUserRole";
+import {
+  Brain,
+  Trash2,
   RefreshCw,
   Star,
   User,
+  Users,
   Settings,
   Lightbulb,
-  MessageSquare
+  MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -23,7 +26,8 @@ import { toast } from "sonner";
 
 interface AgentMemory {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  scope: string;
   memory_type: string;
   key: string;
   value: Record<string, unknown>;
@@ -44,10 +48,12 @@ const memoryTypeLabels: Record<string, { label: string; icon: React.ComponentTyp
 
 const AgentMemoryManager = () => {
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [tab, setTab] = useState<"user" | "global">("user");
 
-  // Fetch memories
+  // Fetch memories (personnelles + communes)
   const { data: memories, isLoading } = useQuery({
     queryKey: ["agent-memories", user?.id],
     queryFn: async () => {
@@ -58,10 +64,14 @@ const AgentMemoryManager = () => {
         .order("last_used_at", { ascending: false });
 
       if (error) throw error;
-      return data as AgentMemory[];
+      return (data || []) as unknown as AgentMemory[];
     },
     enabled: !!user,
   });
+
+  const userMemories = memories?.filter((m) => m.scope !== "global") ?? [];
+  const globalMemories = memories?.filter((m) => m.scope === "global") ?? [];
+  const currentList = tab === "global" ? globalMemories : userMemories;
 
   // Delete memory mutation
   const deleteMutation = useMutation({
@@ -81,7 +91,7 @@ const AgentMemoryManager = () => {
     },
   });
 
-  // Clear all memories
+  // Clear all personal memories
   const clearAllMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -92,7 +102,7 @@ const AgentMemoryManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent-memories"] });
-      toast.success("Toutes les mémoires ont été effacées");
+      toast.success("Vos mémoires personnelles ont été effacées");
     },
     onError: () => {
       toast.error("Erreur lors de la suppression");
@@ -100,7 +110,7 @@ const AgentMemoryManager = () => {
   });
 
   // Filter memories
-  const filteredMemories = memories?.filter((m) => {
+  const filteredMemories = currentList.filter((m) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -112,8 +122,7 @@ const AgentMemoryManager = () => {
 
   const getMemoryDisplay = (memory: AgentMemory) => {
     const value = memory.value;
-    
-    // Format based on memory type
+
     if (memory.memory_type === "alias" && value.original && value.alias) {
       return `"${value.alias}" → "${value.original}"`;
     }
@@ -126,37 +135,38 @@ const AgentMemoryManager = () => {
     if (memory.memory_type === "shortcut" && value.shortcut && value.meaning) {
       return `"${value.shortcut}" = ${value.meaning}`;
     }
-    
-    // Default: show JSON summary
+
     return Object.entries(value)
-      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+      .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
       .join(", ");
   };
 
   const typeInfo = (type: string) => memoryTypeLabels[type] || memoryTypeLabels.context;
 
+  const canDelete = (memory: AgentMemory) => memory.scope !== "global" || isAdmin;
+
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-purple-500/10">
               <Brain className="h-5 w-5 text-purple-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-lg">Mémoire de l'agent</CardTitle>
               <CardDescription>
-                L'agent apprend de vos habitudes et préférences
+                Apprentissages communs à tous et apprentissages qui vous sont propres
               </CardDescription>
             </div>
           </div>
-          {memories && memories.length > 0 && (
+          {tab === "user" && userMemories.length > 0 && (
             <Button
               variant="outline"
               size="sm"
-              className="text-destructive"
+              className="text-destructive shrink-0"
               onClick={() => {
-                if (confirm("Effacer toutes les mémoires de l'agent ?")) {
+                if (confirm("Effacer toutes vos mémoires personnelles ?")) {
                   clearAllMutation.mutate();
                 }
               }}
@@ -169,16 +179,44 @@ const AgentMemoryManager = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Info card */}
-        <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
-          <p>L'agent retient automatiquement :</p>
-          <ul className="mt-1 space-y-0.5 text-xs">
-            <li>• Vos alias de clients (ex: "le client de Bordeaux")</li>
-            <li>• Vos préférences de formulation</li>
-            <li>• Les corrections que vous apportez</li>
-            <li>• Vos raccourcis personnels</li>
-          </ul>
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "user" | "global")}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="user" className="gap-1">
+              <User className="h-3.5 w-3.5" />
+              Pour vous ({userMemories.length})
+            </TabsTrigger>
+            <TabsTrigger value="global" className="gap-1">
+              <Users className="h-3.5 w-3.5" />
+              Communes ({globalMemories.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="user" className="mt-3">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              <p>L'agent retient automatiquement pour vous :</p>
+              <ul className="mt-1 space-y-0.5 text-xs">
+                <li>• Vos alias de clients (ex: "le client de Bordeaux")</li>
+                <li>• Vos préférences de formulation</li>
+                <li>• Les corrections que vous apportez</li>
+                <li>• Vos raccourcis personnels</li>
+              </ul>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="global" className="mt-3">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              <p>
+                Ces apprentissages s'appliquent à tout le monde : vocabulaire métier, règles
+                générales, expressions communes.
+              </p>
+              <p className="text-xs mt-1">
+                {isAdmin
+                  ? "En tant qu'administrateur, vous pouvez les supprimer."
+                  : "Seul un administrateur peut les modifier."}
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Search */}
         <Input
@@ -195,7 +233,7 @@ const AgentMemoryManager = () => {
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
-        ) : filteredMemories && filteredMemories.length > 0 ? (
+        ) : filteredMemories.length > 0 ? (
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {filteredMemories.map((memory) => {
               const info = typeInfo(memory.memory_type);
@@ -206,10 +244,13 @@ const AgentMemoryManager = () => {
                   className="border rounded-lg p-3 flex items-start justify-between gap-2 hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge className={info.color}>
                         <Icon className="h-3 w-3 mr-1" />
                         {info.label}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {memory.scope === "global" ? "Commun" : "Pour vous"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         utilisé {memory.usage_count}x
@@ -223,15 +264,17 @@ const AgentMemoryManager = () => {
                       Dernier usage: {format(new Date(memory.last_used_at), "dd MMM à HH:mm", { locale: fr })}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={() => deleteMutation.mutate(memory.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canDelete(memory) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => deleteMutation.mutate(memory.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -239,19 +282,25 @@ const AgentMemoryManager = () => {
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <Brain className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p>Aucune mémoire enregistrée</p>
-            <p className="text-xs mt-1">
-              L'agent apprendra de vos interactions
+            <p>
+              {tab === "global"
+                ? "Aucun apprentissage commun"
+                : "Aucune mémoire enregistrée"}
             </p>
+            <p className="text-xs mt-1">L'agent apprendra de vos interactions</p>
           </div>
         )}
 
         {/* Stats */}
-        {memories && memories.length > 0 && (
+        {currentList.length > 0 && (
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-            <span>{memories.length} mémoire(s) enregistrée(s)</span>
+            <span>{currentList.length} mémoire(s)</span>
             <span>
-              Confiance moy.: {Math.round(memories.reduce((sum, m) => sum + Number(m.confidence), 0) / memories.length * 100)}%
+              Confiance moy.:{" "}
+              {Math.round(
+                (currentList.reduce((sum, m) => sum + Number(m.confidence), 0) / currentList.length) * 100,
+              )}
+              %
             </span>
           </div>
         )}
