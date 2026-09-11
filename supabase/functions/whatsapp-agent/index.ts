@@ -549,7 +549,7 @@ function formatPromptsForSystem(prompts: AgentPrompt[]): string {
   return result;
 }
 
-// Load user's agent memories (with cache)
+// Load agent memories: common (global) + user-specific (with cache)
 // deno-lint-ignore no-explicit-any
 async function loadUserMemories(
   supabase: any,
@@ -560,24 +560,40 @@ async function loadUserMemories(
   if (cached) return cached;
 
   try {
-    const { data, error } = await supabase
-      .from("whatsapp_agent_memory")
-      .select("id, memory_type, key, value, confidence, usage_count")
-      .eq("user_id", userId)
-      .order("usage_count", { ascending: false })
-      .limit(50);
-    
-    if (error) {
-      console.error("Error loading memories:", error);
-      return [];
-    }
-    const memories = data || [];
+    const [globalRes, userRes] = await Promise.all([
+      supabase
+        .from("whatsapp_agent_memory")
+        .select("id, memory_type, key, value, confidence, usage_count, scope")
+        .eq("scope", "global")
+        .order("usage_count", { ascending: false })
+        .limit(30),
+      supabase
+        .from("whatsapp_agent_memory")
+        .select("id, memory_type, key, value, confidence, usage_count, scope")
+        .eq("scope", "user")
+        .eq("user_id", userId)
+        .order("usage_count", { ascending: false })
+        .limit(50),
+    ]);
+
+    if (globalRes.error) console.error("Error loading global memories:", globalRes.error);
+    if (userRes.error) console.error("Error loading memories:", userRes.error);
+
+    // Les mémoires personnelles priment sur les mémoires communes (même type+clé)
+    const userMemories = userRes.data || [];
+    const userKeys = new Set(userMemories.map((m: AgentMemory) => `${m.memory_type}|${m.key}`));
+    const globalMemories = (globalRes.data || []).filter(
+      (m: AgentMemory) => !userKeys.has(`${m.memory_type}|${m.key}`),
+    );
+
+    const memories = [...globalMemories, ...userMemories];
     cache.set(cacheKey, memories, CACHE_TTL.MEMORIES);
     return memories;
   } catch {
     return [];
   }
 }
+
 
 // Save or update a memory
 // deno-lint-ignore no-explicit-any
