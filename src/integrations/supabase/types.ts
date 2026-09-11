@@ -3727,9 +3727,10 @@ export type Database = {
           key: string
           last_used_at: string | null
           memory_type: string
+          scope: string
           updated_at: string
           usage_count: number | null
-          user_id: string
+          user_id: string | null
           value: Json
         }
         Insert: {
@@ -3739,9 +3740,10 @@ export type Database = {
           key: string
           last_used_at?: string | null
           memory_type: string
+          scope?: string
           updated_at?: string
           usage_count?: number | null
-          user_id: string
+          user_id?: string | null
           value: Json
         }
         Update: {
@@ -3751,9 +3753,10 @@ export type Database = {
           key?: string
           last_used_at?: string | null
           memory_type?: string
+          scope?: string
           updated_at?: string
           usage_count?: number | null
-          user_id?: string
+          user_id?: string | null
           value?: Json
         }
         Relationships: []
