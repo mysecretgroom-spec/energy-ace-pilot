@@ -468,6 +468,7 @@ interface AgentMemory {
   value: Record<string, unknown>;
   confidence: number;
   usage_count: number;
+  scope?: string;
 }
 
 // User-defined prompt tokens for agent customization
