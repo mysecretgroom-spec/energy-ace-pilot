@@ -8,3 +8,4 @@
 - [Modèle de commissionnement](features/financial/commission-model-switching.md) — Changement complet de style de commissionnement raisonné par l'IA, schema_nom/raisonnement/condition_base
 - [Paramétrage assisté par IA](features/config/ai-parameter-assistant.md) — Assistant généralisé régies (bouquets, surcoûts, financements, gammes) + aides, prévisualisation et annulation
 - [Intelligence de l'agent IA](features/ai-agent/intelligence-and-autonomy.md) — Contexte paramétrage injecté, raisonnement, mémoire apprenante, confirmation intelligente
+- [Portées de mémoire agent](features/ai-agent/memory-scopes.md) — Apprentissages communs (global, admin) vs personnels (par user), priorité au personnel
