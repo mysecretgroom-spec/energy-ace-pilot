@@ -5919,13 +5919,9 @@ async function handlePendingWorkflow(
         };
       }
       
-      // For action intents, we need confirmation
-      return {
-        intent: originalIntent || pendingAction.intent,
-        actionTaken: "choice_selected_confirm",
-        entityId: selectedChoice.id,
-        entityType: selectedChoice.entityType,
-        newPendingAction: {
+      // Le client est identifié: on exécute directement l'action
+      {
+        const readyChoice: PendingAction = {
           intent: originalIntent || pendingAction.intent,
           entities: updatedEntities,
           workflowState: "awaiting_confirmation",
@@ -5935,8 +5931,20 @@ async function handlePendingWorkflow(
             clientName: selectedChoice.label,
           },
           createdAt: new Date().toISOString(),
-        },
-        responseMessage: `📝 J'ai compris: *${selectedChoice.label}*\n\nJe vais ${getIntentActionDescription(originalIntent || pendingAction.intent, updatedEntities)}.\n\n*Confirmes-tu ?* (Oui/Non)`,
+        };
+        const doneChoice = await autoExecutePending(
+          supabase, userId, userName, readyChoice, twilioAccountSid, twilioAuthToken,
+          `📝 ${selectedChoice.label}\n\n`,
+        );
+        if (doneChoice) return { ...doneChoice, entityId: doneChoice.entityId ?? selectedChoice.id };
+      }
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "choice_selected_confirm",
+        entityId: selectedChoice.id,
+        entityType: selectedChoice.entityType,
+        newPendingAction: null,
+        responseMessage: `📝 J'ai compris: *${selectedChoice.label}*`,
       };
     }
     
