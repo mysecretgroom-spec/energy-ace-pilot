@@ -3631,7 +3631,7 @@ serve(async (req) => {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
         },
-        `${userConfigContext || ""}${skillsSection}${sessionSection}`
+        `${userConfigContext || ""}${skillsSection}${sessionSection}${lastTurnSection}`
       );
 
       tracer.step("intention_analysee", {
