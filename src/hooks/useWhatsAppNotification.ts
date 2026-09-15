@@ -197,7 +197,7 @@ export const useWhatsAppNotification = () => {
     userId,
     cqTime,
     cqDate,
-    pdfData,
+    pdfData: pdfDataProp,
     regieId,
     venteDetails,
   }: SendWhatsAppParams): Promise<boolean> => {
