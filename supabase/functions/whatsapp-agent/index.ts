@@ -5838,24 +5838,30 @@ async function handlePendingWorkflow(
         const originalEntities = pendingAction.entities;
         const effectiveIntent = originalIntent || pendingAction.intent;
         
-        // For create_rdv intent, skip sale type question and proceed directly
+        // For create_rdv intent: création immédiate du client + du RDV
         if (effectiveIntent === "create_rdv") {
+          const readyNewClient: PendingAction = {
+            intent: "create_rdv",
+            entities: { ...originalEntities, is_new_client: true, client_name: clientName },
+            workflowState: "awaiting_confirmation",
+            collectedData: {
+              clientName: clientName,
+              isNewClient: true,
+              date: originalEntities.date as string,
+              time: originalEntities.time as string,
+            },
+            createdAt: new Date().toISOString(),
+          };
+          const doneNewClient = await autoExecutePending(
+            supabase, userId, userName, readyNewClient, twilioAccountSid, twilioAuthToken,
+            `🆕 Client "${clientName}" créé.\n\n`,
+          );
+          if (doneNewClient) return doneNewClient;
           return {
             intent: "create_rdv",
             actionTaken: "new_client_selected",
-            newPendingAction: {
-              intent: "create_rdv",
-              entities: { ...originalEntities, is_new_client: true, client_name: clientName },
-              workflowState: "awaiting_confirmation",
-              collectedData: {
-                clientName: clientName,
-                isNewClient: true,
-                date: originalEntities.date as string,
-                time: originalEntities.time as string,
-              },
-              createdAt: new Date().toISOString(),
-            },
-            responseMessage: `🆕 Client "${clientName}" sera créé.\n\n📅 *Nouveau RDV*\n• Client: ${clientName}\n• Date: ${originalEntities.date || "non définie"}\n• Heure: ${originalEntities.time || "non définie"}\n${originalEntities.address ? `• Adresse: ${originalEntities.address}\n` : ""}${originalEntities.commentaire ? `• Commentaire: ${(originalEntities.commentaire as string).substring(0, 100)}...\n` : ""}\n*Confirmes-tu ?* (Oui/Non)`,
+            newPendingAction: readyNewClient,
+            responseMessage: `🆕 Client "${clientName}" sera créé.`,
           };
         }
         
