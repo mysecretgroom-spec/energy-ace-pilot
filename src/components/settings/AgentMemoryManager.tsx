@@ -153,7 +153,8 @@ const AgentMemoryManager = () => {
       const { error } = await supabase
         .from("whatsapp_agent_memory")
         .delete()
-        .eq("user_id", user!.id);
+        .eq("user_id", user!.id)
+        .eq("scope", "user");
       if (error) throw error;
     },
     onSuccess: () => {
