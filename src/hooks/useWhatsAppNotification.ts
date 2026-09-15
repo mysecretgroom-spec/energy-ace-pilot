@@ -201,6 +201,8 @@ export const useWhatsAppNotification = () => {
     regieId,
     venteDetails,
   }: SendWhatsAppParams): Promise<boolean> => {
+    // RDV négatif : jamais de PDF d'étude ni de photos, uniquement le compte-rendu
+    const pdfData = classification === "negatif" ? undefined : pdfDataProp;
     try {
       // Get WhatsApp contact from the régie (principal contact)
       let confirmPhone: string | null = null;
