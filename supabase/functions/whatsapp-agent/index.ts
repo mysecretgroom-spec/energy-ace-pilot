@@ -4131,6 +4131,20 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       pending_action: newPendingAction,
       last_message_at: new Date().toISOString(),
     };
+
+    // Mémorise le sujet de ce tour pour comprendre le prochain message de suivi
+    if (aiResponse! && !["confirm_action", "cancel_action", "unknown"].includes(aiResponse!.intent)) {
+      const prevEntities = (lastTurn?.entities || {}) as Record<string, unknown>;
+      const curEntities = (aiResponse!.entities || {}) as Record<string, unknown>;
+      // Un suivi sans nouvelles entités conserve le sujet précédent
+      const mergedEntities = Object.keys(curEntities).length ? { ...prevEntities, ...curEntities } : prevEntities;
+      conversationUpdate.last_turn = {
+        intent: aiResponse!.intent === "conversation" ? (lastTurn?.intent || "conversation") : aiResponse!.intent,
+        entities: mergedEntities,
+        action: actionResult.actionTaken || null,
+        at: new Date().toISOString(),
+      };
+    }
     if (newPendingAction === null) {
       conversationUpdate.pending_message_sids = {};
     }
