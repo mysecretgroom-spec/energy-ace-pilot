@@ -4570,6 +4570,25 @@ _Envoyé depuis DébalePro_`;
           });
           const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
 
+          // Mensualité "aides déduites" : même financement, mais sur le reste à charge
+          const montantAidesDeduites = Math.max(
+            0,
+            isMulti
+              ? (prixGlobalAidesDeduites + autreSurcout)
+              : (calculatedResults?.totalAidesDeduites || 0)
+          );
+          const resultatFinAidesDeduites = calculerMensualiteAvecReport({
+            montantTTC: montantAidesDeduites,
+            tauxEffectifAnnuel: tauxEff,
+            dureeMois: nbMois,
+            dureeReportMois: 6,
+          });
+          // Si une mensualité manuelle est saisie, on garde la même proportion
+          const ratioManuel = mensualiteManuelle && resultatFinGlobal.mensualiteAmortissement > 0
+            ? Number(mensualiteManuelle) / resultatFinGlobal.mensualiteAmortissement
+            : 1;
+          const mensualiteAidesDeduites = resultatFinAidesDeduites.mensualiteAmortissement * ratioManuel;
+
           return (
           <>
           {/* Bouquet selectors are now in the Préconisation Technique card above */}
