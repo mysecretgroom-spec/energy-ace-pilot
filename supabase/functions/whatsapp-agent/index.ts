@@ -469,6 +469,8 @@ interface AgentMemory {
   confidence: number;
   usage_count: number;
   scope?: string;
+  regie_id?: string | null;
+  regie_nom?: string | null;
 }
 
 // User-defined prompt tokens for agent customization
