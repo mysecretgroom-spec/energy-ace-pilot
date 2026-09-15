@@ -392,6 +392,8 @@ const AgentMemoryManager = () => {
             <p>
               {tab === "global"
                 ? "Aucun apprentissage commun"
+                : tab === "regie"
+                ? "Aucune règle pour cette régie"
                 : "Aucune mémoire enregistrée"}
             </p>
             <p className="text-xs mt-1">L'agent apprendra de vos interactions</p>
