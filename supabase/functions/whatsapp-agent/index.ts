@@ -4920,6 +4920,39 @@ function formatQueryResponse(
 
 // Handle pending workflow states (multi-step actions)
 // deno-lint-ignore no-explicit-any
+/**
+ * Exécute immédiatement une action prête (plus de "Confirmes-tu ?").
+ * On réutilise le moteur de workflow en simulant un "oui", puis on
+ * ajoute l'invitation à répondre au message pour corriger.
+ */
+// deno-lint-ignore no-explicit-any
+async function autoExecutePending(
+  supabase: any,
+  userId: string,
+  userName: string,
+  pending: PendingAction,
+  twilioAccountSid: string,
+  twilioAuthToken: string,
+  prefix = "",
+): Promise<{ intent?: Intent; actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; responseMessage: string; customResponse?: string } | null> {
+  const res = await handlePendingWorkflow(
+    supabase,
+    userId,
+    userName,
+    "oui",
+    pending,
+    twilioAccountSid,
+    twilioAuthToken,
+  );
+  if (!res) return null;
+  const message = appendEditHint(`${prefix}${res.customResponse || res.responseMessage || ""}`.trim());
+  return {
+    ...res,
+    responseMessage: message,
+    customResponse: res.customResponse ? message : undefined,
+  };
+}
+
 async function handlePendingWorkflow(
   supabase: any,
   userId: string,
