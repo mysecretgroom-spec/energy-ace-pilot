@@ -4570,6 +4570,25 @@ _Envoyé depuis DébalePro_`;
           });
           const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
 
+          // Mensualité "aides déduites" : même financement, mais sur le reste à charge
+          const montantAidesDeduites = Math.max(
+            0,
+            isMulti
+              ? (prixGlobalAidesDeduites + autreSurcout)
+              : (calculatedResults?.totalAidesDeduites || 0)
+          );
+          const resultatFinAidesDeduites = calculerMensualiteAvecReport({
+            montantTTC: montantAidesDeduites,
+            tauxEffectifAnnuel: tauxEff,
+            dureeMois: nbMois,
+            dureeReportMois: 6,
+          });
+          // Si une mensualité manuelle est saisie, on garde la même proportion
+          const ratioManuel = mensualiteManuelle && resultatFinGlobal.mensualiteAmortissement > 0
+            ? Number(mensualiteManuelle) / resultatFinGlobal.mensualiteAmortissement
+            : 1;
+          const mensualiteAidesDeduites = resultatFinAidesDeduites.mensualiteAmortissement * ratioManuel;
+
           return (
           <>
           {/* Bouquet selectors are now in the Préconisation Technique card above */}
@@ -5020,6 +5039,13 @@ _Envoyé depuis DébalePro_`;
                   <span>{isMulti ? "Mensualité unique" : "Mensualité"}</span>
                   <span>{Number(mensualiteGlobale).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
+                <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
+                  <span>Mensualité aides déduites</span>
+                  <span>{mensualiteAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Sur reste à charge {montantAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€ · {nbMois} mois
+                </p>
               </CardContent>
             </Card>
           </div>
