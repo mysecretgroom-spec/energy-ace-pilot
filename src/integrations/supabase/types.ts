@@ -3727,6 +3727,7 @@ export type Database = {
           key: string
           last_used_at: string | null
           memory_type: string
+          regie_id: string | null
           scope: string
           updated_at: string
           usage_count: number | null
@@ -3740,6 +3741,7 @@ export type Database = {
           key: string
           last_used_at?: string | null
           memory_type: string
+          regie_id?: string | null
           scope?: string
           updated_at?: string
           usage_count?: number | null
@@ -3753,13 +3755,22 @@ export type Database = {
           key?: string
           last_used_at?: string | null
           memory_type?: string
+          regie_id?: string | null
           scope?: string
           updated_at?: string
           usage_count?: number | null
           user_id?: string | null
           value?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_agent_memory_regie_id_fkey"
+            columns: ["regie_id"]
+            isOneToOne: false
+            referencedRelation: "regies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_agent_prompts: {
         Row: {
