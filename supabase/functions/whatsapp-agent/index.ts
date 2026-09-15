@@ -7997,7 +7997,8 @@ RÈGLE: Si tu détectes plusieurs demandes distinctes:
 1. Mets is_multi_request: true
 2. Retourne un tableau "requests" avec chaque demande séparée
 3. Chaque request doit avoir: id, intent, entities, summary (description courte)
-4. Le responseMessage doit lister TOUTES les demandes pour approbation granulaire
+4. Le responseMessage liste TOUTES les demandes comme un récapitulatif de ce que tu VIENS de faire
+   (pas une demande de validation), sauf s'il s'agit de suppressions.
 
 FORMAT MULTI-REQUÊTE:
 {
@@ -8008,8 +8009,8 @@ FORMAT MULTI-REQUÊTE:
     {"id": "req_1", "intent": "update_vente_status", "entities": {"client_name": "Martin", "status": "positif"}, "summary": "Martin → Positif"},
     {"id": "req_2", "intent": "update_vente_status", "entities": {"client_name": "Dupont", "status": "negatif"}, "summary": "Dupont → Négatif"}
   ],
-  "requiresConfirmation": true,
-  "responseMessage": "📋 *2 ACTIONS DÉTECTÉES*\n\n1️⃣ Martin → Positif\n2️⃣ Dupont → Négatif\n\n*Confirmer:* \"oui\" (tout) | \"1\" (seulement #1) | \"1,2\" (spécifiques) | \"non\" (annuler)"
+  "requiresConfirmation": false,
+  "responseMessage": "📋 *2 actions*\n\n1️⃣ Martin → Positif\n2️⃣ Dupont → Négatif"
 }
 
 IMPORTANT: Ne PAS transformer en multi-requête si:
