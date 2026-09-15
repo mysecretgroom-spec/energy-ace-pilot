@@ -707,7 +707,13 @@ function formatMemoriesForPrompt(memories: AgentMemory[]): string {
       display = `${mem.key}: ${JSON.stringify(v)}`;
     }
     
-    grouped[type].push(mem.scope === "global" ? `${display} [commun]` : display);
+    grouped[type].push(
+      mem.scope === "global"
+        ? `${display} [commun]`
+        : mem.scope === "regie"
+        ? `${display} [régie: ${mem.regie_nom || "?"} — PRIORITAIRE]`
+        : display,
+    );
   }
   
   let result = "";
