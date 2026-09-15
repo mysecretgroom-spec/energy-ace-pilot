@@ -7933,7 +7933,7 @@ RÈGLES CRITIQUES:
 - Si des notes sont détectées, les INCLURE dans le récapitulatif (ex: "📝 Note: Client intéressé par 9kwc")
 - Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
 - Toutes ces données seront automatiquement sauvegardées sur la fiche client
-- Applique la règle de CONFIRMATION INTELLIGENTE ci-dessus pour fixer requiresConfirmation
+- Applique la règle d'EXÉCUTION DIRECTE ci-dessus: requiresConfirmation = false sauf suppression
 - Les requêtes (query_*), user_feedback et conversations ne nécessitent JAMAIS de confirmation
 
 EXEMPLES DE CLASSIFICATION:
