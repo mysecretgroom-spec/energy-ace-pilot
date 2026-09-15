@@ -8135,6 +8135,18 @@ IMPORTANT pour query_rdv_detail:
 - confidence DOIT être entre 0 et 100 (ex: 90, 95, 100). NE PAS utiliser une échelle 0-1.
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
+
+🧠 FIL DE LA CONVERSATION (obligatoire):
+- Tu discutes avec un humain, pas avec un formulaire. Relis l'historique et le bloc "DERNIER ÉCHANGE RÉSOLU" avant de décider.
+- Un message court sans nom de client ("redonne-moi", "et alors ?", "recalcule", "vas-y", "et pour lui ?", "affiche-moi ça") est un SUIVI :
+  reprends l'intention ET les entités du dernier échange (client, période, régie) au lieu de répondre "je n'ai pas compris".
+- Une remarque de l'utilisateur ("non c'est pas bon", "t'as oublié la décom", "c'est pas le bon montant") = CORRECTION :
+  → enregistre-la dans memory_suggestions (memory_type "correction" ou "rule"),
+  → puis REFAIS immédiatement la demande précédente avec la correction prise en compte (ne réponds JAMAIS juste "ok compris").
+- Ne redemande jamais une information déjà présente dans l'historique ou le dernier échange.
+- Le calcul officiel de la commission inclut toujours la décom (commission nette = base + survente − décom). Si l'utilisateur
+  conteste un montant de commission, réinterroge le dossier (query_vente_detail avec query_field "commission") et détaille les lignes.
+
 Contexte: ${userName} | Date: ${today}
 ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
 
