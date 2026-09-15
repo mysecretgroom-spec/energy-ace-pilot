@@ -3647,10 +3647,35 @@ serve(async (req) => {
         createdAt: new Date().toISOString(),
       };
       
-      actionResult = {
-        newPendingAction: pendingMultiAction,
-        customResponse: aiResponse!.responseMessage,
-      };
+      // Exécution directe de toutes les demandes, sauf si l'une est destructive.
+      const hasDestructive = requests.some(
+        (r) => isDestructiveIntent(r.intent) || (r.entities as Record<string, unknown>)?.action === "supprime",
+      );
+
+      let multiHandled: Awaited<ReturnType<typeof autoExecutePending>> = null;
+      if (!hasDestructive) {
+        multiHandled = await autoExecutePending(
+          supabase,
+          request.userId,
+          request.userName,
+          pendingMultiAction,
+          TWILIO_ACCOUNT_SID || "",
+          TWILIO_AUTH_TOKEN || "",
+        );
+      }
+
+      actionResult = multiHandled
+        ? {
+            actionTaken: multiHandled.actionTaken,
+            entityId: multiHandled.entityId,
+            entityType: multiHandled.entityType,
+            newPendingAction: multiHandled.newPendingAction ?? null,
+            customResponse: multiHandled.customResponse || multiHandled.responseMessage,
+          }
+        : {
+            newPendingAction: pendingMultiAction,
+            customResponse: aiResponse!.responseMessage,
+          };
       
       aiResponse!.responseMessage = actionResult.customResponse || aiResponse!.responseMessage;
       skipAiAnalysis = true; // Skip further processing
