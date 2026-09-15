@@ -233,17 +233,64 @@ const AgentMemoryManager = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "user" | "global")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="user" className="gap-1">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "user" | "regie" | "global")}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="user" className="gap-1 text-xs">
               <User className="h-3.5 w-3.5" />
               Pour vous ({userMemories.length})
             </TabsTrigger>
-            <TabsTrigger value="global" className="gap-1">
+            <TabsTrigger value="regie" className="gap-1 text-xs">
+              <Building2 className="h-3.5 w-3.5" />
+              Par régie ({regieMemories.length})
+            </TabsTrigger>
+            <TabsTrigger value="global" className="gap-1 text-xs">
               <Users className="h-3.5 w-3.5" />
               Communes ({globalMemories.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="regie" className="mt-3 space-y-3">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              Règles, grilles de prix et aides propres à une régie. L'agent les applique en
+              priorité, avant ses apprentissages généraux.
+            </div>
+            <Select value={selectedRegieId} onValueChange={setSelectedRegieId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Choisir une régie" />
+              </SelectTrigger>
+              <SelectContent>
+                {(regies || []).map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.nom}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedRegieId && (
+              <div className="space-y-2 border rounded-lg p-3">
+                <Input
+                  placeholder="Titre (ex: Grille de prix Full Black)"
+                  value={newRuleTitle}
+                  onChange={(e) => setNewRuleTitle(e.target.value)}
+                  className="h-9"
+                />
+                <Textarea
+                  placeholder="La règle, la grille ou l'aide, en toutes lettres…"
+                  value={newRuleText}
+                  onChange={(e) => setNewRuleText(e.target.value)}
+                  rows={3}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => addRegieRuleMutation.mutate()}
+                  disabled={addRegieRuleMutation.isPending}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter à {regieName(selectedRegieId)}
+                </Button>
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="user" className="mt-3">
             <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
