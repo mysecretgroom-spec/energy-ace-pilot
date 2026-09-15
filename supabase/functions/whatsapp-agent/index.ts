@@ -4346,11 +4346,61 @@ function getExtensionFromContentType(contentType: string): string {
   return map[contentType] || "bin";
 }
 
-// Transcribe audio using Gemini (supports audio in base64)
+// Speech-to-text dédié (Lovable AI /v1/audio/transcriptions).
+// Bien plus fiable que l'inline audio du chat pour les notes vocales.
+async function transcribeAudioWithSTT(
+  media: MediaDownloadResult,
+  apiKey: string,
+): Promise<string | null> {
+  try {
+    const bytes = media.data instanceof Uint8Array
+      ? media.data
+      : Uint8Array.from(atob(media.base64), (c) => c.charCodeAt(0));
+    // Limite du modèle Gemini transcribe : 14 Mo
+    if (bytes.length > 14 * 1024 * 1024) {
+      console.warn("[stt] audio trop volumineux pour le modèle de transcription:", bytes.length);
+      return null;
+    }
+    const ext = getExtensionFromContentType(media.contentType);
+    const form = new FormData();
+    form.append("model", "google/gemini-3.5-transcribe");
+    form.append("language", "fr");
+    form.append(
+      "file",
+      new Blob([bytes], { type: media.contentType || "audio/ogg" }),
+      `note-vocale.${ext === "bin" ? "ogg" : ext}`,
+    );
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+
+    if (!resp.ok) {
+      console.error("[stt] transcription failed:", resp.status, await resp.text().catch(() => ""));
+      return null;
+    }
+    const json = await resp.json().catch(() => null);
+    const text = String(json?.text || "").trim();
+    return text.length ? text : null;
+  } catch (e) {
+    console.error("[stt] exception:", e);
+    return null;
+  }
+}
+
+// Transcribe audio: STT dédié d'abord, repli sur Gemini chat (inline audio)
 async function transcribeAudioWithGemini(
   media: MediaDownloadResult,
   apiKey: string
 ): Promise<string> {
+  const stt = await transcribeAudioWithSTT(media, apiKey);
+  if (stt) {
+    console.log("[stt] transcription OK via /v1/audio/transcriptions");
+    return stt;
+  }
+  console.warn("[stt] repli sur la transcription Gemini inline");
   // Gemini supports audio via inline_data
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
