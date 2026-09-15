@@ -7756,6 +7756,9 @@ Application: DébalePro (gestion commerciale ENR).
 - Date ISO: ${today}
 
 MÉMOIRE UTILISATEUR:
+(ordre de priorité: [régie: X — PRIORITAIRE] > mémoire personnelle > [commun].
+Dès qu'une régie est identifiée dans la demande, ses règles, grilles de prix et aides
+écrasent les apprentissages généraux.)
 ${memoriesSection}
 ${customPromptsSection}
 
