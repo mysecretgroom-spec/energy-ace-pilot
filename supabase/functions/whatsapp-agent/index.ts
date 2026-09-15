@@ -8267,7 +8267,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     }),
   });
 
-  let response = await callModel("google/gemini-2.5-flash-lite");
+  // Modèle de raisonnement principal : plus intelligent que l'ancien "lite",
+  // il comprend le langage libre, les suivis et les corrections.
+  let response = await callModel("google/gemini-3.8-flash");
 
   if (!response.ok) {
     const error = await response.text();
@@ -8303,7 +8305,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     !firstChoice?.message?.tool_calls?.[0] &&
     !(typeof firstChoice?.message?.content === "string" && firstChoice.message.content.trim());
   if (malformed) {
-    console.warn("Lite model failed to emit tool call, retrying with gemini-2.5-flash", firstChoice?.native_finish_reason);
+    console.warn("Main model failed to emit tool call, retrying with gemini-2.5-flash", firstChoice?.native_finish_reason);
     try {
       const retry = await callModel("google/gemini-2.5-flash");
       if (retry.ok) {
