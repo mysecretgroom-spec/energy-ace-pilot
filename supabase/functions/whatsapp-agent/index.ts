@@ -563,7 +563,7 @@ async function loadUserMemories(
   if (cached) return cached;
 
   try {
-    const [globalRes, userRes] = await Promise.all([
+    const [globalRes, userRes, regieRes] = await Promise.all([
       supabase
         .from("whatsapp_agent_memory")
         .select("id, memory_type, key, value, confidence, usage_count, scope")
@@ -577,19 +577,39 @@ async function loadUserMemories(
         .eq("user_id", userId)
         .order("usage_count", { ascending: false })
         .limit(50),
+      supabase
+        .from("whatsapp_agent_memory")
+        .select("id, memory_type, key, value, confidence, usage_count, scope, regie_id, regies(nom)")
+        .eq("scope", "regie")
+        .eq("user_id", userId)
+        .order("usage_count", { ascending: false })
+        .limit(60),
     ]);
 
     if (globalRes.error) console.error("Error loading global memories:", globalRes.error);
     if (userRes.error) console.error("Error loading memories:", userRes.error);
+    if (regieRes.error) console.error("Error loading regie memories:", regieRes.error);
 
-    // Les mémoires personnelles priment sur les mémoires communes (même type+clé)
-    const userMemories = userRes.data || [];
-    const userKeys = new Set(userMemories.map((m: AgentMemory) => `${m.memory_type}|${m.key}`));
+    // deno-lint-ignore no-explicit-any
+    const regieMemories: AgentMemory[] = (regieRes.data || []).map((m: any) => ({
+      ...m,
+      regie_nom: m.regies?.nom || null,
+    }));
+
+    // Priorité: régie > personnel > commun (même memory_type+key)
+    const regieKeys = new Set(regieMemories.map((m) => `${m.memory_type}|${m.key}`));
+    const userMemories = (userRes.data || []).filter(
+      (m: AgentMemory) => !regieKeys.has(`${m.memory_type}|${m.key}`),
+    );
+    const takenKeys = new Set([
+      ...regieKeys,
+      ...userMemories.map((m: AgentMemory) => `${m.memory_type}|${m.key}`),
+    ]);
     const globalMemories = (globalRes.data || []).filter(
-      (m: AgentMemory) => !userKeys.has(`${m.memory_type}|${m.key}`),
+      (m: AgentMemory) => !takenKeys.has(`${m.memory_type}|${m.key}`),
     );
 
-    const memories = [...globalMemories, ...userMemories];
+    const memories = [...globalMemories, ...userMemories, ...regieMemories];
     cache.set(cacheKey, memories, CACHE_TTL.MEMORIES);
     return memories;
   } catch {
