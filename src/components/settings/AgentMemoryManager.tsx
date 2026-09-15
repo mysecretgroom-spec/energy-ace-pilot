@@ -353,7 +353,11 @@ const AgentMemoryManager = () => {
                         {info.label}
                       </Badge>
                       <Badge variant="outline" className="text-[10px] font-normal">
-                        {memory.scope === "global" ? "Commun" : "Pour vous"}
+                        {memory.scope === "global"
+                          ? "Commun"
+                          : memory.scope === "regie"
+                          ? regieName(memory.regie_id)
+                          : "Pour vous"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         utilisé {memory.usage_count}x
