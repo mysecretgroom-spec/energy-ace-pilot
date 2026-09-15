@@ -5039,6 +5039,13 @@ _Envoyé depuis DébalePro_`;
                   <span>{isMulti ? "Mensualité unique" : "Mensualité"}</span>
                   <span>{Number(mensualiteGlobale).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
+                <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
+                  <span>Mensualité aides déduites</span>
+                  <span>{mensualiteAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Sur reste à charge {montantAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€ · {nbMois} mois
+                </p>
               </CardContent>
             </Card>
           </div>
