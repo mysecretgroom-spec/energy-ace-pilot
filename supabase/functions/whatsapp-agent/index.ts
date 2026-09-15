@@ -7482,20 +7482,22 @@ const LOW_RISK_INTENTS = new Set<string>([
   "create_support_ticket",
 ]);
 
+/**
+ * NOUVEAU (2026-09): plus de validation « Je valide ? » par défaut.
+ * L'agent exécute immédiatement et l'utilisateur corrige en RÉPONDANT
+ * au récapitulatif. Seules les actions destructives (suppression,
+ * annulation en masse) demandent encore une confirmation explicite.
+ */
 function enforceConfirmation(
   intent: string,
   entities: Record<string, unknown>,
-  confidence: number,
-  modelDecision: boolean,
+  _confidence: number,
+  _modelDecision: boolean,
 ): boolean {
   if (intent?.startsWith("query_") || intent === "user_feedback" || intent === "conversation") return false;
-  if (ALWAYS_CONFIRM_INTENTS.has(intent)) return true;
   if (entities?.action === "supprime") return true;
-  if (LOW_RISK_INTENTS.has(intent)) {
-    if (!Number.isFinite(confidence) || confidence < 85) return true;
-    return modelDecision;
-  }
-  return modelDecision;
+  if (isDestructiveIntent(intent)) return true;
+  return false;
 }
 
 // Analyze intent with AI
