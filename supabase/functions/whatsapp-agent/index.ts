@@ -4953,6 +4953,68 @@ async function autoExecutePending(
   };
 }
 
+/** Retire les lignes de demande de validation d'un récapitulatif. */
+function stripConfirmationPrompt(message: string): string {
+  return (message || "")
+    .split("\n")
+    .filter((l) => {
+      const t = l.toLowerCase();
+      return !(
+        t.includes("confirmes-tu") ||
+        t.includes("confirme-tu") ||
+        t.includes("je valide ?") ||
+        t.includes("oui* pour confirmer") ||
+        t.includes("non* pour annuler") ||
+        t.includes("ces informations sont-elles correctes") ||
+        t.includes("(oui/non)")
+      );
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Garde-fou global: si une étape laisse une action « prête » en attente
+ * de validation, on l'exécute immédiatement. Seules les suppressions et
+ * annulations gardent une vraie confirmation.
+ */
+// deno-lint-ignore no-explicit-any
+async function autoConfirmActionResult(
+  supabase: any,
+  userId: string,
+  userName: string,
+  // deno-lint-ignore no-explicit-any
+  result: any,
+  twilioAccountSid: string,
+  twilioAuthToken: string,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
+  const pending: PendingAction | null | undefined = result?.newPendingAction;
+  if (!pending || pending.workflowState !== "awaiting_confirmation") return result;
+
+  const action = (pending.entities as Record<string, unknown> | undefined)?.action;
+  if (action === "supprime" || action === "annule" || isDestructiveIntent(pending.intent)) return result;
+
+  const recap = stripConfirmationPrompt(result.customResponse || result.responseMessage || "");
+  const done = await autoExecutePending(
+    supabase, userId, userName, pending, twilioAccountSid, twilioAuthToken,
+    recap ? `${recap}\n\n` : "",
+  );
+  if (!done) return result;
+
+  return {
+    ...result,
+    intent: done.intent ?? result.intent,
+    actionTaken: done.actionTaken ?? result.actionTaken,
+    entityId: done.entityId ?? result.entityId,
+    entityType: done.entityType ?? result.entityType,
+    newPendingAction: done.newPendingAction ?? null,
+    customResponse: done.customResponse || done.responseMessage,
+    responseMessage: done.responseMessage,
+  };
+}
+
+
 async function handlePendingWorkflow(
   supabase: any,
   userId: string,
