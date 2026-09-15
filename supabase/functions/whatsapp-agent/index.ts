@@ -3080,7 +3080,7 @@ serve(async (req) => {
       await Promise.all([
       supabase
         .from("whatsapp_conversations")
-        .select("context, pending_action, pending_message_sids")
+        .select("context, pending_action, pending_message_sids, last_turn")
         .eq("user_id", request.userId)
         .single(),
       loadUserMemories(supabase, request.userId),
@@ -3107,6 +3107,20 @@ serve(async (req) => {
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
     let pendingAction = conversationResult.data?.pending_action as PendingAction | null;
+
+    // Mémoire du dernier échange résolu : permet de comprendre les suivis
+    // ("redonne-moi", "et pour lui ?", "recalcule", "t'as oublié la décom").
+    const lastTurn = (conversationResult.data?.last_turn || null) as
+      | { intent?: string; entities?: Record<string, unknown>; action?: string; at?: string }
+      | null;
+    const lastTurnSection = lastTurn?.intent
+      ? `\n\n🔗 DERNIER ÉCHANGE RÉSOLU (sujet en cours):\n` +
+        `• intention: ${lastTurn.intent}\n` +
+        `• éléments: ${JSON.stringify(lastTurn.entities || {}).substring(0, 500)}\n` +
+        `• résultat: ${lastTurn.action || "n/c"}\n` +
+        `Si le nouveau message est un SUIVI (ex: "redonne-moi", "et pour lui", "recalcule", "t'as oublié X", "non c'est pas ça"), ` +
+        `REPRENDS ces éléments (client, période, régie...) au lieu de repartir de zéro. Ne redemande jamais une info déjà connue ci-dessus.`
+      : "";
 
     // ============================================================
     // QUOTED-REPLY ROUTING: if the user replied to a specific agent
