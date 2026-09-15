@@ -3816,6 +3816,7 @@ export type Database = {
           last_action_message_sid: string | null
           last_executed_action: Json | null
           last_message_at: string | null
+          last_turn: Json | null
           pending_action: Json | null
           pending_message_sids: Json
           phone_number: string
@@ -3828,6 +3829,7 @@ export type Database = {
           last_action_message_sid?: string | null
           last_executed_action?: Json | null
           last_message_at?: string | null
+          last_turn?: Json | null
           pending_action?: Json | null
           pending_message_sids?: Json
           phone_number: string
@@ -3840,6 +3842,7 @@ export type Database = {
           last_action_message_sid?: string | null
           last_executed_action?: Json | null
           last_message_at?: string | null
+          last_turn?: Json | null
           pending_action?: Json | null
           pending_message_sids?: Json
           phone_number?: string
