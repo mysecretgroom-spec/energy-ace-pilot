@@ -71,6 +71,7 @@ Statut: NÉGATIF
 
 Le client n'est pas intéressé pour le moment.
 
+*Compte-rendu du technicien:*
 {{comment}}
 
 ---
@@ -196,10 +197,12 @@ export const useWhatsAppNotification = () => {
     userId,
     cqTime,
     cqDate,
-    pdfData,
+    pdfData: pdfDataProp,
     regieId,
     venteDetails,
   }: SendWhatsAppParams): Promise<boolean> => {
+    // RDV négatif : jamais de PDF d'étude ni de photos, uniquement le compte-rendu
+    const pdfData = classification === "negatif" ? undefined : pdfDataProp;
     try {
       // Get WhatsApp contact from the régie (principal contact)
       let confirmPhone: string | null = null;

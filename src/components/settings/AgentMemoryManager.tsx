@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +21,8 @@ import {
   Settings,
   Lightbulb,
   MessageSquare,
+  Building2,
+  Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -28,6 +32,7 @@ interface AgentMemory {
   id: string;
   user_id: string | null;
   scope: string;
+  regie_id?: string | null;
   memory_type: string;
   key: string;
   value: Record<string, unknown>;
@@ -44,6 +49,7 @@ const memoryTypeLabels: Record<string, { label: string; icon: React.ComponentTyp
   context: { label: "Contexte", icon: MessageSquare, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
   alias: { label: "Alias", icon: User, color: "bg-green-500/10 text-green-600 border-green-500/20" },
   shortcut: { label: "Raccourci", icon: Settings, color: "bg-pink-500/10 text-pink-600 border-pink-500/20" },
+  rule: { label: "Règle régie", icon: Building2, color: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
 };
 
 const AgentMemoryManager = () => {
@@ -51,9 +57,12 @@ const AgentMemoryManager = () => {
   const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [tab, setTab] = useState<"user" | "global">("user");
+  const [tab, setTab] = useState<"user" | "regie" | "global">("user");
+  const [selectedRegieId, setSelectedRegieId] = useState<string>("");
+  const [newRuleTitle, setNewRuleTitle] = useState("");
+  const [newRuleText, setNewRuleText] = useState("");
 
-  // Fetch memories (personnelles + communes)
+  // Fetch memories (personnelles + régie + communes)
   const { data: memories, isLoading } = useQuery({
     queryKey: ["agent-memories", user?.id],
     queryFn: async () => {
@@ -69,9 +78,56 @@ const AgentMemoryManager = () => {
     enabled: !!user,
   });
 
-  const userMemories = memories?.filter((m) => m.scope !== "global") ?? [];
+  const { data: regies } = useQuery({
+    queryKey: ["agent-memories-regies", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("regies")
+        .select("id, nom")
+        .order("nom");
+      if (error) throw error;
+      return (data || []) as { id: string; nom: string }[];
+    },
+    enabled: !!user,
+  });
+
+  const userMemories = memories?.filter((m) => m.scope === "user" || (!m.scope && m.user_id)) ?? [];
   const globalMemories = memories?.filter((m) => m.scope === "global") ?? [];
-  const currentList = tab === "global" ? globalMemories : userMemories;
+  const regieMemories = memories?.filter((m) => m.scope === "regie") ?? [];
+  const regieName = (id?: string | null) => regies?.find((r) => r.id === id)?.nom || "Régie";
+  const currentList =
+    tab === "global"
+      ? globalMemories
+      : tab === "regie"
+      ? regieMemories.filter((m) => !selectedRegieId || m.regie_id === selectedRegieId)
+      : userMemories;
+
+  const addRegieRuleMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Non authentifié");
+      if (!selectedRegieId) throw new Error("Choisissez une régie");
+      if (!newRuleTitle.trim() || !newRuleText.trim()) throw new Error("Titre et règle requis");
+      const { error } = await supabase.from("whatsapp_agent_memory").insert({
+        user_id: user.id,
+        regie_id: selectedRegieId,
+        scope: "regie",
+        memory_type: "rule",
+        key: newRuleTitle.trim(),
+        value: { description: newRuleText.trim() },
+        confidence: 1,
+        usage_count: 0,
+        last_used_at: new Date().toISOString(),
+      } as never);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewRuleTitle("");
+      setNewRuleText("");
+      queryClient.invalidateQueries({ queryKey: ["agent-memories"] });
+      toast.success("Règle de régie enregistrée");
+    },
+    onError: (e: Error) => toast.error(e.message || "Erreur lors de l'enregistrement"),
+  });
 
   // Delete memory mutation
   const deleteMutation = useMutation({
@@ -97,7 +153,8 @@ const AgentMemoryManager = () => {
       const { error } = await supabase
         .from("whatsapp_agent_memory")
         .delete()
-        .eq("user_id", user!.id);
+        .eq("user_id", user!.id)
+        .eq("scope", "user");
       if (error) throw error;
     },
     onSuccess: () => {
@@ -179,17 +236,64 @@ const AgentMemoryManager = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "user" | "global")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="user" className="gap-1">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "user" | "regie" | "global")}>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="user" className="gap-1 text-xs">
               <User className="h-3.5 w-3.5" />
               Pour vous ({userMemories.length})
             </TabsTrigger>
-            <TabsTrigger value="global" className="gap-1">
+            <TabsTrigger value="regie" className="gap-1 text-xs">
+              <Building2 className="h-3.5 w-3.5" />
+              Par régie ({regieMemories.length})
+            </TabsTrigger>
+            <TabsTrigger value="global" className="gap-1 text-xs">
               <Users className="h-3.5 w-3.5" />
               Communes ({globalMemories.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="regie" className="mt-3 space-y-3">
+            <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
+              Règles, grilles de prix et aides propres à une régie. L'agent les applique en
+              priorité, avant ses apprentissages généraux.
+            </div>
+            <Select value={selectedRegieId} onValueChange={setSelectedRegieId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Choisir une régie" />
+              </SelectTrigger>
+              <SelectContent>
+                {(regies || []).map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.nom}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedRegieId && (
+              <div className="space-y-2 border rounded-lg p-3">
+                <Input
+                  placeholder="Titre (ex: Grille de prix Full Black)"
+                  value={newRuleTitle}
+                  onChange={(e) => setNewRuleTitle(e.target.value)}
+                  className="h-9"
+                />
+                <Textarea
+                  placeholder="La règle, la grille ou l'aide, en toutes lettres…"
+                  value={newRuleText}
+                  onChange={(e) => setNewRuleText(e.target.value)}
+                  rows={3}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => addRegieRuleMutation.mutate()}
+                  disabled={addRegieRuleMutation.isPending}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter à {regieName(selectedRegieId)}
+                </Button>
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="user" className="mt-3">
             <div className="bg-muted/50 rounded-lg p-3 text-sm text-muted-foreground">
@@ -250,7 +354,11 @@ const AgentMemoryManager = () => {
                         {info.label}
                       </Badge>
                       <Badge variant="outline" className="text-[10px] font-normal">
-                        {memory.scope === "global" ? "Commun" : "Pour vous"}
+                        {memory.scope === "global"
+                          ? "Commun"
+                          : memory.scope === "regie"
+                          ? regieName(memory.regie_id)
+                          : "Pour vous"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         utilisé {memory.usage_count}x
@@ -285,6 +393,8 @@ const AgentMemoryManager = () => {
             <p>
               {tab === "global"
                 ? "Aucun apprentissage commun"
+                : tab === "regie"
+                ? "Aucune règle pour cette régie"
                 : "Aucune mémoire enregistrée"}
             </p>
             <p className="text-xs mt-1">L'agent apprendra de vos interactions</p>

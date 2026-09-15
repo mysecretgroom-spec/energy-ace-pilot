@@ -469,6 +469,8 @@ interface AgentMemory {
   confidence: number;
   usage_count: number;
   scope?: string;
+  regie_id?: string | null;
+  regie_nom?: string | null;
 }
 
 // User-defined prompt tokens for agent customization
@@ -561,7 +563,7 @@ async function loadUserMemories(
   if (cached) return cached;
 
   try {
-    const [globalRes, userRes] = await Promise.all([
+    const [globalRes, userRes, regieRes] = await Promise.all([
       supabase
         .from("whatsapp_agent_memory")
         .select("id, memory_type, key, value, confidence, usage_count, scope")
@@ -575,19 +577,39 @@ async function loadUserMemories(
         .eq("user_id", userId)
         .order("usage_count", { ascending: false })
         .limit(50),
+      supabase
+        .from("whatsapp_agent_memory")
+        .select("id, memory_type, key, value, confidence, usage_count, scope, regie_id, regies(nom)")
+        .eq("scope", "regie")
+        .eq("user_id", userId)
+        .order("usage_count", { ascending: false })
+        .limit(60),
     ]);
 
     if (globalRes.error) console.error("Error loading global memories:", globalRes.error);
     if (userRes.error) console.error("Error loading memories:", userRes.error);
+    if (regieRes.error) console.error("Error loading regie memories:", regieRes.error);
 
-    // Les mémoires personnelles priment sur les mémoires communes (même type+clé)
-    const userMemories = userRes.data || [];
-    const userKeys = new Set(userMemories.map((m: AgentMemory) => `${m.memory_type}|${m.key}`));
+    // deno-lint-ignore no-explicit-any
+    const regieMemories: AgentMemory[] = (regieRes.data || []).map((m: any) => ({
+      ...m,
+      regie_nom: m.regies?.nom || null,
+    }));
+
+    // Priorité: régie > personnel > commun (même memory_type+key)
+    const regieKeys = new Set(regieMemories.map((m) => `${m.memory_type}|${m.key}`));
+    const userMemories = (userRes.data || []).filter(
+      (m: AgentMemory) => !regieKeys.has(`${m.memory_type}|${m.key}`),
+    );
+    const takenKeys = new Set([
+      ...regieKeys,
+      ...userMemories.map((m: AgentMemory) => `${m.memory_type}|${m.key}`),
+    ]);
     const globalMemories = (globalRes.data || []).filter(
-      (m: AgentMemory) => !userKeys.has(`${m.memory_type}|${m.key}`),
+      (m: AgentMemory) => !takenKeys.has(`${m.memory_type}|${m.key}`),
     );
 
-    const memories = [...globalMemories, ...userMemories];
+    const memories = [...globalMemories, ...userMemories, ...regieMemories];
     cache.set(cacheKey, memories, CACHE_TTL.MEMORIES);
     return memories;
   } catch {
@@ -685,7 +707,13 @@ function formatMemoriesForPrompt(memories: AgentMemory[]): string {
       display = `${mem.key}: ${JSON.stringify(v)}`;
     }
     
-    grouped[type].push(mem.scope === "global" ? `${display} [commun]` : display);
+    grouped[type].push(
+      mem.scope === "global"
+        ? `${display} [commun]`
+        : mem.scope === "regie"
+        ? `${display} [régie: ${mem.regie_nom || "?"} — PRIORITAIRE]`
+        : display,
+    );
   }
   
   let result = "";
@@ -3527,7 +3555,15 @@ serve(async (req) => {
               handled.responseMessage = actionResult.customResponse || "❌ Erreur lors de l'exécution.";
             }
           } else {
-            actionResult = handled;
+            actionResult = await autoConfirmActionResult(
+              supabase,
+              request.userId,
+              request.userName,
+              handled,
+              TWILIO_ACCOUNT_SID || "",
+              TWILIO_AUTH_TOKEN || "",
+            );
+            if (actionResult.customResponse) handled.responseMessage = actionResult.customResponse;
           }
           
           aiResponse = {
@@ -3639,10 +3675,35 @@ serve(async (req) => {
         createdAt: new Date().toISOString(),
       };
       
-      actionResult = {
-        newPendingAction: pendingMultiAction,
-        customResponse: aiResponse!.responseMessage,
-      };
+      // Exécution directe de toutes les demandes, sauf si l'une est destructive.
+      const hasDestructive = requests.some(
+        (r) => isDestructiveIntent(r.intent) || (r.entities as Record<string, unknown>)?.action === "supprime",
+      );
+
+      let multiHandled: Awaited<ReturnType<typeof autoExecutePending>> = null;
+      if (!hasDestructive) {
+        multiHandled = await autoExecutePending(
+          supabase,
+          request.userId,
+          request.userName,
+          pendingMultiAction,
+          TWILIO_ACCOUNT_SID || "",
+          TWILIO_AUTH_TOKEN || "",
+        );
+      }
+
+      actionResult = multiHandled
+        ? {
+            actionTaken: multiHandled.actionTaken,
+            entityId: multiHandled.entityId,
+            entityType: multiHandled.entityType,
+            newPendingAction: multiHandled.newPendingAction ?? null,
+            customResponse: multiHandled.customResponse || multiHandled.responseMessage,
+          }
+        : {
+            newPendingAction: pendingMultiAction,
+            customResponse: aiResponse!.responseMessage,
+          };
       
       aiResponse!.responseMessage = actionResult.customResponse || aiResponse!.responseMessage;
       skipAiAnalysis = true; // Skip further processing
@@ -3828,6 +3889,18 @@ serve(async (req) => {
           TWILIO_ACCOUNT_SID!,
           TWILIO_AUTH_TOKEN!
         );
+
+        // Exécution directe: si l'action est prête mais "en attente de validation",
+        // on la réalise tout de suite (sauf suppressions/annulations).
+        actionResult = await autoConfirmActionResult(
+          supabase,
+          request.userId,
+          request.userName,
+          actionResult,
+          TWILIO_ACCOUNT_SID!,
+          TWILIO_AUTH_TOKEN!,
+        );
+        
         
         // Handle feedback regeneration: after saving correction, regenerate response with correction applied
         if (actionResult.actionTaken === "feedback_saved_regenerate") {
@@ -4920,6 +4993,101 @@ function formatQueryResponse(
 
 // Handle pending workflow states (multi-step actions)
 // deno-lint-ignore no-explicit-any
+/**
+ * Exécute immédiatement une action prête (plus de "Confirmes-tu ?").
+ * On réutilise le moteur de workflow en simulant un "oui", puis on
+ * ajoute l'invitation à répondre au message pour corriger.
+ */
+// deno-lint-ignore no-explicit-any
+async function autoExecutePending(
+  supabase: any,
+  userId: string,
+  userName: string,
+  pending: PendingAction,
+  twilioAccountSid: string,
+  twilioAuthToken: string,
+  prefix = "",
+): Promise<{ intent?: Intent; actionTaken?: string; entityId?: string; entityType?: string; newPendingAction?: PendingAction | null; responseMessage: string; customResponse?: string } | null> {
+  const res = await handlePendingWorkflow(
+    supabase,
+    userId,
+    userName,
+    "oui",
+    pending,
+    twilioAccountSid,
+    twilioAuthToken,
+  );
+  if (!res) return null;
+  const message = appendEditHint(`${prefix}${res.customResponse || res.responseMessage || ""}`.trim());
+  return {
+    ...res,
+    responseMessage: message,
+    customResponse: res.customResponse ? message : undefined,
+  };
+}
+
+/** Retire les lignes de demande de validation d'un récapitulatif. */
+function stripConfirmationPrompt(message: string): string {
+  return (message || "")
+    .split("\n")
+    .filter((l) => {
+      const t = l.toLowerCase();
+      return !(
+        t.includes("confirmes-tu") ||
+        t.includes("confirme-tu") ||
+        t.includes("je valide ?") ||
+        t.includes("oui* pour confirmer") ||
+        t.includes("non* pour annuler") ||
+        t.includes("ces informations sont-elles correctes") ||
+        t.includes("(oui/non)")
+      );
+    })
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Garde-fou global: si une étape laisse une action « prête » en attente
+ * de validation, on l'exécute immédiatement. Seules les suppressions et
+ * annulations gardent une vraie confirmation.
+ */
+// deno-lint-ignore no-explicit-any
+async function autoConfirmActionResult(
+  supabase: any,
+  userId: string,
+  userName: string,
+  // deno-lint-ignore no-explicit-any
+  result: any,
+  twilioAccountSid: string,
+  twilioAuthToken: string,
+  // deno-lint-ignore no-explicit-any
+): Promise<any> {
+  const pending: PendingAction | null | undefined = result?.newPendingAction;
+  if (!pending || pending.workflowState !== "awaiting_confirmation") return result;
+
+  const action = (pending.entities as Record<string, unknown> | undefined)?.action;
+  if (action === "supprime" || action === "annule" || isDestructiveIntent(pending.intent)) return result;
+
+  const recap = stripConfirmationPrompt(result.customResponse || result.responseMessage || "");
+  const done = await autoExecutePending(
+    supabase, userId, userName, pending, twilioAccountSid, twilioAuthToken,
+    recap ? `${recap}\n\n` : "",
+  );
+  if (!done) return result;
+
+  return {
+    ...result,
+    intent: done.intent ?? result.intent,
+    actionTaken: done.actionTaken ?? result.actionTaken,
+    entityId: done.entityId ?? result.entityId,
+    entityType: done.entityType ?? result.entityType,
+    newPendingAction: done.newPendingAction ?? null,
+    customResponse: done.customResponse || done.responseMessage,
+    responseMessage: done.responseMessage,
+  };
+}
+
+
 async function handlePendingWorkflow(
   supabase: any,
   userId: string,
@@ -5805,24 +5973,30 @@ async function handlePendingWorkflow(
         const originalEntities = pendingAction.entities;
         const effectiveIntent = originalIntent || pendingAction.intent;
         
-        // For create_rdv intent, skip sale type question and proceed directly
+        // For create_rdv intent: création immédiate du client + du RDV
         if (effectiveIntent === "create_rdv") {
+          const readyNewClient: PendingAction = {
+            intent: "create_rdv",
+            entities: { ...originalEntities, is_new_client: true, client_name: clientName },
+            workflowState: "awaiting_confirmation",
+            collectedData: {
+              clientName: clientName,
+              isNewClient: true,
+              date: originalEntities.date as string,
+              time: originalEntities.time as string,
+            },
+            createdAt: new Date().toISOString(),
+          };
+          const doneNewClient = await autoExecutePending(
+            supabase, userId, userName, readyNewClient, twilioAccountSid, twilioAuthToken,
+            `🆕 Client "${clientName}" créé.\n\n`,
+          );
+          if (doneNewClient) return doneNewClient;
           return {
             intent: "create_rdv",
             actionTaken: "new_client_selected",
-            newPendingAction: {
-              intent: "create_rdv",
-              entities: { ...originalEntities, is_new_client: true, client_name: clientName },
-              workflowState: "awaiting_confirmation",
-              collectedData: {
-                clientName: clientName,
-                isNewClient: true,
-                date: originalEntities.date as string,
-                time: originalEntities.time as string,
-              },
-              createdAt: new Date().toISOString(),
-            },
-            responseMessage: `🆕 Client "${clientName}" sera créé.\n\n📅 *Nouveau RDV*\n• Client: ${clientName}\n• Date: ${originalEntities.date || "non définie"}\n• Heure: ${originalEntities.time || "non définie"}\n${originalEntities.address ? `• Adresse: ${originalEntities.address}\n` : ""}${originalEntities.commentaire ? `• Commentaire: ${(originalEntities.commentaire as string).substring(0, 100)}...\n` : ""}\n*Confirmes-tu ?* (Oui/Non)`,
+            newPendingAction: readyNewClient,
+            responseMessage: `🆕 Client "${clientName}" sera créé.`,
           };
         }
         
@@ -5886,13 +6060,9 @@ async function handlePendingWorkflow(
         };
       }
       
-      // For action intents, we need confirmation
-      return {
-        intent: originalIntent || pendingAction.intent,
-        actionTaken: "choice_selected_confirm",
-        entityId: selectedChoice.id,
-        entityType: selectedChoice.entityType,
-        newPendingAction: {
+      // Le client est identifié: on exécute directement l'action
+      {
+        const readyChoice: PendingAction = {
           intent: originalIntent || pendingAction.intent,
           entities: updatedEntities,
           workflowState: "awaiting_confirmation",
@@ -5902,8 +6072,20 @@ async function handlePendingWorkflow(
             clientName: selectedChoice.label,
           },
           createdAt: new Date().toISOString(),
-        },
-        responseMessage: `📝 J'ai compris: *${selectedChoice.label}*\n\nJe vais ${getIntentActionDescription(originalIntent || pendingAction.intent, updatedEntities)}.\n\n*Confirmes-tu ?* (Oui/Non)`,
+        };
+        const doneChoice = await autoExecutePending(
+          supabase, userId, userName, readyChoice, twilioAccountSid, twilioAuthToken,
+          `📝 ${selectedChoice.label}\n\n`,
+        );
+        if (doneChoice) return { ...doneChoice, entityId: doneChoice.entityId ?? selectedChoice.id };
+      }
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "choice_selected_confirm",
+        entityId: selectedChoice.id,
+        entityType: selectedChoice.entityType,
+        newPendingAction: null,
+        responseMessage: `📝 J'ai compris: *${selectedChoice.label}*`,
       };
     }
     
@@ -5979,19 +6161,25 @@ async function handlePendingWorkflow(
         regieName: selectedChoice.label,
       };
       
-      // For create_rdv: proceed to create the RDV with the selected regie
+      // For create_rdv: on crée directement le RDV avec la régie choisie
       if (originalIntent === "create_rdv") {
+        const readyRdv: PendingAction = {
+          intent: "create_rdv",
+          entities: pendingAction.entities,
+          workflowState: "awaiting_confirmation",
+          collectedData: updatedCollectedData,
+          createdAt: new Date().toISOString(),
+        };
+        const doneRdv = await autoExecutePending(
+          supabase, userId, userName, readyRdv, twilioAccountSid, twilioAuthToken,
+          `✅ Régie: *${selectedChoice.label}*\n\n`,
+        );
+        if (doneRdv) return doneRdv;
         return {
           intent: "create_rdv",
           actionTaken: "regie_selected_continue",
-          newPendingAction: {
-            intent: "create_rdv",
-            entities: pendingAction.entities,
-            workflowState: "awaiting_confirmation",
-            collectedData: updatedCollectedData,
-            createdAt: new Date().toISOString(),
-          },
-          responseMessage: `✅ Régie: *${selectedChoice.label}*\n\n📝 Récap RDV:\n• Client: ${updatedCollectedData.clientName}\n• Date: ${pendingAction.entities.date || "aujourd'hui"} à ${pendingAction.entities.time || "10h"}\n• Régie: ${selectedChoice.label}\n\n*Confirmes-tu ?* (Oui/Non)`,
+          newPendingAction: readyRdv,
+          responseMessage: `✅ Régie: *${selectedChoice.label}*`,
         };
       }
       
@@ -6024,18 +6212,26 @@ async function handlePendingWorkflow(
         };
       }
       
-      // Default: continue with confirmation
-      return {
-        intent: originalIntent || pendingAction.intent,
-        actionTaken: "regie_selected_confirm",
-        newPendingAction: {
+      // Défaut: on exécute directement avec la régie choisie
+      {
+        const readyRegie: PendingAction = {
           intent: originalIntent || pendingAction.intent,
           entities: { ...pendingAction.entities, regie_id: selectedChoice.id },
           workflowState: "awaiting_confirmation",
           collectedData: updatedCollectedData,
           createdAt: new Date().toISOString(),
-        },
-        responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.\n\n*Confirmes-tu cette action ?* (Oui/Non)`,
+        };
+        const doneRegie = await autoExecutePending(
+          supabase, userId, userName, readyRegie, twilioAccountSid, twilioAuthToken,
+          `✅ Régie *${selectedChoice.label}*\n\n`,
+        );
+        if (doneRegie) return doneRegie;
+      }
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "regie_selected_confirm",
+        newPendingAction: null,
+        responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.`,
       };
     }
     
@@ -7482,20 +7678,22 @@ const LOW_RISK_INTENTS = new Set<string>([
   "create_support_ticket",
 ]);
 
+/**
+ * NOUVEAU (2026-09): plus de validation « Je valide ? » par défaut.
+ * L'agent exécute immédiatement et l'utilisateur corrige en RÉPONDANT
+ * au récapitulatif. Seules les actions destructives (suppression,
+ * annulation en masse) demandent encore une confirmation explicite.
+ */
 function enforceConfirmation(
   intent: string,
   entities: Record<string, unknown>,
-  confidence: number,
-  modelDecision: boolean,
+  _confidence: number,
+  _modelDecision: boolean,
 ): boolean {
   if (intent?.startsWith("query_") || intent === "user_feedback" || intent === "conversation") return false;
-  if (ALWAYS_CONFIRM_INTENTS.has(intent)) return true;
   if (entities?.action === "supprime") return true;
-  if (LOW_RISK_INTENTS.has(intent)) {
-    if (!Number.isFinite(confidence) || confidence < 85) return true;
-    return modelDecision;
-  }
-  return modelDecision;
+  if (isDestructiveIntent(intent)) return true;
+  return false;
 }
 
 // Analyze intent with AI
@@ -7558,6 +7756,9 @@ Application: DébalePro (gestion commerciale ENR).
 - Date ISO: ${today}
 
 MÉMOIRE UTILISATEUR:
+(ordre de priorité: [régie: X — PRIORITAIRE] > mémoire personnelle > [commun].
+Dès qu'une régie est identifiée dans la demande, ses règles, grilles de prix et aides
+écrasent les apprentissages généraux.)
 ${memoriesSection}
 ${customPromptsSection}
 
@@ -7744,19 +7945,38 @@ RÈGLES CRITIQUES:
 - INTERDIT de bloquer avec un message d'erreur sur le client - laisse le backend gérer
 - Exemple: "signé chez Poirier 4kwc 19900€" → mark_signe avec entities: {"client_name":"Poirier","puissance_kwc":4,"amount":19900} - PAS de message d'erreur!
 
-⚠️ CONFIRMATION INTELLIGENTE (tu décides selon le risque):
-- CONFIRMATION TOUJOURS OBLIGATOIRE (requiresConfirmation: true), sans exception:
-  mark_signe, create_external_vente, update_vente_pipeline, update_vente_data, update_vente_status,
-  add_decom, import_facture, toute suppression (action="supprime"), toute action en masse (>1 élément).
-- CONFIRMATION FACULTATIVE si TOUT est réuni : demande claire, aucune ambiguïté sur le client,
-  confidence >= 85, action peu risquée et facilement réversible (create_rdv complet, update_rdv simple,
-  update_client_notes, update_client_data, create_support_ticket) → requiresConfirmation: false,
-  exécute et annonce le résultat ("c'est calé ✅ …, dis-moi si je corrige").
-- DOUTE = CONFIRMATION. Si confidence < 85, si plusieurs clients peuvent correspondre, si un montant
-  ou une date est déduit et non dit explicitement → requiresConfirmation: true.
-- Quand tu confirmes: UN SEUL message avec un récapitulatif complet et lisible (client, chiffres, action),
-  puis "Je valide ?". Le format exact est libre, l'exhaustivité ne l'est pas.
-- JAMAIS de confirmation intermédiaire en chaîne. Si des données manquent, demande-les en UNE fois.
+✅ EXÉCUTION DIRECTE — RÈGLE PRINCIPALE (ne demande PAS de validation):
+- Par défaut requiresConfirmation = false. Tu FAIS l'action, puis tu envoies un récapitulatif
+  complet (client, chiffres, date, statut) et tu termines par une invitation à corriger,
+  jamais par une question de validation. Le silence de l'utilisateur = c'est bon.
+- INTERDIT: "Confirmes-tu ?", "(Oui/Non)", "Je valide ?", "C'est correct ?" — sauf suppression.
+- SEULE EXCEPTION (requiresConfirmation: true): supprimer définitivement quelque chose
+  (action="supprime") ou annuler/supprimer plusieurs éléments d'un coup.
+- Si une info VRAIMENT indispensable manque (ex: prix d'une vente signée), pose UNE seule question
+  courte. Tout ce qui peut être déduit raisonnablement, tu le déduis et tu l'annonces dans le récap
+  ("j'ai mis 14h, dis-moi si c'est autre chose").
+- Si deux clients homonymes peuvent correspondre, propose la liste numérotée : ce n'est pas une
+  validation, c'est une désambiguïsation. Une fois le choix fait, tu exécutes sans re-demander.
+
+🧠 COMPRENDRE UN LANGAGE LIBRE (tu n'es pas un formulaire):
+- Les messages arrivent dictés, mal orthographiés, en abrégé, sans ponctuation, parfois en plusieurs
+  bouts. Tu dois COMPRENDRE l'intention, pas exiger un format.
+- Exemples à comprendre sans broncher: "dupont ok 6kw 21900", "rdv mme leblanc mardi aprem 3h",
+  "j'ai signé chez le monsieur de ce matin", "il m'a repoussé à jeudi", "note: chien méchant",
+  "plein 62e", "la vieille dame de hier soir c'était négatif".
+- Utilise le contexte (messages précédents, dernier client évoqué, RDV du jour, paramétrage métier,
+  mémoires apprises) pour résoudre les références implicites ("lui", "le dernier", "ce matin").
+- Normalise toi-même: "6kw"→6 kWc, "21900"→21 900 €, "mardi aprem"→mardi 14:00, "62e"→62 €.
+- Ne réponds JAMAIS "format non reconnu" ou "je ne comprends pas" sans proposer ton interprétation
+  la plus probable ("je pars sur X, dis-moi si je me trompe").
+- Si la confiance est faible mais l'action réversible, agis quand même et annonce ton hypothèse.
+
+📚 APPRENDRE DES CORRECTIONS:
+- Dès que l'utilisateur te reprend ("non pas lui", "toujours mettre X", "c'est Martin pas Dupont",
+  "arrête de me demander"), tu enregistres la leçon dans memory_suggestions et tu l'appliques
+  IMMÉDIATEMENT dans la même réponse.
+- Retiens aussi ses habitudes sans qu'il le demande: vocabulaire, surnoms de clients, régies
+  fréquentes, horaires types, catégories de frais récurrentes.
 
 
 📱 EXTRACTION DE DONNÉES CLIENT DANS LES RDV:
@@ -7769,7 +7989,7 @@ RÈGLES CRITIQUES:
 - Si des notes sont détectées, les INCLURE dans le récapitulatif (ex: "📝 Note: Client intéressé par 9kwc")
 - Si AUCUN numéro n'est mentionné, NE PAS le demander, enregistrer le RDV sans téléphone — c'est OK
 - Toutes ces données seront automatiquement sauvegardées sur la fiche client
-- Applique la règle de CONFIRMATION INTELLIGENTE ci-dessus pour fixer requiresConfirmation
+- Applique la règle d'EXÉCUTION DIRECTE ci-dessus: requiresConfirmation = false sauf suppression
 - Les requêtes (query_*), user_feedback et conversations ne nécessitent JAMAIS de confirmation
 
 EXEMPLES DE CLASSIFICATION:
@@ -7808,7 +8028,8 @@ RÈGLE: Si tu détectes plusieurs demandes distinctes:
 1. Mets is_multi_request: true
 2. Retourne un tableau "requests" avec chaque demande séparée
 3. Chaque request doit avoir: id, intent, entities, summary (description courte)
-4. Le responseMessage doit lister TOUTES les demandes pour approbation granulaire
+4. Le responseMessage liste TOUTES les demandes comme un récapitulatif de ce que tu VIENS de faire
+   (pas une demande de validation), sauf s'il s'agit de suppressions.
 
 FORMAT MULTI-REQUÊTE:
 {
@@ -7819,8 +8040,8 @@ FORMAT MULTI-REQUÊTE:
     {"id": "req_1", "intent": "update_vente_status", "entities": {"client_name": "Martin", "status": "positif"}, "summary": "Martin → Positif"},
     {"id": "req_2", "intent": "update_vente_status", "entities": {"client_name": "Dupont", "status": "negatif"}, "summary": "Dupont → Négatif"}
   ],
-  "requiresConfirmation": true,
-  "responseMessage": "📋 *2 ACTIONS DÉTECTÉES*\n\n1️⃣ Martin → Positif\n2️⃣ Dupont → Négatif\n\n*Confirmer:* \"oui\" (tout) | \"1\" (seulement #1) | \"1,2\" (spécifiques) | \"non\" (annuler)"
+  "requiresConfirmation": false,
+  "responseMessage": "📋 *2 actions*\n\n1️⃣ Martin → Positif\n2️⃣ Dupont → Négatif"
 }
 
 IMPORTANT: Ne PAS transformer en multi-requête si:
@@ -9572,6 +9793,27 @@ async function executeAction(
         },
         createdAt: new Date().toISOString(),
       };
+
+      // NOUVEAU COMPORTEMENT: on enregistre directement (pas de "Oui/Non").
+      // L'utilisateur corrige en RÉPONDANT au récap s'il y a une erreur.
+      const autoSaved = await handlePendingWorkflow(
+        supabase,
+        userId,
+        userName,
+        "oui",
+        newPendingAction,
+        twilioAccountSid,
+        twilioAuthToken,
+      );
+      if (autoSaved) {
+        return {
+          actionTaken: autoSaved.actionTaken,
+          entityId: autoSaved.entityId ?? pendingDoc?.id,
+          entityType: autoSaved.entityType ?? "pending_document",
+          newPendingAction: autoSaved.newPendingAction ?? null,
+          customResponse: appendEditHint(autoSaved.customResponse || autoSaved.responseMessage),
+        };
+      }
 
       return {
         actionTaken: "awaiting_facture_confirmation",
