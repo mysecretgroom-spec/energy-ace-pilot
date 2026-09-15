@@ -28,6 +28,7 @@ interface AgentMemory {
   id: string;
   user_id: string | null;
   scope: string;
+  regie_id?: string | null;
   memory_type: string;
   key: string;
   value: Record<string, unknown>;
@@ -44,6 +45,7 @@ const memoryTypeLabels: Record<string, { label: string; icon: React.ComponentTyp
   context: { label: "Contexte", icon: MessageSquare, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
   alias: { label: "Alias", icon: User, color: "bg-green-500/10 text-green-600 border-green-500/20" },
   shortcut: { label: "Raccourci", icon: Settings, color: "bg-pink-500/10 text-pink-600 border-pink-500/20" },
+  rule: { label: "Règle régie", icon: Building2, color: "bg-teal-500/10 text-teal-600 border-teal-500/20" },
 };
 
 const AgentMemoryManager = () => {
@@ -51,9 +53,12 @@ const AgentMemoryManager = () => {
   const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [tab, setTab] = useState<"user" | "global">("user");
+  const [tab, setTab] = useState<"user" | "regie" | "global">("user");
+  const [selectedRegieId, setSelectedRegieId] = useState<string>("");
+  const [newRuleTitle, setNewRuleTitle] = useState("");
+  const [newRuleText, setNewRuleText] = useState("");
 
-  // Fetch memories (personnelles + communes)
+  // Fetch memories (personnelles + régie + communes)
   const { data: memories, isLoading } = useQuery({
     queryKey: ["agent-memories", user?.id],
     queryFn: async () => {
@@ -69,9 +74,56 @@ const AgentMemoryManager = () => {
     enabled: !!user,
   });
 
-  const userMemories = memories?.filter((m) => m.scope !== "global") ?? [];
+  const { data: regies } = useQuery({
+    queryKey: ["agent-memories-regies", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("regies")
+        .select("id, nom")
+        .order("nom");
+      if (error) throw error;
+      return (data || []) as { id: string; nom: string }[];
+    },
+    enabled: !!user,
+  });
+
+  const userMemories = memories?.filter((m) => m.scope === "user" || (!m.scope && m.user_id)) ?? [];
   const globalMemories = memories?.filter((m) => m.scope === "global") ?? [];
-  const currentList = tab === "global" ? globalMemories : userMemories;
+  const regieMemories = memories?.filter((m) => m.scope === "regie") ?? [];
+  const regieName = (id?: string | null) => regies?.find((r) => r.id === id)?.nom || "Régie";
+  const currentList =
+    tab === "global"
+      ? globalMemories
+      : tab === "regie"
+      ? regieMemories.filter((m) => !selectedRegieId || m.regie_id === selectedRegieId)
+      : userMemories;
+
+  const addRegieRuleMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Non authentifié");
+      if (!selectedRegieId) throw new Error("Choisissez une régie");
+      if (!newRuleTitle.trim() || !newRuleText.trim()) throw new Error("Titre et règle requis");
+      const { error } = await supabase.from("whatsapp_agent_memory").insert({
+        user_id: user.id,
+        regie_id: selectedRegieId,
+        scope: "regie",
+        memory_type: "rule",
+        key: newRuleTitle.trim(),
+        value: { description: newRuleText.trim() },
+        confidence: 1,
+        usage_count: 0,
+        last_used_at: new Date().toISOString(),
+      } as never);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewRuleTitle("");
+      setNewRuleText("");
+      queryClient.invalidateQueries({ queryKey: ["agent-memories"] });
+      toast.success("Règle de régie enregistrée");
+    },
+    onError: (e: Error) => toast.error(e.message || "Erreur lors de l'enregistrement"),
+  });
 
   // Delete memory mutation
   const deleteMutation = useMutation({
