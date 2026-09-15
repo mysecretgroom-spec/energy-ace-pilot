@@ -6057,18 +6057,26 @@ async function handlePendingWorkflow(
         };
       }
       
-      // Default: continue with confirmation
-      return {
-        intent: originalIntent || pendingAction.intent,
-        actionTaken: "regie_selected_confirm",
-        newPendingAction: {
+      // Défaut: on exécute directement avec la régie choisie
+      {
+        const readyRegie: PendingAction = {
           intent: originalIntent || pendingAction.intent,
           entities: { ...pendingAction.entities, regie_id: selectedChoice.id },
           workflowState: "awaiting_confirmation",
           collectedData: updatedCollectedData,
           createdAt: new Date().toISOString(),
-        },
-        responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.\n\n*Confirmes-tu cette action ?* (Oui/Non)`,
+        };
+        const doneRegie = await autoExecutePending(
+          supabase, userId, userName, readyRegie, twilioAccountSid, twilioAuthToken,
+          `✅ Régie *${selectedChoice.label}*\n\n`,
+        );
+        if (doneRegie) return doneRegie;
+      }
+      return {
+        intent: originalIntent || pendingAction.intent,
+        actionTaken: "regie_selected_confirm",
+        newPendingAction: null,
+        responseMessage: `✅ Régie *${selectedChoice.label}* sélectionnée.`,
       };
     }
     
