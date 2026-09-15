@@ -6012,19 +6012,25 @@ async function handlePendingWorkflow(
         regieName: selectedChoice.label,
       };
       
-      // For create_rdv: proceed to create the RDV with the selected regie
+      // For create_rdv: on crée directement le RDV avec la régie choisie
       if (originalIntent === "create_rdv") {
+        const readyRdv: PendingAction = {
+          intent: "create_rdv",
+          entities: pendingAction.entities,
+          workflowState: "awaiting_confirmation",
+          collectedData: updatedCollectedData,
+          createdAt: new Date().toISOString(),
+        };
+        const doneRdv = await autoExecutePending(
+          supabase, userId, userName, readyRdv, twilioAccountSid, twilioAuthToken,
+          `✅ Régie: *${selectedChoice.label}*\n\n`,
+        );
+        if (doneRdv) return doneRdv;
         return {
           intent: "create_rdv",
           actionTaken: "regie_selected_continue",
-          newPendingAction: {
-            intent: "create_rdv",
-            entities: pendingAction.entities,
-            workflowState: "awaiting_confirmation",
-            collectedData: updatedCollectedData,
-            createdAt: new Date().toISOString(),
-          },
-          responseMessage: `✅ Régie: *${selectedChoice.label}*\n\n📝 Récap RDV:\n• Client: ${updatedCollectedData.clientName}\n• Date: ${pendingAction.entities.date || "aujourd'hui"} à ${pendingAction.entities.time || "10h"}\n• Régie: ${selectedChoice.label}\n\n*Confirmes-tu ?* (Oui/Non)`,
+          newPendingAction: readyRdv,
+          responseMessage: `✅ Régie: *${selectedChoice.label}*`,
         };
       }
       
