@@ -3527,7 +3527,15 @@ serve(async (req) => {
               handled.responseMessage = actionResult.customResponse || "❌ Erreur lors de l'exécution.";
             }
           } else {
-            actionResult = handled;
+            actionResult = await autoConfirmActionResult(
+              supabase,
+              request.userId,
+              request.userName,
+              handled,
+              TWILIO_ACCOUNT_SID || "",
+              TWILIO_AUTH_TOKEN || "",
+            );
+            if (actionResult.customResponse) handled.responseMessage = actionResult.customResponse;
           }
           
           aiResponse = {
