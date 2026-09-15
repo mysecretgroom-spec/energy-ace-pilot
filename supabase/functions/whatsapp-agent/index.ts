@@ -3836,6 +3836,18 @@ serve(async (req) => {
           TWILIO_ACCOUNT_SID!,
           TWILIO_AUTH_TOKEN!
         );
+
+        // Exécution directe: si l'action est prête mais "en attente de validation",
+        // on la réalise tout de suite (sauf suppressions/annulations).
+        actionResult = await autoConfirmActionResult(
+          supabase,
+          request.userId,
+          request.userName,
+          actionResult,
+          TWILIO_ACCOUNT_SID!,
+          TWILIO_AUTH_TOKEN!,
+        );
+        
         
         // Handle feedback regeneration: after saving correction, regenerate response with correction applied
         if (actionResult.actionTaken === "feedback_saved_regenerate") {
