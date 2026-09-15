@@ -9573,6 +9573,27 @@ async function executeAction(
         createdAt: new Date().toISOString(),
       };
 
+      // NOUVEAU COMPORTEMENT: on enregistre directement (pas de "Oui/Non").
+      // L'utilisateur corrige en RÉPONDANT au récap s'il y a une erreur.
+      const autoSaved = await handlePendingWorkflow(
+        supabase,
+        userId,
+        userName,
+        "oui",
+        newPendingAction,
+        twilioAccountSid,
+        twilioAuthToken,
+      );
+      if (autoSaved) {
+        return {
+          actionTaken: autoSaved.actionTaken,
+          entityId: autoSaved.entityId ?? pendingDoc?.id,
+          entityType: autoSaved.entityType ?? "pending_document",
+          newPendingAction: autoSaved.newPendingAction ?? null,
+          customResponse: appendEditHint(autoSaved.customResponse || autoSaved.responseMessage),
+        };
+      }
+
       return {
         actionTaken: "awaiting_facture_confirmation",
         entityId: pendingDoc?.id,
