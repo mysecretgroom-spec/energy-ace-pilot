@@ -3080,7 +3080,7 @@ serve(async (req) => {
       await Promise.all([
       supabase
         .from("whatsapp_conversations")
-        .select("context, pending_action, pending_message_sids")
+        .select("context, pending_action, pending_message_sids, last_turn")
         .eq("user_id", request.userId)
         .single(),
       loadUserMemories(supabase, request.userId),
@@ -3107,6 +3107,20 @@ serve(async (req) => {
 
     const conversationContext = (conversationResult.data?.context || []) as Array<{ role: string; content: string }>;
     let pendingAction = conversationResult.data?.pending_action as PendingAction | null;
+
+    // Mémoire du dernier échange résolu : permet de comprendre les suivis
+    // ("redonne-moi", "et pour lui ?", "recalcule", "t'as oublié la décom").
+    const lastTurn = (conversationResult.data?.last_turn || null) as
+      | { intent?: string; entities?: Record<string, unknown>; action?: string; at?: string }
+      | null;
+    const lastTurnSection = lastTurn?.intent
+      ? `\n\n🔗 DERNIER ÉCHANGE RÉSOLU (sujet en cours):\n` +
+        `• intention: ${lastTurn.intent}\n` +
+        `• éléments: ${JSON.stringify(lastTurn.entities || {}).substring(0, 500)}\n` +
+        `• résultat: ${lastTurn.action || "n/c"}\n` +
+        `Si le nouveau message est un SUIVI (ex: "redonne-moi", "et pour lui", "recalcule", "t'as oublié X", "non c'est pas ça"), ` +
+        `REPRENDS ces éléments (client, période, régie...) au lieu de repartir de zéro. Ne redemande jamais une info déjà connue ci-dessus.`
+      : "";
 
     // ============================================================
     // QUOTED-REPLY ROUTING: if the user replied to a specific agent
@@ -3617,7 +3631,7 @@ serve(async (req) => {
           isReply: !!request.isReplyToMessage,
           replyToContent: request.replyToMessageContent || null
         },
-        `${userConfigContext || ""}${skillsSection}${sessionSection}`
+        `${userConfigContext || ""}${skillsSection}${sessionSection}${lastTurnSection}`
       );
 
       tracer.step("intention_analysee", {
@@ -4117,6 +4131,20 @@ Commence par: "✅ C'est noté !" puis donne une réponse VISIBLEMENT DIFFÉRENT
       pending_action: newPendingAction,
       last_message_at: new Date().toISOString(),
     };
+
+    // Mémorise le sujet de ce tour pour comprendre le prochain message de suivi
+    if (aiResponse! && !["confirm_action", "cancel_action", "unknown"].includes(aiResponse!.intent)) {
+      const prevEntities = (lastTurn?.entities || {}) as Record<string, unknown>;
+      const curEntities = (aiResponse!.entities || {}) as Record<string, unknown>;
+      // Un suivi sans nouvelles entités conserve le sujet précédent
+      const mergedEntities = Object.keys(curEntities).length ? { ...prevEntities, ...curEntities } : prevEntities;
+      conversationUpdate.last_turn = {
+        intent: aiResponse!.intent === "conversation" ? (lastTurn?.intent || "conversation") : aiResponse!.intent,
+        entities: mergedEntities,
+        action: actionResult.actionTaken || null,
+        at: new Date().toISOString(),
+      };
+    }
     if (newPendingAction === null) {
       conversationUpdate.pending_message_sids = {};
     }
@@ -8107,6 +8135,18 @@ IMPORTANT pour query_rdv_detail:
 - confidence DOIT être entre 0 et 100 (ex: 90, 95, 100). NE PAS utiliser une échelle 0-1.
 
 Pour requêtes (query_*): responseMessage très court ("📊"), les données sont formatées automatiquement.
+
+🧠 FIL DE LA CONVERSATION (obligatoire):
+- Tu discutes avec un humain, pas avec un formulaire. Relis l'historique et le bloc "DERNIER ÉCHANGE RÉSOLU" avant de décider.
+- Un message court sans nom de client ("redonne-moi", "et alors ?", "recalcule", "vas-y", "et pour lui ?", "affiche-moi ça") est un SUIVI :
+  reprends l'intention ET les entités du dernier échange (client, période, régie) au lieu de répondre "je n'ai pas compris".
+- Une remarque de l'utilisateur ("non c'est pas bon", "t'as oublié la décom", "c'est pas le bon montant") = CORRECTION :
+  → enregistre-la dans memory_suggestions (memory_type "correction" ou "rule"),
+  → puis REFAIS immédiatement la demande précédente avec la correction prise en compte (ne réponds JAMAIS juste "ok compris").
+- Ne redemande jamais une information déjà présente dans l'historique ou le dernier échange.
+- Le calcul officiel de la commission inclut toujours la décom (commission nette = base + survente − décom). Si l'utilisateur
+  conteste un montant de commission, réinterroge le dossier (query_vente_detail avec query_field "commission") et détaille les lignes.
+
 Contexte: ${userName} | Date: ${today}
 ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
 
@@ -8239,7 +8279,9 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     }),
   });
 
-  let response = await callModel("google/gemini-2.5-flash-lite");
+  // Modèle de raisonnement principal : plus intelligent que l'ancien "lite",
+  // il comprend le langage libre, les suivis et les corrections.
+  let response = await callModel("google/gemini-3.8-flash");
 
   if (!response.ok) {
     const error = await response.text();
@@ -8275,7 +8317,7 @@ ${pendingAction ? `En attente: ${JSON.stringify(pendingAction)}` : ""}`;
     !firstChoice?.message?.tool_calls?.[0] &&
     !(typeof firstChoice?.message?.content === "string" && firstChoice.message.content.trim());
   if (malformed) {
-    console.warn("Lite model failed to emit tool call, retrying with gemini-2.5-flash", firstChoice?.native_finish_reason);
+    console.warn("Main model failed to emit tool call, retrying with gemini-2.5-flash", firstChoice?.native_finish_reason);
     try {
       const retry = await callModel("google/gemini-2.5-flash");
       if (retry.ok) {
