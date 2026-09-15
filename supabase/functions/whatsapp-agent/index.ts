@@ -632,22 +632,38 @@ async function saveMemory(
     // Invalidate cache for this user's memories
     cache.delete(CACHE_KEYS.USER_MEMORIES(userId));
     
-    // Upsert memory - if exists, increment usage_count and update
-    const { error } = await supabase
+    // Les index uniques sont partiels (par scope), donc l'upsert par onConflict
+    // n'est plus applicable : on fait select → update/insert manuellement.
+    const { data: existing } = await supabase
       .from("whatsapp_agent_memory")
-      .upsert({
-        user_id: userId,
-        scope: "user",
-        memory_type: memoryType,
-        key: key,
-        value: value,
-        confidence: confidence,
-        usage_count: 1,
-        last_used_at: new Date().toISOString(),
-      }, {
-        onConflict: "user_id,memory_type,key",
-      });
-    
+      .select("id, usage_count")
+      .eq("user_id", userId)
+      .eq("scope", "user")
+      .eq("memory_type", memoryType)
+      .eq("key", key)
+      .maybeSingle();
+
+    const { error } = existing
+      ? await supabase
+          .from("whatsapp_agent_memory")
+          .update({
+            value,
+            confidence,
+            usage_count: (existing.usage_count || 0) + 1,
+            last_used_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+      : await supabase.from("whatsapp_agent_memory").insert({
+          user_id: userId,
+          scope: "user",
+          memory_type: memoryType,
+          key,
+          value,
+          confidence,
+          usage_count: 1,
+          last_used_at: new Date().toISOString(),
+        });
+
     if (error) {
       console.error("Error saving memory:", error);
     } else {
