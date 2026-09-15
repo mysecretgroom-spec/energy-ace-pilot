@@ -71,6 +71,7 @@ Statut: NÉGATIF
 
 Le client n'est pas intéressé pour le moment.
 
+*Compte-rendu du technicien:*
 {{comment}}
 
 ---
