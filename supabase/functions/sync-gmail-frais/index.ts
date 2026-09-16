@@ -288,7 +288,7 @@ serve(async (req) => {
           const insertData: Record<string, unknown> = {
             user_id: userId,
             montant: ocr.montant_ttc,
-            date_frais: dateFrais > today ? today : dateFrais,
+            date_frais: dateEffective,
             categorie,
             description: [ocr.commercant, ocr.description].filter(Boolean).join(" - ") || subject || null,
             fournisseur: ocr.commercant || null,
