@@ -260,11 +260,35 @@ serve(async (req) => {
             ? ocr.date
             : internalDate.toISOString().slice(0, 10);
           const today = new Date().toISOString().slice(0, 10);
+          const dateEffective = dateFrais > today ? today : dateFrais;
+
+          // Anti-doublon : un frais identique (même fournisseur/montant/date, ou
+          // même montant/date si le fournisseur n'a pas été lu) existe déjà ?
+          let dupQuery = supabase
+            .from("frais")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("date_frais", dateEffective)
+            .gte("montant", Math.round((ocr.montant_ttc - 0.02) * 100) / 100)
+            .lte("montant", Math.round((ocr.montant_ttc + 0.02) * 100) / 100);
+          const fournisseur = (ocr.commercant || "").trim();
+          if (fournisseur) dupQuery = dupQuery.ilike("fournisseur", `%${fournisseur.slice(0, 60)}%`);
+          const { data: dups } = await dupQuery.limit(1);
+          if (dups && dups.length) {
+            await supabase.from("gmail_frais_imports").insert({
+              user_id: userId, gmail_message_id: msg.id, attachment_key: key,
+              statut: "ignore", sujet: subject, expediteur: sender,
+              frais_id: dups[0].id, erreur: "Doublon détecté",
+            });
+            skipped++;
+            details.push({ messageId: msg.id, subject, status: "skipped", error: "Doublon" });
+            continue;
+          }
 
           const insertData: Record<string, unknown> = {
             user_id: userId,
             montant: ocr.montant_ttc,
-            date_frais: dateFrais > today ? today : dateFrais,
+            date_frais: dateEffective,
             categorie,
             description: [ocr.commercant, ocr.description].filter(Boolean).join(" - ") || subject || null,
             fournisseur: ocr.commercant || null,

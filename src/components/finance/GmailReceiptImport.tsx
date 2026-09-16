@@ -29,6 +29,21 @@ const CHAMP_LABEL: Record<Filtre["champ"], string> = {
   tout: "Sujet + contenu",
 };
 
+// Mots-clés proposés automatiquement à la première ouverture
+const DEFAULT_TERMES: Array<{ terme: string; champ: Filtre["champ"] }> = [
+  { terme: "facture", champ: "tout" },
+  { terme: "reçu", champ: "tout" },
+  { terme: "recu", champ: "tout" },
+  { terme: "paiement", champ: "tout" },
+  { terme: "péage", champ: "tout" },
+  { terme: "peage", champ: "tout" },
+  { terme: "note de frais", champ: "tout" },
+  { terme: "invoice", champ: "tout" },
+  { terme: "receipt", champ: "tout" },
+  { terme: "toll", champ: "contenu" },
+  { terme: "carburant", champ: "tout" },
+];
+
 interface Props {
   onImported?: () => void;
 }
@@ -65,7 +80,17 @@ export function GmailReceiptImport({ onImported }: Props) {
           .eq("user_id", user.id)
           .maybeSingle(),
       ]);
-      setFiltres((f as Filtre[]) || []);
+      const existing = (f as Filtre[]) || [];
+      if (existing.length === 0) {
+        // Première ouverture : pré-remplir avec les mots-clés par défaut
+        const { data: seeded } = await supabase
+          .from("email_frais_filtres")
+          .insert(DEFAULT_TERMES.map((t) => ({ ...t, user_id: user.id })))
+          .select("id, terme, champ, actif");
+        if (seeded?.length) setFiltres(seeded as Filtre[]);
+      } else {
+        setFiltres(existing);
+      }
       if (s) {
         setAutoEnabled(!!s.gmail_frais_sync_enabled);
         setIntervalMinutes(s.gmail_frais_sync_interval_minutes ?? 60);
