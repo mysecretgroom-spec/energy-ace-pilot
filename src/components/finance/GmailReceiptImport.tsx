@@ -270,9 +270,9 @@ export function GmailReceiptImport({ onImported }: Props) {
                   value={[interval]}
                   onValueChange={([v]) => setIntervalMinutes(v)}
                   onValueCommit={([v]) => void saveAuto(true, v)}
-                  min={30}
+                  min={60}
                   max={360}
-                  step={30}
+                  step={60}
                 />
                 {lastSync && (
                   <p className="text-xs text-muted-foreground">
