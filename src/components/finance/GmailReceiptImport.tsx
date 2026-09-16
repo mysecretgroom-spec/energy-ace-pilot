@@ -29,6 +29,21 @@ const CHAMP_LABEL: Record<Filtre["champ"], string> = {
   tout: "Sujet + contenu",
 };
 
+// Mots-clés proposés automatiquement à la première ouverture
+const DEFAULT_TERMES: Array<{ terme: string; champ: Filtre["champ"] }> = [
+  { terme: "facture", champ: "tout" },
+  { terme: "reçu", champ: "tout" },
+  { terme: "recu", champ: "tout" },
+  { terme: "paiement", champ: "tout" },
+  { terme: "péage", champ: "tout" },
+  { terme: "peage", champ: "tout" },
+  { terme: "note de frais", champ: "tout" },
+  { terme: "invoice", champ: "tout" },
+  { terme: "receipt", champ: "tout" },
+  { terme: "toll", champ: "contenu" },
+  { terme: "carburant", champ: "tout" },
+];
+
 interface Props {
   onImported?: () => void;
 }
