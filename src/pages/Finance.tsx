@@ -1729,6 +1729,32 @@ const Finance = () => {
                   </DialogContent>
                 </Dialog>
               </div>
+
+              <Dialog open={emailImportOpen} onOpenChange={setEmailImportOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2 h-11 w-full">
+                    <Mail className="h-4 w-4" />
+                    <span className="truncate">Factures reçues par email</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="p-0 max-w-lg max-h-[85vh] overflow-hidden">
+                  <GmailReceiptImport
+                    onImported={() => {
+                      if (user) {
+                        supabase
+                          .from("frais")
+                          .select("*")
+                          .eq("user_id", user.id)
+                          .order("date_frais", { ascending: false })
+                          .limit(10)
+                          .then(({ data }) => {
+                            if (data) setFraisData(data as FraisItem[]);
+                          });
+                      }
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
             
             {/* Plaid Bank Connection */}
