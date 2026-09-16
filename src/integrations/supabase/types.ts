@@ -1795,6 +1795,36 @@ export type Database = {
           },
         ]
       }
+      email_frais_filtres: {
+        Row: {
+          actif: boolean
+          champ: string
+          created_at: string
+          id: string
+          terme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actif?: boolean
+          champ?: string
+          created_at?: string
+          id?: string
+          terme: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actif?: boolean
+          champ?: string
+          created_at?: string
+          id?: string
+          terme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       emails_autorises: {
         Row: {
           actif: boolean | null
@@ -2307,6 +2337,53 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_frais_imports: {
+        Row: {
+          attachment_key: string
+          created_at: string
+          erreur: string | null
+          expediteur: string | null
+          frais_id: string | null
+          gmail_message_id: string
+          id: string
+          statut: string
+          sujet: string | null
+          user_id: string
+        }
+        Insert: {
+          attachment_key?: string
+          created_at?: string
+          erreur?: string | null
+          expediteur?: string | null
+          frais_id?: string | null
+          gmail_message_id: string
+          id?: string
+          statut?: string
+          sujet?: string | null
+          user_id: string
+        }
+        Update: {
+          attachment_key?: string
+          created_at?: string
+          erreur?: string | null
+          expediteur?: string | null
+          frais_id?: string | null
+          gmail_message_id?: string
+          id?: string
+          statut?: string
+          sujet?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_frais_imports_frais_id_fkey"
+            columns: ["frais_id"]
+            isOneToOne: false
+            referencedRelation: "frais"
             referencedColumns: ["id"]
           },
         ]
@@ -3418,6 +3495,9 @@ export type Database = {
           coaching_enabled: boolean | null
           created_at: string
           daily_briefing_whatsapp: boolean | null
+          gmail_frais_last_auto_sync: string | null
+          gmail_frais_sync_enabled: boolean
+          gmail_frais_sync_interval_minutes: number
           gmail_last_auto_sync: string | null
           gmail_sync_enabled: boolean
           gmail_sync_interval_minutes: number
@@ -3446,6 +3526,9 @@ export type Database = {
           coaching_enabled?: boolean | null
           created_at?: string
           daily_briefing_whatsapp?: boolean | null
+          gmail_frais_last_auto_sync?: string | null
+          gmail_frais_sync_enabled?: boolean
+          gmail_frais_sync_interval_minutes?: number
           gmail_last_auto_sync?: string | null
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
@@ -3474,6 +3557,9 @@ export type Database = {
           coaching_enabled?: boolean | null
           created_at?: string
           daily_briefing_whatsapp?: boolean | null
+          gmail_frais_last_auto_sync?: string | null
+          gmail_frais_sync_enabled?: boolean
+          gmail_frais_sync_interval_minutes?: number
           gmail_last_auto_sync?: string | null
           gmail_sync_enabled?: boolean
           gmail_sync_interval_minutes?: number
