@@ -9,6 +9,12 @@ verify_jwt = false
 [functions.scheduled-gmail-sync]
 verify_jwt = false
 
+[functions.sync-gmail-frais]
+verify_jwt = false
+
+[functions.scheduled-gmail-frais-sync]
+verify_jwt = false
+
 [functions.plaid]
 verify_jwt = false
 
