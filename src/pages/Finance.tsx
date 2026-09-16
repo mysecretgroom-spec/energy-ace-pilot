@@ -21,6 +21,7 @@ import { PlaidLink } from "@/components/finance/PlaidLink";
 import { MultiImportFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
+import { GmailReceiptImport } from "@/components/finance/GmailReceiptImport";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
 import { VATReport } from "@/components/finance/VATReport";
 import { BillingSection } from "@/components/finance/BillingSection";
@@ -71,6 +72,7 @@ import {
   Eye,
   Download,
   CalendarRange,
+  Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -192,6 +194,7 @@ const Finance = () => {
   const [multiImportOpen, setMultiImportOpen] = useState(false);
   const [bankImportOpen, setBankImportOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [emailImportOpen, setEmailImportOpen] = useState(false);
   const [addFraisOpen, setAddFraisOpen] = useState(false);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
   const [receiptPreviewOpen, setReceiptPreviewOpen] = useState(false);
