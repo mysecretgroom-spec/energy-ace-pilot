@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
-import { calculerMensualiteAvecReport } from "@/lib/financingCalculation";
+import { calculerMensualiteAvecReport, calculerFinancementAvantApresAides } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
@@ -164,6 +164,16 @@ interface DataFinancement {
   taux_effectif: number;
   taeg: number;
   actif: boolean;
+  /** Durée d'amortissement par défaut configurée dans la régie */
+  duree_mois?: number;
+  /** Mode de calcul : report d'intérêts (défaut) ou amortissement direct */
+  mode_calcul?: string;
+  /** Durée du report en mois (défaut 6) */
+  duree_report_mois?: number;
+  /** Frais de dossier en % du montant financé */
+  frais_dossier_pct?: number;
+  /** Calcul automatique des mensualités avant et après aides */
+  calcul_auto?: boolean;
 }
 
 const EtudeForm = () => {
@@ -776,7 +786,7 @@ const EtudeForm = () => {
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
         supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true),
-        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
+        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois, mode_calcul, duree_report_mois, frais_dossier_pct, calcul_auto").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
@@ -802,6 +812,11 @@ const EtudeForm = () => {
           taux_effectif: Number(f.taux_effectif),
           taeg: Number(f.taeg),
           actif: f.actif,
+          duree_mois: f.duree_mois ?? undefined,
+          mode_calcul: (f as any).mode_calcul ?? "report_interets",
+          duree_report_mois: (f as any).duree_report_mois ?? 6,
+          frais_dossier_pct: Number((f as any).frais_dossier_pct ?? 0),
+          calcul_auto: (f as any).calcul_auto ?? true,
         }));
       }
       if (surcoutsRegieRes.data) {
@@ -1393,11 +1408,16 @@ const EtudeForm = () => {
 
     const basePrixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
-    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
-    // Financement basé sur le montant TTC total hors aides
+    // === MENSUALITÉ — paramètres du financement de la régie ===
+    // Mode de calcul, durée du report et frais de dossier viennent des réglages régie
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || 120;
+    const dureeMois = dureeMoisManuelle || selectedFinancement?.duree_mois || 120;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
+    const modeCalculFin = (selectedFinancement?.mode_calcul === "amortissement_direct"
+      ? "amortissement_direct"
+      : "report_interets") as "amortissement_direct" | "report_interets";
+    const dureeReportFin = selectedFinancement?.duree_report_mois ?? 6;
+    const fraisDossierPctFin = selectedFinancement?.frais_dossier_pct ?? 0;
 
     const computeMensualite = (montant: number): number => {
       if (mensualiteManuelle) return Number(mensualiteManuelle);
@@ -1405,7 +1425,9 @@ const EtudeForm = () => {
         montantTTC: montant,
         tauxEffectifAnnuel: tauxEffectif,
         dureeMois,
-        dureeReportMois: 6,
+        dureeReportMois: dureeReportFin,
+        mode: modeCalculFin,
+        fraisDossierPct: fraisDossierPctFin,
       });
       return resultat.mensualiteAmortissement;
     };
@@ -4557,32 +4579,30 @@ _Envoyé depuis DébalePro_`;
 
           const prixGlobalAidesDeduites = prixGlobalHorsAides - totalAidesGlobal;
 
-          // Financement global
+          // Financement global — paramètres issus des réglages de la régie
           const selectedFin = dataFinancements.find(f => f.id === financementId);
           const tauxEff = selectedFin?.taux_effectif || 0;
-          const nbMois = Number(dureeMoisManuelle) || 120;
-          const montantFinancement = isMulti ? prixGlobalHorsAides : (calculatedResults?.prixTotalHorsAides || 0);
-          const resultatFinGlobal = calculerMensualiteAvecReport({
-            montantTTC: montantFinancement,
+          const nbMois = Number(dureeMoisManuelle) || selectedFin?.duree_mois || 120;
+          const paramsFin = {
             tauxEffectifAnnuel: tauxEff,
             dureeMois: nbMois,
-            dureeReportMois: 6,
-          });
-          const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
-
-          // Mensualité "aides déduites" : même financement, mais sur le reste à charge
+            dureeReportMois: selectedFin?.duree_report_mois ?? 6,
+            mode: (selectedFin?.mode_calcul === "amortissement_direct"
+              ? "amortissement_direct"
+              : "report_interets") as "amortissement_direct" | "report_interets",
+            fraisDossierPct: selectedFin?.frais_dossier_pct ?? 0,
+          };
+          const montantFinancement = isMulti ? prixGlobalHorsAides : (calculatedResults?.prixTotalHorsAides || 0);
           const montantAidesDeduites = Math.max(
             0,
             isMulti
               ? (prixGlobalAidesDeduites + autreSurcout)
               : (calculatedResults?.totalAidesDeduites || 0)
           );
-          const resultatFinAidesDeduites = calculerMensualiteAvecReport({
-            montantTTC: montantAidesDeduites,
-            tauxEffectifAnnuel: tauxEff,
-            dureeMois: nbMois,
-            dureeReportMois: 6,
-          });
+          // Calcul automatique des deux mensualités : avant aides et après aides
+          const { avantAides: resultatFinGlobal, apresAides: resultatFinAidesDeduites } =
+            calculerFinancementAvantApresAides(montantFinancement, montantAidesDeduites, paramsFin);
+          const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
           // Si une mensualité manuelle est saisie, on garde la même proportion
           const ratioManuel = mensualiteManuelle && resultatFinGlobal.mensualiteAmortissement > 0
             ? Number(mensualiteManuelle) / resultatFinGlobal.mensualiteAmortissement

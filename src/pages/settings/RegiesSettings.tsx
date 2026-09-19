@@ -105,6 +105,10 @@ interface RegieFinancement {
   taeg: number;
   duree_mois: number;
   actif: boolean;
+  mode_calcul?: string;
+  duree_report_mois?: number;
+  frais_dossier_pct?: number;
+  calcul_auto?: boolean;
 }
 
 interface RegieSurcout {
@@ -169,6 +173,10 @@ const RegiesSettings = () => {
     taux_effectif: 0,
     taeg: 0,
     duree_mois: 180,
+    mode_calcul: "report_interets",
+    duree_report_mois: 6,
+    frais_dossier_pct: 0,
+    calcul_auto: true,
   });
   const [editingFinancementId, setEditingFinancementId] = useState<string | null>(null);
   const [editFinancementForm, setEditFinancementForm] = useState({
@@ -176,6 +184,10 @@ const RegiesSettings = () => {
     taux_effectif: 0,
     taeg: 0,
     duree_mois: 180,
+    mode_calcul: "report_interets",
+    duree_report_mois: 6,
+    frais_dossier_pct: 0,
+    calcul_auto: true,
   });
   const [newSurcout, setNewSurcout] = useState({
     categorie: 'support' as 'support' | 'emplacement_boitier' | 'compteur',
@@ -658,6 +670,10 @@ const RegiesSettings = () => {
         taux_effectif: 0,
         taeg: 0,
         duree_mois: 180,
+        mode_calcul: "report_interets",
+        duree_report_mois: 6,
+        frais_dossier_pct: 0,
+        calcul_auto: true,
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -699,6 +715,10 @@ const RegiesSettings = () => {
       taux_effectif: financement.taux_effectif,
       taeg: financement.taeg,
       duree_mois: financement.duree_mois ?? 180,
+      mode_calcul: financement.mode_calcul ?? "report_interets",
+      duree_report_mois: financement.duree_report_mois ?? 6,
+      frais_dossier_pct: financement.frais_dossier_pct ?? 0,
+      calcul_auto: financement.calcul_auto ?? true,
     });
   };
 
@@ -719,6 +739,10 @@ const RegiesSettings = () => {
           taux_effectif: editFinancementForm.taux_effectif,
           taeg: editFinancementForm.taeg,
           duree_mois: editFinancementForm.duree_mois,
+          mode_calcul: editFinancementForm.mode_calcul,
+          duree_report_mois: editFinancementForm.duree_report_mois,
+          frais_dossier_pct: editFinancementForm.frais_dossier_pct,
+          calcul_auto: editFinancementForm.calcul_auto,
         })
         .eq("id", financement.id);
       if (error) throw error;
@@ -1500,6 +1524,49 @@ const RegiesSettings = () => {
                             />
                           </div>
                         </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Mode de calcul</label>
+                            <select
+                              className="w-full h-10 rounded-md border border-input bg-background px-2 text-sm"
+                              value={newFinancement.mode_calcul}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, mode_calcul: e.target.value })}
+                            >
+                              <option value="report_interets">Report (intérêts)</option>
+                              <option value="amortissement_direct">Amortissement direct</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Report (mois)</label>
+                            <Input
+                              type="number"
+                              value={newFinancement.duree_report_mois}
+                              disabled={newFinancement.mode_calcul === "amortissement_direct"}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, duree_report_mois: parseInt(e.target.value) || 0 })}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Frais dossier %</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newFinancement.frais_dossier_pct}
+                              onChange={(e) => setNewFinancement({ ...newFinancement, frais_dossier_pct: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border p-2">
+                          <div>
+                            <p className="text-xs font-medium">Calcul automatique</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Mensualité avant et après aides calculée automatiquement dans l'étude
+                            </p>
+                          </div>
+                          <Switch
+                            checked={newFinancement.calcul_auto}
+                            onCheckedChange={(v) => setNewFinancement({ ...newFinancement, calcul_auto: v })}
+                          />
+                        </div>
                         <Button 
                           size="sm" 
                           className="w-full"
@@ -1555,7 +1622,47 @@ const RegiesSettings = () => {
                                       className="h-8 text-xs"
                                     />
                                   </div>
-                                </div>
+                                 </div>
+                                 <div className="grid grid-cols-3 gap-2">
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Mode</label>
+                                     <select
+                                       className="w-full h-8 rounded-md border border-input bg-background px-1 text-xs"
+                                       value={editFinancementForm.mode_calcul}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, mode_calcul: e.target.value })}
+                                     >
+                                       <option value="report_interets">Report</option>
+                                       <option value="amortissement_direct">Direct</option>
+                                     </select>
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Report (mois)</label>
+                                     <Input
+                                       type="number"
+                                       value={editFinancementForm.duree_report_mois}
+                                       disabled={editFinancementForm.mode_calcul === "amortissement_direct"}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, duree_report_mois: parseInt(e.target.value) || 0 })}
+                                       className="h-8 text-xs"
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Frais dossier %</label>
+                                     <Input
+                                       type="number"
+                                       step="0.01"
+                                       value={editFinancementForm.frais_dossier_pct}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, frais_dossier_pct: parseFloat(e.target.value) || 0 })}
+                                       className="h-8 text-xs"
+                                     />
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center justify-between rounded-md border p-2">
+                                   <p className="text-[11px] font-medium">Calcul auto avant / après aides</p>
+                                   <Switch
+                                     checked={editFinancementForm.calcul_auto}
+                                     onCheckedChange={(v) => setEditFinancementForm({ ...editFinancementForm, calcul_auto: v })}
+                                   />
+                                 </div>
                                 <div className="flex gap-2 justify-end pt-1">
                                   <Button size="sm" variant="ghost" onClick={cancelEditFinancement}>
                                     <X className="h-4 w-4 mr-1" /> Annuler
@@ -1571,6 +1678,13 @@ const RegiesSettings = () => {
                                   <p className="font-medium text-sm">{financement.nom}</p>
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     Taux {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {(financement.mode_calcul ?? "report_interets") === "amortissement_direct"
+                                      ? "Amortissement direct"
+                                      : `Report ${financement.duree_report_mois ?? 6} mois`}
+                                    {(financement.frais_dossier_pct ?? 0) > 0 && ` • Frais dossier ${financement.frais_dossier_pct}%`}
+                                    {(financement.calcul_auto ?? true) ? " • Calcul auto avant/après aides" : " • Calcul manuel"}
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-1">
