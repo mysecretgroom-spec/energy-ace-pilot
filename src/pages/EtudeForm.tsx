@@ -1408,11 +1408,16 @@ const EtudeForm = () => {
 
     const basePrixTotalHorsAides = prixInstallation + prixSurcouts - remiseCommerciale;
 
-    // === MENSUALITÉ AVEC REPORT 6 MOIS ===
-    // Financement basé sur le montant TTC total hors aides
+    // === MENSUALITÉ — paramètres du financement de la régie ===
+    // Mode de calcul, durée du report et frais de dossier viennent des réglages régie
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || 120;
+    const dureeMois = dureeMoisManuelle || selectedFinancement?.duree_mois || 120;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
+    const modeCalculFin = (selectedFinancement?.mode_calcul === "amortissement_direct"
+      ? "amortissement_direct"
+      : "report_interets") as "amortissement_direct" | "report_interets";
+    const dureeReportFin = selectedFinancement?.duree_report_mois ?? 6;
+    const fraisDossierPctFin = selectedFinancement?.frais_dossier_pct ?? 0;
 
     const computeMensualite = (montant: number): number => {
       if (mensualiteManuelle) return Number(mensualiteManuelle);
@@ -1420,7 +1425,9 @@ const EtudeForm = () => {
         montantTTC: montant,
         tauxEffectifAnnuel: tauxEffectif,
         dureeMois,
-        dureeReportMois: 6,
+        dureeReportMois: dureeReportFin,
+        mode: modeCalculFin,
+        fraisDossierPct: fraisDossierPctFin,
       });
       return resultat.mensualiteAmortissement;
     };
