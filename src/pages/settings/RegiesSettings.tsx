@@ -670,6 +670,10 @@ const RegiesSettings = () => {
         taux_effectif: 0,
         taeg: 0,
         duree_mois: 180,
+        mode_calcul: "report_interets",
+        duree_report_mois: 6,
+        frais_dossier_pct: 0,
+        calcul_auto: true,
       });
       fetchRegieDetails(selectedRegie.id);
     } catch (error) {
@@ -711,6 +715,10 @@ const RegiesSettings = () => {
       taux_effectif: financement.taux_effectif,
       taeg: financement.taeg,
       duree_mois: financement.duree_mois ?? 180,
+      mode_calcul: financement.mode_calcul ?? "report_interets",
+      duree_report_mois: financement.duree_report_mois ?? 6,
+      frais_dossier_pct: financement.frais_dossier_pct ?? 0,
+      calcul_auto: financement.calcul_auto ?? true,
     });
   };
 
@@ -731,6 +739,10 @@ const RegiesSettings = () => {
           taux_effectif: editFinancementForm.taux_effectif,
           taeg: editFinancementForm.taeg,
           duree_mois: editFinancementForm.duree_mois,
+          mode_calcul: editFinancementForm.mode_calcul,
+          duree_report_mois: editFinancementForm.duree_report_mois,
+          frais_dossier_pct: editFinancementForm.frais_dossier_pct,
+          calcul_auto: editFinancementForm.calcul_auto,
         })
         .eq("id", financement.id);
       if (error) throw error;
