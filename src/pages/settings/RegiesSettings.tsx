@@ -1679,6 +1679,13 @@ const RegiesSettings = () => {
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     Taux {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
                                   </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {(financement.mode_calcul ?? "report_interets") === "amortissement_direct"
+                                      ? "Amortissement direct"
+                                      : `Report ${financement.duree_report_mois ?? 6} mois`}
+                                    {(financement.frais_dossier_pct ?? 0) > 0 && ` • Frais dossier ${financement.frais_dossier_pct}%`}
+                                    {(financement.calcul_auto ?? true) ? " • Calcul auto avant/après aides" : " • Calcul manuel"}
+                                  </p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Switch 
