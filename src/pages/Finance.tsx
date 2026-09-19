@@ -872,34 +872,6 @@ const Finance = () => {
         .eq("user_id", user.id)
         .order("date_frais", { ascending: false });
 
-      // Fetch frais for the selected week (may span different months)
-      const { data: weekFrais } = await supabase
-        .from("frais")
-        .select("id, montant, date_frais, categorie, date_debut, date_fin")
-        .eq("user_id", user.id)
-        .gte("date_frais", weekStartStr)
-        .lte("date_frais", weekEndStr);
-
-      // Fetch period-based expenses that overlap the selected week but have date_frais outside it
-      const { data: periodFraisWeek } = await supabase
-        .from("frais")
-        .select("id, montant, date_frais, categorie, date_debut, date_fin")
-        .eq("user_id", user.id)
-        .not("date_debut", "is", null)
-        .not("date_fin", "is", null)
-        .lte("date_debut", weekEndStr)
-        .gte("date_fin", weekStartStr);
-
-      // Fetch period-based expenses that overlap the selected month but have date_frais outside it
-      const { data: periodFraisMonth } = await supabase
-        .from("frais")
-        .select("id, montant, date_frais, categorie, date_debut, date_fin")
-        .eq("user_id", user.id)
-        .not("date_debut", "is", null)
-        .not("date_fin", "is", null)
-        .lte("date_debut", monthEndStr)
-        .gte("date_fin", monthStartStr);
-
       // Update all frais history for the collapsible list
       if (allHistoryFrais) {
         setAllFraisHistory(allHistoryFrais);
@@ -908,70 +880,48 @@ const Finance = () => {
       if (monthFrais) {
         setAllFraisData(monthFrais);
         setFraisData(monthFrais.slice(0, 10));
-
-        // Helper: parse YYYY-MM-DD as local date (not UTC)
-        const parseLocalDate = (dateStr: string): Date => {
-          const [y, m, d] = dateStr.split("-").map(Number);
-          return new Date(y, m - 1, d);
-        };
-
-        // Helper: calculate prorated amount for a period-based expense within a date range
-        const getProratedAmount = (frais: { montant: number; date_debut: string | null; date_fin: string | null; categorie: string }, rangeStart: Date, rangeEnd: Date): number => {
-          const hasPeriod = frais.date_debut && frais.date_fin && 
-            (frais.categorie === "location_vehicule" || frais.categorie === "hotel");
-          
-          if (!hasPeriod || !frais.date_debut || !frais.date_fin) {
-            return Number(frais.montant);
-          }
-          
-          const periodStart = parseLocalDate(frais.date_debut);
-          const periodEnd = parseLocalDate(frais.date_fin);
-          const totalDays = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-          
-          // Overlap between period and range
-          const overlapStart = new Date(Math.max(periodStart.getTime(), rangeStart.getTime()));
-          const overlapEnd = new Date(Math.min(periodEnd.getTime(), rangeEnd.getTime()));
-          const overlapDays = Math.max(0, Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-          
-          return (Number(frais.montant) / totalDays) * overlapDays;
-        };
-
-        // Jour: frais du jour sélectionné (prorated for period expenses)
-        // Combine monthFrais + periodFraisMonth to catch period expenses from other months
-        const dayStart = parseLocalDate(selectedDayStr);
-        const dayEnd = parseLocalDate(selectedDayStr);
-        const allDayFraisMap = new Map<string, any>();
-        monthFrais.forEach(f => allDayFraisMap.set(f.id, f));
-        (periodFraisMonth || []).forEach(f => allDayFraisMap.set(f.id, f));
-        const jourTotal = Array.from(allDayFraisMap.values())
-          .filter(f => {
-            if (f.date_frais === selectedDayStr) return true;
-            // Include period expenses that cover this day
-            if (f.date_debut && f.date_fin && (f.categorie === "location_vehicule" || f.categorie === "hotel")) {
-              return f.date_debut <= selectedDayStr && f.date_fin >= selectedDayStr;
-            }
-            return false;
-          })
-          .reduce((sum: number, f: any) => sum + getProratedAmount(f, dayStart, dayEnd), 0);
-        
-        // Semaine: combine regular week frais + period frais overlapping
-        const allWeekFraisMap = new Map<string, any>();
-        (weekFrais || []).forEach(f => allWeekFraisMap.set(f.id, f));
-        (periodFraisWeek || []).forEach(f => allWeekFraisMap.set(f.id, f));
-        const semaineTotal = Array.from(allWeekFraisMap.values())
-          .reduce((sum, f) => sum + getProratedAmount(f, weekStart, weekEnd), 0);
-        
-        // Mois: sum raw montant of all frais whose date_frais falls in the selected month
-        // This matches the history breakdown the user sees
-        const moisTotal = monthFrais
-          .reduce((sum: number, f: any) => sum + Number(f.montant), 0);
-
-        setTotaux({
-          jour: jourTotal,
-          semaine: semaineTotal,
-          mois: moisTotal,
-        });
       }
+
+      // Totaux jour / semaine / mois : calculés à partir de la même source
+      // (tout l'historique) et avec exactement la même règle, pour que la
+      // somme des semaines corresponde bien au total du mois.
+      const source = allHistoryFrais || [];
+
+      const parseLocalDate = (dateStr: string): Date => {
+        const [y, m, d] = dateStr.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      };
+
+      const isPeriodFrais = (f: any) =>
+        !!f.date_debut && !!f.date_fin &&
+        (f.categorie === "location_vehicule" || f.categorie === "hotel");
+
+      // Montant d'un frais imputable à une plage de dates.
+      // - frais ponctuel : montant total si sa date tombe dans la plage
+      // - frais de période (hôtel / location) : prorata des jours qui se chevauchent
+      const amountInRange = (f: any, startStr: string, endStr: string): number => {
+        if (isPeriodFrais(f)) {
+          if (f.date_debut > endStr || f.date_fin < startStr) return 0;
+          const periodStart = parseLocalDate(f.date_debut);
+          const periodEnd = parseLocalDate(f.date_fin);
+          const day = 1000 * 60 * 60 * 24;
+          const totalDays = Math.max(1, Math.round((periodEnd.getTime() - periodStart.getTime()) / day) + 1);
+          const overlapStart = Math.max(periodStart.getTime(), parseLocalDate(startStr).getTime());
+          const overlapEnd = Math.min(periodEnd.getTime(), parseLocalDate(endStr).getTime());
+          const overlapDays = Math.max(0, Math.round((overlapEnd - overlapStart) / day) + 1);
+          return (Number(f.montant) / totalDays) * overlapDays;
+        }
+        return f.date_frais >= startStr && f.date_frais <= endStr ? Number(f.montant) : 0;
+      };
+
+      const sumRange = (startStr: string, endStr: string) =>
+        source.reduce((sum: number, f: any) => sum + amountInRange(f, startStr, endStr), 0);
+
+      setTotaux({
+        jour: sumRange(selectedDayStr, selectedDayStr),
+        semaine: sumRange(weekStartStr, weekEndStr),
+        mois: sumRange(monthStartStr, monthEndStr),
+      });
     };
 
     fetchFrais();
