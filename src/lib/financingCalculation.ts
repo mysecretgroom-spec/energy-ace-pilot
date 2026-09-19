@@ -43,6 +43,8 @@ export interface ResultatFinancement {
   coutTotalCredit: number;
   /** Durée totale en mois (report + amortissement) */
   dureeTotaleMois: number;
+  /** Frais de dossier (montant en €) */
+  fraisDossier: number;
 }
 
 /**
