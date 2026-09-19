@@ -812,6 +812,11 @@ const EtudeForm = () => {
           taux_effectif: Number(f.taux_effectif),
           taeg: Number(f.taeg),
           actif: f.actif,
+          duree_mois: f.duree_mois ?? undefined,
+          mode_calcul: (f as any).mode_calcul ?? "report_interets",
+          duree_report_mois: (f as any).duree_report_mois ?? 6,
+          frais_dossier_pct: Number((f as any).frais_dossier_pct ?? 0),
+          calcul_auto: (f as any).calcul_auto ?? true,
         }));
       }
       if (surcoutsRegieRes.data) {
