@@ -105,6 +105,10 @@ interface RegieFinancement {
   taeg: number;
   duree_mois: number;
   actif: boolean;
+  mode_calcul?: string;
+  duree_report_mois?: number;
+  frais_dossier_pct?: number;
+  calcul_auto?: boolean;
 }
 
 interface RegieSurcout {
@@ -169,6 +173,10 @@ const RegiesSettings = () => {
     taux_effectif: 0,
     taeg: 0,
     duree_mois: 180,
+    mode_calcul: "report_interets",
+    duree_report_mois: 6,
+    frais_dossier_pct: 0,
+    calcul_auto: true,
   });
   const [editingFinancementId, setEditingFinancementId] = useState<string | null>(null);
   const [editFinancementForm, setEditFinancementForm] = useState({
@@ -176,6 +184,10 @@ const RegiesSettings = () => {
     taux_effectif: 0,
     taeg: 0,
     duree_mois: 180,
+    mode_calcul: "report_interets",
+    duree_report_mois: 6,
+    frais_dossier_pct: 0,
+    calcul_auto: true,
   });
   const [newSurcout, setNewSurcout] = useState({
     categorie: 'support' as 'support' | 'emplacement_boitier' | 'compteur',
