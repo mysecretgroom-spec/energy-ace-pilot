@@ -1622,7 +1622,47 @@ const RegiesSettings = () => {
                                       className="h-8 text-xs"
                                     />
                                   </div>
-                                </div>
+                                 </div>
+                                 <div className="grid grid-cols-3 gap-2">
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Mode</label>
+                                     <select
+                                       className="w-full h-8 rounded-md border border-input bg-background px-1 text-xs"
+                                       value={editFinancementForm.mode_calcul}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, mode_calcul: e.target.value })}
+                                     >
+                                       <option value="report_interets">Report</option>
+                                       <option value="amortissement_direct">Direct</option>
+                                     </select>
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Report (mois)</label>
+                                     <Input
+                                       type="number"
+                                       value={editFinancementForm.duree_report_mois}
+                                       disabled={editFinancementForm.mode_calcul === "amortissement_direct"}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, duree_report_mois: parseInt(e.target.value) || 0 })}
+                                       className="h-8 text-xs"
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] text-muted-foreground">Frais dossier %</label>
+                                     <Input
+                                       type="number"
+                                       step="0.01"
+                                       value={editFinancementForm.frais_dossier_pct}
+                                       onChange={(e) => setEditFinancementForm({ ...editFinancementForm, frais_dossier_pct: parseFloat(e.target.value) || 0 })}
+                                       className="h-8 text-xs"
+                                     />
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center justify-between rounded-md border p-2">
+                                   <p className="text-[11px] font-medium">Calcul auto avant / après aides</p>
+                                   <Switch
+                                     checked={editFinancementForm.calcul_auto}
+                                     onCheckedChange={(v) => setEditFinancementForm({ ...editFinancementForm, calcul_auto: v })}
+                                   />
+                                 </div>
                                 <div className="flex gap-2 justify-end pt-1">
                                   <Button size="sm" variant="ghost" onClick={cancelEditFinancement}>
                                     <X className="h-4 w-4 mr-1" /> Annuler
