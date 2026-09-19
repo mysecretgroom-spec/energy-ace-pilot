@@ -4579,32 +4579,30 @@ _Envoyé depuis DébalePro_`;
 
           const prixGlobalAidesDeduites = prixGlobalHorsAides - totalAidesGlobal;
 
-          // Financement global
+          // Financement global — paramètres issus des réglages de la régie
           const selectedFin = dataFinancements.find(f => f.id === financementId);
           const tauxEff = selectedFin?.taux_effectif || 0;
-          const nbMois = Number(dureeMoisManuelle) || 120;
-          const montantFinancement = isMulti ? prixGlobalHorsAides : (calculatedResults?.prixTotalHorsAides || 0);
-          const resultatFinGlobal = calculerMensualiteAvecReport({
-            montantTTC: montantFinancement,
+          const nbMois = Number(dureeMoisManuelle) || selectedFin?.duree_mois || 120;
+          const paramsFin = {
             tauxEffectifAnnuel: tauxEff,
             dureeMois: nbMois,
-            dureeReportMois: 6,
-          });
-          const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
-
-          // Mensualité "aides déduites" : même financement, mais sur le reste à charge
+            dureeReportMois: selectedFin?.duree_report_mois ?? 6,
+            mode: (selectedFin?.mode_calcul === "amortissement_direct"
+              ? "amortissement_direct"
+              : "report_interets") as "amortissement_direct" | "report_interets",
+            fraisDossierPct: selectedFin?.frais_dossier_pct ?? 0,
+          };
+          const montantFinancement = isMulti ? prixGlobalHorsAides : (calculatedResults?.prixTotalHorsAides || 0);
           const montantAidesDeduites = Math.max(
             0,
             isMulti
               ? (prixGlobalAidesDeduites + autreSurcout)
               : (calculatedResults?.totalAidesDeduites || 0)
           );
-          const resultatFinAidesDeduites = calculerMensualiteAvecReport({
-            montantTTC: montantAidesDeduites,
-            tauxEffectifAnnuel: tauxEff,
-            dureeMois: nbMois,
-            dureeReportMois: 6,
-          });
+          // Calcul automatique des deux mensualités : avant aides et après aides
+          const { avantAides: resultatFinGlobal, apresAides: resultatFinAidesDeduites } =
+            calculerFinancementAvantApresAides(montantFinancement, montantAidesDeduites, paramsFin);
+          const mensualiteGlobale = mensualiteManuelle || resultatFinGlobal.mensualiteAmortissement;
           // Si une mensualité manuelle est saisie, on garde la même proportion
           const ratioManuel = mensualiteManuelle && resultatFinGlobal.mensualiteAmortissement > 0
             ? Number(mensualiteManuelle) / resultatFinGlobal.mensualiteAmortissement
