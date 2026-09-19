@@ -3217,9 +3217,13 @@ export type Database = {
       regies_financements: {
         Row: {
           actif: boolean
+          calcul_auto: boolean
           created_at: string
           duree_mois: number
+          duree_report_mois: number
+          frais_dossier_pct: number
           id: string
+          mode_calcul: string
           nom: string
           regie_id: string
           taeg: number
@@ -3229,9 +3233,13 @@ export type Database = {
         }
         Insert: {
           actif?: boolean
+          calcul_auto?: boolean
           created_at?: string
           duree_mois?: number
+          duree_report_mois?: number
+          frais_dossier_pct?: number
           id?: string
+          mode_calcul?: string
           nom: string
           regie_id: string
           taeg?: number
@@ -3241,9 +3249,13 @@ export type Database = {
         }
         Update: {
           actif?: boolean
+          calcul_auto?: boolean
           created_at?: string
           duree_mois?: number
+          duree_report_mois?: number
+          frais_dossier_pct?: number
           id?: string
+          mode_calcul?: string
           nom?: string
           regie_id?: string
           taeg?: number
