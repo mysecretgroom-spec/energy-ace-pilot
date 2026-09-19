@@ -1498,7 +1498,7 @@ const RegiesSettings = () => {
                         />
                         <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <label className="text-xs text-muted-foreground">Taux effectif %</label>
+                            <label className="text-xs text-muted-foreground">Taux débiteur fixe %</label>
                             <Input
                               type="number"
                               step="0.01"
@@ -1594,7 +1594,7 @@ const RegiesSettings = () => {
                                 />
                                 <div className="grid grid-cols-3 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Taux %</label>
+                                    <label className="text-[10px] text-muted-foreground">Taux débiteur fixe %</label>
                                     <Input
                                       type="number"
                                       step="0.01"
@@ -1677,7 +1677,7 @@ const RegiesSettings = () => {
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{financement.nom}</p>
                                   <p className="text-xs text-muted-foreground mt-0.5">
-                                    Taux {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
+                                    Taux débiteur fixe {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5">
                                     {(financement.mode_calcul ?? "report_interets") === "amortissement_direct"

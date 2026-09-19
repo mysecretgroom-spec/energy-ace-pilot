@@ -252,8 +252,12 @@ export const FinancialSectionITE = ({
             {financementId && (
               <div className="text-xs text-muted-foreground mt-1">
                 <div className="flex justify-between">
-                  <span>Taux effectif</span>
+                  <span>Taux débiteur fixe</span>
                   <span>{selectedFinancement?.taux_effectif}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>TAEG</span>
+                  <span>{selectedFinancement?.taeg}%</span>
                 </div>
               </div>
             )}

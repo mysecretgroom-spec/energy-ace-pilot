@@ -2274,6 +2274,7 @@ const EtudeForm = () => {
       totalAidesDeduites: calculatedResults?.totalAidesDeduites || 0,
       financementNom: selectedFinancement?.nom || "Non défini",
       tauxFinancement: selectedFinancement?.taux_effectif || 0,
+      taegFinancement: selectedFinancement?.taeg || 0,
       dureeMois: dureeMoisManuelle || 120,
       mensualite: calculatedResults?.mensualite || 0,
       autoconsommationEuros: calculatedResults?.autoconsommationEuros || 0,
@@ -5008,7 +5009,7 @@ _Envoyé depuis DébalePro_`;
                 {financementId && (
                   <div className="text-xs text-muted-foreground mt-1">
                     <div className="flex justify-between">
-                      <span>Taux effectif</span>
+                      <span>Taux débiteur fixe</span>
                       <span>{selectedFin?.taux_effectif}%</span>
                     </div>
                     <div className="flex justify-between">
