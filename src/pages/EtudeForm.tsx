@@ -164,6 +164,16 @@ interface DataFinancement {
   taux_effectif: number;
   taeg: number;
   actif: boolean;
+  /** Durée d'amortissement par défaut configurée dans la régie */
+  duree_mois?: number;
+  /** Mode de calcul : report d'intérêts (défaut) ou amortissement direct */
+  mode_calcul?: string;
+  /** Durée du report en mois (défaut 6) */
+  duree_report_mois?: number;
+  /** Frais de dossier en % du montant financé */
+  frais_dossier_pct?: number;
+  /** Calcul automatique des mensualités avant et après aides */
+  calcul_auto?: boolean;
 }
 
 const EtudeForm = () => {
@@ -776,7 +786,7 @@ const EtudeForm = () => {
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
         supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true),
-        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
+        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois, mode_calcul, duree_report_mois, frais_dossier_pct, calcul_auto").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
         supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
       ]);
       
