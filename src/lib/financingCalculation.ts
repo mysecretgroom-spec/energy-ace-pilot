@@ -8,6 +8,13 @@
  * - Durée totale = 6 mois de report + durée du prêt
  */
 
+/**
+ * Mode de calcul configuré au niveau de la régie :
+ * - report_interets : 6 mois (par défaut) d'intérêts seuls, puis amortissement
+ * - amortissement_direct : amortissement classique dès la 1ʳᵉ échéance
+ */
+export type ModeCalculFinancement = "report_interets" | "amortissement_direct";
+
 export interface CalculMensualiteParams {
   /** Montant total TTC à financer (hors aides) */
   montantTTC: number;
@@ -17,6 +24,10 @@ export interface CalculMensualiteParams {
   dureeMois: number;
   /** Durée du report en mois (défaut: 6) */
   dureeReportMois?: number;
+  /** Mode de calcul (défaut: report_interets) */
+  mode?: ModeCalculFinancement;
+  /** Frais de dossier en % du montant financé (défaut: 0) */
+  fraisDossierPct?: number;
 }
 
 export interface ResultatFinancement {
