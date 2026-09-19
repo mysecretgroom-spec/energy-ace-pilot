@@ -330,7 +330,7 @@ export const FinancialSectionPAC = ({
           {financementId && (
             <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
               <div className="flex justify-between">
-                <span>Taux effectif</span>
+                <span>Taux débiteur fixe</span>
                 <span>{selectedFinancement?.taux_effectif}%</span>
               </div>
               <div className="flex justify-between">

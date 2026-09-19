@@ -123,6 +123,7 @@ interface EtudeData {
   // Financement
   financementNom: string;
   tauxFinancement: number;
+  taegFinancement?: number;
   dureeMois: number;
   mensualite: number;
   
@@ -716,7 +717,8 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
     body: [
       ["Solution", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
-      ["Taux effectif", `${data.tauxFinancement}%`, "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+      ["Taux débiteur fixe", `${data.tauxFinancement}%`, "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+      ["TAEG", `${data.taegFinancement ?? 0}%`, "", ""],
       ["Durée", `${data.dureeMois} mois`, "Mensualité financement", `-${formatEuros(data.mensualite)}`],
       ["Mensualité", formatEuros(data.mensualite), "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
     ],
@@ -724,7 +726,7 @@ const drawPvPage = (doc: jsPDF, data: EtudeData, yStart: number, ctx?: PageConte
     headStyles: { fillColor: grisClair, textColor: bleuMarianne, fontSize: 8, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 1.5, textColor: grisTexte },
     columnStyles: { 1: { halign: "right" }, 3: { halign: "right" } },
-    didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === 4 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 8;
@@ -1753,13 +1755,14 @@ const drawCepcPvDiagnostic = (doc: jsPDF, data: EtudeData, yStart: number, ctx?:
     head: [["Financement", "", "Rentabilité Mensuelle", ""]],
     body: [
       ["Solution", data.financementNom || "Comptant", "Économie autoconsommation", formatEuros(data.autoconsommationEuros)],
-      ["Taux effectif", `${data.tauxFinancement}%`, "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+      ["Taux débiteur fixe", `${data.tauxFinancement}%`, "Revente surplus", formatEuros(data.reventeMensuelleEstimee)],
+      ["TAEG", `${data.taegFinancement ?? 0}%`, "", ""],
       ["Durée", `${data.dureeMois} mois`, "Mensualité financement", `-${formatEuros(data.mensualite)}`],
       ["Mensualité", formatEuros(data.mensualite), "RÉSULTAT MENSUEL", formatEuros(data.resultatTransfertCharge)],
     ],
     ...cepcTableStyles,
     columnStyles: { 1: { halign: "right" as const }, 3: { halign: "right" as const } },
-    didParseCell: (cellData) => { if (cellData.row.index === 3 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
+    didParseCell: (cellData) => { if (cellData.row.index === 4 && cellData.column.index >= 2) cellData.cell.styles.fontStyle = "bold"; },
     margin: { left: 14, right: 14, bottom: FOOTER_ZONE_NORMAL },
   });
   yPos = (doc as any).lastAutoTable.finalY + 8;
