@@ -1,0 +1,2 @@
+UPDATE public.regies_financements SET duree_mois = 180, taux_effectif = 5.62 WHERE nom = 'Projexio 180 mois (6 mois report)';
+UPDATE public.regies_financements SET nom = 'Projexio (6 mois report)' WHERE nom = 'Projexio 180 mois (6 mois report)';
