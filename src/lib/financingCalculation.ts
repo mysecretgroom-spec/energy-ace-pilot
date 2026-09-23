@@ -66,61 +66,56 @@ export function calculerMensualiteAvecReport(params: CalculMensualiteParams): Re
     fraisDossierPct = 0,
   } = params;
 
-  // En amortissement direct, il n'y a pas de report
-  const dureeReportMois = mode === "amortissement_direct" ? 0 : (params.dureeReportMois ?? 6);
+  // `dureeMois` = DURÉE TOTALE du crédit (nombre total d'échéances, comme sur le simulateur
+  // Projexio : 120, 180…). Le report est inclus dedans.
+  const dureeReportMois = mode === "amortissement_direct" ? 0 : Math.max(0, params.dureeReportMois ?? 6);
+  const dureeAmortissement = Math.max(1, dureeMois - dureeReportMois);
   const fraisDossier = Math.round(Math.max(0, montantTTC) * (fraisDossierPct / 100) * 100) / 100;
 
-  // Cas sans financement ou montant nul
   if (montantTTC <= 0 || dureeMois <= 0) {
     return {
-      mensualiteReport: 0,
-      mensualiteAmortissement: 0,
-      interetsIntercalaires: 0,
-      capitalTotal: montantTTC,
-      coutTotalCredit: 0,
-      dureeTotaleMois: 0,
-      fraisDossier: 0,
+      mensualiteReport: 0, mensualiteAmortissement: 0, interetsIntercalaires: 0,
+      capitalTotal: montantTTC, coutTotalCredit: 0, dureeTotaleMois: 0, fraisDossier: 0,
     };
   }
 
   const tauxMensuel = tauxEffectifAnnuel / 100 / 12;
+  // Les frais de dossier sont financés (ajoutés au capital emprunté)
+  const capitalEmprunte = montantTTC + fraisDossier;
 
-  // Cas taux 0%
   if (tauxMensuel === 0) {
     return {
       mensualiteReport: 0,
-      mensualiteAmortissement: Math.round((montantTTC / dureeMois) * 100) / 100,
+      mensualiteAmortissement: Math.round((capitalEmprunte / dureeAmortissement) * 100) / 100,
       interetsIntercalaires: 0,
-      capitalTotal: montantTTC,
-      coutTotalCredit: 0,
-      dureeTotaleMois: dureeReportMois + dureeMois,
+      capitalTotal: capitalEmprunte,
+      coutTotalCredit: fraisDossier,
+      dureeTotaleMois: dureeReportMois + dureeAmortissement,
       fraisDossier,
     };
   }
 
-  // Intérêts mensuels pendant le report (payés chaque mois, non capitalisés)
-  const interetsMensuelsReport = dureeReportMois > 0 ? montantTTC * tauxMensuel : 0;
-  const interetsIntercalaires = interetsMensuelsReport * dureeReportMois;
+  // Pendant le report : intérêts payés chaque mois, sauf le 1er mois (décalage de la
+  // 1ʳᵉ échéance) dont l'intérêt est capitalisé — convention constatée sur Projexio.
+  const interetsMensuelsReport = dureeReportMois > 0 ? capitalEmprunte * tauxMensuel : 0;
+  const capitalAFinancer = dureeReportMois > 0 ? capitalEmprunte * (1 + tauxMensuel) : capitalEmprunte;
+  const interetsIntercalaires = interetsMensuelsReport * Math.max(0, dureeReportMois - 1)
+    + (capitalAFinancer - capitalEmprunte);
 
-  // Le capital reste inchangé car les intérêts sont payés mensuellement
-  const capitalAFinancer = montantTTC;
+  const facteur = Math.pow(1 + tauxMensuel, dureeAmortissement);
+  const mensualiteAmortissement = (capitalAFinancer * tauxMensuel * facteur) / (facteur - 1);
 
-  // Mensualité classique après le report (formule d'amortissement)
-  const mensualiteAmortissement = 
-    (capitalAFinancer * tauxMensuel * Math.pow(1 + tauxMensuel, dureeMois)) /
-    (Math.pow(1 + tauxMensuel, dureeMois) - 1);
-
-  // Coût total du crédit
-  const totalRembourse = (mensualiteAmortissement * dureeMois) + interetsIntercalaires;
-  const coutTotalCredit = totalRembourse - montantTTC + fraisDossier;
+  const totalRembourse = mensualiteAmortissement * dureeAmortissement
+    + interetsMensuelsReport * Math.max(0, dureeReportMois - 1);
+  const coutTotalCredit = totalRembourse - montantTTC;
 
   return {
     mensualiteReport: Math.round(interetsMensuelsReport * 100) / 100,
     mensualiteAmortissement: Math.round(mensualiteAmortissement * 100) / 100,
     interetsIntercalaires: Math.round(interetsIntercalaires * 100) / 100,
-    capitalTotal: capitalAFinancer,
+    capitalTotal: Math.round(capitalAFinancer * 100) / 100,
     coutTotalCredit: Math.round(coutTotalCredit * 100) / 100,
-    dureeTotaleMois: dureeReportMois + dureeMois,
+    dureeTotaleMois: dureeReportMois + dureeAmortissement,
     fraisDossier,
   };
 }
