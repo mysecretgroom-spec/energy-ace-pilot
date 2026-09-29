@@ -3078,8 +3078,33 @@ _Envoyé depuis DébalePro_`;
                         (b.product_type === "PV" && b.nom_bouquet?.match(/PAC|ITE/i))
                       );
                       const allBouquets = dataBouquets.length > 0;
+                      const gammesGlobal = Array.from(new Set(dataBouquets.filter(b => b.product_type === "PV" || !b.product_type).map(b => b.gamme).filter(Boolean))) as string[];
+                      const byGamme = (b: typeof dataBouquets[number]) => !selectedGammePV || (b.product_type && b.product_type !== "PV") || (b.gamme || "") === selectedGammePV;
                       return (
                         <>
+                          {activeProducts.includes("PV") && gammesGlobal.length > 0 && (
+                            <div>
+                              <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
+                                <Tag className="h-3 w-3" /> Gamme PV
+                              </Label>
+                              <Select value={selectedGammePV || "all"} onValueChange={(v) => {
+                                setSelectedGammePV(v === "all" ? "" : v);
+                                setSelectedBouquetCombo("");
+                                setSelectedBouquetPV("");
+                                setPrixInstallationManuel("");
+                              }}>
+                                <SelectTrigger className="h-9 text-xs">
+                                  <SelectValue placeholder="Toutes les gammes" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Toutes les gammes</SelectItem>
+                                  {gammesGlobal.map(g => (
+                                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <Select value={selectedBouquetCombo} onValueChange={(v) => {
                             setSelectedBouquetCombo(v === "none" ? "" : v);
                           }}>
@@ -3088,14 +3113,14 @@ _Envoyé depuis DébalePro_`;
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">Aucun bouquet sélectionné</SelectItem>
-                              {comboBouquets.length > 0 && comboBouquets.map(b => (
+                              {comboBouquets.length > 0 && comboBouquets.filter(byGamme).map(b => (
                                 <SelectItem key={b.id} value={b.id}>
-                                  {b.nom_bouquet} — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                  {b.nom_bouquet}{b.gamme ? ` · ${b.gamme}` : ""} — {b.prix_recommande.toLocaleString("fr-FR")}€
                                 </SelectItem>
                               ))}
-                              {comboBouquets.length === 0 && dataBouquets.map(b => (
+                              {comboBouquets.length === 0 && dataBouquets.filter(byGamme).map(b => (
                                 <SelectItem key={b.id} value={b.id}>
-                                  {b.nom_bouquet} ({b.product_type || "PV"}) — {b.prix_recommande.toLocaleString("fr-FR")}€
+                                  {b.nom_bouquet} ({b.product_type || "PV"}){b.gamme ? ` · ${b.gamme}` : ""} — {b.prix_recommande.toLocaleString("fr-FR")}€
                                 </SelectItem>
                               ))}
                             </SelectContent>
