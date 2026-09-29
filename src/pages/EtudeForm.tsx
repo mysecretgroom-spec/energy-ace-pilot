@@ -3224,7 +3224,7 @@ _Envoyé depuis DébalePro_`;
                           )}
                           {activeProducts.includes("PV") && (() => {
                             const gammesLocal = Array.from(new Set(pvBouquetsLocal.map(b => b.gamme).filter(Boolean))) as string[];
-                            if (gammesLocal.length < 2) return null;
+                            if (gammesLocal.length < 1) return null;
                             return (
                               <div>
                                 <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
@@ -4642,7 +4642,7 @@ _Envoyé depuis DébalePro_`;
           {/* Sélecteur de gamme (si plusieurs gammes configurées) */}
           {(() => {
             const gammes = Array.from(new Set(pvBouquets.map(b => b.gamme).filter(Boolean))) as string[];
-            if (gammes.length < 2) return null;
+            if (gammes.length < 1) return null;
             return (
               <div className="mb-3">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
