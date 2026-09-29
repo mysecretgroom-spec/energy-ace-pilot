@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { clearLegacyMutationQueue } from "./lib/clearLegacyMutationQueue";
+import { installFetchDedupe } from "./lib/fetchDedupe";
+
+installFetchDedupe();
 
 // Plus d'interception globale du réseau : le hors-ligne est limité au planning
 // (cache de lecture) et à l'outil d'étude (brouillons). On purge l'ancienne file.
