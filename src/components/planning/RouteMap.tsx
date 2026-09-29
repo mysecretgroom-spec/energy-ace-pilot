@@ -65,10 +65,16 @@ export function RouteMap({ rdvList, onClose }: RouteMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
-  // Filter RDVs with valid coordinates
-  const rdvsWithCoords = useMemo(() => 
+  // Signature stable : la carte n'est reconstruite que si les RDV changent vraiment
+  // (le parent recrée la liste à chaque rendu, ce qui faisait recharger la carte en boucle).
+  const signature = rdvList
+    .filter(rdv => rdv.latitude && rdv.longitude)
+    .map(r => `${r.id}|${r.latitude}|${r.longitude}|${r.status}|${r.time}|${r.isR2 ? 1 : 0}|${r.typeRdv ?? ""}`)
+    .join(";");
+  const rdvsWithCoords = useMemo(() =>
     rdvList.filter(rdv => rdv.latitude && rdv.longitude),
-    [rdvList]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [signature]
   );
 
   // Get positions for polyline
