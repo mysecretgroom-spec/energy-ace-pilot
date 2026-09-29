@@ -78,51 +78,24 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api/, /^\/supabase/, /^\/~oauth/],
+        // Seules les lectures du planning passent par le service worker.
+        // Auth, fonctions, stockage et écritures vont directement au réseau :
+        // les faire transiter par le SW provoquait des « Load failed » sur iOS.
         runtimeCaching: [
           {
-            // Cache Supabase API calls with network-first strategy
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(rdv|clients|etudes|regies)/i,
+            method: "GET",
             handler: "NetworkFirst",
             options: {
               cacheName: "supabase-data-cache",
               expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+                maxEntries: 300,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
               },
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [200],
               },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          {
-            // Cache Supabase storage (images, documents) 
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "supabase-storage-cache",
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            // Cache other Supabase calls with network-first
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-cache",
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
+              networkTimeoutSeconds: 10,
             },
           },
           {

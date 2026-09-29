@@ -2,6 +2,14 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { clearLegacyMutationQueue } from "./lib/clearLegacyMutationQueue";
+import { installFetchDedupe } from "./lib/fetchDedupe";
+
+installFetchDedupe();
+
+// Purge des anciens caches du service worker (auth/fonctions/stockage mis en cache à tort).
+if (typeof caches !== "undefined") {
+  ["supabase-cache", "supabase-storage-cache"].forEach((n) => caches.delete(n).catch(() => {}));
+}
 
 // Plus d'interception globale du réseau : le hors-ligne est limité au planning
 // (cache de lecture) et à l'outil d'étude (brouillons). On purge l'ancienne file.
