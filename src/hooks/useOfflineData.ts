@@ -262,9 +262,9 @@ export function useOfflineData() {
       // Count pending études
       const etudeTx = db.transaction(STORES.ETUDES, "readonly");
       const etudeStore = etudeTx.objectStore(STORES.ETUDES);
-      const etudeIndex = etudeStore.index("synced");
-      const etudeRequest = etudeIndex.count(IDBKeyRange.only(false));
-      etudeRequest.onsuccess = () => setPendingEtudesCount(etudeRequest.result);
+      const etudeRequest = etudeStore.getAll();
+      etudeRequest.onsuccess = () =>
+        setPendingEtudesCount((etudeRequest.result as Array<{ synced?: boolean }>).filter((e) => !e.synced).length);
 
       // Count pending WhatsApp
       const whatsappTx = db.transaction(STORES.WHATSAPP_QUEUE, "readonly");
@@ -668,9 +668,11 @@ export function useOfflineData() {
       const etudeStore = etudeTx.objectStore(STORES.ETUDES);
       const etudeIndex = etudeStore.index("synced");
 
+      void etudeIndex;
+      // Booleans are not valid IndexedDB keys: filter in JS instead of IDBKeyRange.only(false)
       const pendingEtudes: PendingEtude[] = await new Promise((resolve, reject) => {
-        const request = etudeIndex.getAll(IDBKeyRange.only(false));
-        request.onsuccess = () => resolve(request.result);
+        const request = etudeStore.getAll();
+        request.onsuccess = () => resolve((request.result as PendingEtude[]).filter((e) => !e.synced));
         request.onerror = () => reject(request.error);
       });
 
