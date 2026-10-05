@@ -629,6 +629,24 @@ serve(async (req) => {
       }
     }
 
+    // Step 4b: Exact nom + prénom (no location needed) — catches the same RDV
+    // email sent twice by a régie without address/phone in the plain-text body.
+    if (!existingClient && validated.CONTACT.nom && validated.CONTACT.prenom) {
+      const { data } = await supabase
+        .from("clients")
+        .select("id, nom, prenom")
+        .eq("user_id", user_id)
+        .ilike("nom", validated.CONTACT.nom.trim())
+        .limit(10);
+      const match = (data || []).find((c: any) =>
+        c.prenom && stringSimilarity(String(validated.CONTACT.prenom), c.prenom) > 0.85
+      );
+      if (match) {
+        existingClient = { id: match.id, nom: match.nom };
+        console.log(`Exact name matched client: ${match.nom} ${match.prenom}`);
+      }
+    }
+
     // Step 5: Fallback — try matching prenom as nom (full swap with no location)
     if (!existingClient && validated.CONTACT.prenom) {
       const { data } = await supabase
@@ -917,6 +935,31 @@ serve(async (req) => {
         } : {}),
       },
     };
+
+    // ── DUPLICATE SLOT GUARD: same client, same régie, ±30 min → skip ──────
+    if (dateHeure) {
+      const t = new Date(dateHeure).getTime();
+      if (!isNaN(t)) {
+        let dupQuery = supabase
+          .from("rdv")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("client_id", clientId)
+          .gte("date_heure", new Date(t - 30 * 60000).toISOString())
+          .lte("date_heure", new Date(t + 30 * 60000).toISOString())
+          .not("status", "in", "(annule)")
+          .limit(1);
+        if (regie_id) dupQuery = dupQuery.eq("regie_id", regie_id);
+        const { data: dupRdv } = await dupQuery;
+        if (dupRdv && dupRdv.length > 0) {
+          console.log(`Duplicate RDV skipped (existing ${dupRdv[0].id})`);
+          return new Response(
+            JSON.stringify({ success: true, action: "skipped", duplicate: true, rdv_id: dupRdv[0].id, client_id: clientId }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
 
     const { data: newRdv, error: rdvError } = await supabase
       .from("rdv")
