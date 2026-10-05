@@ -226,9 +226,13 @@ function extractAllContentFromPayload(payload: any, messageId?: string): Extract
   pendingAttachments.length = 0;
   collectParts(payload, result, messageId);
 
-  // If no plain text, derive from HTML
-  if (!result.text && result.rawHtml) {
-    result.text = stripHtml(result.rawHtml);
+  // Some senders put a near-empty plain-text part and the real details in HTML.
+  // Prefer the richer version so address/phone are not lost.
+  if (result.rawHtml) {
+    const htmlText = stripHtml(result.rawHtml);
+    if (!result.text || htmlText.trim().length > result.text.trim().length * 1.2) {
+      result.text = htmlText;
+    }
   }
 
   return result;
