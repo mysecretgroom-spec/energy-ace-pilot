@@ -18,7 +18,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Bornes de sécurité (coût IA + temps d'exécution)
-const MAX_MESSAGES_PER_RUN = 15;
+const MAX_MESSAGES_PER_RUN = 30;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DAYS = 14;
 
@@ -52,7 +52,7 @@ function buildGmailQuery(
     else clauses.push(`(subject:"${term}" OR "${term}")`);
   }
   if (!clauses.length) return null;
-  return `has:attachment newer_than:${days}d (${clauses.join(" OR ")})`;
+  return `newer_than:${days}d (${clauses.join(" OR ")})`;
 }
 
 function base64UrlToBase64(data: string): string {
@@ -86,6 +86,142 @@ function getHeader(payload: any, name: string): string {
     (x: any) => (x.name || "").toLowerCase() === name.toLowerCase(),
   );
   return h?.value || "";
+}
+
+const MIN_IMAGE_BYTES = 20 * 1024; // en dessous : logos / icônes d'email
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+interface Reading {
+  montant_ttc: number | null;
+  commercant?: string | null;
+  categorie?: string | null;
+  date?: string | null;
+  date_debut?: string | null;
+  date_fin?: string | null;
+  description?: string | null;
+  reference?: string | null;
+  annulation?: boolean;
+  [k: string]: unknown;
+}
+
+function decodePart(data: string): string {
+  try {
+    const bin = atob(base64UrlToBase64(data));
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch { return ""; }
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&euro;/g, "€").replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+}
+
+/** Texte lisible de l'email (HTML prioritaire s'il est plus complet). */
+function extractEmailText(payload: any): string {
+  let plain = "", html = "";
+  const walk = (p: any) => {
+    if (!p) return;
+    const mime = (p.mimeType || "").toLowerCase();
+    if (p.body?.data && !p.filename) {
+      if (mime === "text/plain") plain += decodePart(p.body.data) + "\n";
+      else if (mime === "text/html") html += decodePart(p.body.data) + "\n";
+    }
+    for (const c of p.parts || []) walk(c);
+  };
+  walk(payload);
+  const htmlText = html ? htmlToText(html) : "";
+  const text = htmlText.length > plain.length * 1.2 ? htmlText : plain;
+  return text.slice(0, 15000);
+}
+
+function buildEmailHtml(subject: string, sender: string, date: Date, text: string): string {
+  const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(subject)}</title></head>` +
+    `<body style="font-family:sans-serif;max-width:720px;margin:auto;white-space:pre-wrap">` +
+    `<p><b>De :</b> ${esc(sender)}<br><b>Date :</b> ${date.toISOString()}<br><b>Sujet :</b> ${esc(subject)}</p><hr>${esc(text)}</body></html>`;
+}
+
+/** Lecture du corps de l'email (confirmation Booking, reçu en ligne…). */
+async function readEmailBody(subject: string, sender: string, text: string): Promise<Reading | null> {
+  if (!LOVABLE_API_KEY) return null;
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-lite",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Tu lis un email de confirmation, reçu ou facture et tu en extrais la dépense. " +
+            "Le montant est le prix TOTAL TTC payé ou à payer (pas un prix par nuit, pas une taxe seule). " +
+            "Pour un hôtel (Booking, Hotels.com…) : categorie=hotel, date_debut=arrivée, date_fin=départ, commercant=nom de l'établissement, reference=numéro de réservation. " +
+            "Si l'email est une annulation, annulation=true. Si aucune dépense n'est identifiable, montant_ttc=null. Dates au format YYYY-MM-DD.",
+        },
+        { role: "user", content: `De : ${sender}\nSujet : ${subject}\n\n${text}` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "depense",
+          parameters: {
+            type: "object",
+            properties: {
+              montant_ttc: { type: ["number", "null"] },
+              commercant: { type: ["string", "null"] },
+              categorie: { type: "string", enum: CATEGORIES },
+              date: { type: ["string", "null"] },
+              date_debut: { type: ["string", "null"] },
+              date_fin: { type: ["string", "null"] },
+              reference: { type: ["string", "null"] },
+              description: { type: ["string", "null"] },
+              annulation: { type: "boolean" },
+            },
+            required: ["montant_ttc", "categorie", "annulation"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "depense" } },
+    }),
+  });
+  if (!res.ok) {
+    console.error("[frais-sync] lecture email:", res.status, await res.text());
+    return null;
+  }
+  const data = await res.json();
+  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  try { return args ? JSON.parse(args) : null; } catch { return null; }
+}
+
+/** Frais déjà enregistré correspondant (même séjour ou même dépense). */
+async function findExisting(
+  supabase: any,
+  userId: string,
+  p: { categorie: string; dateFrais: string; dateDebut: string | null; montant: number; fournisseur: string },
+): Promise<{ id: string; justificatif_url: string | null; ocr_data: any } | null> {
+  const lo = Math.round((p.montant - 0.02) * 100) / 100;
+  const hi = Math.round((p.montant + 0.02) * 100) / 100;
+  const sel = "id, justificatif_url, ocr_data";
+  if (p.categorie === "hotel" && p.dateDebut) {
+    // Même séjour : même date d'arrivée + même établissement OU même montant
+    const { data } = await supabase.from("frais").select(sel + ", fournisseur, montant")
+      .eq("user_id", userId).eq("categorie", "hotel").eq("date_debut", p.dateDebut).limit(10);
+    const key = p.fournisseur.toLowerCase().slice(0, 12);
+    const hit = (data || []).find((r: any) =>
+      (Number(r.montant) >= lo && Number(r.montant) <= hi) ||
+      (key && (r.fournisseur || "").toLowerCase().includes(key)));
+    if (hit) return hit;
+  }
+  let q = supabase.from("frais").select(sel).eq("user_id", userId)
+    .eq("date_frais", p.dateFrais).gte("montant", lo).lte("montant", hi);
+  if (p.fournisseur) q = q.ilike("fournisseur", `%${p.fournisseur.slice(0, 60)}%`);
+  const { data } = await q.limit(1);
+  return data?.[0] || null;
 }
 
 serve(async (req) => {
@@ -162,11 +298,18 @@ serve(async (req) => {
     const seen = new Set((already || []).map((r) => `${r.gmail_message_id}|${r.attachment_key}`));
 
     const details: ImportDetail[] = [];
-    let imported = 0, skipped = 0, errors = 0;
+    let imported = 0, skipped = 0, errors = 0, attached = 0;
+
+    const markMessage = (msgId: string, statut: string, extra: Record<string, unknown>) =>
+      supabase.from("gmail_frais_imports").upsert(
+        { user_id: userId, gmail_message_id: msgId, attachment_key: "", statut, ...extra },
+        { onConflict: "user_id,gmail_message_id,attachment_key", ignoreDuplicates: true },
+      );
 
     for (const msg of messages) {
       if (seen.has(`${msg.id}|`)) { skipped++; continue; }
 
+      let subject = "", sender = "";
       try {
         const msgRes = await fetch(
           `${GMAIL_API_BASE}/users/me/messages/${msg.id}?format=full`,
@@ -175,156 +318,162 @@ serve(async (req) => {
         if (!msgRes.ok) throw new Error(`Gmail message ${msgRes.status}`);
         const msgData = await msgRes.json();
 
-        const subject = getHeader(msgData.payload, "Subject");
-        const sender = getHeader(msgData.payload, "From");
+        subject = getHeader(msgData.payload, "Subject");
+        sender = getHeader(msgData.payload, "From");
         const internalDate = msgData.internalDate
           ? new Date(Number(msgData.internalDate))
           : new Date();
+        const emailText = extractEmailText(msgData.payload);
 
+        // 1) Pièces jointes réelles (on ignore logos / icônes)
         const attachments: FoundAttachment[] = [];
         collectAttachments(msgData.payload, attachments);
+        const realAttachments = attachments.filter(
+          (a) => a.mimeType === "application/pdf" || a.size >= MIN_IMAGE_BYTES,
+        );
 
-        if (!attachments.length) {
-          await supabase.from("gmail_frais_imports").insert({
-            user_id: userId,
-            gmail_message_id: msg.id,
-            attachment_key: "",
-            statut: "ignore",
-            sujet: subject,
-            expediteur: sender,
-          });
-          skipped++;
-          details.push({ messageId: msg.id, subject, status: "skipped" });
-          continue;
-        }
+        let reading: Reading | null = null;
+        let fileBytes: Uint8Array | null = null;
+        let fileMime = "";
+        let fromAttachment = false;
 
-        for (const att of attachments) {
-          const key = att.attachmentId.slice(0, 60);
-          if (seen.has(`${msg.id}|${key}`)) { skipped++; continue; }
-          if (att.size > MAX_ATTACHMENT_BYTES) {
-            await supabase.from("gmail_frais_imports").insert({
-              user_id: userId, gmail_message_id: msg.id, attachment_key: key,
-              statut: "erreur", sujet: subject, expediteur: sender,
-              erreur: "Pièce jointe trop volumineuse",
-            });
-            errors++;
-            details.push({ messageId: msg.id, subject, status: "error", error: "Pièce jointe trop volumineuse" });
-            continue;
-          }
-
+        for (const att of realAttachments) {
+          if (att.size > MAX_ATTACHMENT_BYTES) continue;
           const attRes = await fetch(
             `${GMAIL_API_BASE}/users/me/messages/${msg.id}/attachments/${att.attachmentId}`,
             { headers: { Authorization: `Bearer ${accessToken}` } },
           );
-          if (!attRes.ok) throw new Error(`Gmail attachment ${attRes.status}`);
+          if (!attRes.ok) continue;
           const attData = await attRes.json();
           const b64 = base64UrlToBase64(attData.data || "");
-          if (!b64) throw new Error("Pièce jointe vide");
-
-          const dataUrl = `data:${att.mimeType};base64,${b64}`;
-
-          // Lecture OCR via la fonction existante
+          if (!b64) continue;
           const ocrRes = await fetch(`${SUPABASE_URL}/functions/v1/ocr-receipt`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
             },
-            body: JSON.stringify({ image_base64: dataUrl }),
+            body: JSON.stringify({ image_base64: `data:${att.mimeType};base64,${b64}` }),
           });
-          const ocr = await ocrRes.json();
+          const ocr = await ocrRes.json().catch(() => null);
+          if (ocrRes.ok && ocr && typeof ocr.montant_ttc === "number" && ocr.montant_ttc > 0) {
+            reading = ocr;
+            fileBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+            fileMime = att.mimeType;
+            fromAttachment = true;
+            break;
+          }
+        }
 
-          if (!ocrRes.ok || !ocr || typeof ocr.montant_ttc !== "number") {
-            const reason = ocr?.error || "Montant non lu";
-            await supabase.from("gmail_frais_imports").insert({
-              user_id: userId, gmail_message_id: msg.id, attachment_key: key,
-              statut: "erreur", sujet: subject, expediteur: sender, erreur: reason,
-            });
-            errors++;
-            details.push({ messageId: msg.id, subject, status: "error", error: reason });
+        // 2) Sinon : le contenu de l'email fait office de reçu (ex. Booking)
+        if (!reading && emailText.length > 40) {
+          const r = await readEmailBody(subject, sender, emailText);
+          if (r?.annulation) {
+            await markMessage(msg.id, "ignore", { sujet: subject, expediteur: sender, erreur: "Annulation" });
+            skipped++;
+            details.push({ messageId: msg.id, subject, status: "skipped", error: "Annulation" });
             continue;
           }
+          if (r && typeof r.montant_ttc === "number" && r.montant_ttc > 0) {
+            reading = r;
+            fileBytes = new TextEncoder().encode(buildEmailHtml(subject, sender, internalDate, emailText));
+            fileMime = "text/html";
+          }
+        }
 
-          // Stockage du justificatif
-          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-          const ext = att.mimeType === "application/pdf" ? "pdf" : "jpg";
-          const path = `${userId}/frais/${Date.now()}-${key.slice(0, 8)}.${ext}`;
+        if (!reading || !fileBytes) {
+          await markMessage(msg.id, "erreur", {
+            sujet: subject, expediteur: sender, erreur: "Aucun montant trouvé",
+          });
+          errors++;
+          details.push({ messageId: msg.id, subject, status: "error", error: "Aucun montant trouvé" });
+          continue;
+        }
+
+        const categorie = CATEGORIES.includes(reading.categorie || "") ? reading.categorie! : "autre";
+        const today = new Date().toISOString().slice(0, 10);
+        const validDate = (d?: string | null) =>
+          d && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(new Date(d).getTime()) ? d : null;
+        const dateDebut = validDate(reading.date_debut);
+        const dateFin = validDate(reading.date_fin);
+        const isStay = categorie === "hotel" || categorie === "location_vehicule";
+        let dateFrais = (isStay && dateDebut) || validDate(reading.date) || internalDate.toISOString().slice(0, 10);
+        if (dateFrais > today) dateFrais = today;
+        const montant = Math.round(reading.montant_ttc! * 100) / 100;
+        const fournisseur = (reading.commercant || "").trim();
+
+        // Anti-doublon / rattachement
+        const existing = await findExisting(supabase, userId, {
+          categorie, dateFrais, dateDebut, montant, fournisseur,
+        });
+
+        const upload = async () => {
+          const ext = fileMime === "application/pdf" ? "pdf" : fileMime === "text/html" ? "html" : "jpg";
+          const path = `${userId}/frais/${Date.now()}-${msg.id.slice(0, 8)}.${ext}`;
           const { error: upErr } = await supabase.storage
             .from("receipts")
-            .upload(path, bytes, { contentType: att.mimeType, upsert: false });
+            .upload(path, fileBytes!, { contentType: fileMime, upsert: false });
           if (upErr) throw new Error(`Stockage: ${upErr.message}`);
-          const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(path);
+          return supabase.storage.from("receipts").getPublicUrl(path).data.publicUrl;
+        };
 
-          const categorie = CATEGORIES.includes(ocr.categorie) ? ocr.categorie : "autre";
-          const dateFrais = ocr.date && !Number.isNaN(new Date(ocr.date).getTime())
-            ? ocr.date
-            : internalDate.toISOString().slice(0, 10);
-          const today = new Date().toISOString().slice(0, 10);
-          const dateEffective = dateFrais > today ? today : dateFrais;
-
-          // Anti-doublon : un frais identique (même fournisseur/montant/date, ou
-          // même montant/date si le fournisseur n'a pas été lu) existe déjà ?
-          let dupQuery = supabase
-            .from("frais")
-            .select("id")
-            .eq("user_id", userId)
-            .eq("date_frais", dateEffective)
-            .gte("montant", Math.round((ocr.montant_ttc - 0.02) * 100) / 100)
-            .lte("montant", Math.round((ocr.montant_ttc + 0.02) * 100) / 100);
-          const fournisseur = (ocr.commercant || "").trim();
-          if (fournisseur) dupQuery = dupQuery.ilike("fournisseur", `%${fournisseur.slice(0, 60)}%`);
-          const { data: dups } = await dupQuery.limit(1);
-          if (dups && dups.length) {
-            await supabase.from("gmail_frais_imports").insert({
-              user_id: userId, gmail_message_id: msg.id, attachment_key: key,
-              statut: "ignore", sujet: subject, expediteur: sender,
-              frais_id: dups[0].id, erreur: "Doublon détecté",
-            });
+        if (existing) {
+          // Un vrai justificatif (PDF/photo) remplace le reçu email provisoire
+          const existingIsEmail = existing.ocr_data?.source_type === "email_body" || !existing.justificatif_url;
+          if (fromAttachment && existingIsEmail) {
+            const url = await upload();
+            await supabase.from("frais").update({
+              justificatif_url: url,
+              ocr_data: { ...(existing.ocr_data || {}), ...reading, source: "gmail", source_type: "attachment",
+                gmail_message_id: msg.id, email_receipt_url: existing.justificatif_url },
+            }).eq("id", existing.id);
+            await markMessage(msg.id, "importe", { sujet: subject, expediteur: sender, frais_id: existing.id, erreur: "Justificatif rattaché" });
+            attached++;
+            details.push({ messageId: msg.id, subject, status: "imported", montant });
+          } else {
+            await markMessage(msg.id, "ignore", { sujet: subject, expediteur: sender, frais_id: existing.id, erreur: "Doublon détecté" });
             skipped++;
             details.push({ messageId: msg.id, subject, status: "skipped", error: "Doublon" });
-            continue;
           }
-
-          const insertData: Record<string, unknown> = {
-            user_id: userId,
-            montant: ocr.montant_ttc,
-            date_frais: dateEffective,
-            categorie,
-            description: [ocr.commercant, ocr.description].filter(Boolean).join(" - ") || subject || null,
-            fournisseur: ocr.commercant || null,
-            justificatif_url: urlData.publicUrl,
-            ocr_data: { ...ocr, source: "gmail", gmail_message_id: msg.id, sujet: subject },
-          };
-          if (categorie === "location_vehicule" || categorie === "hotel") {
-            if (ocr.date_debut) insertData.date_debut = ocr.date_debut;
-            if (ocr.date_fin) insertData.date_fin = ocr.date_fin;
-          }
-
-          const { data: fraisRow, error: fraisErr } = await supabase
-            .from("frais")
-            .insert(insertData)
-            .select("id")
-            .single();
-          if (fraisErr) throw new Error(`Enregistrement: ${fraisErr.message}`);
-
-          await supabase.from("gmail_frais_imports").insert({
-            user_id: userId, gmail_message_id: msg.id, attachment_key: key,
-            statut: "importe", sujet: subject, expediteur: sender, frais_id: fraisRow.id,
-          });
-
-          imported++;
-          details.push({ messageId: msg.id, subject, status: "imported", montant: ocr.montant_ttc });
+          continue;
         }
+
+        const url = await upload();
+        const insertData: Record<string, unknown> = {
+          user_id: userId,
+          montant,
+          date_frais: dateFrais,
+          categorie,
+          description: [fournisseur, reading.description].filter(Boolean).join(" - ") || subject || null,
+          fournisseur: fournisseur || null,
+          justificatif_url: url,
+          ocr_data: {
+            ...reading, source: "gmail", source_type: fromAttachment ? "attachment" : "email_body",
+            gmail_message_id: msg.id, sujet: subject,
+          },
+        };
+        if (isStay) {
+          if (dateDebut) insertData.date_debut = dateDebut;
+          if (dateFin) insertData.date_fin = dateFin;
+        }
+
+        const { data: fraisRow, error: fraisErr } = await supabase
+          .from("frais").insert(insertData).select("id").single();
+        if (fraisErr) throw new Error(`Enregistrement: ${fraisErr.message}`);
+
+        await markMessage(msg.id, "importe", { sujet: subject, expediteur: sender, frais_id: fraisRow.id });
+        imported++;
+        details.push({ messageId: msg.id, subject, status: "imported", montant });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Erreur inconnue";
         console.error(`[frais-sync] message ${msg.id}:`, message);
         errors++;
-        details.push({ messageId: msg.id, subject: "", status: "error", error: message });
+        details.push({ messageId: msg.id, subject, status: "error", error: message });
       }
     }
 
-    console.log(`[frais-sync] user=${userId} imported=${imported} skipped=${skipped} errors=${errors}`);
-    return json({ imported, skipped, errors, details });
+    console.log(`[frais-sync] user=${userId} imported=${imported} attached=${attached} skipped=${skipped} errors=${errors}`);
+    return json({ imported, attached, skipped, errors, details });
   } catch (error) {
     console.error("[frais-sync] fatal:", error);
     return json({ error: error instanceof Error ? error.message : "Erreur inconnue" }, 500);
