@@ -274,7 +274,7 @@ serve(async (req) => {
     console.log(`[frais-sync] user=${userId} query=${query}`);
 
     const listRes = await fetch(
-      `${GMAIL_API_BASE}/users/me/messages?maxResults=${MAX_MESSAGES_PER_RUN}&q=${encodeURIComponent(query)}`,
+      `${GMAIL_API_BASE}/users/me/messages?maxResults=200&q=${encodeURIComponent(query)}`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
     if (!listRes.ok) {
@@ -283,19 +283,21 @@ serve(async (req) => {
       return json({ error: "Lecture Gmail impossible", details: txt }, listRes.status);
     }
     const listData = await listRes.json();
-    const messages: Array<{ id: string }> = listData.messages || [];
+    const allMessages: Array<{ id: string }> = listData.messages || [];
 
-    if (!messages.length) {
+    if (!allMessages.length) {
       return json({ imported: 0, skipped: 0, errors: 0, details: [], message: "Aucun email correspondant" });
     }
 
-    // Messages déjà traités
+    // Messages déjà traités : on ne garde que les nouveaux (plafonnés par exécution)
     const { data: already } = await supabase
       .from("gmail_frais_imports")
       .select("gmail_message_id, attachment_key")
       .eq("user_id", userId)
-      .in("gmail_message_id", messages.map((m) => m.id));
+      .eq("attachment_key", "")
+      .in("gmail_message_id", allMessages.map((m) => m.id));
     const seen = new Set((already || []).map((r) => `${r.gmail_message_id}|${r.attachment_key}`));
+    const messages = allMessages.filter((m) => !seen.has(`${m.id}|`)).slice(0, MAX_MESSAGES_PER_RUN);
 
     const details: ImportDetail[] = [];
     let imported = 0, skipped = 0, errors = 0, attached = 0;
