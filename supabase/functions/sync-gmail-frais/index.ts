@@ -161,7 +161,7 @@ async function readEmailBody(subject: string, sender: string, text: string): Pro
             "Tu lis un email de confirmation, reçu ou facture et tu en extrais la dépense. " +
             "Le montant est le prix TOTAL TTC payé ou à payer (pas un prix par nuit, pas une taxe seule). " +
             "Pour un hôtel (Booking, Hotels.com…) : categorie=hotel, date_debut=arrivée, date_fin=départ, commercant=nom de l'établissement, reference=numéro de réservation. " +
-            "Si l'email est une annulation, annulation=true. Si aucune dépense n'est identifiable, montant_ttc=null. Dates au format YYYY-MM-DD.",
+            "Si l'email est une annulation, annulation=true. Un email de rendez-vous client, de planning, une publicité ou une demande d'avis n'est PAS une dépense (montant_ttc=null). Si aucune dépense n'est identifiable, montant_ttc=null. Dates au format YYYY-MM-DD.",
         },
         { role: "user", content: `De : ${sender}\nSujet : ${subject}\n\n${text}` },
       ],
