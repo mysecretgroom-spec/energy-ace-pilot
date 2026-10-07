@@ -88,6 +88,142 @@ function getHeader(payload: any, name: string): string {
   return h?.value || "";
 }
 
+const MIN_IMAGE_BYTES = 20 * 1024; // en dessous : logos / icônes d'email
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+interface Reading {
+  montant_ttc: number | null;
+  commercant?: string | null;
+  categorie?: string | null;
+  date?: string | null;
+  date_debut?: string | null;
+  date_fin?: string | null;
+  description?: string | null;
+  reference?: string | null;
+  annulation?: boolean;
+  [k: string]: unknown;
+}
+
+function decodePart(data: string): string {
+  try {
+    const bin = atob(base64UrlToBase64(data));
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch { return ""; }
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&euro;/g, "€").replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+}
+
+/** Texte lisible de l'email (HTML prioritaire s'il est plus complet). */
+function extractEmailText(payload: any): string {
+  let plain = "", html = "";
+  const walk = (p: any) => {
+    if (!p) return;
+    const mime = (p.mimeType || "").toLowerCase();
+    if (p.body?.data && !p.filename) {
+      if (mime === "text/plain") plain += decodePart(p.body.data) + "\n";
+      else if (mime === "text/html") html += decodePart(p.body.data) + "\n";
+    }
+    for (const c of p.parts || []) walk(c);
+  };
+  walk(payload);
+  const htmlText = html ? htmlToText(html) : "";
+  const text = htmlText.length > plain.length * 1.2 ? htmlText : plain;
+  return text.slice(0, 15000);
+}
+
+function buildEmailHtml(subject: string, sender: string, date: Date, text: string): string {
+  const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(subject)}</title></head>` +
+    `<body style="font-family:sans-serif;max-width:720px;margin:auto;white-space:pre-wrap">` +
+    `<p><b>De :</b> ${esc(sender)}<br><b>Date :</b> ${date.toISOString()}<br><b>Sujet :</b> ${esc(subject)}</p><hr>${esc(text)}</body></html>`;
+}
+
+/** Lecture du corps de l'email (confirmation Booking, reçu en ligne…). */
+async function readEmailBody(subject: string, sender: string, text: string): Promise<Reading | null> {
+  if (!LOVABLE_API_KEY) return null;
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-lite",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Tu lis un email de confirmation, reçu ou facture et tu en extrais la dépense. " +
+            "Le montant est le prix TOTAL TTC payé ou à payer (pas un prix par nuit, pas une taxe seule). " +
+            "Pour un hôtel (Booking, Hotels.com…) : categorie=hotel, date_debut=arrivée, date_fin=départ, commercant=nom de l'établissement, reference=numéro de réservation. " +
+            "Si l'email est une annulation, annulation=true. Si aucune dépense n'est identifiable, montant_ttc=null. Dates au format YYYY-MM-DD.",
+        },
+        { role: "user", content: `De : ${sender}\nSujet : ${subject}\n\n${text}` },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "depense",
+          parameters: {
+            type: "object",
+            properties: {
+              montant_ttc: { type: ["number", "null"] },
+              commercant: { type: ["string", "null"] },
+              categorie: { type: "string", enum: CATEGORIES },
+              date: { type: ["string", "null"] },
+              date_debut: { type: ["string", "null"] },
+              date_fin: { type: ["string", "null"] },
+              reference: { type: ["string", "null"] },
+              description: { type: ["string", "null"] },
+              annulation: { type: "boolean" },
+            },
+            required: ["montant_ttc", "categorie", "annulation"],
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "depense" } },
+    }),
+  });
+  if (!res.ok) {
+    console.error("[frais-sync] lecture email:", res.status, await res.text());
+    return null;
+  }
+  const data = await res.json();
+  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  try { return args ? JSON.parse(args) : null; } catch { return null; }
+}
+
+/** Frais déjà enregistré correspondant (même séjour ou même dépense). */
+async function findExisting(
+  supabase: any,
+  userId: string,
+  p: { categorie: string; dateFrais: string; dateDebut: string | null; montant: number; fournisseur: string },
+): Promise<{ id: string; justificatif_url: string | null; ocr_data: any } | null> {
+  const lo = Math.round((p.montant - 0.02) * 100) / 100;
+  const hi = Math.round((p.montant + 0.02) * 100) / 100;
+  const sel = "id, justificatif_url, ocr_data";
+  if (p.categorie === "hotel" && p.dateDebut) {
+    // Même séjour : même date d'arrivée + même établissement OU même montant
+    const { data } = await supabase.from("frais").select(sel + ", fournisseur, montant")
+      .eq("user_id", userId).eq("categorie", "hotel").eq("date_debut", p.dateDebut).limit(10);
+    const key = p.fournisseur.toLowerCase().slice(0, 12);
+    const hit = (data || []).find((r: any) =>
+      (Number(r.montant) >= lo && Number(r.montant) <= hi) ||
+      (key && (r.fournisseur || "").toLowerCase().includes(key)));
+    if (hit) return hit;
+  }
+  let q = supabase.from("frais").select(sel).eq("user_id", userId)
+    .eq("date_frais", p.dateFrais).gte("montant", lo).lte("montant", hi);
+  if (p.fournisseur) q = q.ilike("fournisseur", `%${p.fournisseur.slice(0, 60)}%`);
+  const { data } = await q.limit(1);
+  return data?.[0] || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
