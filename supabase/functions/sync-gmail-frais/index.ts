@@ -18,7 +18,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Bornes de sécurité (coût IA + temps d'exécution)
-const MAX_MESSAGES_PER_RUN = 15;
+const MAX_MESSAGES_PER_RUN = 30;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const DEFAULT_DAYS = 14;
 
@@ -52,7 +52,7 @@ function buildGmailQuery(
     else clauses.push(`(subject:"${term}" OR "${term}")`);
   }
   if (!clauses.length) return null;
-  return `has:attachment newer_than:${days}d (${clauses.join(" OR ")})`;
+  return `newer_than:${days}d (${clauses.join(" OR ")})`;
 }
 
 function base64UrlToBase64(data: string): string {
