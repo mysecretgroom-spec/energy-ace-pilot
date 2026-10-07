@@ -384,11 +384,11 @@ serve(async (req) => {
         }
 
         if (!reading || !fileBytes) {
-          await markMessage(msg.id, "erreur", {
+          await markMessage(msg.id, "ignore", {
             sujet: subject, expediteur: sender, erreur: "Aucun montant trouvé",
           });
-          errors++;
-          details.push({ messageId: msg.id, subject, status: "error", error: "Aucun montant trouvé" });
+          skipped++;
+          details.push({ messageId: msg.id, subject, status: "skipped", error: "Pas une dépense" });
           continue;
         }
 
