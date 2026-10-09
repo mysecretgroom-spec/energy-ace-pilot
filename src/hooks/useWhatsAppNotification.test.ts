@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useWhatsAppNotification } from "./useWhatsAppNotification";
 
@@ -7,6 +8,9 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { from } }));
 describe("agency notifications are text only", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("window", { open: vi.fn() });
+    vi.stubGlobal("navigator", { share: vi.fn() });
+    vi.stubGlobal("document", { createElement: vi.fn() });
     from.mockImplementation((table: string) => {
       const data = table === "regies_contacts" ? { telephone: "+33600000000" } : null;
       const query = {
