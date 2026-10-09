@@ -861,6 +861,7 @@ const VenteDetail = () => {
             classification={venteStatusToClassification[status] || status}
             comment={notes || undefined}
             regieId={regieId}
+            etudeId={vente.etude_id}
             venteDetails={{
               telephone: client.telephone || undefined,
               puissanceKwc: Number(puissanceKwc) || undefined,
