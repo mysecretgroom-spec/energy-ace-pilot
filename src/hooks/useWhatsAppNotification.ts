@@ -273,12 +273,18 @@ export const useWhatsAppNotification = () => {
       const commentText = `💬 Commentaire commercial:\n${comment || "Non renseigné"}`;
 
       // Get template (custom or default)
-      const templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
+      let templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
+      if (!templateText.includes("{{vente_details}}")) {
+        templateText = templateText.includes("{{comment}}")
+          ? templateText.replace("{{comment}}", "{{vente_details}}\n\n{{comment}}")
+          : `${templateText}\n\n{{vente_details}}`;
+      }
+      if (!templateText.includes("{{comment}}")) templateText += "\n\n{{comment}}";
 
       let studyDetails = studyRecapDetails(pdfDataProp);
       if (!pdfDataProp && (etudeId || rdvId)) {
         let query = supabase.from("etudes")
-          .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total_hors_aides, mensualite_estimee")
+          .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee")
           .eq("user_id", userId);
         query = etudeId ? query.eq("id", etudeId) : query.eq("rdv_id", rdvId ?? "");
         const { data: study, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -287,7 +293,7 @@ export const useWhatsAppNotification = () => {
           consommationKwh: study.consommation_annuelle_kwh ?? undefined,
           factureAnnuelleEuros: study.facture_annuelle_euros ?? undefined,
           puissanceKwc: study.puissance_kwc ?? undefined,
-          prixTTC: study.prix_total_hors_aides ?? undefined,
+          prixTTC: study.prix_total ?? undefined,
           mensualiteCredit: study.mensualite_estimee ?? undefined,
         };
       }
