@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Remplacer les PDF des messages aux régies par consommation, puissance, prix, mensualité et commentaire commercial ; vérifier les envois
+- [x] Remplacer les PDF des messages aux régies par consommation, puissance, prix, mensualité et commentaire commercial ; tests d'envoi texte réussis
 - [x] Masquer la Prime Coup de Pouce Producteur du récapitulatif des aides (formulaire d'étude, HEJJA, PDF, WhatsApp)
 - [x] Traiter la Prime Coup de Pouce Producteur comme une charge société répercutée sur le prix TTC
 - [x] Arrondir cette charge au multiple de 500 € supérieur et itérer sur la mensualité
