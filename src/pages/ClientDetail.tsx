@@ -728,6 +728,13 @@ const ClientDetailInner = () => {
                             classification={rdv.status}
                             comment={rdv.commentaire || undefined}
                             regieId={rdv.regie_id}
+                            rdvId={rdv.id}
+                            venteDetails={{
+                              telephone: client.telephone || undefined,
+                              adresse: rdv.adresse || client.adresse || undefined,
+                              codePostal: client.code_postal || undefined,
+                              ville: client.ville || undefined,
+                            }}
                             compact
                           />
                         )}

@@ -4,7 +4,9 @@ import { MessageCircle, Loader2 } from "lucide-react";
 import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { EtudeData } from "@/lib/exportEtudePdf";
+import type { EtudeData } from "@/lib/exportEtudePdf";
+
+import type { RegieRecapDetails } from "@/lib/regieRecap";
 
 interface WhatsAppSendButtonProps {
   clientName: string;
@@ -16,18 +18,9 @@ interface WhatsAppSendButtonProps {
   cqDate?: string; // YYYY-MM-DD; defaults to tomorrow if omitted
   regieId?: string | null;
   pdfData?: EtudeData;
-  venteDetails?: {
-    telephone?: string;
-    adresse?: string;
-    codePostal?: string;
-    ville?: string;
-    puissanceKwc?: number;
-    prixTTC?: number;
-    totalAides?: number;
-    primeAutoconsommation?: number;
-    ecoTva?: number;
-    productType?: string;
-  };
+  venteDetails?: RegieRecapDetails;
+  etudeId?: string | null;
+  rdvId?: string;
   compact?: boolean;
   className?: string;
 }
@@ -43,6 +36,8 @@ export function WhatsAppSendButton({
   regieId,
   pdfData,
   venteDetails,
+  etudeId,
+  rdvId,
   compact = false,
   className = "",
 }: WhatsAppSendButtonProps) {
@@ -67,9 +62,13 @@ export function WhatsAppSendButton({
         pdfData,
         regieId,
         venteDetails,
+        etudeId,
+        rdvId,
       });
       if (success) {
-        toast({ title: "WhatsApp envoyé", description: "Le récapitulatif a été partagé" });
+        toast({ title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" });
+      } else {
+        toast({ variant: "destructive", title: "Envoi indisponible", description: "Vérifiez le contact WhatsApp de la régie et réessayez." });
       }
     } catch (err) {
       console.error("[WhatsApp] Erreur:", err);

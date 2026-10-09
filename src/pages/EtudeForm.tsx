@@ -76,6 +76,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useToast } from "@/hooks/use-toast";
 
+import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { WhatsAppSendButton } from "@/components/crm/WhatsAppSendButton";
 import { AutoSaveIndicator } from "@/components/ui/auto-save-indicator";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -2447,92 +2448,26 @@ const EtudeForm = () => {
     }
   };
 
-  // Partage WhatsApp avec PDF pour r2_prestudy
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const handleWhatsAppShare = async () => {
-    const pdfData = buildPdfData();
-    if (!pdfData || !user) return;
-    
-    try {
-      const blob = await buildReportBlobWithPhotos(pdfData);
-      const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
-      const file = new File([blob], fileName, { type: "application/pdf" });
-      
-      // Construire le message avec date R2 et commentaire
-      const fullName = [clientPrenom, clientName].filter(Boolean).join(" ");
-      let r2DateStr = "";
-      if (r2DateHeure && r2Time) {
-        const r2DateTime = new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`);
-        r2DateStr = format(r2DateTime, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
-      }
-      
-      const message = `*ÉTUDE PRÉ-INSTALLATION*
-
-Client: *${fullName}*
-Date: ${new Date().toLocaleDateString("fr-FR")}
-
-*RDV R2 prévu:*
-${r2DateStr || "À définir"}
-
-${classificationComment ? `*Commentaire:*\n${classificationComment}` : ""}
-
-*Document PDF joint*
-
----
-_Envoyé depuis DébalePro_`;
-      
-      // Essayer de partager avec le PDF via Web Share API
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Étude ${clientPrenom} ${clientName}`,
-          text: message,
-        });
-        setShowPreview(false);
-        toast({
-          title: "Partage réussi",
-          description: "L'étude a été partagée via WhatsApp",
-        });
-      } else {
-        // Fallback: Télécharger le PDF puis ouvrir WhatsApp avec le message
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        // Récupérer le numéro du confirmateur pour WhatsApp
-        const { data: settings } = await supabase
-          .from("settings_notifications")
-          .select("confirmateur_phone")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        if (settings?.confirmateur_phone) {
-          const cleanPhone = settings.confirmateur_phone.replace(/[+\s-]/g, "");
-          const encodedMessage = encodeURIComponent(message);
-          window.open(`https://wa.me/${cleanPhone}?text=${encodedMessage}`, "_blank");
-        } else {
-          // Ouvrir WhatsApp sans numéro pré-rempli
-          const encodedMessage = encodeURIComponent(message);
-          window.open(`https://wa.me/?text=${encodedMessage}`, "_blank");
-        }
-        
-        toast({
-          title: "PDF téléchargé",
-          description: "Joignez le PDF dans WhatsApp",
-        });
-      }
-    } catch (error) {
-      console.error("Erreur partage WhatsApp:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Impossible de partager via WhatsApp",
-      });
-    }
+    const studyData = buildPdfData();
+    if (!studyData || !user) return;
+    const success = await sendWhatsAppNotification({
+      clientName, clientPrenom, classification: classification || "r2_prestudy",
+      comment: classificationComment, userId: user.id, regieId,
+      pdfData: studyData,
+      cqTime, cqDate: format(cqDate, "yyyy-MM-dd"),
+      r2DateTime: r2DateHeure && r2Time
+        ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString() : null,
+      venteDetails: {
+        telephone: clientTelephone || undefined, adresse: clientAdresse || undefined,
+        codePostal: clientCodePostal || undefined, ville: clientVille || undefined,
+      },
+    });
+    if (success) setShowPreview(false);
+    toast(success
+      ? { title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" }
+      : { variant: "destructive", title: "Envoi indisponible", description: "Vérifiez le contact WhatsApp de la régie et réessayez." });
   };
 
   const getVerdictDisplay = () => {
@@ -5644,14 +5579,17 @@ _Envoyé depuis DébalePro_`;
                   cqTime={classification === "positif" ? cqTime : undefined}
                   cqDate={classification === "positif" ? format(cqDate, "yyyy-MM-dd") : undefined}
                   regieId={regieId}
-                  pdfData={(classification === "positif" || classification === "r2_prestudy") ? (buildPdfData() || undefined) : undefined}
-                  venteDetails={classification === "positif" && calculatedResults ? {
+                  pdfData={buildPdfData() || undefined}
+                  venteDetails={calculatedResults ? {
                     telephone: clientTelephone || undefined,
                     adresse: clientAdresse || undefined,
                     codePostal: clientCodePostal || undefined,
                     ville: clientVille || undefined,
                     puissanceKwc: Number(puissanceKwc) || undefined,
-                    prixTTC: calculatedResults.prixTotalHorsAides || undefined,
+                    prixTTC: calculatedResults.prixTotalHorsAides,
+                    consommationKwh: Number(consoAnnuelle),
+                    factureAnnuelleEuros: Number(factureMensuelle) * 12,
+                    mensualiteCredit: calculatedResults.mensualite,
                     totalAides: calculatedResults.totalAides || undefined,
                     primeAutoconsommation: calculatedResults.primeAutoconsommation || undefined,
                     ecoTva: calculatedResults.ecoTva || undefined,
