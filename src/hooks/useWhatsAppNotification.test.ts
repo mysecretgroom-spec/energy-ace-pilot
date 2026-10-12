@@ -21,6 +21,35 @@ describe("agency notifications are text only", () => {
     });
   });
 
+  it("retains saved CQ and original appointment values even with a custom template", async () => {
+    from.mockImplementation((table: string) => {
+      const data = table === "regies_contacts" ? { telephone: "+33600000000" }
+        : table === "whatsapp_templates" ? { template_text: "{{client_name}}\n{{comment}}" }
+        : table === "etudes" ? { rdv_id: "initial", cq_date_heure: "2026-10-14T14:45:00", puissance_kwc: 6 }
+        : table === "rdv" ? {
+          date_heure: "2026-10-12T16:30:00", adresse: "12 rue des Tests",
+          commentaire: "Accès par le portail", type_projet: "photovoltaique", duree_minutes: 120,
+          parent_rdv_id: null, clients: { nom: "Test", prenom: "Jean", telephone: "0612345678", ville: "Paris", code_postal: "75001" },
+        } : null;
+      return {
+        select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+      };
+    });
+    const { sendWhatsAppNotification } = useWhatsAppNotification();
+    expect(await sendWhatsAppNotification({
+      clientName: "Test", classification: "positif", userId: "owner", regieId: "agency", etudeId: "study",
+    })).toBe(true);
+    const url = new URL(String(vi.mocked(window.open).mock.calls[0]?.[0]));
+    const message = url.searchParams.get("text") || "";
+    expect(message.indexOf("14 octobre 2026 à 14:45")).toBeGreaterThan(-1);
+    expect(message.indexOf("14 octobre 2026 à 14:45")).toBeLessThan(message.indexOf("Jean Test"));
+    for (const value of ["12/10/2026 à 16:30", "12 rue des Tests", "0612345678", "75001", "Paris", "120 min", "Accès par le portail"]) {
+      expect(message).toContain(value);
+    }
+  });
+
   it.each(["positif", "r2_prestudy", "negatif"])("never attaches or downloads a PDF for %s", async (classification) => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const share = vi.fn();

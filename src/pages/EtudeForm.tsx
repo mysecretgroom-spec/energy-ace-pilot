@@ -2456,6 +2456,7 @@ const EtudeForm = () => {
       clientName, clientPrenom, classification: classification || "r2_prestudy",
       comment: classificationComment, userId: user.id, regieId,
       pdfData: studyData,
+      etudeId: currentEtudeId, rdvId: rdvId || undefined,
       cqTime, cqDate: format(cqDate, "yyyy-MM-dd"),
       r2DateTime: r2DateHeure && r2Time
         ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString() : null,
@@ -5580,6 +5581,8 @@ const EtudeForm = () => {
                   cqDate={classification === "positif" ? format(cqDate, "yyyy-MM-dd") : undefined}
                   regieId={regieId}
                   pdfData={buildPdfData() || undefined}
+                  etudeId={currentEtudeId}
+                  rdvId={rdvId || undefined}
                   venteDetails={calculatedResults ? {
                     telephone: clientTelephone || undefined,
                     adresse: clientAdresse || undefined,

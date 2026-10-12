@@ -245,6 +245,31 @@ export const useWhatsAppNotification = () => {
       const now = new Date();
       const dateStr = format(now, "dd/MM/yyyy 'à' HH:mm", { locale: fr });
 
+      // Read the linked study even when live financial values are supplied:
+      // persisted CQ and the original appointment belong to the dossier.
+      let studyQuery = supabase.from("etudes")
+        .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, cq_date_heure, rdv_id")
+        .eq("user_id", userId);
+      studyQuery = etudeId ? studyQuery.eq("id", etudeId) : studyQuery.eq("rdv_id", rdvId ?? "");
+      const studyResult = etudeId || rdvId
+        ? await studyQuery.order("created_at", { ascending: false }).limit(1).maybeSingle()
+        : { data: null, error: null };
+      if (studyResult.error) throw studyResult.error;
+      const study = studyResult.data;
+      let initialRdv = null;
+      const linkedRdvId = rdvId || study?.rdv_id;
+      if (linkedRdvId) {
+        const readRdv = async (id: string) => {
+          const result = await supabase.from("rdv")
+            .select("date_heure, adresse, commentaire, type_projet, duree_minutes, parent_rdv_id, clients(nom, prenom, telephone, adresse, code_postal, ville)")
+            .eq("user_id", userId).eq("id", id).maybeSingle();
+          if (result.error) throw result.error;
+          return result.data;
+        };
+        initialRdv = await readRdv(linkedRdvId);
+        if (initialRdv?.parent_rdv_id) initialRdv = await readRdv(initialRdv.parent_rdv_id) || initialRdv;
+      }
+
       // Get R2 date formatted
       let r2DateStr = "";
       if (r2DateTime && (classification === "r2" || classification === "r2_prestudy")) {
@@ -256,7 +281,9 @@ export const useWhatsAppNotification = () => {
       let cqDateStr = "";
       if (classification === "positif") {
         let cqDateTime: Date;
-        if (cqDate) {
+        if (!cqDate && !cqTime && study?.cq_date_heure) {
+          cqDateTime = new Date(study.cq_date_heure);
+        } else if (cqDate) {
           // Parse YYYY-MM-DD as local date to avoid timezone shifts
           const [y, m, d] = cqDate.split("-").map(Number);
           cqDateTime = new Date(y, (m || 1) - 1, d || 1);
@@ -264,8 +291,10 @@ export const useWhatsAppNotification = () => {
           cqDateTime = new Date(now);
           cqDateTime.setDate(cqDateTime.getDate() + 1);
         }
-        const [hours, minutes] = (cqTime || defaultCqTime).split(":").map(Number);
-        cqDateTime.setHours(hours, minutes, 0, 0);
+        if (cqDate || cqTime || !study?.cq_date_heure) {
+          const [hours, minutes] = (cqTime || defaultCqTime).split(":").map(Number);
+          cqDateTime.setHours(hours, minutes, 0, 0);
+        }
         cqDateStr = format(cqDateTime, "EEEE dd MMMM yyyy 'à' HH:mm", { locale: fr });
       }
 
@@ -274,6 +303,13 @@ export const useWhatsAppNotification = () => {
 
       // Get template (custom or default)
       let templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
+      // Keep CQ first, including in custom templates that omitted it.
+      if (classification === "positif") {
+        templateText = templateText.replace(/^.*\{\{cq_date\}\}.*(?:\r?\n)?/gm, "").trim();
+        templateText = `*📞 CQ prévu: {{cq_date}}*\n\n${templateText}`;
+      }
+      if (!templateText.includes("{{client_phone}}")) templateText += "\n\n📱 Tél: {{client_phone}}";
+      if (!templateText.includes("{{client_address}}")) templateText += "\n🏠 Adresse: {{client_address}}";
       if (!templateText.includes("{{vente_details}}")) {
         templateText = templateText.includes("{{comment}}")
           ? templateText.replace("{{comment}}", "{{vente_details}}\n\n{{comment}}")
@@ -282,14 +318,8 @@ export const useWhatsAppNotification = () => {
       if (!templateText.includes("{{comment}}")) templateText += "\n\n{{comment}}";
 
       let studyDetails = studyRecapDetails(pdfDataProp);
-      if (!pdfDataProp && (etudeId || rdvId)) {
-        let query = supabase.from("etudes")
-          .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee")
-          .eq("user_id", userId);
-        query = etudeId ? query.eq("id", etudeId) : query.eq("rdv_id", rdvId ?? "");
-        const { data: study, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (error) throw error;
-        if (study) studyDetails = {
+      if (!pdfDataProp && study) {
+        studyDetails = {
           consommationKwh: study.consommation_annuelle_kwh ?? undefined,
           factureAnnuelleEuros: study.facture_annuelle_euros ?? undefined,
           puissanceKwc: study.puissance_kwc ?? undefined,
@@ -301,10 +331,13 @@ export const useWhatsAppNotification = () => {
       const venteDetailsText = formatRegieStudyDetails(details);
 
       // Build client address
-      const clientAddressText = venteDetails 
-        ? [venteDetails.adresse, venteDetails.codePostal, venteDetails.ville].filter(Boolean).join(", ")
-        : "";
-      const clientPhoneText = venteDetails?.telephone || "";
+      const originalClient = initialRdv?.clients;
+      const clientAddressText = [
+        initialRdv?.adresse || originalClient?.adresse || venteDetails?.adresse,
+        originalClient?.code_postal || venteDetails?.codePostal,
+        originalClient?.ville || venteDetails?.ville,
+      ].filter(Boolean).join(", ");
+      const clientPhoneText = originalClient?.telephone || venteDetails?.telephone || "";
 
       // Replace placeholders and decode HTML entities for proper emoji display
       let message = decodeHtmlEntities(
@@ -324,6 +357,15 @@ export const useWhatsAppNotification = () => {
       if (!templateText.includes("{{comment}}")) message += `\n\n${commentText}`;
       message = message.replace(/\*?Document PDF joint:?\*?/gi, "")
         .replace(/L'étude technique a été partagée séparément\./gi, "");
+      if (initialRdv) {
+        message += "\n\n*Rendez-vous initial*\n" + [
+          `Client: ${[originalClient?.prenom, originalClient?.nom].filter(Boolean).join(" ") || fullName}`,
+          `Date: ${format(new Date(initialRdv.date_heure), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}`,
+          `Projet: ${initialRdv.type_projet}`,
+          initialRdv.duree_minutes == null ? null : `Durée: ${initialRdv.duree_minutes} min`,
+          initialRdv.commentaire ? `Notes initiales: ${initialRdv.commentaire}` : null,
+        ].filter(Boolean).join("\n");
+      }
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, "_blank");
       return true;
