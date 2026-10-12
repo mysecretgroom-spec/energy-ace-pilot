@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2, FileText } from "lucide-react";
+import { Phone, FolderOpen, Calculator, MessageCircle, Wrench, RefreshCw, Euro, Loader2, Trash2, FileText, MoreHorizontal } from "lucide-react";
 import { NavigationButton } from "./NavigationButton";
 import { RdvStatusSelector } from "./RdvStatusSelector";
 import { RegieSelector } from "./RegieSelector";
@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -184,109 +185,48 @@ export function RdvActions({
         longitude={longitude}
       />
 
-      {/* Fiche client */}
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 rounded-full"
-        onClick={() => openClient(clientId)}
-        title="Dossier client"
-      >
-        <FolderOpen className="h-4 w-4" />
-      </Button>
-
-      {/* Nouvelle étude (seulement pour RDV standard) */}
-      {typeRdv === 'standard' && (
-        <Button
-          size="icon"
-          variant="outline"
-          className="h-9 w-9 rounded-full"
-          onClick={() => openNewEtude(clientId, rdvId)}
-          title="Nouvelle étude"
-        >
-          <Calculator className="h-4 w-4" />
-        </Button>
-      )}
-
-      {/* Switch type RDV — masqué pour les poses */}
-      {!isInstallation && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="icon"
-              variant="outline"
-              className={`h-9 w-9 rounded-full ${typeRdv === 'external_installation' ? 'bg-amber-500/20 border-amber-500' : ''}`}
-              disabled={switchingType}
-              title="Changer type RDV"
-            >
-              {switchingType ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem 
-              onClick={() => switchRdvType(rdvId, 'standard')}
-              disabled={typeRdv === 'standard'}
-              className="gap-2"
-            >
-              <Calculator className="h-4 w-4" />
-              RDV Standard
+      {/* Autres actions regroupées */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="icon" variant="outline" className="h-9 w-9 rounded-full" title="Plus d'actions" aria-label="Plus d'actions">
+            {switchingType || isSendingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => openClient(clientId)} className="gap-2">
+            <FolderOpen className="h-4 w-4" /> Dossier client
+          </DropdownMenuItem>
+          {typeRdv === 'standard' && (
+            <DropdownMenuItem onClick={() => openNewEtude(clientId, rdvId)} className="gap-2">
+              <Calculator className="h-4 w-4" /> Nouvelle étude
             </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => switchRdvType(rdvId, 'external_installation')}
-              disabled={typeRdv === 'external_installation'}
-              className="gap-2"
-            >
-              <Wrench className="h-4 w-4" />
-              Installation Externe
+          )}
+          {typeRdv === 'external_installation' && (
+            <DropdownMenuItem onClick={() => setExternalVenteDialogOpen(true)} className="gap-2">
+              <Euro className="h-4 w-4" /> Créer la vente
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+          )}
+          <DropdownMenuItem onClick={handleSendDossier} disabled={isSendingDoc || !regieId} className="gap-2">
+            <FileText className="h-4 w-4" /> Envoyer dossier au confirmateur
+          </DropdownMenuItem>
+          {!isInstallation && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => switchRdvType(rdvId, 'standard')} disabled={switchingType || typeRdv === 'standard'} className="gap-2">
+                <RefreshCw className="h-4 w-4" /> Passer en RDV standard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => switchRdvType(rdvId, 'external_installation')} disabled={switchingType || typeRdv === 'external_installation'} className="gap-2">
+                <Wrench className="h-4 w-4" /> Passer en installation externe
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => openDeleteDialog(rdvId)} className="gap-2 text-destructive focus:text-destructive">
+            <Trash2 className="h-4 w-4" /> Supprimer le RDV
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      {/* Créer vente (seulement pour installation externe) */}
-      {typeRdv === 'external_installation' && (
-        <Button
-          size="icon"
-          variant="default"
-          className="h-9 w-9 rounded-full bg-amber-500 hover:bg-amber-600"
-          onClick={() => setExternalVenteDialogOpen(true)}
-          title="Créer la vente"
-        >
-          <Euro className="h-4 w-4" />
-        </Button>
-      )}
-
-      {/* Envoyer dossier au confirmateur */}
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 rounded-full text-primary"
-        onClick={handleSendDossier}
-        disabled={isSendingDoc || !regieId}
-        title="Envoyer dossier au confirmateur"
-      >
-        {isSendingDoc ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <FileText className="h-4 w-4" />
-        )}
-      </Button>
-
-      {/* Supprimer RDV */}
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
-        onClick={() => openDeleteDialog(rdvId)}
-        title="Supprimer le RDV"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
-      
       {/* External Vente Dialog */}
       <ExternalVenteDialog
         open={externalVenteDialogOpen}

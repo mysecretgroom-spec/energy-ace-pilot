@@ -680,16 +680,33 @@ serve(async (req) => {
       if ((intent === "nouveau_rdv" || intent === "report") && validated.RDV?.date) {
         const rdvDate = validated.RDV.date;
         
-        // Look for an existing R2/R2_prestudy or Reporté RDV for this client
-        // If found, this email is a confirmation — update instead of creating a duplicate
-        const { data: pendingRdvs } = await supabase
+        // Prefer the actual R2 follow-up RDV (is_r2=true) created from the study:
+        // the original RDV carries the "r2"/"r2_prestudy" status but must keep its date.
+        const { data: r2Children } = await supabase
           .from("rdv")
           .select("id, date_heure, status, needs_reconfirmation")
           .eq("client_id", clientId)
           .eq("user_id", user_id)
-          .in("status", ["r2", "r2_prestudy", "reporte"])
+          .eq("is_r2", true)
+          .not("status", "in", '("annule","negatif","signe")')
           .order("date_heure", { ascending: false })
           .limit(1);
+
+        let pendingRdvs = r2Children && r2Children.length > 0
+          ? r2Children.map((r) => ({ ...r, status: "r2" }))
+          : null;
+
+        if (!pendingRdvs) {
+          const { data } = await supabase
+            .from("rdv")
+            .select("id, date_heure, status, needs_reconfirmation")
+            .eq("client_id", clientId)
+            .eq("user_id", user_id)
+            .in("status", ["r2", "r2_prestudy", "reporte"])
+            .order("date_heure", { ascending: false })
+            .limit(1);
+          pendingRdvs = data;
+        }
 
         if (pendingRdvs && pendingRdvs.length > 0) {
           const pendingRdv = pendingRdvs[0];
