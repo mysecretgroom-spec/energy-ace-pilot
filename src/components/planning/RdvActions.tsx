@@ -112,18 +112,10 @@ export function RdvActions({
       return;
     }
 
-    // Ouvre WhatsApp avec le message déjà écrit, puis propose le PDF en pièce jointe.
-    const digits = (confirmateur.telephone || "").replace(/\D/g, "");
-    const waPhone = digits.startsWith("0") ? `33${digits.slice(1)}` : digits;
-    const message = `📄 Dossier complet pour ${clientName}`;
-    const whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
-    const opened = window.open(whatsappUrl, "_blank");
-    if (!opened) window.location.href = whatsappUrl;
-
     await sendPdfDoc({
       clientId,
       phoneNumber: confirmateur.telephone,
-      message,
+      message: `📄 Dossier complet pour ${clientName}`,
       includeEtude: true,
     });
   };
