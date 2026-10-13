@@ -44,7 +44,7 @@ describe("agency notifications are text only", () => {
     const url = new URL(String(vi.mocked(window.open).mock.calls[0]?.[0]));
     const message = url.searchParams.get("text") || "";
     expect(message.indexOf("14 octobre 2026 à 14:45")).toBeGreaterThan(-1);
-    expect(message.indexOf("14 octobre 2026 à 14:45")).toBeLessThan(message.indexOf("Jean Test"));
+    expect(message.indexOf("14 octobre 2026 à 14:45")).toBeLessThan(message.indexOf("Commentaire"));
     expect(message.match(/CQ prévu/g)).toHaveLength(1);
     expect(message).not.toContain("Rendez-vous initial");
     for (const value of ["12 rue des Tests", "0612345678", "75001", "Paris"]) expect(message).toContain(value);
