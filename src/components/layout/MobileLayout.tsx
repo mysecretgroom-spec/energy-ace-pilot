@@ -1,3 +1,4 @@
+import { useOfflineRdvSync } from "@/hooks/useOfflineRdvSync";
 import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { BottomNav } from "./BottomNav";
@@ -47,14 +48,16 @@ export const MobileLayout = ({
     syncAll,
   } = useOfflineData();
 
+  const { outboxCount, flush: flushOutbox } = useOfflineRdvSync();
+
   const isOnline = isOnlineDocs && isOnlineData;
   const totalPending =
-    pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount;
+    pendingDocsCount + pendingEtudesCount + pendingWhatsAppCount + outboxCount;
   const isSyncing = isSyncingDocs || isSyncingData;
 
   const handleHeaderSync = async () => {
     if (!isOnline || totalPending === 0 || isSyncing) return;
-    await Promise.all([syncPendingDocuments(), syncAll()]);
+    await Promise.all([syncPendingDocuments(), syncAll(), flushOutbox()]);
   };
 
   // Hide RGE card on etude pages

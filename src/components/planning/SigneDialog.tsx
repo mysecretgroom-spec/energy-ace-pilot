@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { qEtudeRegie, qSigneBouquets, qSigneEtude, qSigneSurcouts } from "@/lib/offline/rdvQueries";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -123,36 +123,13 @@ export function SigneDialog({
       // Resolve regieId: use prop, or fallback to étude → client → rdv chain
       let resolvedRegieId = regieId;
       if (!resolvedRegieId && etudeId) {
-        const { data: etudeData } = await supabase
-          .from("etudes")
-          .select("client_id")
-          .eq("id", etudeId)
-          .single();
-        if (etudeData?.client_id) {
-          const { data: clientData } = await supabase
-            .from("clients")
-            .select("regie_id")
-            .eq("id", etudeData.client_id)
-            .single();
-          resolvedRegieId = clientData?.regie_id || null;
-        }
+        const { data: etudeData } = await qEtudeRegie(etudeId);
+        resolvedRegieId = (etudeData?.clients as { regie_id?: string | null } | null)?.regie_id || null;
       }
       
       if (resolvedRegieId) {
         // Fetch only bouquets belonging to this regie
-        const [bouquetsRes, surcoutsRes] = await Promise.all([
-          supabase
-            .from("bouquets")
-            .select("id, nom_bouquet, puissance_kwc, prix_recommande, commission_fixe, commission_pct, product_type, regie_ids")
-            .eq("actif", true)
-            .order("puissance_kwc", { ascending: true }),
-          supabase
-            .from("regies_surcouts")
-            .select("id, nom, code, prix, categorie, type_calcul")
-            .eq("regie_id", resolvedRegieId)
-            .eq("actif", true)
-            .order("categorie", { ascending: true }),
-        ]);
+        const [bouquetsRes, surcoutsRes] = await Promise.all([qSigneBouquets(), qSigneSurcouts(resolvedRegieId)]);
 
         if (bouquetsRes.data) {
           const regieBouquets = bouquetsRes.data
@@ -182,11 +159,7 @@ export function SigneDialog({
       if (!etudeId || !open) return;
       
       setLoadingEtude(true);
-      const { data: etude } = await supabase
-        .from("etudes")
-        .select("puissance_kwc, prix_total")
-        .eq("id", etudeId)
-        .maybeSingle();
+      const { data: etude } = await qSigneEtude(etudeId);
 
       if (etude) {
         const puissanceVal = etude.puissance_kwc?.toString() || "";

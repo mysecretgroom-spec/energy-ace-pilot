@@ -1,3 +1,4 @@
+import { NextRdvOfflineCard } from "@/components/planning/NextRdvOfflineCard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -562,6 +563,7 @@ const Planning = () => {
     <MobileLayout title="Planning">
       <PullToRefreshContainer onRefresh={fetchRdvs}>
       <div className="p-4 space-y-4 pb-32 sm:pb-28 max-w-5xl mx-auto">
+        {!isOnline && <NextRdvOfflineCard />}
         {/* Sélecteur de vue + légende */}
         <div className="flex items-center gap-2">
           <Tabs

@@ -1,6 +1,11 @@
 # Roadmap
 
 ## En cours
+- [x] Hors-ligne RDV : préchargement RDV en cours + suivant puis jour/lendemain (infos client, étude, régie, modèles WhatsApp, bouquets, surcoûts, tuiles satellite)
+- [x] Hors-ligne RDV : prochain client (adresse, téléphone, itinéraire) affiché sans réseau
+- [x] Hors-ligne RDV : statut, signature, R2, vente enregistrés sur le téléphone et rejoués sans doublon ; récap WhatsApp construit depuis les données enregistrées
+- [ ] Hors-ligne RDV : photos stockées sur le téléphone et PDF d'étude généré sans réseau (étape suivante)
+- [ ] Hors-ligne RDV : écran détaillé des envois en attente / conflits
 - [x] Ajouter le placement manuel des panneaux par zone sur la carte et dans l’annexe PDF ; 11 tests réussis et interactions vérifiées ; relecture d’une étude sauvegardée non vérifiée (aucune étude sur le compte de contrôle)
 - [x] Rétablir le PDF avec le message de signature WhatsApp ; tests du partage texte + fichier réussis, autres statuts inchangés ; envoi réel iPhone non vérifié
 - [x] Aligner le cadrage toiture étude/PDF ; 6 tests et comparaison visuelle au zoom 20 réussis (relecture d'une étude enregistrée non vérifiée : aucune étude accessible sur la session de contrôle)

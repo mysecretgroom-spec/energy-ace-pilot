@@ -1,3 +1,4 @@
+import { pendingRdvPatches } from "@/lib/offline/outbox";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -399,7 +400,13 @@ export function useOfflineData() {
         const request = index.getAll(IDBKeyRange.only(user.id));
         request.onsuccess = () => {
           const results = request.result as CachedRdv[];
-          resolve(results.map((r) => r.data));
+          // Superpose les changements de statut faits hors-ligne et pas encore envoyés.
+          pendingRdvPatches()
+            .then((patches) => resolve(results.map((r) => {
+              const patch = patches.get(String(r.data.id));
+              return patch ? { ...r.data, ...patch } : r.data;
+            })))
+            .catch(() => resolve(results.map((r) => r.data)));
         };
         request.onerror = () => reject(request.error);
       });
