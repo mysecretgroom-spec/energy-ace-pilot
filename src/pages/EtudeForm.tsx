@@ -2412,27 +2412,9 @@ const EtudeForm = () => {
 
   const handleShare = async () => {
     const pdfData = buildPdfData();
-    if (!pdfData || !user) return;
+    if (!pdfData) return;
 
-    // Ouvre WhatsApp avec le récap déjà écrit, puis propose le PDF en pièce jointe.
-    const targetWindow = window.open("", "_blank");
     try {
-      const whatsappOpened = await sendWhatsAppNotification({
-        clientName, clientPrenom, classification: classification || "r2_prestudy",
-        comment: classificationComment, userId: user.id, regieId,
-        pdfData,
-        etudeId: currentEtudeId, rdvId: rdvId || undefined,
-        cqTime, cqDate: format(cqDate, "yyyy-MM-dd"),
-        r2DateTime: r2DateHeure && r2Time
-          ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString() : null,
-        venteDetails: {
-          telephone: clientTelephone || undefined, adresse: clientAdresse || undefined,
-          codePostal: clientCodePostal || undefined, ville: clientVille || undefined,
-        },
-        targetWindow,
-      });
-      if (!whatsappOpened) targetWindow?.close();
-
       const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
