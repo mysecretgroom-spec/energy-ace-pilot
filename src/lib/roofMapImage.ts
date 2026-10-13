@@ -1,3 +1,5 @@
+import { DEFAULT_ROOF_MAP_ZOOM, roofMapRenderGeometry, type RoofMapViewport } from "@/lib/roofMapViewport";
+
 /** Fond satellite sans clé ni logo Google (Esri World Imagery). */
 export const SATELLITE_TILE_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
@@ -26,17 +28,20 @@ function loadTile(z: number, x: number, y: number): Promise<HTMLImageElement | n
 export async function renderRoofMapImage(
   lat: number,
   lng: number,
-  opts: { width?: number; height?: number; zoom?: number } = {}
+  opts: { width?: number; height?: number; zoom?: number; viewport?: RoofMapViewport } = {}
 ): Promise<string | null> {
-  const width = opts.width ?? 1024;
-  const height = opts.height ?? 640;
-  const z = opts.zoom ?? 19;
+  const viewport = opts.viewport ?? {
+    centerLatitude: lat, centerLongitude: lng,
+    width: opts.width ?? 360, height: opts.height ?? 224,
+    zoom: opts.zoom ?? DEFAULT_ROOF_MAP_ZOOM,
+  };
+  const { width, height, tileZoom: z, tileScale, sourceWidth, sourceHeight } = roofMapRenderGeometry(viewport);
   try {
-    const c = lonLatToPixel(lng, lat, z);
-    const left = c.x - width / 2;
-    const top = c.y - height / 2;
-    const tx0 = Math.floor(left / TILE), tx1 = Math.floor((left + width) / TILE);
-    const ty0 = Math.floor(top / TILE), ty1 = Math.floor((top + height) / TILE);
+    const c = lonLatToPixel(viewport.centerLongitude, viewport.centerLatitude, z);
+    const left = c.x - sourceWidth / 2;
+    const top = c.y - sourceHeight / 2;
+    const tx0 = Math.floor(left / TILE), tx1 = Math.floor((left + sourceWidth) / TILE);
+    const ty0 = Math.floor(top / TILE), ty1 = Math.floor((top + sourceHeight) / TILE);
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -49,19 +54,20 @@ export async function renderRoofMapImage(
       for (let ty = ty0; ty <= ty1; ty++) {
         jobs.push(
           loadTile(z, tx, ty).then((img) => {
-            if (img) ctx.drawImage(img, tx * TILE - left, ty * TILE - top);
+            if (img) ctx.drawImage(img, (tx * TILE - left) * tileScale, (ty * TILE - top) * tileScale, TILE * tileScale, TILE * tileScale);
           })
         );
       }
     }
     await Promise.all(jobs);
     // Repère
-    const cx = width / 2, cy = height / 2;
+    const marker = lonLatToPixel(lng, lat, z);
+    const cx = (marker.x - left) * tileScale, cy = (marker.y - top) * tileScale;
     ctx.lineWidth = 4;
     ctx.strokeStyle = "#ffffff";
     ctx.fillStyle = "rgba(220,38,38,0.35)";
     ctx.beginPath();
-    ctx.arc(cx, cy, 34, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 26, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = "#dc2626";

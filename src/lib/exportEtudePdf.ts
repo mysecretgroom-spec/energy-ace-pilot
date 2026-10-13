@@ -4,6 +4,7 @@ import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.png";
 import enedisLogo from "@/assets/logos/enedis.png";
 import { formatClassification } from "@/lib/labels";
+import type { RoofMapViewport } from "@/lib/roofMapViewport";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -63,6 +64,7 @@ interface EtudeData {
   clientAdresse: string;
   roofLatitude?: number | null;
   roofLongitude?: number | null;
+  roofMapViewport?: RoofMapViewport;
   clientVille: string;
   clientCodePostal: string;
   clientTelephone?: string;

@@ -14,7 +14,7 @@ export async function appendRoofMapAnnexeToPdf(
   if (data.roofLatitude == null || data.roofLongitude == null) return reportBlob;
 
   try {
-    const img = await renderRoofMapImage(data.roofLatitude, data.roofLongitude);
+    const img = await renderRoofMapImage(data.roofLatitude, data.roofLongitude, { viewport: data.roofMapViewport });
     if (!img) return reportBlob;
 
     const [reportBytes, imgBytes] = await Promise.all([
@@ -50,8 +50,9 @@ export async function appendRoofMapAnnexeToPdf(
     });
 
     const iw = W - 80;
-    const ih = iw * (640 / 1024);
-    page.drawImage(image, { x: 40, y: 841.89 - 88 - ih, width: iw, height: ih });
+    const ih = Math.min(600, iw * (data.roofMapViewport ? data.roofMapViewport.height / data.roofMapViewport.width : 224 / 360));
+    const imageWidth = ih * (data.roofMapViewport ? data.roofMapViewport.width / data.roofMapViewport.height : 360 / 224);
+    page.drawImage(image, { x: (W - imageWidth) / 2, y: 841.89 - 88 - ih, width: imageWidth, height: ih });
 
     page.drawText(`GPS : ${data.roofLatitude.toFixed(6)}, ${data.roofLongitude.toFixed(6)}`, {
       x: 40,

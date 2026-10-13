@@ -3,12 +3,15 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Crosshair, MapPin, Trash2 } from "lucide-react";
 import { SATELLITE_TILE_URL } from "@/lib/roofMapImage";
+import { DEFAULT_ROOF_MAP_ZOOM, type RoofMapViewport } from "@/lib/roofMapViewport";
 
 interface RoofPointMapProps {
   address: string;
   lat: number | null;
   lng: number | null;
   onChange: (lat: number | null, lng: number | null) => void;
+  viewport?: RoofMapViewport;
+  onViewportChange?: (viewport: RoofMapViewport) => void;
 }
 
 const markerIcon = L.divIcon({
@@ -19,25 +22,46 @@ const markerIcon = L.divIcon({
 });
 
 /** Carte satellite cliquable : un toucher place le repère sur la toiture du projet. */
-export function RoofPointMap({ address, lat, lng, onChange }: RoofPointMapProps) {
+export function RoofPointMap({ address, lat, lng, onChange, viewport, onViewportChange }: RoofPointMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const viewportChangeRef = useRef(onViewportChange);
+  viewportChangeRef.current = onViewportChange;
+  const restoredViewportRef = useRef(false);
   const [geoError, setGeoError] = useState(false);
 
   // Init unique
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: true, attributionControl: false, maxZoom: 20 })
-      .setView([lat ?? 46.6, lng ?? 1.89], lat != null ? 19 : 6);
+      .setView([lat ?? 46.6, lng ?? 1.89], lat != null ? DEFAULT_ROOF_MAP_ZOOM : 6);
     L.tileLayer(SATELLITE_TILE_URL, { maxZoom: 20, maxNativeZoom: 19 }).addTo(map);
     map.on("click", (e: L.LeafletMouseEvent) => onChangeRef.current(e.latlng.lat, e.latlng.lng));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; markerRef.current = null; };
+    const reportViewport = () => {
+      const center = map.getCenter();
+      const size = map.getSize();
+      if (size.x > 0 && size.y > 0) viewportChangeRef.current?.({
+        centerLatitude: center.lat, centerLongitude: center.lng,
+        zoom: map.getZoom(), width: size.x, height: size.y,
+      });
+    };
+    map.on("moveend resize", reportViewport);
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(containerRef.current);
+    return () => { observer.disconnect(); map.remove(); mapRef.current = null; markerRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !viewport || restoredViewportRef.current) return;
+    restoredViewportRef.current = true;
+    map.setView([viewport.centerLatitude, viewport.centerLongitude], viewport.zoom);
+  }, [viewport]);
 
   // Repère
   useEffect(() => {
@@ -51,7 +75,8 @@ export function RoofPointMap({ address, lat, lng, onChange }: RoofPointMapProps)
     if (!markerRef.current) {
       markerRef.current = L.marker([lat, lng], { icon: markerIcon, draggable: true }).addTo(map);
       markerRef.current.on("dragend", () => {
-        const p = markerRef.current!.getLatLng();
+        const p = markerRef.current?.getLatLng();
+        if (!p) return;
         onChangeRef.current(p.lat, p.lng);
       });
     } else {
@@ -70,7 +95,7 @@ export function RoofPointMap({ address, lat, lng, onChange }: RoofPointMapProps)
         const coords = json?.features?.[0]?.geometry?.coordinates;
         if (!coords) { setGeoError(true); return; }
         setGeoError(false);
-        if (lat == null || lng == null) mapRef.current?.setView([coords[1], coords[0]], 19);
+        if ((lat == null || lng == null) && !restoredViewportRef.current) mapRef.current?.setView([coords[1], coords[0]], DEFAULT_ROOF_MAP_ZOOM);
       } catch { /* ignore */ }
     }, 600);
     return () => { clearTimeout(t); ctrl.abort(); };
@@ -78,7 +103,7 @@ export function RoofPointMap({ address, lat, lng, onChange }: RoofPointMapProps)
   }, [address]);
 
   const recenter = () => {
-    if (lat != null && lng != null) mapRef.current?.setView([lat, lng], 19);
+    if (lat != null && lng != null) mapRef.current?.panTo([lat, lng]);
   };
 
   return (
