@@ -2408,6 +2408,8 @@ const EtudeForm = () => {
     setShowPreview(true);
   };
 
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
+
   const handleShare = async () => {
     const pdfData = buildPdfData();
     if (!pdfData || !user) return;
