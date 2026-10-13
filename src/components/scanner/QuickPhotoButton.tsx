@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { Camera, Upload, Check, Loader2, WifiOff } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Camera, Upload, Loader2, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -227,11 +227,34 @@ export function QuickPhotoButton({
 }: QuickPhotoButtonProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [photoCount, setPhotoCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { isOnline, savePendingDocument } = useOfflineDocuments();
+
+  const refreshCount = useCallback(async () => {
+    if (!user) return;
+    const docType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any)
+      ? category
+      : "photo_chantier";
+    let query = supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .eq("type_document", docType)
+      .eq("context_source", category);
+    if (etudeId) query = query.eq("etude_id", etudeId);
+    const { count } = await query;
+    const n = count ?? 0;
+    setPhotoCount(n);
+    setHasPhoto(n > 0);
+  }, [user, clientId, category, etudeId]);
+
+  useEffect(() => {
+    refreshCount();
+  }, [refreshCount]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -263,7 +286,7 @@ export function QuickPhotoButton({
             contextSource: category,
             etudeId: etudeId || null,
           });
-          setHasPhoto(true);
+          refreshCount();
           // Individual download only if not in study (study gets merged PDF)
           if (!etudeId) {
             triggerBlobDownload(compressedBlob, `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.jpg`);
@@ -318,7 +341,7 @@ export function QuickPhotoButton({
         throw dbError;
       }
 
-      setHasPhoto(true);
+      refreshCount();
 
       // If not in study, download individual photo
       if (!etudeId) {
@@ -383,20 +406,23 @@ export function QuickPhotoButton({
         size={iconOnly ? "icon" : "sm"}
         aria-label={label}
         title={label}
-        className={`${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
+        className={`relative ${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
         onClick={handleCameraClick}
         disabled={isUploading}
       >
         {isUploading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : hasPhoto ? (
-          <Check className="h-3.5 w-3.5" />
         ) : !isOnline ? (
           <WifiOff className="h-3.5 w-3.5" />
         ) : (
           <Camera className="h-3.5 w-3.5" />
         )}
         {!iconOnly && label}
+        {photoCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-signed px-1 text-[10px] font-semibold text-primary-foreground">
+            {photoCount}
+          </span>
+        )}
       </Button>
 
       <Button
