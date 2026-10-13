@@ -66,6 +66,7 @@ import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
+import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2363,10 +2364,11 @@ const EtudeForm = () => {
     buildPdfData,
   });
 
-  /** Génère le PDF de l'étude avec les photos d'étude ajoutées à la fin */
+  /** Génère le PDF de l'étude : photos d'étude, puis carte en annexe (dernière page) */
   const buildReportBlobWithPhotos = async (pdfData: EtudeData): Promise<Blob> => {
     const base = await getEtudePdfBlob(pdfData);
-    return appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
+    const withPhotos = await appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
+    return appendRoofMapAnnexeToPdf(withPhotos, pdfData);
   };
 
   const handleExportPdf = async () => {

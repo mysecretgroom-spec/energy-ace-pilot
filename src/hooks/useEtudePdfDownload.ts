@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
+import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { toast } from "sonner";
 
 type PdfMode = "pre-etude" | "resultat";
@@ -31,15 +32,16 @@ export function useEtudePdfDownload() {
       const filename = `${prefix}_${etude.product_type || "PV"}_${client.nom || ""}.pdf`;
 
       // Generate PDF based on mode
-      const baseBlob = await generatePdfFromEtude(etude, client, mode, options);
+      const { blob: baseBlob, pdfData } = await generatePdfFromEtude(etude, client, mode, options);
 
-      // Ajoute les photos d'étude à la fin du même PDF
-      const blob = await appendStudyPhotosToPdf(
+      // Ajoute les photos d'étude, puis la carte en annexe (dernière page)
+      const photosBlob = await appendStudyPhotosToPdf(
         baseBlob,
         etude.user_id,
         etude.client_id,
         etude.id
       );
+      const blob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
 
       // Upload/replace for future use (only for pre-etude to keep backward compat)
       if (mode === "pre-etude") {
@@ -76,7 +78,7 @@ export function useEtudePdfDownload() {
   return { downloadOrShare, loading };
 }
 
-async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, options?: { showLogos?: boolean }): Promise<Blob> {
+async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, options?: { showLogos?: boolean }): Promise<{ blob: Blob; pdfData: EtudeData }> {
   const refId = (etude.id || "").substring(0, 8).toUpperCase();
   const paramOverrides = (etude.param_overrides || {}) as any;
   
@@ -239,7 +241,10 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     estimationDetails: paramOverrides.estimationDetails || undefined,
   };
 
-  return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
+  const blob = mode === "resultat"
+    ? await getResultatPdfBlob(pdfData, options)
+    : await getPreEtudePdfBlob(pdfData);
+  return { blob, pdfData };
 }
 
 function buildPacData(etude: any) {
