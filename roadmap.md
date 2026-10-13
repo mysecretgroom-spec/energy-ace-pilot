@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Ajouter le placement manuel des panneaux par zone sur la carte, sauvegardé dans l’étude et son annexe PDF
+- [x] Ajouter le placement manuel des panneaux par zone sur la carte et dans l’annexe PDF ; 11 tests réussis et interactions vérifiées ; relecture d’une étude sauvegardée non vérifiée (aucune étude sur le compte de contrôle)
 - [x] Rétablir le PDF avec le message de signature WhatsApp ; tests du partage texte + fichier réussis, autres statuts inchangés ; envoi réel iPhone non vérifié
 - [x] Aligner le cadrage toiture étude/PDF ; 6 tests et comparaison visuelle au zoom 20 réussis (relecture d'une étude enregistrée non vérifiée : aucune étude accessible sur la session de contrôle)
 - [x] Remplacer les PDF des messages aux régies par consommation, puissance, prix, mensualité et commentaire commercial ; tests d'envoi texte réussis
