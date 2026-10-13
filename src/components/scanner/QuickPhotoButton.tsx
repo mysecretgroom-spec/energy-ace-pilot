@@ -228,6 +228,11 @@ export function QuickPhotoButton({
   const [isUploading, setIsUploading] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [photoCount, setPhotoCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { isOnline, savePendingDocument } = useOfflineDocuments();
 
   const refreshCount = useCallback(async () => {
     if (!user) return;
