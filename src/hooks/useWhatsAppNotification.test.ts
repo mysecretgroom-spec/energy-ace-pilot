@@ -2,12 +2,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useWhatsAppNotification } from "./useWhatsAppNotification";
 
-const { from } = vi.hoisted(() => ({ from: vi.fn() }));
+const { from, signatureStudyPdf } = vi.hoisted(() => ({ from: vi.fn(), signatureStudyPdf: vi.fn() }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from } }));
+vi.mock("@/lib/signatureStudyPdf", () => ({ signatureStudyPdf }));
 
-describe("agency notifications are text only", () => {
+describe("agency signature attachments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    signatureStudyPdf.mockResolvedValue(null);
     vi.stubGlobal("window", { open: vi.fn() });
     vi.stubGlobal("navigator", { share: vi.fn() });
     vi.stubGlobal("document", { createElement: vi.fn() });
@@ -50,7 +52,7 @@ describe("agency notifications are text only", () => {
     for (const value of ["12 rue des Tests", "0612345678", "75001", "Paris"]) expect(message).toContain(value);
   });
 
-  it.each(["positif", "r2_prestudy", "negatif"])("never attaches or downloads a PDF for %s", async (classification) => {
+  it.each(["r2_prestudy", "negatif"])("never attaches or downloads a PDF for %s", async (classification) => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const share = vi.fn();
     Object.defineProperty(navigator, "share", { configurable: true, value: share });
@@ -65,8 +67,22 @@ describe("agency notifications are text only", () => {
     const url = new URL(String(open.mock.calls[0]?.[0]));
     expect(url.hostname).toBe("wa.me");
     expect(share).not.toHaveBeenCalled();
+    expect(signatureStudyPdf).not.toHaveBeenCalled();
     expect(createElement).not.toHaveBeenCalled();
     open.mockRestore();
     createElement.mockRestore();
+  });
+
+  it("shares the signature message and study PDF together", async () => {
+    const file = new File(["%PDF-1.7"], "Etude_signature.pdf", { type: "application/pdf" });
+    signatureStudyPdf.mockResolvedValue(file);
+    const share = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { share, canShare: vi.fn().mockReturnValue(true) });
+    const success = await useWhatsAppNotification().sendWhatsAppNotification({
+      clientName: "Test", classification: "positif", userId: "owner", regieId: "agency",
+    });
+    expect(success).toBe(true);
+    expect(share).toHaveBeenCalledWith({ files: [file], text: expect.stringContaining("VENTE SIGNÉE"), title: "Signature — étude" });
+    expect(window.open).not.toHaveBeenCalled();
   });
 });

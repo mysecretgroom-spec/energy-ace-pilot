@@ -73,7 +73,7 @@ export function WhatsAppSendButton({
       });
       if (!success) targetWindow?.close();
       if (success) {
-        toast({ title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" });
+        if (classification !== "positif") toast({ title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" });
       } else {
         toast({ variant: "destructive", title: "Envoi indisponible", description: "Vérifiez le contact WhatsApp de la régie et réessayez." });
       }

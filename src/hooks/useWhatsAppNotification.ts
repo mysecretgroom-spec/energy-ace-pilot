@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { EtudeData } from "@/lib/exportEtudePdf";
 import { formatRegieStudyDetails, studyRecapDetails, type RegieRecapDetails } from "@/lib/regieRecap";
+import { signatureStudyPdf } from "@/lib/signatureStudyPdf";
 
 interface SendWhatsAppParams {
   clientName: string;
@@ -192,7 +193,7 @@ export const useWhatsAppNotification = () => {
     rdvId,
     targetWindow,
   }: SendWhatsAppParams): Promise<boolean> => {
-    // Study data supplies text values only; agency recaps never attach files.
+    // Only signatures attach the study; other statuses remain text-only.
     try {
       // Get WhatsApp contact from the régie (principal contact)
       let confirmPhone: string | null = null;
@@ -366,6 +367,22 @@ export const useWhatsAppNotification = () => {
       if (!templateText.includes("{{comment}}")) message += `\n\n${commentText}`;
       message = message.replace(/\*?Document PDF joint:?\*?/gi, "")
         .replace(/L'étude technique a été partagée séparément\./gi, "");
+      if (classification === "positif") {
+        const file = await signatureStudyPdf(userId, etudeId, rdvId, pdfDataProp);
+        if (file && navigator.share && navigator.canShare?.({ files: [file] })) {
+          targetWindow?.close();
+          await navigator.share({ files: [file], text: message, title: "Signature — étude" });
+          return true;
+        }
+        if (file) {
+          const url = URL.createObjectURL(file);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = file.name;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }
+      }
       // Sur mobile (surtout PWA iOS), le lien direct whatsapp:// ouvre réellement
       // l'app avec le message pré-rempli ; wa.me sert de repli sur desktop.
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
