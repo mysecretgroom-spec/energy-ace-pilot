@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { EtudeData, getEtudePdfBlob, getResultatPdfBlob } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
+import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { toast } from "sonner";
 
 interface UseEtudePdfAutoSaveProps {
@@ -52,7 +53,8 @@ export const useEtudePdfAutoSave = ({
     try {
       console.log("[PDF AutoSave] Generating PDF...");
       const basePdfBlob = await getEtudePdfBlob(pdfData);
-      const pdfBlob = await appendStudyPhotosToPdf(basePdfBlob, userId, clientId, etudeId);
+      const photosBlob = await appendStudyPhotosToPdf(basePdfBlob, userId, clientId, etudeId);
+      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
       
       // Create filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -119,7 +121,8 @@ export const useEtudePdfAutoSave = ({
     try {
       console.log("[PDF Résultat] Generating Résultat d'étude PDF...");
       const baseResultatBlob = await getResultatPdfBlob(pdfData);
-      const pdfBlob = await appendStudyPhotosToPdf(baseResultatBlob, userId, clientId, etudeId);
+      const photosBlob = await appendStudyPhotosToPdf(baseResultatBlob, userId, clientId, etudeId);
+      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
 
       const safeName = `${clientPrenom}_${clientName}`.replace(/[^a-zA-Z0-9_-]/g, "_");
       const fileName = `${userId}/${etudeId}/Resultat_${safeName}.pdf`;

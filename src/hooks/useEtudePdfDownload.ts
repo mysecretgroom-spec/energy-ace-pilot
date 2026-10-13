@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
+import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { toast } from "sonner";
 
 type PdfMode = "pre-etude" | "resultat";
@@ -34,12 +35,14 @@ export function useEtudePdfDownload() {
       const baseBlob = await generatePdfFromEtude(etude, client, mode, options);
 
       // Ajoute les photos d'étude à la fin du même PDF
-      const blob = await appendStudyPhotosToPdf(
+      const photosBlob = await appendStudyPhotosToPdf(
         baseBlob,
         etude.user_id,
         etude.client_id,
         etude.id
       );
+      const pdfData = etudeToPdfData(etude, client, mode, options);
+      const blob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
 
       // Upload/replace for future use (only for pre-etude to keep backward compat)
       if (mode === "pre-etude") {
