@@ -81,4 +81,12 @@ describe("appendRoofMapAnnexeToPdf", () => {
     await appendRoofMapAnnexeToPdf(await makeBasePdf(), { ...dataWithRoof, roofMapViewport: viewport });
     expect(renderRoofMapImage).toHaveBeenLastCalledWith(45.123456, 0.654321, { viewport });
   });
+  it("transmet les rectangles manuels au PDF sans changer leur géométrie", async () => {
+    const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
+    const viewport = { centerLatitude: 45.123, centerLongitude: 0.654, zoom: 20, width: 360, height: 224,
+      panelLayout: { zones: [{ id: "z1", latitude: 45.123, longitude: 0.654 }], panels: [{ id: "p1", zoneId: "z1", latitude: 45.123, longitude: 0.654, rotation: 27 }] } };
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(), { ...dataWithRoof, roofMapViewport: viewport });
+    expect(renderRoofMapImage).toHaveBeenLastCalledWith(45.123456, 0.654321, { viewport });
+    expect((await PDFDocument.load(await out.arrayBuffer())).getPageCount()).toBe(3);
+  });
 });
