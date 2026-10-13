@@ -8,6 +8,9 @@ import { renderRoofMapImage } from "@/lib/roofMapImage";
 import type { RoofMapViewport } from "@/lib/roofMapViewport";
 import { DEFAULT_ROOF_MAP_ZOOM } from "@/lib/roofMapViewport";
 import { fetchLatestAiVisuals, panelPixelSize, type AiVisuals } from "@/lib/roofAiVisuals";
+import { PV_INSTALLATIONS, pvPlacementPayload, type PvInstallationType } from "@/lib/pvInstallation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   clientId?: string | null;
@@ -34,6 +37,8 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [visuals, setVisuals] = useState<AiVisuals | null>(null);
+  const [installationType, setInstallationType] = useState<PvInstallationType>("toiture");
+  const [surfaceConstraint, setSurfaceConstraint] = useState("");
   const nbPanneaux = Math.ceil((Number(puissanceKwc) || 0) / 0.5);
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
       nom: `Visualisation IA ${label} - ${new Date().toLocaleDateString("fr-FR")}.png`,
       type_document: "photo_toiture", context_source: source, url: u.publicUrl,
       taille_bytes: blob.size, mime_type: "image/png",
-      metadata: { nb_panneaux: nbPanneaux, panel_mm: "1130x2095" },
+      metadata: { nb_panneaux: nbPanneaux, panel_mm: "1130x2095", installation_type: installationType, surface_constraint: surfaceConstraint.trim(), target_latitude: lat, target_longitude: lng },
     });
     if (e2) throw e2;
   };
@@ -64,12 +69,14 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
     try {
       // 1. Vue satellite (même cadrage que la carte)
       const sat = await renderRoofMapImage(lat, lng, { viewport });
+      if (!sat) throw new Error("Carte de la zone désignée indisponible.");
+      const placement = pvPlacementPayload(installationType, surfaceConstraint, sat);
       if (sat) {
         const w = await imgWidth(sat);
         const zoom = viewport?.zoom ?? DEFAULT_ROOF_MAP_ZOOM;
         const px = w ? panelPixelSize(viewport?.centerLatitude ?? lat, zoom, viewport?.width ?? 360, w) : undefined;
         const { data, error } = await supabase.functions.invoke("simulate-pv-roof", {
-          body: { imageBase64: sat, mimeType: "image/jpeg", nbPanneaux, view: "satellite", panelPixelSize: px },
+          body: { ...placement, imageBase64: sat, mimeType: "image/jpeg", nbPanneaux, view: "satellite", panelPixelSize: px },
         });
         if (error || !data?.image) errors.push("vue satellite");
         else await save(data.image, "simulation_ia_satellite", "satellite");
@@ -82,7 +89,7 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
       const src = photos?.find((p) => !p.context_source || p.context_source === "photo_toiture");
       if (src?.url) {
         const { data, error } = await supabase.functions.invoke("simulate-pv-roof", {
-          body: { imageUrl: src.url, nbPanneaux, installationType: "toiture", view: "photo" },
+          body: { ...placement, imageUrl: src.url, nbPanneaux, view: "photo" },
         });
         if (error || !data?.image) errors.push("photo d'étude");
         else await save(data.image, "simulation_ia_photo", "photo");
@@ -102,6 +109,11 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
 
   return (
     <div className="space-y-2">
+      <Select value={installationType} onValueChange={(value) => { const type = PV_INSTALLATIONS.find((item) => item.value === value); if (type) setInstallationType(type.value); }} disabled={loading}>
+        <SelectTrigger aria-label="Type de pose sur la zone repérée"><SelectValue /></SelectTrigger>
+        <SelectContent>{PV_INSTALLATIONS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+      </Select>
+      <Textarea aria-label="Zone photographiée correspondant au repère" placeholder="Zone photographiée : ex. toit du garage, terrasse pour pergola…" maxLength={1500} value={surfaceConstraint} onChange={(event) => setSurfaceConstraint(event.target.value)} disabled={loading} className="min-h-[60px] text-sm" />
       <Button type="button" variant="outline" size="sm" onClick={run} disabled={disabled} className="w-full">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
         {loading ? "Génération en cours…" : `Visualisation IA (${nbPanneaux || 0} panneaux)`}
