@@ -109,8 +109,23 @@ Deno.serve(async (req) => {
           ? "des bacs lestés type GSE posés sur la surface plate"
           : "la toiture existante";
 
+  // Plan de pose suggéré : rangées x colonnes pour aider le modèle à compter exactement.
+  const layoutPlan = (() => {
+    if (!nbPanneaux || nbPanneaux < 1) return null;
+    const cols = Math.ceil(Math.sqrt(nbPanneaux));
+    const rows = Math.ceil(nbPanneaux / cols);
+    return { rows, cols, lastRow: nbPanneaux - (rows - 1) * cols };
+  })();
+
   const countInstruction = nbPanneaux
-    ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément) sur ${supportLabel}.`
+    ? `Installe EXACTEMENT ${nbPanneaux} panneaux solaires sur ${supportLabel}, ni plus ni moins. ` +
+      (layoutPlan
+        ? `Plan de pose imposé : ${layoutPlan.rows} rangée(s) de ${layoutPlan.cols} panneaux` +
+          (layoutPlan.lastRow !== layoutPlan.cols ? `, la dernière rangée n'en contient que ${layoutPlan.lastRow}` : "") +
+          ". "
+        : "") +
+      "Chaque panneau doit être entièrement visible, nettement séparé des autres par un fin joint, sans fusion ni chevauchement. Avant de terminer, recompte les panneaux un par un : s'il n'y en a pas exactement " +
+      `${nbPanneaux}, corrige.`
     : `Installe un nombre réaliste de panneaux solaires sur ${supportLabel}.`;
 
   const edgeConstraint =
@@ -132,17 +147,23 @@ Deno.serve(async (req) => {
       : supportInstruction;
 
   const dimensionInstruction =
-    "Chaque panneau mesure 1130 mm x 2095 mm (ratio 1 : 1,85, rectangle portrait) : respecte cette proportion et l'échelle réelle par rapport au bâtiment (une porte fait environ 0,9 x 2,1 m, une tuile environ 0,3 m)." +
-    (panelPx ? ` Dans cette image, un panneau occupe environ ${panelPx.w} x ${panelPx.h} pixels.` : "");
+    "Chaque panneau mesure exactement 1130 mm de large x 2095 mm de haut (ratio strict 1 : 1,85, rectangle portrait, jamais carré ni paysage). Tous les panneaux ont rigoureusement la même taille et la même orientation. Respecte l'échelle réelle par rapport au bâtiment (une porte fait environ 0,9 x 2,1 m, une tuile environ 0,3 m)." +
+    (panelPx ? ` Dans cette image, un panneau occupe environ ${panelPx.w} x ${panelPx.h} pixels : utilise cette taille comme référence absolue pour chaque panneau.` : "");
 
   if (view === "satellite") {
     const satPrompt = [
       "Tu es spécialiste en photomontage photovoltaïque sur vue aérienne verticale (orthophoto satellite).",
       nbPanneaux
-        ? `Ajoute exactement ${nbPanneaux} panneaux solaires noirs full black (compte-les précisément) sur le toit du bâtiment situé sous le repère rouge.`
+        ? `Ajoute EXACTEMENT ${nbPanneaux} panneaux solaires noirs full black, ni plus ni moins, sur le toit du bâtiment situé sous le repère rouge. ` +
+          (layoutPlan
+            ? `Plan de pose imposé : ${layoutPlan.rows} rangée(s) de ${layoutPlan.cols} panneaux` +
+              (layoutPlan.lastRow !== layoutPlan.cols ? `, dernière rangée de ${layoutPlan.lastRow}` : "") +
+              ". "
+            : "") +
+          `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
         : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
       dimensionInstruction,
-      "Vue de dessus : panneaux en rectangles alignés en rangées régulières, parallèles au faîtage, groupés sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
+      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en un seul bloc compact sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
       surfaceConstraint ? `Consigne complémentaire : ${surfaceConstraint}` : "",
       "Retire le repère rouge. Ne modifie rien d'autre : ni le cadrage, ni l'échelle, ni l'environnement. Sans texte ni logo.",
     ].filter(Boolean).join(" ");
@@ -155,8 +176,8 @@ Deno.serve(async (req) => {
     countInstruction,
     dimensionInstruction,
     surfaceInstruction,
-    "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux lignes de la structure,",
-    "respect strict de la perspective, des pentes, des ombres et de la lumière existante.",
+    "Contraintes techniques : panneaux noirs monocristallins full black, tous de taille et d'orientation strictement identiques, alignés en rangées régulières et parallèles aux lignes de la structure, joints fins visibles entre chaque panneau,",
+    "respect strict de la perspective, des pentes, des ombres et de la lumière existante. Même en perspective, chaque panneau garde son ratio 1 : 1,85 et reste clairement délimité.",
     "Ne modifie ni le bâtiment existant, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
   ].join(" ");
