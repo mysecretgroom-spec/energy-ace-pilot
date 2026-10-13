@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
     countInstruction,
     dimensionInstruction,
     surfaceInstruction,
-    "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux lignes de la structure,",
-    "respect strict de la perspective, des pentes, des ombres et de la lumière existante.",
+    "Contraintes techniques : panneaux noirs monocristallins full black, tous de taille et d'orientation strictement identiques, alignés en rangées régulières et parallèles aux lignes de la structure, joints fins visibles entre chaque panneau,",
+    "respect strict de la perspective, des pentes, des ombres et de la lumière existante. Même en perspective, chaque panneau garde son ratio 1 : 1,85 et reste clairement délimité.",
     "Ne modifie ni le bâtiment existant, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
   ].join(" ");
