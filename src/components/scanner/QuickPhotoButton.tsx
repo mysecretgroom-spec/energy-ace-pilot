@@ -91,6 +91,8 @@ export async function mergeStudyPhotosIntoPdf(
     photo_chantier: "Photo chantier",
   };
 
+  // 2a. Download and embed all images first
+  const embedded: { image: any; label: string }[] = [];
   for (const doc of photoDocs) {
     try {
       // Get signed URL for private bucket
@@ -138,35 +140,64 @@ export async function mergeStudyPhotosIntoPdf(
         image = await pdfDoc.embedJpg(imageBytes);
       }
 
-      // Create A4 page
-      const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
-
-      // Add label at top
       const label =
         doc.context_source === "simulation_pv"
           ? "Projection panneaux solaires (simulation)"
           : categoryLabels[doc.type_document] || doc.nom;
-      page.drawText(label, {
-        x: MARGIN,
-        y: A4_HEIGHT - MARGIN,
-        size: 14,
-      });
 
-      // Scale image to fit within margins
-      const availWidth = A4_WIDTH - MARGIN * 2;
-      const availHeight = A4_HEIGHT - MARGIN * 2 - LABEL_HEIGHT;
-      const scale = Math.min(availWidth / image.width, availHeight / image.height, 1);
-      const imgWidth = image.width * scale;
-      const imgHeight = image.height * scale;
-
-      // Center horizontally, place below label
-      const x = (A4_WIDTH - imgWidth) / 2;
-      const y = A4_HEIGHT - MARGIN - LABEL_HEIGHT - imgHeight;
-
-      page.drawImage(image, { x, y, width: imgWidth, height: imgHeight });
+      embedded.push({ image, label });
     } catch (err) {
       console.warn(`Skipping photo ${doc.nom}:`, err);
     }
+  }
+
+  // 2b. Adaptive grid layout: max 9 photos per A4 page
+  // 1 -> 1x1, 2 -> 2x1, 3-4 -> 2x2, 5-6 -> 3x2, 7-9 -> 3x3
+  const MAX_PER_PAGE = 9;
+  const gridFor = (n: number): { cols: number; rows: number } => {
+    if (n <= 1) return { cols: 1, rows: 1 };
+    if (n === 2) return { cols: 2, rows: 1 };
+    if (n <= 4) return { cols: 2, rows: 2 };
+    if (n <= 6) return { cols: 3, rows: 2 };
+    return { cols: 3, rows: 3 };
+  };
+
+  const GAP = 8;
+  const CELL_LABEL = 12;
+
+  for (let start = 0; start < embedded.length; start += MAX_PER_PAGE) {
+    const chunk = embedded.slice(start, start + MAX_PER_PAGE);
+    const { cols, rows } = gridFor(chunk.length);
+    const page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
+
+    const availWidth = A4_WIDTH - MARGIN * 2;
+    const availHeight = A4_HEIGHT - MARGIN * 2;
+    const cellW = (availWidth - GAP * (cols - 1)) / cols;
+    const cellH = (availHeight - GAP * (rows - 1)) / rows;
+
+    chunk.forEach(({ image, label }, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cellX = MARGIN + col * (cellW + GAP);
+      // PDF y-axis is bottom-up: row 0 is the top
+      const cellY = A4_HEIGHT - MARGIN - (row + 1) * cellH - row * GAP;
+
+      // Label at top of the cell
+      page.drawText(label, {
+        x: cellX,
+        y: cellY + cellH - CELL_LABEL + 2,
+        size: 8,
+      });
+
+      const imgAreaH = cellH - CELL_LABEL;
+      const scale = Math.min(cellW / image.width, imgAreaH / image.height, 1);
+      const imgWidth = image.width * scale;
+      const imgHeight = image.height * scale;
+      const x = cellX + (cellW - imgWidth) / 2;
+      const y = cellY + (imgAreaH - imgHeight) / 2;
+
+      page.drawImage(image, { x, y, width: imgWidth, height: imgHeight });
+    });
   }
 
   if (pdfDoc.getPageCount() === 0) return null;
