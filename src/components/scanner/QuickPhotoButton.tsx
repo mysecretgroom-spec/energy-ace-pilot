@@ -482,8 +482,14 @@ export function QuickPhotoButton({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-8 w-8"
-        onClick={handleUploadClick}
+        className={`h-8 w-8 ${toitureFull ? "opacity-50" : ""}`}
+        onClick={toitureFull ? () =>
+          toast({
+            variant: "destructive",
+            title: "Limite atteinte",
+            description: `Maximum ${MAX_TOITURE_PHOTOS} photos de toiture par étude (elles doivent tenir sur une page du rapport).`,
+          })
+        : handleUploadClick}
         disabled={isUploading}
       >
         <Upload className="h-3.5 w-3.5 text-muted-foreground" />
