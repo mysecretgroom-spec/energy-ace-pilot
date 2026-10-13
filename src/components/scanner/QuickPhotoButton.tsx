@@ -30,6 +30,9 @@ interface QuickPhotoButtonProps {
   iconOnly?: boolean;
 }
 
+/** Maximum de photos de toiture par étude : elles doivent tenir sur une page du PDF. */
+const MAX_TOITURE_PHOTOS = 9;
+
 /** Auto-download a blob to device Downloads folder */
 function triggerBlobDownload(blob: Blob, fileName: string) {
   try {
@@ -152,6 +155,7 @@ export async function mergeStudyPhotosIntoPdf(
 
   // 2b. Adaptive grid layout: max 9 photos per A4 page
   // 1 -> 1x1, 2 -> 2x1, 3-4 -> 2x2, 5-6 -> 3x2, 7-9 -> 3x3
+  // NB: les photos de toiture sont limitées à 9 au total côté saisie
   const MAX_PER_PAGE = 9;
   const gridFor = (n: number): { cols: number; rows: number } => {
     if (n <= 1) return { cols: 1, rows: 1 };
