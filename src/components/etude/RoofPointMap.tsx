@@ -59,6 +59,9 @@ export function RoofPointMap({ address, lat, lng, onChange, viewport, onViewport
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !viewport || restoredViewportRef.current) return;
+    const center = map.getCenter();
+    if (Math.abs(center.lat - viewport.centerLatitude) < 1e-9 &&
+        Math.abs(center.lng - viewport.centerLongitude) < 1e-9 && map.getZoom() === viewport.zoom) return;
     restoredViewportRef.current = true;
     map.setView([viewport.centerLatitude, viewport.centerLongitude], viewport.zoom);
   }, [viewport]);
@@ -81,6 +84,11 @@ export function RoofPointMap({ address, lat, lng, onChange, viewport, onViewport
       });
     } else {
       markerRef.current.setLatLng([lat, lng]);
+    }
+    if (map.getZoom() === 6 && !restoredViewportRef.current) {
+      map.setView([lat, lng], DEFAULT_ROOF_MAP_ZOOM);
+    } else {
+      map.fire("moveend");
     }
   }, [lat, lng]);
 
