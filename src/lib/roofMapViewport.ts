@@ -1,9 +1,12 @@
+import { parseRoofPanelLayout, type RoofPanelLayout } from "./roofPanelLayout";
+
 export interface RoofMapViewport {
   centerLatitude: number;
   centerLongitude: number;
   zoom: number;
   width: number;
   height: number;
+  panelLayout?: RoofPanelLayout;
 }
 
 export const DEFAULT_ROOF_MAP_ZOOM = 19;
@@ -17,7 +20,7 @@ export function parseRoofMapViewport(value: unknown): RoofMapViewport | undefine
   if (Math.abs(viewport.centerLatitude) > 85 || Math.abs(viewport.centerLongitude) > 180 ||
       viewport.zoom < 1 || viewport.zoom > 20 || viewport.width <= 0 || viewport.height <= 0 ||
       viewport.width > 10000 || viewport.height > 10000) return undefined;
-  return viewport;
+  return { ...viewport, ...(v.panelLayout ? { panelLayout: parseRoofPanelLayout(v.panelLayout) } : {}) };
 }
 
 export function roofMapRenderGeometry(viewport: RoofMapViewport, pixelRatio = 2) {
