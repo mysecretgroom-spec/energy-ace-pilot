@@ -56,6 +56,12 @@ Deno.serve(async (req) => {
       ? (payload.installationType as InstallationType)
       : "toiture";
 
+  const view = payload.view === "satellite" ? "satellite" : "photo";
+  const pw = Number((payload.panelPixelSize as any)?.w);
+  const ph = Number((payload.panelPixelSize as any)?.h);
+  const panelPx = Number.isFinite(pw) && Number.isFinite(ph) && pw > 1 && ph > 1 && pw < 2000 && ph < 2000
+    ? { w: Math.round(pw), h: Math.round(ph) } : null;
+
   if (!imageUrl && !imageBase64) {
     return json({ error: "Photo manquante" }, 400);
   }
@@ -125,10 +131,29 @@ Deno.serve(async (req) => {
       ? `${supportInstruction} Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.`
       : supportInstruction;
 
+  const dimensionInstruction =
+    "Chaque panneau mesure 1130 mm x 2095 mm (ratio 1 : 1,85, rectangle portrait) : respecte cette proportion et l'échelle réelle par rapport au bâtiment (une porte fait environ 0,9 x 2,1 m, une tuile environ 0,3 m)." +
+    (panelPx ? ` Dans cette image, un panneau occupe environ ${panelPx.w} x ${panelPx.h} pixels.` : "");
+
+  if (view === "satellite") {
+    const satPrompt = [
+      "Tu es spécialiste en photomontage photovoltaïque sur vue aérienne verticale (orthophoto satellite).",
+      nbPanneaux
+        ? `Ajoute exactement ${nbPanneaux} panneaux solaires noirs full black (compte-les précisément) sur le toit du bâtiment situé sous le repère rouge.`
+        : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
+      dimensionInstruction,
+      "Vue de dessus : panneaux en rectangles alignés en rangées régulières, parallèles au faîtage, groupés sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
+      surfaceConstraint ? `Consigne complémentaire : ${surfaceConstraint}` : "",
+      "Retire le repère rouge. Ne modifie rien d'autre : ni le cadrage, ni l'échelle, ni l'environnement. Sans texte ni logo.",
+    ].filter(Boolean).join(" ");
+    return await generate(satPrompt);
+  }
+
   const prompt = [
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
     `Modifie UNIQUEMENT cette photo réelle pour y ajouter une installation photovoltaïque sur ${supportLabel}.`,
     countInstruction,
+    dimensionInstruction,
     surfaceInstruction,
     "Contraintes techniques : panneaux noirs monocristallins full black, alignés en rangées régulières et parallèles aux lignes de la structure,",
     "respect strict de la perspective, des pentes, des ombres et de la lumière existante.",
@@ -136,6 +161,9 @@ Deno.serve(async (req) => {
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
   ].join(" ");
 
+  return await generate(prompt);
+
+  async function generate(prompt: string): Promise<Response> {
   try {
     const aiResp = await fetch(
       "https://ai.gateway.lovable.dev/v1/images/generations",
@@ -180,9 +208,10 @@ Deno.serve(async (req) => {
       return json({ error: "Aucune image générée." }, 502);
     }
 
-    return json({ image: b64, nbPanneaux, installationType });
+    return json({ image: b64, nbPanneaux, installationType, view });
   } catch (err) {
     console.error("[simulate-pv-roof] unexpected", err);
     return json({ error: "Erreur inattendue." }, 500);
+  }
   }
 });

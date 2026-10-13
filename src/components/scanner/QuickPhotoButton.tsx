@@ -69,7 +69,7 @@ export async function mergeStudyPhotosIntoPdf(
     .eq("client_id", clientId)
     .or(`etude_id.eq.${etudeId},etude_id.is.null`)
     .in("type_document", ["photo_toiture", "photo_compteur", "photo_tableau", "photo_chantier"])
-    .neq("context_source", "merged_photos")
+    .not("context_source", "in", "(merged_photos,simulation_ia_satellite,simulation_ia_photo)")
     .order("created_at", { ascending: true });
 
   if (fetchError || !photoDocs || photoDocs.length === 0) return null;
