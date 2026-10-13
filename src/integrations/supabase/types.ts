@@ -1953,6 +1953,8 @@ export type Database = {
           revente_euros: number | null
           revente_kwh: number | null
           revente_mensuelle_estimee: number | null
+          roof_latitude: number | null
+          roof_longitude: number | null
           support: string | null
           surcout_compteur: number | null
           surcout_support: number | null
@@ -2061,6 +2063,8 @@ export type Database = {
           revente_euros?: number | null
           revente_kwh?: number | null
           revente_mensuelle_estimee?: number | null
+          roof_latitude?: number | null
+          roof_longitude?: number | null
           support?: string | null
           surcout_compteur?: number | null
           surcout_support?: number | null
@@ -2169,6 +2173,8 @@ export type Database = {
           revente_euros?: number | null
           revente_kwh?: number | null
           revente_mensuelle_estimee?: number | null
+          roof_latitude?: number | null
+          roof_longitude?: number | null
           support?: string | null
           surcout_compteur?: number | null
           surcout_support?: number | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.etudes ADD COLUMN IF NOT EXISTS roof_latitude double precision, ADD COLUMN IF NOT EXISTS roof_longitude double precision;

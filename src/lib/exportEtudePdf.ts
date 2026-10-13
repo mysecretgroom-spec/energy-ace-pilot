@@ -1,3 +1,4 @@
+import { renderRoofMapImage } from "@/lib/roofMapImage";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
@@ -61,6 +62,8 @@ interface EtudeData {
   clientNom: string;
   clientPrenom: string;
   clientAdresse: string;
+  roofLatitude?: number | null;
+  roofLongitude?: number | null;
   clientVille: string;
   clientCodePostal: string;
   clientTelephone?: string;
@@ -1441,6 +1444,7 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   }
 
   // Footers
+  await addRoofMapPage(doc, data);
   const totalPages = doc.getNumberOfPages();
   const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
   for (let i = 1; i <= totalPages; i++) {
@@ -2073,6 +2077,7 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
   yPos = drawResultatEtude(doc, data, yPos, cepcCtx);
 
   // CEPC Footers
+  await addRoofMapPage(doc, data);
   const totalPages = doc.getNumberOfPages();
   const logos = { franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 };
   for (let i = 1; i <= totalPages; i++) {
@@ -2082,6 +2087,25 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
 
   return doc;
 };
+
+/** Page « Localisation de la toiture » : vue satellite avec le repère placé dans l'étude. */
+async function addRoofMapPage(doc: jsPDF, data: EtudeData) {
+  if (data.roofLatitude == null || data.roofLongitude == null) return;
+  const img = await renderRoofMapImage(data.roofLatitude, data.roofLongitude);
+  if (!img) return;
+  doc.addPage();
+  const w = doc.internal.pageSize.getWidth();
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("Localisation de la toiture du projet", 14, 46);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const addr = [data.clientAdresse, data.clientCodePostal, data.clientVille].filter(Boolean).join(", ");
+  doc.text(addr, 14, 53);
+  const iw = w - 28;
+  doc.addImage(img, "JPEG", 14, 58, iw, iw * (640 / 1024));
+  doc.text(`GPS : ${data.roofLatitude.toFixed(6)}, ${data.roofLongitude.toFixed(6)}`, 14, 62 + iw * (640 / 1024));
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API

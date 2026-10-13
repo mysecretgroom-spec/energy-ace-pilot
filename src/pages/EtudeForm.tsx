@@ -61,7 +61,7 @@ import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, Financi
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
-import { SatelliteMapEmbed } from "@/components/etude/SatelliteMapEmbed";
+import { RoofPointMap } from "@/components/etude/RoofPointMap";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -238,6 +238,8 @@ const EtudeForm = () => {
   const [adresseInstallation, setAdresseInstallation] = useState("");
   const [codePostalInstallation, setCodePostalInstallation] = useState("");
   const [villeInstallation, setVilleInstallation] = useState("");
+  const [roofLat, setRoofLat] = useState<number | null>(null);
+  const [roofLng, setRoofLng] = useState<number | null>(null);
   const [showClientDialog, setShowClientDialog] = useState(false);
   const [departement, setDepartement] = useState("");
   
@@ -910,6 +912,8 @@ const EtudeForm = () => {
       setAdresseInstallation((etude as any).adresse_installation || "");
       setCodePostalInstallation((etude as any).code_postal_installation || "");
       setVilleInstallation((etude as any).ville_installation || "");
+      setRoofLat((etude as any).roof_latitude ?? null);
+      setRoofLng((etude as any).roof_longitude ?? null);
       // ═══════════════════════════════════════════════════════════════════════════
       // TYPE DE PRODUIT
       // ═══════════════════════════════════════════════════════════════════════════
@@ -1618,6 +1622,8 @@ const EtudeForm = () => {
       adresse_installation: adresseInstallation || null,
       code_postal_installation: codePostalInstallation || null,
       ville_installation: villeInstallation || null,
+      roof_latitude: roofLat,
+      roof_longitude: roofLng,
       surcouts: selectedSurcouts,
       surcout_support: surcoutSupport,
       surcout_compteur: surcoutCompteur,
@@ -1948,6 +1954,8 @@ const EtudeForm = () => {
       adresse_installation: adresseInstallation || null,
       code_postal_installation: codePostalInstallation || null,
       ville_installation: villeInstallation || null,
+      roof_latitude: roofLat,
+      roof_longitude: roofLng,
       surcouts: selectedSurcouts,
       autre_surcout: autreSurcout,
       // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
@@ -1994,7 +2002,7 @@ const EtudeForm = () => {
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
     selectedBouquetCombo, precoMode,
-    adresseInstallation, codePostalInstallation, villeInstallation
+    adresseInstallation, codePostalInstallation, villeInstallation, roofLat, roofLng
   ]);
 
   // Perform auto-save
@@ -2231,6 +2239,8 @@ const EtudeForm = () => {
       clientNom: clientName,
       clientPrenom: clientPrenom,
       clientAdresse: clientAdresse,
+      roofLatitude: roofLat,
+      roofLongitude: roofLng,
       clientVille: clientVille,
       clientCodePostal: clientCodePostal,
       clientTelephone: clientTelephone || undefined,
@@ -3631,7 +3641,10 @@ const EtudeForm = () => {
                 className="h-8 sm:h-9 text-xs sm:text-sm"
               />
             </div>
-            <SatelliteMapEmbed
+            <RoofPointMap
+              lat={roofLat}
+              lng={roofLng}
+              onChange={(la, ln) => { setRoofLat(la); setRoofLng(ln); }}
               address={[
                 adresseInstallation || clientAdresse,
                 codePostalInstallation || clientCodePostal,
