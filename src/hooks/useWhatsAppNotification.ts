@@ -375,7 +375,7 @@ export const useWhatsAppNotification = () => {
         targetWindow.location.href = whatsappUrl;
       } else {
         const opened = window.open(whatsappUrl, "_blank");
-        if (!opened) window.location.href = whatsappUrl;
+        if (!opened && window.location) window.location.href = whatsappUrl;
       }
       return true;
     } catch (error) {
