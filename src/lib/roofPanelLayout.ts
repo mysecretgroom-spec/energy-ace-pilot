@@ -47,7 +47,11 @@ export function parseRoofPanelLayout(value: unknown): RoofPanelLayout | undefine
   };
   if (!raw.zones.every(validPoint)) return undefined;
   const zoneIds = new Set(raw.zones.map(z => z.id));
-  if (!raw.panels.every(p => validPoint(p) && typeof p.zoneId === "string" && zoneIds.has(p.zoneId) && typeof p.rotation === "number" && Number.isFinite(p.rotation))) return undefined;
+  if (!raw.panels.every(value => {
+    if (!validPoint(value)) return false;
+    const p = value as unknown as Record<string, unknown>;
+    return typeof p.zoneId === "string" && zoneIds.has(p.zoneId) && typeof p.rotation === "number" && Number.isFinite(p.rotation);
+  })) return undefined;
   return { zones: raw.zones, panels: raw.panels as RoofPanel[] };
 }
 
