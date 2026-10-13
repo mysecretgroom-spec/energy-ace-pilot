@@ -48,16 +48,18 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3); // 2 pages du rapport + 1 annexe carte
 
-    // La dernière page porte la carte : le document contient une image embarquée,
-    // ajoutée uniquement par l'annexe (le PDF de base n'en contient pas).
-    const images = merged.context
-      .enumerateIndirectObjects()
-      .filter(([, obj]) => {
-        const stream = obj as { get?: (name: unknown) => unknown };
-        const subtype = stream.get?.(PDFName.of("Subtype"));
-        return String(subtype) === "/Image";
-      });
-    expect(images.length).toBe(1);
+    // La dernière page porte la carte : ses ressources référencent une image XObject
+    const last = merged.getPage(merged.getPageCount() - 1);
+    const resources = last.node.Resources();
+    const xobjDict = resources.lookup(resources.get(PDFName.of("XObject")), PDFDict);
+    expect(xobjDict).toBeTruthy();
+    const hasImage = xobjDict!.entries().some(([, ref]) => {
+      const stream = resources.context.lookup(ref) as unknown as
+        | { dict?: { get?: (n: unknown) => unknown } }
+        | undefined;
+      return String(stream?.dict?.get?.(PDFName.of("Subtype"))) === "/Image";
+    });
+    expect(hasImage).toBe(true);
   });
 
   it("ne modifie pas le PDF si le point toiture est absent", async () => {
