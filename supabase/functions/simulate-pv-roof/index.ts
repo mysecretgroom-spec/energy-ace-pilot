@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
           `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
         : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
       dimensionInstruction,
-      "Vue de dessus : panneaux en rectangles alignés en rangées régulières, parallèles au faîtage, groupés sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
+      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en un seul bloc compact sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
       surfaceConstraint ? `Consigne complémentaire : ${surfaceConstraint}` : "",
       "Retire le repère rouge. Ne modifie rien d'autre : ni le cadrage, ni l'échelle, ni l'environnement. Sans texte ni logo.",
     ].filter(Boolean).join(" ");
