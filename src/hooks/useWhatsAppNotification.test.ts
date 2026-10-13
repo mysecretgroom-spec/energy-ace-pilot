@@ -24,7 +24,7 @@ describe("agency notifications are text only", () => {
   it("retains saved CQ and original appointment values even with a custom template", async () => {
     from.mockImplementation((table: string) => {
       const data = table === "regies_contacts" ? { telephone: "+33600000000" }
-        : table === "whatsapp_templates" ? { template_text: "{{client_name}}\n{{comment}}" }
+        : table === "whatsapp_templates" ? { template_text: "📞 *CQ prévu:*\n{{client_name}}\n{{comment}}" }
         : table === "etudes" ? { rdv_id: "initial", cq_date_heure: "2026-10-14T14:45:00", puissance_kwc: 6 }
         : table === "rdv" ? {
           date_heure: "2026-10-12T16:30:00", adresse: "12 rue des Tests",
@@ -45,9 +45,9 @@ describe("agency notifications are text only", () => {
     const message = url.searchParams.get("text") || "";
     expect(message.indexOf("14 octobre 2026 à 14:45")).toBeGreaterThan(-1);
     expect(message.indexOf("14 octobre 2026 à 14:45")).toBeLessThan(message.indexOf("Jean Test"));
-    for (const value of ["12/10/2026 à 16:30", "12 rue des Tests", "0612345678", "75001", "Paris", "120 min", "Accès par le portail"]) {
-      expect(message).toContain(value);
-    }
+    expect(message.match(/CQ prévu/g)).toHaveLength(1);
+    expect(message).not.toContain("Rendez-vous initial");
+    for (const value of ["12 rue des Tests", "0612345678", "75001", "Paris"]) expect(message).toContain(value);
   });
 
   it.each(["positif", "r2_prestudy", "negatif"])("never attaches or downloads a PDF for %s", async (classification) => {

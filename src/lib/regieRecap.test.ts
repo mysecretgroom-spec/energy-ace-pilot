@@ -20,3 +20,13 @@ describe("agency study recap values", () => {
     expect(studyRecapDetails({ mensualite: 0 }).mensualiteCredit).toBe(0);
   });
 });
+describe("agency recap aids", () => {
+  it("shows the bill per month", async () => {
+    const { formatRegieStudyDetails } = await import("./regieRecap");
+    expect(formatRegieStudyDetails({ factureAnnuelleEuros: 3984 })).toContain("332 €/mois");
+  });
+  it("derives the payment after aids from the remaining share", async () => {
+    const { mensualiteAfterAids } = await import("./regieRecap");
+    expect(mensualiteAfterAids({ mensualiteCredit: 200, prixTTC: 20000, totalAides: 5000 })).toBe(150);
+  });
+});

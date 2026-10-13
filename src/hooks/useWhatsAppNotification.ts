@@ -250,7 +250,7 @@ export const useWhatsAppNotification = () => {
       // Read the linked study even when live financial values are supplied:
       // persisted CQ and the original appointment belong to the dossier.
       let studyQuery = supabase.from("etudes")
-        .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, cq_date_heure, rdv_id")
+        .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, total_aides, prime_autoconsommation, eco_tva, adresse_installation, code_postal_installation, ville_installation, cq_date_heure, rdv_id")
         .eq("user_id", userId);
       studyQuery = etudeId ? studyQuery.eq("id", etudeId) : studyQuery.eq("rdv_id", rdvId ?? "");
       const studyResult = etudeId || rdvId
@@ -307,7 +307,7 @@ export const useWhatsAppNotification = () => {
       let templateText = customTemplate?.template_text || DEFAULT_TEMPLATES[classification] || DEFAULT_TEMPLATES.attente;
       // Keep CQ first, including in custom templates that omitted it.
       if (classification === "positif") {
-        templateText = templateText.replace(/^.*\{\{cq_date\}\}.*(?:\r?\n)?/gm, "").trim();
+        templateText = templateText.replace(/^.*(?:\{\{cq_date\}\}|CQ prévu).*(?:\r?\n)?/gim, "").trim();
         templateText = `*📞 CQ prévu: {{cq_date}}*\n\n${templateText}`;
       }
       if (!templateText.includes("{{client_phone}}")) templateText += "\n\n📱 Tél: {{client_phone}}";
@@ -327,6 +327,9 @@ export const useWhatsAppNotification = () => {
           puissanceKwc: study.puissance_kwc ?? undefined,
           prixTTC: study.prix_total ?? undefined,
           mensualiteCredit: study.mensualite_estimee ?? undefined,
+          totalAides: study.total_aides ?? undefined,
+          primeAutoconsommation: study.prime_autoconsommation ?? undefined,
+          ecoTva: study.eco_tva ?? undefined,
         };
       }
       const details = { ...studyDetails, ...Object.fromEntries(Object.entries(venteDetails ?? {}).filter(([, value]) => value !== undefined)) };
@@ -339,6 +342,10 @@ export const useWhatsAppNotification = () => {
         originalClient?.code_postal || venteDetails?.codePostal,
         originalClient?.ville || venteDetails?.ville,
       ].filter(Boolean).join(", ");
+      const installAddressText = [study?.adresse_installation, study?.code_postal_installation, study?.ville_installation].filter(Boolean).join(", ");
+      const addressValue = installAddressText && installAddressText !== clientAddressText
+        ? `${clientAddressText || "Non renseignée"}\n📍 Adresse d'installation (différente) : ${installAddressText}`
+        : clientAddressText;
       const clientPhoneText = originalClient?.telephone || venteDetails?.telephone || "";
 
       // Replace placeholders and decode HTML entities for proper emoji display
@@ -351,7 +358,7 @@ export const useWhatsAppNotification = () => {
           .replace(/\{\{comment\}\}/g, commentText)
           .replace(/\{\{vente_details\}\}/g, venteDetailsText)
           .replace(/\{\{client_phone\}\}/g, clientPhoneText || "Non renseigné")
-          .replace(/\{\{client_address\}\}/g, clientAddressText || "Non renseignée")
+          .replace(/\{\{client_address\}\}/g, addressValue || "Non renseignée")
       );
 
       // Custom templates cannot omit the requested study values or commercial comment.
@@ -359,15 +366,6 @@ export const useWhatsAppNotification = () => {
       if (!templateText.includes("{{comment}}")) message += `\n\n${commentText}`;
       message = message.replace(/\*?Document PDF joint:?\*?/gi, "")
         .replace(/L'étude technique a été partagée séparément\./gi, "");
-      if (initialRdv) {
-        message += "\n\n*Rendez-vous initial*\n" + [
-          `Client: ${[originalClient?.prenom, originalClient?.nom].filter(Boolean).join(" ") || fullName}`,
-          `Date: ${format(new Date(initialRdv.date_heure), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}`,
-          `Projet: ${initialRdv.type_projet}`,
-          initialRdv.duree_minutes == null ? null : `Durée: ${initialRdv.duree_minutes} min`,
-          initialRdv.commentaire ? `Notes initiales: ${initialRdv.commentaire}` : null,
-        ].filter(Boolean).join("\n");
-      }
       // Sur mobile (surtout PWA iOS), le lien direct whatsapp:// ouvre réellement
       // l'app avec le message pré-rempli ; wa.me sert de repli sur desktop.
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
