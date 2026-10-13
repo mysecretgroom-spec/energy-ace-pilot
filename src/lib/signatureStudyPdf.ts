@@ -15,7 +15,7 @@ export async function signatureStudyPdf(userId: string, etudeId?: string | null,
   if (!liveData && !study) return null;
   const { generatePdfFromEtude } = await import("@/hooks/useEtudePdfDownload");
   const generated = liveData
-    ? { blob: getPreEtudePdfBlob(liveData), pdfData: liveData }
+    ? { blob: await getPreEtudePdfBlob(liveData), pdfData: liveData }
     : await generatePdfFromEtude(study, study?.clients, "pre-etude");
   const withPhotos = study ? await appendStudyPhotosToPdf(generated.blob, userId, study.client_id, study.id) : generated.blob;
   const blob = await appendRoofMapAnnexeToPdf(withPhotos, generated.pdfData);
