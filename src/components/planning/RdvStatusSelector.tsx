@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { writeOrQueue } from "@/lib/offline/outbox";
+import { qRdvChildren, qRdvRow } from "@/lib/offline/rdvQueries";
 import { toast } from "sonner";
 import { RdvStatus } from "@/components/ui/status-badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -199,153 +201,104 @@ export function RdvStatusSelector({
 
   const handleStatusChange = async (newStatus: RdvStatus, options?: StatusChangeOptions) => {
     if (!user) return;
-    
+
     setUpdating(true);
+    let queued = false;
+    const write = async (op: Parameters<typeof writeOrQueue>[0]) => {
+      const r = await writeOrQueue(op);
+      if (r.queued) queued = true;
+    };
     try {
-      // Update RDV status
-      const updateData: Record<string, unknown> = { 
-        status: newStatus,
-        is_r2: newStatus === "r2" || newStatus === "r2_prestudy",
-        r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
-      };
-      
-      const { error } = await supabase
-        .from("rdv")
-        .update(updateData)
-        .eq("id", rdvId);
+      await write({
+        table: "rdv", op: "update", match: { id: rdvId },
+        values: {
+          status: newStatus,
+          is_r2: newStatus === "r2" || newStatus === "r2_prestudy",
+          r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
+        },
+      });
 
-      if (error) throw error;
-
-      // If annulé or porte, cascade: also annul the parent RDV (R2/reporté chain)
+      // Annulé / porte : cascade vers le parent et les enfants (R2/reporté)
       if (newStatus === "annule" || newStatus === "porte") {
-        // Check if this RDV has a parent (is a child R2/reporté)
-        const { data: currentRdv } = await supabase
-          .from("rdv")
-          .select("parent_rdv_id, client_id")
-          .eq("id", rdvId)
-          .maybeSingle();
-
+        const { data: currentRdv } = await qRdvRow(rdvId);
         if (currentRdv?.parent_rdv_id) {
-          await (supabase
-            .from("rdv")
-            .update({ status: "annule" } as any)
-            .eq("id", currentRdv.parent_rdv_id) as any);
-          console.log(`Cascade annulé: parent RDV ${currentRdv.parent_rdv_id}`);
+          await write({ table: "rdv", op: "update", match: { id: currentRdv.parent_rdv_id }, values: { status: "annule" } });
         }
-
-        // Also check if this RDV is a parent with children → annul children too
-        const { data: childRdvs } = await (supabase
-          .from("rdv")
-          .select("id")
-          .eq("parent_rdv_id", rdvId)
-          .neq("status", "annule") as any);
-
-        if (childRdvs && childRdvs.length > 0) {
-          for (const child of childRdvs) {
-            await supabase
-              .from("rdv")
-              .update({ status: "annule" })
-              .eq("id", child.id);
-          }
-          console.log(`Cascade annulé: ${childRdvs.length} child RDV(s)`);
+        const { data: childRdvs } = await qRdvChildren(rdvId);
+        for (const child of childRdvs || []) {
+          await write({ table: "rdv", op: "update", match: { id: child.id }, values: { status: "annule" } });
         }
-
-        // Update etude classification to annulé
         if (clientId) {
-          await supabase
-            .from("etudes")
-            .update({ classification: "annule" })
-            .eq("client_id", clientId)
-            .is("classification", null);
+          await write({ table: "etudes", op: "update", match: { client_id: clientId, classification: null }, values: { classification: "annule" } });
         }
       }
 
       if ((newStatus === "r2" || newStatus === "r2_prestudy" || newStatus === "reporte") && options?.r2DateTime && clientId) {
-        const { data: originalRdv } = await supabase
-          .from("rdv")
-          .select("adresse, type_projet, duree_minutes, regie_id")
-          .eq("id", rdvId)
-          .maybeSingle();
-
+        const { data: originalRdv } = await qRdvRow(rdvId);
         if (originalRdv) {
           const isR2 = newStatus === "r2" || newStatus === "r2_prestudy";
-          const { error: newRdvError } = await supabase
-            .from("rdv")
-            .insert({
-              user_id: user.id,
-              client_id: clientId,
-              date_heure: options.r2DateTime,
-              adresse: originalRdv.adresse,
-              type_projet: originalRdv.type_projet,
-              duree_minutes: originalRdv.duree_minutes || 90,
-              status: "nouveau" as const,
-              type_rdv: "standard" as const,
-              is_r2: isR2,
-              r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
-              regie_id: originalRdv.regie_id,
-              parent_rdv_id: rdvId,
-              needs_reconfirmation: true,
-            } as any);
-
-          if (newRdvError) {
+          try {
+            await write({
+              table: "rdv", op: "insert",
+              values: {
+                user_id: user.id,
+                client_id: clientId,
+                date_heure: options.r2DateTime,
+                adresse: originalRdv.adresse,
+                type_projet: originalRdv.type_projet,
+                duree_minutes: originalRdv.duree_minutes || 90,
+                status: "nouveau",
+                type_rdv: "standard",
+                is_r2: isR2,
+                r2_type: newStatus === "r2_prestudy" ? "r2_prestudy" : (newStatus === "r2" ? "r2" : null),
+                regie_id: originalRdv.regie_id,
+                parent_rdv_id: rdvId,
+                needs_reconfirmation: true,
+              },
+            });
+          } catch (newRdvError) {
             console.error("Error creating new RDV:", newRdvError);
             toast.error("Erreur lors de la création du nouveau RDV");
-          } else {
-            // Silent success
-          }
-
-          if (newRdvError) {
-            console.error("Error creating new RDV:", newRdvError);
-            toast.error("Erreur lors de la création du nouveau RDV");
-          } else {
-            // Silent success
           }
         }
       }
 
-      // If Signé, create vente record
+      // Signé : création de la vente
       if (newStatus === "signe" && options?.prixTTC && clientId) {
         const productType = options.productType || "PV";
         const tauxTVA = productType === "PV" && options.puissanceKwc && options.puissanceKwc <= 3 ? 0.10 : 0.20;
         const prixHT = options.prixTTC / (1 + tauxTVA);
-        
-        // Map product type to type_installation
-        const typeInstallation = productType === "PV" 
-          ? "photovoltaique" 
-          : productType === "PAC" 
-            ? "pompe_a_chaleur" 
+        const typeInstallation = productType === "PV"
+          ? "photovoltaique"
+          : productType === "PAC"
+            ? "pompe_a_chaleur"
             : "isolation_thermique";
-        
-        const { error: venteError } = await supabase
-          .from("ventes")
-          .insert({
-            user_id: user.id,
-            client_id: clientId,
-            etude_id: etudeId || null,
-            puissance_kwc: productType !== "ITE" ? options.puissanceKwc : null,
-            montant_ttc: options.prixTTC,
-            montant_ht: prixHT,
-            date_signature: new Date().toISOString().split("T")[0],
-            status: "cq_a_faire",
-            type_vente: "standard",
-            type_installation: typeInstallation,
-            product_type: productType,
+        try {
+          await write({
+            table: "ventes", op: "insert",
+            values: {
+              user_id: user.id,
+              client_id: clientId,
+              etude_id: etudeId || null,
+              puissance_kwc: productType !== "ITE" ? options.puissanceKwc : null,
+              montant_ttc: options.prixTTC,
+              montant_ht: prixHT,
+              date_signature: new Date().toISOString().split("T")[0],
+              status: "cq_a_faire",
+              type_vente: "standard",
+              type_installation: typeInstallation,
+              product_type: productType,
+            },
           });
-
-        if (venteError) {
+        } catch (venteError) {
           console.error("Error creating vente:", venteError);
           toast.error("Erreur lors de la création de la vente");
-        } else {
-          // Silent success - status badge update is visible
         }
       }
 
       setStatus(newStatus);
-      
       hapticSuccess();
-      // Silent success - visual status change is enough feedback
-
-      // Notify parent immediately
+      if (queued) toast.info("Hors-ligne : enregistré sur le téléphone, envoi automatique au retour du réseau");
       onStatusChange?.(newStatus);
     } catch (err) {
       console.error("Error updating status:", err);
