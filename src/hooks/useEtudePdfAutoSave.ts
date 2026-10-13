@@ -54,7 +54,7 @@ export const useEtudePdfAutoSave = ({
       console.log("[PDF AutoSave] Generating PDF...");
       const basePdfBlob = await getEtudePdfBlob(pdfData);
       const photosBlob = await appendStudyPhotosToPdf(basePdfBlob, userId, clientId, etudeId);
-      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
+      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData, etudeId);
       
       // Create filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -122,7 +122,7 @@ export const useEtudePdfAutoSave = ({
       console.log("[PDF Résultat] Generating Résultat d'étude PDF...");
       const baseResultatBlob = await getResultatPdfBlob(pdfData);
       const photosBlob = await appendStudyPhotosToPdf(baseResultatBlob, userId, clientId, etudeId);
-      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
+      const pdfBlob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData, etudeId);
 
       const safeName = `${clientPrenom}_${clientName}`.replace(/[^a-zA-Z0-9_-]/g, "_");
       const fileName = `${userId}/${etudeId}/Resultat_${safeName}.pdf`;

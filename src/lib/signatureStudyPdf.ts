@@ -18,6 +18,6 @@ export async function signatureStudyPdf(userId: string, etudeId?: string | null,
     ? { blob: await getPreEtudePdfBlob(liveData), pdfData: liveData }
     : await generatePdfFromEtude(study, study?.clients, "pre-etude");
   const withPhotos = study ? await appendStudyPhotosToPdf(generated.blob, userId, study.client_id, study.id) : generated.blob;
-  const blob = await appendRoofMapAnnexeToPdf(withPhotos, generated.pdfData);
+  const blob = await appendRoofMapAnnexeToPdf(withPhotos, generated.pdfData, study?.id);
   return new File([blob], "Etude_signature.pdf", { type: "application/pdf" });
 }

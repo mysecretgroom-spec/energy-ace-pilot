@@ -42,7 +42,7 @@ export function useEtudePdfDownload() {
         etude.client_id,
         etude.id
       );
-      const blob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData);
+      const blob = await appendRoofMapAnnexeToPdf(photosBlob, pdfData, etude.id);
 
       // Upload/replace for future use (only for pre-etude to keep backward compat)
       if (mode === "pre-etude") {

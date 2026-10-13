@@ -2376,7 +2376,7 @@ const EtudeForm = () => {
   const buildReportBlobWithPhotos = async (pdfData: EtudeData): Promise<Blob> => {
     const base = await getEtudePdfBlob(pdfData);
     const withPhotos = await appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
-    return appendRoofMapAnnexeToPdf(withPhotos, pdfData);
+    return appendRoofMapAnnexeToPdf(withPhotos, pdfData, etudeId);
   };
 
   const handleExportPdf = async () => {
