@@ -82,7 +82,6 @@ export async function mergeStudyPhotosIntoPdf(
   const A4_WIDTH = 595.28;
   const A4_HEIGHT = 841.89;
   const MARGIN = 40;
-  const LABEL_HEIGHT = 20;
 
   const categoryLabels: Record<string, string> = {
     photo_toiture: "Toiture",
