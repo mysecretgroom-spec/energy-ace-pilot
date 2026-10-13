@@ -172,6 +172,8 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     clientNom: client.nom || "",
     clientPrenom: client.prenom || "",
     clientAdresse: client.adresse || "",
+    roofLatitude: (etude as any).roof_latitude ?? null,
+    roofLongitude: (etude as any).roof_longitude ?? null,
     clientVille: client.ville || "",
     clientCodePostal: client.code_postal || "",
     clientTelephone: client.telephone || undefined,
