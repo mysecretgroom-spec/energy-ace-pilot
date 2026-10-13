@@ -66,7 +66,7 @@ describe("appendRoofMapAnnexeToPdf", () => {
   it("ne modifie pas le PDF si le point toiture est absent", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
     const base = await makeBasePdf();
-    const out = await appendRoofMapAnnexeToPdf(base, {});
+    const out = await appendRoofMapAnnexeToPdf(base, {} as unknown as import("@/lib/exportEtudePdf").EtudeData);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(2);
   });
