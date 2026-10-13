@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
   const countInstruction = nbPanneaux
     ? `Installe EXACTEMENT ${nbPanneaux} panneaux solaires sur ${supportLabel}, ni plus ni moins. ` +
       "Le nombre de rangées et de panneaux par rangée s'adapte aux proportions réelles de la surface disponible : une surface large et basse reçoit des rangées longues, une surface étroite et haute des rangées courtes. Ne force jamais une grille carrée si la toiture ne s'y prête pas. " +
+      `Surface totale du champ : environ ${(nbPanneaux*2.37).toFixed(1)} m². Le bloc ne couvre donc qu'une partie du pan si le toit est plus grand : laisse des tuiles visibles autour, ne remplis jamais tout le pan. ` +
       "Chaque panneau doit être entièrement visible, nettement séparé des autres par un fin joint, sans fusion ni chevauchement. Avant de terminer, recompte les panneaux un par un : s'il n'y en a pas exactement " +
       `${nbPanneaux}, corrige.`
     : `Installe un nombre réaliste de panneaux solaires sur ${supportLabel}.`;
@@ -148,7 +149,7 @@ Deno.serve(async (req) => {
           `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
         : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
       dimensionInstruction,
-      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en un seul bloc compact sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
+      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en UN SEUL bloc rectangulaire plein (aucune case vide, aucun panneau isolé, aucun petit groupe séparé), d'une surface totale d'environ " + (nbPanneaux ? (nbPanneaux*2.37).toFixed(1) : "?") + " m², sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
       surfaceConstraint ? `Consigne complémentaire : ${surfaceConstraint}` : "",
       "Retire le repère rouge. Ne modifie rien d'autre : ni le cadrage, ni l'échelle, ni l'environnement. Sans texte ni logo.",
     ].filter(Boolean).join(" ");
@@ -158,6 +159,9 @@ Deno.serve(async (req) => {
   const prompt = [
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
     `Modifie UNIQUEMENT cette photo réelle pour y ajouter une installation photovoltaïque sur ${supportLabel}.`,
+    installationType === "toiture"
+      ? "INTERDIT ABSOLU : poser des panneaux sur une façade, un mur, un pignon ou une surface verticale. Les panneaux se posent UNIQUEMENT à plat sur la couverture en tuiles inclinée, entre le faîtage et la gouttière, en suivant la pente des tuiles. Toit cible : le toit du bâtiment principal, sujet de la photo (la maison photographiée, généralement au centre). N'installe JAMAIS de panneaux sur un toit au premier plan, une annexe, un appentis, un mur ou un toit coupé par le bord de l'image. Choisis le pan de ce bâtiment principal qui est visible dans la photo, même s'il apparaît fortement en perspective ou en biais. Le bloc complet de panneaux doit tenir entièrement dans l'image : aucun panneau coupé par le cadre."
+      : "",
     countInstruction,
     dimensionInstruction,
     surfaceInstruction,
