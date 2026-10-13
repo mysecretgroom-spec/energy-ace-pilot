@@ -241,7 +241,10 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     estimationDetails: paramOverrides.estimationDetails || undefined,
   };
 
-  return mode === "resultat" ? getResultatPdfBlob(pdfData, options) : getPreEtudePdfBlob(pdfData);
+  const blob = mode === "resultat"
+    ? await getResultatPdfBlob(pdfData, options)
+    : await getPreEtudePdfBlob(pdfData);
+  return { blob, pdfData };
 }
 
 function buildPacData(etude: any) {
