@@ -1,3 +1,4 @@
+import { etudeRef } from "@/lib/offline/etudeQueries";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.png";
@@ -762,14 +763,14 @@ const EtudeForm = () => {
 
     // Load common reference data
     const [pshRes, orientRes, tarifsRes, surcoutsRes, calibresRes, compteursRes, aidesRes, evolutionRes] = await Promise.all([
-      supabase.from("data_psh").select("*").order("department_code"),
-      supabase.from("data_orientation").select("*"),
-      supabase.from("data_tarifs_revente").select("*").eq("actif", true),
-      supabase.from("data_surcouts").select("*").eq("actif", true),
-      supabase.from("data_calibres").select("*").eq("actif", true).order("calibre_amperes"),
-      supabase.from("data_compteurs").select("*").eq("actif", true),
-      supabase.from("data_aides").select("*").eq("actif", true),
-      supabase.from("data_evolution_prix_energie").select("*").eq("actif", true),
+      etudeRef.psh(),
+      etudeRef.orientation(),
+      etudeRef.tarifs(),
+      etudeRef.surcouts(),
+      etudeRef.calibres(),
+      etudeRef.compteurs(),
+      etudeRef.aides(),
+      etudeRef.evolution(),
     ]);
 
     if (pshRes.data) setDataPsh(pshRes.data);
@@ -792,9 +793,9 @@ const EtudeForm = () => {
 
     if (currentRegieId) {
       const [bouquetsRes, financementsRes, surcoutsRegieRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true),
-        supabase.from("regies_financements").select("id, nom, taux_effectif, taeg, actif, duree_mois, mode_calcul, duree_report_mois, frais_dossier_pct, calcul_auto").eq("regie_id", currentRegieId).eq("actif", true).order("nom"),
-        supabase.from("regies_surcouts").select("id, code, nom, prix, categorie, type_calcul").eq("regie_id", currentRegieId).eq("actif", true),
+        etudeRef.bouquets(),
+        etudeRef.regieFinancements(currentRegieId),
+        etudeRef.regieSurcouts(currentRegieId),
       ]);
       
       if (bouquetsRes.data) {
@@ -839,8 +840,8 @@ const EtudeForm = () => {
     } else {
       // Fallback to global tables if no regie
       const [bouquetsRes, financementsRes] = await Promise.all([
-        supabase.from("bouquets").select("id, nom_bouquet, puissance_kwc, prix_recommande, regie_ids, product_type, gamme").eq("actif", true).order("puissance_kwc"),
-        supabase.from("data_financements").select("*").eq("actif", true).order("nom"),
+        etudeRef.bouquets(),
+        etudeRef.financements(),
       ]);
       
       if (bouquetsRes.data) {

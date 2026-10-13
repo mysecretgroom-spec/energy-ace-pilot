@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { SATELLITE_TILE_URL } from "@/lib/roofMapImage";
+import { preloadEtudeReference } from "./etudeQueries";
 import { kvGet, kvSet } from "./store";
 import { isDeviceOffline } from "./network";
 import {
@@ -92,6 +93,8 @@ export function preloadDayPack(userId: string): Promise<void> {
     window.dispatchEvent(new CustomEvent(PACK_EVENT));
 
     await Promise.allSettled([qNotifSettings(userId), qTemplates(userId), qSigneBouquets()]);
+    // Paramètres régie (prix, gammes, aides, financements, surcoûts) avant tout RDV.
+    await preloadEtudeReference(rdvs.map((r) => r.regie_id).filter((id): id is string => !!id));
     const ready = new Set<string>();
     for (const r of rdvs) {
       const tasks: Promise<unknown>[] = [

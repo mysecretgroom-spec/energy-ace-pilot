@@ -1,3 +1,4 @@
+import { etudeRef } from "@/lib/offline/etudeQueries";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -171,17 +172,17 @@ export const useEtudeReferenceData = (): UseEtudeReferenceDataReturn => {
         economiesRes,
         aidesIteRes,
       ] = await Promise.all([
-        supabase.from("data_pac_isolation").select("*").eq("actif", true).order("ordre"),
-        supabase.from("data_pac_cop").select("*").eq("actif", true).order("temperature_exterieure"),
-        supabase.from("data_pac_puissances").select("*").eq("actif", true).order("surface_min"),
-        supabase.from("data_energies_prix").select("*").eq("actif", true),
-        supabase.from("data_zones_climatiques").select("*").eq("actif", true),
-        supabase.from("data_aides_pac").select("*").eq("actif", true),
-        supabase.from("data_ite_murs").select("*").eq("actif", true),
-        supabase.from("data_ite_isolants").select("*").eq("actif", true),
-        supabase.from("data_ite_finitions").select("*").eq("actif", true),
-        supabase.from("data_ite_economies").select("*").eq("actif", true).order("gain_r_min"),
-        supabase.from("data_aides_ite").select("*").eq("actif", true),
+        etudeRef.pacIsolation(),
+        etudeRef.pacCop(),
+        etudeRef.pacPuissances(),
+        etudeRef.energiesPrix(),
+        etudeRef.zones(),
+        etudeRef.aidesPac(),
+        etudeRef.iteMurs(),
+        etudeRef.iteIsolants(),
+        etudeRef.iteFinitions(),
+        etudeRef.iteEconomies(),
+        etudeRef.aidesIte(),
       ]);
 
       if (isolationRes.data) setIsolationLevels(isolationRes.data as IsolationLevel[]);
