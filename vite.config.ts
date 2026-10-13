@@ -83,6 +83,16 @@ export default defineConfig(({ mode }) => ({
         // les faire transiter par le SW provoquait des « Load failed » sur iOS.
         runtimeCaching: [
           {
+            // Tuiles satellite préchargées pour les RDV du jour et du lendemain.
+            urlPattern: /^https:\/\/server\.arcgisonline\.com\/ArcGIS\/rest\/services\/World_Imagery\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "satellite-tiles",
+              expiration: { maxEntries: 1500, maxAgeSeconds: 60 * 60 * 24 * 14 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(rdv|clients|etudes|regies)/i,
             method: "GET",
             handler: "NetworkFirst",
