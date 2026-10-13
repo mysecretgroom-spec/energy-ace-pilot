@@ -18,6 +18,7 @@ interface SendWhatsAppParams {
   venteDetails?: RegieRecapDetails;
   etudeId?: string | null;
   rdvId?: string;
+  targetWindow?: Window | null;
 }
 
 // Decode HTML entities to proper Unicode characters
@@ -189,6 +190,7 @@ export const useWhatsAppNotification = () => {
     venteDetails,
     etudeId,
     rdvId,
+    targetWindow,
   }: SendWhatsAppParams): Promise<boolean> => {
     // Study data supplies text values only; agency recaps never attach files.
     try {
@@ -367,7 +369,14 @@ export const useWhatsAppNotification = () => {
         ].filter(Boolean).join("\n");
       }
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, "_blank");
+      // iOS/PWA blocks window.open after async work (user gesture lost):
+      // reuse a window pre-opened on click, else navigate the current page.
+      if (targetWindow && !targetWindow.closed) {
+        targetWindow.location.href = whatsappUrl;
+      } else {
+        const opened = window.open(whatsappUrl, "_blank");
+        if (!opened) window.location.href = whatsappUrl;
+      }
       return true;
     } catch (error) {
       console.error("[WhatsApp] Erreur:", error);
