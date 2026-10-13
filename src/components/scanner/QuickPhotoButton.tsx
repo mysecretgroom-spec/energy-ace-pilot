@@ -30,8 +30,8 @@ interface QuickPhotoButtonProps {
   iconOnly?: boolean;
 }
 
-/** Maximum de photos de toiture par étude : elles doivent tenir sur une page du PDF. */
-const MAX_TOITURE_PHOTOS = 9;
+/** Maximum de photos par catégorie et par étude : elles doivent tenir sur une page du PDF. */
+const MAX_PHOTOS_PER_CATEGORY = 9;
 
 /** Auto-download a blob to device Downloads folder */
 function triggerBlobDownload(blob: Blob, fileName: string) {
@@ -90,7 +90,7 @@ export async function mergeStudyPhotosIntoPdf(
     photo_toiture: "Toiture",
     photo_compteur: "Compteur",
     photo_tableau: "Tableau électrique",
-    photo_chantier: "Photo chantier",
+    photo_chantier: "Autre photo",
   };
 
   // 2a. Download and embed all images first
@@ -295,11 +295,11 @@ export function QuickPhotoButton({
     if (!file || !user) return;
 
     // Limite : 9 photos de toiture maximum par étude
-    if (category === "photo_toiture" && photoCount >= MAX_TOITURE_PHOTOS) {
+    if (photoCount >= MAX_PHOTOS_PER_CATEGORY) {
       toast({
         variant: "destructive",
         title: "Limite atteinte",
-        description: `Maximum ${MAX_TOITURE_PHOTOS} photos de toiture par étude (elles doivent tenir sur une page du rapport).`,
+        description: `Maximum ${MAX_PHOTOS_PER_CATEGORY} photos « ${QUICK_PHOTO_LABELS[category]} » par étude (elles doivent tenir sur une page du rapport).`,
       });
       if (e.target) e.target.value = "";
       return;
@@ -427,7 +427,7 @@ export function QuickPhotoButton({
     fileInputRef.current?.click();
   };
 
-  const toitureFull = category === "photo_toiture" && photoCount >= MAX_TOITURE_PHOTOS;
+  const toitureFull = photoCount >= MAX_PHOTOS_PER_CATEGORY;
 
   return (
     <div className="flex items-center gap-2">
@@ -452,13 +452,13 @@ export function QuickPhotoButton({
         variant="outline"
         size={iconOnly ? "icon" : "sm"}
         aria-label={label}
-        title={toitureFull ? `Maximum ${MAX_TOITURE_PHOTOS} photos de toiture` : label}
+        title={toitureFull ? `Maximum ${MAX_PHOTOS_PER_CATEGORY} photos` : label}
         className={`relative ${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"} ${toitureFull ? "opacity-50" : ""}`}
         onClick={toitureFull ? () =>
           toast({
             variant: "destructive",
             title: "Limite atteinte",
-            description: `Maximum ${MAX_TOITURE_PHOTOS} photos de toiture par étude (elles doivent tenir sur une page du rapport).`,
+            description: `Maximum ${MAX_PHOTOS_PER_CATEGORY} photos « ${QUICK_PHOTO_LABELS[category]} » par étude (elles doivent tenir sur une page du rapport).`,
           })
         : handleCameraClick}
         disabled={isUploading}
@@ -487,7 +487,7 @@ export function QuickPhotoButton({
           toast({
             variant: "destructive",
             title: "Limite atteinte",
-            description: `Maximum ${MAX_TOITURE_PHOTOS} photos de toiture par étude (elles doivent tenir sur une page du rapport).`,
+            description: `Maximum ${MAX_PHOTOS_PER_CATEGORY} photos « ${QUICK_PHOTO_LABELS[category]} » par étude (elles doivent tenir sur une page du rapport).`,
           })
         : handleUploadClick}
         disabled={isUploading}
