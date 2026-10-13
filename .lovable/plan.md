@@ -19,7 +19,7 @@ Conclusion : le hors-ligne s'arrête au remplissage de l'étude. Tout ce qui cl�
 
 ## Ce qu'on construit
 
-1. **Préchargement du "dossier de la journée"** : à chaque ouverture du planning en ligne, l'app télécharge pour les RDV du jour et du lendemain : fiche client, étude, contacts WhatsApp de la régie, modèles de message, bouquets/gammes, surcoûts, aides, réglages financement, et les tuiles satellite autour de chaque adresse.
+1. **Préchargement du "dossier de la journée"** : dès que le réseau est disponible (ouverture de l'app, retour du réseau, puis toutes les 15 min), l'app télécharge en priorité le RDV en cours et le suivant, puis tous les RDV restants du jour et ceux du lendemain, avec toutes leurs infos : fiche client, étude et photos existantes, RDV parent/R2, contacts WhatsApp de la régie, modèles de message, bouquets/gammes, surcoûts, aides, réglages financement, et les tuiles satellite autour de chaque adresse. Un indicateur sur chaque fiche du planning montre "disponible hors-ligne".
 2. **Calcul et PDF 100 % locaux** : l'étude, la mensualité et le PDF (photos + annexe carte) sont générés depuis les données du téléphone.
 3. **Photos hors-ligne** : stockées sur le téléphone, affichées et intégrées au PDF immédiatement, envoyées au retour du réseau.
 4. **Clôture du RDV hors-ligne** : statut, fiche signature, commentaire et R2 enregistrés localement, visibles tout de suite dans le planning avec un petit indicateur "à synchroniser".
