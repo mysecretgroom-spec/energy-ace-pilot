@@ -2408,15 +2408,35 @@ const EtudeForm = () => {
     setShowPreview(true);
   };
 
+  const { sendWhatsAppNotification } = useWhatsAppNotification();
+
   const handleShare = async () => {
     const pdfData = buildPdfData();
-    if (!pdfData) return;
-    
+    if (!pdfData || !user) return;
+
+    // Ouvre WhatsApp avec le récap déjà écrit, puis propose le PDF en pièce jointe.
+    const targetWindow = window.open("", "_blank");
     try {
+      const whatsappOpened = await sendWhatsAppNotification({
+        clientName, clientPrenom, classification: classification || "r2_prestudy",
+        comment: classificationComment, userId: user.id, regieId,
+        pdfData,
+        etudeId: currentEtudeId, rdvId: rdvId || undefined,
+        cqTime, cqDate: format(cqDate, "yyyy-MM-dd"),
+        r2DateTime: r2DateHeure && r2Time
+          ? new Date(`${format(r2DateHeure, "yyyy-MM-dd")}T${r2Time}:00`).toISOString() : null,
+        venteDetails: {
+          telephone: clientTelephone || undefined, adresse: clientAdresse || undefined,
+          codePostal: clientCodePostal || undefined, ville: clientVille || undefined,
+        },
+        targetWindow,
+      });
+      if (!whatsappOpened) targetWindow?.close();
+
       const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
       const file = new File([blob], fileName, { type: "application/pdf" });
-      
+
       if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: `Étude photovoltaïque - ${clientPrenom} ${clientName}`,
@@ -2448,10 +2468,11 @@ const EtudeForm = () => {
     }
   };
 
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const handleWhatsAppShare = async () => {
     const studyData = buildPdfData();
     if (!studyData || !user) return;
+    // Pré-ouverture synchrone : iOS bloque window.open après un traitement async.
+    const targetWindow = window.open("", "_blank");
     const success = await sendWhatsAppNotification({
       clientName, clientPrenom, classification: classification || "r2_prestudy",
       comment: classificationComment, userId: user.id, regieId,
@@ -2464,7 +2485,9 @@ const EtudeForm = () => {
         telephone: clientTelephone || undefined, adresse: clientAdresse || undefined,
         codePostal: clientCodePostal || undefined, ville: clientVille || undefined,
       },
+      targetWindow,
     });
+    if (!success) targetWindow?.close();
     if (success) setShowPreview(false);
     toast(success
       ? { title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" }
