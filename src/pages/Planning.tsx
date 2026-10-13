@@ -1,3 +1,4 @@
+import { NextRdvOfflineCard } from "@/components/planning/NextRdvOfflineCard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
