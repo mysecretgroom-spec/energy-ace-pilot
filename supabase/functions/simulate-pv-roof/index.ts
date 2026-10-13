@@ -109,8 +109,23 @@ Deno.serve(async (req) => {
           ? "des bacs lestés type GSE posés sur la surface plate"
           : "la toiture existante";
 
+  // Plan de pose suggéré : rangées x colonnes pour aider le modèle à compter exactement.
+  const layoutPlan = (() => {
+    if (!nbPanneaux || nbPanneaux < 1) return null;
+    const cols = Math.ceil(Math.sqrt(nbPanneaux));
+    const rows = Math.ceil(nbPanneaux / cols);
+    return { rows, cols, lastRow: nbPanneaux - (rows - 1) * cols };
+  })();
+
   const countInstruction = nbPanneaux
-    ? `Installe exactement ${nbPanneaux} panneaux solaires (compte-les précisément) sur ${supportLabel}.`
+    ? `Installe EXACTEMENT ${nbPanneaux} panneaux solaires sur ${supportLabel}, ni plus ni moins. ` +
+      (layoutPlan
+        ? `Plan de pose imposé : ${layoutPlan.rows} rangée(s) de ${layoutPlan.cols} panneaux` +
+          (layoutPlan.lastRow !== layoutPlan.cols ? `, la dernière rangée n'en contient que ${layoutPlan.lastRow}` : "") +
+          ". "
+        : "") +
+      "Chaque panneau doit être entièrement visible, nettement séparé des autres par un fin joint, sans fusion ni chevauchement. Avant de terminer, recompte les panneaux un par un : s'il n'y en a pas exactement " +
+      `${nbPanneaux}, corrige.`
     : `Installe un nombre réaliste de panneaux solaires sur ${supportLabel}.`;
 
   const edgeConstraint =
