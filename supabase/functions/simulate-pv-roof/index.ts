@@ -144,11 +144,7 @@ Deno.serve(async (req) => {
       "Tu es spécialiste en photomontage photovoltaïque sur vue aérienne verticale (orthophoto satellite).",
       nbPanneaux
         ? `Ajoute EXACTEMENT ${nbPanneaux} panneaux solaires noirs full black, ni plus ni moins, sur le toit du bâtiment situé sous le repère rouge. ` +
-          (layoutPlan
-            ? `Plan de pose imposé : ${layoutPlan.rows} rangée(s) de ${layoutPlan.cols} panneaux` +
-              (layoutPlan.lastRow !== layoutPlan.cols ? `, dernière rangée de ${layoutPlan.lastRow}` : "") +
-              ". "
-            : "") +
+          "Le nombre de rangées s'adapte aux proportions réelles du pan de toiture (rangées longues sur une surface large, rangées courtes sur une surface étroite), jamais de grille carrée forcée. " +
           `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
         : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
       dimensionInstruction,
