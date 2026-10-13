@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 
