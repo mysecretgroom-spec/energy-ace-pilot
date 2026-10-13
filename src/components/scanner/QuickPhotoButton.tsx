@@ -227,6 +227,29 @@ export function QuickPhotoButton({
 }: QuickPhotoButtonProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [photoCount, setPhotoCount] = useState(0);
+
+  const refreshCount = useCallback(async () => {
+    if (!user) return;
+    const docType = (["photo_toiture", "photo_compteur", "photo_tableau"] as const).includes(category as any)
+      ? category
+      : "photo_chantier";
+    let query = supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+      .eq("type_document", docType)
+      .eq("context_source", category);
+    if (etudeId) query = query.eq("etude_id", etudeId);
+    const { count } = await query;
+    const n = count ?? 0;
+    setPhotoCount(n);
+    setHasPhoto(n > 0);
+  }, [user, clientId, category, etudeId]);
+
+  useEffect(() => {
+    refreshCount();
+  }, [refreshCount]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
