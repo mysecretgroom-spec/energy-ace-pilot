@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 import type { EtudeData } from "@/lib/exportEtudePdf";
+import { renderRoofMapImage } from "@/lib/roofMapImage";
 
 // Mock du rendu satellite (pas de réseau en test)
 const FAKE_JPEG =
@@ -72,5 +73,12 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const out = await appendRoofMapAnnexeToPdf(base, dataWithoutRoof);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(2);
+  });
+
+  it("transmet le cadrage et le zoom enregistrés au rendu de l'annexe", async () => {
+    const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
+    const viewport = { centerLatitude: 45.123, centerLongitude: 0.654, zoom: 20, width: 360, height: 224 };
+    await appendRoofMapAnnexeToPdf(await makeBasePdf(), { ...dataWithRoof, roofMapViewport: viewport });
+    expect(renderRoofMapImage).toHaveBeenLastCalledWith(45.123456, 0.654321, { viewport });
   });
 });

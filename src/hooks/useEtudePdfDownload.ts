@@ -4,6 +4,7 @@ import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } f
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { toast } from "sonner";
+import { parseRoofMapViewport } from "@/lib/roofMapViewport";
 
 type PdfMode = "pre-etude" | "resultat";
 
@@ -176,6 +177,7 @@ async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, opti
     clientAdresse: client.adresse || "",
     roofLatitude: (etude as any).roof_latitude ?? null,
     roofLongitude: (etude as any).roof_longitude ?? null,
+    roofMapViewport: parseRoofMapViewport(paramOverrides.roofMapViewport),
     clientVille: client.ville || "",
     clientCodePostal: client.code_postal || "",
     clientTelephone: client.telephone || undefined,
