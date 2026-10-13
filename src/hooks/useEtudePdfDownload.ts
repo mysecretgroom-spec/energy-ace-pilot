@@ -79,7 +79,7 @@ export function useEtudePdfDownload() {
   return { downloadOrShare, loading };
 }
 
-async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, options?: { showLogos?: boolean }): Promise<{ blob: Blob; pdfData: EtudeData }> {
+export async function generatePdfFromEtude(etude: any, client: any, mode: PdfMode, options?: { showLogos?: boolean }): Promise<{ blob: Blob; pdfData: EtudeData }> {
   const refId = (etude.id || "").substring(0, 8).toUpperCase();
   const paramOverrides = (etude.param_overrides || {}) as any;
   
