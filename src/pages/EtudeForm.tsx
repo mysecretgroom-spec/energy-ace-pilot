@@ -2483,7 +2483,9 @@ const EtudeForm = () => {
         telephone: clientTelephone || undefined, adresse: clientAdresse || undefined,
         codePostal: clientCodePostal || undefined, ville: clientVille || undefined,
       },
+      targetWindow,
     });
+    if (!success) targetWindow?.close();
     if (success) setShowPreview(false);
     toast(success
       ? { title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" }
