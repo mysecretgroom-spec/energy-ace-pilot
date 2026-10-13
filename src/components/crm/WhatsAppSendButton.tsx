@@ -48,6 +48,8 @@ export function WhatsAppSendButton({
 
   const handleSend = async () => {
     if (!user) return;
+    // Open synchronously inside the tap so iOS doesn't block it.
+    const targetWindow = window.open("", "_blank");
     setSending(true);
     try {
       const success = await sendWhatsAppNotification({
@@ -64,7 +66,9 @@ export function WhatsAppSendButton({
         venteDetails,
         etudeId,
         rdvId,
+        targetWindow,
       });
+      if (!success) targetWindow?.close();
       if (success) {
         toast({ title: "WhatsApp ouvert", description: "Le récapitulatif texte est prêt à envoyer" });
       } else {
