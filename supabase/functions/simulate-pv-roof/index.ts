@@ -154,7 +154,13 @@ Deno.serve(async (req) => {
     const satPrompt = [
       "Tu es spécialiste en photomontage photovoltaïque sur vue aérienne verticale (orthophoto satellite).",
       nbPanneaux
-        ? `Ajoute exactement ${nbPanneaux} panneaux solaires noirs full black (compte-les précisément) sur le toit du bâtiment situé sous le repère rouge.`
+        ? `Ajoute EXACTEMENT ${nbPanneaux} panneaux solaires noirs full black, ni plus ni moins, sur le toit du bâtiment situé sous le repère rouge. ` +
+          (layoutPlan
+            ? `Plan de pose imposé : ${layoutPlan.rows} rangée(s) de ${layoutPlan.cols} panneaux` +
+              (layoutPlan.lastRow !== layoutPlan.cols ? `, dernière rangée de ${layoutPlan.lastRow}` : "") +
+              ". "
+            : "") +
+          `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
         : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
       dimensionInstruction,
       "Vue de dessus : panneaux en rectangles alignés en rangées régulières, parallèles au faîtage, groupés sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
