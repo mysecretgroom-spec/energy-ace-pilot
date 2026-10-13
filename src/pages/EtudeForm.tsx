@@ -2466,10 +2466,11 @@ const EtudeForm = () => {
     }
   };
 
-  const { sendWhatsAppNotification } = useWhatsAppNotification();
   const handleWhatsAppShare = async () => {
     const studyData = buildPdfData();
     if (!studyData || !user) return;
+    // Pré-ouverture synchrone : iOS bloque window.open après un traitement async.
+    const targetWindow = window.open("", "_blank");
     const success = await sendWhatsAppNotification({
       clientName, clientPrenom, classification: classification || "r2_prestudy",
       comment: classificationComment, userId: user.id, regieId,
