@@ -147,8 +147,8 @@ Deno.serve(async (req) => {
       : supportInstruction;
 
   const dimensionInstruction =
-    "Chaque panneau mesure 1130 mm x 2095 mm (ratio 1 : 1,85, rectangle portrait) : respecte cette proportion et l'échelle réelle par rapport au bâtiment (une porte fait environ 0,9 x 2,1 m, une tuile environ 0,3 m)." +
-    (panelPx ? ` Dans cette image, un panneau occupe environ ${panelPx.w} x ${panelPx.h} pixels.` : "");
+    "Chaque panneau mesure exactement 1130 mm de large x 2095 mm de haut (ratio strict 1 : 1,85, rectangle portrait, jamais carré ni paysage). Tous les panneaux ont rigoureusement la même taille et la même orientation. Respecte l'échelle réelle par rapport au bâtiment (une porte fait environ 0,9 x 2,1 m, une tuile environ 0,3 m)." +
+    (panelPx ? ` Dans cette image, un panneau occupe environ ${panelPx.w} x ${panelPx.h} pixels : utilise cette taille comme référence absolue pour chaque panneau.` : "");
 
   if (view === "satellite") {
     const satPrompt = [
