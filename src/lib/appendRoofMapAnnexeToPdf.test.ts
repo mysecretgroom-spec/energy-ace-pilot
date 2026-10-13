@@ -51,7 +51,7 @@ describe("appendRoofMapAnnexeToPdf", () => {
     // La dernière page porte la carte : ses ressources référencent une image XObject
     const last = merged.getPage(merged.getPageCount() - 1);
     const resources = last.node.Resources();
-    const xobjDict = resources.lookup(resources.get(PDFName.of("XObject")), PDFDict);
+    const rawX = resources.get(PDFName.of("XObject")); console.log("XObject raw:", String(rawX)); const xobjDict = rawX ? resources.lookup(rawX, PDFDict) : undefined;
     expect(xobjDict).toBeTruthy();
     const hasImage = xobjDict!.entries().some(([, ref]) => {
       const stream = resources.context.lookup(ref) as unknown as
