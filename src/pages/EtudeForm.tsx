@@ -3655,6 +3655,7 @@ const EtudeForm = () => {
             <RoofPointMap
               lat={roofLat}
               lng={roofLng}
+              targetPanelCount={Math.ceil((Number(puissanceKwc) || 0) / 0.5)}
               viewport={roofMapViewport}
               onViewportChange={setRoofMapViewport}
               onChange={(la, ln) => { setRoofLat(la); setRoofLng(ln); }}
@@ -3666,14 +3667,14 @@ const EtudeForm = () => {
                 .filter(Boolean)
                 .join(", ")}
             />
-            <RoofAiVisualization
+            {!roofMapViewport?.panelLayout?.panels.length && <RoofAiVisualization
               clientId={clientId}
               etudeId={currentEtudeId}
               lat={roofLat}
               lng={roofLng}
               viewport={roofMapViewport}
               puissanceKwc={puissanceKwc}
-            />
+            />}
           </CardContent>
         </Card>
 

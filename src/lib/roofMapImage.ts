@@ -1,4 +1,5 @@
 import { DEFAULT_ROOF_MAP_ZOOM, roofMapRenderGeometry, type RoofMapViewport } from "@/lib/roofMapViewport";
+import { panelCorners } from "@/lib/roofPanelLayout";
 
 /** Fond satellite sans clé ni logo Google (Esri World Imagery). */
 export const SATELLITE_TILE_URL =
@@ -60,6 +61,20 @@ export async function renderRoofMapImage(
       }
     }
     await Promise.all(jobs);
+    // Même géométrie métrique que les polygones Leaflet, sans intervention IA.
+    const theme = getComputedStyle(document.documentElement);
+    ctx.fillStyle = `hsl(${theme.getPropertyValue("--foreground").trim()})`;
+    ctx.strokeStyle = `hsl(${theme.getPropertyValue("--primary").trim()})`;
+    ctx.lineWidth = 2;
+    for (const panel of viewport.panelLayout?.panels ?? []) {
+      ctx.beginPath();
+      panelCorners(panel).forEach(([latitude, longitude], index) => {
+        const point = lonLatToPixel(longitude, latitude, z);
+        const x = (point.x - left) * tileScale, y = (point.y - top) * tileScale;
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
     // Repère
     const marker = lonLatToPixel(lng, lat, z);
     const cx = (marker.x - left) * tileScale, cy = (marker.y - top) * tileScale;

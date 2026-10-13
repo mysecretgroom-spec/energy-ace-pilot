@@ -51,7 +51,8 @@ export async function appendRoofMapAnnexeToPdf(
       color: rgb(0.3, 0.3, 0.3),
     });
 
-    const visuals = etudeId ? await fetchLatestAiVisuals(etudeId).catch(() => null) : null;
+    const manualCount = data.roofMapViewport?.panelLayout?.panels.length ?? 0;
+    const visuals = !manualCount && etudeId ? await fetchLatestAiVisuals(etudeId).catch(() => null) : null;
     const hasVisuals = !!(visuals?.satellite || visuals?.photo);
     const iw = W - 80;
     const ih = Math.min(hasVisuals ? 300 : 600, iw * (data.roofMapViewport ? data.roofMapViewport.height / data.roofMapViewport.width : 224 / 360));
@@ -64,6 +65,9 @@ export async function appendRoofMapAnnexeToPdf(
       size: 9,
       font,
       color: rgb(0.3, 0.3, 0.3),
+    });
+    if (manualCount) page.drawText(`Plan manuel : ${manualCount} panneaux de 1130 x 2095 mm.`, {
+      x: 40, y: 841.89 - 88 - ih - 38, size: 9, font, color: rgb(0.3, 0.3, 0.3),
     });
 
     if (hasVisuals && visuals) {
