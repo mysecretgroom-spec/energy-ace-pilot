@@ -255,11 +255,6 @@ export function QuickPhotoButton({
   useEffect(() => {
     refreshCount();
   }, [refreshCount]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const { isOnline, savePendingDocument } = useOfflineDocuments();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
