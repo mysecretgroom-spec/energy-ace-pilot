@@ -48,8 +48,11 @@ export function WhatsAppSendButton({
 
   const handleSend = async () => {
     if (!user) return;
-    // Open synchronously inside the tap so iOS doesn't block it.
-    const targetWindow = window.open("", "_blank");
+    // Desktop : pré-ouvrir l'onglet dans le clic (iOS bloque window.open après
+    // un traitement async). Mobile : pas de fenêtre vide — la page courante
+    // navigue vers whatsapp://, ce qui ouvre l'app sans onglet blanc.
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+    const targetWindow = isMobile ? null : window.open("", "_blank");
     setSending(true);
     try {
       const success = await sendWhatsAppNotification({
