@@ -2216,7 +2216,8 @@ const EtudeForm = () => {
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, financementId,
     classification, classificationComment, typeRaccordement, typeCompteurElectrique,
     numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation,
-    remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel
+    remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel,
+    roofLat, roofLng
   ]);
 
 
@@ -2351,6 +2352,7 @@ const EtudeForm = () => {
     pacPrixKwhElec, iteSurfaceIsoler, iteTypeFacade, iteEpaisseurIsolant, iteTypeIsolant,
     iteRActuel, iteRCible, iteNombreFacades, iteSurfaceOuvertures, iteFinition,
     iteEconomieChauffagePct, iteFactureChaufActuelle, itePrixManuel, aidesITE,
+    roofLat, roofLng,
   ]);
 
   // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
