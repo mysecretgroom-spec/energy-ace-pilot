@@ -368,11 +368,20 @@ export const useWhatsAppNotification = () => {
           initialRdv.commentaire ? `Notes initiales: ${initialRdv.commentaire}` : null,
         ].filter(Boolean).join("\n");
       }
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      // Sur mobile (surtout PWA iOS), le lien direct whatsapp:// ouvre réellement
+      // l'app avec le message pré-rempli ; wa.me sert de repli sur desktop.
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+      const whatsappUrl = isMobile
+        ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
+        : `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
       // iOS/PWA blocks window.open after async work (user gesture lost):
       // reuse a window pre-opened on click, else navigate the current page.
       if (targetWindow && !targetWindow.closed) {
         targetWindow.location.href = whatsappUrl;
+      } else if (isMobile) {
+        // En PWA, window.open est souvent bloqué : naviguer la page courante
+        // déclenche l'ouverture de l'app WhatsApp via le lien direct.
+        window.location.href = whatsappUrl;
       } else {
         const opened = window.open(whatsappUrl, "_blank");
         if (!opened && window.location) window.location.href = whatsappUrl;
