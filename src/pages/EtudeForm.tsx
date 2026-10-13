@@ -62,6 +62,7 @@ import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
 import { RoofPointMap } from "@/components/etude/RoofPointMap";
+import { RoofAiVisualization } from "@/components/etude/RoofAiVisualization";
 import { parseRoofMapViewport, type RoofMapViewport } from "@/lib/roofMapViewport";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
@@ -3664,6 +3665,14 @@ const EtudeForm = () => {
               ]
                 .filter(Boolean)
                 .join(", ")}
+            />
+            <RoofAiVisualization
+              clientId={clientId}
+              etudeId={currentEtudeId}
+              lat={roofLat}
+              lng={roofLng}
+              viewport={roofMapViewport}
+              puissanceKwc={puissanceKwc}
             />
           </CardContent>
         </Card>
