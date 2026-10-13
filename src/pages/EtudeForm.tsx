@@ -2363,10 +2363,11 @@ const EtudeForm = () => {
     buildPdfData,
   });
 
-  /** Génère le PDF de l'étude avec les photos d'étude ajoutées à la fin */
+  /** Génère le PDF de l'étude : photos d'étude, puis carte en annexe (dernière page) */
   const buildReportBlobWithPhotos = async (pdfData: EtudeData): Promise<Blob> => {
     const base = await getEtudePdfBlob(pdfData);
-    return appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
+    const withPhotos = await appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
+    return appendRoofMapAnnexeToPdf(withPhotos, pdfData);
   };
 
   const handleExportPdf = async () => {
