@@ -3731,6 +3731,35 @@ const EtudeForm = () => {
           </CardContent>
         </Card>
 
+        {/* AUTRES PHOTOS AU DOSSIER */}
+        {clientId && (
+          <Collapsible>
+            <Card className="shadow-card">
+              <CollapsibleTrigger asChild>
+                <button type="button" className="group flex w-full items-center justify-between px-3 sm:px-6 py-2 sm:py-3 bg-primary/10 text-left">
+                  <span className="text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2">
+                    <Camera className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                    Autres photos au dossier
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-3 px-3 sm:px-6 space-y-2">
+                  <p className="text-[11px] text-muted-foreground">Photos complémentaires (système de chauffage, ballon, combles…) — 9 maximum, jointes au rapport.</p>
+                  <QuickPhotoButton
+                    clientId={clientId}
+                    category="autre"
+                    label="Autre photo"
+                    etudeId={currentEtudeId}
+                    onPhotoSaved={triggerImmediateSave}
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
         {/* RÉSULTAT VISITE TECHNIQUE */}
         <Card className="shadow-card">
           <CardHeader className="pb-2 bg-secondary/20 px-3 sm:px-6 py-2 sm:py-3">

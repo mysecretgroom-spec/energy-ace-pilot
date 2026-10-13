@@ -105,7 +105,7 @@ export const QUICK_PHOTO_LABELS: Record<QuickPhotoCategory, string> = {
   photo_tableau: "Tableau électrique",
   photo_compteur: "Compteur",
   photo_toiture: "Toiture",
-  autre: "Photo",
+  autre: "Autre photo",
 };
 
 // Legacy category labels (for backward compatibility)
