@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     typeof payload.surfaceConstraint === "string"
       ? payload.surfaceConstraint.trim()
       : "";
-  const ALLOWED_TYPES = ["toiture", "carport_bois", "carport_alu", "bac_leste"] as const;
+  const ALLOWED_TYPES = ["toiture", "pergola", "carport_bois", "carport_alu", "bac_leste"] as const;
   type InstallationType = (typeof ALLOWED_TYPES)[number];
   const installationType: InstallationType =
     typeof payload.installationType === "string" &&
@@ -57,6 +57,10 @@ Deno.serve(async (req) => {
       : "toiture";
 
   const view = payload.view === "satellite" ? "satellite" : "photo";
+  const referenceMapBase64 = typeof payload.referenceMapBase64 === "string" ? payload.referenceMapBase64 : "";
+  if (referenceMapBase64 && (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(referenceMapBase64) || referenceMapBase64.length > MAX_IMAGE_BYTES)) {
+    return json({ error: "Carte de référence invalide ou trop volumineuse" }, 400);
+  }
   const pw = Number((payload.panelPixelSize as any)?.w);
   const ph = Number((payload.panelPixelSize as any)?.h);
   const panelPx = Number.isFinite(pw) && Number.isFinite(ph) && pw > 1 && ph > 1 && pw < 2000 && ph < 2000
@@ -101,7 +105,9 @@ Deno.serve(async (req) => {
   }
 
   const supportLabel =
-    installationType === "carport_bois"
+    installationType === "pergola"
+      ? "une pergola sur l’espace désigné"
+      : installationType === "carport_bois"
       ? "un carport en bois"
       : installationType === "carport_alu"
         ? "un carport en aluminium"
@@ -109,11 +115,17 @@ Deno.serve(async (req) => {
           ? "des bacs lestés type GSE posés sur la surface plate"
           : "la toiture existante";
 
+  const targetInstruction = view === "satellite"
+    ? "CIBLE IMPÉRATIVE : le repère rouge désigne la toiture ou l’espace exact du projet. Installe uniquement sur cette surface. Si le repère est sur une annexe, un garage, une terrasse ou une zone de stationnement, cette zone est la cible : ne déplace jamais l’installation vers la maison principale ni vers un autre pan mieux exposé."
+    : referenceMapBase64
+      ? "RÉFÉRENCES : image 1 = photo réelle à modifier ; image 2 = carte satellite de localisation uniquement, avec repère rouge. Retrouve dans la photo la toiture ou l’espace désigné sur la carte en utilisant la géométrie et les éléments communs. Les deux vues doivent représenter exactement le même emplacement. Ne copie pas la vue aérienne dans le résultat, ne choisis pas automatiquement la maison principale. Si la cible n’est pas identifiable dans la photo, ne pose aucun panneau ailleurs et indique que la cible n’est pas identifiable."
+      : "CIBLE IMPÉRATIVE : utilise uniquement la toiture ou l’espace photographié et désigné dans la consigne. Une annexe, un garage, un appentis, une pergola ou un carport peut être la cible. Ne choisis pas automatiquement la maison principale ni une autre surface mieux exposée.";
+
   // Le nombre de rangées s'adapte à la forme réelle de la surface : pas de grille imposée.
   const countInstruction = nbPanneaux
     ? `Installe EXACTEMENT ${nbPanneaux} panneaux solaires sur ${supportLabel}, ni plus ni moins. ` +
       "Le nombre de rangées et de panneaux par rangée s'adapte aux proportions réelles de la surface disponible : une surface large et basse reçoit des rangées longues, une surface étroite et haute des rangées courtes. Ne force jamais une grille carrée si la toiture ne s'y prête pas. " +
-      `Surface totale du champ : environ ${(nbPanneaux*2.37).toFixed(1)} m². Le bloc ne couvre donc qu'une partie du pan si le toit est plus grand : laisse des tuiles visibles autour, ne remplis jamais tout le pan. ` +
+      `Surface totale du champ : environ ${(nbPanneaux*2.37).toFixed(1)} m². Le bloc ne couvre donc qu'une partie du pan si le toit est plus grand : laisse la surface du support visible autour, ne remplis jamais artificiellement toute la zone. ` +
       "Chaque panneau doit être entièrement visible, nettement séparé des autres par un fin joint, sans fusion ni chevauchement. Avant de terminer, recompte les panneaux un par un : s'il n'y en a pas exactement " +
       `${nbPanneaux}, corrige.`
     : `Installe un nombre réaliste de panneaux solaires sur ${supportLabel}.`;
@@ -122,10 +134,12 @@ Deno.serve(async (req) => {
     "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
 
   const supportInstruction =
-    installationType === "carport_bois"
-      ? "Construis dans la photo un carport en bois massif (poteaux et poutres en bois lamellé-collé teinte naturelle) posé sur une zone dégagée (allée, place de stationnement, terrain plat devant la maison). Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
+    installationType === "pergola"
+      ? "Sur l’espace désigné uniquement, conserve la pergola existante ou crée une pergola proportionnée à cet espace ; les panneaux forment sa couverture, avec poteaux et poutres réalistes, sans dépasser les bords du support. Ne la déplace pas vers une autre terrasse."
+      : installationType === "carport_bois"
+      ? "Construis dans la photo un carport en bois massif (poteaux et poutres en bois lamellé-collé teinte naturelle) posé uniquement sur l’espace désigné par le repère et photographié. Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
       : installationType === "carport_alu"
-        ? "Construis dans la photo un carport en aluminium anthracite (structure fine, poteaux carrés, finition mate) posé sur une zone dégagée (allée, place de stationnement, terrain plat). Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
+        ? "Construis dans la photo un carport en aluminium anthracite (structure fine, poteaux carrés, finition mate) posé uniquement sur l’espace désigné par le repère et photographié. Les panneaux forment la couverture du carport, légèrement inclinée, sans dépasser la structure. Le carport doit rester à l'échelle d'une ou deux voitures et ne pas cacher la maison."
         : installationType === "bac_leste"
           ? "Installe les panneaux sur des bacs lestés (type GSE / bacs à lester) posés sur la surface plate : supports noirs inclinés d'environ 10 à 15°, rangées régulières espacées pour éviter l'ombrage, aucun perçement de l'étanchéité, retrait d'au moins un mètre par rapport aux acrotères et aux bords de la toiture plate."
           : edgeConstraint;
@@ -133,7 +147,7 @@ Deno.serve(async (req) => {
   const surfaceInstruction = surfaceConstraint
     ? `${supportInstruction} Consigne de zone complémentaire : ${surfaceConstraint}`
     : installationType === "toiture"
-      ? `${supportInstruction} Choisis le pan de toiture le mieux exposé (de préférence sud/sud-est/sud-ouest) et en tuiles si possible.`
+      ? `${supportInstruction} Utilise uniquement le pan de toiture désigné et photographié, sur sa couverture en tuiles. Ne choisis pas un autre pan en fonction du sud ou de sa position dans l’image.`
       : supportInstruction;
 
   const dimensionInstruction =
@@ -144,12 +158,14 @@ Deno.serve(async (req) => {
     const satPrompt = [
       "Tu es spécialiste en photomontage photovoltaïque sur vue aérienne verticale (orthophoto satellite).",
       nbPanneaux
-        ? `Ajoute EXACTEMENT ${nbPanneaux} panneaux solaires noirs full black, ni plus ni moins, sur le toit du bâtiment situé sous le repère rouge. ` +
+        ? `Ajoute EXACTEMENT ${nbPanneaux} panneaux solaires noirs full black, ni plus ni moins, sur la toiture ou le support du projet situé exactement au repère rouge. ` +
           "Le nombre de rangées s'adapte aux proportions réelles du pan de toiture (rangées longues sur une surface large, rangées courtes sur une surface étroite), jamais de grille carrée forcée. " +
           `Recompte-les un par un avant de terminer : il doit y en avoir exactement ${nbPanneaux}.`
-        : "Ajoute un nombre réaliste de panneaux solaires noirs sur le toit du bâtiment situé sous le repère rouge.",
+        : "Ajoute un nombre réaliste de panneaux solaires noirs sur la toiture ou le support du projet situé exactement au repère rouge.",
+      targetInstruction,
+      surfaceInstruction,
       dimensionInstruction,
-      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en UN SEUL bloc rectangulaire plein (aucune case vide, aucun panneau isolé, aucun petit groupe séparé), d'une surface totale d'environ " + (nbPanneaux ? (nbPanneaux*2.37).toFixed(1) : "?") + " m², sur le pan le mieux exposé au sud, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
+      "Vue de dessus : panneaux en rectangles strictement identiques, alignés en rangées régulières parallèles au faîtage, joints fins et réguliers entre chaque panneau, groupés en un ensemble compact adapté aux contours de la surface désignée ; une dernière rangée plus courte est autorisée pour respecter le nombre exact, aucune grille carrée ou rectangulaire complète imposée, d'une surface totale d'environ " + (nbPanneaux ? (nbPanneaux*2.37).toFixed(1) : "?") + " m², uniquement sur la zone désignée, sans dépasser les rives ni recouvrir cheminées ou fenêtres de toit.",
       surfaceConstraint ? `Consigne complémentaire : ${surfaceConstraint}` : "",
       "Retire le repère rouge. Ne modifie rien d'autre : ni le cadrage, ni l'échelle, ni l'environnement. Sans texte ni logo.",
     ].filter(Boolean).join(" ");
@@ -160,13 +176,14 @@ Deno.serve(async (req) => {
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
     `Modifie UNIQUEMENT cette photo réelle pour y ajouter une installation photovoltaïque sur ${supportLabel}.`,
     installationType === "toiture"
-      ? "INTERDIT ABSOLU : poser des panneaux sur une façade, un mur, un pignon ou une surface verticale. Les panneaux se posent UNIQUEMENT à plat sur la couverture en tuiles inclinée, entre le faîtage et la gouttière, en suivant la pente des tuiles. Toit cible : le toit du bâtiment principal, sujet de la photo (la maison photographiée, généralement au centre). N'installe JAMAIS de panneaux sur un toit au premier plan, une annexe, un appentis, un mur ou un toit coupé par le bord de l'image. Choisis le pan de ce bâtiment principal qui est visible dans la photo, même s'il apparaît fortement en perspective ou en biais. Le bloc complet de panneaux doit tenir entièrement dans l'image : aucun panneau coupé par le cadre."
+      ? "INTERDIT ABSOLU : poser des panneaux sur une façade, un mur, un pignon ou une surface verticale. Sur une toiture, pose uniquement sur la couverture en tuiles du pan désigné, en suivant sa pente entre le faîtage et la gouttière. Une toiture au premier plan ou une annexe n’est pas exclue si elle est la cible. Ne complète jamais une surface hors champ ni une cible invisible en inventant une autre toiture. Aucun panneau coupé par le cadre."
       : "",
+    targetInstruction,
     countInstruction,
     dimensionInstruction,
     surfaceInstruction,
     "Contraintes techniques : panneaux noirs monocristallins full black, tous de taille et d'orientation strictement identiques, alignés en rangées régulières et parallèles aux lignes de la structure, joints fins visibles entre chaque panneau,",
-    "respect strict de la perspective, des pentes, des ombres et de la lumière existante. Même en perspective, chaque panneau garde son ratio 1 : 1,85 et reste clairement délimité.",
+    "respect strict de la perspective, des pentes, des ombres et de la lumière existante. Le ratio physique est 1130 : 2095 ; sa projection dans la photo suit la perspective réelle et peut être raccourcie, sans imposer un ratio à plat à l’image. Chaque panneau reste clairement délimité.",
     "Ne modifie ni le bâtiment existant, ni le ciel, ni l'environnement, ni le cadrage, ni les couleurs de la photo d'origine.",
     "Rendu photoréaliste, sans texte, sans logo, sans filigrane.",
   ].join(" ");
@@ -191,6 +208,9 @@ Deno.serve(async (req) => {
               content: [
                 { type: "text", text: prompt },
                 { type: "image_url", image_url: { url: dataUrl } },
+                ...(view === "photo" && referenceMapBase64
+                  ? [{ type: "image_url", image_url: { url: referenceMapBase64 } }]
+                  : []),
               ],
             },
           ],
