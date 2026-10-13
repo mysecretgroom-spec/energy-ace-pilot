@@ -1412,7 +1412,7 @@ const EtudeForm = () => {
     // === MENSUALITÉ — paramètres du financement de la régie ===
     // Mode de calcul, durée du report et frais de dossier viennent des réglages régie
     const selectedFinancement = dataFinancements.find(f => f.id === financementId);
-    const dureeMois = dureeMoisManuelle || selectedFinancement?.duree_mois || 120;
+    const dureeMois = dureeMoisManuelle || selectedFinancement?.duree_mois || 180;
     const tauxEffectif = selectedFinancement?.taux_effectif || 0;
     const modeCalculFin = (selectedFinancement?.mode_calcul === "amortissement_direct"
       ? "amortissement_direct"
@@ -1651,7 +1651,7 @@ const EtudeForm = () => {
         : (hasPAC ? aidesPAC : hasITE ? aidesITE : null),
       // Financement
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
-      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
+      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 180,
       taux_financement: dataFinancements.find(f => f.id === financementId)?.taux_effectif || null,
       mensualite_estimee: hasPV && calculatedResults ? calculatedResults.mensualite : (mensualiteManuelle || null),
       // Rentabilité
@@ -1966,7 +1966,7 @@ const EtudeForm = () => {
         precoMode: precoMode || "sur_mesure",
       } as any,
       mode_financement: dataFinancements.find(f => f.id === financementId)?.nom || null,
-      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 120,
+      duree_financement_mois: dureeMoisManuelle ? Number(dureeMoisManuelle) : 180,
       notes: classificationComment || null,
       classification: classification || null,
       classification_comment: classificationComment || null,
