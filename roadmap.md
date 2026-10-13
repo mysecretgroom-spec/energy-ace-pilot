@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Aligner et vérifier le cadrage de la carte toiture entre l'étude enregistrée et l'annexe PDF
+- [x] Aligner le cadrage toiture étude/PDF ; 6 tests et comparaison visuelle au zoom 20 réussis (relecture d'une étude enregistrée non vérifiée : aucune étude accessible sur la session de contrôle)
 - [x] Remplacer les PDF des messages aux régies par consommation, puissance, prix, mensualité et commentaire commercial ; tests d'envoi texte réussis
 - [x] Conserver le CQ enregistré en tête des positifs et les informations du rendez-vous initial ; tests de données réussis
 - [x] Masquer la Prime Coup de Pouce Producteur du récapitulatif des aides (formulaire d'étude, HEJJA, PDF, WhatsApp)
