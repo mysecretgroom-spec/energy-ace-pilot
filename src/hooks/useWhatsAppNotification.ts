@@ -1,3 +1,4 @@
+import { qNotifSettings, qRecapRdv, qRecapStudy, qRegieContact, qTemplates } from "@/lib/offline/rdvQueries";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -201,13 +202,7 @@ export const useWhatsAppNotification = () => {
       
       if (regieId) {
         // Fetch principal contact from régie
-        const { data: regieContact } = await supabase
-          .from("regies_contacts")
-          .select("telephone")
-          .eq("regie_id", regieId)
-          .eq("is_principal", true)
-          .eq("actif", true)
-          .maybeSingle();
+        const { data: regieContact } = await qRegieContact(regieId);
         
         if (regieContact?.telephone) {
           confirmPhone = regieContact.telephone;
@@ -216,11 +211,7 @@ export const useWhatsAppNotification = () => {
       
       // Fallback to global settings if no régie contact found
       if (!confirmPhone) {
-        const { data: settings } = await supabase
-          .from("settings_notifications")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
+        const { data: settings } = await qNotifSettings(userId);
 
         if (settings?.confirmateur_phone && settings?.whatsapp_enabled) {
           confirmPhone = settings.confirmateur_phone;
@@ -232,13 +223,8 @@ export const useWhatsAppNotification = () => {
       }
 
       // Fetch custom template for this classification
-      const { data: customTemplate } = await supabase
-        .from("whatsapp_templates")
-        .select("template_text")
-        .eq("user_id", userId)
-        .eq("classification", classification)
-        .eq("is_active", true)
-        .maybeSingle();
+      const { data: templates } = await qTemplates(userId);
+      const customTemplate = templates?.find((t) => t.classification === classification) || null;
 
       // Clean phone number for wa.me link (remove + and spaces)
       const cleanPhone = confirmPhone ? confirmPhone.replace(/[+\s-]/g, "") : "";
@@ -250,22 +236,14 @@ export const useWhatsAppNotification = () => {
 
       // Read the linked study even when live financial values are supplied:
       // persisted CQ and the original appointment belong to the dossier.
-      let studyQuery = supabase.from("etudes")
-        .select("consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, total_aides, prime_autoconsommation, eco_tva, adresse_installation, code_postal_installation, ville_installation, cq_date_heure, rdv_id")
-        .eq("user_id", userId);
-      studyQuery = etudeId ? studyQuery.eq("id", etudeId) : studyQuery.eq("rdv_id", rdvId ?? "");
-      const studyResult = etudeId || rdvId
-        ? await studyQuery.order("created_at", { ascending: false }).limit(1).maybeSingle()
-        : { data: null, error: null };
+      const studyResult = await qRecapStudy(userId, etudeId, etudeId ? null : rdvId);
       if (studyResult.error) throw studyResult.error;
       const study = studyResult.data;
       let initialRdv = null;
       const linkedRdvId = rdvId || study?.rdv_id;
       if (linkedRdvId) {
         const readRdv = async (id: string) => {
-          const result = await supabase.from("rdv")
-            .select("date_heure, adresse, commentaire, type_projet, duree_minutes, parent_rdv_id, clients(nom, prenom, telephone, adresse, code_postal, ville)")
-            .eq("user_id", userId).eq("id", id).maybeSingle();
+          const result = await qRecapRdv(userId, id);
           if (result.error) throw result.error;
           return result.data;
         };
