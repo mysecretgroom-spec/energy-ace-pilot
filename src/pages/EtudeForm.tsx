@@ -62,6 +62,7 @@ import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
 import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
 import { RoofPointMap } from "@/components/etude/RoofPointMap";
+import { parseRoofMapViewport, type RoofMapViewport } from "@/lib/roofMapViewport";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
 import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
@@ -241,6 +242,7 @@ const EtudeForm = () => {
   const [villeInstallation, setVilleInstallation] = useState("");
   const [roofLat, setRoofLat] = useState<number | null>(null);
   const [roofLng, setRoofLng] = useState<number | null>(null);
+  const [roofMapViewport, setRoofMapViewport] = useState<RoofMapViewport | undefined>();
   const [showClientDialog, setShowClientDialog] = useState(false);
   const [departement, setDepartement] = useState("");
   
@@ -970,6 +972,7 @@ const EtudeForm = () => {
       setModeHejjaPrix(etude.mode_hejja_prix || false);
       // Restore manual parameter overrides
       const overrides = (etude as any).param_overrides;
+      setRoofMapViewport(parseRoofMapViewport(overrides?.roofMapViewport));
       if (overrides) {
         if (typeof overrides.heuresEnsoleillement === "number") {
           setHeuresEnsoleillement(overrides.heuresEnsoleillement);
@@ -1671,6 +1674,7 @@ const EtudeForm = () => {
       mode_hejja_prix: modeHejjaPrix,
       // Manual parameter overrides (per-etude)
       param_overrides: {
+        roofMapViewport,
         heuresEnsoleillement,
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
@@ -1962,6 +1966,7 @@ const EtudeForm = () => {
       // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
       // remise commerciale (et la gamme / les bouquets choisis) par 0.
       param_overrides: {
+        roofMapViewport,
         heuresEnsoleillement,
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
@@ -2003,7 +2008,7 @@ const EtudeForm = () => {
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
     selectedBouquetCombo, precoMode,
-    adresseInstallation, codePostalInstallation, villeInstallation, roofLat, roofLng
+    adresseInstallation, codePostalInstallation, villeInstallation, roofLat, roofLng, roofMapViewport
   ]);
 
   // Perform auto-save
@@ -2217,7 +2222,7 @@ const EtudeForm = () => {
     classification, classificationComment, typeRaccordement, typeCompteurElectrique,
     numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation,
     remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel,
-    roofLat, roofLng
+    roofLat, roofLng, roofMapViewport
   ]);
 
 
@@ -2243,6 +2248,7 @@ const EtudeForm = () => {
       clientAdresse: clientAdresse,
       roofLatitude: roofLat,
       roofLongitude: roofLng,
+      roofMapViewport,
       clientVille: clientVille,
       clientCodePostal: clientCodePostal,
       clientTelephone: clientTelephone || undefined,
@@ -2352,7 +2358,7 @@ const EtudeForm = () => {
     pacPrixKwhElec, iteSurfaceIsoler, iteTypeFacade, iteEpaisseurIsolant, iteTypeIsolant,
     iteRActuel, iteRCible, iteNombreFacades, iteSurfaceOuvertures, iteFinition,
     iteEconomieChauffagePct, iteFactureChaufActuelle, itePrixManuel, aidesITE,
-    roofLat, roofLng,
+    roofLat, roofLng, roofMapViewport,
   ]);
 
   // PDF Auto-save hook (generates and stores PDF every 5 minutes + on r2_prestudy)
@@ -3648,6 +3654,8 @@ const EtudeForm = () => {
             <RoofPointMap
               lat={roofLat}
               lng={roofLng}
+              viewport={roofMapViewport}
+              onViewportChange={setRoofMapViewport}
               onChange={(la, ln) => { setRoofLat(la); setRoofLng(ln); }}
               address={[
                 adresseInstallation || clientAdresse,
