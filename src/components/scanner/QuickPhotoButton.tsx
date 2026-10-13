@@ -286,7 +286,7 @@ export function QuickPhotoButton({
             contextSource: category,
             etudeId: etudeId || null,
           });
-          setHasPhoto(true);
+          refreshCount();
           // Individual download only if not in study (study gets merged PDF)
           if (!etudeId) {
             triggerBlobDownload(compressedBlob, `${QUICK_PHOTO_LABELS[category]}_${new Date().toISOString().slice(0, 10)}.jpg`);
@@ -341,7 +341,7 @@ export function QuickPhotoButton({
         throw dbError;
       }
 
-      setHasPhoto(true);
+      refreshCount();
 
       // If not in study, download individual photo
       if (!etudeId) {
