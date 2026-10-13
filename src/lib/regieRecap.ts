@@ -8,6 +8,8 @@ export interface RegieRecapDetails {
   puissanceKwc?: number;
   prixTTC?: number;
   mensualiteCredit?: number;
+  /** Mensualité après déduction des aides (calculée au prorata si absente). */
+  mensualiteApresAides?: number;
   consommationKwh?: number;
   factureAnnuelleEuros?: number;
   totalAides?: number;
@@ -23,7 +25,18 @@ export function studyRecapDetails(study?: Partial<EtudeData>): RegieRecapDetails
     puissanceKwc: study?.puissanceKwc,
     prixTTC: study?.prixTotalHorsAides,
     mensualiteCredit: study?.mensualite,
+    totalAides: study?.totalAides,
+    primeAutoconsommation: study?.primeAutoconsommation,
+    ecoTva: study?.ecoTva,
   };
+}
+
+/** Mensualité aides déduites : même ratio que le reste à charge sur le prix. */
+export function mensualiteAfterAids(details: RegieRecapDetails): number | undefined {
+  if (details.mensualiteApresAides != null) return details.mensualiteApresAides;
+  const { mensualiteCredit: m, prixTTC: p, totalAides: a } = details;
+  if (m == null || !p || a == null || !Number.isFinite(m)) return undefined;
+  return Math.max(0, Math.round(m * (Math.max(0, p - a) / p) * 100) / 100);
 }
 
 export function formatRegieStudyDetails(details: RegieRecapDetails): string {
@@ -31,9 +44,19 @@ export function formatRegieStudyDetails(details: RegieRecapDetails): string {
     value == null || !Number.isFinite(value)
       ? "Non renseigné"
       : `${value.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${unit}`;
+  const mensuelle = details.factureAnnuelleEuros == null ? undefined : details.factureAnnuelleEuros / 12;
+  const aides: string[] = [];
+  if (details.primeAutoconsommation) aides.push(`   • Prime Coup de Pouce Producteur : ${number(details.primeAutoconsommation, "€")}`);
+  if (details.ecoTva) aides.push(`   • Éco TVA : ${number(details.ecoTva, "€")}`);
+  const other = (details.totalAides ?? 0) - (details.primeAutoconsommation ?? 0) - (details.ecoTva ?? 0);
+  if (other > 0.5) aides.push(`   • Autres aides : ${number(other, "€")}`);
   return [
-    `⚡ Conso : ${number(details.consommationKwh, "kWh/an")} / ${number(details.factureAnnuelleEuros, "€/an")}`,
+    `⚡ Conso : ${number(details.consommationKwh, "kWh/an")} / ${number(mensuelle, "€/mois")}`,
     `☀️ Puissance préconisée : ${number(details.puissanceKwc, "kWc")}`,
-    `💰 Prix : ${number(details.prixTTC, "€ TTC")} / Mensualité crédit : ${number(details.mensualiteCredit, "€/mois")}`,
+    `💰 Prix : ${number(details.prixTTC, "€ TTC")}`,
+    `🎁 Aides : ${number(details.totalAides, "€")}`,
+    ...aides,
+    `💳 Mensualité avant aides : ${number(details.mensualiteCredit, "€/mois")}`,
+    `💳 Mensualité aides déduites : ${number(mensualiteAfterAids(details), "€/mois")}`,
   ].join("\n");
 }
