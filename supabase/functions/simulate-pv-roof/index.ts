@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
     "Tu es un photographe spécialisé en photomontage d'installations photovoltaïques.",
     `Modifie UNIQUEMENT cette photo réelle pour y ajouter une installation photovoltaïque sur ${supportLabel}.`,
     installationType === "toiture"
-      ? "Toit cible : le toit du bâtiment principal, sujet de la photo (la maison photographiée, généralement au centre). N'installe JAMAIS de panneaux sur un toit au premier plan, une annexe, un appentis, un mur ou un toit coupé par le bord de l'image. Choisis le pan de ce bâtiment principal qui est visible dans la photo, même s'il apparaît fortement en perspective ou en biais. Le bloc complet de panneaux doit tenir entièrement dans l'image : aucun panneau coupé par le cadre."
+      ? "INTERDIT ABSOLU : poser des panneaux sur une façade, un mur, un pignon ou une surface verticale. Les panneaux se posent UNIQUEMENT à plat sur la couverture en tuiles inclinée, entre le faîtage et la gouttière, en suivant la pente des tuiles. Toit cible : le toit du bâtiment principal, sujet de la photo (la maison photographiée, généralement au centre). N'installe JAMAIS de panneaux sur un toit au premier plan, une annexe, un appentis, un mur ou un toit coupé par le bord de l'image. Choisis le pan de ce bâtiment principal qui est visible dans la photo, même s'il apparaît fortement en perspective ou en biais. Le bloc complet de panneaux doit tenir entièrement dans l'image : aucun panneau coupé par le cadre."
       : "",
     countInstruction,
     dimensionInstruction,
