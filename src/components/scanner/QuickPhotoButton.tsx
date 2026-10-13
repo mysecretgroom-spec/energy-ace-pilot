@@ -406,20 +406,23 @@ export function QuickPhotoButton({
         size={iconOnly ? "icon" : "sm"}
         aria-label={label}
         title={label}
-        className={`${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
+        className={`relative ${iconOnly ? "h-8 w-8" : "gap-1.5 text-xs h-8"} ${hasPhoto ? "border-status-signed text-status-signed" : "border-primary/30"}`}
         onClick={handleCameraClick}
         disabled={isUploading}
       >
         {isUploading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : hasPhoto ? (
-          <Check className="h-3.5 w-3.5" />
         ) : !isOnline ? (
           <WifiOff className="h-3.5 w-3.5" />
         ) : (
           <Camera className="h-3.5 w-3.5" />
         )}
         {!iconOnly && label}
+        {photoCount > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-signed px-1 text-[10px] font-semibold text-primary-foreground">
+            {photoCount}
+          </span>
+        )}
       </Button>
 
       <Button
