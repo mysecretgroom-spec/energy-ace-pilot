@@ -2453,8 +2453,11 @@ const EtudeForm = () => {
   const handleWhatsAppShare = async () => {
     const studyData = buildPdfData();
     if (!studyData || !user) return;
-    // Pré-ouverture synchrone : iOS bloque window.open après un traitement async.
-    const targetWindow = window.open("", "_blank");
+    // Pré-ouverture synchrone (desktop) : iOS bloque window.open après un
+    // traitement async. Sur mobile, pas de fenêtre vide : la page courante
+    // navigue vers whatsapp:// pour ouvrir l'app sans onglet blanc.
+    const isMobileShare = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+    const targetWindow = isMobileShare ? null : window.open("", "_blank");
     const success = await sendWhatsAppNotification({
       clientName, clientPrenom, classification: classification || "r2_prestudy",
       comment: classificationComment, userId: user.id, regieId,
