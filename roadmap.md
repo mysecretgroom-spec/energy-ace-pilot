@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [x] Hors-ligne RDV : paramètres régie (prix, gammes, aides, financements, surcoûts) préchargés et utilisés par l’étude
 - [x] Hors-ligne RDV : préchargement RDV en cours + suivant puis jour/lendemain (infos client, étude, régie, modèles WhatsApp, bouquets, surcoûts, tuiles satellite)
 - [x] Hors-ligne RDV : prochain client (adresse, téléphone, itinéraire) affiché sans réseau
 - [x] Hors-ligne RDV : statut, signature, R2, vente enregistrés sur le téléphone et rejoués sans doublon ; récap WhatsApp construit depuis les données enregistrées
