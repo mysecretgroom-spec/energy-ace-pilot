@@ -10,6 +10,8 @@ export interface RegieRecapDetails {
   mensualiteCredit?: number;
   /** Mensualité après déduction des aides (calculée au prorata si absente). */
   mensualiteApresAides?: number;
+  /** Durée du financement en mois (180 par défaut). */
+  dureeFinancementMois?: number;
   consommationKwh?: number;
   factureAnnuelleEuros?: number;
   totalAides?: number;
@@ -25,6 +27,7 @@ export function studyRecapDetails(study?: Partial<EtudeData>): RegieRecapDetails
     puissanceKwc: study?.puissanceKwc,
     prixTTC: study?.prixTotalHorsAides,
     mensualiteCredit: study?.mensualite,
+    dureeFinancementMois: study?.dureeMois ?? 180,
     totalAides: study?.totalAides,
     primeAutoconsommation: study?.primeAutoconsommation,
     ecoTva: study?.ecoTva,
@@ -56,7 +59,7 @@ export function formatRegieStudyDetails(details: RegieRecapDetails): string {
     `💰 Prix : ${number(details.prixTTC, "€ TTC")}`,
     `🎁 Aides : ${number(details.totalAides, "€")}`,
     ...aides,
-    `💳 Mensualité avant aides : ${number(details.mensualiteCredit, "€/mois")}`,
+    `💳 Mensualité avant aides : ${number(details.mensualiteCredit, "€/mois")} (${details.dureeFinancementMois ?? 180} mois)`,
     `💳 Mensualité aides déduites : ${number(mensualiteAfterAids(details), "€/mois")}`,
   ].join("\n");
 }
