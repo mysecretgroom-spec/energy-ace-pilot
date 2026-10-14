@@ -5,6 +5,7 @@ import { fr } from "date-fns/locale";
 import type { EtudeData } from "@/lib/exportEtudePdf";
 import { formatRegieStudyDetails, studyRecapDetails, type RegieRecapDetails } from "@/lib/regieRecap";
 import { signatureStudyPdf } from "@/lib/signatureStudyPdf";
+import { toast as sonnerToast } from "sonner";
 
 interface SendWhatsAppParams {
   clientName: string;
@@ -349,7 +350,21 @@ export const useWhatsAppNotification = () => {
         const file = await signatureStudyPdf(userId, etudeId, rdvId, pdfDataProp);
         if (file && navigator.share && navigator.canShare?.({ files: [file] })) {
           targetWindow?.close();
-          await navigator.share({ files: [file], text: message, title: "Signature — étude" });
+          const shareData = { files: [file], text: message, title: "Signature — étude" };
+          try {
+            await navigator.share(shareData);
+          } catch (shareErr) {
+            const name = (shareErr as DOMException)?.name;
+            if (name === "AbortError") return true;
+            // iOS refuse le partage après la génération du PDF (geste perdu) :
+            // on propose un bouton qui relance le partage sur un nouveau tap.
+            console.warn("[WhatsApp] Partage différé:", name, shareErr);
+            sonnerToast("Étude prête", {
+              description: file.name,
+              duration: 60000,
+              action: { label: "Partager", onClick: () => { navigator.share(shareData).catch(() => {}); } },
+            });
+          }
           return true;
         }
         if (file) {
