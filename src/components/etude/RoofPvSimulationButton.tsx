@@ -7,6 +7,10 @@ import { Loader2, Sparkles, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { renderRoofMapImage } from "@/lib/roofMapImage";
+import { cropRoofAiTarget, isRoofAiTargetVisible, roofAiTarget } from "@/lib/roofAiTarget";
+import { pvPlacementPayload } from "@/lib/pvInstallation";
+import type { RoofMapViewport } from "@/lib/roofMapViewport";
 
 interface RoofPvSimulationButtonProps {
   clientId: string;
@@ -14,6 +18,9 @@ interface RoofPvSimulationButtonProps {
   /** Puissance de l'étude en kWc : sert à déduire le nombre de panneaux (500 Wc / panneau) */
   puissanceKwc?: number | string | null;
   onSimulationSaved?: () => void;
+  lat?: number | null;
+  lng?: number | null;
+  viewport?: RoofMapViewport;
 }
 
 function base64ToBlob(b64: string, mime = "image/png"): Blob {
@@ -32,8 +39,7 @@ const BASE_MANDATORY_CONSTRAINT =
   "Respecter strictement les rives et les bordures du toit : les panneaux ne doivent NI dépasser NI recouvrir les gouttières, lucarnes, cheminées ou tout autre élément de rive. Cette consigne est obligatoire et constante.";
 
 const PRESET_CONSTRAINTS = [
-  { label: "Tuiles uniquement", value: "Poser les panneaux UNIQUEMENT sur le pan de toiture en tuiles. Ne rien installer sur les surfaces planes, les extensions, les garages, les terrasses ou les parties végétalisées." },
-  { label: "Meilleur pan sud", value: "Poser les panneaux sur le pan de toiture le mieux exposé (idéalement sud/sud-est/sud-ouest), en tuiles si possible." },
+  { label: "Tuiles uniquement", value: "Poser les panneaux UNIQUEMENT sur le pan de toiture en tuiles désigné par le centre du point rouge, même si c’est une annexe ou un garage." },
 ];
 
 type InstallationType = "toiture" | "carport_bois" | "carport_alu" | "bac_leste";
@@ -63,6 +69,9 @@ export function RoofPvSimulationButton({
   etudeId,
   puissanceKwc,
   onSimulationSaved,
+  lat,
+  lng,
+  viewport,
 }: RoofPvSimulationButtonProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -80,13 +89,14 @@ export function RoofPvSimulationButton({
       .from("documents")
       .select("id, url, nom, context_source")
       .eq("client_id", clientId)
+      .eq("etude_id", etudeId ?? "")
       .eq("type_document", "photo_toiture")
       .order("created_at", { ascending: false })
       .limit(10);
 
     if (error) throw error;
     const source = (photos || []).find(
-      (p) => p.context_source !== "simulation_pv" && p.context_source !== "merged_photos"
+      (p) => !p.context_source || p.context_source === "photo_toiture"
     );
 
     if (!source?.url) {
@@ -102,6 +112,10 @@ export function RoofPvSimulationButton({
 
   const startSimulationFlow = async () => {
     if (!user) return;
+    if (!etudeId || lat == null || lng == null) {
+      toast({ variant: "destructive", title: "Toiture à repérer", description: "Enregistrez l’étude et placez le point rouge sur la toiture concernée." });
+      return;
+    }
     const url = await loadSourcePhoto();
     if (!url) return;
     setSourceUrl(url);
@@ -116,13 +130,18 @@ export function RoofPvSimulationButton({
       .join(" ");
 
   const runGeneration = async () => {
-    if (!user || !sourceUrl) return;
+    if (!user || !sourceUrl || lat == null || lng == null) return;
     setConstraintOpen(false);
     setLoading(true);
     try {
       const combinedConstraint = buildConstraint();
+      const targetPoint = roofAiTarget(lat, lng, viewport);
+      if (!isRoofAiTargetVisible(targetPoint)) throw new Error("Recentrez la carte sur le point rouge avant de générer.");
+      const satellite = await renderRoofMapImage(lat, lng, { viewport });
+      if (!satellite) throw new Error("Carte de la toiture indisponible.");
+      const targetRoofBase64 = await cropRoofAiTarget(satellite, targetPoint);
       const { data, error: fnError } = await supabase.functions.invoke("simulate-pv-roof", {
-        body: { imageUrl: sourceUrl, nbPanneaux, surfaceConstraint: combinedConstraint, installationType },
+        body: { ...pvPlacementPayload(installationType, combinedConstraint, satellite), imageUrl: sourceUrl, nbPanneaux, targetPoint, targetRoofBase64, view: "photo" },
       });
 
       if (fnError || !data?.image) {

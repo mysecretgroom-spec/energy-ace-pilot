@@ -2,11 +2,8 @@
 // Entrée : URL (ou base64) de la photo + nombre de panneaux issu de l'étude.
 // Sortie : { image: "<base64 png>" }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
@@ -21,6 +18,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const authorization = req.headers.get("authorization");
+  if (!authorization?.startsWith("Bearer ")) return json({ error: "Connexion requise" }, 401);
+  const auth = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "");
+  const { data: authData, error: authError } = await auth.auth.getUser(authorization.slice(7));
+  if (authError || !authData.user) return json({ error: "Connexion requise" }, 401);
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
@@ -58,6 +61,17 @@ Deno.serve(async (req) => {
 
   const view = payload.view === "satellite" ? "satellite" : "photo";
   const referenceMapBase64 = typeof payload.referenceMapBase64 === "string" ? payload.referenceMapBase64 : "";
+  const targetRoofBase64 = typeof payload.targetRoofBase64 === "string" ? payload.targetRoofBase64 : "";
+  if (targetRoofBase64 && (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(targetRoofBase64) || targetRoofBase64.length > MAX_IMAGE_BYTES)) {
+    return json({ error: "Gros plan de la toiture invalide ou trop volumineux" }, 400);
+  }
+  const target = payload.targetPoint && typeof payload.targetPoint === "object"
+    ? payload.targetPoint as Record<string, unknown> : null;
+  if (target && (typeof target.x !== "number" || typeof target.y !== "number" || !Number.isFinite(target.x) || !Number.isFinite(target.y) || target.x < 0 || target.x > 1 || target.y < 0 || target.y > 1)) {
+    return json({ error: "Le point rouge doit être visible sur la carte" }, 400);
+  }
+  const targetLocation = target && typeof target.x === "number" && typeof target.y === "number"
+    ? `Le CENTRE EXACT du point rouge est à ${(target.x * 100).toFixed(2)} % de la largeur depuis la gauche et ${(target.y * 100).toFixed(2)} % de la hauteur depuis le haut de la carte complète.` : "";
   if (referenceMapBase64 && (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(referenceMapBase64) || referenceMapBase64.length > MAX_IMAGE_BYTES)) {
     return json({ error: "Carte de référence invalide ou trop volumineuse" }, 400);
   }
@@ -115,11 +129,13 @@ Deno.serve(async (req) => {
           ? "des bacs lestés type GSE posés sur la surface plate"
           : "la toiture existante";
 
-  const targetInstruction = view === "satellite"
+  const targetInstruction = (view === "satellite"
     ? "CIBLE IMPÉRATIVE : le repère rouge désigne la toiture ou l’espace exact du projet. Installe uniquement sur cette surface. Si le repère est sur une annexe, un garage, une terrasse ou une zone de stationnement, cette zone est la cible : ne déplace jamais l’installation vers la maison principale ni vers un autre pan mieux exposé."
     : referenceMapBase64
       ? "RÉFÉRENCES : image 1 = photo réelle à modifier ; image 2 = carte satellite de localisation uniquement, avec repère rouge. Retrouve dans la photo la toiture ou l’espace désigné sur la carte en utilisant la géométrie et les éléments communs. Les deux vues doivent représenter exactement le même emplacement. Ne copie pas la vue aérienne dans le résultat, ne choisis pas automatiquement la maison principale. Si la cible n’est pas identifiable dans la photo, ne pose aucun panneau ailleurs et indique que la cible n’est pas identifiable."
-      : "CIBLE IMPÉRATIVE : utilise uniquement la toiture ou l’espace photographié et désigné dans la consigne. Une annexe, un garage, un appentis, une pergola ou un carport peut être la cible. Ne choisis pas automatiquement la maison principale ni une autre surface mieux exposée.";
+      : "CIBLE IMPÉRATIVE : utilise uniquement la toiture ou l’espace photographié et désigné dans la consigne. Une annexe, un garage, un appentis, une pergola ou un carport peut être la cible. Ne choisis pas automatiquement la maison principale ni une autre surface mieux exposée.") + " " + targetLocation +
+      " IDENTIFICATION AVANT MODIFICATION : identifie la surface qui se trouve DIRECTEMENT SOUS LE CENTRE du point rouge, pas sous son cercle extérieur. Le toit voisin, même plus grand, mieux visible, mieux orienté ou plus facile à modifier, est INTERDIT. Un toit au premier plan n’est pas la cible sauf si le point rouge le désigne. Conserve les contours, le faîtage, les rives et l’identité de cette toiture ; ne déplace pas les panneaux sur un autre bâtiment. Si cette toiture précise n’est pas identifiable ou visible dans la photo, réponds uniquement CIBLE_NON_IDENTIFIABLE, sans générer d’image ni inventer une autre installation." +
+      (targetRoofBase64 ? ` La dernière image est un GROS PLAN DE LOCALISATION du même point rouge, pas une image à modifier. ${view === "satellite" ? "Image 1 = carte complète à modifier ; image 2 = gros plan." : "Image 1 = photo à modifier ; image 2 = carte complète de localisation ; image 3 = gros plan."} Utilise ce gros plan pour distinguer la toiture sélectionnée des bâtiments voisins. Le résultat conserve le cadrage de l’image 1.` : "");
 
   // Le nombre de rangées s'adapte à la forme réelle de la surface : pas de grille imposée.
   const countInstruction = nbPanneaux
@@ -211,6 +227,7 @@ Deno.serve(async (req) => {
                 ...(view === "photo" && referenceMapBase64
                   ? [{ type: "image_url", image_url: { url: referenceMapBase64 } }]
                   : []),
+                ...(targetRoofBase64 ? [{ type: "image_url", image_url: { url: targetRoofBase64 } }] : []),
               ],
             },
           ],
@@ -222,16 +239,19 @@ Deno.serve(async (req) => {
     if (!aiResp.ok) {
       const text = await aiResp.text().catch(() => "");
       console.error("[simulate-pv-roof] gateway error", aiResp.status, text);
-      if (aiResp.status === 429) {
-        return json({ error: "Trop de demandes, réessayez dans un instant." }, 429);
-      }
-      if (aiResp.status === 402) {
-        return json({ error: "Crédits IA épuisés." }, 402);
-      }
-      return json({ error: "La génération a échoué." }, 502);
+      let message = "La génération a échoué.";
+      try {
+        const upstream = JSON.parse(text);
+        const safeMessage = upstream.message ?? upstream.error?.message;
+        if (typeof safeMessage === "string") message = safeMessage;
+      } catch { /* Non-JSON error body. */ }
+      return json({ error: message }, aiResp.status);
     }
 
     const data = await aiResp.json();
+    if (JSON.stringify(data).includes("CIBLE_NON_IDENTIFIABLE")) {
+      return json({ error: "La toiture sous le point rouge n’est pas identifiable dans cette vue. Ajoutez une photo de cette toiture précise." }, 422);
+    }
     const b64 = data?.data?.[0]?.b64_json;
     if (!b64) {
       console.error("[simulate-pv-roof] no image in response");

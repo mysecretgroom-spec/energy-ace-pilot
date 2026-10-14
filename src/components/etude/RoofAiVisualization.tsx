@@ -11,6 +11,7 @@ import { fetchLatestAiVisuals, panelPixelSize, type AiVisuals } from "@/lib/roof
 import { PV_INSTALLATIONS, pvPlacementPayload, type PvInstallationType } from "@/lib/pvInstallation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cropRoofAiTarget, isRoofAiTargetVisible, roofAiTarget } from "@/lib/roofAiTarget";
 
 interface Props {
   clientId?: string | null;
@@ -68,9 +69,12 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
     const errors: string[] = [];
     try {
       // 1. Vue satellite (même cadrage que la carte)
+      const targetPoint = roofAiTarget(lat, lng, viewport);
+      if (!isRoofAiTargetVisible(targetPoint)) throw new Error("Le point rouge est hors de la carte. Recentrez la toiture sélectionnée avant de générer.");
       const sat = await renderRoofMapImage(lat, lng, { viewport });
       if (!sat) throw new Error("Carte de la zone désignée indisponible.");
-      const placement = pvPlacementPayload(installationType, surfaceConstraint, sat);
+      const targetRoofBase64 = await cropRoofAiTarget(sat, targetPoint);
+      const placement = { ...pvPlacementPayload(installationType, surfaceConstraint, sat), targetPoint, targetRoofBase64 };
       if (sat) {
         const w = await imgWidth(sat);
         const zoom = viewport?.zoom ?? DEFAULT_ROOF_MAP_ZOOM;
