@@ -25,3 +25,5 @@
 - [x] Agent : exécution directe sans validation + compréhension d'entrées libres
 - [x] Mémoire par régie dans Paramètres (règles/grilles/aides prioritaires sur les apprentissages généraux)
 - [x] RDV négatif : WhatsApp au technicien avec commentaire, sans PDF d'étude ni photos
+
+- [ ] Vidéo v3 1min20 : vraie interface (itinéraire RDV, long touch étude, dossiers en cours, RDV installation doré + com, factures WhatsApp + scan mail), voix plus humaine
