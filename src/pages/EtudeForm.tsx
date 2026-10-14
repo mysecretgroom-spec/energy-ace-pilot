@@ -3481,6 +3481,9 @@ const EtudeForm = () => {
                     clientId={clientId}
                     etudeId={currentEtudeId}
                     puissanceKwc={puissanceKwc}
+                    lat={roofLat}
+                    lng={roofLng}
+                    viewport={roofMapViewport}
                     onSimulationSaved={triggerImmediateSave}
                   />
                 </div>

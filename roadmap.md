@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Visualisation PV : cibler uniquement la toiture sous le point rouge dans les deux vues et contrôler un essai réel
+- [x] Visualisation PV : repère transmis aux deux boutons avec coordonnées et gros plan ; essai satellite réel sur la toiture sélectionnée confirmé, précision du nombre non garantie
 - [x] Hors-ligne RDV : paramètres régie (prix, gammes, aides, financements, surcoûts) préchargés et utilisés par l’étude
 - [x] Hors-ligne RDV : préchargement RDV en cours + suivant puis jour/lendemain (infos client, étude, régie, modèles WhatsApp, bouquets, surcoûts, tuiles satellite)
 - [x] Hors-ligne RDV : prochain client (adresse, téléphone, itinéraire) affiché sans réseau
