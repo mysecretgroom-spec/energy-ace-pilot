@@ -33,6 +33,13 @@ const legalDocs = [
     color: "text-amber-500"
   },
   {
+    title: "Politique de Remboursement",
+    description: "Satisfait ou remboursé 30 jours",
+    icon: Scale,
+    href: "/remboursement",
+    color: "text-amber-500"
+  },
+  {
     title: "Politique de Sécurité",
     description: "Mesures de protection de vos données et de l'application",
     icon: Lock,
