@@ -274,6 +274,16 @@ export function RdvStatusSelector({
             ? "pompe_a_chaleur"
             : "isolation_thermique";
         try {
+          // Garde anti-doublon : ne pas recréer une vente active pour ce client
+          const { data: existingVentes } = await supabase
+            .from("ventes")
+            .select("id, status")
+            .eq("client_id", clientId)
+            .not("status", "in", '("annule","retracte","refus_financement")')
+            .limit(1);
+          if (existingVentes && existingVentes.length > 0) {
+            toast.info("Une vente existe déjà pour ce client — aucune nouvelle vente créée");
+          } else {
           await write({
             table: "ventes", op: "insert",
             values: {
