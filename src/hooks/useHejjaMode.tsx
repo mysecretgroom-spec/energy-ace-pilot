@@ -25,8 +25,8 @@ export function HejjaModeProvider({ children }: { children: ReactNode }) {
   const [pshEnabled, setPshEnabled] = useState(true);
   const [prixEnabled, setPrixEnabled] = useState(false);
   const [prixManuel, setPrixManuel] = useState<number | "">("");
-  const { isActive: isSubscribed, isBetaTester, isLoading: isAccessLoading } = useSaasAccess();
-  const canUseHejja = isSubscribed || isBetaTester;
+  const { isPremium, isLoading: isAccessLoading } = useSaasAccess();
+  const canUseHejja = isPremium;
 
   // Force-off when the account loses premium rights
   useEffect(() => {

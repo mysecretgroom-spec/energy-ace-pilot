@@ -123,20 +123,20 @@ export default function AdminClients() {
     mutationFn: async ({ action, userIds, days }: { action: string; userIds: string[]; days?: number }) => {
       for (const userId of userIds) {
         if (action === "extend_trial") {
-          await supabase.rpc("update_saas_access_state", { 
-            p_user_id: userId, 
+          await supabase.rpc("admin_update_access_state" as any, { 
+            p_target_user_id: userId, 
             p_app_access: "trial" 
           });
         } else if (action === "grant_access") {
-          await supabase.rpc("update_saas_access_state", { 
-            p_user_id: userId, 
+          await supabase.rpc("admin_update_access_state" as any, { 
+            p_target_user_id: userId, 
             p_app_access: "active" 
           });
         } else if (action === "block") {
           await supabase.rpc("block_saas_user", { p_user_id: userId });
         } else if (action === "unblock") {
-          await supabase.rpc("update_saas_access_state", { 
-            p_user_id: userId, 
+          await supabase.rpc("admin_update_access_state" as any, { 
+            p_target_user_id: userId, 
             p_app_access: "trial" 
           });
         }

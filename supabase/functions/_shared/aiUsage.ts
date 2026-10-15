@@ -23,6 +23,22 @@ export const MONTHLY_BUDGET_USD = 10.87;
 export const WARNING_THRESHOLD = 0.80; // 80%
 export const SOFT_CAP_THRESHOLD = 1.00; // 100% → force flash-lite
 export const HARD_CAP_THRESHOLD = 1.50; // 150% → block
+const EUR_TO_USD = 1.087;
+// Monthly AI budget per plan (EUR). Top-ups extend it beyond the plan quota.
+const PLAN_BUDGET_EUR: Record<string, number> = { classique: 10, premium: 15 };
+
+async function getPlanBudgetUsd(supabase: any, userId: string): Promise<number> {
+  for (const env of ["live", "sandbox"]) {
+    const { data } = await supabase.rpc("get_user_plan", { p_user_id: userId, p_env: env });
+    if (data && PLAN_BUDGET_EUR[data]) return PLAN_BUDGET_EUR[data] * EUR_TO_USD;
+  }
+  return MONTHLY_BUDGET_USD;
+}
+
+async function getTopupBalanceEur(supabase: any, userId: string): Promise<number> {
+  const { data } = await supabase.rpc("get_user_topup_balance", { p_user_id: userId });
+  return Number(data || 0);
+}
 
 // Functions exempted from hard cap (critical business flows)
 const CRITICAL_FUNCTIONS = new Set([
@@ -90,7 +106,12 @@ export async function checkUsageBudget(
     }
 
     const used = (data || []).reduce((sum, row: any) => sum + Number(row.estimated_cost_usd || 0), 0);
-    const ratio = used / MONTHLY_BUDGET_USD;
+    const budget = await getPlanBudgetUsd(supabase, userId);
+    const ratio = used / budget;
+    // Over quota but covered by a paid top-up: keep full service
+    if (ratio >= SOFT_CAP_THRESHOLD && (await getTopupBalanceEur(supabase, userId)) > 0) {
+      return { used_usd: used, budget_usd: budget, ratio, status: "warning", forceModel: null, blocked: false };
+    }
 
     let status: BudgetStatus = "ok";
     let forceModel: string | null = null;
@@ -107,7 +128,7 @@ export async function checkUsageBudget(
       status = "warning";
     }
 
-    return { used_usd: used, budget_usd: MONTHLY_BUDGET_USD, ratio, status, forceModel, blocked };
+    return { used_usd: used, budget_usd: budget, ratio, status, forceModel, blocked };
   } catch (e) {
     console.error("[aiUsage] check exception (fail-open):", e);
     return safeDefault;
@@ -148,6 +169,16 @@ export async function logUsage(params: {
       estimated_cost_usd: cost,
       month_key: getMonthKey(),
     });
+
+    // Usage beyond the plan quota is deducted from paid top-ups
+    const { data: rows } = await supabase.from("ai_usage").select("estimated_cost_usd")
+      .eq("user_id", params.userId).eq("month_key", getMonthKey());
+    const total = (rows || []).reduce((s: number, r: any) => s + Number(r.estimated_cost_usd || 0), 0);
+    const budget = await getPlanBudgetUsd(supabase, params.userId);
+    const overflowUsd = Math.min(cost, Math.max(0, total - budget));
+    if (overflowUsd > 0) {
+      await supabase.rpc("consume_topup_balance", { p_user_id: params.userId, p_amount_eur: overflowUsd / EUR_TO_USD });
+    }
   } catch (e) {
     console.error("[aiUsage] log failed (non-blocking):", e);
   }
@@ -172,4 +203,4 @@ export async function resolveUserId(req: Request, bodyUserId?: string | null): P
 }
 
 export const HARD_CAP_MESSAGE =
-  "Vous avez dépassé votre budget IA mensuel (10 €). L'agent sera de nouveau disponible le 1er du mois prochain. Les notifications automatiques restent actives.";
+  "Vous avez dépassé votre budget IA mensuel. Rechargez votre crédit IA depuis la page Abonnement, ou l'agent sera de nouveau disponible le 1er du mois prochain. Les notifications automatiques restent actives.";

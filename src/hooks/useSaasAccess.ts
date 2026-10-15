@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getPaddleEnvironment } from "@/lib/paddle";
+import type { PlanTier } from "@/lib/plans";
 
 export type AppAccess = "trial" | "active" | "paywall" | "blocked";
 export type SubscriptionStatus = "trial" | "active" | "past_due" | "canceled" | "unpaid" | "blocked" | "incomplete";
@@ -67,6 +69,22 @@ export function useSaasAccess() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const env = getPaddleEnvironment();
+  const { data: billing, isLoading: isLoadingBilling } = useQuery({
+    queryKey: ["billing", user?.id, env],
+    enabled: !!user?.id,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const [{ data: plan }, { data: sub }] = await Promise.all([
+        supabase.rpc("get_user_plan" as any, { p_user_id: user!.id, p_env: env }),
+        supabase.from("subscriptions" as any).select("*")
+          .eq("user_id", user!.id).eq("environment", env)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      return { plan: (plan as PlanTier | null) ?? null, paidSubscription: (sub as any) ?? null };
+    },
+  });
+
   const daysLeftInTrial = accessState?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(accessState.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
@@ -84,7 +102,11 @@ export function useSaasAccess() {
   return {
     accessState,
     subscription,
-    isLoading: isLoadingAccess || isLoadingSubscription,
+    isLoading: isLoadingAccess || isLoadingSubscription || isLoadingBilling,
+    /** Current paid tier ('premium' also for beta testers / manually activated accounts) */
+    plan: billing?.plan ?? null,
+    isPremium: billing?.plan === "premium",
+    paidSubscription: billing?.paidSubscription ?? null,
     daysLeftInTrial,
     isBetaTester,
     isInTrial,

@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSaasAccess } from "@/hooks/useSaasAccess";
+import { PLANS } from "@/lib/plans";
 
-const MONTHLY_BUDGET_USD = 10.87; // ~10 EUR — utilisé en interne pour le statut/capping
+const EUR_TO_USD = 1.087; // budget mensuel selon l'offre (Classique 10 €, Premium 15 €)
 
 export interface AIUsageBreakdown {
   function_name: string;
@@ -40,9 +42,11 @@ export function formatTokens(n: number): string {
 
 export function useAIUsage() {
   const { user } = useAuth();
+  const { plan } = useSaasAccess();
+  const MONTHLY_BUDGET_USD = PLANS[plan ?? "classique"].aiBudgetEur * EUR_TO_USD;
 
   return useQuery({
-    queryKey: ["ai-usage", user?.id, getMonthKey()],
+    queryKey: ["ai-usage", user?.id, getMonthKey(), plan],
     enabled: !!user,
     refetchInterval: 5 * 60 * 1000, // 5 min
     queryFn: async (): Promise<AIUsageSummary> => {

@@ -8,6 +8,13 @@
       "when": 1791883560947,
       "tag": "0000_etude_roof_point",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792080176172,
+      "tag": "0001_paddle_subscriptions_plans",
+      "breakpoints": true
     }
   ]
 }
