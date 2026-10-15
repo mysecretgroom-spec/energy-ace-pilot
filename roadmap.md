@@ -27,3 +27,10 @@
 - [x] RDV négatif : WhatsApp au technicien avec commentaire, sans PDF d'étude ni photos
 
 - [ ] Vidéo v3 1min20 : vraie interface (itinéraire RDV, long touch étude, dossiers en cours, RDV installation doré + com, factures WhatsApp + scan mail), voix plus humaine
+
+## Abonnements & paiement
+- [x] Offres Classique / Premium (mensuel + annuel 2 mois offerts), recharges IA 5/20/50 €
+- [x] Montée immédiate / baisse à l'échéance, portail de gestion, quotas IA 10/15 €
+- [x] Suppression des anciens liens Stripe, verrouillage des fonctions de changement d'accès
+- [ ] Pages légales (CGV/remboursement/confidentialité) conformes — en attente de la raison sociale
+- [ ] Test d'achat manuel en aperçu avec carte de test
