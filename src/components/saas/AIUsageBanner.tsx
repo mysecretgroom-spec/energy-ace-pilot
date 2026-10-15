@@ -35,7 +35,7 @@ export function AIUsageBanner() {
         ) : (
           <Sparkles className="h-3.5 w-3.5 shrink-0" />
         )}
-        <Link to="/parametres" className="truncate underline-offset-2 hover:underline">
+        <Link to="/abonnement" className="truncate underline-offset-2 hover:underline">
           {message}
         </Link>
       </div>
