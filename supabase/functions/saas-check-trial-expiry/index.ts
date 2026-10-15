@@ -31,9 +31,10 @@ serve(async (req) => {
 
     for (const user of expiredTrials || []) {
       // Check if user has active subscription
-      const { data: subscription } = await supabase.rpc("get_saas_subscription", { p_user_id: user.user_id });
+      const { data: subs } = await supabase.from("subscriptions").select("id")
+        .eq("user_id", user.user_id).in("status", ["active", "trialing", "past_due"]).limit(1);
 
-      const hasActiveSubscription = subscription?.[0]?.status === "active";
+      const hasActiveSubscription = (subs?.length ?? 0) > 0;
       const newAccess = hasActiveSubscription ? "active" : "paywall";
 
       // Update access state
