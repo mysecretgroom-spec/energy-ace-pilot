@@ -75,7 +75,7 @@ const CGV = () => {
             <ul className="text-xs text-muted-foreground space-y-2">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">•</span>
-                Paiement par carte bancaire via notre prestataire sécurisé Stripe
+                Paiement par carte bancaire via notre revendeur Paddle.com, Merchant of Record de toutes nos commandes
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">•</span>
