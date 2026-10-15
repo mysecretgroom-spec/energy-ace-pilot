@@ -75,6 +75,7 @@ const Confidentialite = React.lazy(() => import("./pages/Confidentialite"));
 const Conditions = React.lazy(() => import("./pages/Conditions"));
 const Legal = React.lazy(() => import("./pages/Legal"));
 const CGV = React.lazy(() => import("./pages/CGV"));
+const Remboursement = React.lazy(() => import("./pages/Remboursement"));
 const SecurityPolicy = React.lazy(() => import("./pages/SecurityPolicy"));
 const DataRetention = React.lazy(() => import("./pages/DataRetention"));
 const Abonnement = React.lazy(() => import("./pages/Abonnement"));
@@ -202,6 +203,7 @@ const App = () => {
                       <Route path="/conditions" element={<Conditions />} />
                       <Route path="/legal" element={<Legal />} />
                       <Route path="/cgv" element={<CGV />} />
+                      <Route path="/remboursement" element={<Remboursement />} />
                       <Route path="/securite" element={<SecurityPolicy />} />
                       <Route path="/data-retention" element={<DataRetention />} />
                       <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
