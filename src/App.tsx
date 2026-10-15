@@ -29,6 +29,7 @@ const Notifications = React.lazy(() => import("./pages/Notifications"));
 const Parametres = React.lazy(() => import("./pages/Parametres"));
 const Profil = React.lazy(() => import("./pages/Profil"));
 const Login = React.lazy(() => import("./pages/Login"));
+const PresentationVideo = React.lazy(() => import("./pages/PresentationVideo"));
 const Signup = React.lazy(() => import("./pages/Signup"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Install = React.lazy(() => import("./pages/Install"));
@@ -147,6 +148,7 @@ const App = () => {
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/login" element={<Login />} />
+                      <Route path="/presentation" element={<PresentationVideo />} />
                       <Route path="/signup" element={<Signup />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/reset-password" element={<ResetPassword />} />
