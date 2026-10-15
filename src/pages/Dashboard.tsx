@@ -1,3 +1,4 @@
+import { isInstallationHidden, isInstallationDone } from "@/lib/installationStatus";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -284,7 +285,7 @@ const Dashboard = () => {
         // Ventes du mois et année - include client info
         supabase.from("ventes").select("id, montant_ht, montant_ttc, puissance_kwc, status, regie_id, etude_id, decom_montant, decom_raison, type_vente, date_signature, is_retape, client_id, gamme, commission_override, clients(nom, prenom, telephone, adresse, ville, code_postal)").eq("user_id", user.id),
         // RDV with client info
-        supabase.from("rdv").select("id, date_heure, status, type_projet, type_rdv, client_id, regie_id, clients(nom, prenom)").eq("user_id", user.id),
+        supabase.from("rdv").select("id, date_heure, status, type_projet, type_rdv, client_id, regie_id, metadata, clients(nom, prenom)").eq("user_id", user.id),
         // Clients
         supabase.from("clients").select("id, created_at").eq("user_id", user.id),
         // Placeholder for removed commissions query
@@ -427,11 +428,14 @@ const Dashboard = () => {
       ).length;
 
       // Poses : planifiées (à venir) vs réalisées (passées, non annulées)
-      const posesPlanifiees = filteredPoses.filter((r: any) =>
-        r.date_heure && new Date(r.date_heure) >= now && r.status !== 'annule'
-      ).length;
-      const posesRealisees = filteredPoses.filter((r: any) =>
-        r.date_heure && new Date(r.date_heure) < now && r.status !== 'annule'
+      // Poses : seules celles passées en « Posé » par le commercial sont réalisées ;
+      // annulées / rétractées / reportées sont exclues.
+      const venteStatusById = new Map(ventes.map((v: any) => [v.id, v.status]));
+      const poseVenteStatus = (r: any) => venteStatusById.get((r.metadata as any)?.vente_id) as string | undefined;
+      const activePoses = filteredPoses.filter((r: any) => !isInstallationHidden(r.status, poseVenteStatus(r)));
+      const posesRealisees = activePoses.filter((r: any) => isInstallationDone(r.status, poseVenteStatus(r))).length;
+      const posesPlanifiees = activePoses.filter((r: any) =>
+        r.date_heure && new Date(r.date_heure) >= now && !isInstallationDone(r.status, poseVenteStatus(r))
       ).length;
 
       // Process clients
