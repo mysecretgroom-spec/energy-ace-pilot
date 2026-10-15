@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PinDialog } from "@/components/auth/PinDialog";
+import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 
 interface ResultatPdfChoiceDialogProps {
@@ -13,8 +14,10 @@ interface ResultatPdfChoiceDialogProps {
 
 export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: ResultatPdfChoiceDialogProps) {
   const [showPinDialog, setShowPinDialog] = useState(false);
+  const { isActive: hejjaActive } = useHejjaMode();
 
   const handleHejjaClick = () => {
+    if (!hejjaActive) return;
     setShowPinDialog(true);
   };
 
@@ -54,12 +57,12 @@ export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: Re
               variant="outline"
               className="flex flex-col items-center gap-3 h-auto py-6 border-2 border-red-200 hover:border-red-500 hover:bg-red-50 dark:border-red-800 dark:hover:border-red-500 dark:hover:bg-red-900/20 transition-all"
               onClick={handleHejjaClick}
-              disabled={loading}
+              disabled={loading || !hejjaActive}
             >
               <ShieldOff className="h-8 w-8 text-red-500" />
               <div className="text-center">
                 <p className="font-semibold text-sm text-red-600 dark:text-red-400">Hejja</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Avec logos partenaires</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{hejjaActive ? "Avec logos partenaires" : "Activez le mode HEJJA"}</p>
               </div>
             </Button>
           </div>

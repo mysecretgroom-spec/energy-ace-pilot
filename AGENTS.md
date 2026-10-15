@@ -5,3 +5,4 @@
 - Paired PV visualizations share one placement payload and pass the marked satellite map as the photo reference, so both views target the same installation space.
 - AI roof targeting includes the marker's normalized position in the saved viewport and a close-up reference; reject off-frame points instead of selecting a different roof.
 - Manual PV layouts live within the saved roof viewport and use shared metric corner geometry for Leaflet and PDF rendering; manual panels take precedence over AI images.- Offline RDV closing goes through src/lib/offline: reads use cachedQuery (same query functions for preload and use, so cache keys match) and writes use writeOrQueue/outbox with client-generated ids; never intercept fetch globally (fake 200s broke earlier).
+- Official logos on study/result PDFs are gated by src/lib/officialLogos, driven by HejjaModeProvider (HEJJA active + premium); never load logos directly elsewhere.

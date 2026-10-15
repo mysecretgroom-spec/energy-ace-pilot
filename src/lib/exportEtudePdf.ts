@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { areOfficialLogosEnabled } from "@/lib/officialLogos";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereLogoSvg from "@/assets/logos/ministere-transition-energetique.png";
 import enedisLogo from "@/assets/logos/enedis.png";
@@ -1358,9 +1359,11 @@ const generatePreEtudePdf = async (data: EtudeData): Promise<jsPDF> => {
   let franceRenovBase64 = "";
   let ministereBase64 = "";
   let enedisBase64 = "";
-  try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
-  try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
-  try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  if (areOfficialLogosEnabled()) {
+    try { franceRenovBase64 = await loadImageAsBase64(franceRenovLogo); } catch {}
+    try { ministereBase64 = await loadImageAsBase64(ministereLogoSvg); } catch {}
+    try { enedisBase64 = await loadImageAsBase64(enedisLogo); } catch {}
+  }
   await preloadLogoSizes({ franceRenov: franceRenovBase64, ministere: ministereBase64, enedis: enedisBase64 });
 
   const subtitle = isMulti
@@ -1989,7 +1992,7 @@ const drawCepcGlobalSummary = (doc: jsPDF, data: EtudeData, yStart: number, ctx?
 // ═══════════════════════════════════════════════════════════════════════════
 
 const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<jsPDF> => {
-  const showLogos = options?.showLogos ?? true;
+  const showLogos = areOfficialLogosEnabled() && (options?.showLogos ?? true);
   const doc = new jsPDF();
   patchDocTextMethods(doc);
   const products = data.activeProducts || ["PV"];

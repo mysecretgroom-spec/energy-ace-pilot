@@ -388,7 +388,9 @@ const EtudeForm = () => {
     deactivate: deactivateHejja,
     setPshEnabled: setModeHejjaPsh,
     setPrixEnabled: setModeHejjaPrix,
-    setPrixManuel
+    setPrixManuel,
+    canUseHejja,
+    isAccessLoading: isHejjaAccessLoading,
   } = useHejjaMode();
   const [showPinDialog, setShowPinDialog] = useState(false);
 
@@ -2648,11 +2650,11 @@ const EtudeForm = () => {
           
           {/* Logos row - smaller on mobile */}
           <div className="flex items-center justify-between gap-2 sm:gap-3">
-            <img 
+            {modeHejjaActive ? <img 
               src={franceRenovLogo} 
               alt="France Rénov'" 
               className="h-10 sm:h-16 object-contain"
-            />
+            /> : <div className="w-10 sm:w-16" />}
             <div className="flex-1 text-center min-w-0">
               <h1 className="text-sm sm:text-lg font-bold text-[#000091] tracking-tight truncate">
                 ÉTUDE ÉNERGÉTIQUE
@@ -2664,11 +2666,11 @@ const EtudeForm = () => {
                 }
               </p>
             </div>
-            <img 
+            {modeHejjaActive ? <img 
               src={ministereTransitionLogo} 
               alt="Ministère" 
               className="h-10 sm:h-16 object-contain"
-            />
+            /> : <div className="w-10 sm:w-16" />}
           </div>
           
           {/* Back button and client info - more compact on mobile */}
@@ -2746,6 +2748,11 @@ const EtudeForm = () => {
                 checked={modeHejjaActive}
                 onCheckedChange={(checked) => {
                   if (checked) {
+                    if (isHejjaAccessLoading) return;
+                    if (!canUseHejja) {
+                      toast({ variant: "destructive", title: "Fonctionnalité Premium", description: "Le mode HEJJA est réservé aux abonnements Premium." });
+                      return;
+                    }
                     setShowPinDialog(true);
                   } else {
                     deactivateHejja();
