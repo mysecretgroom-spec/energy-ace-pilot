@@ -27,7 +27,7 @@ interface VenteRow {
  * Charge les commissions des ventes liées aux RDV de pose (type_rdv = 'installation').
  * Retourne une Map<rdvId, commissionNette>.
  */
-export function useInstallationCommissions(rdvList: RdvLike[]) {
+export function useInstallationCommissions(rdvList: RdvLike[], refreshToken?: unknown) {
   const [ventes, setVentes] = useState<VenteRow[]>([]);
   const [rdvToVente, setRdvToVente] = useState<Map<string, string>>(new Map());
 
@@ -71,7 +71,7 @@ export function useInstallationCommissions(rdvList: RdvLike[]) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  }, [idsKey, refreshToken]);
 
   const venteInputs = useMemo(
     () =>
@@ -103,5 +103,15 @@ export function useInstallationCommissions(rdvList: RdvLike[]) {
     return result;
   }, [rdvToVente, commissions]);
 
-  return { commissionByRdv };
+  const venteStatusByRdv = useMemo(() => {
+    const byId = new Map(ventes.map((v) => [v.id, v.status]));
+    const result = new Map<string, string>();
+    rdvToVente.forEach((venteId, rdvId) => {
+      const st = byId.get(venteId);
+      if (st) result.set(rdvId, st);
+    });
+    return result;
+  }, [rdvToVente, ventes]);
+
+  return { commissionByRdv, venteStatusByRdv };
 }

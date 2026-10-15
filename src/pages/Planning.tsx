@@ -1,3 +1,4 @@
+import { isInstallationHidden } from "@/lib/installationStatus";
 import { NextRdvOfflineCard } from "@/components/planning/NextRdvOfflineCard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
@@ -504,16 +505,21 @@ const Planning = () => {
       });
 
   // Compute commissions for installation RDVs
-  const { commissionByRdv } = useInstallationCommissions(filteredRdvList);
+  const { commissionByRdv, venteStatusByRdv } = useInstallationCommissions(filteredRdvList, rdvList);
 
   const filteredRdvListWithCom: RdvData[] = useMemo(
     () =>
-      filteredRdvList.map((rdv) =>
+      filteredRdvList
+        .filter((rdv) =>
+          rdv.typeRdv !== "installation" ||
+          !isInstallationHidden(rdv.status, venteStatusByRdv.get(rdv.id))
+        )
+        .map((rdv) =>
         rdv.typeRdv === "installation" && commissionByRdv.has(rdv.id)
           ? { ...rdv, commissionNette: commissionByRdv.get(rdv.id) }
           : rdv
       ),
-    [filteredRdvList, commissionByRdv]
+    [filteredRdvList, commissionByRdv, venteStatusByRdv]
   );
 
   // Merge route data with rdvList for day view
