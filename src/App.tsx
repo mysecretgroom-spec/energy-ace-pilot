@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { HejjaModeProvider } from "@/hooks/useHejjaMode";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { HejjaToggle } from "@/components/layout/HejjaToggle";
 import { InteractiveOnboardingProvider } from "@/components/onboarding/InteractiveOnboarding";
 import { PushPermissionPrompt } from "@/components/notifications/PushPermissionPrompt";
 import { SecurityPrompt } from "@/components/notifications/SecurityPrompt";
@@ -227,7 +226,6 @@ const App = () => {
                   <PushPermissionPrompt />
                   <SecurityPrompt />
                   <DailyBriefingProvider />
-                  <HejjaToggle />
                 </InteractiveOnboardingProvider>
               </HejjaModeProvider>
             </AuthProvider>

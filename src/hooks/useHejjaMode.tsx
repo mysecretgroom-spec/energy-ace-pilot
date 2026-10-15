@@ -1,7 +1,12 @@
+import { useSaasAccess } from "@/hooks/useSaasAccess";
+import { setOfficialLogosEnabled } from "@/lib/officialLogos";
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 
 interface HejjaModeContextType {
   isActive: boolean;
+  /** Premium account (active subscription or beta) allowed to use HEJJA */
+  canUseHejja: boolean;
+  isAccessLoading: boolean;
   pshEnabled: boolean;
   prixEnabled: boolean;
   prixManuel: number | "";
@@ -20,6 +25,22 @@ export function HejjaModeProvider({ children }: { children: ReactNode }) {
   const [pshEnabled, setPshEnabled] = useState(true);
   const [prixEnabled, setPrixEnabled] = useState(false);
   const [prixManuel, setPrixManuel] = useState<number | "">("");
+  const { isActive: isSubscribed, isBetaTester, isLoading: isAccessLoading } = useSaasAccess();
+  const canUseHejja = isSubscribed || isBetaTester;
+
+  // Force-off when the account loses premium rights
+  useEffect(() => {
+    if (!isAccessLoading && !canUseHejja && isActive) {
+      setIsActive(false);
+      setPrixEnabled(false);
+      setPrixManuel("");
+    }
+  }, [isAccessLoading, canUseHejja, isActive]);
+
+  // Official logos on documents only when HEJJA is active on a premium account
+  useEffect(() => {
+    setOfficialLogosEnabled(isActive && canUseHejja);
+  }, [isActive, canUseHejja]);
 
   // Reset on page unload for security
   useEffect(() => {
@@ -31,8 +52,9 @@ export function HejjaModeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const activate = useCallback(() => {
+    if (!canUseHejja) return;
     setIsActive(true);
-  }, []);
+  }, [canUseHejja]);
 
   const deactivate = useCallback(() => {
     setIsActive(false);
@@ -52,7 +74,9 @@ export function HejjaModeProvider({ children }: { children: ReactNode }) {
   return (
     <HejjaModeContext.Provider
       value={{
-        isActive,
+        isActive: isActive && canUseHejja,
+        canUseHejja,
+        isAccessLoading,
         pshEnabled,
         prixEnabled,
         prixManuel,

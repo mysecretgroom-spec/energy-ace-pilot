@@ -5,13 +5,11 @@ import { useHejjaMode } from "@/hooks/useHejjaMode";
 import { useAuth } from "@/hooks/useAuth";
 import { PinDialog } from "@/components/auth/PinDialog";
 import { cn } from "@/lib/utils";
-import { useTrialFeatures } from "@/hooks/useTrialFeatures";
 import { useToast } from "@/hooks/use-toast";
 
 export function HejjaToggle() {
   const { user } = useAuth();
-  const { isActive, activate, deactivate } = useHejjaMode();
-  const { canAccess } = useTrialFeatures();
+  const { isActive, activate, deactivate, canUseHejja, isAccessLoading } = useHejjaMode();
   const { toast } = useToast();
   const location = useLocation();
   
@@ -48,11 +46,12 @@ export function HejjaToggle() {
       }, isOnEtudePage ? 0 : 500);
     } else {
       // Check if user has premium access for HEJJA
-      if (!canAccess("mode_hejja")) {
+      if (isAccessLoading) return;
+      if (!canUseHejja) {
         toast({
           variant: "destructive",
           title: "Fonctionnalité Premium",
-          description: "Le mode HEJJA est réservé aux abonnés. Abonnez-vous pour y accéder.",
+          description: "Le mode HEJJA est réservé aux abonnements Premium.",
         });
         return;
       }
@@ -327,6 +326,8 @@ export function HejjaToggle() {
         variant={isActive ? "default" : "ghost"}
         size="icon"
         onClick={handleClick}
+        disabled={isAccessLoading}
+        aria-label="Mode HEJJA"
         className={cn(
           "h-9 w-9 rounded-full transition-all active:scale-95",
           isActive 
