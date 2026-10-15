@@ -300,6 +300,7 @@ export function RdvStatusSelector({
               product_type: productType,
             },
           });
+          }
         } catch (venteError) {
           console.error("Error creating vente:", venteError);
           toast.error("Erreur lors de la création de la vente");
