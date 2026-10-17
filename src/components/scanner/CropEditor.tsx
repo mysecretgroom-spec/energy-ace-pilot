@@ -589,17 +589,17 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           <Label htmlFor="deskew" className="text-foreground text-xs">Redresser</Label>
         </div>
         <div className="flex items-center gap-2">
-          <Switch id="shadows" checked={shadowCorrection} onCheckedChange={setShadowCorrection} disabled={isEnhancing} />
+          <Switch id="shadows" checked={shadowCorrection} onCheckedChange={setShadowCorrection} disabled={isEnhancing || !!cropPreview} />
           <Label htmlFor="shadows" className="text-foreground text-xs">Ombres</Label>
         </div>
         <div className="flex items-center gap-2">
-          <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing} />
+          <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing || !!cropPreview} />
           <Label htmlFor="enhance" className="text-foreground text-xs flex items-center gap-1">
             <SunMedium className="h-3 w-3" /> Contraste
           </Label>
         </div>
         <div className="flex items-center gap-2">
-          <Switch id="bw" checked={blackAndWhite} onCheckedChange={setBlackAndWhite} disabled={isEnhancing} />
+          <Switch id="bw" checked={blackAndWhite} onCheckedChange={setBlackAndWhite} disabled={isEnhancing || !!cropPreview} />
           <Label htmlFor="bw" className="text-foreground text-xs flex items-center gap-1">
             <Contrast className="h-3 w-3" /> N&B
           </Label>
