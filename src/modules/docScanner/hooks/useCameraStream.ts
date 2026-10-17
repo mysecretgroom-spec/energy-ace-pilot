@@ -59,7 +59,7 @@ export function useCameraStream(): CameraStreamResult {
 
   const captureFrame = useCallback((): HTMLCanvasElement | null => {
     const video = videoRef.current;
-    if (!video || !isReady) return null;
+    if (!video || !isReady || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return null;
 
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;

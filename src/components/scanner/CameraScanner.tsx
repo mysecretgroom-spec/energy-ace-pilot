@@ -152,11 +152,11 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       streamRef.current = stream;
 
       // Check torch support
-        const track = stream.getVideoTracks()[0];
-      const caps = track.getCapabilities?.() as any;
+      const track = stream.getVideoTracks()[0];
+      const caps = track?.getCapabilities?.() as any;
       if (caps?.torch) setTorchSupported(true);
       // Continuous autofocus / exposure / white balance for documents
-      await applyDocumentFocus(track);
+      await applyDocumentFocus(track ?? null);
       if (request !== cameraRequestRef.current) return;
 
       if (videoRef.current) {
@@ -171,6 +171,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       }
     } catch (error: unknown) {
       if (request !== cameraRequestRef.current) return;
+      stopCamera();
       console.error("Camera error:", error);
       const err = error as { name?: string };
       setCameraState(err.name === "NotAllowedError" ? "denied" : "error");
@@ -200,7 +201,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     updateDimensions();
     window.addEventListener("resize", updateDimensions);
     return () => window.removeEventListener("resize", updateDimensions);
-  }, []);
+  }, [pendingScan, cameraState]);
 
   // Auto-enable torch in dark conditions
   useEffect(() => {
@@ -230,9 +231,9 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     }
   }, [torchOn]);
 
-  /** Capture frame, auto-crop if quad detected, store as page */
-  const performCapture = useCallback(async (quad?: DetectedQuad, review = false) => {
-    if (!videoRef.current || !canvasRef.current || isCapturing || captureCooldownRef.current) return;
+  /** Every capture is reviewed on the actual image before joining the PDF. */
+  const performCapture = useCallback(async (_quad?: DetectedQuad, _review = false) => {
+    if (!videoRef.current || !canvasRef.current || pendingScan || isCapturing || captureCooldownRef.current) return;
     
     // Cooldown to prevent burst captures
     captureCooldownRef.current = true;
@@ -259,38 +260,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const still = await captureStill(track, video, canvas);
     const rawImage = still.dataUrl;
     reset();
-    if (review) { setPendingScan(rawImage); return; }
-
-    // Auto-crop with perspective correction if quad detected and framing matches
-    let finalImage = rawImage;
-    if (quad && quad.confidence > 0.3 && still.matchesPreviewFraming) {
-      try {
-        const normalizedCorners = {
-          topLeft: { x: quad.topLeft.x / video.videoWidth, y: quad.topLeft.y / video.videoHeight },
-          topRight: { x: quad.topRight.x / video.videoWidth, y: quad.topRight.y / video.videoHeight },
-          bottomRight: { x: quad.bottomRight.x / video.videoWidth, y: quad.bottomRight.y / video.videoHeight },
-          bottomLeft: { x: quad.bottomLeft.x / video.videoWidth, y: quad.bottomLeft.y / video.videoHeight },
-        };
-        finalImage = await applyPerspectiveCorrectionLight(rawImage, normalizedCorners);
-      } catch (err) {
-        console.warn("Auto perspective correction failed, using raw image:", err);
-      }
-    }
-
-    const thumbnail = await generateThumbnail(finalImage);
-    const page: CapturedPage = {
-      id: crypto.randomUUID(),
-      imageData: finalImage,
-      thumbnailData: thumbnail,
-    };
-
-    setCapturedPages((prev) => [...prev, page]);
+    setPendingScan(rawImage);
     } catch (error) {
       console.error("Capture failed:", error);
       toast({ title: "Capture impossible", description: "Réessayez ou importez une photo", variant: "destructive" });
     } finally { setIsCapturing(false); }
     // Batch mode: stay on camera for next page
-  }, [isCapturing, reset]);
+  }, [isCapturing, pendingScan, reset]);
 
   const handleManualCapture = useCallback(() => {
     // Block capture if too blurry
@@ -317,10 +293,6 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const handleSwitchCamera = useCallback(() => {
     setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
   }, []);
-
-  useEffect(() => {
-    if (cameraState === "active") startCamera();
-  }, [facingMode]);
 
   const handleFileImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -616,7 +588,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/jpg,image/png,application/pdf"
+        accept="image/jpeg,image/jpg,image/png"
         onChange={handleFileImport}
         className="hidden"
       />
