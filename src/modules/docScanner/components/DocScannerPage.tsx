@@ -30,13 +30,11 @@ export default function DocScannerPage() {
   } | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showOCR, setShowOCR] = useState(false);
-  const [scanNet, setScanNet] = useState(false);
 
   const activePage = session.pages.find((p) => p.id === session.activePageId) || null;
 
   // Handle capture from camera
   const handleCapture = useCallback(async (canvas: HTMLCanvasElement, quad: Quad | null, enhance = false) => {
-    setScanNet(enhance);
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
     const blobUrl = URL.createObjectURL(blob);
 
@@ -60,7 +58,6 @@ export default function DocScannerPage() {
 
   // Handle import from file
   const handleImport = useCallback(async (file: File) => {
-    setScanNet(false);
     const { canvas, width, height } = await normalizeOrientation(file);
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
     const blobUrl = URL.createObjectURL(blob);
@@ -110,7 +107,7 @@ export default function DocScannerPage() {
     return (
       <CropEditor
         imageData={pendingImage.blobUrl}
-        initialEnhance={scanNet}
+        initialEnhance
         initialCorners={pendingImage.quad ? {
           topLeft: { x: pendingImage.quad.topLeft.x / pendingImage.size.w, y: pendingImage.quad.topLeft.y / pendingImage.size.h },
           topRight: { x: pendingImage.quad.topRight.x / pendingImage.size.w, y: pendingImage.quad.topRight.y / pendingImage.size.h },

@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [x] Scanner : redressement automatique, ombres et contraste activés par défaut ; 24 tests réussis et import incliné/ombragé, aperçu puis confirmation vérifiés connecté, sans erreur de rendu ; PDF d’étude et caméra iPhone physique non revérifiés
 - [x] Capture avant PDF : rejet des images caméra non décodées, cadrage redétecté sur la photo et confirmation obligatoire, suppression du double démarrage ; 18 tests réussis et deux pages confirmées avec caméra simulée, sans erreur de rendu
 - [ ] Capture iPhone réel avant PDF : bloquée sans accès à un appareil physique ; parcours étude/PDF réel et défauts optiques iPhone non vérifiés
 - [x] Scanner : détection multi-seuils de la page plutôt que du fond, coins accessibles et aperçu du résultat ; 8 tests réussis et import/Scan net/aperçu/confirmation vérifiés connectés sur la photo extraite de IMG_3131 ; image déjà compressée avec cadre incrusté, caméra iPhone non vérifiée

@@ -2,6 +2,8 @@
  * Image enhancement utilities for document scanning
  */
 
+import { documentContrast, estimateDocumentSkew, deskewBounds } from "./automaticCorrections";
+
 export interface EnhancementOptions {
   contrast?: number; // 0-200, default 100
   brightness?: number; // 0-200, default 100
@@ -47,25 +49,7 @@ export async function enhanceImage(
 
       // Auto contrast (stretch histogram)
       if (autoContrast) {
-        let min = 255;
-        let max = 0;
-
-        // Find min/max luminance
-        for (let i = 0; i < data.length; i += 4) {
-          const luminance = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          min = Math.min(min, luminance);
-          max = Math.max(max, luminance);
-        }
-
-        // Stretch contrast
-        const range = max - min;
-        if (range > 0) {
-          for (let i = 0; i < data.length; i += 4) {
-            data[i] = ((data[i] - min) / range) * 255;
-            data[i + 1] = ((data[i + 1] - min) / range) * 255;
-            data[i + 2] = ((data[i + 2] - min) / range) * 255;
-          }
-        }
+        data.set(documentContrast(data));
       }
 
       // Apply brightness and contrast
@@ -157,9 +141,9 @@ function applyConvolution(imageData: ImageData, kernel: number[]): ImageData {
 export async function enhanceForDocument(imageData: string): Promise<string> {
   return enhanceImage(imageData, {
     autoContrast: true,
-    contrast: 120,
-    brightness: 105,
-    sharpen: true,
+    contrast: 100,
+    brightness: 100,
+    sharpen: false,
   });
 }
 
@@ -266,7 +250,8 @@ export async function autoDeskew(imageData: string): Promise<string> {
 
       const canvas = document.createElement("canvas");
       canvas.width = sw; canvas.height = sh;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) { reject(new Error("Traitement indisponible")); return; }
       ctx.drawImage(img, 0, 0, sw, sh);
 
       const px = ctx.getImageData(0, 0, sw, sh).data;
@@ -277,27 +262,7 @@ export async function autoDeskew(imageData: string): Promise<string> {
         gray[i] = (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8;
       }
 
-      // Horizontal projection at various angles to find straightest
-      let bestAngle = 0, bestScore = 0;
-      for (let angle = -15; angle <= 15; angle += 0.5) {
-        const rad = angle * Math.PI / 180;
-        const cosA = Math.cos(rad), sinA = Math.sin(rad);
-        const hist = new Int32Array(sh);
-        for (let y = 0; y < sh; y++) {
-          for (let x = 0; x < sw; x++) {
-            if (gray[y * sw + x] < 128) { // dark pixel = text
-              const ny = Math.round(y * cosA - x * sinA + sw * sinA / 2);
-              if (ny >= 0 && ny < sh) hist[ny]++;
-            }
-          }
-        }
-        // Score = variance of histogram (straight text creates sharp peaks)
-        let sum = 0, sumSq = 0;
-        for (let i = 0; i < sh; i++) { sum += hist[i]; sumSq += hist[i] * hist[i]; }
-        const mean = sum / sh;
-        const variance = sumSq / sh - mean * mean;
-        if (variance > bestScore) { bestScore = variance; bestAngle = angle; }
-      }
+      const bestAngle = estimateDocumentSkew(gray, sw, sh);
 
       canvas.width = 0; canvas.height = 0;
 
@@ -309,9 +274,15 @@ export async function autoDeskew(imageData: string): Promise<string> {
 
       // Apply rotation to original image
       const outCanvas = document.createElement("canvas");
-      outCanvas.width = img.width; outCanvas.height = img.height;
-      const outCtx = outCanvas.getContext("2d")!;
-      outCtx.translate(img.width / 2, img.height / 2);
+      const bounds = deskewBounds(img.width, img.height, bestAngle);
+      outCanvas.width = bounds.width; outCanvas.height = bounds.height;
+      const outCtx = outCanvas.getContext("2d");
+      if (!outCtx) { reject(new Error("Traitement indisponible")); return; }
+      // Paper-colored margins, not transparent black; retain every source corner.
+      const paperIndex = (Math.min(sh - 1, 2) * sw + Math.min(sw - 1, 2)) * 4;
+      outCtx.fillStyle = `rgb(${px[paperIndex]}, ${px[paperIndex + 1]}, ${px[paperIndex + 2]})`;
+      outCtx.fillRect(0, 0, bounds.width, bounds.height);
+      outCtx.translate(bounds.width / 2, bounds.height / 2);
       outCtx.rotate(-bestAngle * Math.PI / 180);
       outCtx.drawImage(img, -img.width / 2, -img.height / 2);
       const result = outCanvas.toDataURL("image/jpeg", 0.92);

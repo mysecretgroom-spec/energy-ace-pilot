@@ -3,6 +3,7 @@
 - Scanner shadow correction uses shared bounded pixel illumination correction, not generative image rewriting; crop geometry is normalized and rotated with the displayed image to preserve document fidelity.
 - Scanner page proposals use paper/background contrast rather than area as confidence; supplied crop corners are preserved until explicit redetection, and final scan previews use the same crop/filter pipeline as confirmation.
 - Camera scans must be reviewed on the captured image before being added to the study; reject video frames without decoded pixels and never infer sensor-photo framing solely from aspect ratio, to prevent blank pages and destructive preview crops.
+- Automatic scan deskew runs after perspective and illumination correction, rejects uncertain text angles and expands the output bounds to preserve document corners; contrast uses bounded histogram correction rather than fixed boosts to avoid erasing annotations.
 - Shared PageState views distinguish loading and request failures; AppErrorBoundary catches render/import failures and offers explicit recovery without automatic reload loops.
 - Access-check errors and timeouts show recovery rather than bypassing account checks; entitlement query failures must propagate to the route guard.
 
