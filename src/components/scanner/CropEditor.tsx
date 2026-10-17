@@ -2,10 +2,12 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast, SplitSquareHorizontal } from "lucide-react";
+import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast, SplitSquareHorizontal, ScanLine, Eye } from "lucide-react";
 import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
+import { correctDocumentShadows, rotateCorners, validScanCorners, type ScanCorners } from "./services/scanQuality";
+import { toast } from "sonner";
 import { detectFoldLines, type DetectedFolds } from "./services/foldDetection";
 
 // ---- Types ----
@@ -23,6 +25,7 @@ interface CropEditorProps {
   onCancel: () => void;
   onSplitPages?: (pages: Array<{ croppedImage: string; thumbnail: string }>) => void;
   initialCorners?: NormalizedCorners;
+  initialEnhance?: boolean;
 }
 
 interface Point { x: number; y: number }
@@ -44,9 +47,9 @@ const MIDPOINT_W = 24;
 const MIDPOINT_H = 8;
 const MIDPOINT_ROUNDING = 4;
 
-const ACCENT = "#2dd4bf"; // teal-400
-const ACCENT_GLOW = "rgba(45,212,191,0.35)";
-const ACCENT_FILL = "rgba(45,212,191,0.15)"; // CamScanner highlight
+const ACCENT = "hsl(var(--primary))"; // teal-400
+const ACCENT_GLOW = "hsl(var(--primary) / 0.35)";
+const ACCENT_FILL = "hsl(var(--primary) / 0.08)"; // CamScanner highlight
 const BORDER_WIDTH = 2.5;
 
 // ---- Image utilities ----
@@ -89,30 +92,9 @@ function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string>
   });
 }
 
-function basicCrop(
-  img: HTMLImageElement,
-  points: { topLeft: Point; topRight: Point; bottomRight: Point; bottomLeft: Point },
-  rotation: number
-): { cropped: string; thumbnail: string } {
-  const minX = Math.min(points.topLeft.x, points.bottomLeft.x);
-  const maxX = Math.max(points.topRight.x, points.bottomRight.x);
-  const minY = Math.min(points.topLeft.y, points.topRight.y);
-  const maxY = Math.max(points.bottomLeft.y, points.bottomRight.y);
-  const w = maxX - minX; const h = maxY - minY;
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  canvas.getContext("2d")!.drawImage(img, minX, minY, w, h, 0, 0, w, h);
-  const cropped = canvas.toDataURL("image/jpeg", 0.92);
-  const tw = 200; const th = (h / w) * tw;
-  const tc = document.createElement("canvas");
-  tc.width = tw; tc.height = th;
-  tc.getContext("2d")!.drawImage(canvas, 0, 0, tw, th);
-  return { cropped, thumbnail: tc.toDataURL("image/jpeg", 0.7) };
-}
-
 // ---- Component ----
 
-export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners }: CropEditorProps) {
+export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners, initialEnhance = false }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -133,7 +115,18 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const [isSplitting, setIsSplitting] = useState(false);
   const [detectedFolds, setDetectedFolds] = useState<DetectedFolds | null>(null);
 
-  const detectedEdgesRef = useRef<any>(null);
+  const [detectedEdges, setDetectedEdges] = useState<ScanCorners | null>(null);
+  const [shadowCorrection, setShadowCorrection] = useState(initialEnhance);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [layoutVersion, setLayoutVersion] = useState(0);
+  const manualCornersRef = useRef<ScanCorners | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(() => setLayoutVersion(v => v + 1));
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Load image + auto-detect
   useEffect(() => {
@@ -147,7 +140,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       try {
         const edges = await detectDocumentEdgesLight(imageData);
         if (!cancelled && edges && edges.confidence > 0.25) {
-          detectedEdgesRef.current = edges;
+          setDetectedEdges(edges);
         }
       } catch (err) {
         console.warn("Edge detection failed, using default crop:", err);
@@ -165,21 +158,26 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     return () => { cancelled = true; };
   }, [imageData]);
 
-  // Enhancements
+  // Cancellation prevents an older preview from overwriting a newer selection.
   useEffect(() => {
-    if (!imageData) return;
-    if (!autoEnhance && !blackAndWhite) { setEnhancedImage(null); return; }
+    let cancelled = false;
+    if (!autoEnhance && !blackAndWhite && !shadowCorrection) {
+      setEnhancedImage(null); setIsEnhancing(false); return;
+    }
     setIsEnhancing(true);
     (async () => {
       try {
         let result = imageData;
+        if (shadowCorrection) result = await correctDocumentShadows(result);
         if (autoEnhance) result = await enhanceForDocument(result);
         if (blackAndWhite) result = await convertToBlackAndWhite(result);
-        setEnhancedImage(result);
-      } catch (err) { console.error("Enhancement failed:", err); }
-      finally { setIsEnhancing(false); }
+        if (!cancelled) setEnhancedImage(result);
+      } catch (err) {
+        if (!cancelled) { setEnhancedImage(null); toast.error("Correction impossible, original conservé"); }
+      } finally { if (!cancelled) setIsEnhancing(false); }
     })();
-  }, [imageData, autoEnhance, blackAndWhite]);
+    return () => { cancelled = true; };
+  }, [imageData, autoEnhance, blackAndWhite, shadowCorrection]);
 
   // Calculate display size + initial crop points
   useEffect(() => {
@@ -199,51 +197,42 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     const oy = (ch - dh) / 2;
     setDisplaySize({ width: dw, height: dh, offsetX: ox, offsetY: oy });
 
-    const edges = detectedEdgesRef.current;
-    if (initialCorners) {
-      setCropPoints({
-        topLeft: { x: ox + initialCorners.topLeft.x * dw, y: oy + initialCorners.topLeft.y * dh },
-        topRight: { x: ox + initialCorners.topRight.x * dw, y: oy + initialCorners.topRight.y * dh },
-        bottomRight: { x: ox + initialCorners.bottomRight.x * dw, y: oy + initialCorners.bottomRight.y * dh },
-        bottomLeft: { x: ox + initialCorners.bottomLeft.x * dw, y: oy + initialCorners.bottomLeft.y * dh },
-      });
-    } else if (edges) {
-      setCropPoints({
-        topLeft: { x: ox + edges.topLeft.x * dw, y: oy + edges.topLeft.y * dh },
-        topRight: { x: ox + edges.topRight.x * dw, y: oy + edges.topRight.y * dh },
-        bottomRight: { x: ox + edges.bottomRight.x * dw, y: oy + edges.bottomRight.y * dh },
-        bottomLeft: { x: ox + edges.bottomLeft.x * dw, y: oy + edges.bottomLeft.y * dh },
-      });
-    } else {
-      const m = 0.02; // 2% margin — near full-image frame
-      setCropPoints({
-        topLeft: { x: ox + dw * m, y: oy + dh * m },
-        topRight: { x: ox + dw * (1 - m), y: oy + dh * m },
-        bottomRight: { x: ox + dw * (1 - m), y: oy + dh * (1 - m) },
-        bottomLeft: { x: ox + dw * m, y: oy + dh * (1 - m) },
-      });
-    }
-  }, [imageSize, rotation]);
+    const edges = manualCornersRef.current || rotateCorners(initialCorners || detectedEdges || {
+      topLeft: {x:0,y:0}, topRight:{x:1,y:0}, bottomRight:{x:1,y:1}, bottomLeft:{x:0,y:1},
+    }, rotation);
+    setCropPoints({
+      topLeft: { x: ox + edges.topLeft.x * dw, y: oy + edges.topLeft.y * dh },
+      topRight: { x: ox + edges.topRight.x * dw, y: oy + edges.topRight.y * dh },
+      bottomRight: { x: ox + edges.bottomRight.x * dw, y: oy + edges.bottomRight.y * dh },
+      bottomLeft: { x: ox + edges.bottomLeft.x * dw, y: oy + edges.bottomLeft.y * dh },
+    });
+  }, [imageSize, rotation, detectedEdges, initialCorners, layoutVersion]);
+
+  const currentCorners = useCallback((): ScanCorners | null => {
+    if (!cropPoints || !displaySize.width || !displaySize.height) return null;
+    const point = (p: Point) => ({ x: (p.x - displaySize.offsetX) / displaySize.width,
+      y: (p.y - displaySize.offsetY) / displaySize.height });
+    return { topLeft: point(cropPoints.topLeft), topRight: point(cropPoints.topRight),
+      bottomRight: point(cropPoints.bottomRight), bottomLeft: point(cropPoints.bottomLeft) };
+  }, [cropPoints, displaySize]);
 
   const handleRotate = useCallback(() => {
-    setRotation((prev) => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
-  }, []);
+    const corners = currentCorners();
+    manualCornersRef.current = corners ? rotateCorners(corners, 90) : null;
+    setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
+  }, [currentCorners]);
 
   const handleAutoDetect = useCallback(async () => {
     setIsDetecting(true);
     try {
       const edges = await detectDocumentEdgesLight(imageData);
-      if (edges && edges.confidence > 0.25) {
-        setCropPoints({
-          topLeft: { x: displaySize.offsetX + edges.topLeft.x * displaySize.width, y: displaySize.offsetY + edges.topLeft.y * displaySize.height },
-          topRight: { x: displaySize.offsetX + edges.topRight.x * displaySize.width, y: displaySize.offsetY + edges.topRight.y * displaySize.height },
-          bottomRight: { x: displaySize.offsetX + edges.bottomRight.x * displaySize.width, y: displaySize.offsetY + edges.bottomRight.y * displaySize.height },
-          bottomLeft: { x: displaySize.offsetX + edges.bottomLeft.x * displaySize.width, y: displaySize.offsetY + edges.bottomLeft.y * displaySize.height },
-        });
-      }
-    } catch (err) { console.error("Auto-detect failed:", err); }
+      if (edges && edges.confidence > 0.25 && validScanCorners(edges)) {
+        manualCornersRef.current = null;
+        setDetectedEdges({ ...edges });
+      } else toast.info("Contours incertains : ajustez les quatre coins");
+    } catch { toast.error("Détection impossible : ajustez les quatre coins"); }
     finally { setIsDetecting(false); }
-  }, [imageData, displaySize]);
+  }, [imageData]);
 
   // ---- Pointer handling: corners + edge midpoints ----
 
@@ -327,44 +316,36 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   );
 
   const handlePointerUp = useCallback(() => {
+    manualCornersRef.current = currentCorners();
     setActiveHandle(null);
     setDragStart(null);
     setDragStartPoints(null);
-  }, []);
+  }, [currentCorners]);
 
   // ---- Crop processing ----
 
   const generateCroppedImage = useCallback(async (): Promise<{ cropped: string; thumbnail: string } | null> => {
     if (!imageRef.current || !cropPoints) return null;
-    const sourceImage = enhancedImage || imageData;
-    const scaleX = imageSize.width / displaySize.width;
-    const scaleY = imageSize.height / displaySize.height;
-    const toImg = (p: Point) => ({
-      x: (p.x - displaySize.offsetX) * scaleX,
-      y: (p.y - displaySize.offsetY) * scaleY,
-    });
-    const imgPoints = {
-      topLeft: toImg(cropPoints.topLeft),
-      topRight: toImg(cropPoints.topRight),
-      bottomRight: toImg(cropPoints.bottomRight),
-      bottomLeft: toImg(cropPoints.bottomLeft),
-    };
+    const displayed = currentCorners();
+    if (!displayed || !validScanCorners(displayed)) {
+      toast.error("Les quatre coins doivent former un cadre sans se croiser");
+      return null;
+    }
     try {
-      const normalized = {
-        topLeft: { x: imgPoints.topLeft.x / imageSize.width, y: imgPoints.topLeft.y / imageSize.height },
-        topRight: { x: imgPoints.topRight.x / imageSize.width, y: imgPoints.topRight.y / imageSize.height },
-        bottomRight: { x: imgPoints.bottomRight.x / imageSize.width, y: imgPoints.bottomRight.y / imageSize.height },
-        bottomLeft: { x: imgPoints.bottomLeft.x / imageSize.width, y: imgPoints.bottomLeft.y / imageSize.height },
-      };
-      let finalImage = await applyPerspectiveCorrectionLight(sourceImage, normalized);
+      const normalized = rotateCorners(displayed, (360 - rotation) % 360);
+      let finalImage = await applyPerspectiveCorrectionLight(imageData, normalized);
       if (rotation !== 0) finalImage = await rotateImage(finalImage, rotation);
+      if (shadowCorrection) finalImage = await correctDocumentShadows(finalImage);
+      if (autoEnhance) finalImage = await enhanceForDocument(finalImage);
+      if (blackAndWhite) finalImage = await convertToBlackAndWhite(finalImage);
       const thumbnail = await generateThumbnail(finalImage, 200);
       return { cropped: finalImage, thumbnail };
     } catch (err) {
       console.error("Perspective correction failed:", err);
-      return basicCrop(imageRef.current, imgPoints, rotation);
+      toast.error("Recadrage impossible, original conservé : réessayez");
+      return null;
     }
-  }, [cropPoints, imageSize, displaySize, rotation, enhancedImage, imageData]);
+  }, [cropPoints, currentCorners, rotation, imageData, shadowCorrection, autoEnhance, blackAndWhite]);
 
   const handleComplete = useCallback(async () => {
     setIsProcessingCrop(true);
@@ -399,7 +380,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         },
       };
 
-      const folds = await detectFoldLines(imageData, normalizedCrop);
+      const folds = await detectFoldLines(imageData, rotateCorners(normalizedCrop, (360 - rotation) % 360));
       if (folds && folds.subQuads.length > 1 && onSplitPages) {
         setDetectedFolds(folds);
         // Process each sub-quad into a separate page
@@ -465,7 +446,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           {/* Glow */}
           <circle cx={c} cy={c} r={CORNER_RADIUS + 3} fill={ACCENT_GLOW} />
           {/* White ring */}
-          <circle cx={c} cy={c} r={CORNER_RADIUS} fill="white" />
+          <circle cx={c} cy={c} r={CORNER_RADIUS} fill="hsl(var(--primary-foreground))" />
           {/* Teal center */}
           <circle cx={c} cy={c} r={CORNER_RADIUS - 2.5} fill={ACCENT} />
         </svg>
@@ -513,7 +494,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
             height: h,
             borderRadius: MIDPOINT_ROUNDING,
             backgroundColor: ACCENT,
-            border: "2px solid white",
+            border: "2px solid hsl(var(--primary-foreground))",
             boxShadow: `0 0 8px ${ACCENT_GLOW}`,
           }}
         />
@@ -542,7 +523,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           </filter>
         </defs>
         {/* Dark overlay outside crop area */}
-        <rect width="100%" height="100%" fill="rgba(0,0,0,0.55)" mask="url(#cropMask)" />
+        <rect width="100%" height="100%" fill="hsl(var(--foreground) / 0.55)" mask="url(#cropMask)" />
         {/* Teal highlight inside crop area */}
         <path d={path} fill={ACCENT_FILL} />
         {/* Soft glow border */}
@@ -553,46 +534,59 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     );
   };
 
-  const displayImageSrc = enhancedImage || imageData;
+  const displayImageSrc = showOriginal ? imageData : enhancedImage || imageData;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-black/80">
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={onCancel}>
+      <div className="flex items-center justify-between p-4 bg-card">
+        <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent" onClick={onCancel}>
           <X className="h-6 w-6" />
         </Button>
-        <span className="text-white font-medium">
+        <span className="text-foreground font-medium">
           {isDetecting ? "Détection..." : "Rogner"}
         </span>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleRotate}>
+        <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent" onClick={handleRotate}>
           <RotateCw className="h-5 w-5" />
         </Button>
       </div>
 
+      <div className="flex items-center justify-center gap-2 px-4 py-2 border-b bg-card">
+        <Button size="sm" onClick={() => { setShadowCorrection(true); setShowOriginal(false); handleAutoDetect(); }}
+          disabled={isDetecting || isEnhancing || isProcessingCrop}>
+          <ScanLine className="h-4 w-4 mr-2" />Scan net
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowOriginal(v => !v)} disabled={!enhancedImage}>
+          <Eye className="h-4 w-4 mr-2" />{showOriginal ? "Voir le résultat" : "Voir l’original"}
+        </Button>
+      </div>
       {/* Enhancement controls */}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-black/60 flex-wrap">
-        <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 gap-2"
+      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-muted flex-wrap">
+        <Button variant="ghost" size="sm" className="text-foreground hover:bg-accent gap-2"
           onClick={handleAutoDetect} disabled={isDetecting}>
           {isDetecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Auto
         </Button>
         {onSplitPages && (
-          <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 gap-2"
+          <Button variant="ghost" size="sm" className="text-foreground hover:bg-accent gap-2"
             onClick={handleDetectFolds} disabled={isSplitting}>
             {isSplitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <SplitSquareHorizontal className="h-4 w-4" />}
             Séparer
           </Button>
         )}
         <div className="flex items-center gap-2">
+          <Switch id="shadows" checked={shadowCorrection} onCheckedChange={setShadowCorrection} disabled={isEnhancing} />
+          <Label htmlFor="shadows" className="text-foreground text-xs">Ombres</Label>
+        </div>
+        <div className="flex items-center gap-2">
           <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing} />
-          <Label htmlFor="enhance" className="text-white text-xs flex items-center gap-1">
+          <Label htmlFor="enhance" className="text-foreground text-xs flex items-center gap-1">
             <SunMedium className="h-3 w-3" /> Améliorer
           </Label>
         </div>
         <div className="flex items-center gap-2">
           <Switch id="bw" checked={blackAndWhite} onCheckedChange={setBlackAndWhite} disabled={isEnhancing} />
-          <Label htmlFor="bw" className="text-white text-xs flex items-center gap-1">
+          <Label htmlFor="bw" className="text-foreground text-xs flex items-center gap-1">
             <Contrast className="h-3 w-3" /> N&B
           </Label>
         </div>
@@ -607,8 +601,8 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         onPointerCancel={handlePointerUp}
       >
         {(isDetecting || isEnhancing) && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
-            <Loader2 className="h-8 w-8 text-white animate-spin" />
+          <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-20">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
           </div>
         )}
 
@@ -618,10 +612,10 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
             alt="Document"
             className="absolute"
             style={{
-              width: displaySize.width,
-              height: displaySize.height,
-              left: displaySize.offsetX,
-              top: displaySize.offsetY,
+              width: rotation === 90 || rotation === 270 ? displaySize.height : displaySize.width,
+              height: rotation === 90 || rotation === 270 ? displaySize.width : displaySize.height,
+              left: displaySize.offsetX + (displaySize.width - (rotation === 90 || rotation === 270 ? displaySize.height : displaySize.width)) / 2,
+              top: displaySize.offsetY + (displaySize.height - (rotation === 90 || rotation === 270 ? displaySize.width : displaySize.height)) / 2,
               transform: `rotate(${rotation}deg)`,
               transformOrigin: "center center",
             }}
@@ -641,12 +635,11 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-center p-4 pb-20 bg-black/80">
+      <div className="flex items-center justify-center p-4 pb-20 bg-card">
         <Button
           onClick={handleComplete}
-          disabled={isProcessingCrop}
+          disabled={isProcessingCrop || isEnhancing || isDetecting || !cropPoints}
           className="rounded-lg px-8 py-3"
-          style={{ backgroundColor: ACCENT, color: "#000" }}
         >
           {isProcessingCrop ? (
             <Loader2 className="h-5 w-5 mr-2 animate-spin" />
