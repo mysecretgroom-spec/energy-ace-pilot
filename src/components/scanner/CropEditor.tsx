@@ -212,8 +212,9 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
 
   const currentCorners = useCallback((): ScanCorners | null => {
     if (!cropPoints || !displaySize.width || !displaySize.height) return null;
-    const point = (p: Point) => ({ x: (p.x - displaySize.offsetX) / displaySize.width,
-      y: (p.y - displaySize.offsetY) / displaySize.height });
+    const unit = (value: number) => Math.max(0, Math.min(1, value));
+    const point = (p: Point) => ({ x: unit((p.x - displaySize.offsetX) / displaySize.width),
+      y: unit((p.y - displaySize.offsetY) / displaySize.height) });
     return { topLeft: point(cropPoints.topLeft), topRight: point(cropPoints.topRight),
       bottomRight: point(cropPoints.bottomRight), bottomLeft: point(cropPoints.bottomLeft) };
   }, [cropPoints, displaySize]);
