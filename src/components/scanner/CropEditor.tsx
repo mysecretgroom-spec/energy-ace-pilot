@@ -652,7 +652,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
 
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-center gap-3 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-card">
-        <Button variant="outline" disabled={isDetecting || isEnhancing || isProcessingCrop} onClick={async () => {
+        <Button variant="outline" disabled={isDetecting || isEnhancing || isProcessingCrop || !cropPoints} onClick={async () => {
           if (cropPreview) { setCropPreview(null); return; }
           setIsProcessingCrop(true);
           try { const result = await generateCroppedImage(); if (result) { setCropPreview(result.cropped); setShowOriginal(false); } }
