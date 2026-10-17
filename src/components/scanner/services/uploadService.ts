@@ -72,6 +72,16 @@ async function verifyUploadedObject(
   let lastErr: string | null = null;
   for (let i = 0; i < 3; i++) {
     try {
+      // Client documents are public; verify the bytes without bucket listing,
+      // which can require unrelated administrative permissions.
+      if (bucket === "documents") {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        const response = await fetch(data.publicUrl);
+        if (!response.ok) throw new Error("Document envoyé mais inaccessible");
+        const size = (await response.arrayBuffer()).byteLength;
+        if (size > 0 && size >= expectedSize * 0.9) return;
+        throw new Error("Document envoyé incomplet");
+      }
       const dir = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
       const name = filePath.includes("/") ? filePath.slice(filePath.lastIndexOf("/") + 1) : filePath;
       const { data, error } = await supabase.storage
