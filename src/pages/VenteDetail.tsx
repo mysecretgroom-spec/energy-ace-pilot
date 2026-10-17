@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { PageError, PageLoading } from "@/components/common/PageState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,7 @@ const VenteDetail = () => {
   
   const { downloadOrShare: downloadOrSharePdf, loading: pdfDownloadLoading } = useEtudePdfDownload();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [vente, setVente] = useState<Vente | null>(null);
   const [client, setClient] = useState<Client | null>(null);
@@ -240,6 +242,8 @@ const VenteDetail = () => {
     if (!id) return;
     
     setLoading(true);
+    setLoadError(null);
+    try {
     
     const { data: venteData, error } = await supabase
       .from("ventes")
@@ -247,9 +251,10 @@ const VenteDetail = () => {
       .eq("id", id)
       .maybeSingle();
 
-    if (error || !venteData) {
-      toast.error("Vente non trouvée");
-      navigate(-1);
+    if (error) throw error;
+    if (!venteData) {
+      setVente(null);
+      setLoadError("Cette vente est introuvable ou vous n’avez plus accès à son dossier.");
       return;
     }
 
@@ -260,11 +265,12 @@ const VenteDetail = () => {
 
     // Fetch regie info
     if (venteData.regie_id) {
-      const { data: regieData } = await supabase
+      const { data: regieData, error: regieError } = await supabase
         .from("regies")
         .select("id, nom, couleur")
         .eq("id", venteData.regie_id)
         .maybeSingle();
+      if (regieError) throw regieError;
       if (regieData) {
         setRegieNom(regieData.nom);
         setRegieCouleur(regieData.couleur);
@@ -308,12 +314,13 @@ const VenteDetail = () => {
 
     // Load client info
     if (venteData.client_id) {
-      const { data: clientData } = await supabase
+      const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .select("id, nom, prenom, telephone, email")
         .eq("id", venteData.client_id)
         .maybeSingle();
       
+      if (clientError) throw clientError;
       if (clientData) {
         setClient(clientData);
       }
@@ -345,7 +352,12 @@ const VenteDetail = () => {
       gamme: newGamme,
     });
 
-    setLoading(false);
+    } catch (error) {
+      console.error("[VenteDetail] Loading failed", error);
+      setLoadError("La vente n’a pas pu être chargée. Vérifiez votre connexion et réessayez.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculateSignatureDate = async (venteData: Vente): Promise<string> => {
@@ -467,19 +479,15 @@ const VenteDetail = () => {
   if (loading) {
     return (
       <MobileLayout title="Détail vente" showBackButton>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <PageLoading />
       </MobileLayout>
     );
   }
 
-  if (!vente) {
+  if (loadError || !vente) {
     return (
       <MobileLayout title="Détail vente" showBackButton>
-        <div className="p-4 text-center text-muted-foreground">
-          Vente non trouvée
-        </div>
+        <PageError message={loadError ?? "Vente introuvable."} onRetry={() => void loadVente()} onBack={() => navigate("/crm")} />
       </MobileLayout>
     );
   }

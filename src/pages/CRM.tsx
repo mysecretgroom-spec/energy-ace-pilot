@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { PageError } from "@/components/common/PageState";
 import { BlurOverlay } from "@/components/layout/BlurOverlay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -121,6 +122,7 @@ const CRM = () => {
   // Clients state
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsError, setClientsError] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
   const [clientCategoryFilters, setClientCategoryFilters] = useState<string[]>([]);
   
@@ -132,6 +134,7 @@ const CRM = () => {
   const [ventes, setVentes] = useState<Vente[]>([]);
   const [etudes, setEtudes] = useState<Etude[]>([]);
   const [ventesLoading, setVentesLoading] = useState(true);
+  const [ventesError, setVentesError] = useState(false);
   const [statusFilters, setStatusFilters] = useState<VenteStatus[]>([]);
   const [typeFilter, setTypeFilter] = useState<"all" | VenteType>("all");
   const [regieFilters, setRegieFilters] = useState<string[]>([]);
@@ -227,6 +230,8 @@ const CRM = () => {
   const fetchClients = async () => {
     if (!user) return;
     setClientsLoading(true);
+    setClientsError(false);
+    try {
     
     // Fetch all clients, RDV statuses, and vente statuses for categorization
     const [clientsRes, rdvRes, ventesRes] = await Promise.all([
@@ -245,10 +250,8 @@ const CRM = () => {
         .eq("user_id", user.id)
     ]);
     
-    if (clientsRes.error) {
-      console.error("Error fetching clients:", clientsRes.error);
-      setClientsLoading(false);
-      return;
+    for (const result of [clientsRes, rdvRes, ventesRes]) {
+      if (result.error) throw result.error;
     }
     
     // Build client -> rdv statuses mapping
@@ -285,12 +288,18 @@ const CRM = () => {
     }
     
     setClients(clientsToShow);
-    setClientsLoading(false);
+    } catch (error) {
+      console.error("[CRM] Clients loading failed", error);
+      setClientsError(true);
+    } finally {
+      setClientsLoading(false);
+    }
   };
 
   const fetchVentes = async () => {
     if (!user) return;
     setVentesLoading(true);
+    setVentesError(false);
 
     try {
       const [ventesRes, etudesRes] = await Promise.all([
@@ -306,11 +315,13 @@ const CRM = () => {
           .order("created_at", { ascending: false })
       ]);
 
+      if (ventesRes.error) throw ventesRes.error;
+      if (etudesRes.error) throw etudesRes.error;
       setVentes((ventesRes.data || []) as Vente[]);
       setEtudes(etudesRes.data || []);
     } catch (error) {
       console.error("Erreur chargement ventes:", error);
-      toast.error("Erreur lors du chargement");
+      setVentesError(true);
     } finally {
       setVentesLoading(false);
     }
@@ -718,6 +729,8 @@ const CRM = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
+            ) : clientsError ? (
+              <PageError onRetry={() => void fetchClients()} />
             ) : filteredClients.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
@@ -1235,7 +1248,7 @@ const CRM = () => {
             </div>
 
             {/* Ventes list */}
-            <VentesGroupedList
+            {ventesError ? <PageError onRetry={() => void fetchVentes()} /> : <VentesGroupedList
               ventes={filteredVentes}
               regies={regies}
               selectedVenteIds={selectedVenteIds}
@@ -1254,7 +1267,7 @@ const CRM = () => {
               getCommission={getCommission}
               onRefresh={fetchVentes}
               isLoading={ventesLoading}
-            />
+            />}
           </TabsContent>
 
           {/* Pipeline Tab */}
@@ -1281,7 +1294,7 @@ const CRM = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <PipelineKanban ventes={filteredVentes} onRefresh={fetchVentes} />
+              ventesError ? <PageError onRetry={() => void fetchVentes()} /> : <PipelineKanban ventes={filteredVentes} onRefresh={fetchVentes} />
             )}
           </TabsContent>
         </Tabs>

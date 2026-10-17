@@ -27,7 +27,7 @@ interface SaasSubscription {
 export function useSaasAccess() {
   const { user } = useAuth();
 
-  const { data: accessState, isLoading: isLoadingAccess } = useQuery({
+  const { data: accessState, isLoading: isLoadingAccess, error: accessError, refetch: refetchAccess } = useQuery({
     queryKey: ["saas-access-state", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -38,7 +38,7 @@ export function useSaasAccess() {
 
       if (error) {
         console.error("Error fetching access state:", error);
-        return null;
+        throw error;
       }
 
       return (data?.[0] as SaasAccessState | null | undefined) ?? null;
@@ -48,7 +48,7 @@ export function useSaasAccess() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: subscription, isLoading: isLoadingSubscription } = useQuery({
+  const { data: subscription, isLoading: isLoadingSubscription, error: subscriptionError, refetch: refetchSubscription } = useQuery({
     queryKey: ["saas-subscription", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -59,7 +59,7 @@ export function useSaasAccess() {
 
       if (error) {
         console.error("Error fetching subscription:", error);
-        return null;
+        throw error;
       }
 
       return (data?.[0] as SaasSubscription | null | undefined) ?? null;
@@ -70,17 +70,20 @@ export function useSaasAccess() {
   });
 
   const env = getPaddleEnvironment();
-  const { data: billing, isLoading: isLoadingBilling } = useQuery({
+  const { data: billing, isLoading: isLoadingBilling, error: billingError, refetch: refetchBilling } = useQuery({
     queryKey: ["billing", user?.id, env],
     enabled: !!user?.id,
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const [{ data: plan }, { data: sub }] = await Promise.all([
-        supabase.rpc("get_user_plan" as any, { p_user_id: user!.id, p_env: env }),
+      if (!user?.id) return null;
+      const [{ data: plan, error: planError }, { data: sub, error: subError }] = await Promise.all([
+        supabase.rpc("get_user_plan" as any, { p_user_id: user.id, p_env: env }),
         supabase.from("subscriptions" as any).select("*")
-          .eq("user_id", user!.id).eq("environment", env)
+          .eq("user_id", user.id).eq("environment", env)
           .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
+      if (planError) throw planError;
+      if (subError) throw subError;
       return { plan: (plan as PlanTier | null) ?? null, paidSubscription: (sub as any) ?? null };
     },
   });
@@ -103,6 +106,8 @@ export function useSaasAccess() {
     accessState,
     subscription,
     isLoading: isLoadingAccess || isLoadingSubscription || isLoadingBilling,
+    error: accessError || subscriptionError || billingError,
+    retry: () => Promise.all([refetchAccess(), refetchSubscription(), refetchBilling()]),
     /** Current paid tier ('premium' also for beta testers / manually activated accounts) */
     plan: billing?.plan ?? null,
     isPremium: billing?.plan === "premium",
