@@ -12,7 +12,8 @@ import { SecurityPrompt } from "@/components/notifications/SecurityPrompt";
 import { DailyBriefingProvider } from "@/components/notifications/DailyBriefingProvider";
 import React, { Suspense, useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
-import { Loader2 } from "lucide-react";
+import { PageLoading } from "@/components/common/PageState";
+import { AppErrorBoundary } from "@/components/common/AppErrorBoundary";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 
@@ -118,11 +119,7 @@ const queryClient = new QueryClient({
 });
 
 // Suspense fallback
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-  </div>
-);
+const PageLoader = () => <PageLoading fullScreen />;
 
 const App = () => {
   usePWAUpdate();
@@ -135,6 +132,7 @@ const App = () => {
 
   return (
     <React.StrictMode>
+      <AppErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           
@@ -234,6 +232,7 @@ const App = () => {
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
+      </AppErrorBoundary>
     </React.StrictMode>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, Suspense, Component, ErrorInfo, ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
+import { PageError, PageLoading } from "@/components/common/PageState";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ class ClientDetailErrorBoundary extends Component<{ children: ReactNode }, { has
             <AlertTriangle className="h-12 w-12 text-destructive" />
             <h2 className="text-lg font-semibold">Erreur d'affichage</h2>
             <p className="text-sm text-muted-foreground">
-              {this.state.error?.message || "Une erreur inattendue s'est produite"}
+              Une erreur inattendue s’est produite. Revenez au CRM pour rouvrir le dossier.
             </p>
             <Button onClick={() => window.location.href = "/crm"}>
               Retour au CRM
@@ -240,6 +241,7 @@ const ClientDetailInner = () => {
   const [ventes, setVentes] = useState<ClientVente[]>([]);
   const [ventesRegies, setVentesRegies] = useState<ClientRegie2[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("info");
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showLiveScanner, setShowLiveScanner] = useState(false);
@@ -277,6 +279,8 @@ const ClientDetailInner = () => {
     if (!id) return;
 
     setLoading(true);
+    setLoadError(null);
+    try {
 
     // Fetch client first (needed for regie_id)
     const { data: clientData, error: clientError } = await supabase
@@ -285,13 +289,10 @@ const ClientDetailInner = () => {
       .eq("id", id)
       .maybeSingle();
 
-    if (clientError || !clientData) {
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "Client introuvable",
-      });
-      navigate(-1);
+    if (clientError) throw clientError;
+    if (!clientData) {
+      setClient(null);
+      setLoadError("Ce client est introuvable ou vous n’avez plus accès à son dossier.");
       return;
     }
 
@@ -304,7 +305,7 @@ const ClientDetailInner = () => {
     const [regieResult, rdvResult, etudesResult, docsResult, histResult, ventesResult] = await Promise.all([
       clientData.regie_id
         ? supabase.from("regies").select("id, nom, couleur").eq("id", clientData.regie_id).maybeSingle()
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
       supabase.from("rdv").select(`*, regies:regie_id (id, nom, couleur)`).eq("client_id", id).order("date_heure", { ascending: false }),
       supabase.from("etudes").select("*").eq("client_id", id).order("created_at", { ascending: false }),
       supabase.from("documents").select("*").eq("client_id", id).order("created_at", { ascending: false }),
@@ -312,6 +313,9 @@ const ClientDetailInner = () => {
       supabase.from("ventes").select("id, numero_contrat, date_signature, montant_ht, montant_ttc, puissance_kwc, status, type_vente, decom_montant, decom_raison, regie_id, commission_override").eq("client_id", id).order("date_signature", { ascending: false }),
     ]);
 
+    for (const result of [regieResult, rdvResult, etudesResult, docsResult, histResult, ventesResult]) {
+      if (result.error) throw result.error;
+    }
     setClientRegie(regieResult.data as ClientRegie | null);
     setRdvs((rdvResult.data || []).map(r => ({
       ...r,
@@ -332,16 +336,22 @@ const ClientDetailInner = () => {
     // Fetch regies for ventes
     const regieIds = [...new Set(ventesData.map(v => v.regie_id).filter(Boolean))] as string[];
     if (regieIds.length > 0) {
-      const { data: regiesData } = await supabase
+      const { data: regiesData, error: regiesError } = await supabase
         .from("regies")
         .select("id, nom, couleur")
         .in("id", regieIds);
+      if (regiesError) throw regiesError;
       setVentesRegies((regiesData || []) as ClientRegie2[]);
     } else {
       setVentesRegies([]);
     }
 
-    setLoading(false);
+    } catch (error) {
+      console.error("[ClientDetail] Loading failed", error);
+      setLoadError("Le dossier client n’a pas pu être chargé. Vérifiez votre connexion et réessayez.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openPhone = () => {
@@ -436,15 +446,13 @@ const ClientDetailInner = () => {
   if (loading) {
     return (
       <MobileLayout title="Chargement...">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-pulse text-muted-foreground">Chargement...</div>
-        </div>
+        <PageLoading />
       </MobileLayout>
     );
   }
 
-  if (!client) {
-    return null;
+  if (loadError || !client) {
+    return <MobileLayout title="Dossier client"><PageError message={loadError ?? "Client introuvable."} onRetry={() => void fetchClientData()} onBack={() => navigate("/crm")} /></MobileLayout>;
   }
 
 
