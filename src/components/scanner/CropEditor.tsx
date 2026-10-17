@@ -508,7 +508,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     const path = `M ${topLeft.x} ${topLeft.y} L ${topRight.x} ${topRight.y} L ${bottomRight.x} ${bottomRight.y} L ${bottomLeft.x} ${bottomLeft.y} Z`;
 
     return (
-      <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 10 }}>
         <defs>
           <mask id="cropMask">
             <rect width="100%" height="100%" fill="white" />
@@ -595,10 +595,11 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       {/* Image area */}
       <div
         ref={containerRef}
-        className="flex-1 relative overflow-hidden touch-none"
+        className="flex-1 min-h-0 relative overflow-hidden touch-none"
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        aria-label="Zone de recadrage"
       >
         {(isDetecting || isEnhancing) && (
           <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-20">

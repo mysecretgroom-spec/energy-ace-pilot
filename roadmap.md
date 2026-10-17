@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Scanner PWA : activer REA, améliorer recadrage/correction des ombres et ajouter une commande directe de scan net ; tester le parcours
+- [x] Scanner PWA : REA activé pour analyses futures (pas d’artefact CamScanner fourni) ; Scan net, correction locale des ombres, original consultable, rotation/coins fiabilisés et éditeur partagé ; 5 tests réussis, capture caméra simulée/import/PDF vérifiés connectés sur ordinateur et téléphone ; caméra iPhone physique non vérifiée
 - [x] Vérifier 14 pages principales/publiques ; corriger les erreurs client/vente/CRM et la vérification d’accès, ajouter une reprise globale ; 4 tests réussis et reprise après panne vérifiée sur ordinateur/téléphone (compte sans dossiers, sous-pages non exhaustives)
 - [x] Visualisation PV : repère transmis aux deux boutons avec coordonnées et gros plan ; essai satellite réel sur la toiture sélectionnée confirmé, précision du nombre non garantie
 - [x] Hors-ligne RDV : paramètres régie (prix, gammes, aides, financements, surcoûts) préchargés et utilisés par l’étude
