@@ -60,14 +60,14 @@ import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEdi
 import { calculerMensualiteAvecReport, calculerFinancementAvantApresAides } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
 import { EnergyEvolutionCard } from "@/components/etude/EnergyEvolutionCard";
-import { StudyPhotosDownloadButton } from "@/components/etude/StudyPhotosDownloadButton";
+import { StudyScanButton } from "@/components/etude/StudyScanButton";
 import { RoofPvSimulationButton } from "@/components/etude/RoofPvSimulationButton";
 import { RoofPointMap } from "@/components/etude/RoofPointMap";
 import { RoofAiVisualization } from "@/components/etude/RoofAiVisualization";
 import { parseRoofMapViewport, type RoofMapViewport } from "@/lib/roofMapViewport";
 import { ConsumptionEstimator } from "@/components/etude/ConsumptionEstimator";
 import { ProductType } from "@/lib/productTypes";
-import { getEtudePdfBlob, getEtudePdfDataUrl, EtudeData } from "@/lib/exportEtudePdf";
+import { getEtudePdfBlob, EtudeData } from "@/lib/exportEtudePdf";
 import { appendStudyPhotosToPdf } from "@/lib/appendStudyPhotosToPdf";
 import { appendRoofMapAnnexeToPdf } from "@/lib/appendRoofMapAnnexeToPdf";
 import { Textarea } from "@/components/ui/textarea";
@@ -2379,8 +2379,8 @@ const EtudeForm = () => {
   /** Génère le PDF de l'étude : photos d'étude, puis carte en annexe (dernière page) */
   const buildReportBlobWithPhotos = async (pdfData: EtudeData): Promise<Blob> => {
     const base = await getEtudePdfBlob(pdfData);
-    const withPhotos = await appendStudyPhotosToPdf(base, user?.id, clientId, etudeId);
-    return appendRoofMapAnnexeToPdf(withPhotos, pdfData, etudeId);
+    const withPhotos = await appendStudyPhotosToPdf(base, user?.id, clientId, currentEtudeId);
+    return appendRoofMapAnnexeToPdf(withPhotos, pdfData, currentEtudeId);
   };
 
   const handleExportPdf = async () => {
@@ -2427,9 +2427,14 @@ const EtudeForm = () => {
     const pdfData = buildPdfData();
     if (!pdfData) return;
     
-    const dataUrl = await getEtudePdfDataUrl(pdfData);
-    setPdfDataUrl(dataUrl);
-    setShowPreview(true);
+    try {
+      const blob = await buildReportBlobWithPhotos(pdfData);
+      const reader = new FileReader();
+      reader.onload = () => { setPdfDataUrl(String(reader.result)); setShowPreview(true); };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Aperçu indisponible", description: error instanceof Error ? error.message : "Réessayez" });
+    }
   };
 
   const { sendWhatsAppNotification } = useWhatsAppNotification();
@@ -5639,11 +5644,12 @@ const EtudeForm = () => {
                 />
               </div>
 
-              {/* Bouton de téléchargement du PDF des photos d'étude */}
+              {/* Documents scannés intégrés au PDF de cette étude */}
               {clientId && (
-                <StudyPhotosDownloadButton
+                <StudyScanButton
                   clientId={clientId}
                   etudeId={currentEtudeId}
+                  onSaved={() => { void generateAndStorePdf(); }}
                   className="w-full"
                 />
               )}

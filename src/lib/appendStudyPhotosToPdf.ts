@@ -1,9 +1,9 @@
 import { PDFDocument } from "pdf-lib";
 import { mergeStudyPhotosIntoPdf } from "@/components/scanner/QuickPhotoButton";
+import { appendStudyScansToPdf } from "./appendStudyScansToPdf";
 
 /**
- * Ajoute les photos d'étude à la fin du PDF du rapport, dans un seul document.
- * Si aucune photo n'existe (ou en cas d'erreur), le PDF d'origine est renvoyé tel quel.
+ * Ajoute les photos puis les documents scannés de cette étude au même rapport.
  */
 export async function appendStudyPhotosToPdf(
   reportBlob: Blob,
@@ -13,10 +13,11 @@ export async function appendStudyPhotosToPdf(
 ): Promise<Blob> {
   if (!userId || !clientId || !etudeId) return reportBlob;
 
+  let withPhotos = reportBlob;
+
   try {
     const photosBlob = await mergeStudyPhotosIntoPdf(userId, clientId, etudeId);
-    if (!photosBlob) return reportBlob;
-
+    if (photosBlob) {
     const [reportBytes, photosBytes] = await Promise.all([
       reportBlob.arrayBuffer(),
       photosBlob.arrayBuffer(),
@@ -28,9 +29,10 @@ export async function appendStudyPhotosToPdf(
     pages.forEach((p) => merged.addPage(p));
 
     const bytes = await merged.save({ useObjectStreams: true });
-    return new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
+    withPhotos = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
+    }
   } catch (err) {
     console.warn("[appendStudyPhotosToPdf] Fusion des photos impossible:", err);
-    return reportBlob;
   }
+  return appendStudyScansToPdf(withPhotos, userId, clientId, etudeId);
 }
