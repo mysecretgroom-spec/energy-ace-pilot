@@ -1,4 +1,5 @@
 # Architecture rules
+- Scanner shadow correction uses shared bounded pixel illumination correction, not generative image rewriting; crop geometry is normalized and rotated with the displayed image to preserve document fidelity.
 - Shared PageState views distinguish loading and request failures; AppErrorBoundary catches render/import failures and offers explicit recovery without automatic reload loops.
 - Access-check errors and timeouts show recovery rather than bypassing account checks; entitlement query failures must propagate to the route guard.
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
-import { Camera, ImagePlus, X, Undo, Layers } from "lucide-react";
+import { Camera, ImagePlus, X, Undo, Layers, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCameraStream } from "../hooks/useCameraStream";
 import { useWorkerPipeline } from "../hooks/useWorkerPipeline";
@@ -9,7 +9,7 @@ import type { Quad } from "../types";
 import { MAX_ANALYSIS_DIM } from "../types";
 
 interface CameraCaptureProps {
-  onCapture: (canvas: HTMLCanvasElement, quad: Quad | null) => void;
+  onCapture: (canvas: HTMLCanvasElement, quad: Quad | null, scanNet?: boolean) => void;
   onImport: (file: File) => void;
   onCancel: () => void;
   pageCount: number;
@@ -48,7 +48,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
     };
   }, [isReady, captureFrame, detectFromCanvas]);
 
-  const handleCapture = useCallback(() => {
+  const handleCapture = useCallback((scanNet = false) => {
     // Prevent double-tap and accidental rapid captures
     if (captureCooldownRef.current) return;
     captureCooldownRef.current = true;
@@ -61,7 +61,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
     setTimeout(() => setFlashVisible(false), 150);
 
     // Scale quad from analysis resolution to original
-    onCapture(frame, detectedQuad);
+    onCapture(frame, detectedQuad, scanNet);
   }, [captureFrame, detectedQuad, onCapture]);
 
   const handleImportClick = () => fileInputRef.current?.click();
@@ -191,6 +191,11 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         </button>
       </div>
 
+      <div className="absolute bottom-28 inset-x-0 z-20 flex justify-center">
+        <Button onClick={() => handleCapture(true)} disabled={!isReady}>
+          <ScanLine className="h-4 w-4 mr-2" />Scan net
+        </Button>
+      </div>
       {/* Bottom bar */}
       <div className="bg-black/90 backdrop-blur-sm px-4 py-4 flex items-center justify-between safe-area-bottom">
         {/* Thumbnails / Page count */}
@@ -205,7 +210,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
 
         {/* Capture button */}
         <button
-          onClick={handleCapture}
+          onClick={() => handleCapture()}
           disabled={!isReady}
           className="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition-transform"
         >

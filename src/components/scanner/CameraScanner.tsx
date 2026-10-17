@@ -2,12 +2,13 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Camera, X, RotateCcw, AlertCircle, Upload,
-  Zap, ZapOff, Undo2, Focus, Sun, SunDim,
+  Zap, ZapOff, Undo2, Focus, Sun, SunDim, ScanLine, Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 import { EdgeOverlay } from "./EdgeOverlay";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
+import { CropEditor } from "./CropEditor";
 import { captureStill, applyDocumentFocus } from "./services/stillCapture";
 
 interface CapturedPage {
@@ -89,15 +90,17 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
+  const [pendingScan, setPendingScan] = useState<string | null>(null);
   const [capturedPages, setCapturedPages] = useState<CapturedPage[]>([]);
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const captureCooldownRef = useRef(false);
+  const cameraRequestRef = useRef(0);
 
   // Real-time edge detection with Canny+Hough
   const { detectedQuad, isStable, blurScore, brightness, reset } = useRealtimeEdgeDetection({
     videoRef,
-    enabled: cameraState === "active" && !isCapturing,
+    enabled: cameraState === "active" && !isCapturing && !pendingScan,
     onStableDetection: (quad) => {
       // Déclenchement auto : net, bien cadré (assez grand) et pris de face
       const video = videoRef.current;
@@ -122,6 +125,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const tooSkewed = !!detectedQuad && skew > MAX_SKEW;
 
   const stopCamera = useCallback(() => {
+    cameraRequestRef.current++;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -133,6 +137,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const startCamera = useCallback(async () => {
     setCameraState("requesting");
     stopCamera();
+    const request = ++cameraRequestRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -142,6 +147,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         },
         audio: false,
       });
+      if (request !== cameraRequestRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
 
       // Check torch support
@@ -150,10 +156,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       if (caps?.torch) setTorchSupported(true);
       // Continuous autofocus / exposure / white balance for documents
       await applyDocumentFocus(track);
+      if (request !== cameraRequestRef.current) return;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        if (request !== cameraRequestRef.current) return;
         setVideoDimensions({
           width: videoRef.current.videoWidth,
           height: videoRef.current.videoHeight,
@@ -161,6 +169,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         setCameraState("active");
       }
     } catch (error: unknown) {
+      if (request !== cameraRequestRef.current) return;
       console.error("Camera error:", error);
       const err = error as { name?: string };
       setCameraState(err.name === "NotAllowedError" ? "denied" : "error");
@@ -171,6 +180,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     startCamera();
     return () => stopCamera();
   }, [startCamera, stopCamera]);
+
+  useEffect(() => {
+    if (pendingScan || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => setCameraState("error"));
+  }, [pendingScan]);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -215,7 +230,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   }, [torchOn]);
 
   /** Capture frame, auto-crop if quad detected, store as page */
-  const performCapture = useCallback(async (quad?: DetectedQuad) => {
+  const performCapture = useCallback(async (quad?: DetectedQuad, review = false) => {
     if (!videoRef.current || !canvasRef.current || isCapturing || captureCooldownRef.current) return;
     
     // Cooldown to prevent burst captures
@@ -237,11 +252,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const ctx = canvas.getContext("2d");
     if (!ctx) { setIsCapturing(false); return; }
 
+    try {
     // Full-resolution still (sensor photo) with video-frame fallback
     const track = streamRef.current?.getVideoTracks()[0] ?? null;
     const still = await captureStill(track, video, canvas);
     const rawImage = still.dataUrl;
     reset();
+    if (review) { setPendingScan(rawImage); return; }
 
     // Auto-crop with perspective correction if quad detected and framing matches
     let finalImage = rawImage;
@@ -267,7 +284,10 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     };
 
     setCapturedPages((prev) => [...prev, page]);
-    setIsCapturing(false);
+    } catch (error) {
+      console.error("Capture failed:", error);
+      toast({ title: "Capture impossible", description: "Réessayez ou importez une photo", variant: "destructive" });
+    } finally { setIsCapturing(false); }
     // Batch mode: stay on camera for next page
   }, [isCapturing, reset]);
 
@@ -378,6 +398,15 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       </div>
     );
   };
+
+  if (pendingScan) return (
+    <CropEditor imageData={pendingScan} initialEnhance
+      onCancel={() => setPendingScan(null)}
+      onComplete={(imageData, thumbnailData) => {
+        setCapturedPages(prev => [...prev, { id: crypto.randomUUID(), imageData, thumbnailData }]);
+        setPendingScan(null);
+      }} />
+  );
 
   // Error/denied states
   if (cameraState === "denied") {
@@ -530,9 +559,14 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </div>
       )}
 
-      {/* Scanner label */}
-      <div className="absolute bottom-32 left-0 right-0 z-10 text-center pointer-events-none">
-        <span className="text-teal-400 text-sm font-semibold tracking-wide">Scanner</span>
+      <div className="absolute bottom-32 left-0 right-0 z-10 flex justify-center">
+        <Button onClick={() => {
+          if (isBlurry) { toast({ title: "Image trop floue", description: "Stabilisez votre appareil", variant: "destructive" }); return; }
+          performCapture(undefined, true);
+        }} disabled={cameraState !== "active" || isCapturing}>
+          {isCapturing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ScanLine className="h-4 w-4 mr-2" />}
+          Scan net
+        </Button>
       </div>
 
       {/* Footer controls */}

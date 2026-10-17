@@ -1,3 +1,4 @@
+import { validScanCorners } from "./scanQuality";
 /**
  * Perspective correction with a true 3×3 projective homography.
  * Much more accurate than bilinear quad interpolation for tilted documents.
@@ -104,6 +105,7 @@ export function applyPerspectiveCorrectionLight(
   imageData: string,
   corners: Corners
 ): Promise<string> {
+  if (!validScanCorners(corners)) return Promise.reject(new Error("Invalid crop corners"));
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -112,10 +114,10 @@ export function applyPerspectiveCorrectionLight(
 
         // Source quad in pixel coordinates
         const srcCorners: [Point, Point, Point, Point] = [
-          { x: corners.topLeft.x * W, y: corners.topLeft.y * H },
-          { x: corners.topRight.x * W, y: corners.topRight.y * H },
-          { x: corners.bottomRight.x * W, y: corners.bottomRight.y * H },
-          { x: corners.bottomLeft.x * W, y: corners.bottomLeft.y * H },
+          { x: corners.topLeft.x * (W - 1), y: corners.topLeft.y * (H - 1) },
+          { x: corners.topRight.x * (W - 1), y: corners.topRight.y * (H - 1) },
+          { x: corners.bottomRight.x * (W - 1), y: corners.bottomRight.y * (H - 1) },
+          { x: corners.bottomLeft.x * (W - 1), y: corners.bottomLeft.y * (H - 1) },
         ];
 
         // Output dimensions from longest edges, capped
@@ -166,14 +168,13 @@ export function applyPerspectiveCorrectionLight(
           for (let dx = 0; dx < outW; dx++) {
             const [sx, sy] = applyH(homography, dx, dy);
 
-            const x0 = Math.floor(sx);
-            const y0 = Math.floor(sy);
-            if (x0 < 0 || y0 < 0 || x0 >= W - 1 || y0 >= H - 1) continue;
+            const x0 = Math.max(0, Math.min(W - 1, Math.floor(sx)));
+            const y0 = Math.max(0, Math.min(H - 1, Math.floor(sy)));
 
-            const x1 = x0 + 1;
-            const y1 = y0 + 1;
-            const fx = sx - x0;
-            const fy = sy - y0;
+            const x1 = Math.min(W - 1, x0 + 1);
+            const y1 = Math.min(H - 1, y0 + 1);
+            const fx = Math.max(0, Math.min(1, sx - x0));
+            const fy = Math.max(0, Math.min(1, sy - y0));
 
             const dIdx = (dy * outW + dx) * 4;
             const i00 = (y0 * W + x0) * 4;
@@ -219,13 +220,15 @@ function bilinearFallback(
 ): string {
   const srcCanvas = document.createElement("canvas");
   srcCanvas.width = img.width; srcCanvas.height = img.height;
-  const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true })!;
+  const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+  if (!srcCtx) throw new Error("No source canvas context");
   srcCtx.drawImage(img, 0, 0);
   const srcPx = srcCtx.getImageData(0, 0, img.width, img.height).data;
 
   const dstCanvas = document.createElement("canvas");
   dstCanvas.width = outW; dstCanvas.height = outH;
-  const dstCtx = dstCanvas.getContext("2d")!;
+  const dstCtx = dstCanvas.getContext("2d");
+  if (!dstCtx) throw new Error("No destination canvas context");
   const dstData = dstCtx.createImageData(outW, outH);
   const dstPx = dstData.data;
 

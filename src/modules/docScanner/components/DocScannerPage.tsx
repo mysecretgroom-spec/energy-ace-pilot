@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { ArrowLeft, Layers, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "./CameraCapture";
-import { CropEditor } from "./CropEditor";
+import { CropEditor } from "@/components/scanner/CropEditor";
 import { FiltersPanel } from "./FiltersPanel";
 import { PagesTray } from "./PagesTray";
 import { ExportPanel } from "./ExportPanel";
@@ -30,11 +30,13 @@ export default function DocScannerPage() {
   } | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showOCR, setShowOCR] = useState(false);
+  const [scanNet, setScanNet] = useState(false);
 
   const activePage = session.pages.find((p) => p.id === session.activePageId) || null;
 
   // Handle capture from camera
-  const handleCapture = useCallback(async (canvas: HTMLCanvasElement, quad: Quad | null) => {
+  const handleCapture = useCallback(async (canvas: HTMLCanvasElement, quad: Quad | null, enhance = false) => {
+    setScanNet(enhance);
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
     const blobUrl = URL.createObjectURL(blob);
 
@@ -58,6 +60,7 @@ export default function DocScannerPage() {
 
   // Handle import from file
   const handleImport = useCallback(async (file: File) => {
+    setScanNet(false);
     const { canvas, width, height } = await normalizeOrientation(file);
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
     const blobUrl = URL.createObjectURL(blob);
@@ -70,42 +73,6 @@ export default function DocScannerPage() {
     releaseCanvas(canvas);
     setStep("crop");
   }, []);
-
-  // Handle crop confirmed
-  const handleCropConfirm = useCallback(async (quad: Quad) => {
-    if (!pendingImage) return;
-
-    const canvas = await loadImageToCanvas(pendingImage.blobUrl);
-
-    // Warp image
-    const result = await warpImage(canvas, quad, MAX_PREVIEW_DIM);
-    const warpedCanvas = pixelsToCanvas(result.pixels, result.width, result.height);
-    const warpedBlob = await canvasToBlob(warpedCanvas, "image/jpeg", 0.85);
-    const warpedUrl = URL.createObjectURL(warpedBlob);
-
-    // Thumbnail
-    const thumb = generateThumbnail(warpedCanvas);
-    const thumbBlob = await canvasToBlob(thumb, "image/jpeg", 0.6);
-    const thumbUrl = URL.createObjectURL(thumbBlob);
-
-    const newPage: ScanPage = {
-      id: crypto.randomUUID(),
-      originalBlobUrl: pendingImage.blobUrl,
-      originalSize: pendingImage.size,
-      normalizedBlobUrl: pendingImage.blobUrl,
-      quad,
-      filterPreset: "original",
-      rotation: 0,
-      warpedPreviewUrl: warpedUrl,
-    };
-
-    session.addPage(newPage);
-    setPendingImage(null);
-    releaseCanvas(canvas);
-    releaseCanvas(warpedCanvas);
-    releaseCanvas(thumb);
-    setStep("edit");
-  }, [pendingImage, warpImage, session]);
 
   // Handle filter change
   const handleFilterChange = useCallback(async (preset: FilterPreset) => {
@@ -142,10 +109,26 @@ export default function DocScannerPage() {
   if (step === "crop" && pendingImage) {
     return (
       <CropEditor
-        imageSrc={pendingImage.blobUrl}
-        imageSize={pendingImage.size}
-        initialQuad={pendingImage.quad}
-        onConfirm={handleCropConfirm}
+        imageData={pendingImage.blobUrl}
+        initialEnhance={scanNet}
+        initialCorners={pendingImage.quad ? {
+          topLeft: { x: pendingImage.quad.topLeft.x / pendingImage.size.w, y: pendingImage.quad.topLeft.y / pendingImage.size.h },
+          topRight: { x: pendingImage.quad.topRight.x / pendingImage.size.w, y: pendingImage.quad.topRight.y / pendingImage.size.h },
+          bottomRight: { x: pendingImage.quad.bottomRight.x / pendingImage.size.w, y: pendingImage.quad.bottomRight.y / pendingImage.size.h },
+          bottomLeft: { x: pendingImage.quad.bottomLeft.x / pendingImage.size.w, y: pendingImage.quad.bottomLeft.y / pendingImage.size.h },
+        } : undefined}
+        onComplete={async (processedImage) => {
+          const canvas = await loadImageToCanvas(processedImage);
+          const blob = await canvasToBlob(canvas, "image/jpeg", 0.95);
+          const url = URL.createObjectURL(blob);
+          const size = { w: canvas.width, h: canvas.height };
+          session.addPage({ id: crypto.randomUUID(), originalBlobUrl: pendingImage.blobUrl,
+            originalSize: pendingImage.size, normalizedBlobUrl: url, warpedPreviewUrl: url,
+            quad: defaultQuad(size.w, size.h), filterPreset: "original", rotation: 0 });
+          releaseCanvas(canvas);
+          setPendingImage(null);
+          setStep("edit");
+        }}
         onCancel={() => {
           setPendingImage(null);
           if (session.pages.length > 0) setStep("edit");
