@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Sparkles,
   GraduationCap,
+  CreditCard,
 } from "lucide-react";
 import { useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
