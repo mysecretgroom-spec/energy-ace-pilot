@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [x] Scan direct en fin d’étude remplaçant le téléchargement photos ; scans rattachés à l’étude et inclus dans aperçu/export/stockage/signature selon le mode HEJJA existant ; 12 tests réussis, parcours connecté avec image de contrôle et PDF de 3 pages vérifié ; caméra iPhone/envoi WhatsApp réel non vérifiés
 - [x] Scanner PWA : REA activé pour analyses futures (pas d’artefact CamScanner fourni) ; Scan net, correction locale des ombres, original consultable, rotation/coins fiabilisés et éditeur partagé ; 5 tests réussis, capture caméra simulée/import/PDF vérifiés connectés sur ordinateur et téléphone ; caméra iPhone physique non vérifiée
 - [x] Vérifier 14 pages principales/publiques ; corriger les erreurs client/vente/CRM et la vérification d’accès, ajouter une reprise globale ; 4 tests réussis et reprise après panne vérifiée sur ordinateur/téléphone (compte sans dossiers, sous-pages non exhaustives)
 - [x] Visualisation PV : repère transmis aux deux boutons avec coordonnées et gros plan ; essai satellite réel sur la toiture sélectionnée confirmé, précision du nombre non garantie

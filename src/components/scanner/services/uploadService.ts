@@ -72,6 +72,16 @@ async function verifyUploadedObject(
   let lastErr: string | null = null;
   for (let i = 0; i < 3; i++) {
     try {
+      // Client documents are public; verify the bytes without bucket listing,
+      // which can require unrelated administrative permissions.
+      if (bucket === "documents") {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        const response = await fetch(data.publicUrl);
+        if (!response.ok) throw new Error("Document envoyé mais inaccessible");
+        const size = (await response.arrayBuffer()).byteLength;
+        if (size > 0 && size >= expectedSize * 0.9) return;
+        throw new Error("Document envoyé incomplet");
+      }
       const dir = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";
       const name = filePath.includes("/") ? filePath.slice(filePath.lastIndexOf("/") + 1) : filePath;
       const { data, error } = await supabase.storage
@@ -102,7 +112,8 @@ async function verifyUploadedObject(
 async function uploadWithRetry(
   fileName: string,
   pdfBlob: Blob,
-  token: string
+  token: string,
+  bucket: string
 ): Promise<{ path: string }> {
   const isLarge = pdfBlob.size > 6 * 1024 * 1024;
 
@@ -112,10 +123,10 @@ async function uploadWithRetry(
       if (isLarge) {
         // Use XHR for large files – avoids fetch body size limits on some mobile browsers
         console.log(`[uploadService] XHR upload attempt ${attempt}/${MAX_RETRIES}`);
-        result = await uploadWithXHR("receipts", fileName, pdfBlob, token);
+        result = await uploadWithXHR(bucket, fileName, pdfBlob, token);
       } else {
         const { data, error } = await supabase.storage
-          .from("receipts")
+          .from(bucket)
           .upload(fileName, pdfBlob, {
             contentType: "application/pdf",
             upsert: false,
@@ -126,7 +137,7 @@ async function uploadWithRetry(
 
       // Post-upload verification: ensure the file is actually present and non-empty.
       // This catches silent failures where the API returns 200 but stores 0 bytes.
-      await verifyUploadedObject("receipts", fileName, pdfBlob.size);
+      await verifyUploadedObject(bucket, fileName, pdfBlob.size);
       return result;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -134,7 +145,7 @@ async function uploadWithRetry(
       if (attempt === MAX_RETRIES) throw err;
       // Best-effort cleanup of any partial/empty object before retry
       try {
-        await supabase.storage.from("receipts").remove([fileName]);
+        await supabase.storage.from(bucket).remove([fileName]);
       } catch { /* ignore */ }
       // Exponential backoff: 1s, 2s, 4s
       await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
@@ -161,18 +172,19 @@ export async function uploadDocumentToStorage(
   }
 
   const timestamp = Date.now();
+  const bucket = context === "client_docs" ? "documents" : "receipts";
   const fileName = `${currentUserId}/${context}/${timestamp}.pdf`;
 
   const sizeMB = (pdfBlob.size / (1024 * 1024)).toFixed(2);
-  console.log(`[uploadService] Uploading to receipts/${fileName} (${sizeMB} MB)`);
+  console.log(`[uploadService] Uploading document (${sizeMB} MB)`);
 
-  const data = await uploadWithRetry(fileName, pdfBlob, session.access_token);
-  const normalizedPath = normalizeStoragePath(data.path, "receipts");
+  const data = await uploadWithRetry(fileName, pdfBlob, session.access_token, bucket);
+  const normalizedPath = normalizeStoragePath(data.path, bucket);
 
   console.log("[uploadService] Upload successful, path:", normalizedPath);
 
   const { data: urlData } = supabase.storage
-    .from("receipts")
+    .from(bucket)
     .getPublicUrl(normalizedPath);
 
   if (!urlData?.publicUrl) {
@@ -188,10 +200,10 @@ export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> 
   try {
     const url = new URL(fileUrl);
     // Try signed URL format first
-    let pathMatch = url.pathname.match(/\/storage\/v1\/object\/sign\/receipts\/(.+)/);
+    let pathMatch = url.pathname.match(/\/storage\/v1\/object\/sign\/(receipts|documents)\/(.+)/);
     // Fallback to public URL format
     if (!pathMatch) {
-      pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/receipts\/(.+)/);
+      pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(receipts|documents)\/(.+)/);
     }
     
     if (!pathMatch) {
@@ -199,10 +211,11 @@ export async function deleteDocumentFromStorage(fileUrl: string): Promise<void> 
       return;
     }
 
-    const filePath = decodeURIComponent(pathMatch[1].split("?")[0]);
+    const bucket = pathMatch[1];
+    const filePath = decodeURIComponent(pathMatch[2].split("?")[0]);
 
     const { error } = await supabase.storage
-      .from("receipts")
+      .from(bucket)
       .remove([filePath]);
 
     if (error) {

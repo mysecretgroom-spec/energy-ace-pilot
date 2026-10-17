@@ -11,6 +11,8 @@ interface AddDocumentFlowProps {
   context: DocumentContext;
   relatedClientId?: string;
   relatedProjectId?: string;
+  relatedEtudeId?: string;
+  startWithCamera?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
   isOpen: boolean;
@@ -22,11 +24,13 @@ export function AddDocumentFlow({
   context,
   relatedClientId,
   relatedProjectId,
+  relatedEtudeId,
+  startWithCamera = false,
   onSuccess,
   onCancel,
   isOpen,
 }: AddDocumentFlowProps) {
-  const [step, setStep] = useState<FlowStep>("method");
+  const [step, setStep] = useState<FlowStep>(startWithCamera ? "camera" : "method");
   const [pages, setPages] = useState<ScanPage[]>([]);
   const [currentCapture, setCurrentCapture] = useState<string | null>(null);
   const [importedFile, setImportedFile] = useState<File | null>(null);
@@ -178,6 +182,7 @@ export function AddDocumentFlow({
           importedFile={importedFile}
           relatedClientId={relatedClientId}
           relatedProjectId={relatedProjectId}
+          relatedEtudeId={relatedEtudeId}
           onSuccess={handleSuccess}
           onCancel={pages.length > 0 ? handleBackToPages : handleClose}
           onAddPage={pages.length > 0 ? handleAddPage : undefined}

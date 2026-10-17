@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { DocumentContext, ScanPage } from "./types";
 import { generatePdfFromPages, generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
+import { studyScanAssociation } from "@/lib/studyScanDocument";
 
 // AI OCR result type from edge function
 interface AIExtractedData {
@@ -56,6 +57,7 @@ interface ReviewDocumentProps {
   importedFile: File | null;
   relatedClientId?: string;
   relatedProjectId?: string;
+  relatedEtudeId?: string;
   onSuccess: () => void;
   onCancel: () => void;
   onAddPage?: () => void;
@@ -81,6 +83,7 @@ export function ReviewDocument({
   importedFile,
   relatedClientId,
   relatedProjectId,
+  relatedEtudeId,
   onSuccess,
   onCancel,
   onAddPage,
@@ -353,14 +356,16 @@ export function ReviewDocument({
         }
       } else if (context === "client_docs" && relatedClientId) {
         // Check for duplicate documents: same nom and type_document for this client
-        const { data: existingDocs } = await supabase
+        let duplicateQuery = supabase
           .from("documents")
           .select("id, nom, type_document")
           .eq("user_id", user.id)
           .eq("client_id", relatedClientId);
+        if (relatedEtudeId) duplicateQuery = duplicateQuery.eq("etude_id", relatedEtudeId).eq("context_source", "study_scan");
+        const { data: existingDocs } = await duplicateQuery;
 
         const hasDuplicate = existingDocs?.some(
-          (doc) => doc.nom === title && doc.type_document === category
+          (doc) => doc.nom === title && doc.type_document === (category || "autre")
         );
 
         if (hasDuplicate) {
@@ -389,6 +394,9 @@ export function ReviewDocument({
           nom: title,
           url: fileUrl,
           context_source: context,
+          ...studyScanAssociation(relatedEtudeId),
+          mime_type: "application/pdf",
+          taille_bytes: pdfBlob.size,
           page_count: pages.length || 1,
           thumbnails_urls: thumbnails.length > 0 ? thumbnails : null,
           extracted_text: ocrResult?.raw_text || null,
@@ -493,6 +501,7 @@ export function ReviewDocument({
     thumbnails,
     importedFile,
     relatedClientId,
+    relatedEtudeId,
     montantTTC,
     tva,
     fournisseur,
