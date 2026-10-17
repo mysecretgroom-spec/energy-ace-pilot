@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Vérifier les chargements et erreurs des pages connectées et publiques ; corriger les blocages et proposer une reprise
+- [x] Vérifier 14 pages principales/publiques ; corriger les erreurs client/vente/CRM et la vérification d’accès, ajouter une reprise globale ; 4 tests réussis et reprise après panne vérifiée sur ordinateur/téléphone (compte sans dossiers, sous-pages non exhaustives)
 - [x] Visualisation PV : repère transmis aux deux boutons avec coordonnées et gros plan ; essai satellite réel sur la toiture sélectionnée confirmé, précision du nombre non garantie
 - [x] Hors-ligne RDV : paramètres régie (prix, gammes, aides, financements, surcoûts) préchargés et utilisés par l’étude
 - [x] Hors-ligne RDV : préchargement RDV en cours + suivant puis jour/lendemain (infos client, étude, régie, modèles WhatsApp, bouquets, surcoûts, tuiles satellite)
