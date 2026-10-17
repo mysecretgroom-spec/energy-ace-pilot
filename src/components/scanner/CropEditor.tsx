@@ -118,6 +118,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const [detectedEdges, setDetectedEdges] = useState<ScanCorners | null>(null);
   const [shadowCorrection, setShadowCorrection] = useState(initialEnhance);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [cropPreview, setCropPreview] = useState<string | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const manualCornersRef = useRef<ScanCorners | null>(null);
 
@@ -139,7 +140,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       setIsDetecting(true);
       try {
         const edges = await detectDocumentEdgesLight(imageData);
-        if (!cancelled && edges && edges.confidence > 0.25) {
+        if (!cancelled && !initialCorners && edges && edges.confidence > 0.5 && validScanCorners(edges)) {
           setDetectedEdges(edges);
         }
       } catch (err) {
@@ -156,7 +157,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     };
     img.src = imageData;
     return () => { cancelled = true; };
-  }, [imageData]);
+  }, [imageData, initialCorners]);
 
   // Cancellation prevents an older preview from overwriting a newer selection.
   useEffect(() => {
@@ -190,7 +191,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     const imgW = isRotated ? imageSize.height : imageSize.width;
     const imgH = isRotated ? imageSize.width : imageSize.height;
 
-    const scale = Math.min(cw / imgW, ch / imgH);
+    const scale = Math.min(Math.max(1, cw - CORNER_TOUCH - 8) / imgW, Math.max(1, ch - CORNER_TOUCH - 8) / imgH);
     const dw = imgW * scale;
     const dh = imgH * scale;
     const ox = (cw - dw) / 2;
@@ -226,7 +227,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     setIsDetecting(true);
     try {
       const edges = await detectDocumentEdgesLight(imageData);
-      if (edges && edges.confidence > 0.25 && validScanCorners(edges)) {
+      if (edges && edges.confidence > 0.5 && validScanCorners(edges)) {
         manualCornersRef.current = null;
         setDetectedEdges({ ...edges });
       } else toast.info("Contours incertains : ajustez les quatre coins");
@@ -425,6 +426,8 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     return (
       <div
         key={key}
+        role="slider"
+        aria-label={`Coin ${key}`}
         className="absolute touch-none"
         style={{
           left: p.x - c,
@@ -537,23 +540,23 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const displayImageSrc = showOriginal ? imageData : enhancedImage || imageData;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[70] bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-card">
+      <div className="flex shrink-0 items-center justify-between px-4 py-2 bg-card">
         <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent" onClick={onCancel}>
           <X className="h-6 w-6" />
         </Button>
         <span className="text-foreground font-medium">
           {isDetecting ? "Détection..." : "Rogner"}
         </span>
-        <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent" onClick={handleRotate}>
+        <Button variant="ghost" size="icon" aria-label="Tourner le document" disabled={!!cropPreview} className="text-foreground hover:bg-accent" onClick={handleRotate}>
           <RotateCw className="h-5 w-5" />
         </Button>
       </div>
 
-      <div className="flex items-center justify-center gap-2 px-4 py-2 border-b bg-card">
+      <div className="flex shrink-0 items-center justify-center gap-2 px-4 py-2 border-b bg-card">
         <Button size="sm" onClick={() => { setShadowCorrection(true); setShowOriginal(false); handleAutoDetect(); }}
-          disabled={isDetecting || isEnhancing || isProcessingCrop}>
+          disabled={isDetecting || isEnhancing || isProcessingCrop || !!cropPreview}>
           <ScanLine className="h-4 w-4 mr-2" />Scan net
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowOriginal(v => !v)} disabled={!enhancedImage}>
@@ -561,7 +564,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         </Button>
       </div>
       {/* Enhancement controls */}
-      <div className="flex items-center justify-center gap-3 px-4 py-2 bg-muted flex-wrap">
+      <div className="flex shrink-0 items-center justify-center gap-3 px-4 py-2 bg-muted flex-wrap" hidden={!!cropPreview}>
         <Button variant="ghost" size="sm" className="text-foreground hover:bg-accent gap-2"
           onClick={handleAutoDetect} disabled={isDetecting}>
           {isDetecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
@@ -601,13 +604,13 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         onPointerCancel={handlePointerUp}
         aria-label="Zone de recadrage"
       >
-        {(isDetecting || isEnhancing) && (
+        {(isDetecting || isEnhancing || isProcessingCrop) && (
           <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-20">
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
           </div>
         )}
 
-        {imageSize.width > 0 && (
+        {cropPreview ? <img src={showOriginal ? imageData : cropPreview} alt="Aperçu du scan" className="w-full h-full object-contain p-4" /> : imageSize.width > 0 && (
           <img
             src={displayImageSrc}
             alt="Document"
@@ -624,19 +627,27 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           />
         )}
 
-        {renderCropOverlay()}
-        {renderCornerHandle("topLeft")}
-        {renderCornerHandle("topRight")}
-        {renderCornerHandle("bottomRight")}
-        {renderCornerHandle("bottomLeft")}
-        {renderEdgeMidpointHandle("top")}
-        {renderEdgeMidpointHandle("bottom")}
-        {renderEdgeMidpointHandle("left")}
-        {renderEdgeMidpointHandle("right")}
+        {!cropPreview && <>
+          {renderCropOverlay()}
+          {renderCornerHandle("topLeft")}
+          {renderCornerHandle("topRight")}
+          {renderCornerHandle("bottomRight")}
+          {renderCornerHandle("bottomLeft")}
+          {renderEdgeMidpointHandle("top")}
+          {renderEdgeMidpointHandle("bottom")}
+          {renderEdgeMidpointHandle("left")}
+          {renderEdgeMidpointHandle("right")}
+        </>}
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-center p-4 pb-20 bg-card">
+      <div className="flex shrink-0 items-center justify-center gap-3 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-card">
+        <Button variant="outline" disabled={isDetecting || isEnhancing || isProcessingCrop} onClick={async () => {
+          if (cropPreview) { setCropPreview(null); return; }
+          setIsProcessingCrop(true);
+          try { const result = await generateCroppedImage(); if (result) { setCropPreview(result.cropped); setShowOriginal(false); } }
+          finally { setIsProcessingCrop(false); }
+        }}><Eye className="h-4 w-4 mr-2" />{cropPreview ? "Ajuster" : "Aperçu"}</Button>
         <Button
           onClick={handleComplete}
           disabled={isProcessingCrop || isEnhancing || isDetecting || !cropPoints}

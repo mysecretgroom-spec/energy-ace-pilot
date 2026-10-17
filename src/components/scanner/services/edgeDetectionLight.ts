@@ -46,6 +46,11 @@ export async function detectDocumentEdgesLight(
           gray[i] = (px[p] * 77 + px[p+1] * 150 + px[p+2] * 29) >> 8;
         }
 
+        // Paper contrast is evidence of a page; its area is not confidence.
+        // Find small pages before Hough's large-background candidates.
+        const paper = detectPaperRegion(gray, w, h);
+        if (paper) { clearTimeout(timeout); resolve(paper); return; }
+
         // 2. Gaussian blur 5×5
         const blurred = gaussianBlur5(gray, w, h);
 
@@ -62,14 +67,14 @@ export async function detectDocumentEdgesLight(
           const conf = Math.min(quadArea(houghResult) / (w * h), 1);
           // Require the quad to cover at least 20% of the image
           // to avoid partial detections (e.g. only upper half)
-          if (conf > 0.20) {
+          if (conf > 0.20 && hasPaperContrast(gray, w, h, houghResult)) {
             const s = sortCorners(houghResult);
             resolve({
               topLeft: { x: s.topLeft.x / w, y: s.topLeft.y / h },
               topRight: { x: s.topRight.x / w, y: s.topRight.y / h },
               bottomRight: { x: s.bottomRight.x / w, y: s.bottomRight.y / h },
               bottomLeft: { x: s.bottomLeft.x / w, y: s.bottomLeft.y / h },
-              confidence: conf,
+              confidence: Math.min(0.85, 0.5 + conf * 0.35),
             });
             return;
           }
@@ -80,7 +85,7 @@ export async function detectDocumentEdgesLight(
         const hullResult = findLargestQuadHull(dilated, w, h);
         if (hullResult) {
           const conf = Math.min(quadArea(hullResult) / (w * h), 1);
-          if (conf > 0.20) {
+          if (conf > 0.20 && hasPaperContrast(gray, w, h, hullResult)) {
             clearTimeout(timeout);
             const s = sortCorners(hullResult);
             resolve({
@@ -88,7 +93,7 @@ export async function detectDocumentEdgesLight(
               topRight: { x: s.topRight.x / w, y: s.topRight.y / h },
               bottomRight: { x: s.bottomRight.x / w, y: s.bottomRight.y / h },
               bottomLeft: { x: s.bottomLeft.x / w, y: s.bottomLeft.y / h },
-              confidence: conf,
+              confidence: Math.min(0.75, 0.4 + conf * 0.35),
             });
             return;
           }
@@ -107,6 +112,75 @@ export async function detectDocumentEdgesLight(
 }
 
 // ---- Image processing ----
+
+/** Contrast-based page proposal. Text holes are retained in the source;
+ * only a low-resolution mask is used to estimate a convex page boundary. */
+export function detectPaperRegion(gray: Uint8Array, w: number, h: number): LightDetectedEdges | null {
+  if (w < 8 || h < 8 || gray.length !== w * h) return null;
+  const blurred = gaussianBlur5(gray, w, h);
+  const threshold = Math.max(55, otsu(blurred));
+  const visited = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let best: LightDetectedEdges | null = null;
+  let bestScore = 0;
+  for (let start = 0; start < gray.length; start++) {
+    if (visited[start] || blurred[start] <= threshold) continue;
+    let head = 0, tail = 1;
+    queue[0] = start; visited[start] = 1;
+    const boundary: Point[] = [];
+    let touchesFrame = false;
+    while (head < tail) {
+      const index = queue[head++], x = index % w, y = Math.floor(index / w);
+      if (x < 3 || y < 3 || x >= w - 3 || y >= h - 3) touchesFrame = true;
+      let edge = false;
+      for (const [nx, ny] of [[x-1,y], [x+1,y], [x,y-1], [x,y+1]]) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) { edge = true; continue; }
+        const next = ny * w + nx;
+        if (blurred[next] <= threshold) { edge = true; continue; }
+        if (!visited[next]) { visited[next] = 1; queue[tail++] = next; }
+      }
+      if (edge) boundary.push({ x, y });
+    }
+    // A small receipt/page is valid; frame-connected background is not.
+    if (touchesFrame || tail < w * h * 0.015 || boundary.length < 12) continue;
+    const hull = convexHull(boundary);
+    if (hull.length < 4) continue;
+    const sorted = sortCorners(pickBestQuad(hull));
+    const points = [sorted.topLeft, sorted.topRight, sorted.bottomRight, sorted.bottomLeft];
+    const area = quadArea(points);
+    const fill = tail / Math.max(1, area);
+    const rect = rectangularity(points);
+    if (fill < 0.65 || fill > 1.15 || rect < 0.65 || area < w * h * 0.02) continue;
+    if (!hasPaperContrast(gray, w, h, points)) continue;
+    const score = Math.min(1, fill) * rect * Math.sqrt(area / (w * h));
+    if (score <= bestScore) continue;
+    bestScore = score;
+    best = {
+      topLeft: { x: sorted.topLeft.x / w, y: sorted.topLeft.y / h },
+      topRight: { x: sorted.topRight.x / w, y: sorted.topRight.y / h },
+      bottomRight: { x: sorted.bottomRight.x / w, y: sorted.bottomRight.y / h },
+      bottomLeft: { x: sorted.bottomLeft.x / w, y: sorted.bottomLeft.y / h },
+      confidence: Math.min(0.95, 0.65 + rect * 0.15 + Math.min(1, fill) * 0.15),
+    };
+  }
+  return best;
+}
+
+function hasPaperContrast(gray: Uint8Array, w: number, h: number, points: Point[]): boolean {
+  const s = sortCorners(points);
+  const quad = [s.topLeft, s.topRight, s.bottomRight, s.bottomLeft];
+  const center = { x: quad.reduce((sum, p) => sum + p.x, 0) / 4,
+    y: quad.reduce((sum, p) => sum + p.y, 0) / 4 };
+  const sample = (p: Point) => gray[Math.max(0, Math.min(h-1, Math.round(p.y))) * w + Math.max(0, Math.min(w-1, Math.round(p.x)))];
+  let inside = 0, outside = 0;
+  for (let i = 0; i < 4; i++) for (let t = 0.2; t <= 0.8; t += 0.2) {
+    const a = quad[i], b = quad[(i+1)%4];
+    const p = { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t };
+    inside += sample({ x: p.x + (center.x-p.x)*0.12, y: p.y + (center.y-p.y)*0.12 });
+    outside += sample({ x: p.x - (center.x-p.x)*0.12, y: p.y - (center.y-p.y)*0.12 });
+  }
+  return inside / 16 > 60 && (inside - outside) / 16 > 12;
+}
 
 function gaussianBlur5(src: Uint8Array, w: number, h: number): Uint8Array {
   const k = [1,4,6,4,1, 4,16,24,16,4, 6,24,36,24,6, 4,16,24,16,4, 1,4,6,4,1];
