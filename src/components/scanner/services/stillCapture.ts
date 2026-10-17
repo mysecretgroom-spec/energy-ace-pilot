@@ -35,10 +35,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 function frameFromVideo(video: HTMLVideoElement, canvas: HTMLCanvasElement): StillCaptureResult {
+  if (video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) {
+    throw new Error("La caméra n’a pas encore d’image. Réessayez après son activation.");
+  }
   const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Impossible de lire l’image de la caméra.");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   return {
     dataUrl: canvas.toDataURL("image/jpeg", 0.95),
     width: canvas.width,
@@ -88,10 +92,9 @@ export async function captureStill(
       return frameFromVideo(video, canvas);
     }
 
-    const previewAspect = video.videoWidth / Math.max(1, video.videoHeight);
-    const photoAspect = img.naturalWidth / Math.max(1, img.naturalHeight);
-    const matchesPreviewFraming =
-      Math.abs(previewAspect - photoAspect) / previewAspect < 0.04;
+    // Equal aspect ratios do not prove equal sensor framing (zoom, stabilization,
+    // lens switching). Detect the crop again on the actual still, not the preview.
+    const matchesPreviewFraming = false;
 
     return {
       dataUrl,

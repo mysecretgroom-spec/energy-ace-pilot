@@ -7,7 +7,6 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
 import { EdgeOverlay } from "./EdgeOverlay";
-import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
 import { CropEditor } from "./CropEditor";
 import { captureStill, applyDocumentFocus } from "./services/stillCapture";
 
@@ -68,7 +67,9 @@ function generateThumbnail(dataUrl: string, size = 80): Promise<string> {
       const w = size, h = size * ratio;
       const c = document.createElement("canvas");
       c.width = w; c.height = h;
-      c.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      const ctx = c.getContext("2d");
+      if (!ctx) { resolve(dataUrl); return; }
+      ctx.drawImage(img, 0, 0, w, h);
       resolve(c.toDataURL("image/jpeg", 0.6));
       c.width = 0; c.height = 0;
     };
@@ -106,7 +107,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const video = videoRef.current;
       const coverage = video ? quadCoverage(quad, video.videoWidth, video.videoHeight) : 0;
       if (
-        autoCapture && !isCapturing && !captureCooldownRef.current &&
+        autoCapture && !pendingScan && !isCapturing && !captureCooldownRef.current &&
         blurScore > BLUR_THRESHOLD && quad.confidence > 0.5 &&
         coverage >= MIN_COVERAGE && quadSkew(quad) <= MAX_SKEW
       ) {
@@ -151,7 +152,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       streamRef.current = stream;
 
       // Check torch support
-      const track = stream.getVideoTracks()[0];
+        const track = stream.getVideoTracks()[0];
       const caps = track.getCapabilities?.() as any;
       if (caps?.torch) setTorchSupported(true);
       // Continuous autofocus / exposure / white balance for documents

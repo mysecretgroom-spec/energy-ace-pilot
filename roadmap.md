@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [ ] Capture iPhone avant PDF : protéger les captures sans image et imposer la vérification avant ajout ; essai physique bloqué sans accès à un iPhone
 - [x] Scanner : détection multi-seuils de la page plutôt que du fond, coins accessibles et aperçu du résultat ; 8 tests réussis et import/Scan net/aperçu/confirmation vérifiés connectés sur la photo extraite de IMG_3131 ; image déjà compressée avec cadre incrusté, caméra iPhone non vérifiée
 - [ ] Analyse REA de CamScanner : bloquée sans application/artefact fourni ; seules les fonctions publiques ont été comparées, aucun moteur propriétaire analysé
 - [x] Scan direct en fin d’étude remplaçant le téléchargement photos ; scans rattachés à l’étude et inclus dans aperçu/export/stockage/signature selon le mode HEJJA existant ; 12 tests réussis, parcours connecté avec image de contrôle et PDF de 3 pages vérifié ; caméra iPhone/envoi WhatsApp réel non vérifiés
