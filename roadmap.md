@@ -1,6 +1,8 @@
 # Roadmap
 
 ## En cours
+- [x] Capture avant PDF : rejet des images caméra non décodées, cadrage redétecté sur la photo et confirmation obligatoire, suppression du double démarrage ; 18 tests réussis et deux pages confirmées avec caméra simulée, sans erreur de rendu
+- [ ] Capture iPhone réel avant PDF : bloquée sans accès à un appareil physique ; parcours étude/PDF réel et défauts optiques iPhone non vérifiés
 - [x] Scanner : détection multi-seuils de la page plutôt que du fond, coins accessibles et aperçu du résultat ; 8 tests réussis et import/Scan net/aperçu/confirmation vérifiés connectés sur la photo extraite de IMG_3131 ; image déjà compressée avec cadre incrusté, caméra iPhone non vérifiée
 - [ ] Analyse REA de CamScanner : bloquée sans application/artefact fourni ; seules les fonctions publiques ont été comparées, aucun moteur propriétaire analysé
 - [x] Scan direct en fin d’étude remplaçant le téléchargement photos ; scans rattachés à l’étude et inclus dans aperçu/export/stockage/signature selon le mode HEJJA existant ; 12 tests réussis, parcours connecté avec image de contrôle et PDF de 3 pages vérifié ; caméra iPhone/envoi WhatsApp réel non vérifiés
