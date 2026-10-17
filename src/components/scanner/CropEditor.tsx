@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Check, X, RotateCw, Wand2, Loader2, SunMedium, Contrast, SplitSquareHorizontal, ScanLine, Eye } from "lucide-react";
 import { detectDocumentEdgesLight } from "./services/edgeDetectionLight";
 import { applyPerspectiveCorrectionLight } from "./services/perspectiveCorrection";
-import { enhanceForDocument, convertToBlackAndWhite } from "./services/imageEnhancement";
+import { enhanceForDocument, convertToBlackAndWhite, autoDeskew } from "./services/imageEnhancement";
 import { correctDocumentShadows, rotateCorners, validScanCorners, type ScanCorners } from "./services/scanQuality";
 import { toast } from "sonner";
 import { detectFoldLines, type DetectedFolds } from "./services/foldDetection";
@@ -94,7 +94,7 @@ function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string>
 
 // ---- Component ----
 
-export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners, initialEnhance = false }: CropEditorProps) {
+export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners, initialEnhance = true }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -107,7 +107,8 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
 
   const [isDetecting, setIsDetecting] = useState(false);
-  const [autoEnhance, setAutoEnhance] = useState(false);
+  const [autoEnhance, setAutoEnhance] = useState(true);
+  const [deskew, setDeskew] = useState(true);
   const [blackAndWhite, setBlackAndWhite] = useState(false);
   const [enhancedImage, setEnhancedImage] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -338,6 +339,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       if (rotation !== 0) finalImage = await rotateImage(finalImage, rotation);
       if (shadowCorrection) finalImage = await correctDocumentShadows(finalImage);
       if (autoEnhance) finalImage = await enhanceForDocument(finalImage);
+      if (deskew) finalImage = await autoDeskew(finalImage);
       if (blackAndWhite) finalImage = await convertToBlackAndWhite(finalImage);
       const thumbnail = await generateThumbnail(finalImage, 200);
       return { cropped: finalImage, thumbnail };
@@ -346,7 +348,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       toast.error("Recadrage impossible, original conservé : réessayez");
       return null;
     }
-  }, [cropPoints, currentCorners, rotation, imageData, shadowCorrection, autoEnhance, blackAndWhite]);
+  }, [cropPoints, currentCorners, rotation, imageData, shadowCorrection, autoEnhance, blackAndWhite, deskew]);
 
   const handleComplete = useCallback(async () => {
     setIsProcessingCrop(true);
@@ -386,11 +388,15 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
         setDetectedFolds(folds);
         // Process each sub-quad into a separate page
         const pages: Array<{ croppedImage: string; thumbnail: string }> = [];
-        const sourceImage = enhancedImage || imageData;
+        const sourceImage = imageData;
         for (const quad of folds.subQuads) {
           try {
             let cropped = await applyPerspectiveCorrectionLight(sourceImage, quad);
             if (rotation !== 0) cropped = await rotateImage(cropped, rotation);
+            if (shadowCorrection) cropped = await correctDocumentShadows(cropped);
+            if (autoEnhance) cropped = await enhanceForDocument(cropped);
+            if (deskew) cropped = await autoDeskew(cropped);
+            if (blackAndWhite) cropped = await convertToBlackAndWhite(cropped);
             const thumbnail = await generateThumbnail(cropped, 200);
             pages.push({ croppedImage: cropped, thumbnail });
           } catch (err) {
@@ -409,7 +415,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     } finally {
       setIsSplitting(false);
     }
-  }, [cropPoints, displaySize, imageData, enhancedImage, rotation, onSplitPages]);
+  }, [cropPoints, displaySize, imageData, rotation, onSplitPages, shadowCorrection, autoEnhance, deskew, blackAndWhite]);
 
   // ---- Rendering ----
 
@@ -555,7 +561,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       </div>
 
       <div className="flex shrink-0 items-center justify-center gap-2 px-4 py-2 border-b bg-card">
-        <Button size="sm" onClick={() => { setShadowCorrection(true); setShowOriginal(false); handleAutoDetect(); }}
+        <Button size="sm" onClick={() => { setShadowCorrection(true); setAutoEnhance(true); setDeskew(true); setShowOriginal(false); handleAutoDetect(); }}
           disabled={isDetecting || isEnhancing || isProcessingCrop || !!cropPreview}>
           <ScanLine className="h-4 w-4 mr-2" />Scan net
         </Button>
@@ -578,13 +584,17 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           </Button>
         )}
         <div className="flex items-center gap-2">
+          <Switch id="deskew" checked={deskew} onCheckedChange={setDeskew} disabled={isEnhancing || !!cropPreview} />
+          <Label htmlFor="deskew" className="text-foreground text-xs">Redresser</Label>
+        </div>
+        <div className="flex items-center gap-2">
           <Switch id="shadows" checked={shadowCorrection} onCheckedChange={setShadowCorrection} disabled={isEnhancing} />
           <Label htmlFor="shadows" className="text-foreground text-xs">Ombres</Label>
         </div>
         <div className="flex items-center gap-2">
           <Switch id="enhance" checked={autoEnhance} onCheckedChange={setAutoEnhance} disabled={isEnhancing} />
           <Label htmlFor="enhance" className="text-foreground text-xs flex items-center gap-1">
-            <SunMedium className="h-3 w-3" /> Améliorer
+            <SunMedium className="h-3 w-3" /> Contraste
           </Label>
         </div>
         <div className="flex items-center gap-2">

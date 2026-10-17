@@ -110,7 +110,7 @@ export default function DocScannerPage() {
     return (
       <CropEditor
         imageData={pendingImage.blobUrl}
-        initialEnhance={scanNet}
+        initialEnhance
         initialCorners={pendingImage.quad ? {
           topLeft: { x: pendingImage.quad.topLeft.x / pendingImage.size.w, y: pendingImage.quad.topLeft.y / pendingImage.size.h },
           topRight: { x: pendingImage.quad.topRight.x / pendingImage.size.w, y: pendingImage.quad.topRight.y / pendingImage.size.h },
