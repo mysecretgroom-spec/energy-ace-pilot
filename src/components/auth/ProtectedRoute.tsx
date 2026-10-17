@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSaasAccess } from "@/hooks/useSaasAccess";
 import { PaywallScreen } from "@/components/saas/PaywallScreen";
 import { TrialBanner } from "@/components/saas/TrialBanner";
-import { Loader2 } from "lucide-react";
+import { PageError, PageLoading } from "@/components/common/PageState";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,46 +13,39 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const { isLoading: isSaasLoading, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
+  const { isLoading: isSaasLoading, error: accessError, retry, isPaywall, isBlocked, isInTrial, daysLeftInTrial } = useSaasAccess();
   const [saasTimedOut, setSaasTimedOut] = useState(false);
 
-  // Prevent infinite SaaS loading: force-bypass after 5s
+  // Offer recovery after 5s instead of bypassing the access check.
   useEffect(() => {
     if (!isSaasLoading) {
       setSaasTimedOut(false);
       return;
     }
     const timer = setTimeout(() => {
-      console.warn("[ProtectedRoute] SaaS loading timed out after 5s, bypassing...");
+      console.warn("[ProtectedRoute] Access check timed out after 5s");
       setSaasTimedOut(true);
     }, 5000);
     return () => clearTimeout(timer);
   }, [isSaasLoading]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Chargement...</p>
-        </div>
-      </div>
-    );
+    return <PageLoading fullScreen />;
   }
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (isSaasLoading && !saasTimedOut) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Chargement...</p>
-        </div>
-      </div>
-    );
+  if (accessError || (isSaasLoading && saasTimedOut)) {
+    return <PageError fullScreen title="Vérification du compte indisponible" onRetry={() => {
+      setSaasTimedOut(false);
+      void retry();
+    }} onBack={() => window.location.reload()} />;
+  }
+
+  if (isSaasLoading) {
+    return <PageLoading fullScreen />;
   }
 
   // Show paywall for users with expired trial or blocked accounts
