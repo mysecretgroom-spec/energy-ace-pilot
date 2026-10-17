@@ -22,7 +22,7 @@ export function documentContrast(source: Uint8ClampedArray): Uint8ClampedArray {
     const peak = Math.max(source[i], source[i + 1], source[i + 2]);
     const floor = Math.min(source[i], source[i + 1], source[i + 2]);
     // One transform for all channels; bound it to avoid clipping colored annotations.
-    const offset = Math.max(-floor * gain, Math.min(255 - peak * gain, -low * gain + 5));
+    const offset = Math.max(-floor * gain, Math.min(255 - peak * gain, 245 - high * gain));
     for (let c = 0; c < 3; c++) result[i + c] = source[i + c] * gain + offset;
   }
   return result;
