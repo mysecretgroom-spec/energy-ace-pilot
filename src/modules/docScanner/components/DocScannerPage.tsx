@@ -74,42 +74,6 @@ export default function DocScannerPage() {
     setStep("crop");
   }, []);
 
-  // Handle crop confirmed
-  const handleCropConfirm = useCallback(async (quad: Quad) => {
-    if (!pendingImage) return;
-
-    const canvas = await loadImageToCanvas(pendingImage.blobUrl);
-
-    // Warp image
-    const result = await warpImage(canvas, quad, MAX_PREVIEW_DIM);
-    const warpedCanvas = pixelsToCanvas(result.pixels, result.width, result.height);
-    const warpedBlob = await canvasToBlob(warpedCanvas, "image/jpeg", 0.85);
-    const warpedUrl = URL.createObjectURL(warpedBlob);
-
-    // Thumbnail
-    const thumb = generateThumbnail(warpedCanvas);
-    const thumbBlob = await canvasToBlob(thumb, "image/jpeg", 0.6);
-    const thumbUrl = URL.createObjectURL(thumbBlob);
-
-    const newPage: ScanPage = {
-      id: crypto.randomUUID(),
-      originalBlobUrl: pendingImage.blobUrl,
-      originalSize: pendingImage.size,
-      normalizedBlobUrl: pendingImage.blobUrl,
-      quad,
-      filterPreset: "original",
-      rotation: 0,
-      warpedPreviewUrl: warpedUrl,
-    };
-
-    session.addPage(newPage);
-    setPendingImage(null);
-    releaseCanvas(canvas);
-    releaseCanvas(warpedCanvas);
-    releaseCanvas(thumb);
-    setStep("edit");
-  }, [pendingImage, warpImage, session]);
-
   // Handle filter change
   const handleFilterChange = useCallback(async (preset: FilterPreset) => {
     if (!activePage) return;
