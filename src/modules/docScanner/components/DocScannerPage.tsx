@@ -52,7 +52,7 @@ export default function DocScannerPage() {
     setPendingImage({
       blobUrl,
       size: { w: canvas.width, h: canvas.height },
-      quad: scaledQuad || defaultQuad(canvas.width, canvas.height),
+      quad: scaledQuad,
     });
     releaseCanvas(canvas);
     setStep("crop");
@@ -68,7 +68,7 @@ export default function DocScannerPage() {
     setPendingImage({
       blobUrl,
       size: { w: width, h: height },
-      quad: defaultQuad(width, height),
+      quad: null,
     });
     releaseCanvas(canvas);
     setStep("crop");

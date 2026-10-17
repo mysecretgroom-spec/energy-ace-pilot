@@ -115,10 +115,18 @@ export async function detectDocumentEdgesLight(
 
 /** Contrast-based page proposal. Text holes are retained in the source;
  * only a low-resolution mask is used to estimate a convex page boundary. */
-export function detectPaperRegion(gray: Uint8Array, w: number, h: number): LightDetectedEdges | null {
+export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?: number): LightDetectedEdges | null {
   if (w < 8 || h < 8 || gray.length !== w * h) return null;
   const blurred = gaussianBlur5(gray, w, h);
-  const threshold = Math.max(55, otsu(blurred));
+  if (level === undefined) {
+    const base = Math.max(55, otsu(blurred));
+    // Multiple masks keep a darker page from merging with upholstery or
+    // a colored border; select shape evidence, not the largest component.
+    const candidates = [base, base + 25, base + 50].map(t => detectPaperRegion(gray, w, h, t));
+    return candidates.filter((c): c is LightDetectedEdges => c !== null)
+      .sort((a,b) => b.confidence - a.confidence)[0] ?? null;
+  }
+  const threshold = level;
   const visited = new Uint8Array(w * h);
   const queue = new Int32Array(w * h);
   let best: LightDetectedEdges | null = null;
