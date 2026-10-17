@@ -95,6 +95,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const captureCooldownRef = useRef(false);
+  const cameraRequestRef = useRef(0);
 
   // Real-time edge detection with Canny+Hough
   const { detectedQuad, isStable, blurScore, brightness, reset } = useRealtimeEdgeDetection({
@@ -124,6 +125,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const tooSkewed = !!detectedQuad && skew > MAX_SKEW;
 
   const stopCamera = useCallback(() => {
+    cameraRequestRef.current++;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -135,6 +137,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const startCamera = useCallback(async () => {
     setCameraState("requesting");
     stopCamera();
+    const request = ++cameraRequestRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -144,6 +147,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         },
         audio: false,
       });
+      if (request !== cameraRequestRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
 
       // Check torch support
@@ -152,10 +156,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       if (caps?.torch) setTorchSupported(true);
       // Continuous autofocus / exposure / white balance for documents
       await applyDocumentFocus(track);
+      if (request !== cameraRequestRef.current) return;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        if (request !== cameraRequestRef.current) return;
         setVideoDimensions({
           width: videoRef.current.videoWidth,
           height: videoRef.current.videoHeight,
@@ -163,6 +169,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         setCameraState("active");
       }
     } catch (error: unknown) {
+      if (request !== cameraRequestRef.current) return;
       console.error("Camera error:", error);
       const err = error as { name?: string };
       setCameraState(err.name === "NotAllowedError" ? "denied" : "error");
@@ -173,6 +180,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     startCamera();
     return () => stopCamera();
   }, [startCamera, stopCamera]);
+
+  useEffect(() => {
+    if (pendingScan || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => setCameraState("error"));
+  }, [pendingScan]);
 
   useEffect(() => {
     const updateDimensions = () => {

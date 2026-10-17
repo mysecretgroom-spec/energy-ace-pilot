@@ -197,7 +197,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     const oy = (ch - dh) / 2;
     setDisplaySize({ width: dw, height: dh, offsetX: ox, offsetY: oy });
 
-    const edges = manualCornersRef.current || rotateCorners(initialCorners || detectedEdges || {
+    const edges = manualCornersRef.current || rotateCorners(detectedEdges || initialCorners || {
       topLeft: {x:0,y:0}, topRight:{x:1,y:0}, bottomRight:{x:1,y:1}, bottomLeft:{x:0,y:1},
     }, rotation);
     setCropPoints({

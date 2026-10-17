@@ -12,10 +12,12 @@ interface CameraStreamResult {
 export function useCameraStream(): CameraStreamResult {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const requestRef = useRef(0);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stopCamera = useCallback(() => {
+    requestRef.current++;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -24,6 +26,7 @@ export function useCameraStream(): CameraStreamResult {
   }, []);
 
   const startCamera = useCallback(async () => {
+    const request = ++requestRef.current;
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -34,13 +37,16 @@ export function useCameraStream(): CameraStreamResult {
         },
         audio: false,
       });
+      if (request !== requestRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        if (request !== requestRef.current) return;
         setIsReady(true);
       }
     } catch (err: any) {
+      if (request !== requestRef.current) return;
       const message =
         err.name === "NotAllowedError"
           ? "Accès caméra refusé. Utilisez l'import fichier."
@@ -58,7 +64,8 @@ export function useCameraStream(): CameraStreamResult {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
     ctx.drawImage(video, 0, 0);
     return canvas;
   }, [isReady]);
