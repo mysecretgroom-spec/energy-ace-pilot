@@ -33,6 +33,17 @@ describe("page detection rather than surrounding furniture", () => {
     expect(result.bottomRight.y).toBeCloseTo(224/h,1);
     expect(result.confidence).toBeGreaterThan(0.5);
   });
+  it("keeps a long receipt that runs past the bottom of the photo", () => {
+    const w = 240, h = 320, gray = new Uint8Array(w*h).fill(25);
+    for (let y=60; y<h; y++) for (let x=70; x<170; x++) gray[y*w+x] = 215;
+    for (let y=80; y<h-10; y+=12) for (let x=80; x<160; x++) gray[y*w+x] = 40;
+    const result = detectPaperRegion(gray,w,h);
+    if (!result) throw new Error("Receipt not found");
+    expect(result.topLeft.x).toBeCloseTo(70/w,1);
+    expect(result.topLeft.y).toBeCloseTo(60/h,1);
+    expect(result.topRight.x).toBeCloseTo(169/w,1);
+    expect(result.bottomLeft.y).toBeGreaterThan(0.97);
+  });
   it("does not invent a page on an evenly dark scene", () => {
     expect(detectPaperRegion(new Uint8Array(120*160).fill(20),120,160)).toBeNull();
   });
