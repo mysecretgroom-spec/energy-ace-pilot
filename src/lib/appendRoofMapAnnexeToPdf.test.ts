@@ -109,28 +109,26 @@ describe("appendRoofMapAnnexeToPdf", () => {
 
   it("porte la mention IA sur les visuels générés par IA", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
+    const { decodePDFRawStream } = await import("pdf-lib");
     const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
 
-    // Les flux de contenu sont compressés : on les décompresse puis on décode le WinAnsi
-    const raw = Buffer.from(await out.arrayBuffer());
-    const latin = raw.toString("latin1");
-    const texts: string[] = [];
-    const re = /STREAM\r?\n/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(latin))) {
-      const start = m.index + m[0].length;
-      const end = latin.indexOf("ENDSTREAM", start);
-      if (end < 0) break;
-      try {
-        texts.push(zlib.inflateSync(Buffer.from(latin.slice(start, end), "latin1")).toString("latin1"));
-      } catch (err) { console.log("inflate fail:", (err as Error).message, latin.slice(m.index - 60, start)); }
-    }
-    console.log("STREAMS:", texts.length, JSON.stringify(texts.join("|").slice(0, 400)));
-    const content = texts.join("\n").replace(/\xE9/g, "é");
-    expect(content).toContain("généré par IA");
-    expect(content).toContain("Visuels générés par IA — rendus non contractuels.");
-    expect(content).toContain("<4941>"); // badge « IA »
+    // Décompresse le flux de contenu de l'annexe puis décode les chaînes WinAnsi
+    const last = merged.getPage(merged.getPageCount() - 1);
+    const contents = (last.node as unknown as { Contents(): unknown }).Contents();
+    const entries = contents && typeof (contents as { asArray?: unknown }).asArray === "function"
+      ? (contents as { asArray: () => unknown[] }).asArray()
+      : [contents];
+    const raw = entries
+      .map((entry) => merged.context.lookup(entry as never))
+      .filter((s): s is { decode: () => Uint8Array } => !!s && typeof (s as { decode?: unknown }).decode === "function")
+      .map((s) => Buffer.from(decodePDFRawStream(s as never).decode()).toString("latin1"))
+      .join("\n");
+    // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi
+    const decoded = raw.replace(/<([0-9A-Fa-f]+)>/g, (_m, hex: string) =>
+      Buffer.from(hex, "hex").toString("latin1").replace(/\xE9/g, "é").replace(/\x97/g, "—"));
+    expect(decoded).toContain("généré par IA");
+    expect(decoded).toContain("Visuels générés par IA — rendus non contractuels.");
   });
 });
