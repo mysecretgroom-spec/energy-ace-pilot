@@ -56,6 +56,6 @@
 - [x] Étude : PDF auto seulement si modification
 - [x] Latence création de document (scanner → enregistrement)
 - [x] Latence des appels IA
-- [ ] Nom de doc avec heure:minute:seconde (éviter faux doublons)
-- [ ] Long-press RDV : bouton ajouter/scanner docs au dossier client (si étude existe)
-- [ ] Long-press RDV : bouton envoyer dossier complet WhatsApp (même que fin d'étude)
+- [x] Nom de doc avec heure:minute:seconde (éviter faux doublons)
+- [x] Long-press RDV : bouton ajouter/scanner docs au dossier client (si étude existe)
+- [x] Long-press RDV : bouton envoyer dossier complet WhatsApp (même que fin d'étude)
