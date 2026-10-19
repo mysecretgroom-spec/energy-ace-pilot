@@ -100,7 +100,7 @@ body {
     --status-cancelled: 222 10% 48%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(224 55% 18%) 0%, hsl(221 83% 42%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 48%) 0%, hsl(221 90% 37%) 100%);
     --gradient-premium: linear-gradient(135deg, hsl(38 92% 54%) 0%, hsl(28 90% 50%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(224 50% 9%) 0%, hsl(224 40% 14%) 100%);
 
@@ -135,6 +135,7 @@ body {
 
     /* Cobalt (dark) */
     --primary: 217 91% 60%;
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 62%) 0%, hsl(217 91% 50%) 100%);
     --primary-foreground: 224 55% 8%;
 
     /* Ambre solaire */

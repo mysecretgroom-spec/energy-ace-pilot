@@ -254,7 +254,7 @@ export function ImportPreviewCarousel({
         <p className="text-white/70">Aucun document</p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">Annuler</Button>
-          <Button onClick={onAddMore} className="bg-primary">
+          <Button onClick={onAddMore} className="bg-gradient-hero">
             <Plus className="h-4 w-4 mr-2" />
             Ajouter
           </Button>
@@ -283,7 +283,7 @@ export function ImportPreviewCarousel({
                     key={cat.value}
                     className={`w-full text-left px-3 py-2.5 rounded-lg mb-1 transition-colors ${
                       currentDoc.documentType === cat.value
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-gradient-hero text-primary-foreground"
                         : "text-white/80 hover:bg-white/10"
                     }`}
                     onClick={() => handleTypeChange(currentDoc.id, cat.value)}
@@ -563,7 +563,7 @@ export function ImportPreviewCarousel({
           <button
             className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
               !isSaving
-                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                ? "bg-gradient-hero text-primary-foreground shadow-lg shadow-primary/30"
                 : "bg-white/10 text-white/30"
             }`}
             onClick={onSave}

@@ -1062,7 +1062,7 @@ export function BillingSection({ onRefresh }: BillingSectionProps) {
                         size="sm"
                         onClick={() => handleMarkAsPaid(facture)}
                         disabled={markingPaid === facture.id}
-                        className="gap-1.5 bg-primary hover:bg-primary/90 h-9"
+                        className="gap-1.5 bg-gradient-hero h-9"
                       >
                         {markingPaid === facture.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
