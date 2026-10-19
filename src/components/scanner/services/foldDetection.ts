@@ -107,14 +107,16 @@ export async function detectFoldLines(
           });
         }
 
-        if (folds.length === 0) {
+        const splitFold = selectSplitFold(folds);
+        if (!splitFold) {
           clearTimeout(timeout);
           resolve(null);
           return;
         }
 
-        // Build sub-quads from fold lines
-        const subQuads = buildSubQuads(crop, folds);
+        // Un seul pli central fiable → 2 pages (livret / feuille pliée).
+        // Les froissures d'un ticket ne doivent jamais découper en dizaines de bandes.
+        const subQuads = buildSubQuads(crop, [splitFold]);
 
         clearTimeout(timeout);
         resolve({ lines: folds, subQuads });
