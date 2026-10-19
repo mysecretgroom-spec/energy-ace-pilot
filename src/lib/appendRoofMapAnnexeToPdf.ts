@@ -88,8 +88,13 @@ export async function appendRoofMapAnnexeToPdf(
           const emb = head[0] === 0x89 ? await pdf.embedPng(buf) : await pdf.embedJpg(buf);
           const scale = Math.min(cellW / emb.width, maxH / emb.height);
           const w = emb.width * scale, h = emb.height * scale;
-          page.drawImage(emb, { x: x + (cellW - w) / 2, y: y - 14 - h, width: w, height: h });
-          page.drawText(item.label, { x, y: y - 14 - h - 12, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
+          const ix = x + (cellW - w) / 2;
+          const iy = y - 14 - h;
+          page.drawImage(emb, { x: ix, y: iy, width: w, height: h });
+          // Mention IA superposée en haut à droite du visuel
+          page.drawRectangle({ x: ix + w - 30, y: iy + h - 17, width: 26, height: 13, color: rgb(0.05, 0.05, 0.05), opacity: 0.85 });
+          page.drawText("IA", { x: ix + w - 30 + 6.5, y: iy + h - 17 + 3.5, size: 8, font: fontBold, color: rgb(1, 1, 1) });
+          page.drawText(`${item.label} — généré par IA`, { x, y: iy - 12, size: 8, font, color: rgb(0.3, 0.3, 0.3) });
         } catch (e) {
           console.warn("[appendRoofMapAnnexeToPdf] visuel IA ignoré:", e);
         }
@@ -99,6 +104,9 @@ export async function appendRoofMapAnnexeToPdf(
         `Simulation indicative${visuals.nbPanneaux ? ` — ${visuals.nbPanneaux} panneaux` : ""} de 1130 x 2095 mm.`,
         { x: 40, y: 34, size: 8, font, color: rgb(0.4, 0.4, 0.4) }
       );
+      page.drawText("Visuels générés par IA — rendus non contractuels.", {
+        x: 40, y: 22, size: 8, font, color: rgb(0.4, 0.4, 0.4),
+      });
     }
 
     const bytes = await pdf.save({ useObjectStreams: true });

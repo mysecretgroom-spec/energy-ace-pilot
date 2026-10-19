@@ -8,9 +8,25 @@ import { renderRoofMapImage } from "@/lib/roofMapImage";
 const FAKE_JPEG =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwcJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPDcxNDH/wAALCAABAAEBAREA/8QAFAABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJgA/9k=";
 
+// 1x1 PNG (visuels IA)
+const FAKE_PNG_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
 vi.mock("@/lib/roofMapImage", () => ({
   renderRoofMapImage: vi.fn(async () => FAKE_JPEG),
 }));
+
+vi.mock("@/lib/roofAiVisuals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/roofAiVisuals")>();
+  return {
+    ...actual,
+    fetchLatestAiVisuals: vi.fn(async () => ({
+      satellite: FAKE_PNG_URL,
+      photo: FAKE_PNG_URL,
+      nbPanneaux: 6,
+    })),
+  };
+});
 
 const dataWithRoof = {
   roofLatitude: 45.123456,
@@ -28,12 +44,12 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : String((input as Request).url ?? input);
-      if (url.startsWith("data:image/jpeg")) {
+      if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/png")) {
         const b64 = url.split(",")[1];
         const bin = atob(b64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return new Response(bytes, { headers: { "Content-Type": "image/jpeg" } });
+        return new Response(bytes, { headers: { "Content-Type": url.slice(5, url.indexOf(";")) } });
       }
       return originalFetch(input as RequestInfo);
     }) as typeof fetch;
@@ -88,5 +104,33 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(), { ...dataWithRoof, roofMapViewport: viewport });
     expect(renderRoofMapImage).toHaveBeenLastCalledWith(45.123456, 0.654321, { viewport });
     expect((await PDFDocument.load(await out.arrayBuffer())).getPageCount()).toBe(3);
+  });
+
+  it("porte la mention IA sur les visuels générés par IA", async () => {
+    const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
+    const { decodePDFRawStream } = await import("pdf-lib");
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), dataWithRoof, "etude-ia");
+    const merged = await PDFDocument.load(await out.arrayBuffer());
+    expect(merged.getPageCount()).toBe(3);
+
+    // Décompresse le flux de contenu de l'annexe puis décode les chaînes WinAnsi
+    const last = merged.getPage(merged.getPageCount() - 1);
+    const contents = (last.node as unknown as { Contents(): unknown }).Contents();
+    const entries = contents && typeof (contents as { asArray?: unknown }).asArray === "function"
+      ? (contents as { asArray: () => unknown[] }).asArray()
+      : [contents];
+    const raw = entries
+      .map((entry) => merged.context.lookup(entry as never))
+      .filter(Boolean)
+      .map((s) => {
+        try { return Buffer.from(decodePDFRawStream(s as never).decode()).toString("latin1"); }
+        catch { return ""; }
+      })
+      .join("\n");
+    // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi
+    const decoded = raw.replace(/<([0-9A-Fa-f]+)>/g, (_m, hex: string) =>
+      Buffer.from(hex, "hex").toString("latin1").replace(/\xE9/g, "é").replace(/\x97/g, "—"));
+    expect(decoded).toContain("généré par IA");
+    expect(decoded).toContain("Visuels générés par IA — rendus non contractuels.");
   });
 });

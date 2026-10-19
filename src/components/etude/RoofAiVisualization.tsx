@@ -126,9 +126,14 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
         <div className="grid grid-cols-2 gap-2">
           {[{ u: visuals.satellite, l: "Satellite" }, { u: visuals.photo, l: "Photo étude" }].map((v) => (
             <div key={v.l} className="space-y-1">
-              {v.u ? <img src={v.u} alt={`Visualisation IA ${v.l}`} className="w-full rounded-md border border-border object-cover aspect-video" />
+              {v.u ? (
+                <div className="relative">
+                  <img src={v.u} alt={`Visualisation IA ${v.l}`} className="w-full rounded-md border border-border object-cover aspect-video" />
+                  <span aria-label="Visuel généré par IA" className="absolute right-1.5 top-1.5 rounded bg-foreground/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-background">IA</span>
+                </div>
+              )
                 : <div className="aspect-video rounded-md border border-dashed border-border" />}
-              <p className="text-[10px] text-muted-foreground">{v.l}</p>
+              <p className="text-[10px] text-muted-foreground">{v.l} — généré par IA</p>
             </div>
           ))}
         </div>
