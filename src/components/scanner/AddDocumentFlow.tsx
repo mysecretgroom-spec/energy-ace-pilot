@@ -4,6 +4,7 @@ import { CameraScanner } from "./CameraScanner";
 import { CropEditor } from "./CropEditor";
 import { PageManager } from "./PageManager";
 import { BatchCropReview } from "./BatchCropReview";
+import { NativeBurstCapture } from "./NativeBurstCapture";
 import { ReviewDocument } from "./ReviewDocument";
 import type { DocumentContext, ScanPage } from "./types";
 import type { DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
@@ -19,7 +20,7 @@ interface AddDocumentFlowProps {
   isOpen: boolean;
 }
 
-type FlowStep = "method" | "camera" | "crop" | "batch" | "pages" | "review";
+type FlowStep = "method" | "native" | "camera" | "crop" | "batch" | "pages" | "review";
 
 export function AddDocumentFlow({
   context,
@@ -31,7 +32,7 @@ export function AddDocumentFlow({
   onCancel,
   isOpen,
 }: AddDocumentFlowProps) {
-  const [step, setStep] = useState<FlowStep>(startWithCamera ? "camera" : "method");
+  const [step, setStep] = useState<FlowStep>(startWithCamera ? "native" : "method");
   const [pages, setPages] = useState<ScanPage[]>([]);
   const [currentCapture, setCurrentCapture] = useState<string | null>(null);
   const [importedFile, setImportedFile] = useState<File | null>(null);
@@ -52,8 +53,10 @@ export function AddDocumentFlow({
     onCancel?.();
   }, [resetFlow, onCancel]);
 
-  const handleMethodSelect = useCallback((method: "scan" | "import") => {
-    if (method === "scan") {
+  const handleMethodSelect = useCallback((method: "scan" | "native" | "import") => {
+    if (method === "native") {
+      setStep("native");
+    } else if (method === "scan") {
       setStep("camera");
     }
     // Import is handled directly via file input in DocumentMethodModal
@@ -80,7 +83,8 @@ export function AddDocumentFlow({
   const handleBatchDone = useCallback((newPages: ScanPage[]) => {
     setPages((prev) => [...prev, ...newPages]);
     setBatchImages([]);
-    setStep("pages");
+    // Moins d'étapes : après « Tout valider », on passe directement à l'enregistrement.
+    setStep("review");
   }, []);
 
   /** Passe à la photo suivante de la rafale, ou à la liste des pages quand tout est validé. */
@@ -134,7 +138,7 @@ export function AddDocumentFlow({
   }, []);
 
   const handleAddPage = useCallback(() => {
-    setStep("camera");
+    setStep("native");
   }, []);
 
   const handleFinishScan = useCallback(() => {
@@ -171,6 +175,13 @@ export function AddDocumentFlow({
           onClose={handleClose}
         />
       );
+    case "native":
+      return (
+        <NativeBurstCapture
+          onDone={(imgs) => { setBatchImages(imgs); setStep("batch"); }}
+          onCancel={pages.length > 0 ? () => setStep("review") : handleClose}
+        />
+      );
     case "camera":
       return (
         <CameraScanner
@@ -196,7 +207,7 @@ export function AddDocumentFlow({
         <BatchCropReview
           images={batchImages}
           onDone={handleBatchDone}
-          onCancel={() => { setBatchImages([]); setStep(pages.length > 0 ? "pages" : "camera"); }}
+          onCancel={() => { setBatchImages([]); setStep(pages.length > 0 ? "review" : "native"); }}
         />
       );
     case "pages":
