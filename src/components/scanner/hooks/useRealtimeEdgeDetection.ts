@@ -390,8 +390,8 @@ export function useRealtimeEdgeDetection({
 
       if (quadsAreSimilar(scaledQuad, lastQuadRef.current)) {
         stableCountRef.current++;
-        // Require ~1.5s stability at ~4fps = ~6 frames
-        if (stableCountRef.current >= 6 && !stableCallbackFiredRef.current) {
+        // Require ~2.5s stability at ~4fps = ~10 frames (less aggressive auto-capture)
+        if (stableCountRef.current >= 10 && !stableCallbackFiredRef.current) {
           setIsStable(true);
           stableCallbackFiredRef.current = true;
           onStableDetection?.(scaledQuad);
