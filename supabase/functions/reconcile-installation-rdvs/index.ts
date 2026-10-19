@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
         latitude: client?.latitude,
         longitude: client?.longitude,
         commentaire: `Pose planifiée — réconciliation depuis vente ${v.id}`,
+        metadata: { vente_id: v.id, auto_created: true },
       });
       if (!insErr) created++;
     }
