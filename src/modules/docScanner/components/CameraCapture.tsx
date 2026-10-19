@@ -25,6 +25,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const captureCooldownRef = useRef(false);
+  const analysisScaleRef = useRef(1);
 
   useEffect(() => {
     startCamera();
@@ -38,6 +39,8 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
       const frame = captureFrame();
       if (frame) {
         const small = downscale(frame, MAX_ANALYSIS_DIM);
+        const vw = videoRef.current?.videoWidth || frame.width;
+        analysisScaleRef.current = vw / Math.max(1, small.width);
         detectFromCanvas(small);
         releaseCanvas(frame);
         releaseCanvas(small);
@@ -117,16 +120,6 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
             strokeWidth={unit * 0.3}
           />
         ))}
-      </svg>
-    );
-  };
-  const _unusedOverlayEnd = () => {
-    return (
-      <svg>
-        {[].map(() => {
-          return (
-            null
-        })}
       </svg>
     );
   };
