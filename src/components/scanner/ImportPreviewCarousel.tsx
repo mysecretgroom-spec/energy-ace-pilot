@@ -32,6 +32,8 @@ import useEmblaCarousel from "embla-carousel-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { pdfjsLib } from "@/lib/pdfWorker";
+import { MediaPreview } from "@/components/documents/MediaPreview";
+import type { PreviewMedia } from "@/components/documents/previewMedia";
 
 export interface ImportedDoc {
   id: string;
@@ -168,6 +170,19 @@ export function ImportPreviewCarousel({
 }: ImportPreviewCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false });
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewItems, setPreviewItems] = useState<PreviewMedia[]>([]);
+  useEffect(() => {
+    const urls: string[] = [];
+    setPreviewItems(documents.map((doc) => {
+      const src = doc.processedPreview || doc.preview;
+      const pdf = !src || src === "/placeholder.svg";
+      const url = pdf ? URL.createObjectURL(doc.file) : src;
+      if (pdf) urls.push(url);
+      return { id: doc.id, nom: doc.description || doc.file.name, url, mime_type: pdf ? "application/pdf" : "image/png" };
+    }));
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [documents]);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
@@ -343,6 +358,7 @@ export function ImportPreviewCarousel({
                          className="max-w-full max-h-[55vh] object-contain rounded-lg shadow-2xl"
                          style={{ transform: `rotate(${doc.rotation}deg)` }}
                          draggable={false}
+                         onClick={() => setPreviewIndex(documents.findIndex((item) => item.id === doc.id))}
                        />
                      </div>
                    ) : (
@@ -585,6 +601,7 @@ export function ImportPreviewCarousel({
           }
         </p>
       </div>
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} items={previewItems} initialIndex={previewIndex ?? 0} />
     </div>
   );
 }

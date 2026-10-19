@@ -59,7 +59,7 @@ function MediaPage({ item, active, zoom }: { item: PreviewMedia; active: boolean
 
   if (!active) return null;
   return <div className="h-full min-h-0 flex flex-col">
-    <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto flex" onDoubleClick={() => {}}>
+    <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto flex">
       {!loaded && !error && kind !== "unknown" && <div className="absolute inset-0 grid place-items-center pointer-events-none"><Loader2 aria-label="Chargement de l’aperçu" className="h-6 w-6 animate-spin" /></div>}
       {error || kind === "unknown" ? <div className="m-auto flex flex-col items-center gap-4 px-6 text-center">
         <FileText className="h-10 w-10 opacity-50" /><p className="text-sm">{error ? "Impossible d’afficher cet élément" : "Aperçu indisponible"}</p>
