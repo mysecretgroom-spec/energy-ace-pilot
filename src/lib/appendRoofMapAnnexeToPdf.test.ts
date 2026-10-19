@@ -109,8 +109,6 @@ describe("appendRoofMapAnnexeToPdf", () => {
   it("porte la mention IA sur les visuels générés par IA", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
     const { decodePDFRawStream } = await import("pdf-lib");
-    const { fetchLatestAiVisuals } = await import("@/lib/roofAiVisuals");
-    console.log("VISUALS CALLS:", vi.mocked(fetchLatestAiVisuals).mock.calls.length, JSON.stringify(vi.mocked(fetchLatestAiVisuals).mock.results));
     const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), dataWithRoof, "etude-ia");
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
@@ -129,7 +127,6 @@ describe("appendRoofMapAnnexeToPdf", () => {
         catch { return ""; }
       })
       .join("\n");
-    console.log("RAWLEN", raw.length, JSON.stringify(raw.slice(0, 300)), "entries:", entries.length);
     // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi
     const decoded = raw.replace(/<([0-9A-Fa-f]+)>/g, (_m, hex: string) =>
       Buffer.from(hex, "hex").toString("latin1").replace(/\xE9/g, "é").replace(/\x97/g, "—"));
