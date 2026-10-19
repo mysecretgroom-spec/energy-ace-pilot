@@ -456,6 +456,8 @@ export function ReviewDocument({
           status: "pending",
           priority: 3,
         });
+        // Start processing now instead of waiting for the next minute tick.
+        void supabase.functions.invoke("process-background-jobs").catch(() => {});
       }
 
       // If finance context, create frais record
