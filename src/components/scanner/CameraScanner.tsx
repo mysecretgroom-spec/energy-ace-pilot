@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
-import { EdgeOverlay } from "./EdgeOverlay";
+import { DetectionLight } from "./DetectionLight";
 import { CropEditor } from "./CropEditor";
 import { captureStill, applyDocumentFocus } from "./services/stillCapture";
 
@@ -479,35 +479,15 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Edge detection overlay */}
+        {/* Detection light (no live outline) */}
         {cameraState === "active" && (
-          <EdgeOverlay
-            quad={detectedQuad}
-            isStable={isStable}
-            videoWidth={videoDimensions.width}
-            videoHeight={videoDimensions.height}
-            containerWidth={containerDimensions.width}
-            containerHeight={containerDimensions.height}
+          <DetectionLight
+            className="absolute top-16 right-4 z-20"
+            score={
+              !detectedQuad || isBlurry ? 0
+                : Math.min(1, detectedQuad.confidence * (isStable ? 1 : 0.75) * (tooFar || tooSkewed ? 0.6 : 1))
+            }
           />
-        )}
-
-        {/* Detection status badge */}
-        {cameraState === "active" && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20">
-            {getStatusBadge()}
-          </div>
-        )}
-
-        {/* Guide frame when no detection */}
-        {!detectedQuad && cameraState === "active" && !isBlurry && (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-8 sm:inset-16 border-2 border-white/30 border-dashed rounded-lg">
-              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-white/50 rounded-tl-lg" />
-              <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-white/50 rounded-tr-lg" />
-              <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-white/50 rounded-bl-lg" />
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-white/50 rounded-br-lg" />
-            </div>
-          </div>
         )}
 
         {/* Loading */}

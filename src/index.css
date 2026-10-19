@@ -77,6 +77,8 @@ body {
 
     /* États */
     --destructive: 4 74% 47%;
+    --scan-good: 145 70% 26%;
+    --scan-bad: 0 72% 32%;
     --destructive-foreground: 0 0% 100%;
     --warning: 38 92% 42%;
     --warning-foreground: 0 0% 100%;
