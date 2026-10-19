@@ -194,7 +194,7 @@ export function OnboardingDialog() {
             ) : (
               <Button 
                 onClick={handleComplete} 
-                className="gap-2 h-10 sm:h-9 px-4 sm:px-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 touch-manipulation active:scale-95 transition-transform"
+                className="gap-2 h-10 sm:h-9 px-4 sm:px-3 bg-gradient-hero touch-manipulation active:scale-95 transition-transform"
                 size="sm"
               >
                 <Sparkles className="h-4 w-4" />
