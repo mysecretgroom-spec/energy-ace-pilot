@@ -8,6 +8,9 @@ import { hapticFeedback } from "@/lib/haptics";
 import type { Quad } from "../types";
 import { MAX_ANALYSIS_DIM } from "../types";
 
+/** Live preview analysis size; the captured photo keeps full resolution. */
+const LIVE_ANALYSIS_DIM = 640;
+
 interface CameraCaptureProps {
   onCapture: (canvas: HTMLCanvasElement, quad: Quad | null, scanNet?: boolean) => void;
   onImport: (file: File) => void;
@@ -36,13 +39,11 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
   useEffect(() => {
     if (!isReady) return;
     const run = () => {
-      const frame = captureFrame();
-      if (frame) {
-        const small = downscale(frame, MAX_ANALYSIS_DIM);
-        const vw = videoRef.current?.videoWidth || frame.width;
+      const small = captureFrame(LIVE_ANALYSIS_DIM);
+      if (small) {
+        const vw = videoRef.current?.videoWidth || small.width;
         analysisScaleRef.current = vw / Math.max(1, small.width);
         detectFromCanvas(small);
-        releaseCanvas(frame);
         releaseCanvas(small);
       }
     };

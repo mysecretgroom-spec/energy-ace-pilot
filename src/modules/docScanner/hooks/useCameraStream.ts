@@ -7,7 +7,7 @@ interface CameraStreamResult {
   error: string | null;
   startCamera: () => Promise<void>;
   stopCamera: () => void;
-  captureFrame: () => HTMLCanvasElement | null;
+  captureFrame: (maxDim?: number) => HTMLCanvasElement | null;
 }
 
 export function useCameraStream(): CameraStreamResult {
@@ -60,16 +60,19 @@ export function useCameraStream(): CameraStreamResult {
     }
   }, []);
 
-  const captureFrame = useCallback((): HTMLCanvasElement | null => {
+  const captureFrame = useCallback((maxDim?: number): HTMLCanvasElement | null => {
     const video = videoRef.current;
     if (!video || !isReady || video.readyState < 2 || video.videoWidth <= 0 || video.videoHeight <= 0) return null;
 
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d");
+    // Analysis frames are drawn directly at low resolution: copying a full
+    // 4K frame several times per second made the live scanner sluggish.
+    const s = maxDim ? Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight)) : 1;
+    canvas.width = Math.round(video.videoWidth * s);
+    canvas.height = Math.round(video.videoHeight * s);
+    const ctx = canvas.getContext("2d", { willReadFrequently: !!maxDim });
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     return canvas;
   }, [isReady]);
 
