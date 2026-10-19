@@ -8,9 +8,25 @@ import { renderRoofMapImage } from "@/lib/roofMapImage";
 const FAKE_JPEG =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwcJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPDcxNDH/wAALCAABAAEBAREA/8QAFAABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJgA/9k=";
 
+// 1x1 PNG (visuels IA)
+const FAKE_PNG_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
 vi.mock("@/lib/roofMapImage", () => ({
   renderRoofMapImage: vi.fn(async () => FAKE_JPEG),
 }));
+
+vi.mock("@/lib/roofAiVisuals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/roofAiVisuals")>();
+  return {
+    ...actual,
+    fetchLatestAiVisuals: vi.fn(async () => ({
+      satellite: FAKE_PNG_URL,
+      photo: FAKE_PNG_URL,
+      nbPanneaux: 6,
+    })),
+  };
+});
 
 const dataWithRoof = {
   roofLatitude: 45.123456,
@@ -28,12 +44,12 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : String((input as Request).url ?? input);
-      if (url.startsWith("data:image/jpeg")) {
+      if (url.startsWith("data:image/jpeg") || url.startsWith("data:image/png")) {
         const b64 = url.split(",")[1];
         const bin = atob(b64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return new Response(bytes, { headers: { "Content-Type": "image/jpeg" } });
+        return new Response(bytes, { headers: { "Content-Type": url.slice(5, url.indexOf(";")) } });
       }
       return originalFetch(input as RequestInfo);
     }) as typeof fetch;
