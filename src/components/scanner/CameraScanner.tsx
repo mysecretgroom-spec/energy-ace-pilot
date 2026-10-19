@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Camera, X, RotateCcw, AlertCircle, Upload,
@@ -108,6 +109,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const [torchSupported, setTorchSupported] = useState(false);
   const captureCooldownRef = useRef(false);
   const cameraRequestRef = useRef(0);
+  const captureInFlightRef = useRef(false);
 
   // Real-time edge detection with Canny+Hough
   const { detectedQuad, isStable, blurScore, brightness, reset } = useRealtimeEdgeDetection({
@@ -179,6 +181,9 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
           height: videoRef.current.videoHeight,
         });
         setCameraState("active");
+      } else {
+        stopCamera();
+        setCameraState("error");
       }
     } catch (error: unknown) {
       if (request !== cameraRequestRef.current) return;
@@ -244,7 +249,9 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   /** Every capture is reviewed on the actual image before joining the PDF. */
   const performCapture = useCallback(async (_quad?: DetectedQuad, _review = false) => {
-    if (!videoRef.current || !canvasRef.current || pendingScan || isCapturing || captureCooldownRef.current) return;
+    if (!videoRef.current || !canvasRef.current || cameraState !== "active" || pendingScan || captureInFlightRef.current || captureCooldownRef.current) return;
+    captureInFlightRef.current = true;
+    const request = cameraRequestRef.current;
     
     // Cooldown to prevent burst captures
     captureCooldownRef.current = true;
@@ -255,7 +262,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
     // Flash effect
     const flash = document.createElement("div");
-    flash.className = "fixed inset-0 bg-white z-[100] pointer-events-none";
+    flash.className = "fixed inset-0 bg-white z-[110] pointer-events-none";
     flash.style.animation = "flash 200ms ease-out";
     document.body.appendChild(flash);
     setTimeout(() => flash.remove(), 200);
@@ -263,27 +270,31 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) { setIsCapturing(false); return; }
+    if (!ctx) { captureInFlightRef.current = false; setIsCapturing(false); return; }
 
     try {
     // Full-resolution still (sensor photo) with video-frame fallback
     const track = streamRef.current?.getVideoTracks()[0] ?? null;
     const still = await captureStill(track, video, canvas);
+    if (request !== cameraRequestRef.current) return;
     const rawImage = still.dataUrl;
     reset();
     if (onMultiCapture) {
       // Rafale : on garde la photo brute ; le rognage est validé page par page après « Terminé ».
       const thumb = await makeThumbnail(rawImage);
+      if (request !== cameraRequestRef.current) return;
       setCapturedPages(prev => [...prev, { id: crypto.randomUUID(), imageData: rawImage, thumbnailData: thumb }]);
     } else {
       setPendingScan(rawImage);
     }
     } catch (error) {
+      captureCooldownRef.current = false;
+      if (request !== cameraRequestRef.current) return;
       console.error("Capture failed:", error);
       toast({ title: "Capture impossible", description: "Réessayez ou importez une photo", variant: "destructive" });
-    } finally { setIsCapturing(false); }
+    } finally { captureInFlightRef.current = false; setIsCapturing(false); }
     // Batch mode: stay on camera for next page
-  }, [isCapturing, pendingScan, reset, onMultiCapture]);
+  }, [cameraState, pendingScan, reset, onMultiCapture]);
 
   const handleManualCapture = useCallback(() => {
     // Block capture if too blurry
@@ -299,6 +310,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   }, []);
 
   const handleFinish = useCallback(() => {
+    if (captureInFlightRef.current || capturedPages.length === 0) return;
     stopCamera();
     if (onMultiCapture && capturedPages.length > 0) {
       onMultiCapture(capturedPages);
@@ -401,13 +413,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   // Error/denied states
   if (cameraState === "denied") {
     return (
-      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Accès caméra refusé</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
           Pour scanner des documents, autorisez l'accès à la caméra dans les paramètres de votre navigateur.
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <Button variant="outline" onClick={handleClose}>Annuler</Button>
           <Button variant="secondary" onClick={() => photoInputRef.current?.click()}><Camera className="h-4 w-4 mr-2" />Photo haute résolution</Button>
           <Button onClick={() => fileInputRef.current?.click()}>
@@ -422,13 +434,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   if (cameraState === "error") {
     return (
-      <div className="fixed inset-0 z-[70] bg-background flex flex-col items-center justify-center p-6">
+      <div className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center p-6">
         <AlertCircle className="h-16 w-16 text-destructive mb-4" />
         <h2 className="text-xl font-semibold mb-2">Caméra non disponible</h2>
         <p className="text-muted-foreground text-center mb-6 max-w-sm">
           Aucune caméra n'a été détectée. Vous pouvez importer un fichier à la place.
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <Button variant="outline" onClick={handleClose}>Annuler</Button>
           <Button variant="secondary" onClick={() => photoInputRef.current?.click()}><Camera className="h-4 w-4 mr-2" />Photo haute résolution</Button>
           <Button onClick={() => fileInputRef.current?.click()}>
@@ -441,8 +453,8 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       <style>{`
         @keyframes flash {
           0% { opacity: 0.8; }
@@ -452,7 +464,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent">
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleClose}>
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleClose} aria-label="Annuler le scan">
           <X className="h-6 w-6" />
         </Button>
         <div className="flex items-center gap-2">
@@ -479,7 +491,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
             </Button>
           )}
         </div>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleSwitchCamera}>
+        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" disabled={isCapturing} onClick={handleSwitchCamera} aria-label="Changer de caméra">
           <RotateCcw className="h-5 w-5" />
         </Button>
       </div>
@@ -524,7 +536,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
             <img
               src={capturedPages[capturedPages.length - 1].thumbnailData}
               alt="Dernière page"
-              className="w-14 h-auto rounded border-2 border-white shadow-lg"
+              className="w-14 h-20 object-contain rounded border-2 border-white shadow-lg"
             />
             <span className="absolute -top-2 -right-2 bg-teal-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow">
               {totalPages}
@@ -533,32 +545,19 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </div>
       )}
 
-      <div className="absolute bottom-32 left-0 right-0 z-10 flex justify-center gap-2">
-        <Button variant="secondary" onClick={() => photoInputRef.current?.click()} disabled={isCapturing}>
-          <Camera className="h-4 w-4 mr-2" />Photo haute résolution
-        </Button>
-        <Button onClick={() => {
-          if (isBlurry) { toast({ title: "Image trop floue", description: "Stabilisez votre appareil", variant: "destructive" }); return; }
-          performCapture(undefined, true);
-        }} disabled={cameraState !== "active" || isCapturing}>
-          {isCapturing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ScanLine className="h-4 w-4 mr-2" />}
-          Scan net
-        </Button>
-      </div>
-
       {/* Footer controls */}
       <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-8 pb-10 pt-6 bg-gradient-to-t from-black/80 to-transparent">
         {/* Undo last page */}
-        <button
+        <Button variant="ghost" size="icon" aria-label="Retirer la dernière page"
           className="flex flex-col items-center gap-1 text-white/70 disabled:opacity-30"
           onClick={handleUndo}
-          disabled={capturedPages.length === 0}
+          disabled={capturedPages.length === 0 || isCapturing}
         >
           <Undo2 className="h-7 w-7" />
-        </button>
+        </Button>
 
         {/* Capture button */}
-        <button
+        <Button variant="ghost" size="icon" aria-label="Prendre une page"
           className={`relative h-[72px] w-[72px] rounded-full transition-all ${
             isCapturing ? "scale-90" : ""
           } ${isBlurry ? "opacity-50" : ""}`}
@@ -569,22 +568,16 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
             isStable && !isBlurry ? "border-teal-400" : isBlurry ? "border-red-400" : "border-white/60"
           }`} />
           <span className="absolute inset-[6px] rounded-full bg-white" />
-        </button>
+        </Button>
 
         {/* Terminé / Done button */}
-        <button
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            capturedPages.length > 0
-              ? "text-teal-400 font-semibold"
-              : "text-white/30 pointer-events-none"
-          }`}
+        <Button
+          className="font-semibold"
           onClick={handleFinish}
-          disabled={capturedPages.length === 0}
+          disabled={capturedPages.length === 0 || isCapturing}
         >
-          <span className="text-sm font-semibold bg-teal-500 text-white px-4 py-2 rounded-lg">
-            Terminé
-          </span>
-        </button>
+          Terminé {capturedPages.length > 0 ? `(${capturedPages.length})` : ""}
+        </Button>
       </div>
 
       {/* Hidden elements */}
@@ -597,6 +590,6 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         onChange={handleFileImport}
         className="hidden"
       />
-    </div>
+    </div>, document.body
   );
 }
