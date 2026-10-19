@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Unifier les aperçus documents/photos : miniature → plein écran, navigation latérale, pages PDF, vérifier sur téléphone/ordinateur.
+- [x] Aperçus documents/photos unifiés (dossier client, scan, imports, factures, simulations) : miniature → plein écran sobre, défilement latéral, zoom et pages PDF ; 5 tests et parcours connecté avec documents de contrôle sur téléphone/ordinateur sans erreur ; appareil iPhone physique et fichiers privés réels non testés.
 - [x] Caméra intégrée principale : capture/Terminé sécurisés, notifications non bloquantes, carrousel sans déformation ; 21 tests réussis et 3 captures simulées → original/retrait → PDF 2 pages vérifiés connecté sur téléphone/ordinateur sans erreur ; iPhone physique non testé.
 - [x] Fiche flottante centrée à l'écran (RDV et pose) sur ordinateur et tablette, toujours en feuilletant depuis le bas sur téléphone, fond sombre couvrant tout l'écran ; parcours vérifié dans le navigateur sur deux cartes réelles
 - [x] Mentions IA sur les visuels générés : badge « IA » et légende « généré par IA » dans l'app, badge IA superposé, légende et mention « Visuels générés par IA — rendus non contractuels » dans l'annexe carte de tous les PDF d'étude (aperçu, téléchargement, enregistré, signature) ; 5 tests réussis
