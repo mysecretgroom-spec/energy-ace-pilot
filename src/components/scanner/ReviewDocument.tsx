@@ -488,19 +488,7 @@ export function ReviewDocument({
           description: `${title} - ${montant.toFixed(2)} €`,
         });
       } else {
-        // Trigger AI classification in background if no category was manually set
-        if (context === "client_docs" && (!category || category === "autre") && docData?.id) {
-          try {
-            await supabase.from("background_jobs").insert({
-              user_id: user.id,
-              job_type: "ai_classify_document",
-              payload: { document_id: docData.id, client_id: relatedClientId },
-              priority: 5,
-            });
-          } catch (err) {
-            console.warn("Failed to queue AI classification:", err);
-          }
-        }
+        // AI classification was already queued once above (needsAiClassification).
         toast({
           title: "Document enregistré",
           description: !category || category === "autre"
