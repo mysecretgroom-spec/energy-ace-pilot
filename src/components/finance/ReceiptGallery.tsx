@@ -1,3 +1,5 @@
+import { deliverFile, deliverFiles } from "@/lib/fileDelivery";
+import { resolvePreviewUrl } from "@/components/documents/previewMedia";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,27 +130,9 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
       
       const fileName = `facture_${receipt.date_frais}_${categoryLabels[receipt.categorie]}.${extension}`;
 
-      // For base64 data
-      if (url.startsWith("data:")) {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        // For storage URLs, fetch and download
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }
+      const response = await fetch(await resolvePreviewUrl(url));
+      if (!response.ok) throw new Error("File unavailable");
+      await deliverFile(await response.blob(), fileName);
       toast.success("Téléchargement lancé");
     } catch (err) {
       console.error("Download error:", err);
@@ -158,9 +142,17 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
 
   const handleBulkDownload = async () => {
     const selected = receipts.filter((r) => selectedIds.has(r.id));
-    for (const receipt of selected) {
-      await handleDownload(receipt);
-    }
+    try {
+      const files = await Promise.all(selected.flatMap((receipt) => receipt.justificatif_url ? [(async () => {
+        const response = await fetch(await resolvePreviewUrl(receipt.justificatif_url || ""));
+        if (!response.ok) throw new Error("File unavailable");
+        const blob = await response.blob();
+        const ext = blob.type.includes("pdf") ? "pdf" : blob.type.includes("png") ? "png" : "jpg";
+        return new File([blob], `facture_${receipt.date_frais}_${receipt.id}.${ext}`, { type: blob.type });
+      })()] : []));
+      await deliverFiles(files);
+    } catch { toast.error("Impossible de préparer les factures"); }
+
   };
 
   const handleSendEmail = () => {
