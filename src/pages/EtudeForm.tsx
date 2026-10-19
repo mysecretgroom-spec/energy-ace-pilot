@@ -2018,7 +2018,7 @@ const EtudeForm = () => {
     puissanceKwc, typeRevente, supportInstallation, orientation, inclinaison,
     surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
-    selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
+    selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle, mensualiteAidesManuelle,
     classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
