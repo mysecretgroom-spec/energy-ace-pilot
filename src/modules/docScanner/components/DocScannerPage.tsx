@@ -11,9 +11,8 @@ import { useScanSession } from "../hooks/useScanSession";
 import { useWorkerPipeline } from "../hooks/useWorkerPipeline";
 import { normalizeOrientation } from "../utils/exif";
 import { downscale, canvasToBlob, releaseCanvas, loadImageToCanvas, pixelsToCanvas, generateThumbnail, getImageData } from "../utils/image";
-import { defaultQuad, rescaleQuad } from "../utils/quad";
+import { defaultQuad } from "../utils/quad";
 import type { Quad, FilterPreset, ScanPage } from "../types";
-import { MAX_ANALYSIS_DIM, MAX_PREVIEW_DIM } from "../types";
 import { useNavigate } from "react-router-dom";
 
 type Step = "camera" | "crop" | "edit" | "export";
@@ -38,19 +37,11 @@ export default function DocScannerPage() {
     const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
     const blobUrl = URL.createObjectURL(blob);
 
-    // Scale quad from analysis dim to original if present
-    let scaledQuad = quad;
-    if (quad) {
-      const analysisScale = Math.min(MAX_ANALYSIS_DIM / canvas.width, MAX_ANALYSIS_DIM / canvas.height, 1);
-      const analysisW = Math.round(canvas.width * analysisScale);
-      const analysisH = Math.round(canvas.height * analysisScale);
-      scaledQuad = rescaleQuad(quad, { w: analysisW, h: analysisH }, { w: canvas.width, h: canvas.height });
-    }
-
+    // Live worker lines may belong to furniture. Redetect on the captured photo.
     setPendingImage({
       blobUrl,
       size: { w: canvas.width, h: canvas.height },
-      quad: scaledQuad,
+      quad: null,
     });
     releaseCanvas(canvas);
     setStep("crop");

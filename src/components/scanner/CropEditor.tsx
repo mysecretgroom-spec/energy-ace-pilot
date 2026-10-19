@@ -141,7 +141,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       setIsDetecting(true);
       try {
         const edges = await detectDocumentEdgesLight(imageData);
-        if (!cancelled && !initialCorners && edges && edges.confidence > 0.5 && validScanCorners(edges)) {
+        if (!cancelled && !manualCornersRef.current && !initialCorners && edges && edges.confidence > 0.5 && validScanCorners(edges)) {
           setDetectedEdges(edges);
         }
       } catch (err) {
@@ -355,9 +355,12 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
     setIsProcessingCrop(true);
     try {
       const result = await generateCroppedImage();
-      if (result) onComplete(result.cropped, result.thumbnail);
+      if (result) {
+        if (!cropPreview) { setCropPreview(result.cropped); setShowOriginal(false); }
+        else onComplete(result.cropped, result.thumbnail);
+      }
     } finally { setIsProcessingCrop(false); }
-  }, [generateCroppedImage, onComplete]);
+  }, [generateCroppedImage, onComplete, cropPreview]);
 
   // ---- Fold detection + split ----
 
@@ -573,7 +576,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       {/* Enhancement controls */}
       <div className="flex shrink-0 items-center justify-center gap-3 px-4 py-2 bg-muted flex-wrap" hidden={!!cropPreview}>
         <Button variant="ghost" size="sm" className="text-foreground hover:bg-accent gap-2"
-          onClick={handleAutoDetect} disabled={isDetecting}>
+          onClick={handleAutoDetect} disabled={isDetecting || !!cropPreview}>
           {isDetecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
           Auto
         </Button>
@@ -669,7 +672,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           ) : (
             <Check className="h-5 w-5 mr-2" />
           )}
-          Confirmer
+          {cropPreview ? "Confirmer" : "Vérifier le scan"}
         </Button>
       </div>
     </div>
