@@ -14,6 +14,7 @@ import React, { Suspense, useEffect } from "react";
 import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { PageLoading } from "@/components/common/PageState";
 import { AppErrorBoundary } from "@/components/common/AppErrorBoundary";
+import { TopLoadingBar } from "@/components/common/TopLoadingBar";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 
@@ -140,6 +141,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
+            <TopLoadingBar />
             <AuthProvider>
               <HejjaModeProvider>
                 <InteractiveOnboardingProvider>
