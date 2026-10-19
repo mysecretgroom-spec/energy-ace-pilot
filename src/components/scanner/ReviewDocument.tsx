@@ -30,6 +30,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { DocumentContext, ScanPage } from "./types";
@@ -105,6 +114,7 @@ export function ReviewDocument({
   const [category, setCategory] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [duplicateIds, setDuplicateIds] = useState<string[]>([]);
 
   // Finance-specific fields
   const [montantTTC, setMontantTTC] = useState("");
@@ -292,7 +302,7 @@ export function ReviewDocument({
     }
   }, [pdfBlob, title]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (duplicateChoice?: "replace" | "keep") => {
     if (!pdfBlob || !user) return;
 
     if (!title.trim()) {
@@ -354,7 +364,7 @@ export function ReviewDocument({
             return;
           }
         }
-      } else if (context === "client_docs" && relatedClientId) {
+      } else if (context === "client_docs" && relatedClientId && !duplicateChoice) {
         // Check for duplicate documents: same nom and type_document for this client
         let duplicateQuery = supabase
           .from("documents")
@@ -364,20 +374,32 @@ export function ReviewDocument({
         if (relatedEtudeId) duplicateQuery = duplicateQuery.eq("etude_id", relatedEtudeId).eq("context_source", "study_scan");
         const { data: existingDocs } = await duplicateQuery;
 
-        const hasDuplicate = existingDocs?.some(
+        const duplicates = (existingDocs ?? []).filter(
           (doc) => doc.nom === title && doc.type_document === (category || "autre")
         );
 
-        if (hasDuplicate) {
-          toast({
-            title: "Doublon détecté",
-            description: "Un document avec le même nom et type existe déjà pour ce client",
-            variant: "destructive",
-          });
+        if (duplicates.length > 0) {
+          setDuplicateIds(duplicates.map((d) => d.id));
           setIsSaving(false);
           return;
         }
       }
+
+      const idsToReplace = duplicateChoice === "replace" ? duplicateIds : [];
+      let finalTitle = title;
+      if (duplicateChoice === "keep" && relatedClientId) {
+        const { data: sameName } = await supabase
+          .from("documents")
+          .select("nom")
+          .eq("user_id", user.id)
+          .eq("client_id", relatedClientId)
+          .like("nom", `${title}%`);
+        const names = new Set((sameName ?? []).map((d) => d.nom));
+        let n = 2;
+        while (names.has(`${title} (${n})`)) n++;
+        finalTitle = `${title} (${n})`;
+      }
+      setDuplicateIds([]);
 
       // Upload PDF to storage
       const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
@@ -391,7 +413,7 @@ export function ReviewDocument({
           user_id: user.id,
           client_id: relatedClientId || "00000000-0000-0000-0000-000000000000",
           type_document: docType as any,
-          nom: title,
+          nom: finalTitle,
           url: fileUrl,
           context_source: context,
           ...studyScanAssociation(relatedEtudeId),
@@ -415,6 +437,15 @@ export function ReviewDocument({
         .single();
 
       if (docError) throw docError;
+
+      if (idsToReplace.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("documents")
+          .delete()
+          .in("id", idsToReplace)
+          .eq("user_id", user.id);
+        if (deleteError) console.warn("Ancien document non supprimé:", deleteError);
+      }
 
       // Queue AI classification if no type was selected
       if (needsAiClassification && docData) {
@@ -507,6 +538,7 @@ export function ReviewDocument({
     fournisseur,
     ocrResult,
     onSuccess,
+    duplicateIds,
   ]);
 
   const formatFileSize = (bytes: number) => {
@@ -761,7 +793,7 @@ export function ReviewDocument({
         <Button
           className="w-full"
           size="lg"
-          onClick={handleSave}
+          onClick={() => handleSave()}
           disabled={isSaving || !pdfBlob}
         >
           {isSaving ? (
@@ -777,6 +809,22 @@ export function ReviewDocument({
           )}
         </Button>
       </div>
+
+      <AlertDialog open={duplicateIds.length > 0} onOpenChange={(open) => { if (!open) setDuplicateIds([]); }}>
+        <AlertDialogContent className="z-[80]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Document déjà existant</AlertDialogTitle>
+            <AlertDialogDescription>
+              « {title} » existe déjà pour ce client. Voulez-vous remplacer l'ancien document ou garder les deux ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <Button variant="outline" onClick={() => handleSave("keep")}>Garder les deux</Button>
+            <Button onClick={() => handleSave("replace")}>Remplacer</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
