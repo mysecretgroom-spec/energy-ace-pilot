@@ -37,6 +37,7 @@ export function AddDocumentFlow({
   // Photos prises en rafale, en attente de validation du rognage une par une.
   const [cropQueue, setCropQueue] = useState<string[]>([]);
   const [queueTotal, setQueueTotal] = useState(0);
+  const [batchImages, setBatchImages] = useState<string[]>([]);
 
   const resetFlow = useCallback(() => {
     setStep("method");
@@ -70,11 +71,15 @@ export function AddDocumentFlow({
   /** New: receive auto-cropped pages directly from CameraScanner */
   const handleMultiCapture = useCallback((capturedPages: Array<{ id: string; imageData: string; thumbnailData: string }>) => {
     if (capturedPages.length === 0) return;
-    const queue = capturedPages.map((p) => p.imageData);
-    setQueueTotal(queue.length);
-    setCurrentCapture(queue[0]);
-    setCropQueue(queue.slice(1));
-    setStep("crop");
+    // Toutes les photos sont pré-rognées puis revues ensemble dans un carrousel.
+    setBatchImages(capturedPages.map((p) => p.imageData));
+    setStep("batch");
+  }, []);
+
+  const handleBatchDone = useCallback((newPages: ScanPage[]) => {
+    setPages((prev) => [...prev, ...newPages]);
+    setBatchImages([]);
+    setStep("pages");
   }, []);
 
   /** Passe à la photo suivante de la rafale, ou à la liste des pages quand tout est validé. */
@@ -185,6 +190,14 @@ export function AddDocumentFlow({
           progressLabel={queueTotal > 1 ? `Photo ${queueTotal - cropQueue.length} / ${queueTotal}` : undefined}
         />
       ) : null;
+    case "batch":
+      return (
+        <BatchCropReview
+          images={batchImages}
+          onDone={handleBatchDone}
+          onCancel={() => { setBatchImages([]); setStep(pages.length > 0 ? "pages" : "camera"); }}
+        />
+      );
     case "pages":
       return (
         <PageManager
