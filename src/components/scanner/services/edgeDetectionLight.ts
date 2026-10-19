@@ -50,7 +50,7 @@ export async function detectDocumentEdgesLight(
         // Find small pages before Hough's large-background candidates.
         // Separate neutral paper from colored wood/mats before luminance masks.
         const paper = detectPaperRegion(paperLikelihood(px), w, h) ?? detectPaperRegion(gray, w, h);
-        if (paper) { clearTimeout(timeout); resolve(paper); return; }
+        if (paper) { clearTimeout(timeout); resolve(refineEdgesToGradient(gray, w, h, paper)); return; }
 
         // 2. Gaussian blur 5×5
         const blurred = gaussianBlur5(gray, w, h);
@@ -705,5 +705,62 @@ function sortCorners(points: Point[]) {
     topRight: s[diffs.indexOf(Math.max(...diffs))],
     bottomRight: s[sums.indexOf(Math.max(...sums))],
     bottomLeft: s[diffs.indexOf(Math.min(...diffs))],
+  };
+}
+
+
+/**
+ * Snaps each detected side onto the strongest paper→background step nearby
+ * (±2.5 % of the image). The low-resolution mask rounds corners inwards and
+ * misses thin margins; sides on the frame (long ticket) are left as is.
+ */
+export function refineEdgesToGradient(gray: Uint8Array, w: number, h: number, edges: LightDetectedEdges): LightDetectedEdges {
+  const q = [edges.topLeft, edges.topRight, edges.bottomRight, edges.bottomLeft].map(p => ({ x: p.x * w, y: p.y * h }));
+  const cx = q.reduce((a, p) => a + p.x, 0) / 4, cy = q.reduce((a, p) => a + p.y, 0) / 4;
+  const at = (x: number, y: number) => gray[Math.max(0, Math.min(h - 1, Math.round(y))) * w + Math.max(0, Math.min(w - 1, Math.round(x)))];
+  const onFrame = (p: Point) => p.x < 4 || p.y < 4 || p.x > w - 5 || p.y > h - 5;
+  const radius = Math.max(3, Math.round(Math.max(w, h) * 0.025));
+  const lines: Array<{ p: Point; d: Point }> = [];
+  for (let i = 0; i < 4; i++) {
+    const a = q[i], b = q[(i + 1) % 4];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const d = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    let n = { x: -d.y, y: d.x };
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if ((cx - mid.x) * n.x + (cy - mid.y) * n.y < 0) n = { x: -n.x, y: -n.y }; // inward
+    if (onFrame(a) && onFrame(b)) { lines.push({ p: a, d }); continue; }
+    const score = (off: number) => {
+      let sum = 0, minStep = Infinity;
+      for (let t = 0.15; t <= 0.86; t += 0.0875) {
+        const x = a.x + (b.x - a.x) * t + n.x * off, y = a.y + (b.y - a.y) * t + n.y * off;
+        const step = at(x + n.x * 2, y + n.y * 2) - at(x - n.x * 2, y - n.y * 2);
+        sum += step; minStep = Math.min(minStep, step);
+      }
+      return minStep > 0 ? sum : sum * 0.25; // the step must exist along the whole side
+    };
+    let bestOff = 0, best = score(0);
+    for (let off = -radius; off <= radius; off++) {
+      const s = score(off);
+      if (s > best * 1.08) { best = s; bestOff = off; }
+    }
+    lines.push({ p: { x: a.x + n.x * bestOff, y: a.y + n.y * bestOff }, d });
+  }
+  const meet = (l1: { p: Point; d: Point }, l2: { p: Point; d: Point }): Point | null => {
+    const den = l1.d.x * l2.d.y - l1.d.y * l2.d.x;
+    if (Math.abs(den) < 1e-6) return null;
+    const t = ((l2.p.x - l1.p.x) * l2.d.y - (l2.p.y - l1.p.y) * l2.d.x) / den;
+    return { x: Math.max(0, Math.min(w - 1, l1.p.x + l1.d.x * t)), y: Math.max(0, Math.min(h - 1, l1.p.y + l1.d.y * t)) };
+  };
+  // Corner i is shared by side i-1 and side i.
+  const corners = [0, 1, 2, 3].map(i => meet(lines[(i + 3) % 4], lines[i]));
+  if (corners.some(c => !c)) return edges;
+  const pts = corners as Point[];
+  // Never move a corner more than the search radius (guards against bad intersections).
+  if (pts.some((c, i) => Math.hypot(c.x - q[i].x, c.y - q[i].y) > radius * 2)) return edges;
+  if (rectangularity(pts) < 0.6) return edges;
+  return {
+    topLeft: { x: pts[0].x / w, y: pts[0].y / h }, topRight: { x: pts[1].x / w, y: pts[1].y / h },
+    bottomRight: { x: pts[2].x / w, y: pts[2].y / h }, bottomLeft: { x: pts[3].x / w, y: pts[3].y / h },
+    confidence: edges.confidence,
   };
 }

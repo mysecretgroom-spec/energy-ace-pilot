@@ -17,3 +17,5 @@
 - Billing uses the built-in Paddle integration: plan/top-up price ids live in src/lib/plans.ts and supabase/functions/_shared/plans.ts (keep in sync); entitlement is derived server-side by get_user_plan(), and only the payments-webhook (service role) changes access state.
 - Satellite PV visuals are drawn deterministically (exact panel count, centred on the red marker, metric panel size); generative AI is only used for the study photo view, because it ignored the designated pan and count.
 - WhatsApp webhook acks Twilio immediately, dedupes by MessageSid and processes each user's messages sequentially in background (waitUntil), because concurrent messages raced on conversation state and hit 150s timeouts.
+
+- Burst scans are pre-cropped in one pass (services/scanPipeline) and reviewed together in BatchCropReview (swipe carousel, validate all, per-page adjust/no-crop/remove); CropEditor is only opened per page on demand, because a one-by-one queue hid the other pre-crops.

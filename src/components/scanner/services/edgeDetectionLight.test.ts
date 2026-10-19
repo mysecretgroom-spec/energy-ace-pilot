@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { detectPaperRegion, paperLikelihood } from "./edgeDetectionLight";
+import { detectPaperRegion, paperLikelihood, refineEdgesToGradient } from "./edgeDetectionLight";
 import { validScanCorners } from "./scanQuality";
 
 describe("page detection rather than surrounding furniture", () => {
@@ -43,6 +43,16 @@ describe("page detection rather than surrounding furniture", () => {
     expect(result.topLeft.y).toBeCloseTo(60/h,1);
     expect(result.topRight.x).toBeCloseTo(169/w,1);
     expect(result.bottomLeft.y).toBeGreaterThan(0.97);
+  });
+  it("snaps a slightly inset proposal onto the real page border", () => {
+    const w = 300, h = 400, gray = new Uint8Array(w*h).fill(30);
+    for (let y=50; y<350; y++) for (let x=60; x<240; x++) gray[y*w+x] = 210;
+    const inset = { topLeft:{x:66/w,y:57/h}, topRight:{x:233/w,y:57/h}, bottomRight:{x:233/w,y:343/h}, bottomLeft:{x:66/w,y:343/h}, confidence:0.8 };
+    const r = refineEdgesToGradient(gray, w, h, inset);
+    expect(Math.abs(r.topLeft.x*w - 60)).toBeLessThan(2.5);
+    expect(Math.abs(r.topLeft.y*h - 50)).toBeLessThan(2.5);
+    expect(Math.abs(r.bottomRight.x*w - 240)).toBeLessThan(2.5);
+    expect(Math.abs(r.bottomRight.y*h - 350)).toBeLessThan(2.5);
   });
   it("does not invent a page on an evenly dark scene", () => {
     expect(detectPaperRegion(new Uint8Array(120*160).fill(20),120,160)).toBeNull();
