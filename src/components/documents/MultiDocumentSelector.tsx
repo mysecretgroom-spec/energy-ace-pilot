@@ -48,9 +48,7 @@ interface MultiDocumentSelectorProps {
   onDocumentsChange?: () => void;
 }
 
-function downloadBlob(blob: Blob, filename: string) {
-  return deliverFile(blob, filename);
-}
+
 
 const getFileType = (
   input: string | Pick<DocumentItem, "url" | "nom" | "mime_type">
@@ -428,19 +426,7 @@ export function MultiDocumentSelector({
       // Allow UI to settle before triggering share sheet (iOS needs this)
       await new Promise(r => setTimeout(r, 300));
 
-      const file = new File([blob], fileName, { type: "application/pdf" });
-
-      try {
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: fileName });
-        } else {
-          downloadBlob(blob, fileName);
-        }
-      } catch (shareErr: any) {
-        if (shareErr?.name !== "AbortError") {
-          downloadBlob(blob, fileName);
-        }
-      }
+      await deliverFile(blob, fileName, true);
       return; // already set isGenerating=false above
     } catch (error) {
       console.error("Error generating combined PDF:", error);

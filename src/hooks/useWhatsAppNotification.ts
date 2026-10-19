@@ -1,3 +1,4 @@
+import { downloadBlob } from "@/lib/fileDelivery";
 import { qNotifSettings, qRecapRdv, qRecapStudy, qRegieContact, qTemplates } from "@/lib/offline/rdvQueries";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -371,12 +372,7 @@ export const useWhatsAppNotification = () => {
           return true;
         }
         if (file) {
-          const url = URL.createObjectURL(file);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = file.name;
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(url), 60000);
+          downloadBlob(file, file.name);
         }
       }
       // Sur mobile (surtout PWA iOS), le lien direct whatsapp:// ouvre réellement

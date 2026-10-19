@@ -2461,15 +2461,7 @@ const EtudeForm = () => {
           files: [file],
         });
       } else {
-        // Fallback: télécharger le PDF (photos incluses)
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 200);
+        await deliverFile(blob, fileName);
         toast({
           title: "PDF téléchargé",
           description: "Partagez-le depuis vos fichiers",
