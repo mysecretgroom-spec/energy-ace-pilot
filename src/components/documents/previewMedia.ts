@@ -7,6 +7,7 @@ export interface PreviewMedia {
   mime_type?: string | null;
   type_document?: string;
   thumbnails_urls?: string[] | null;
+  initial_page?: number;
 }
 
 export function previewKind(item: PreviewMedia): "pdf" | "image" | "unknown" {

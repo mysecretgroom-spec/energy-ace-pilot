@@ -335,7 +335,7 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
       </CardContent>
 
       <MediaPreview isOpen={previewOpen} onClose={() => setPreviewOpen(false)}
-        initialIndex={Math.max(0, receipts.findIndex((r) => r.justificatif_url === previewUrl))}
+        initialIndex={Math.max(0, receipts.filter((r) => r.justificatif_url).findIndex((r) => r.justificatif_url === previewUrl))}
         items={receipts.flatMap((r) => r.justificatif_url ? [{ id: r.id, nom: r.description || `Facture ${r.date_frais}`, url: r.justificatif_url }] : [])} />
     </Card>
   );

@@ -825,7 +825,7 @@ export function ReviewDocument({
         </AlertDialogContent>
       </AlertDialog>
       <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={pages.length ? previewIndex ?? 0 : 0}
-        items={pages.length ? pages.map((page, i) => ({ id: page.id, nom: `Page ${i + 1}`, url: page.imageData, mime_type: "image/png", thumbnails_urls: [page.thumbnailData] })) : previewPdfUrl ? [{ id: "pdf-preview", nom: title || "Document", url: previewPdfUrl, mime_type: "application/pdf" }] : []} />
+        items={pages.length ? pages.map((page, i) => ({ id: page.id, nom: `Page ${i + 1}`, url: page.imageData, mime_type: "image/png", thumbnails_urls: [page.thumbnailData] })) : previewPdfUrl ? [{ id: `pdf-preview-${previewIndex}`, nom: title || "Document", url: previewPdfUrl, mime_type: "application/pdf", initial_page: (previewIndex ?? 0) + 1 }] : []} />
     </div>
   );
 }

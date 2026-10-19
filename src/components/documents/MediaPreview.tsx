@@ -11,7 +11,7 @@ function MediaPage({ item, active, zoom }: { item: PreviewMedia; active: boolean
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(item.initial_page ?? 1);
   const [count, setCount] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,8 +86,8 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
   useEffect(() => {
     if (!api) return;
     const select = () => { setIndex(api.selectedScrollSnap()); setZoom(1); };
-    api.on("select", select); api.on("reInit", select);
-    return () => { api.off("select", select); api.off("reInit", select); };
+    api.on("select", select);
+    return () => { api.off("select", select); };
   }, [api]);
   useEffect(() => { if (isOpen) { setIndex(Math.max(0, Math.min(initialIndex, items.length - 1))); setZoom(1); api?.scrollTo(initialIndex, true); } }, [isOpen, initialIndex, api, items.length]);
   useEffect(() => {
