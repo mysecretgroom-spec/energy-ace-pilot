@@ -147,10 +147,13 @@ export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?
     let head = 0, tail = 1;
     queue[0] = start; visited[start] = 1;
     const boundary: Point[] = [];
-    let touchesFrame = false;
+    const touched = { top: false, right: false, bottom: false, left: false };
     while (head < tail) {
       const index = queue[head++], x = index % w, y = Math.floor(index / w);
-      if (x < 3 || y < 3 || x >= w - 3 || y >= h - 3) touchesFrame = true;
+      if (x < 3) touched.left = true;
+      if (y < 3) touched.top = true;
+      if (x >= w - 3) touched.right = true;
+      if (y >= h - 3) touched.bottom = true;
       let edge = false;
       for (const [nx, ny] of [[x-1,y], [x+1,y], [x,y-1], [x,y+1]]) {
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) { edge = true; continue; }
@@ -161,7 +164,11 @@ export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?
       if (edge) boundary.push({ x, y });
     }
     // A small receipt/page is valid; frame-connected background is not.
-    if (touchesFrame || tail < w * h * 0.015 || boundary.length < 12) continue;
+    // A long ticket may run past ONE frame side: accept it, that side becomes the frame.
+    const touchedSides = (Object.keys(touched) as FrameSide[]).filter(k => touched[k]);
+    if (touchedSides.length > 1) continue;
+    const openSide = touchedSides[0];
+    if (tail < w * h * 0.015 || boundary.length < 12) continue;
     const hull = convexHull(boundary);
     if (hull.length < 4) continue;
     const sorted = sortCorners(pickBestQuad(hull));
@@ -170,8 +177,9 @@ export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?
     const fill = tail / Math.max(1, area);
     const rect = rectangularity(points);
     if (fill < 0.65 || fill > 1.15 || rect < 0.65 || area < w * h * 0.02) continue;
-    if (!hasPaperContrast(gray, w, h, points)) continue;
-    const score = Math.min(1, fill) * rect * paperBoundaryContrast(gray, w, h, points);
+    const contrast = paperBoundaryContrast(gray, w, h, points, openSide);
+    if (contrast <= 0) continue;
+    const score = Math.min(1, fill) * rect * contrast * (openSide ? 0.8 : 1);
     if (score <= bestScore) continue;
     bestScore = score;
     best = {
@@ -189,17 +197,24 @@ function hasPaperContrast(gray: Uint8Array, w: number, h: number, points: Point[
   return paperBoundaryContrast(gray, w, h, points) > 0;
 }
 
-function paperBoundaryContrast(gray: Uint8Array, w: number, h: number, points: Point[]): number {
+type FrameSide = "top" | "right" | "bottom" | "left";
+
+function paperBoundaryContrast(gray: Uint8Array, w: number, h: number, points: Point[], openSide?: FrameSide): number {
   const s = sortCorners(points);
   const quad = [s.topLeft, s.topRight, s.bottomRight, s.bottomLeft];
-  // A frame edge is not a detected paper edge. Do not approve the desk/image hull.
-  if (quad.some(p => p.x < 3 || p.y < 3 || p.x >= w - 3 || p.y >= h - 3)) return 0;
+  // Side index i joins quad[i]→quad[i+1]: 0 top, 1 right, 2 bottom, 3 left.
+  const openIndex = openSide ? ["top", "right", "bottom", "left"].indexOf(openSide) : -1;
+  const onFrame = (p: Point) => p.x < 3 || p.y < 3 || p.x >= w - 3 || p.y >= h - 3;
+  // A frame edge is not a detected paper edge. Do not approve the desk/image hull,
+  // except the corners of a single side through which a long ticket leaves the frame.
+  if (quad.some((p, i) => onFrame(p) && !(openIndex >= 0 && (i === openIndex || i === (openIndex + 1) % 4)))) return 0;
   const center = { x: quad.reduce((sum, p) => sum + p.x, 0) / 4,
     y: quad.reduce((sum, p) => sum + p.y, 0) / 4 };
   const sample = (p: Point) => gray[Math.max(0, Math.min(h-1, Math.round(p.y))) * w + Math.max(0, Math.min(w-1, Math.round(p.x)))];
   const sides: number[] = [];
   let inside = 0;
   for (let i = 0; i < 4; i++) {
+    if (i === openIndex) continue;
     let difference = 0;
     for (let t = 0.2; t <= 0.8; t += 0.2) {
     const a = quad[i], b = quad[(i+1)%4];
@@ -211,9 +226,9 @@ function paperBoundaryContrast(gray: Uint8Array, w: number, h: number, points: P
     }
     sides.push(difference / 4);
   }
-  const mean = sides.reduce((sum, v) => sum + v, 0) / 4;
-  // Evidence is needed on every side, not just a strong desk/mat boundary.
-  return inside / 16 > 60 && mean > 12 && Math.min(...sides) > 3 ? mean : 0;
+  const mean = sides.reduce((sum, v) => sum + v, 0) / sides.length;
+  // Evidence is needed on every visible side, not just a strong desk/mat boundary.
+  return inside / (sides.length * 4) > 60 && mean > 12 && Math.min(...sides) > 3 ? mean : 0;
 }
 
 function gaussianBlur5(src: Uint8Array, w: number, h: number): Uint8Array {
