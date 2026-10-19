@@ -177,8 +177,8 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
       >
         {children || (
           <>
-            <div className="flex items-center gap-1 mb-0.5">
-              <GripVertical className="h-2.5 w-2.5 text-muted-foreground/50" />
+            <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5 min-w-0">
+              <GripVertical className="hidden sm:block h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
               <Clock className={cn("h-2.5 w-2.5", getRdvTypeStyle(typeRdv).clockIconClass)} />
               <span className={cn("text-[10px] font-semibold", getRdvTypeStyle(typeRdv).clockTextClass)}>
                 {time}
@@ -193,7 +193,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
                 <RefreshCw className="h-2.5 w-2.5 text-status-r2" />
               )}
             </div>
-            <p className="text-[10px] font-medium text-foreground truncate">
+            <p className="text-[10px] font-medium leading-tight text-foreground line-clamp-2 break-words sm:truncate sm:block">
               {client}
             </p>
             <div className="mt-0.5 flex items-center gap-1 flex-wrap">
