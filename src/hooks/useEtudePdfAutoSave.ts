@@ -39,6 +39,8 @@ export const useEtudePdfAutoSave = ({
   // Signature of the study data last turned into a PDF: the 5-minute timer
   // skips regeneration (several seconds on iPhone) when nothing changed.
   const lastSignatureRef = useRef<string | null>(null);
+  const buildPdfDataRef = useRef(buildPdfData);
+  buildPdfDataRef.current = buildPdfData;
 
   // Generate PDF and upload to Supabase Storage
   const generateAndStorePdf = useCallback(async (): Promise<string | null> => {
@@ -194,7 +196,7 @@ export const useEtudePdfAutoSave = ({
 
     // Set up auto-save interval
     autoSaveIntervalRef.current = setInterval(async () => {
-      const data = buildPdfData();
+      const data = buildPdfDataRef.current();
       if (!data) return;
       let signature: string | null = null;
       try { signature = JSON.stringify(data); } catch { signature = null; }
@@ -213,7 +215,7 @@ export const useEtudePdfAutoSave = ({
         clearInterval(autoSaveIntervalRef.current);
       }
     };
-  }, [isInitialized, etudeId, generateAndStorePdf, buildPdfData]);
+  }, [isInitialized, etudeId, generateAndStorePdf]);
 
   return {
     generateAndStorePdf,
