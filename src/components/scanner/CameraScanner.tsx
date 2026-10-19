@@ -16,6 +16,16 @@ interface CapturedPage {
   thumbnailData: string;
 }
 
+async function makeThumbnail(dataUrl: string): Promise<string> {
+  const img = new Image();
+  await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("Image illisible")); img.src = dataUrl; });
+  const scale = 240 / Math.max(img.width, img.height);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
+  c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.7);
+}
+
 interface CameraScannerProps {
   onCapture: (imageData: string, detectedQuad?: DetectedQuad) => void;
   onCancel: () => void;
@@ -238,7 +248,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     
     // Cooldown to prevent burst captures
     captureCooldownRef.current = true;
-    setTimeout(() => { captureCooldownRef.current = false; }, 4000);
+    setTimeout(() => { captureCooldownRef.current = false; }, onMultiCapture ? 700 : 4000);
 
     setIsCapturing(true);
     if (navigator.vibrate) navigator.vibrate(50);
@@ -261,13 +271,19 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const still = await captureStill(track, video, canvas);
     const rawImage = still.dataUrl;
     reset();
-    setPendingScan(rawImage);
+    if (onMultiCapture) {
+      // Rafale : on garde la photo brute ; le rognage est validé page par page après « Terminé ».
+      const thumb = await makeThumbnail(rawImage);
+      setCapturedPages(prev => [...prev, { id: crypto.randomUUID(), imageData: rawImage, thumbnailData: thumb }]);
+    } else {
+      setPendingScan(rawImage);
+    }
     } catch (error) {
       console.error("Capture failed:", error);
       toast({ title: "Capture impossible", description: "Réessayez ou importez une photo", variant: "destructive" });
     } finally { setIsCapturing(false); }
     // Batch mode: stay on camera for next page
-  }, [isCapturing, pendingScan, reset]);
+  }, [isCapturing, pendingScan, reset, onMultiCapture]);
 
   const handleManualCapture = useCallback(() => {
     // Block capture if too blurry

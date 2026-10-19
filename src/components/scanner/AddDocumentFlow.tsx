@@ -34,6 +34,9 @@ export function AddDocumentFlow({
   const [pages, setPages] = useState<ScanPage[]>([]);
   const [currentCapture, setCurrentCapture] = useState<string | null>(null);
   const [importedFile, setImportedFile] = useState<File | null>(null);
+  // Photos prises en rafale, en attente de validation du rognage une par une.
+  const [cropQueue, setCropQueue] = useState<string[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
 
   const resetFlow = useCallback(() => {
     setStep("method");
@@ -66,16 +69,30 @@ export function AddDocumentFlow({
 
   /** New: receive auto-cropped pages directly from CameraScanner */
   const handleMultiCapture = useCallback((capturedPages: Array<{ id: string; imageData: string; thumbnailData: string }>) => {
-    const newPages: ScanPage[] = capturedPages.map((p) => ({
-      id: p.id,
-      imageData: p.imageData,
-      thumbnailData: p.thumbnailData,
-      rotation: 0,
-      cropped: true,
-    }));
-    setPages((prev) => [...prev, ...newPages]);
-    setStep("pages");
+    if (capturedPages.length === 0) return;
+    const queue = capturedPages.map((p) => p.imageData);
+    setQueueTotal(queue.length);
+    setCurrentCapture(queue[0]);
+    setCropQueue(queue.slice(1));
+    setStep("crop");
   }, []);
+
+  /** Passe à la photo suivante de la rafale, ou à la liste des pages quand tout est validé. */
+  const advanceQueue = useCallback(() => {
+    if (cropQueue.length > 0) {
+      setCurrentCapture(cropQueue[0]);
+      setCropQueue((q) => q.slice(1));
+    } else {
+      setCurrentCapture(null);
+      setQueueTotal(0);
+      setStep("pages");
+    }
+  }, [cropQueue]);
+
+  const handleSkipCrop = useCallback((original: string, thumbnail: string) => {
+    setPages((prev) => [...prev, { id: crypto.randomUUID(), imageData: original, thumbnailData: thumbnail, rotation: 0, cropped: false }]);
+    advanceQueue();
+  }, [advanceQueue]);
 
   const handleCropComplete = useCallback((croppedImage: string, thumbnail: string) => {
     const newPage: ScanPage = {
@@ -86,9 +103,10 @@ export function AddDocumentFlow({
       cropped: true,
     };
     setPages((prev) => [...prev, newPage]);
+    if (queueTotal > 0) { advanceQueue(); return; }
     setCurrentCapture(null);
     setStep("pages");
-  }, []);
+  }, [queueTotal, advanceQueue]);
 
   const handleSplitPages = useCallback((splitPages: Array<{ croppedImage: string; thumbnail: string }>) => {
     const newPages: ScanPage[] = splitPages.map((p) => ({
@@ -99,9 +117,10 @@ export function AddDocumentFlow({
       cropped: true,
     }));
     setPages((prev) => [...prev, ...newPages]);
+    if (queueTotal > 0) { advanceQueue(); return; }
     setCurrentCapture(null);
     setStep("pages");
-  }, []);
+  }, [queueTotal, advanceQueue]);
 
   const handleCropCancel = useCallback(() => {
     setCurrentCapture(null);
@@ -161,7 +180,9 @@ export function AddDocumentFlow({
           imageData={currentCapture}
           onComplete={handleCropComplete}
           onSplitPages={handleSplitPages}
-          onCancel={handleCropCancel}
+          onCancel={queueTotal > 0 ? advanceQueue : handleCropCancel}
+          onSkipCrop={queueTotal > 0 ? handleSkipCrop : undefined}
+          progressLabel={queueTotal > 1 ? `Photo ${queueTotal - cropQueue.length} / ${queueTotal}` : undefined}
         />
       ) : null;
     case "pages":
