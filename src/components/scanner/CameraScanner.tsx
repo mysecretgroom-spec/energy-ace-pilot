@@ -26,13 +26,13 @@ interface CameraScannerProps {
 type CameraState = "requesting" | "active" | "error" | "denied";
 
 // Blur threshold — below this, image is too blurry
-const BLUR_THRESHOLD = 80;
+const BLUR_THRESHOLD = 100;
 // Brightness thresholds
 const LOW_BRIGHTNESS = 60;
 // Cadrage : surface minimale occupée par le document dans l'image
-const MIN_COVERAGE = 0.28;
+const MIN_COVERAGE = 0.35;
 // Cadrage : inclinaison max tolérée (0 = parfaitement de face)
-const MAX_SKEW = 0.22;
+const MAX_SKEW = 0.15;
 
 /** Part de l'image occupée par le document détecté (0-1). */
 function quadCoverage(quad: DetectedQuad, w: number, h: number): number {
@@ -88,7 +88,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
-  const [autoCapture, setAutoCapture] = useState(true);
+  const [autoCapture, setAutoCapture] = useState(() => localStorage.getItem("scanner_auto_capture") === "on");
   const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [isCapturing, setIsCapturing] = useState(false);
@@ -109,7 +109,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       const coverage = video ? quadCoverage(quad, video.videoWidth, video.videoHeight) : 0;
       if (
         autoCapture && !pendingScan && !isCapturing && !captureCooldownRef.current &&
-        blurScore > BLUR_THRESHOLD && quad.confidence > 0.5 &&
+        blurScore > BLUR_THRESHOLD && quad.confidence > 0.7 &&
         coverage >= MIN_COVERAGE && quadSkew(quad) <= MAX_SKEW
       ) {
         performCapture(quad);
@@ -238,7 +238,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     
     // Cooldown to prevent burst captures
     captureCooldownRef.current = true;
-    setTimeout(() => { captureCooldownRef.current = false; }, 1500);
+    setTimeout(() => { captureCooldownRef.current = false; }, 4000);
 
     setIsCapturing(true);
     if (navigator.vibrate) navigator.vibrate(50);
@@ -314,7 +314,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   }, [stopCamera, onCancel]);
 
   const toggleAutoCapture = useCallback(() => {
-    setAutoCapture((prev) => !prev);
+    setAutoCapture((prev) => { const next = !prev; localStorage.setItem("scanner_auto_capture", next ? "on" : "off"); return next; });
   }, []);
 
   const totalPages = pageCount + capturedPages.length;
