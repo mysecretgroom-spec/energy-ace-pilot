@@ -23,6 +23,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
   const [flashVisible, setFlashVisible] = useState(false);
   const detectionIntervalRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const captureCooldownRef = useRef(false);
 
   useEffect(() => {
@@ -139,12 +140,16 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         <p className="text-center text-muted-foreground">{error}</p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onCancel}>Annuler</Button>
+          <Button variant="secondary" onClick={() => photoInputRef.current?.click()}>
+            <Camera className="w-4 h-4 mr-2" />Photo haute résolution
+          </Button>
           <Button onClick={handleImportClick}>
             <ImagePlus className="w-4 h-4 mr-2" />
             Importer
           </Button>
         </div>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
       </div>
     );
   }
@@ -191,7 +196,10 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         </button>
       </div>
 
-      <div className="absolute bottom-28 inset-x-0 z-20 flex justify-center">
+      <div className="absolute bottom-28 inset-x-0 z-20 flex justify-center gap-2">
+        <Button variant="secondary" onClick={() => photoInputRef.current?.click()}>
+          <Camera className="h-4 w-4 mr-2" />Photo haute résolution
+        </Button>
         <Button onClick={() => handleCapture(true)} disabled={!isReady}>
           <ScanLine className="h-4 w-4 mr-2" />Scan net
         </Button>
@@ -228,6 +236,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         </div>
 
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
       </div>
     </div>
   );

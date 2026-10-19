@@ -3,8 +3,9 @@ import imageCompression from "browser-image-compression";
 import type { ScanPage } from "../types";
 
 const COMPRESSION_OPTIONS = {
-  maxSizeMB: 1,
-  maxWidthOrHeight: 1600,
+  maxSizeMB: 4,
+  maxWidthOrHeight: 3072,
+  initialQuality: 0.95,
   useWebWorker: true,
   fileType: "image/jpeg" as const,
 };

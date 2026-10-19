@@ -54,4 +54,20 @@ describe("Safari video capture fallback", () => {
     expect(result.source).toBe("photo");
     expect(result.matchesPreviewFraming).toBe(false);
   });
+  it("retains a portrait sensor photo with more pixels than a wider preview", async () => {
+    vi.stubGlobal("window", { ImageCapture: class { async takePhoto() { return new Blob(["photo"]); } } });
+    vi.stubGlobal("FileReader", class {
+      result = "data:image/jpeg;base64,photo";
+      onload?: () => void;
+      readAsDataURL() { this.onload?.(); }
+    });
+    vi.stubGlobal("Image", class {
+      naturalWidth = 1800;
+      naturalHeight = 3200;
+      onload?: () => void;
+      set src(_src: string) { this.onload?.(); }
+    });
+    const result = await captureStill({} as MediaStreamTrack, video(), canvas() as unknown as HTMLCanvasElement);
+    expect(result).toMatchObject({ source: "photo", width: 1800, height: 3200, matchesPreviewFraming: false });
+  });
 });

@@ -29,6 +29,22 @@ export function documentContrast(source: Uint8ClampedArray): Uint8ClampedArray {
 }
 
 /** Angle of text baselines, in degrees; zero means no reliable correction. */
+/** Bounded detail recovery after resampling; never invent strokes or boost flat noise. */
+export function sharpenDocumentPixels(source: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+  if (source.length !== width * height * 4 || width < 1 || height < 1) throw new Error("Invalid image dimensions");
+  const result = new Uint8ClampedArray(source);
+  for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
+    const i = (y * width + x) * 4;
+    for (let c = 0; c < 3; c++) {
+      const average = (source[i - 4 + c] + source[i + 4 + c] + source[i - width * 4 + c] + source[i + width * 4 + c]) / 4;
+      const detail = source[i + c] - average;
+      if (Math.abs(detail) < 4 || Math.abs(detail) > 80) continue;
+      result[i + c] = source[i + c] + Math.max(-12, Math.min(12, detail * 0.45));
+    }
+  }
+  return result;
+}
+
 export function estimateDocumentSkew(gray: Uint8Array, width: number, height: number): number {
   if (width < 8 || height < 8 || gray.length !== width * height) return 0;
   const histogram = new Uint32Array(256);

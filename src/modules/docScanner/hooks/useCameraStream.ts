@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import { applyDocumentFocus } from "@/components/scanner/services/stillCapture";
 
 interface CameraStreamResult {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -32,13 +33,15 @@ export function useCameraStream(): CameraStreamResult {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 4096 },
+          height: { ideal: 2160 },
         },
         audio: false,
       });
       if (request !== requestRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
+      await applyDocumentFocus(stream.getVideoTracks()[0] ?? null);
+      if (request !== requestRef.current) return;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();

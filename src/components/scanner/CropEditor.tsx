@@ -68,7 +68,7 @@ function rotateImage(dataUrl: string, degrees: number): Promise<string> {
       ctx.translate(w / 2, h / 2);
       ctx.rotate((degrees * Math.PI) / 180);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      resolve(canvas.toDataURL("image/jpeg", 0.92));
+      resolve(canvas.toDataURL("image/png"));
     };
     img.onerror = () => reject(new Error("Failed to load"));
     img.src = dataUrl;
@@ -120,6 +120,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const [shadowCorrection, setShadowCorrection] = useState(initialEnhance);
   const [showOriginal, setShowOriginal] = useState(false);
   const [cropPreview, setCropPreview] = useState<string | null>(null);
+  const previewResultRef = useRef<{ cropped: string; thumbnail: string } | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const manualCornersRef = useRef<ScanCorners | null>(null);
 
@@ -354,10 +355,14 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
   const handleComplete = useCallback(async () => {
     setIsProcessingCrop(true);
     try {
+      if (cropPreview && previewResultRef.current) {
+        onComplete(previewResultRef.current.cropped, previewResultRef.current.thumbnail);
+        return;
+      }
       const result = await generateCroppedImage();
       if (result) {
-        if (!cropPreview) { setCropPreview(result.cropped); setShowOriginal(false); }
-        else onComplete(result.cropped, result.thumbnail);
+        previewResultRef.current = result;
+        setCropPreview(result.cropped); setShowOriginal(false);
       }
     } finally { setIsProcessingCrop(false); }
   }, [generateCroppedImage, onComplete, cropPreview]);
@@ -657,9 +662,9 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-center gap-3 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-card">
         <Button variant="outline" disabled={isDetecting || isEnhancing || isProcessingCrop || !cropPoints} onClick={async () => {
-          if (cropPreview) { setCropPreview(null); return; }
+          if (cropPreview) { previewResultRef.current = null; setCropPreview(null); return; }
           setIsProcessingCrop(true);
-          try { const result = await generateCroppedImage(); if (result) { setCropPreview(result.cropped); setShowOriginal(false); } }
+          try { const result = await generateCroppedImage(); if (result) { previewResultRef.current = result; setCropPreview(result.cropped); setShowOriginal(false); } }
           finally { setIsProcessingCrop(false); }
         }}><Eye className="h-4 w-4 mr-2" />{cropPreview ? "Ajuster" : "Aperçu"}</Button>
         <Button

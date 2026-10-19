@@ -33,4 +33,16 @@ describe("local shadow correction", () => {
     expect(corrected[(30*256+16)*4+3]).toBe(255);
   });
   it("rejects malformed image dimensions",()=>expect(()=>correctShadowPixels(new Uint8ClampedArray(4),2,2)).toThrow());
+  it("lifts uneven gray paper towards 240 while retaining handwriting below 40", () => {
+    const width = 384, height = 192;
+    const source = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const value = y === 80 ? 35 : x < 192 ? 150 : 205;
+      source.set([value, value, value, 255], (y * width + x) * 4);
+    }
+    const corrected = correctShadowPixels(source, width, height);
+    expect(corrected[(40 * width + 30) * 4]).toBeGreaterThanOrEqual(235);
+    expect(corrected[(80 * width + 30) * 4]).toBeLessThan(40);
+    expect(corrected[(40 * width + 340) * 4]).toBeGreaterThanOrEqual(235);
+  });
 });
