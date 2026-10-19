@@ -265,10 +265,10 @@ export function MultiDocumentSelector({
   }, [orderedDocs, selectedIds.size]);
 
   const openSinglePreview = useCallback((doc: DocumentItem) => {
-    setPreviewDocuments([doc]);
-    setPreviewInitialIndex(0);
+    setPreviewDocuments(orderedDocs);
+    setPreviewInitialIndex(Math.max(0, orderedDocs.findIndex((entry) => entry.id === doc.id)));
     setPreviewOpen(true);
-  }, []);
+  }, [orderedDocs]);
 
   const openSelectedPreview = useCallback(() => {
     if (selectedIds.size === 0) {

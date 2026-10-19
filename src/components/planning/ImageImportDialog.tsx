@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 export interface ExtractedRdvData {
   nom: string | null;
@@ -93,6 +94,7 @@ export function ImageImportDialog({
   const [regies, setRegies] = useState<RegieOption[]>([]);
   const [selectedRegieId, setSelectedRegieId] = useState<string>(defaultRegieId || "");
   const [previews, setPreviews] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
@@ -267,7 +269,7 @@ export function ImageImportDialog({
               <div className="grid grid-cols-3 gap-2 mt-2">
                 {previews.map((src, idx) => (
                   <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border">
-                    <img src={src} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                    <Button variant="ghost" className="p-0 w-full h-full" aria-label={`Aperçu de la photo ${idx + 1}`} onClick={() => setPreviewIndex(idx)}><img src={src} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" /></Button>
                     <button
                       type="button"
                       onClick={() => removePreview(idx)}
@@ -315,6 +317,7 @@ export function ImageImportDialog({
           </div>
         </div>
       </DialogContent>
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={previewIndex ?? 0} items={previews.map((url, i) => ({ id: `photo-${i}`, nom: `Photo ${i + 1}`, url, mime_type: "image/jpeg" }))} />
     </Dialog>
   );
 }

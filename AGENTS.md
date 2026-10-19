@@ -1,4 +1,5 @@
 # Architecture rules
+- Document/photo thumbnails open the shared MediaPreview viewer; use document MIME metadata and shared URL resolution, with swipe navigation and PDF.js rendering, so all previews stay consistent without third-party document viewers.
 - End-of-study scans use explicit document study associations and a dedicated context source; the shared study annex pipeline copies their PDF pages for preview, exports, stored PDFs and signature sharing without rebranding originals.
 - Scanner shadow correction uses shared bounded pixel illumination correction, not generative image rewriting; crop geometry is normalized and rotated with the displayed image to preserve document fidelity.
 - Scanner processing keeps lossless intermediate images and confirms the exact cached preview; document PDF compression retains the crop resolution within a bounded mobile budget to avoid cumulative handwriting blur.

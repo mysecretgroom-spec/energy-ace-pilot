@@ -11,6 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { ScanPage } from "./types";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 interface PageManagerProps {
   pages: ScanPage[];
@@ -28,6 +29,7 @@ export function PageManager({
   onCancel,
 }: PageManagerProps) {
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const handleDeletePage = useCallback(
     (pageId: string) => {
@@ -110,16 +112,16 @@ export function PageManager({
               </div>
 
               {/* Thumbnail */}
-              <div className="relative w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
+              <Button variant="ghost" aria-label={`Aperçu de la page ${index + 1}`} className="p-0 relative w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0" onClick={(e) => { e.stopPropagation(); setPreviewIndex(index); }}>
                 <img
                   src={page.thumbnailData}
                   alt={`Page ${index + 1}`}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs text-center py-0.5">
+                <div className="absolute bottom-0 left-0 right-0 bg-background/85 text-foreground text-xs text-center py-0.5">
                   {index + 1}
                 </div>
-              </div>
+              </Button>
 
               {/* Page info */}
               <div className="flex-1 min-w-0">
@@ -184,6 +186,7 @@ export function PageManager({
           Terminer
         </Button>
       </div>
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={previewIndex ?? 0} items={pages.map((page, i) => ({ id: page.id, nom: `Page ${i + 1}`, url: page.imageData, mime_type: "image/png", thumbnails_urls: [page.thumbnailData] }))} />
     </div>
   );
 }
