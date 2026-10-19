@@ -147,7 +147,10 @@ export function DocumentMethodModal({
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <Button variant="ghost" size="sm" onClick={() => setView("scan-options")}>
+          Autres scanners
+        </Button>
         <Button variant="ghost" onClick={handleClose}>
           Annuler
         </Button>
