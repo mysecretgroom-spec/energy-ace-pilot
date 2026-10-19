@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -283,22 +284,8 @@ export function RoofPvSimulationButton({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-sm">
-              Simulation {INSTALLATION_LABELS[installationType]} — {nbPanneaux} panneaux
-            </DialogTitle>
-          </DialogHeader>
-          {preview && (
-            <img
-              src={preview}
-              alt={`Simulation de ${nbPanneaux} panneaux solaires sur la toiture`}
-              className="w-full rounded-sm border border-border"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <MediaPreview isOpen={!!preview} onClose={() => setPreview(null)}
+        items={preview ? [{ id: "simulation", nom: `Simulation IA — ${nbPanneaux} panneaux — non contractuelle`, url: preview, mime_type: "image/png" }, ...(sourceUrl ? [{ id: "source", nom: "Photo d’origine", url: sourceUrl, mime_type: "image/jpeg" }] : [])] : []} />
     </>
   );
 }

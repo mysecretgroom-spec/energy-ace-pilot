@@ -10,6 +10,7 @@ import { useRealtimeEdgeDetection, DetectedQuad } from "./hooks/useRealtimeEdgeD
 import { DetectionLight } from "./DetectionLight";
 import { CropEditor } from "./CropEditor";
 import { captureStill, applyDocumentFocus } from "./services/stillCapture";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 interface CapturedPage {
   id: string;
@@ -105,6 +106,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const [isCapturing, setIsCapturing] = useState(false);
   const [pendingScan, setPendingScan] = useState<string | null>(null);
   const [capturedPages, setCapturedPages] = useState<CapturedPage[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
   const captureCooldownRef = useRef(false);
@@ -114,13 +116,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   // Real-time edge detection with Canny+Hough
   const { detectedQuad, isStable, blurScore, brightness, reset } = useRealtimeEdgeDetection({
     videoRef,
-    enabled: cameraState === "active" && !isCapturing && !pendingScan,
+    enabled: cameraState === "active" && !isCapturing && !pendingScan && previewIndex === null,
     onStableDetection: (quad) => {
       // Déclenchement auto : net, bien cadré (assez grand) et pris de face
       const video = videoRef.current;
       const coverage = video ? quadCoverage(quad, video.videoWidth, video.videoHeight) : 0;
       if (
-        autoCapture && !pendingScan && !isCapturing && !captureCooldownRef.current &&
+        autoCapture && !pendingScan && previewIndex === null && !isCapturing && !captureCooldownRef.current &&
         blurScore > BLUR_THRESHOLD && quad.confidence > 0.7 &&
         coverage >= MIN_COVERAGE && quadSkew(quad) <= MAX_SKEW
       ) {
@@ -532,7 +534,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
       {/* Page thumbnails strip */}
       {capturedPages.length > 0 && (
         <div className="absolute right-4 bottom-44 z-10 flex flex-col items-end gap-1">
-          <div className="relative">
+          <Button variant="ghost" className="relative h-auto p-0" aria-label="Aperçu des pages capturées" onClick={() => setPreviewIndex(capturedPages.length - 1)} disabled={isCapturing}>
             <img
               src={capturedPages[capturedPages.length - 1].thumbnailData}
               alt="Dernière page"
@@ -541,7 +543,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
             <span className="absolute -top-2 -right-2 bg-teal-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow">
               {totalPages}
             </span>
-          </div>
+          </Button>
         </div>
       )}
 
@@ -590,6 +592,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         onChange={handleFileImport}
         className="hidden"
       />
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={previewIndex ?? 0} items={capturedPages.map((page, i) => ({ id: page.id, nom: `Page ${i + 1}`, url: page.imageData, mime_type: "image/jpeg", thumbnails_urls: [page.thumbnailData] }))} />
     </div>, document.body
   );
 }

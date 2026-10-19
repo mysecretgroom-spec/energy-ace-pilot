@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Camera, Check, Images, Trash2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 interface Props {
   onDone: (images: string[]) => void;
@@ -25,6 +26,7 @@ export function NativeBurstCapture({ onDone, onCancel }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const addFiles = async (files: FileList | null, input: HTMLInputElement | null) => {
     const list = Array.from(files ?? []).filter((f) => f.type.startsWith("image/") || /\.(heic|jpe?g|png)$/i.test(f.name));
@@ -56,7 +58,7 @@ export function NativeBurstCapture({ onDone, onCancel }: Props) {
           <div className="grid grid-cols-3 gap-3">
             {photos.map((src, i) => (
               <div key={i} className="relative aspect-[3/4] overflow-hidden rounded-md border border-border bg-muted">
-                <img src={src} alt={`Page ${i + 1}`} className="h-full w-full object-cover" />
+                <Button variant="ghost" aria-label={`Aperçu de la page ${i + 1}`} className="h-full w-full p-0" onClick={() => setPreviewIndex(i)}><img src={src} alt={`Page ${i + 1}`} className="h-full w-full object-cover" /></Button>
                 <span className="absolute bottom-1 left-1 rounded bg-background/85 px-1.5 text-xs font-medium">{i + 1}</span>
                 <button
                   onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
@@ -89,6 +91,7 @@ export function NativeBurstCapture({ onDone, onCancel }: Props) {
         onChange={(e) => addFiles(e.target.files, e.target)} />
       <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden"
         onChange={(e) => addFiles(e.target.files, e.target)} />
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={previewIndex ?? 0} items={photos.map((url, i) => ({ id: `capture-${i}`, nom: `Page ${i + 1}`, url, mime_type: "image/jpeg" }))} />
     </div>,
     document.body,
   );

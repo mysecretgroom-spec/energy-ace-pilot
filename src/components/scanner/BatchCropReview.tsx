@@ -6,6 +6,7 @@ import { CropEditor } from "./CropEditor";
 import { autoCropPage } from "./services/scanPipeline";
 import type { ScanCorners } from "./services/scanQuality";
 import type { ScanPage } from "./types";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 interface Item {
   id: string;
@@ -32,6 +33,7 @@ export function BatchCropReview({ images, onDone, onCancel }: Props) {
   );
   const [index, setIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   // Pre-crop every photo sequentially (bounded memory on iPhone).
@@ -156,7 +158,7 @@ export function BatchCropReview({ images, onDone, onCancel }: Props) {
                   <span className="text-sm">Détection des bords…</span>
                 </div>
               ) : (
-                <img src={src} alt={`Page ${i + 1}`} draggable={false} className="h-full w-full min-h-0 object-contain" />
+                <Button variant="ghost" aria-label={`Aperçu de la page ${i + 1}`} onClick={() => setPreviewIndex(i)} className="h-full w-full min-h-0 p-0 hover:bg-transparent"><img src={src} alt={`Page ${i + 1}`} draggable={false} className="h-full w-full min-h-0 object-contain" /></Button>
               )}
               {it.status === "ready" && (
                 <span className="absolute top-6 left-6 rounded-full bg-background/85 px-2.5 py-1 text-xs font-medium border border-border">
@@ -204,6 +206,7 @@ export function BatchCropReview({ images, onDone, onCancel }: Props) {
           {allReady ? <><Check className="h-5 w-5 mr-2" /> Tout valider ({items.length})</> : <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Préparation…</>}
         </Button>
       </div>
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={previewIndex ?? 0} items={items.map((it, i) => ({ id: it.id, nom: `Page ${i + 1}`, url: !it.noCrop && it.cropped ? it.cropped : it.original, mime_type: "image/png", thumbnails_urls: [(!it.noCrop && it.croppedThumb) || it.originalThumb || it.original] }))} />
     </div>,
     document.body,
   );

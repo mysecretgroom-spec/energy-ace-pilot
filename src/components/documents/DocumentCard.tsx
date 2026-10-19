@@ -39,7 +39,7 @@ export function DocumentCard({
   const { handlers, isPressing, progress } = useLongPress({
     delay: 500,
     onLongPress: onOpenPreview,
-    onPress: onToggleSelection,
+    onPress: onOpenPreview,
   });
 
   const handleReplaceClick = (e: React.MouseEvent) => {

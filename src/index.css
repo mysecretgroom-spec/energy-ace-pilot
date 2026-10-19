@@ -89,6 +89,10 @@ body {
     --ring: 221 83% 42%;
 
     --radius: 0.75rem;
+    --viewer-background: 220 6% 8%;
+    --viewer-foreground: 0 0% 96%;
+    --viewer-muted: 220 5% 65%;
+    --viewer-border: 220 5% 22%;
 
     /* Statuts RDV */
     --status-new: 221 83% 48%;
@@ -428,4 +432,15 @@ body.etude-theme {
   --primary: 152 70% 32%;
   --ring: 152 70% 32%;
   --gradient-hero: linear-gradient(135deg, hsl(152 65% 38%) 0%, hsl(152 75% 26%) 100%);
+}
+
+.media-viewer {
+  --background: var(--viewer-background);
+  --foreground: var(--viewer-foreground);
+  --muted-foreground: var(--viewer-muted);
+  --border: var(--viewer-border);
+  --accent: var(--viewer-border);
+  --accent-foreground: var(--viewer-foreground);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
 }

@@ -30,6 +30,7 @@ import {
   Euro,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 interface ReceiptItem {
   id: string;
@@ -108,20 +109,7 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
   };
 
   const handlePreview = (url: string) => {
-    // Check if it's a base64 data URL
-    if (url.startsWith("data:")) {
-      setPreviewUrl(url);
-    } else {
-      // For storage URLs, check if it's a PDF or image
-      const isPdf = url.includes(".pdf") || url.includes("application/pdf");
-      if (isPdf) {
-        // Use Google Docs Viewer for PDFs
-        setPreviewUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
-      } else {
-        // Direct URL for images
-        setPreviewUrl(url);
-      }
-    }
+    setPreviewUrl(url);
     setPreviewOpen(true);
   };
 
@@ -293,7 +281,7 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
                         onError={(e) => {
                           // Fallback to icon if image fails to load
                           (e.target as HTMLImageElement).style.display = "none";
-                          (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="h-full w-full flex items-center justify-center"><svg class="h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
+                          (e.target as HTMLImageElement).parentElement?.insertAdjacentHTML('beforeend', '<div class="h-full w-full flex items-center justify-center"><svg class="h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></div>');
                         }}
                       />
                     ) : (
@@ -346,29 +334,9 @@ export function ReceiptGallery({ onClose }: ReceiptGalleryProps) {
         </ScrollArea>
       </CardContent>
 
-      {/* Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Aperçu de la facture</DialogTitle>
-          </DialogHeader>
-          <div className="p-4 pt-2">
-            {previewUrl?.startsWith("data:image") ? (
-              <img
-                src={previewUrl}
-                alt="Facture"
-                className="w-full max-h-[70vh] object-contain rounded-lg"
-              />
-            ) : previewUrl ? (
-              <iframe
-                src={previewUrl}
-                className="w-full h-[70vh] rounded-lg border"
-                title="Aperçu facture"
-              />
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <MediaPreview isOpen={previewOpen} onClose={() => setPreviewOpen(false)}
+        initialIndex={Math.max(0, receipts.filter((r) => r.justificatif_url).findIndex((r) => r.justificatif_url === previewUrl))}
+        items={receipts.flatMap((r) => r.justificatif_url ? [{ id: r.id, nom: r.description || `Facture ${r.date_frais}`, url: r.justificatif_url }] : [])} />
     </Card>
   );
 }

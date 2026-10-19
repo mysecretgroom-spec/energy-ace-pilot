@@ -129,23 +129,23 @@ export function SortableDocumentCard({
 
           {/* Thumbnail: use thumbnails_urls if available, otherwise show actual image */}
           {doc.thumbnails_urls && doc.thumbnails_urls[0] ? (
-            <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+            <Button variant="ghost" aria-label={`Aperçu de ${doc.nom}`} className="p-0 w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0" onClick={(e) => { e.stopPropagation(); onOpenPreview(); }}>
               <img
                 src={doc.thumbnails_urls[0]}
                 alt=""
                 className="w-full h-full object-cover pointer-events-none"
                 draggable={false}
               />
-            </div>
+            </Button>
           ) : fileType === "image" ? (
-            <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+            <Button variant="ghost" aria-label={`Aperçu de ${doc.nom}`} className="p-0 w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0" onClick={(e) => { e.stopPropagation(); onOpenPreview(); }}>
               <img
                 src={doc.url}
                 alt=""
                 className="w-full h-full object-cover pointer-events-none"
                 draggable={false}
               />
-            </div>
+            </Button>
           ) : null}
 
           <div className="flex-1 min-w-0">

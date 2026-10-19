@@ -20,6 +20,7 @@ import { BankImport } from "@/components/finance/BankImport";
 import { PlaidLink } from "@/components/finance/PlaidLink";
 import { MultiImportFlow } from "@/components/scanner";
 import { ExportFraisPDF } from "@/components/finance/ExportFraisPDF";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 import { ReceiptGallery } from "@/components/finance/ReceiptGallery";
 import { GmailReceiptImport } from "@/components/finance/GmailReceiptImport";
 import { ExpenseChart } from "@/components/finance/ExpenseChart";
@@ -1848,15 +1849,7 @@ const Finance = () => {
                                                   className="h-8 w-8 shrink-0 text-primary"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    const url = frais.justificatif_url!;
-                                                    const isPdf = url.includes(".pdf") || url.includes("application/pdf");
-                                                    if (url.startsWith("data:")) {
-                                                      setReceiptPreviewUrl(url);
-                                                    } else if (isPdf) {
-                                                      setReceiptPreviewUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
-                                                    } else {
-                                                      setReceiptPreviewUrl(url);
-                                                    }
+                                                    setReceiptPreviewUrl(frais.justificatif_url);
                                                     setReceiptPreviewOpen(true);
                                                   }}
                                                 >
@@ -2109,29 +2102,9 @@ const Finance = () => {
         onRefresh={triggerRefresh}
       />
 
-      {/* Receipt Preview Dialog */}
-      <Dialog open={receiptPreviewOpen} onOpenChange={setReceiptPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Aperçu de la facture</DialogTitle>
-          </DialogHeader>
-          <div className="p-4 pt-2">
-            {receiptPreviewUrl?.startsWith("data:image") ? (
-              <img
-                src={receiptPreviewUrl}
-                alt="Facture"
-                className="w-full max-h-[70vh] object-contain rounded-lg"
-              />
-            ) : receiptPreviewUrl ? (
-              <iframe
-                src={receiptPreviewUrl}
-                className="w-full h-[70vh] rounded-lg border"
-                title="Aperçu facture"
-              />
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <MediaPreview isOpen={receiptPreviewOpen} onClose={() => setReceiptPreviewOpen(false)}
+        initialIndex={Math.max(0, fraisData.filter((f) => f.justificatif_url).findIndex((f) => f.justificatif_url === receiptPreviewUrl))}
+        items={fraisData.flatMap((f) => f.justificatif_url ? [{ id: f.id, nom: f.description || `Facture ${f.date_frais}`, url: f.justificatif_url }] : [])} />
       </BlurOverlay>
     </MobileLayout>
   );

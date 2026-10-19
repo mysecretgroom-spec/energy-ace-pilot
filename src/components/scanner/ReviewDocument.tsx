@@ -45,6 +45,7 @@ import type { DocumentContext, ScanPage } from "./types";
 import { generatePdfFromPages, generatePdfFromFile } from "./services/pdfGenerator";
 import { uploadDocumentToStorage } from "./services/uploadService";
 import { studyScanAssociation } from "@/lib/studyScanDocument";
+import { MediaPreview } from "@/components/documents/MediaPreview";
 
 // AI OCR result type from edge function
 interface AIExtractedData {
@@ -103,6 +104,14 @@ export function ReviewDocument({
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [pdfSize, setPdfSize] = useState<number>(0);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    setPreviewPdfUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pdfBlob]);
 
   // OCR state
   const [enableOcr, setEnableOcr] = useState(context === "finance");
@@ -583,19 +592,19 @@ export function ReviewDocument({
           {thumbnails.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-2">
               {thumbnails.map((thumb, index) => (
-                <div
+                <Button variant="ghost" onClick={() => setPreviewIndex(index)} aria-label={`Aperçu de la page ${index + 1}`}
                   key={index}
-                  className="relative w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0 border"
+                  className="p-0 relative w-16 h-20 bg-muted rounded overflow-hidden flex-shrink-0 border"
                 >
                   <img
                     src={thumb}
                     alt={`Page ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs text-center py-0.5">
+                  <div className="absolute bottom-0 left-0 right-0 bg-background/85 text-foreground text-xs text-center py-0.5">
                     {index + 1}
                   </div>
-                </div>
+                </Button>
               ))}
               {onAddPage && (
                 <button
@@ -815,6 +824,8 @@ export function ReviewDocument({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <MediaPreview isOpen={previewIndex !== null} onClose={() => setPreviewIndex(null)} initialIndex={pages.length ? previewIndex ?? 0 : 0}
+        items={pages.length ? pages.map((page, i) => ({ id: page.id, nom: `Page ${i + 1}`, url: page.imageData, mime_type: "image/png", thumbnails_urls: [page.thumbnailData] })) : previewPdfUrl ? [{ id: `pdf-preview-${previewIndex}`, nom: title || "Document", url: previewPdfUrl, mime_type: "application/pdf", initial_page: (previewIndex ?? 0) + 1 }] : []} />
     </div>
   );
 }
