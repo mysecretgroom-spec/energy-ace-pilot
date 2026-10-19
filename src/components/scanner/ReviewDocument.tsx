@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { OcrIssuesBanner } from "@/components/finance/OcrIssuesBanner";
 import { issueFieldClass, recomputeLocalIssues, type OcrIssue } from "@/lib/ocrIssues";
@@ -284,14 +285,7 @@ export function ReviewDocument({
   const handleDownload = useCallback(() => {
     if (!pdfBlob) return;
 
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title || "document"}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    void deliverFile(pdfBlob, `${title || "document"}.pdf`);
   }, [pdfBlob, title]);
 
   const handleShare = useCallback(async () => {

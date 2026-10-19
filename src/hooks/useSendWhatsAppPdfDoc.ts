@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -70,27 +71,14 @@ export function useSendWhatsAppPdfDoc() {
             text: options.message || `📄 Dossier complet pour ${clientName} (${docCount} docs, ${data.totalPages} pages)`,
           });
         } else {
-          // Fallback: télécharger le PDF directement
-          const blobUrl = URL.createObjectURL(pdfBlob);
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = safeName;
-          a.click();
-          URL.revokeObjectURL(blobUrl);
+          await deliverFile(pdfBlob, safeName);
         }
       } catch (shareErr: any) {
         // User cancelled the share sheet — not an error
         if (shareErr?.name === "AbortError") {
           console.log("[sendPdfDoc] Share cancelled by user");
         } else {
-          // Fallback to download on share failure
-          console.warn("[sendPdfDoc] Share failed, falling back to download:", shareErr);
-          const blobUrl = URL.createObjectURL(pdfBlob);
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = safeName;
-          a.click();
-          URL.revokeObjectURL(blobUrl);
+          await deliverFile(pdfBlob, safeName);
         }
       }
 

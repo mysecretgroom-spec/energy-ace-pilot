@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { areOfficialLogosEnabled } from "@/lib/officialLogos";
@@ -2099,7 +2100,7 @@ const generateResultatPdf = async (data: EtudeData, options?: { showLogos?: bool
 export const exportPreEtudePdf = async (data: EtudeData): Promise<void> => {
   const doc = await generatePreEtudePdf(data);
   const fileName = `PreEtude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
-  doc.save(fileName);
+  await deliverFile(doc.output("blob"), fileName);
 };
 
 export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
@@ -2111,7 +2112,7 @@ export const getPreEtudePdfBlob = async (data: EtudeData): Promise<Blob> => {
 export const exportResultatPdf = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<void> => {
   const doc = await generateResultatPdf(data, options);
   const fileName = `Resultat_Etude_${data.clientNom}_${data.clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
-  doc.save(fileName);
+  await deliverFile(doc.output("blob"), fileName);
 };
 
 export const getResultatPdfBlob = async (data: EtudeData, options?: { showLogos?: boolean }): Promise<Blob> => {

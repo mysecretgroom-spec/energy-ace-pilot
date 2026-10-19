@@ -1,3 +1,5 @@
+import { deliverFile } from "@/lib/fileDelivery";
+import { resolvePreviewUrl } from "@/components/documents/previewMedia";
 import { useState, useEffect, useMemo } from "react";
 import { clampDateToToday } from "@/lib/dateValidation";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -1866,30 +1868,15 @@ const Finance = () => {
                                                   {frais.justificatif_url && (
                                                     <DropdownMenuItem onClick={async () => {
                                                       try {
-                                                        const url = frais.justificatif_url!;
+                                                        const url = frais.justificatif_url;
+                                                        if (!url) return;
                                                         let extension = "jpg";
                                                         if (url.includes(".pdf") || url.startsWith("data:application/pdf")) extension = "pdf";
                                                         else if (url.includes(".png") || url.startsWith("data:image/png")) extension = "png";
                                                         const fileName = `facture_${frais.date_frais}_${categoryLabels[frais.categorie]}.${extension}`;
-                                                        if (url.startsWith("data:")) {
-                                                          const link = document.createElement("a");
-                                                          link.href = url;
-                                                          link.download = fileName;
-                                                          document.body.appendChild(link);
-                                                          link.click();
-                                                          document.body.removeChild(link);
-                                                        } else {
-                                                          const response = await fetch(url);
-                                                          const blob = await response.blob();
-                                                          const blobUrl = URL.createObjectURL(blob);
-                                                          const link = document.createElement("a");
-                                                          link.href = blobUrl;
-                                                          link.download = fileName;
-                                                          document.body.appendChild(link);
-                                                          link.click();
-                                                          document.body.removeChild(link);
-                                                          URL.revokeObjectURL(blobUrl);
-                                                        }
+                                                        const response = await fetch(await resolvePreviewUrl(url));
+                                                        if (!response.ok) throw new Error("File unavailable");
+                                                        await deliverFile(await response.blob(), fileName);
                                                         toast.success("Téléchargement lancé");
                                                       } catch { toast.error("Erreur de téléchargement"); }
                                                     }}>

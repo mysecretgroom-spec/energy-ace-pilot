@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import React, { useState, useCallback } from "react";
 import { Download, Share2, FileText, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -144,10 +145,5 @@ function formatDate() {
 }
 
 function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return deliverFile(blob, filename);
 }

@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -297,7 +298,7 @@ export const CommissionInvoice = ({ ventes, open, onOpenChange }: CommissionInvo
       doc.text("Document généré automatiquement par DébalePro", pageWidth / 2, finalY + 20, { align: "center" });
 
       // Save
-      doc.save(`facture_commissions_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      await deliverFile(doc.output("blob"), `facture_commissions_${format(new Date(), "yyyy-MM-dd")}.pdf`);
       
       toast.success("Facture générée avec succès");
       onOpenChange(false);

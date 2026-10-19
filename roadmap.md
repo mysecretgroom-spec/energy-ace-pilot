@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [x] Téléchargements : enregistrement natif mobile, téléchargement système ordinateur et nouveau tap Enregistrer si préparation longue ; 8 tests réussis, PDF/PNG téléchargés et relus, appel natif simulé vérifié connecté ; feuille OS sur iPhone physique non vérifiée.
 - [x] Aperçus documents/photos unifiés (dossier client, scan, imports, factures, simulations) : miniature → plein écran sobre, défilement latéral, zoom et pages PDF ; 5 tests et parcours connecté avec documents de contrôle sur téléphone/ordinateur sans erreur ; appareil iPhone physique et fichiers privés réels non testés.
 - [x] Caméra intégrée principale : capture/Terminé sécurisés, notifications non bloquantes, carrousel sans déformation ; 21 tests réussis et 3 captures simulées → original/retrait → PDF 2 pages vérifiés connecté sur téléphone/ordinateur sans erreur ; iPhone physique non testé.
 - [x] Fiche flottante centrée à l'écran (RDV et pose) sur ordinateur et tablette, toujours en feuilletant depuis le bas sur téléphone, fond sombre couvrant tout l'écran ; parcours vérifié dans le navigateur sur deux cartes réelles
