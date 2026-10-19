@@ -1,6 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { supabase } from "@/integrations/supabase/client";
 import { STUDY_SCAN_SOURCE } from "./studyScanDocument";
+import { appendPagesUniform } from "./normalizePdfPages";
 
 /** Fail explicitly rather than share an incomplete study when a saved scan is unreadable. */
 export async function appendStudyScansToPdf(report: Blob, userId: string, clientId: string, etudeId: string): Promise<Blob> {
@@ -16,8 +17,7 @@ export async function appendStudyScansToPdf(report: Blob, userId: string, client
       const response = await fetch(doc.url);
       if (!response.ok) throw new Error("Document inaccessible");
       const scan = await PDFDocument.load(await response.arrayBuffer());
-      const pages = await merged.copyPages(scan, scan.getPageIndices());
-      pages.forEach(page => merged.addPage(page));
+      await appendPagesUniform(merged, scan);
     } catch {
       throw new Error(`Impossible d’intégrer le document scanné « ${doc.nom} ». Réessayez avant l’envoi.`);
     }
