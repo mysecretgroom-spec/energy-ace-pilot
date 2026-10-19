@@ -15,6 +15,13 @@
       "when": 1792080176172,
       "tag": "0001_paddle_subscriptions_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792406491873,
+      "tag": "0002_latency_indexes_and_batched_purge",
+      "breakpoints": true
     }
   ]
 }
