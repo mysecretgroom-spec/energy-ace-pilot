@@ -26,6 +26,9 @@ interface CropEditorProps {
   onSplitPages?: (pages: Array<{ croppedImage: string; thumbnail: string }>) => void;
   initialCorners?: NormalizedCorners;
   initialEnhance?: boolean;
+  /** Garde la photo telle quelle (sans rognage ni retouche). */
+  onSkipCrop?: (original: string, thumbnail: string) => void;
+  progressLabel?: string;
 }
 
 interface Point { x: number; y: number }
@@ -94,7 +97,7 @@ function generateThumbnail(dataUrl: string, thumbWidth: number): Promise<string>
 
 // ---- Component ----
 
-export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners, initialEnhance = true }: CropEditorProps) {
+export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, initialCorners, initialEnhance = true, onSkipCrop, progressLabel }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -562,7 +565,7 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
           <X className="h-6 w-6" />
         </Button>
         <span className="text-foreground font-medium">
-          {isDetecting ? "Détection..." : "Rogner"}
+          {isDetecting ? "Détection..." : progressLabel ? `Rogner · ${progressLabel}` : "Rogner"}
         </span>
         <Button variant="ghost" size="icon" aria-label="Tourner le document" disabled={!!cropPreview} className="text-foreground hover:bg-accent" onClick={handleRotate}>
           <RotateCw className="h-5 w-5" />
@@ -660,7 +663,18 @@ export function CropEditor({ imageData, onComplete, onCancel, onSplitPages, init
       </div>
 
       {/* Footer */}
-      <div className="flex shrink-0 items-center justify-center gap-3 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-card">
+      <div className="flex shrink-0 flex-wrap items-center justify-center gap-3 p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-card">
+        {onSkipCrop && (
+          <Button variant="ghost" disabled={isProcessingCrop} onClick={async () => {
+            const img = new Image();
+            await new Promise<void>((r) => { img.onload = () => r(); img.onerror = () => r(); img.src = imageData; });
+            const scale = 240 / Math.max(img.width || 1, img.height || 1);
+            const c = document.createElement("canvas");
+            c.width = Math.max(1, Math.round((img.width || 1) * scale)); c.height = Math.max(1, Math.round((img.height || 1) * scale));
+            c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+            onSkipCrop(imageData, c.toDataURL("image/jpeg", 0.7));
+          }}>Sans rognage</Button>
+        )}
         <Button variant="outline" disabled={isDetecting || isEnhancing || isProcessingCrop || !cropPoints} onClick={async () => {
           if (cropPreview) { previewResultRef.current = null; setCropPreview(null); return; }
           setIsProcessingCrop(true);
