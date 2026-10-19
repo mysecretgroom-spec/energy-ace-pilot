@@ -48,7 +48,8 @@ export async function detectDocumentEdgesLight(
 
         // Paper contrast is evidence of a page; its area is not confidence.
         // Find small pages before Hough's large-background candidates.
-        const paper = detectPaperRegion(gray, w, h);
+        // Separate neutral paper from colored wood/mats before luminance masks.
+        const paper = detectPaperRegion(paperLikelihood(px), w, h) ?? detectPaperRegion(gray, w, h);
         if (paper) { clearTimeout(timeout); resolve(paper); return; }
 
         // 2. Gaussian blur 5×5
@@ -61,13 +62,11 @@ export async function detectDocumentEdgesLight(
         const edges = cannyEdges(mag, dir, w, h);
 
         // 5. Try Hough-line approach first (best for documents)
-        const houghResult = houghQuadDetect(edges, w, h);
+        const houghResult = houghQuadDetect(edges, gray, w, h);
         if (houghResult) {
           clearTimeout(timeout);
           const conf = Math.min(quadArea(houghResult) / (w * h), 1);
-          // Require the quad to cover at least 20% of the image
-          // to avoid partial detections (e.g. only upper half)
-          if (conf > 0.20 && hasPaperContrast(gray, w, h, houghResult)) {
+          if (conf > 0.02 && hasPaperContrast(gray, w, h, houghResult)) {
             const s = sortCorners(houghResult);
             resolve({
               topLeft: { x: s.topLeft.x / w, y: s.topLeft.y / h },
@@ -85,7 +84,7 @@ export async function detectDocumentEdgesLight(
         const hullResult = findLargestQuadHull(dilated, w, h);
         if (hullResult) {
           const conf = Math.min(quadArea(hullResult) / (w * h), 1);
-          if (conf > 0.20 && hasPaperContrast(gray, w, h, hullResult)) {
+          if (conf > 0.02 && hasPaperContrast(gray, w, h, hullResult)) {
             clearTimeout(timeout);
             const s = sortCorners(hullResult);
             resolve({
@@ -112,6 +111,18 @@ export async function detectDocumentEdgesLight(
 }
 
 // ---- Image processing ----
+
+/** Color is used only for detection; the exported image remains untouched. */
+export function paperLikelihood(rgba: Uint8ClampedArray): Uint8Array {
+  const likelihood = new Uint8Array(rgba.length / 4);
+  for (let i = 0; i < likelihood.length; i++) {
+    const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+    const luminance = (r * 77 + g * 150 + b * 29) / 256;
+    const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+    likelihood[i] = Math.max(0, Math.round(luminance - chroma * 1.4));
+  }
+  return likelihood;
+}
 
 /** Contrast-based page proposal. Text holes are retained in the source;
  * only a low-resolution mask is used to estimate a convex page boundary. */
@@ -160,7 +171,7 @@ export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?
     const rect = rectangularity(points);
     if (fill < 0.65 || fill > 1.15 || rect < 0.65 || area < w * h * 0.02) continue;
     if (!hasPaperContrast(gray, w, h, points)) continue;
-    const score = Math.min(1, fill) * rect * Math.sqrt(area / (w * h));
+    const score = Math.min(1, fill) * rect * paperBoundaryContrast(gray, w, h, points);
     if (score <= bestScore) continue;
     bestScore = score;
     best = {
@@ -175,19 +186,34 @@ export function detectPaperRegion(gray: Uint8Array, w: number, h: number, level?
 }
 
 function hasPaperContrast(gray: Uint8Array, w: number, h: number, points: Point[]): boolean {
+  return paperBoundaryContrast(gray, w, h, points) > 0;
+}
+
+function paperBoundaryContrast(gray: Uint8Array, w: number, h: number, points: Point[]): number {
   const s = sortCorners(points);
   const quad = [s.topLeft, s.topRight, s.bottomRight, s.bottomLeft];
+  // A frame edge is not a detected paper edge. Do not approve the desk/image hull.
+  if (quad.some(p => p.x < 3 || p.y < 3 || p.x >= w - 3 || p.y >= h - 3)) return 0;
   const center = { x: quad.reduce((sum, p) => sum + p.x, 0) / 4,
     y: quad.reduce((sum, p) => sum + p.y, 0) / 4 };
   const sample = (p: Point) => gray[Math.max(0, Math.min(h-1, Math.round(p.y))) * w + Math.max(0, Math.min(w-1, Math.round(p.x)))];
-  let inside = 0, outside = 0;
-  for (let i = 0; i < 4; i++) for (let t = 0.2; t <= 0.8; t += 0.2) {
+  const sides: number[] = [];
+  let inside = 0;
+  for (let i = 0; i < 4; i++) {
+    let difference = 0;
+    for (let t = 0.2; t <= 0.8; t += 0.2) {
     const a = quad[i], b = quad[(i+1)%4];
     const p = { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t };
-    inside += sample({ x: p.x + (center.x-p.x)*0.12, y: p.y + (center.y-p.y)*0.12 });
-    outside += sample({ x: p.x - (center.x-p.x)*0.12, y: p.y - (center.y-p.y)*0.12 });
+    const inner = sample({ x: p.x + (center.x-p.x)*0.08, y: p.y + (center.y-p.y)*0.08 });
+    const outer = sample({ x: p.x - (center.x-p.x)*0.08, y: p.y - (center.y-p.y)*0.08 });
+    inside += inner;
+    difference += inner - outer;
+    }
+    sides.push(difference / 4);
   }
-  return inside / 16 > 60 && (inside - outside) / 16 > 12;
+  const mean = sides.reduce((sum, v) => sum + v, 0) / 4;
+  // Evidence is needed on every side, not just a strong desk/mat boundary.
+  return inside / 16 > 60 && mean > 12 && Math.min(...sides) > 3 ? mean : 0;
 }
 
 function gaussianBlur5(src: Uint8Array, w: number, h: number): Uint8Array {
@@ -359,7 +385,7 @@ function angleDiff(a: number, b: number): number {
   return d;
 }
 
-function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | null {
+function houghQuadDetect(edges: Uint8Array, gray: Uint8Array, w: number, h: number): Point[] | null {
   const lines = houghLines(edges, w, h);
   if (lines.length < 4) return null;
 
@@ -380,7 +406,7 @@ function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | nul
 
   if (horizontal.length < 2 || vertical.length < 2) {
     // Try arbitrary angle classification: find two dominant angle clusters
-    return houghQuadFromClusters(lines, w, h);
+    return houghQuadFromClusters(lines, gray, w, h);
   }
 
   // Try all combinations of 2 horizontal + 2 vertical lines
@@ -413,13 +439,12 @@ function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | nul
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.15 || area > imgArea * 1.15) continue;
+          if (area < imgArea * 0.02 || area > imgArea * 0.95) continue;
 
-          // Score: area² * votes * rectangularity — strongly prefer larger quads
+          // Compare boundary evidence before choosing, not after the largest wins.
           const votes = h1.votes + h2.votes + v1.votes + v2.votes;
           const rect = rectangularity(pts);
-          const areaRatio = area / imgArea;
-          const score = areaRatio * areaRatio * votes * rect;
+          const score = paperBoundaryContrast(gray, w, h, pts) * rect * votes / perimeter(pts);
 
           if (score > bestScore) {
             bestScore = score;
@@ -434,7 +459,7 @@ function houghQuadDetect(edges: Uint8Array, w: number, h: number): Point[] | nul
 }
 
 /** Fallback: cluster lines by angle and find quad */
-function houghQuadFromClusters(lines: HoughLine[], w: number, h: number): Point[] | null {
+function houghQuadFromClusters(lines: HoughLine[], gray: Uint8Array, w: number, h: number): Point[] | null {
   if (lines.length < 4) return null;
 
   // K-means with k=2 on theta (mod PI)
@@ -485,12 +510,11 @@ function houghQuadFromClusters(lines: HoughLine[], w: number, h: number): Point[
 
           const area = quadArea(pts);
           const imgArea = w * h;
-          if (area < imgArea * 0.15 || area > imgArea * 1.15) continue;
+          if (area < imgArea * 0.02 || area > imgArea * 0.95) continue;
 
           const votes = g0[i].votes + g0[j].votes + g1[k].votes + g1[l].votes;
           const rect = rectangularity(pts);
-          const areaRatio = area / imgArea;
-          const score = areaRatio * areaRatio * votes * rect;
+          const score = paperBoundaryContrast(gray, w, h, pts) * rect * votes / perimeter(pts);
 
           if (score > bestScore) {
             bestScore = score;
