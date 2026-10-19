@@ -140,12 +140,16 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
         <p className="text-center text-muted-foreground">{error}</p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={onCancel}>Annuler</Button>
+          <Button variant="secondary" onClick={() => photoInputRef.current?.click()}>
+            <Camera className="w-4 h-4 mr-2" />Photo haute résolution
+          </Button>
           <Button onClick={handleImportClick}>
             <ImagePlus className="w-4 h-4 mr-2" />
             Importer
           </Button>
         </div>
         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
       </div>
     );
   }

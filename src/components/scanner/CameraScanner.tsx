@@ -393,11 +393,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={handleClose}>Annuler</Button>
+          <Button variant="secondary" onClick={() => photoInputRef.current?.click()}><Camera className="h-4 w-4 mr-2" />Photo haute résolution</Button>
           <Button onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4 mr-2" />Importer un fichier
           </Button>
         </div>
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png" onChange={handleFileImport} className="hidden" />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileImport} className="hidden" />
       </div>
     );
   }
@@ -412,11 +414,13 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={handleClose}>Annuler</Button>
+          <Button variant="secondary" onClick={() => photoInputRef.current?.click()}><Camera className="h-4 w-4 mr-2" />Photo haute résolution</Button>
           <Button onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4 mr-2" />Importer un fichier
           </Button>
         </div>
         <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png" onChange={handleFileImport} className="hidden" />
+        <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileImport} className="hidden" />
       </div>
     );
   }
