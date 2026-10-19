@@ -9,7 +9,6 @@ import { useWhatsAppNotification } from "@/hooks/useWhatsAppNotification";
 import { AddDocumentFlow } from "@/components/scanner/AddDocumentFlow";
 import { uploadDocumentToStorage } from "@/components/scanner/services/uploadService";
 import { studyScanAssociation } from "@/lib/studyScanDocument";
-import { appendPagesUniform } from "@/lib/normalizePdfPages";
 
 interface Props {
   rdvId: string;
@@ -29,10 +28,8 @@ const stamp = () => {
 async function toPdf(file: File): Promise<Blob> {
   const bytes = await file.arrayBuffer();
   if (file.type === "application/pdf") {
-    const src = await PDFDocument.load(bytes);
-    const out = await PDFDocument.create();
-    await appendPagesUniform(out, src);
-    return new Blob([(await out.save()) as unknown as BlobPart], { type: "application/pdf" });
+    await PDFDocument.load(bytes); // rejette les PDF illisibles avant l'ajout au dossier
+    return new Blob([bytes], { type: "application/pdf" });
   }
   const doc = await PDFDocument.create();
   const img = file.type === "image/png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
