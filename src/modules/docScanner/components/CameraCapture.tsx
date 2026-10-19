@@ -81,53 +81,51 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
     const vh = video.videoHeight || 1;
 
     const q = detectedQuad;
-    const toPercent = (p: { x: number; y: number }) => ({
-      x: (p.x / vw) * 100,
-      y: (p.y / vh) * 100,
-    });
-
-    // Scale quad from analysis dim back to video dim
-    const scale = Math.max(vw, vh) / MAX_ANALYSIS_DIM;
-    const scaled = {
-      topLeft: { x: q.topLeft.x * scale, y: q.topLeft.y * scale },
-      topRight: { x: q.topRight.x * scale, y: q.topRight.y * scale },
-      bottomRight: { x: q.bottomRight.x * scale, y: q.bottomRight.y * scale },
-      bottomLeft: { x: q.bottomLeft.x * scale, y: q.bottomLeft.y * scale },
-    };
-
-    const pts = [scaled.topLeft, scaled.topRight, scaled.bottomRight, scaled.bottomLeft];
-    const points = pts.map((p) => {
-      const pct = toPercent(p);
-      return `${pct.x}%,${pct.y}%`;
-    }).join(" ");
+    // Quad is in analysis-canvas pixels; map back to video pixels.
+    const scale = analysisScaleRef.current;
+    const pts = [q.topLeft, q.topRight, q.bottomRight, q.bottomLeft].map((p) => ({
+      x: p.x * scale,
+      y: p.y * scale,
+    }));
+    const points = pts.map((p) => `${p.x},${p.y}`).join(" ");
+    const unit = Math.max(vw, vh) / 100;
 
     return (
+      // viewBox in video pixels + "slice" reproduces the video's object-cover crop,
+      // so the outline sits exactly on the paper shown on screen.
       <svg
         ref={overlayRef}
         className="absolute inset-0 w-full h-full pointer-events-none z-10"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
+        viewBox={`0 0 ${vw} ${vh}`}
+        preserveAspectRatio="xMidYMid slice"
       >
         <polygon
           points={points}
           fill="rgba(45, 212, 191, 0.12)"
           stroke="#2dd4bf"
-          strokeWidth="0.4"
+          strokeWidth={unit * 0.4}
           strokeLinejoin="round"
         />
-        {pts.map((p, i) => {
-          const pct = toPercent(p);
+        {pts.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={unit * 1.2}
+            fill="#2dd4bf"
+            stroke="white"
+            strokeWidth={unit * 0.3}
+          />
+        ))}
+      </svg>
+    );
+  };
+  const _unusedOverlayEnd = () => {
+    return (
+      <svg>
+        {[].map(() => {
           return (
-            <circle
-              key={i}
-              cx={`${pct.x}%`}
-              cy={`${pct.y}%`}
-              r="0.8"
-              fill="#2dd4bf"
-              stroke="white"
-              strokeWidth="0.3"
-            />
-          );
+            null
         })}
       </svg>
     );
