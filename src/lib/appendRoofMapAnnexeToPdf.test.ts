@@ -111,7 +111,7 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const { decodePDFRawStream } = await import("pdf-lib");
     const { fetchLatestAiVisuals } = await import("@/lib/roofAiVisuals");
     console.log("VISUALS CALLS:", vi.mocked(fetchLatestAiVisuals).mock.calls.length, JSON.stringify(vi.mocked(fetchLatestAiVisuals).mock.results));
-    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), dataWithRoof, "etude-ia");
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
 
