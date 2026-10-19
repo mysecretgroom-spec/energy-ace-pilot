@@ -29,7 +29,9 @@ import {
   Phone,
   MapPin,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
+  CalendarDays,
   Plus,
   Euro,
   FileText,
@@ -47,6 +49,7 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { VenteStatus, isCancellationStatus } from "@/lib/venteStatusConfig";
+import { israeliWeekRange, shiftWeek, formatWeekLabel } from "@/lib/israeliWeek";
 
 interface Regie {
   id: string;
@@ -124,6 +127,8 @@ const CRM = () => {
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientsError, setClientsError] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
+  // Week view (Sun–Sat): clients with an RDV this week, loaded in one request
+  const [weekAnchor, setWeekAnchor] = useState<Date | null>(() => new Date());
   const [clientCategoryFilters, setClientCategoryFilters] = useState<string[]>([]);
   
   // Client-RDV status mapping (loaded with clients)
@@ -214,7 +219,7 @@ const CRM = () => {
       fetchVentes();
       fetchRegies();
     }
-  }, [user, showActiveOnly]);
+  }, [user, showActiveOnly, weekAnchor]);
 
   const fetchRegies = async () => {
     if (!user) return;
@@ -233,6 +238,35 @@ const CRM = () => {
     setClientsError(false);
     try {
     
+    if (weekAnchor) {
+      const { start, end } = israeliWeekRange(weekAnchor);
+      const { data, error } = await supabase
+        .from("rdv")
+        .select("client_id, status, date_heure, clients!inner(*, ventes(status))")
+        .eq("user_id", user.id)
+        .gte("date_heure", start.toISOString())
+        .lt("date_heure", end.toISOString())
+        .order("date_heure", { ascending: true });
+      if (error) throw error;
+      const rdvMap: Record<string, string[]> = {};
+      const venteMap: Record<string, VenteStatus[]> = {};
+      const byId = new Map<string, any>();
+      for (const row of (data || []) as any[]) {
+        const c = row.clients;
+        if (!c) continue;
+        (rdvMap[c.id] ||= []).includes(row.status) || rdvMap[c.id].push(row.status);
+        if (!byId.has(c.id)) {
+          const { ventes, ...client } = c;
+          byId.set(c.id, client);
+          venteMap[c.id] = Array.from(new Set((ventes || []).map((v: any) => v.status as VenteStatus)));
+        }
+      }
+      setClientRdvStatuses(rdvMap);
+      setClientVenteStatuses(venteMap);
+      setClients(Array.from(byId.values()));
+      return;
+    }
+
     // Fetch all clients, RDV statuses, and vente statuses for categorization
     const [clientsRes, rdvRes, ventesRes] = await Promise.all([
       supabase
@@ -670,6 +704,31 @@ const CRM = () => {
                 onChange={(e) => { setSearchInput(e.target.value); debouncedSearch(e.target.value); }}
                 className="pl-10"
               />
+            </div>
+
+            {/* Week navigation */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={weekAnchor ? "default" : "outline"}
+                size="sm"
+                onClick={() => setWeekAnchor(weekAnchor ? null : new Date())}
+              >
+                <CalendarDays className="h-4 w-4 mr-1" />
+                {weekAnchor ? "Semaine" : "Tous"}
+              </Button>
+              {weekAnchor && (
+                <div className="flex items-center gap-1 flex-1 justify-between bg-muted/50 rounded-lg px-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Semaine précédente" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, -1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <button className="text-xs font-medium" onClick={() => setWeekAnchor(new Date())}>
+                    {formatWeekLabel(israeliWeekRange(weekAnchor).start)}
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Semaine suivante" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Filters row */}
