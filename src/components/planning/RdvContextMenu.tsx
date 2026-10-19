@@ -177,10 +177,11 @@ export function RdvContextMenu({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed z-[101] bg-background rounded-t-2xl sm:rounded-2xl border-t sm:border shadow-2xl overflow-y-auto overscroll-contain safe-bottom
-              inset-x-0 bottom-0 max-h-[85vh]
-              sm:inset-0 sm:m-auto sm:h-fit sm:max-w-lg sm:w-[calc(100%-2rem)] sm:max-h-[80vh]"
+            className="fixed inset-0 z-[101] flex items-end justify-center pointer-events-none"
           >
+            <div
+              className="pointer-events-auto w-full max-h-[85vh] overflow-y-auto overscroll-contain safe-bottom bg-background rounded-t-2xl border-t shadow-2xl sm:rounded-2xl sm:border sm:max-w-lg sm:w-[calc(100%-2rem)] sm:max-h-[80vh]"
+            >
             {/* Handle - only on mobile */}
             <div className="flex justify-center pt-3 pb-2 sm:hidden">
               <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
