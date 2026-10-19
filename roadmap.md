@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Corriger le scanner après le PDF de Nathalie Rey : illumination locale, conservation de netteté, cadrage/aperçu avant confirmation ; vérifier sur le scan fourni
+- [x] Scanner après le PDF de Nathalie Rey : correction locale protégeant l’encre, détails bornés, intermédiaires sans compression et PDF jusqu’à 3072 px ; photo haute résolution native et orientation sans double rotation ; 31 tests réussis, import réel fourni/aperçu/confirmation identique/export PDF et parcours téléphone vérifiés ; flou optique existant et ombres résiduelles non récupérables entièrement, appareil iPhone et WhatsApp réels non testés
 - [x] Scanner : feuille distinguée du bureau sur la photo extraite de IMG_3141, ajustement et aperçu obligatoires avant confirmation ; 30 tests réussis, parcours connecté et export PDF vérifiés sur ordinateur/téléphone ; caméra iPhone physique et envoi WhatsApp réel non revérifiés
 - [x] Scanner : redressement automatique, ombres et contraste activés par défaut ; 24 tests réussis et import incliné/ombragé, aperçu puis confirmation vérifiés connecté, sans erreur de rendu ; PDF d’étude et caméra iPhone physique non revérifiés
 - [x] Capture avant PDF : rejet des images caméra non décodées, cadrage redétecté sur la photo et confirmation obligatoire, suppression du double démarrage ; 18 tests réussis et deux pages confirmées avec caméra simulée, sans erreur de rendu
