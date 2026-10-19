@@ -158,7 +158,7 @@ export function ReviewDocument({
           setTitle(fileName);
         } else if (pages.length > 0) {
           result = await generatePdfFromPages(pages);
-          setTitle(`Scan ${new Date().toLocaleDateString("fr-FR")}`);
+          setTitle(`Scan ${new Date().toLocaleDateString("fr-FR")} ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`);
         } else {
           throw new Error("No content to process");
         }
