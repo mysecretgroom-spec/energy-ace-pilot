@@ -47,9 +47,11 @@
 - [ ] Test d'achat manuel en aperçu avec carte de test
 
 ## Latence (audit 19/10)
-- [ ] Base : index RDV, purges par lots, historique Google allégé
-- [ ] Lectures répétées (tâches de fond, RDV/clients)
+- [x] Base : index RDV, purges par lots, historique Google allégé
+- [x] Lectures répétées : tâches de fond + session stable
+- [ ] RDV/clients : charger seulement la période affichée (à faire écran par écran)
+- [ ] Écran Étude découpé ; moteur scanner unique ; suivi des temps
 - [ ] Démarrage : vérifications d'accès en parallèle
-- [ ] Étude : PDF auto seulement si modification
-- [ ] Latence création de document (scanner → enregistrement)
-- [ ] Latence des appels IA
+- [x] Étude : PDF auto seulement si modification
+- [x] Latence création de document (scanner → enregistrement)
+- [x] Latence des appels IA
