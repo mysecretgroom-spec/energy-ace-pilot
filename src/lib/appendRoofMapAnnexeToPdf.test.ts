@@ -105,4 +105,18 @@ describe("appendRoofMapAnnexeToPdf", () => {
     expect(renderRoofMapImage).toHaveBeenLastCalledWith(45.123456, 0.654321, { viewport });
     expect((await PDFDocument.load(await out.arrayBuffer())).getPageCount()).toBe(3);
   });
+
+  it("porte la mention IA sur les visuels générés par IA", async () => {
+    const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
+    const merged = await PDFDocument.load(await out.arrayBuffer());
+    expect(merged.getPageCount()).toBe(3);
+
+    // Le texte Helvetica est encodé WinAnsi : décodage latin1 pour retrouver les libellés
+    const latin1 = new TextDecoder("latin1").decode(new Uint8Array(await out.arrayBuffer()));
+    expect(latin1).toContain("généré par IA");
+    expect(latin1).toContain("Visuels générés par IA");
+    expect(latin1).toContain("non contractuels");
+    expect(latin1).toContain("(IA)");
+  });
 });
