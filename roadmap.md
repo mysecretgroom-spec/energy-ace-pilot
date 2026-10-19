@@ -1,7 +1,7 @@
 # Roadmap
 
 ## En cours
-- [ ] Scanner : distinguer la feuille du bureau, proposer ses bords et vérifier l’ajustement avant confirmation/PDF
+- [x] Scanner : feuille distinguée du bureau sur la photo extraite de IMG_3141, ajustement et aperçu obligatoires avant confirmation ; 30 tests réussis, parcours connecté et export PDF vérifiés sur ordinateur/téléphone ; caméra iPhone physique et envoi WhatsApp réel non revérifiés
 - [x] Scanner : redressement automatique, ombres et contraste activés par défaut ; 24 tests réussis et import incliné/ombragé, aperçu puis confirmation vérifiés connecté, sans erreur de rendu ; PDF d’étude et caméra iPhone physique non revérifiés
 - [x] Capture avant PDF : rejet des images caméra non décodées, cadrage redétecté sur la photo et confirmation obligatoire, suppression du double démarrage ; 18 tests réussis et deux pages confirmées avec caméra simulée, sans erreur de rendu
 - [ ] Capture iPhone réel avant PDF : bloquée sans accès à un appareil physique ; parcours étude/PDF réel et défauts optiques iPhone non vérifiés
