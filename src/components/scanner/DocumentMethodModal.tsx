@@ -21,7 +21,7 @@ import type { DocumentContext } from "./types";
 interface DocumentMethodModalProps {
   isOpen: boolean;
   context: DocumentContext;
-  onSelectMethod: (method: "scan" | "import") => void;
+  onSelectMethod: (method: "scan" | "native" | "import") => void;
   onFileImport: (file: File) => void;
   onClose: () => void;
 }
@@ -81,7 +81,7 @@ export function DocumentMethodModal({
   };
 
   const handleNativeScanClick = () => {
-    nativeCaptureRef.current?.click();
+    onSelectMethod("native");
   };
 
   const handleExternalAppScan = () => {
@@ -106,7 +106,7 @@ export function DocumentMethodModal({
         <Button
           variant="outline"
           className="h-20 flex items-center justify-between px-4 border-2 hover:border-primary hover:bg-primary/5"
-          onClick={() => setView("scan-options")}
+          onClick={handleNativeScanClick}
         >
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -115,7 +115,7 @@ export function DocumentMethodModal({
             <div className="text-left">
               <span className="text-sm font-medium block">Scanner un document</span>
               <span className="text-xs text-muted-foreground">
-                Plusieurs options disponibles
+                Plusieurs pages d'affilée, rognage auto
               </span>
             </div>
           </div>
@@ -147,7 +147,10 @@ export function DocumentMethodModal({
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <Button variant="ghost" size="sm" onClick={() => setView("scan-options")}>
+          Autres scanners
+        </Button>
         <Button variant="ghost" onClick={handleClose}>
           Annuler
         </Button>
@@ -184,7 +187,7 @@ export function DocumentMethodModal({
           <div className="text-left flex-1">
             <span className="text-sm font-medium block">Scanner natif</span>
             <span className="text-xs text-muted-foreground">
-              iOS Notes / Android Scanner
+              Plusieurs pages, rognage auto
             </span>
           </div>
           <span className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-full">
