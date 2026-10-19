@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PDFDocument } from "pdf-lib";
-import { Camera, FilePlus2, Loader2, Send } from "lucide-react";
+import { Camera, FilePlus2, Loader2, FolderUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,7 +108,7 @@ export function ClientDossierQuickActions({ rdvId, clientId, clientName, clientP
           <span className="text-xs">Importer</span>
         </Button>
         <Button className="h-14 flex-col gap-1" onClick={handleSend} disabled={!!busy}>
-          {busy === "send" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          {busy === "send" ? <Loader2 className="h-5 w-5 animate-spin" /> : <FolderUp className="h-5 w-5" />}
           <span className="text-xs">Envoyer dossier</span>
         </Button>
       </div>
