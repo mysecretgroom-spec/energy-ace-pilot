@@ -30,6 +30,15 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { DocumentContext, ScanPage } from "./types";
@@ -105,6 +114,7 @@ export function ReviewDocument({
   const [category, setCategory] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [duplicateIds, setDuplicateIds] = useState<string[]>([]);
 
   // Finance-specific fields
   const [montantTTC, setMontantTTC] = useState("");
@@ -292,7 +302,7 @@ export function ReviewDocument({
     }
   }, [pdfBlob, title]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (duplicateChoice?: "replace" | "keep") => {
     if (!pdfBlob || !user) return;
 
     if (!title.trim()) {
@@ -428,6 +438,15 @@ export function ReviewDocument({
 
       if (docError) throw docError;
 
+      if (idsToReplace.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("documents")
+          .delete()
+          .in("id", idsToReplace)
+          .eq("user_id", user.id);
+        if (deleteError) console.warn("Ancien document non supprimé:", deleteError);
+      }
+
       // Queue AI classification if no type was selected
       if (needsAiClassification && docData) {
         await supabase.from("background_jobs").insert({
@@ -519,6 +538,7 @@ export function ReviewDocument({
     fournisseur,
     ocrResult,
     onSuccess,
+    duplicateIds,
   ]);
 
   const formatFileSize = (bytes: number) => {
