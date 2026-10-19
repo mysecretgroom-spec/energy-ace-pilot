@@ -16,3 +16,4 @@
 - Official logos on study/result PDFs are gated by src/lib/officialLogos, driven by HejjaModeProvider (HEJJA active + premium); never load logos directly elsewhere.
 - Billing uses the built-in Paddle integration: plan/top-up price ids live in src/lib/plans.ts and supabase/functions/_shared/plans.ts (keep in sync); entitlement is derived server-side by get_user_plan(), and only the payments-webhook (service role) changes access state.
 - Satellite PV visuals are drawn deterministically (exact panel count, centred on the red marker, metric panel size); generative AI is only used for the study photo view, because it ignored the designated pan and count.
+- WhatsApp webhook acks Twilio immediately, dedupes by MessageSid and processes each user's messages sequentially in background (waitUntil), because concurrent messages raced on conversation state and hit 150s timeouts.
