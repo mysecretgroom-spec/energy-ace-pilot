@@ -144,6 +144,12 @@ serve(async (req) => {
       }
     }
 
+    // 0. Ignore Twilio retries of a message already received
+    if (messageSid) {
+      const { data: dup } = await supabase.from("whatsapp_messages").select("id").eq("twilio_message_sid", messageSid).limit(1).maybeSingle();
+      if (dup) return new Response(JSON.stringify({ status: "duplicate" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // 1. Find user by phone number
     const { data: users, error: userError } = await supabase.rpc("find_user_by_phone", {
       p_phone: fromNumber,
@@ -294,6 +300,10 @@ serve(async (req) => {
       throw insertError;
     }
 
+    // 6. Traitement en arrière-plan, un message à la fois par utilisateur (ordre d'arrivée),
+    // pour que des messages consécutifs ne se télescopent pas (état de conversation partagé).
+    const work = (async () => {
+    await waitForPreviousMessages(supabase, user.user_id, messageRecord.id, messageRecord.created_at);
     // 6. Call the agent function for AI processing
     try {
       const agentPayload: Record<string, unknown> = {
@@ -478,7 +488,10 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
+    })().catch((e) => console.error("Background processing error:", e));
+    // @ts-ignore EdgeRuntime is provided by the Supabase runtime
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work); else await work;
+    return new Response(JSON.stringify({ status: "queued" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Webhook error:", error);
     return new Response(
@@ -573,4 +586,18 @@ async function sendWhatsAppMessage(
   }
 
   return sentSids;
+}
+
+/** Waits until earlier messages of the same user have finished (max ~4 min, stale ones ignored). */
+async function waitForPreviousMessages(supabase: any, userId: string, messageId: string, createdAt: string) {
+  const deadline = Date.now() + 240_000;
+  while (Date.now() < deadline) {
+    const { data } = await supabase.from("whatsapp_messages").select("id")
+      .eq("user_id", userId).eq("status", "processing").neq("id", messageId)
+      .lt("created_at", createdAt)
+      .gt("created_at", new Date(Date.now() - 5 * 60_000).toISOString())
+      .limit(1);
+    if (!data?.length) return;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
 }
