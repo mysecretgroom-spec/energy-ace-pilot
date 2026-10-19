@@ -487,6 +487,7 @@ serve(async (req) => {
         JSON.stringify({ status: "failed", error: "Agent processing failed" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
     })().catch((e) => console.error("Background processing error:", e));
     // @ts-ignore EdgeRuntime is provided by the Supabase runtime
     if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work); else await work;
