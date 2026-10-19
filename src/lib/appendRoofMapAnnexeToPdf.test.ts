@@ -112,11 +112,18 @@ describe("appendRoofMapAnnexeToPdf", () => {
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
 
-    // Le texte Helvetica est encodé WinAnsi : décodage latin1 pour retrouver les libellés
-    const latin1 = new TextDecoder("latin1").decode(new Uint8Array(await out.arrayBuffer()));
-    expect(latin1).toContain("généré par IA");
-    expect(latin1).toContain("Visuels générés par IA");
-    expect(latin1).toContain("non contractuels");
-    expect(latin1).toContain("(IA)");
+    // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi : on cherche l'encodage des libellés
+    const winAnsiHex = (s: string) =>
+      s.split("")
+        .map((ch) => {
+          const special: Record<string, number> = { "é": 0xe9, "—": 0x97, ".": 0x2e };
+          const code = special[ch] ?? ch.charCodeAt(0);
+          return code.toString(16).padStart(2, "0").toUpperCase();
+        })
+        .join("");
+    const latin1 = new TextDecoder("latin1").decode(new Uint8Array(await out.arrayBuffer())).toUpperCase();
+    expect(latin1).toContain(`<${winAnsiHex("généré par IA")}>`);
+    expect(latin1).toContain(`<${winAnsiHex("Visuels générés par IA — rendus non contractuels.")}>`);
+    expect(latin1).toContain(`<${winAnsiHex("IA")}>`);
   });
 });
