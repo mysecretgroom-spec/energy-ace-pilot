@@ -84,6 +84,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
   const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [cameraState, setCameraState] = useState<CameraState>("requesting");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
@@ -300,12 +301,12 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      if (result) onCapture(result);
+      if (result) setPendingScan(result);
     };
     reader.onerror = () => toast({ title: "Erreur", description: "Impossible de lire le fichier", variant: "destructive" });
     reader.readAsDataURL(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [onCapture]);
+  }, []);
 
   const handleClose = useCallback(() => {
     stopCamera();
@@ -532,7 +533,10 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
         </div>
       )}
 
-      <div className="absolute bottom-32 left-0 right-0 z-10 flex justify-center">
+      <div className="absolute bottom-32 left-0 right-0 z-10 flex justify-center gap-2">
+        <Button variant="secondary" onClick={() => photoInputRef.current?.click()} disabled={isCapturing}>
+          <Camera className="h-4 w-4 mr-2" />Photo haute résolution
+        </Button>
         <Button onClick={() => {
           if (isBlurry) { toast({ title: "Image trop floue", description: "Stabilisez votre appareil", variant: "destructive" }); return; }
           performCapture(undefined, true);
@@ -585,6 +589,7 @@ export function CameraScanner({ onCapture, onCancel, pageCount, onMultiCapture }
 
       {/* Hidden elements */}
       <canvas ref={canvasRef} className="hidden" />
+      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileImport} className="hidden" />
       <input
         ref={fileInputRef}
         type="file"
