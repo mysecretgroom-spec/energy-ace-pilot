@@ -1,4 +1,5 @@
 // @vitest-environment node
+import zlib from "node:zlib";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 import type { EtudeData } from "@/lib/exportEtudePdf";
@@ -108,7 +109,7 @@ describe("appendRoofMapAnnexeToPdf", () => {
 
   it("porte la mention IA sur les visuels générés par IA", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
-    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoos: undefined, etudeId: "etude-ia" } as unknown as EtudeData);
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
 
