@@ -3,6 +3,7 @@ import { DocumentMethodModal } from "./DocumentMethodModal";
 import { CameraScanner } from "./CameraScanner";
 import { CropEditor } from "./CropEditor";
 import { PageManager } from "./PageManager";
+import { BatchCropReview } from "./BatchCropReview";
 import { ReviewDocument } from "./ReviewDocument";
 import type { DocumentContext, ScanPage } from "./types";
 import type { DetectedQuad } from "./hooks/useRealtimeEdgeDetection";
@@ -18,7 +19,7 @@ interface AddDocumentFlowProps {
   isOpen: boolean;
 }
 
-type FlowStep = "method" | "camera" | "crop" | "pages" | "review";
+type FlowStep = "method" | "camera" | "crop" | "batch" | "pages" | "review";
 
 export function AddDocumentFlow({
   context,
