@@ -83,7 +83,7 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
   const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState(false);
   const [prepared, setPrepared] = useState<{ url: string; blob: Blob; name: string } | null>(null);
-  const [emblaRef, api] = useEmblaCarousel({ startIndex: initialIndex, watchDrag: zoom === 1, loop: false });
+  const [emblaRef, api] = useEmblaCarousel({ startIndex: index, watchDrag: zoom === 1, loop: false });
   const item = items[index];
   useEffect(() => {
     if (!api) return;
