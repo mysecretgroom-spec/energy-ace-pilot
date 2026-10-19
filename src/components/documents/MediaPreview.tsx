@@ -83,13 +83,17 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
   const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState(false);
   const [prepared, setPrepared] = useState<{ url: string; blob: Blob; name: string } | null>(null);
-  const [emblaRef, api] = useEmblaCarousel({ startIndex: initialIndex, watchDrag: zoom === 1, loop: false });
+  const [emblaRef, api] = useEmblaCarousel({ startIndex: index, watchDrag: zoom === 1, loop: false });
   const item = items[index];
   useEffect(() => {
     if (!api) return;
     const select = () => { setIndex(api.selectedScrollSnap()); setZoom(1); };
+    // Zoom changes drag options and slide dimensions. Restore the selected
+    // position after Embla measures them instead of leaving it off-screen.
+    const realign = () => { api.scrollTo(api.selectedScrollSnap(), true); };
     api.on("select", select);
-    return () => { api.off("select", select); };
+    api.on("reInit", realign);
+    return () => { api.off("select", select); api.off("reInit", realign); };
   }, [api]);
   useEffect(() => { if (isOpen) { setIndex(Math.max(0, Math.min(initialIndex, items.length - 1))); setZoom(1); api?.scrollTo(initialIndex, true); } }, [isOpen, initialIndex, api, items.length]);
   useEffect(() => {
