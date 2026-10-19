@@ -267,7 +267,7 @@ export function InstallationContextMenu({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-0 z-[101] flex items-end justify-center pointer-events-none"
+              className="fixed inset-0 z-[101] flex items-end justify-center sm:items-center pointer-events-none"
             >
               <div
                 className="pointer-events-auto w-full max-h-[85vh] overflow-y-auto overscroll-contain safe-bottom bg-background rounded-t-2xl border-t shadow-2xl sm:rounded-2xl sm:border sm:max-w-lg sm:w-[calc(100%-2rem)] sm:max-h-[80vh]"
