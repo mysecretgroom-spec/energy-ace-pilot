@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RdvStatus, StatusBadge } from "@/components/ui/status-badge";
 import { RdvStatusSelector } from "./RdvStatusSelector";
+import { ClientDossierQuickActions } from "./ClientDossierQuickActions";
 import { RegieSelector } from "./RegieSelector";
 import { ExternalVenteDialog } from "./ExternalVenteDialog";
 import { DeleteConfirmDialog } from "@/components/common/DeleteConfirmDialog";
@@ -322,6 +323,16 @@ export function RdvContextMenu({
                   <span className="text-xs">Dossier</span>
                 </Button>
               </div>
+
+              <ClientDossierQuickActions
+                rdvId={rdv.id}
+                clientId={rdv.clientId}
+                clientName={rdv.client}
+                clientPrenom={rdv.clientPrenom}
+                etudeId={rdv.etudeId}
+                regieId={regieId}
+              />
+
 
               {/* Status Selector */}
               <div className="space-y-2">
