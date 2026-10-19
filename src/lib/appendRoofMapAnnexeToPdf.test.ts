@@ -109,6 +109,8 @@ describe("appendRoofMapAnnexeToPdf", () => {
   it("porte la mention IA sur les visuels générés par IA", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
     const { decodePDFRawStream } = await import("pdf-lib");
+    const { fetchLatestAiVisuals } = await import("@/lib/roofAiVisuals");
+    console.log("VISUALS CALLS:", vi.mocked(fetchLatestAiVisuals).mock.calls.length, JSON.stringify(vi.mocked(fetchLatestAiVisuals).mock.results));
     const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
