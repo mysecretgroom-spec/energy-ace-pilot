@@ -92,10 +92,8 @@ export function correctShadowPixels(source: Uint8ClampedArray, width: number, he
     const lights = [lr, lg, lb];
     for (let c = 0; c < 3; c++) {
       const gain = Math.max(0.85, Math.min(2.2, target / Math.max(1, lights[c])));
-      // Ink keeps its own colour (luminance gain only), paper takes the per-channel gain.
-      const inkGain = Math.max(1, Math.min(2.2, target / Math.max(1, light)));
-      const g = 1 + (inkGain - 1) * blend * 0.6 + (gain - 1 - (inkGain - 1) * 0.6) * blend;
-      output[i + c] = source[i + c] * g;
+      // Ink keeps its own values; paper takes the per-channel gain.
+      output[i + c] = source[i + c] * (1 + (gain - 1) * blend);
     }
   }
   return output;
