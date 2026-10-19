@@ -182,6 +182,11 @@ interface DataFinancement {
 }
 
 const EtudeForm = () => {
+  // Thème vert propre au module d'étude (le reste de l'app reste bleu).
+  useEffect(() => {
+    document.body.classList.add("etude-theme");
+    return () => document.body.classList.remove("etude-theme");
+  }, []);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
