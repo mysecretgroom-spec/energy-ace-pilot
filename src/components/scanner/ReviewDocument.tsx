@@ -405,7 +405,7 @@ export function ReviewDocument({
       const fileUrl = await uploadDocumentToStorage(pdfBlob, user.id, context);
       
       const docType = context === "finance" ? "facture_frais" : (category || "autre");
-      const needsAiClassification = context === "client_docs" && !category;
+      const needsAiClassification = context === "client_docs" && (!category || category === "autre");
 
       const { data: docData, error: docError } = await supabase
         .from("documents")
