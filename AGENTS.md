@@ -1,6 +1,7 @@
 # Architecture rules
 - End-of-study scans use explicit document study associations and a dedicated context source; the shared study annex pipeline copies their PDF pages for preview, exports, stored PDFs and signature sharing without rebranding originals.
 - Scanner shadow correction uses shared bounded pixel illumination correction, not generative image rewriting; crop geometry is normalized and rotated with the displayed image to preserve document fidelity.
+- Scanner processing keeps lossless intermediate images and confirms the exact cached preview; document PDF compression retains the crop resolution within a bounded mobile budget to avoid cumulative handwriting blur.
 - Scanner page proposals use color-neutral paper masks and evidence on all four boundaries rather than area; preserve supplied/manual corners until explicit redetection and require the shared crop/filter preview before confirmation to exclude furniture from saved scans.
 - Camera scans must be reviewed on the captured image before being added to the study; reject video frames without decoded pixels and never infer sensor-photo framing solely from aspect ratio, to prevent blank pages and destructive preview crops.
 - Automatic scan deskew runs after perspective and illumination correction, rejects uncertain text angles and expands the output bounds to preserve document corners; contrast uses bounded histogram correction rather than fixed boosts to avoid erasing annotations.

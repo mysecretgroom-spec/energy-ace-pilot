@@ -88,7 +88,7 @@ export async function captureStill(
     const img = await loadImage(dataUrl);
 
     // A still smaller than the preview is useless — keep the video frame.
-    if (img.naturalWidth < video.videoWidth) {
+    if (img.naturalWidth <= 0 || img.naturalHeight <= 0 || img.naturalWidth * img.naturalHeight < video.videoWidth * video.videoHeight) {
       return frameFromVideo(video, canvas);
     }
 

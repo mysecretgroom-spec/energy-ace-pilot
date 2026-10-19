@@ -2,7 +2,7 @@
  * Image enhancement utilities for document scanning
  */
 
-import { documentContrast, estimateDocumentSkew, deskewBounds } from "./automaticCorrections";
+import { documentContrast, estimateDocumentSkew, deskewBounds, sharpenDocumentPixels } from "./automaticCorrections";
 
 export interface EnhancementOptions {
   contrast?: number; // 0-200, default 100
@@ -91,7 +91,7 @@ export async function enhanceImage(
         ctx.putImageData(sharpened, 0, 0);
       }
 
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
+      resolve(canvas.toDataURL('image/png'));
     };
 
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -139,12 +139,25 @@ function applyConvolution(imageData: ImageData, kernel: number[]): ImageData {
  * Document enhancement preset (optimized for receipts/invoices)
  */
 export async function enhanceForDocument(imageData: string): Promise<string> {
-  return enhanceImage(imageData, {
+  const contrasted = await enhanceImage(imageData, {
     autoContrast: true,
     contrast: 100,
     brightness: 100,
     sharpen: false,
   });
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error("Image illisible")); img.src = contrasted; });
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("Traitement indisponible");
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    pixels.data.set(sharpenDocumentPixels(pixels.data, pixels.width, pixels.height));
+    ctx.putImageData(pixels, 0, 0);
+    return canvas.toDataURL("image/png");
+  } finally { canvas.width = 0; canvas.height = 0; }
 }
 
 /**
@@ -227,7 +240,7 @@ export async function convertToBlackAndWhite(
       }
 
       ctx.putImageData(imgData, 0, 0);
-      const result = canvas.toDataURL('image/jpeg', 0.92);
+      const result = canvas.toDataURL('image/png');
       canvas.width = 0; canvas.height = 0;
       resolve(result);
     };
@@ -285,7 +298,7 @@ export async function autoDeskew(imageData: string): Promise<string> {
       outCtx.translate(bounds.width / 2, bounds.height / 2);
       outCtx.rotate(-bestAngle * Math.PI / 180);
       outCtx.drawImage(img, -img.width / 2, -img.height / 2);
-      const result = outCanvas.toDataURL("image/jpeg", 0.92);
+      const result = outCanvas.toDataURL("image/png");
       outCanvas.width = 0; outCanvas.height = 0;
       resolve(result);
     };

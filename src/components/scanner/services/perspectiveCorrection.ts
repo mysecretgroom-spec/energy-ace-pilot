@@ -99,7 +99,7 @@ function applyH(H: number[], x: number, y: number): [number, number] {
 
 // ---- Main export ----
 
-const MAX_OUTPUT_DIM = 2048; // Cap to avoid crashing on large images
+const MAX_OUTPUT_DIM = 3072; // Preserve handwriting detail with a bounded mobile canvas
 
 export function applyPerspectiveCorrectionLight(
   imageData: string,
@@ -195,7 +195,7 @@ export function applyPerspectiveCorrectionLight(
         }
 
         dstCtx.putImageData(dstImgData, 0, 0);
-        const result = dstCanvas.toDataURL("image/jpeg", 0.92);
+        const result = dstCanvas.toDataURL("image/png");
         // Cleanup canvases to free memory immediately
         srcCanvas.width = 0;
         srcCanvas.height = 0;
@@ -254,7 +254,7 @@ function bilinearFallback(
     }
   }
   dstCtx.putImageData(dstData, 0, 0);
-  const result = dstCanvas.toDataURL("image/jpeg", 0.92);
+  const result = dstCanvas.toDataURL("image/png");
   // Cleanup
   srcCanvas.width = 0;
   srcCanvas.height = 0;

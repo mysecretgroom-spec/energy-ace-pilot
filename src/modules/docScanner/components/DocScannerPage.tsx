@@ -34,7 +34,7 @@ export default function DocScannerPage() {
 
   // Handle capture from camera
   const handleCapture = useCallback(async (canvas: HTMLCanvasElement, quad: Quad | null, enhance = false) => {
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+    const blob = await canvasToBlob(canvas, "image/png");
     const blobUrl = URL.createObjectURL(blob);
 
     // Live worker lines may belong to furniture. Redetect on the captured photo.
@@ -50,7 +50,7 @@ export default function DocScannerPage() {
   // Handle import from file
   const handleImport = useCallback(async (file: File) => {
     const { canvas, width, height } = await normalizeOrientation(file);
-    const blob = await canvasToBlob(canvas, "image/jpeg", 0.92);
+    const blob = await canvasToBlob(canvas, "image/png");
     const blobUrl = URL.createObjectURL(blob);
 
     setPendingImage({
@@ -107,7 +107,7 @@ export default function DocScannerPage() {
         } : undefined}
         onComplete={async (processedImage) => {
           const canvas = await loadImageToCanvas(processedImage);
-          const blob = await canvasToBlob(canvas, "image/jpeg", 0.95);
+          const blob = await canvasToBlob(canvas, "image/png");
           const url = URL.createObjectURL(blob);
           const size = { w: canvas.width, h: canvas.height };
           session.addPage({ id: crypto.randomUUID(), originalBlobUrl: pendingImage.blobUrl,

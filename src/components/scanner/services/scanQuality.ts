@@ -29,8 +29,8 @@ export function validScanCorners(corners: ScanCorners): boolean {
  */
 export function correctShadowPixels(source: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
   if (width < 1 || height < 1 || source.length !== width * height * 4) throw new Error("Invalid image dimensions");
-  const cols = Math.min(16, Math.max(1, Math.ceil(width / 64)));
-  const rows = Math.min(16, Math.max(1, Math.ceil(height / 64)));
+  const cols = Math.min(32, Math.max(1, Math.ceil(width / 48)));
+  const rows = Math.min(32, Math.max(1, Math.ceil(height / 48)));
   const fields = new Float32Array(cols * rows);
   for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
     const histogram = new Uint32Array(256);
@@ -46,7 +46,10 @@ export function correctShadowPixels(source: Uint8ClampedArray, width: number, he
     fields[ty * cols + tx] = value;
   }
   const sorted = Array.from(fields).sort((a, b) => a - b);
-  const target = sorted[Math.floor((sorted.length - 1) * 0.9)];
+  const bright = sorted[Math.floor((sorted.length - 1) * 0.9)];
+  const dark = sorted[Math.floor((sorted.length - 1) * 0.1)];
+  // Do not brighten an evenly lit sheet. Uneven paper gets a neutral light target.
+  const target = bright - dark > 12 ? Math.max(240, bright) : bright;
   const output = new Uint8ClampedArray(source);
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const gx = Math.max(0, Math.min(cols - 1, (x + 0.5) * cols / width - 0.5));
@@ -59,7 +62,11 @@ export function correctShadowPixels(source: Uint8ClampedArray, width: number, he
     const gain = light < 65 ? 1 : Math.max(1, Math.min(1.8, target / Math.max(1, light)));
     const i = (y * width + x) * 4;
     const peak = Math.max(source[i], source[i + 1], source[i + 2]);
-    const safeGain = Math.min(gain, 255 / Math.max(1, peak));
+    const luminance = source[i] * 0.299 + source[i + 1] * 0.587 + source[i + 2] * 0.114;
+    // Ink is not illumination: retain dark strokes instead of washing them out.
+    const paperRatio = Math.max(0, Math.min(1, (luminance / Math.max(1, light) - 0.15) / 0.75));
+    const inkSafeGain = 1 + (gain - 1) * paperRatio * paperRatio * (3 - 2 * paperRatio);
+    const safeGain = Math.min(inkSafeGain, 255 / Math.max(1, peak));
     for (let c = 0; c < 3; c++) output[i + c] = source[i + c] * safeGain;
   }
   return output;
@@ -79,6 +86,6 @@ export async function correctDocumentShadows(dataUrl: string): Promise<string> {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     pixels.data.set(correctShadowPixels(pixels.data, pixels.width, pixels.height));
     ctx.putImageData(pixels, 0, 0);
-    return canvas.toDataURL("image/jpeg", 0.95);
+    return canvas.toDataURL("image/png");
   } finally { canvas.width = 0; canvas.height = 0; }
 }
