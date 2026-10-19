@@ -107,7 +107,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         console.log("Auth state:", event);
         setSession(session);
-        setUser(session?.user ?? null);
+        // Keep the same user object across token refreshes so every screen
+        // depending on `user` does not refetch its data each hour.
+        const nextUser = session?.user ?? null;
+        setUser((prev) =>
+          event !== "USER_UPDATED" && prev && nextUser && prev.id === nextUser.id ? prev : nextUser
+        );
         setLoading(false);
 
         // Save Google tokens in background (non-blocking)
