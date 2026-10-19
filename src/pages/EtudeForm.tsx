@@ -477,10 +477,9 @@ const EtudeForm = () => {
     verdict: "valide" | "a_etudier" | "invalide" | null;
   } | null>(null);
 
-  // Restaure l'ancienne palette (vert solaire) uniquement sur le module d'étude
+  // Boutons : le module d'étude utilise la même palette de dégradés que le reste de l'app
   useEffect(() => {
-    document.documentElement.classList.add("etude-theme");
-    return () => document.documentElement.classList.remove("etude-theme");
+    document.documentElement.classList.remove("etude-theme");
   }, []);
 
   // Load data on mount
