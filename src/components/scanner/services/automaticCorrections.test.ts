@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { deskewBounds, documentContrast, estimateDocumentSkew } from "./automaticCorrections";
+import { deskewBounds, documentContrast, estimateDocumentSkew, sharpenDocumentPixels } from "./automaticCorrections";
 
 function textLines(width: number, height: number, angle: number) {
   const gray = new Uint8Array(width * height).fill(230);
@@ -43,6 +43,22 @@ describe("automatic document deskew", () => {
 });
 
 describe("bounded automatic contrast", () => {
+  it("recovers soft stroke detail with a maximum change of 12 and unchanged alpha", () => {
+    const pixels = new Uint8ClampedArray(5 * 5 * 4);
+    for (let i = 0; i < pixels.length; i += 4) pixels.set([220, 220, 220, 127], i);
+    const center = (2 * 5 + 2) * 4;
+    pixels.set([170, 170, 170, 127], center);
+    const corrected = sharpenDocumentPixels(pixels, 5, 5);
+    expect(corrected[center]).toBe(158);
+    expect(corrected[center + 3]).toBe(127);
+    expect(pixels[center]).toBe(170);
+    for (let i = 0; i < pixels.length; i++) expect(Math.abs(corrected[i] - pixels[i])).toBeLessThanOrEqual(12);
+  });
+  it("does not amplify flat paper or minor sensor noise", () => {
+    const pixels = new Uint8ClampedArray(5 * 5 * 4).fill(230);
+    pixels[(2 * 5 + 2) * 4] = 232;
+    expect(sharpenDocumentPixels(pixels, 5, 5)).toEqual(pixels);
+  });
   it("increases faint text/paper separation without darkening paper", () => {
     const pixels = new Uint8ClampedArray([120, 120, 120, 255, 210, 210, 210, 255]);
     const corrected = documentContrast(pixels);
