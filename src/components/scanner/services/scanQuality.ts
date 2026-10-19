@@ -24,50 +24,79 @@ export function validScanCorners(corners: ScanCorners): boolean {
   return crosses.every(c => c > 0.00001) && area > 0.005;
 }
 
-/** Estimate paper illumination from each tile's upper luminance percentile.
- * Interpolate a bounded gain; never threshold, synthesize text, or alter alpha.
+/** Estimate paper illumination per colour channel from each tile's upper percentile,
+ * smooth the field, then interpolate a bounded gain. Removes shadows, wrinkle shading and
+ * yellow casts; never thresholds, synthesizes text, or alters alpha.
  */
 export function correctShadowPixels(source: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
   if (width < 1 || height < 1 || source.length !== width * height * 4) throw new Error("Invalid image dimensions");
-  const cols = Math.min(32, Math.max(1, Math.ceil(width / 48)));
-  const rows = Math.min(32, Math.max(1, Math.ceil(height / 48)));
-  const fields = new Float32Array(cols * rows);
+  const cols = Math.min(40, Math.max(1, Math.ceil(width / 40)));
+  const rows = Math.min(40, Math.max(1, Math.ceil(height / 40)));
+  const raw = [new Float32Array(cols * rows), new Float32Array(cols * rows), new Float32Array(cols * rows)];
+  const lum = new Float32Array(cols * rows);
   for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
-    const histogram = new Uint32Array(256);
+    const h = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
     let count = 0;
     for (let y = Math.floor(ty * height / rows); y < Math.floor((ty + 1) * height / rows); y += 2)
       for (let x = Math.floor(tx * width / cols); x < Math.floor((tx + 1) * width / cols); x += 2) {
         const i = (y * width + x) * 4;
-        histogram[Math.round(source[i] * 0.299 + source[i + 1] * 0.587 + source[i + 2] * 0.114)]++;
+        h[0][source[i]]++; h[1][source[i + 1]]++; h[2][source[i + 2]]++;
+        h[3][Math.round(source[i] * 0.299 + source[i + 1] * 0.587 + source[i + 2] * 0.114)]++;
         count++;
       }
-    let sum = 0, value = 255;
-    for (let v = 0; v < 256; v++) { sum += histogram[v]; if (sum >= count * 0.85) { value = v; break; } }
-    fields[ty * cols + tx] = value;
+    const pct = (hist: Uint32Array) => { let sum = 0; for (let v = 0; v < 256; v++) { sum += hist[v]; if (sum >= count * 0.85) return v; } return 255; };
+    const k = ty * cols + tx;
+    raw[0][k] = pct(h[0]); raw[1][k] = pct(h[1]); raw[2][k] = pct(h[2]); lum[k] = pct(h[3]);
   }
-  const sorted = Array.from(fields).sort((a, b) => a - b);
+  // 3x3 smoothing: tiles covered by text/ink borrow light from neighbouring paper.
+  const smooth = (f: Float32Array) => {
+    const out = new Float32Array(f.length);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      let best = 0, sum = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const yy = y + dy, xx = x + dx;
+        if (yy < 0 || xx < 0 || yy >= rows || xx >= cols) continue;
+        const v = f[yy * cols + xx]; sum += v; n++; if (v > best) best = v;
+      }
+      out[y * cols + x] = f[y * cols + x] * 0.4 + (sum / n) * 0.3 + best * 0.3;
+    }
+    return out;
+  };
+  const fields = raw.map(smooth);
+  const sorted = Array.from(lum).sort((a, b) => a - b);
   const bright = sorted[Math.floor((sorted.length - 1) * 0.9)];
   const dark = sorted[Math.floor((sorted.length - 1) * 0.1)];
-  // Do not brighten an evenly lit sheet. Uneven paper gets a neutral light target.
-  const target = bright - dark > 12 ? Math.max(240, bright) : bright;
+  const spread = (k: number) => Math.max(fields[0][k], fields[1][k], fields[2][k]) - Math.min(fields[0][k], fields[1][k], fields[2][k]);
+  let cast = 0; for (let k = 0; k < lum.length; k++) cast += spread(k); cast /= lum.length;
+  // Evenly lit, neutral sheets are left as they are; uneven or tinted paper goes to a light neutral white.
+  const correct = bright - dark > 12 || cast > 14;
+  const target = correct ? Math.max(245, bright) : bright;
   const output = new Uint8ClampedArray(source);
+  if (!correct) return output;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const gx = Math.max(0, Math.min(cols - 1, (x + 0.5) * cols / width - 0.5));
     const gy = Math.max(0, Math.min(rows - 1, (y + 0.5) * rows / height - 0.5));
     const x0 = Math.floor(gx), y0 = Math.floor(gy), x1 = Math.min(cols - 1, x0 + 1), y1 = Math.min(rows - 1, y0 + 1);
     const fx = gx - x0, fy = gy - y0;
-    const light = fields[y0 * cols + x0] * (1-fx) * (1-fy) + fields[y0 * cols + x1] * fx * (1-fy)
-      + fields[y1 * cols + x0] * (1-fx) * fy + fields[y1 * cols + x1] * fx * fy;
-    // A very dark tile is not reliable evidence of paper: leave it unchanged.
-    const gain = light < 65 ? 1 : Math.max(1, Math.min(1.8, target / Math.max(1, light)));
+    const w00 = (1-fx) * (1-fy), w10 = fx * (1-fy), w01 = (1-fx) * fy, w11 = fx * fy;
+    const at = (f: Float32Array) => f[y0 * cols + x0] * w00 + f[y0 * cols + x1] * w10 + f[y1 * cols + x0] * w01 + f[y1 * cols + x1] * w11;
+    const lr = at(fields[0]), lg = at(fields[1]), lb = at(fields[2]);
+    const light = lr * 0.299 + lg * 0.587 + lb * 0.114;
     const i = (y * width + x) * 4;
-    const peak = Math.max(source[i], source[i + 1], source[i + 2]);
+    // A very dark tile is not reliable evidence of paper: leave it unchanged.
+    if (light < 65) continue;
     const luminance = source[i] * 0.299 + source[i + 1] * 0.587 + source[i + 2] * 0.114;
     // Ink is not illumination: retain dark strokes instead of washing them out.
     const paperRatio = Math.max(0, Math.min(1, (luminance / Math.max(1, light) - 0.15) / 0.75));
-    const inkSafeGain = 1 + (gain - 1) * paperRatio * paperRatio * (3 - 2 * paperRatio);
-    const safeGain = Math.min(inkSafeGain, 255 / Math.max(1, peak));
-    for (let c = 0; c < 3; c++) output[i + c] = source[i + c] * safeGain;
+    const blend = paperRatio * paperRatio * (3 - 2 * paperRatio);
+    const lights = [lr, lg, lb];
+    for (let c = 0; c < 3; c++) {
+      const gain = Math.max(0.85, Math.min(2.2, target / Math.max(1, lights[c])));
+      // Ink keeps its own colour (luminance gain only), paper takes the per-channel gain.
+      const inkGain = Math.max(1, Math.min(2.2, target / Math.max(1, light)));
+      const g = 1 + (inkGain - 1) * blend * 0.6 + (gain - 1 - (inkGain - 1) * 0.6) * blend;
+      output[i + c] = source[i + c] * g;
+    }
   }
   return output;
 }
