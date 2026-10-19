@@ -64,7 +64,8 @@ export const MobileLayout = ({
   const isEtudePage = location.pathname.includes("/etude");
   const shouldShowRGECard = showRGECard && !isEtudePage;
   // Hide agent chat button on etude pages
-  const shouldShowAgent = showAgentChat && !isEtudePage;
+  // In-app AI agent removed: the agent is used only via WhatsApp
+  const shouldShowAgent = false && showAgentChat && !isEtudePage;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
