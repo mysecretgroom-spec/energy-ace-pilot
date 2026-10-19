@@ -48,17 +48,19 @@ export function correctShadowPixels(source: Uint8ClampedArray, width: number, he
     const k = ty * cols + tx;
     raw[0][k] = pct(h[0]); raw[1][k] = pct(h[1]); raw[2][k] = pct(h[2]); lum[k] = pct(h[3]);
   }
-  // 3x3 smoothing: tiles covered by text/ink borrow light from neighbouring paper.
+  // Tiles mostly covered by ink borrow the median light of neighbouring paper; real shadows are kept.
   const smooth = (f: Float32Array) => {
-    const out = new Float32Array(f.length);
+    const out = new Float32Array(f);
     for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-      let best = 0, sum = 0, n = 0;
+      const vals: number[] = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const yy = y + dy, xx = x + dx;
-        if (yy < 0 || xx < 0 || yy >= rows || xx >= cols) continue;
-        const v = f[yy * cols + xx]; sum += v; n++; if (v > best) best = v;
+        if ((dx || dy) && yy >= 0 && xx >= 0 && yy < rows && xx < cols) vals.push(f[yy * cols + xx]);
       }
-      out[y * cols + x] = f[y * cols + x] * 0.4 + (sum / n) * 0.3 + best * 0.3;
+      if (!vals.length) continue;
+      vals.sort((a, b) => a - b);
+      const med = vals[Math.floor(vals.length / 2)];
+      if (f[y * cols + x] < med * 0.8) out[y * cols + x] = med;
     }
     return out;
   };
