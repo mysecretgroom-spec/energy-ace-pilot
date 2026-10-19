@@ -298,6 +298,8 @@ const EtudeForm = () => {
   const [financementId, setFinancementId] = useState("");
   const [dureeMoisManuelle, setDureeMoisManuelle] = useState<number | "">("");
   const [mensualiteManuelle, setMensualiteManuelle] = useState<number | "">("");
+  /** Mensualité aides déduites saisie à la main (prime sur le calcul). */
+  const [mensualiteAidesManuelle, setMensualiteAidesManuelle] = useState<number | "">("");
 
   // === PRIX MANUEL ===
   const [prixInstallationManuel, setPrixInstallationManuel] = useState<number | "">("");
@@ -614,6 +616,7 @@ const EtudeForm = () => {
     if (draft.financementId) setFinancementId(draft.financementId);
     if (draft.dureeMoisManuelle !== undefined) setDureeMoisManuelle(draft.dureeMoisManuelle);
     if (draft.mensualiteManuelle !== undefined) setMensualiteManuelle(draft.mensualiteManuelle);
+    if (draft.mensualiteAidesManuelle !== undefined) setMensualiteAidesManuelle(draft.mensualiteAidesManuelle);
     if (draft.selectedSurcouts) setSelectedSurcouts(draft.selectedSurcouts);
     if (draft.autreSurcout !== undefined) setAutreSurcout(draft.autreSurcout);
     if (draft.remiseCommerciale !== undefined) setRemiseCommerciale(draft.remiseCommerciale);
@@ -733,6 +736,7 @@ const EtudeForm = () => {
     financementId,
     dureeMoisManuelle,
     mensualiteManuelle,
+    mensualiteAidesManuelle,
     remiseCommerciale,
     aidesManuelles,
     surcoutSupport,
@@ -981,6 +985,7 @@ const EtudeForm = () => {
       // Restore manual parameter overrides
       const overrides = (etude as any).param_overrides;
       setRoofMapViewport(parseRoofMapViewport(overrides?.roofMapViewport));
+      setMensualiteAidesManuelle(typeof overrides?.mensualiteAidesManuelle === "number" ? overrides.mensualiteAidesManuelle : "");
       if (overrides) {
         if (typeof overrides.heuresEnsoleillement === "number") {
           setHeuresEnsoleillement(overrides.heuresEnsoleillement);
@@ -1687,6 +1692,7 @@ const EtudeForm = () => {
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
         hasPrixInstallationManuel: !!prixInstallationManuel,
+        mensualiteAidesManuelle: mensualiteAidesManuelle === "" ? undefined : Number(mensualiteAidesManuelle),
         remiseCommerciale: remiseCommerciale || 0,
         selectedBouquetPV: selectedBouquetPV || undefined,
         selectedGammePV: selectedGammePV || undefined,
@@ -1979,6 +1985,7 @@ const EtudeForm = () => {
         usePshCalculation,
         estimationDetails: estimationDetailsRef.current || undefined,
         hasPrixInstallationManuel: !!prixInstallationManuel,
+        mensualiteAidesManuelle: mensualiteAidesManuelle === "" ? undefined : Number(mensualiteAidesManuelle),
         remiseCommerciale: remiseCommerciale || 0,
         selectedBouquetPV: selectedBouquetPV || undefined,
         selectedGammePV: selectedGammePV || undefined,
@@ -2011,7 +2018,7 @@ const EtudeForm = () => {
     puissanceKwc, typeRevente, supportInstallation, orientation, inclinaison,
     surfaceInstallation, rendementProductivite, pacSubtype, pacSurfaceChauffee,
     pacNiveauIsolation, iteSurfaceIsoler, iteTypeFacade, pacPrixManuel, itePrixManuel,
-    selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle,
+    selectedSurcouts, autreSurcout, dataFinancements, financementId, dureeMoisManuelle, mensualiteAidesManuelle,
     classificationComment, rdvId, classification, surcoutSupport, surcoutCompteur, surcoutEmplacement,
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
@@ -2124,6 +2131,7 @@ const EtudeForm = () => {
       financementId,
       dureeMoisManuelle,
       mensualiteManuelle,
+      mensualiteAidesManuelle,
       prixInstallationManuel,
       selectedSurcouts,
       autreSurcout,
@@ -2176,7 +2184,7 @@ const EtudeForm = () => {
     amperageDisjoncteur, emplacementBoitier, potentielFaisabilite, puissanceKwc,
     bouquetId, typeRevente, supportInstallation, orientation, inclinaison,
     surfaceInstallation, rendementProductivite, financementId, dureeMoisManuelle,
-    mensualiteManuelle, prixInstallationManuel, selectedSurcouts, autreSurcout,
+    mensualiteManuelle, mensualiteAidesManuelle, prixInstallationManuel, selectedSurcouts, autreSurcout,
     pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacNombreUnitesInt,
     pacPuissanceCalorifique, pacCop, pacEcsIntegre, pacVolumeBallon, pacEnergieActuelle,
     pacConsoChaufffageKwh, pacEconomieEstimee, pacFactureChauffageEuros, pacFactureElecEuros,
@@ -4661,7 +4669,8 @@ const EtudeForm = () => {
           const ratioManuel = mensualiteManuelle && resultatFinGlobal.mensualiteAmortissement > 0
             ? Number(mensualiteManuelle) / resultatFinGlobal.mensualiteAmortissement
             : 1;
-          const mensualiteAidesDeduites = resultatFinAidesDeduites.mensualiteAmortissement * ratioManuel;
+          const mensualiteAidesCalculee = resultatFinAidesDeduites.mensualiteAmortissement * ratioManuel;
+          const mensualiteAidesDeduites = mensualiteAidesManuelle !== "" ? Number(mensualiteAidesManuelle) : mensualiteAidesCalculee;
 
           return (
           <>
@@ -5114,8 +5123,20 @@ const EtudeForm = () => {
                   <span>{Number(mensualiteGlobale).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
                 </div>
                 <div className="flex justify-between font-bold text-primary bg-primary/10 rounded p-1 mt-1">
-                  <span>Mensualité aides déduites</span>
+                  <span>Mensualité aides déduites{mensualiteAidesManuelle !== "" ? " (manuelle)" : ""}</span>
                   <span>{mensualiteAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
+                </div>
+                <div className="mt-1">
+                  <label className="text-xs text-muted-foreground">Mensualité aides déduites manuelle</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={mensualiteAidesManuelle}
+                    onChange={(e) => setMensualiteAidesManuelle(e.target.value ? Math.max(0, Number(e.target.value)) : "")}
+                    placeholder={`Calculée: ${mensualiteAidesCalculee.toFixed(2)}€`}
+                    className="h-7 text-xs"
+                  />
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
                   Sur reste à charge {montantAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€ · {nbMois} mois
