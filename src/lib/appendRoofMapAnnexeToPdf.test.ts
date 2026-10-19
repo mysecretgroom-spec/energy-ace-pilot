@@ -125,8 +125,9 @@ describe("appendRoofMapAnnexeToPdf", () => {
       if (end < 0) break;
       try {
         texts.push(zlib.inflateSync(Buffer.from(latin.slice(start, end), "latin1")).toString("latin1"));
-      } catch { /* flux d'image : ignoré */ }
+      } catch (err) { console.log("inflate fail:", (err as Error).message, latin.slice(m.index - 60, start)); }
     }
+    console.log("STREAMS:", texts.length, JSON.stringify(texts.join("|").slice(0, 400)));
     const content = texts.join("\n").replace(/\xE9/g, "é");
     expect(content).toContain("généré par IA");
     expect(content).toContain("Visuels générés par IA — rendus non contractuels.");
