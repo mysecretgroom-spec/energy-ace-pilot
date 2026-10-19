@@ -17,7 +17,7 @@ export const qTemplates = (userId: string) =>
   cachedQuery<{ classification: string; template_text: string }[]>(`templates:${userId}`, () => supabase.from("whatsapp_templates")
     .select("classification, template_text").eq("user_id", userId).eq("is_active", true) as any);
 
-const RECAP_STUDY_FIELDS = "consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, total_aides, prime_autoconsommation, eco_tva, adresse_installation, code_postal_installation, ville_installation, cq_date_heure, rdv_id";
+const RECAP_STUDY_FIELDS = "consommation_annuelle_kwh, facture_annuelle_euros, puissance_kwc, prix_total, mensualite_estimee, total_aides, prime_autoconsommation, eco_tva, adresse_installation, code_postal_installation, ville_installation, cq_date_heure, rdv_id, param_overrides";
 
 export const qRecapStudy = (userId: string, etudeId?: string | null, rdvId?: string | null) => {
   if (!etudeId && !rdvId) return Promise.resolve({ data: null, error: null, fromCache: false });

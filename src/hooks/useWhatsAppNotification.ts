@@ -312,6 +312,9 @@ export const useWhatsAppNotification = () => {
           ecoTva: study.eco_tva ?? undefined,
         };
       }
+      // Mensualité aides déduites saisie à la main dans l'étude : prime sur le prorata.
+      const manualAfterAids = study?.param_overrides?.mensualiteAidesManuelle;
+      if (typeof manualAfterAids === "number") studyDetails = { ...studyDetails, mensualiteApresAides: manualAfterAids };
       const details = { ...studyDetails, ...Object.fromEntries(Object.entries(venteDetails ?? {}).filter(([, value]) => value !== undefined)) };
       const venteDetailsText = formatRegieStudyDetails(details);
 
