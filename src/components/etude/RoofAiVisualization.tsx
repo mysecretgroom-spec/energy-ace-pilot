@@ -12,6 +12,7 @@ import { PV_INSTALLATIONS, pvPlacementPayload, type PvInstallationType } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cropRoofAiTarget, isRoofAiTargetVisible, roofAiTarget } from "@/lib/roofAiTarget";
+import { renderSatellitePanels } from "@/lib/satellitePanelOverlay";
 
 interface Props {
   clientId?: string | null;
@@ -76,14 +77,14 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
       const targetRoofBase64 = await cropRoofAiTarget(sat, targetPoint);
       const placement = { ...pvPlacementPayload(installationType, surfaceConstraint, sat), targetPoint, targetRoofBase64 };
       if (sat) {
+        // Placement exact (pan désigné + nombre de panneaux) : dessin calculé, pas d'IA générative.
         const w = await imgWidth(sat);
         const zoom = viewport?.zoom ?? DEFAULT_ROOF_MAP_ZOOM;
-        const px = w ? panelPixelSize(viewport?.centerLatitude ?? lat, zoom, viewport?.width ?? 360, w) : undefined;
-        const { data, error } = await supabase.functions.invoke("simulate-pv-roof", {
-          body: { ...placement, imageBase64: sat, mimeType: "image/jpeg", nbPanneaux, view: "satellite", panelPixelSize: px },
-        });
-        if (error || !data?.image) errors.push("vue satellite");
-        else await save(data.image, "simulation_ia_satellite", "satellite");
+        const px = panelPixelSize(viewport?.centerLatitude ?? lat, zoom, viewport?.width ?? 360, w || 360);
+        try {
+          const drawn = await renderSatellitePanels(sat, targetPoint, px, nbPanneaux);
+          await save(drawn, "simulation_ia_satellite", "satellite");
+        } catch { errors.push("vue satellite"); }
       }
       // 2. Photo d'étude (dernière photo toiture réelle)
       const { data: photos } = await supabase
