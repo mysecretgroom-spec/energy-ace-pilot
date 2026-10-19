@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [x] Fiche flottante centrée à l'écran (RDV et pose) sur ordinateur et tablette, toujours en feuilletant depuis le bas sur téléphone, fond sombre couvrant tout l'écran ; parcours vérifié dans le navigateur sur deux cartes réelles
 - [x] Mentions IA sur les visuels générés : badge « IA » et légende « généré par IA » dans l'app, badge IA superposé, légende et mention « Visuels générés par IA — rendus non contractuels » dans l'annexe carte de tous les PDF d'étude (aperçu, téléchargement, enregistré, signature) ; 5 tests réussis
 - [x] Scanner après le PDF de Nathalie Rey : correction locale protégeant l’encre, détails bornés, intermédiaires sans compression et PDF jusqu’à 3072 px ; photo haute résolution native et orientation sans double rotation ; 31 tests réussis, import réel fourni/aperçu/confirmation identique/export PDF et parcours téléphone vérifiés ; flou optique existant et ombres résiduelles non récupérables entièrement, appareil iPhone et WhatsApp réels non testés
 - [x] Scanner : feuille distinguée du bureau sur la photo extraite de IMG_3141, ajustement et aperçu obligatoires avant confirmation ; 30 tests réussis, parcours connecté et export PDF vérifiés sur ordinateur/téléphone ; caméra iPhone physique et envoi WhatsApp réel non revérifiés

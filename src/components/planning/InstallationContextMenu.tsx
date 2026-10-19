@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -249,6 +250,7 @@ export function InstallationContextMenu({
 
   return (
     <>
+      {createPortal(
       <AnimatePresence>
         {isOpen && (
           <>
@@ -267,10 +269,11 @@ export function InstallationContextMenu({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed z-[101] bg-background rounded-t-2xl sm:rounded-2xl border-t sm:border shadow-2xl overflow-y-auto overscroll-contain safe-bottom
-                inset-x-0 bottom-0 max-h-[85vh]
-                sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-lg sm:w-full sm:max-h-[80vh]"
+              className="fixed inset-0 z-[101] flex items-end justify-center sm:items-center pointer-events-none"
             >
+              <div
+                className="pointer-events-auto w-full max-h-[85vh] overflow-y-auto overscroll-contain safe-bottom bg-background rounded-t-2xl border-t shadow-2xl sm:rounded-2xl sm:border sm:max-w-lg sm:w-[calc(100%-2rem)] sm:max-h-[80vh]"
+              >
               <div className="flex justify-center pt-3 pb-2 sm:hidden">
                 <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
               </div>
@@ -492,10 +495,13 @@ export function InstallationContextMenu({
               </div>
 
               <div className="h-20 sm:h-6" />
+              </div>
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+        document.body
+      )}
 
       {vente && (
         <DecomDialog
