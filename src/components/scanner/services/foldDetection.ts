@@ -373,3 +373,15 @@ function buildSubQuads(
 
   return quads;
 }
+
+/**
+ * Garde au plus un pli : le plus fiable, proche du centre, pour séparer deux pages.
+ * Rejette les froissures (positions excentrées ou confiance faible).
+ */
+export function selectSplitFold(folds: FoldLine[]): FoldLine | null {
+  const candidates = folds.filter(
+    (f) => f.confidence >= 0.6 && f.position >= 0.35 && f.position <= 0.65,
+  );
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, f) => (f.confidence > best.confidence ? f : best));
+}
