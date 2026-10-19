@@ -1,5 +1,4 @@
 // @vitest-environment node
-import zlib from "node:zlib";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 import type { EtudeData } from "@/lib/exportEtudePdf";
