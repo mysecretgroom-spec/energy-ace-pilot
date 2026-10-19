@@ -1,6 +1,7 @@
 import { PDFDocument } from "pdf-lib";
 import { mergeStudyPhotosIntoPdf } from "@/components/scanner/QuickPhotoButton";
 import { appendStudyScansToPdf } from "./appendStudyScansToPdf";
+import { appendPagesUniform } from "./normalizePdfPages";
 
 /**
  * Ajoute les photos puis les documents scannés de cette étude au même rapport.
@@ -25,8 +26,7 @@ export async function appendStudyPhotosToPdf(
 
     const merged = await PDFDocument.load(reportBytes);
     const photosDoc = await PDFDocument.load(photosBytes);
-    const pages = await merged.copyPages(photosDoc, photosDoc.getPageIndices());
-    pages.forEach((p) => merged.addPage(p));
+    await appendPagesUniform(merged, photosDoc);
 
     const bytes = await merged.save({ useObjectStreams: true });
     withPhotos = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
