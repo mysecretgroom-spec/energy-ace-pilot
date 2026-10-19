@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -249,6 +250,7 @@ export function InstallationContextMenu({
 
   return (
     <>
+      {createPortal(
       <AnimatePresence>
         {isOpen && (
           <>
@@ -497,7 +499,9 @@ export function InstallationContextMenu({
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+        document.body
+      )}
 
       {vente && (
         <DecomDialog
