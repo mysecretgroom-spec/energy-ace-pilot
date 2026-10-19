@@ -68,11 +68,17 @@ export async function normalizeOrientation(
   blob: Blob,
   maxPixels = 12_000_000
 ): Promise<{ canvas: HTMLCanvasElement; width: number; height: number }> {
-  const buffer = await blob.arrayBuffer();
-  const orientation = readExifOrientation(buffer);
-
-  const img = await createImageBitmap(blob);
-  let { width, height } = img;
+  // Image decoding already applies EXIF in Safari/Chromium. Applying it again
+  // rotates native iPhone photos twice (or mirrors them a second time).
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve(); img.onerror = () => reject(new Error("Photo illisible")); img.src = url;
+    });
+  } finally { URL.revokeObjectURL(url); }
+  let width = img.naturalWidth, height = img.naturalHeight;
+  if (!width || !height) throw new Error("Photo sans dimensions");
 
   // Downscale if too large
   const pixels = width * height;
@@ -83,26 +89,11 @@ export async function normalizeOrientation(
   }
 
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d")!;
-
-  // Handle orientation transforms
-  const swapDims = orientation >= 5 && orientation <= 8;
-  canvas.width = swapDims ? height : width;
-  canvas.height = swapDims ? width : height;
-
-  switch (orientation) {
-    case 2: ctx.transform(-1, 0, 0, 1, width, 0); break;
-    case 3: ctx.transform(-1, 0, 0, -1, width, height); break;
-    case 4: ctx.transform(1, 0, 0, -1, 0, height); break;
-    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
-    case 6: ctx.transform(0, 1, -1, 0, height, 0); break;
-    case 7: ctx.transform(0, -1, -1, 0, height, width); break;
-    case 8: ctx.transform(0, -1, 1, 0, 0, width); break;
-    default: break;
-  }
-
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Traitement indisponible");
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0, width, height);
-  img.close?.();
 
   return { canvas, width: canvas.width, height: canvas.height };
 }
