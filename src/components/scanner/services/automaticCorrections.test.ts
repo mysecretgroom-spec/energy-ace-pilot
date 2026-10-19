@@ -72,3 +72,16 @@ describe("bounded automatic contrast", () => {
     expect(documentContrast(pixels)).toEqual(pixels);
   });
 });
+import { adaptiveDocumentParams } from "./automaticCorrections";
+describe("adaptive document contrast", () => {
+  it("renforce l'encre pâle mais laisse un document déjà contrasté", () => {
+    expect(adaptiveDocumentParams({ paper: 230, ink: 150, sharpness: 1 }).inkBoost).toBeGreaterThan(0.3);
+    expect(adaptiveDocumentParams({ paper: 240, ink: 20, sharpness: 1 }).inkBoost).toBe(0);
+  });
+  it("accentue davantage une photo floue qu'une photo nette", () => {
+    const soft = adaptiveDocumentParams({ paper: 230, ink: 40, sharpness: 0.3 });
+    const crisp = adaptiveDocumentParams({ paper: 230, ink: 40, sharpness: 1.2 });
+    expect(soft.sharpenAmount).toBeGreaterThan(crisp.sharpenAmount * 3);
+    expect(crisp.sharpenCap).toBe(6);
+  });
+});

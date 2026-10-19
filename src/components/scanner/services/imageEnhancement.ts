@@ -2,7 +2,7 @@
  * Image enhancement utilities for document scanning
  */
 
-import { documentContrast, estimateDocumentSkew, deskewBounds, sharpenDocumentPixels } from "./automaticCorrections";
+import { documentContrast, estimateDocumentSkew, deskewBounds, sharpenDocumentPixels, analyzeDocumentTone, adaptiveDocumentParams, deepenInk } from "./automaticCorrections";
 
 export interface EnhancementOptions {
   contrast?: number; // 0-200, default 100
@@ -154,7 +154,11 @@ export async function enhanceForDocument(imageData: string): Promise<string> {
     if (!ctx) throw new Error("Traitement indisponible");
     ctx.drawImage(img, 0, 0);
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    pixels.data.set(sharpenDocumentPixels(pixels.data, pixels.width, pixels.height));
+    // Adaptive: strength follows the measured ink contrast and sharpness of this page.
+    const tone = analyzeDocumentTone(pixels.data, pixels.width, pixels.height);
+    const params = adaptiveDocumentParams(tone);
+    const inked = deepenInk(pixels.data, tone, params.inkBoost);
+    pixels.data.set(sharpenDocumentPixels(inked, pixels.width, pixels.height, params.sharpenAmount, params.sharpenCap));
     ctx.putImageData(pixels, 0, 0);
     return canvas.toDataURL("image/png");
   } finally { canvas.width = 0; canvas.height = 0; }

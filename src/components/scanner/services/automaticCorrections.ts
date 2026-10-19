@@ -30,7 +30,7 @@ export function documentContrast(source: Uint8ClampedArray): Uint8ClampedArray {
 
 /** Angle of text baselines, in degrees; zero means no reliable correction. */
 /** Bounded detail recovery after resampling; never invent strokes or boost flat noise. */
-export function sharpenDocumentPixels(source: Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+export function sharpenDocumentPixels(source: Uint8ClampedArray, width: number, height: number, amount = 0.45, cap = 12): Uint8ClampedArray {
   if (source.length !== width * height * 4 || width < 1 || height < 1) throw new Error("Invalid image dimensions");
   const result = new Uint8ClampedArray(source);
   for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
@@ -39,7 +39,7 @@ export function sharpenDocumentPixels(source: Uint8ClampedArray, width: number, 
       const average = (source[i - 4 + c] + source[i + 4 + c] + source[i - width * 4 + c] + source[i + width * 4 + c]) / 4;
       const detail = source[i + c] - average;
       if (Math.abs(detail) < 4 || Math.abs(detail) > 80) continue;
-      result[i + c] = source[i + c] + Math.max(-12, Math.min(12, detail * 0.45));
+      result[i + c] = source[i + c] + Math.max(-cap, Math.min(cap, detail * amount));
     }
   }
   return result;
@@ -80,4 +80,54 @@ export function deskewBounds(width: number, height: number, angle: number) {
     width: Math.ceil(width * Math.abs(Math.cos(radians)) + height * Math.abs(Math.sin(radians))),
     height: Math.ceil(height * Math.abs(Math.cos(radians)) + width * Math.abs(Math.sin(radians))),
   };
+}
+
+export interface DocumentTone { paper: number; ink: number; sharpness: number }
+
+/** Paper/ink levels (luminance percentiles) and edge sharpness, measured on a subsample. */
+export function analyzeDocumentTone(source: Uint8ClampedArray, width: number, height: number): DocumentTone {
+  const histogram = new Uint32Array(256);
+  const lum = (i: number) => (source[i] * 77 + source[i + 1] * 150 + source[i + 2] * 29) >> 8;
+  const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 250000)));
+  let count = 0, edgeSum = 0, edgeCount = 0;
+  for (let y = step; y < height - step; y += step) for (let x = step; x < width - step; x += step) {
+    const i = (y * width + x) * 4;
+    const v = lum(i);
+    histogram[v]++; count++;
+    const lap = Math.abs(4 * v - lum(i - 4) - lum(i + 4) - lum(i - width * 4) - lum(i + width * 4));
+    const grad = Math.abs(lum(i + 4) - lum(i - 4)) + Math.abs(lum(i + width * 4) - lum(i - width * 4));
+    if (grad > 24) { edgeSum += lap / grad; edgeCount++; }
+  }
+  const pct = (f: number) => { let sum = 0; for (let v = 0; v < 256; v++) { sum += histogram[v]; if (sum >= count * f) return v; } return 255; };
+  return { paper: pct(0.9), ink: pct(0.03), sharpness: edgeCount ? edgeSum / edgeCount : 1 };
+}
+
+export interface AdaptiveParams { inkBoost: number; sharpenAmount: number; sharpenCap: number }
+
+/**
+ * Faded ink (small paper/ink gap) gets darker strokes; a soft photo gets more
+ * detail recovery, an already crisp one almost none (avoids halos and noise).
+ */
+export function adaptiveDocumentParams(tone: DocumentTone): AdaptiveParams {
+  const gap = tone.paper - tone.ink;
+  const inkBoost = Math.max(0, Math.min(0.55, (150 - gap) / 180));
+  // sharpness ≈ laplacian/gradient ratio: ~0.3 soft, ≥1 crisp.
+  const softness = Math.max(0, Math.min(1, (1 - tone.sharpness) / 0.7));
+  return { inkBoost, sharpenAmount: 0.15 + softness * 0.6, sharpenCap: Math.round(6 + softness * 14) };
+}
+
+/** Darkens pixels clearly below paper level; paper and light tints stay untouched. */
+export function deepenInk(source: Uint8ClampedArray, tone: DocumentTone, boost: number): Uint8ClampedArray {
+  const result = new Uint8ClampedArray(source);
+  if (boost <= 0) return result;
+  const knee = tone.paper - 20;
+  if (knee <= 20) return result;
+  for (let i = 0; i < source.length; i += 4) {
+    const l = (source[i] * 77 + source[i + 1] * 150 + source[i + 2] * 29) >> 8;
+    if (l >= knee) continue;
+    const t = 1 - l / knee; // 0 near paper, 1 for black
+    const factor = 1 - boost * Math.sqrt(t) * (1 - t * 0.3);
+    for (let c = 0; c < 3; c++) result[i + c] = source[i + c] * factor;
+  }
+  return result;
 }
