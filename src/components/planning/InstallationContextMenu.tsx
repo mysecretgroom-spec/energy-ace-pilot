@@ -427,7 +427,7 @@ export function InstallationContextMenu({
                   ) : (
                     <Button
                       variant="default"
-                      className="w-full h-11 gap-2 bg-primary hover:bg-primary/90"
+                      className="w-full h-11 gap-2 bg-gradient-hero"
                       onClick={() => setCreateVenteOpen(true)}
                     >
                       <FileSignature className="h-4 w-4" />
