@@ -108,22 +108,27 @@ describe("appendRoofMapAnnexeToPdf", () => {
 
   it("porte la mention IA sur les visuels générés par IA", async () => {
     const { appendRoofMapAnnexeToPdf } = await import("@/lib/appendRoofMapAnnexeToPdf");
-    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoof, etudeId: "etude-ia" } as unknown as EtudeData);
+    const out = await appendRoofMapAnnexeToPdf(await makeBasePdf(2), { ...dataWithRoos: undefined, etudeId: "etude-ia" } as unknown as EtudeData);
     const merged = await PDFDocument.load(await out.arrayBuffer());
     expect(merged.getPageCount()).toBe(3);
 
-    // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi : on cherche l'encodage des libellés
-    const winAnsiHex = (s: string) =>
-      s.split("")
-        .map((ch) => {
-          const special: Record<string, number> = { "é": 0xe9, "—": 0x97, ".": 0x2e };
-          const code = special[ch] ?? ch.charCodeAt(0);
-          return code.toString(16).padStart(2, "0").toUpperCase();
-        })
-        .join("");
-    const latin1 = new TextDecoder("latin1").decode(new Uint8Array(await out.arrayBuffer())).toUpperCase();
-    expect(latin1).toContain(`<${winAnsiHex("généré par IA")}>`);
-    expect(latin1).toContain(`<${winAnsiHex("Visuels générés par IA — rendus non contractuels.")}>`);
-    expect(latin1).toContain(`<${winAnsiHex("IA")}>`);
+    // Les flux de contenu sont compressés : on les décompresse puis on décode le WinAnsi
+    const raw = Buffer.from(await out.arrayBuffer());
+    const latin = raw.toString("latin1");
+    const texts: string[] = [];
+    const re = /STREAM\r?\n/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(latin))) {
+      const start = m.index + m[0].length;
+      const end = latin.indexOf("ENDSTREAM", start);
+      if (end < 0) break;
+      try {
+        texts.push(zlib.inflateSync(Buffer.from(latin.slice(start, end), "latin1")).toString("latin1"));
+      } catch { /* flux d'image : ignoré */ }
+    }
+    const content = texts.join("\n").replace(/\xE9/g, "é");
+    expect(content).toContain("généré par IA");
+    expect(content).toContain("Visuels générés par IA — rendus non contractuels.");
+    expect(content).toContain("<4941>"); // badge « IA »
   });
 });
