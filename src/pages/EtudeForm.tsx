@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { etudeRef } from "@/lib/offline/etudeQueries";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
@@ -2407,15 +2408,8 @@ const EtudeForm = () => {
       // Export and download (photos d'étude incluses dans le même PDF)
       const blob = await buildReportBlobWithPhotos(pdfData);
       const fileName = `Etude_${clientName}_${clientPrenom}_${new Date().toISOString().split("T")[0]}.pdf`;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 200);
-      
+      await deliverFile(blob, fileName);
+
       // Also store in cloud for future access
       await generateAndStorePdf();
       

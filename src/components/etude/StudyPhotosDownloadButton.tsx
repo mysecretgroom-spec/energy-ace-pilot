@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Download } from "lucide-react";
@@ -12,18 +13,8 @@ interface StudyPhotosDownloadButtonProps {
   className?: string;
 }
 
-function triggerBlobDownload(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  }, 200);
+function triggerBlobDownload(blob: Blob, filename: string) {
+  return deliverFile(blob, filename);
 }
 
 export function StudyPhotosDownloadButton({

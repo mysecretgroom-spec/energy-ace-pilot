@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText, Loader2, RotateCcw, Share2, X, ZoomIn, ZoomOut } from "lucide-react";
+import { deliverFile } from "@/lib/fileDelivery";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { previewKind, resolvePreviewUrl, type PreviewMedia } from "./previewMedia";
@@ -81,6 +82,7 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [prepared, setPrepared] = useState<{ url: string; blob: Blob; name: string } | null>(null);
   const [emblaRef, api] = useEmblaCarousel({ startIndex: initialIndex, watchDrag: zoom === 1, loop: false });
   const item = items[index];
   useEffect(() => {
@@ -96,21 +98,32 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
     window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
   }, [isOpen, api]);
 
+  useEffect(() => {
+    setPrepared(null);
+    if (!isOpen || !item) return;
+    const controller = new AbortController();
+    const prepare = async () => {
+      try {
+        const response = await fetch(await resolvePreviewUrl(item.url), { signal: controller.signal });
+        if (!response.ok) throw new Error("File unavailable");
+        const raw = await response.blob();
+        const blob = item.mime_type && raw.type !== item.mime_type ? new Blob([raw], { type: item.mime_type }) : raw;
+        const extension = previewKind(item) === "pdf" ? "pdf" : blob.type.includes("png") ? "png" : "jpg";
+        const name = /\.[a-z0-9]{2,5}$/i.test(item.nom) ? item.nom : `${item.nom}.${extension}`;
+        if (!controller.signal.aborted) setPrepared({ url: item.url, blob, name });
+      } catch { /* Preview recovery remains available; never enable an empty export. */ }
+    };
+    void prepare();
+    return () => controller.abort();
+  }, [isOpen, item?.url, item?.nom, item?.mime_type]);
+
   const exportItem = useCallback(async (share: boolean) => {
-    if (!item || busy) return;
+    if (!item || busy || prepared?.url !== item.url) return;
     setBusy(true);
-    try {
-      const response = await fetch(await resolvePreviewUrl(item.url));
-      if (!response.ok) throw new Error("File unavailable");
-      const blob = await response.blob();
-      const extension = previewKind(item) === "pdf" ? "pdf" : blob.type.includes("png") ? "png" : "jpg";
-      const name = /\.[a-z0-9]{2,5}$/i.test(item.nom) ? item.nom : `${item.nom}.${extension}`;
-      const file = new File([blob], name, { type: blob.type });
-      if (share && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: item.nom });
-      else { const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-    } catch (e) { if (!(e instanceof Error && e.name === "AbortError")) toast.error("Impossible d’ouvrir ce fichier"); }
+    try { await deliverFile(prepared.blob, prepared.name, share); }
+    catch { toast.error("Impossible d’enregistrer ce fichier"); }
     finally { setBusy(false); }
-  }, [item, busy]);
+  }, [item, busy, prepared]);
 
   if (!item) return null;
   return <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -119,7 +132,7 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
         <header className="flex shrink-0 items-center gap-2 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] border-b border-border">
           <Button variant="ghost" size="icon" aria-label="Fermer l’aperçu" title="Fermer" onClick={onClose}><X className="h-5 w-5" /></Button>
           <div className="min-w-0 flex-1 text-center"><Dialog.Title className="truncate text-sm font-medium">{item.nom}</Dialog.Title><p className="text-xs text-muted-foreground tabular-nums">{index + 1} / {items.length}</p></div>
-          <Button variant="ghost" size="icon" disabled={busy} aria-label="Partager" title="Partager" onClick={() => exportItem(true)}><Share2 className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" disabled={busy || prepared?.url !== item.url} aria-label="Partager" title="Partager" onClick={() => exportItem(true)}><Share2 className="h-5 w-5" /></Button>
         </header>
         <div className="relative flex-1 min-h-0">
           <div ref={emblaRef} className="h-full overflow-hidden"><div className="flex h-full touch-pan-y">{items.map((entry, i) => <div key={entry.id} className="min-w-0 h-full flex-[0_0_100%]"><MediaPage item={entry} active={i === index} zoom={zoom} /></div>)}</div></div>
@@ -131,7 +144,7 @@ export function MediaPreview({ isOpen, onClose, items, initialIndex = 0, action 
             <Button variant="ghost" size="icon" title="Réduire" aria-label="Réduire" disabled={zoom <= 1} onClick={() => setZoom((n) => Math.max(1, n - 0.5))}><ZoomOut className="h-5 w-5" /></Button>
             <span className="text-xs tabular-nums min-w-10 text-center">{Math.round(zoom * 100)} %</span>
             <Button variant="ghost" size="icon" title="Agrandir" aria-label="Agrandir" disabled={zoom >= 3} onClick={() => setZoom((n) => Math.min(3, n + 0.5))}><ZoomIn className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" title="Télécharger" aria-label="Télécharger" disabled={busy} onClick={() => exportItem(false)}><Download className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" title="Télécharger" aria-label="Télécharger" disabled={busy || prepared?.url !== item.url} onClick={() => exportItem(false)}><Download className="h-5 w-5" /></Button>
             {action && <Button variant="ghost" size="icon" title={action.label} aria-label={action.label} onClick={() => action.onClick(item)}>{action.icon}</Button>}
           </div>
         </footer>

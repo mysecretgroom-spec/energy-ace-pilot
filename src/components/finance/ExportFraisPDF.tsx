@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -365,7 +366,7 @@ export function ExportFraisPDF({ frais, periode }: ExportFraisPDFProps) {
 
       // Save the PDF
       const filename = `note-de-frais-${periode.replace(/\s/g, "-")}.pdf`;
-      doc.save(filename);
+      await deliverFile(doc.output("blob"), filename);
 
       toast.success("PDF généré avec succès");
     } catch (err) {

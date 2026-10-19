@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -268,11 +269,7 @@ export default function AdminClients() {
     
     const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `clients-${format(new Date(), "yyyy-MM-dd")}.csv`;
-    a.click();
+    void deliverFile(blob, `clients-${format(new Date(), "yyyy-MM-dd")}.csv`);
   };
 
   return (

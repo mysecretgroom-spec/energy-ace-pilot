@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -104,14 +105,7 @@ export function useExportMergedPdf() {
     const blob = await mergePdfs(documents, outputName);
     if (!blob) return;
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${outputName}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    await deliverFile(blob, `${outputName}.pdf`);
   }, [mergePdfs]);
 
   const shareMergedPdf = useCallback(async (
@@ -121,31 +115,7 @@ export function useExportMergedPdf() {
     const blob = await mergePdfs(documents, outputName);
     if (!blob) return;
 
-    const file = new File([blob], `${outputName}.pdf`, { type: "application/pdf" });
-
-    try {
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: outputName });
-      } else {
-        // No share API — download directly
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = `${outputName}.pdf`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (err: any) {
-      if (err?.name === "AbortError") {
-        // User cancelled — not an error
-        return;
-      }
-      // Fallback to download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `${outputName}.pdf`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    await deliverFile(blob, `${outputName}.pdf`, true);
   }, [mergePdfs]);
 
   return { mergePdfs, downloadMergedPdf, shareMergedPdf, isMerging, progress };

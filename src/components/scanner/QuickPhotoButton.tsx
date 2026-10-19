@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Camera, Upload, Loader2, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,22 +35,8 @@ interface QuickPhotoButtonProps {
 const MAX_PHOTOS_PER_CATEGORY = 9;
 
 /** Auto-download a blob to device Downloads folder */
-function triggerBlobDownload(blob: Blob, fileName: string) {
-  try {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    }, 200);
-  } catch (e) {
-    console.warn("Auto-download failed:", e);
-  }
+function triggerBlobDownload(blob: Blob, filename: string) {
+  return deliverFile(blob, filename);
 }
 
 /**

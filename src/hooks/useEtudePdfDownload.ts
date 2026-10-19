@@ -1,3 +1,4 @@
+import { deliverFile } from "@/lib/fileDelivery";
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getPreEtudePdfBlob, getResultatPdfBlob, EtudeData, PacData, IteData } from "@/lib/exportEtudePdf";
@@ -50,18 +51,7 @@ export function useEtudePdfDownload() {
       }
 
 
-      // Share or download
-      const file = new File([blob], filename, { type: "application/pdf" });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      await deliverFile(blob, filename);
     } catch (err) {
       if ((err as Error).name !== "AbortError") {
         const errMsg = err instanceof Error ? err.message : String(err);
