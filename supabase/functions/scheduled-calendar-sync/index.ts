@@ -68,16 +68,8 @@ serve(async (req) => {
           continue;
         }
 
-        // Create sync history record
-        const { data: syncRecord } = await supabase
-          .from("google_sync_history")
-          .insert({
-            user_id: userId,
-            sync_type: "import",
-            status: "running",
-          })
-          .select("id")
-          .single();
+        // History is written only on change or error (not every 15 min per user)
+        const startedAt = new Date().toISOString();
 
         // Get date range (7 days before to 30 days ahead)
         const timeMin = new Date();
@@ -101,16 +93,14 @@ serve(async (req) => {
 
         if (!calendarResponse.ok) {
           console.error(`Calendar API error for user ${userId}:`, await calendarResponse.text());
-          if (syncRecord) {
-            await supabase
-              .from("google_sync_history")
-              .update({
-                status: "error",
-                completed_at: new Date().toISOString(),
-                error_message: "Failed to fetch calendar events",
-              })
-              .eq("id", syncRecord.id);
-          }
+          await supabase.from("google_sync_history").insert({
+            user_id: userId,
+            sync_type: "import",
+            status: "error",
+            started_at: startedAt,
+            completed_at: new Date().toISOString(),
+            error_message: "Failed to fetch calendar events",
+          });
           totalErrors++;
           continue;
         }
@@ -262,17 +252,17 @@ serve(async (req) => {
         }
 
         // Update sync history
-        if (syncRecord) {
-          await supabase
-            .from("google_sync_history")
-            .update({
-              status: "success",
-              completed_at: new Date().toISOString(),
-              events_imported: imported,
-              events_updated: updated,
-              events_skipped: skipped,
-            })
-            .eq("id", syncRecord.id);
+        if (imported > 0 || updated > 0) {
+          await supabase.from("google_sync_history").insert({
+            user_id: userId,
+            sync_type: "import",
+            status: "success",
+            started_at: startedAt,
+            completed_at: new Date().toISOString(),
+            events_imported: imported,
+            events_updated: updated,
+            events_skipped: skipped,
+          });
         }
 
         console.log(`User ${userId}: ${imported} imported, ${updated} updated, ${skipped} skipped`);
