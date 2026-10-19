@@ -76,10 +76,12 @@ async function verifyUploadedObject(
       // which can require unrelated administrative permissions.
       if (bucket === "documents") {
         const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-        const response = await fetch(data.publicUrl);
+        // HEAD only: re-downloading the whole PDF doubled the save time on mobile.
+        const response = await fetch(data.publicUrl, { method: "HEAD", cache: "no-store" });
         if (!response.ok) throw new Error("Document envoyé mais inaccessible");
-        const size = (await response.arrayBuffer()).byteLength;
-        if (size > 0 && size >= expectedSize * 0.9) return;
+        const size = Number(response.headers.get("content-length") || 0);
+        if (size === 0 && response.ok) return; // header hidden by CDN: presence is enough
+        if (size >= expectedSize * 0.9) return;
         throw new Error("Document envoyé incomplet");
       }
       const dir = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/")) : "";

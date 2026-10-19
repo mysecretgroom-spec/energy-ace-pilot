@@ -28,22 +28,26 @@ export function useBackgroundJobs() {
   const { toast } = useToast();
   const [pendingJobs, setPendingJobs] = useState<BackgroundJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Keyed on the id: the user object changes on every token refresh, which
+  // used to refetch and resubscribe repeatedly.
+  const userId = user?.id;
 
   // Fetch user's pending jobs
   const fetchPendingJobs = useCallback(async () => {
-    if (!user) return;
+    if (!userId) return;
 
     const { data, error } = await supabase
       .from("background_jobs")
-      .select("*")
-      .eq("user_id", user.id)
+      .select("id, user_id, job_type, status, priority, attempts, created_at, started_at, completed_at, error_message")
+      .eq("user_id", userId)
       .in("status", ["pending", "processing"])
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
 
     if (!error && data) {
-      setPendingJobs(data as BackgroundJob[]);
+      setPendingJobs(data as unknown as BackgroundJob[]);
     }
-  }, [user]);
+  }, [userId]);
 
   // Create a new background job
   const createJob = useCallback(async (
@@ -101,7 +105,7 @@ export function useBackgroundJobs() {
 
   // Subscribe to realtime updates
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     fetchPendingJobs();
 
@@ -113,7 +117,7 @@ export function useBackgroundJobs() {
           event: "*",
           schema: "public",
           table: "background_jobs",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<BackgroundJob>) => {
           const newJob = payload.new as BackgroundJob;
@@ -150,7 +154,7 @@ export function useBackgroundJobs() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchPendingJobs, toast]);
+  }, [userId, fetchPendingJobs, toast]);
 
   return {
     pendingJobs,

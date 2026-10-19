@@ -29,7 +29,32 @@ export interface MediaForClassify {
  * result. On any failure we degrade to `{ intent: "autre", confidence: 0 }`
  * so the caller can fall back to "ask the user".
  */
-export async function classifyImage(
+// The album leader and the single-image path can classify the same image in
+// one request; reuse the result instead of paying a second AI round-trip.
+const classifyCache = new Map<string, { at: number; result: Promise<ClassificationResult> }>();
+const CLASSIFY_TTL_MS = 2 * 60 * 1000;
+
+function classifyKey(media: MediaForClassify): string {
+  const b = media.base64;
+  return `${media.contentType}:${b.length}:${b.slice(0, 64)}:${b.slice(-64)}`;
+}
+
+export function classifyImage(
+  media: MediaForClassify,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+): Promise<ClassificationResult> {
+  const key = classifyKey(media);
+  const now = Date.now();
+  for (const [k, v] of classifyCache) if (now - v.at > CLASSIFY_TTL_MS) classifyCache.delete(k);
+  const hit = classifyCache.get(key);
+  if (hit) return hit.result;
+  const result = classifyImageUncached(media, supabaseUrl, serviceRoleKey);
+  classifyCache.set(key, { at: now, result });
+  return result;
+}
+
+async function classifyImageUncached(
   media: MediaForClassify,
   supabaseUrl: string,
   serviceRoleKey: string,

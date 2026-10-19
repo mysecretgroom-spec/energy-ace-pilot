@@ -45,3 +45,13 @@
 - [x] Suppression des anciens liens Stripe, verrouillage des fonctions de changement d'accès
 - [ ] Pages légales (CGV/remboursement/confidentialité) conformes — en attente de la raison sociale
 - [ ] Test d'achat manuel en aperçu avec carte de test
+
+## Latence (audit 19/10)
+- [x] Base : index RDV, purges par lots, historique Google allégé
+- [x] Lectures répétées : tâches de fond + session stable
+- [ ] RDV/clients : charger seulement la période affichée (à faire écran par écran)
+- [ ] Écran Étude découpé ; moteur scanner unique ; suivi des temps
+- [ ] Démarrage : vérifications d'accès en parallèle
+- [x] Étude : PDF auto seulement si modification
+- [x] Latence création de document (scanner → enregistrement)
+- [x] Latence des appels IA
