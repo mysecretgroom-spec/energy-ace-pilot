@@ -121,8 +121,11 @@ describe("appendRoofMapAnnexeToPdf", () => {
       : [contents];
     const raw = entries
       .map((entry) => merged.context.lookup(entry as never))
-      .filter((s): s is { decode: () => Uint8Array } => !!s && typeof (s as { decode?: unknown }).decode === "function")
-      .map((s) => Buffer.from(decodePDFRawStream(s as never).decode()).toString("latin1"))
+      .filter(Boolean)
+      .map((s) => {
+        try { return Buffer.from(decodePDFRawStream(s as never).decode()).toString("latin1"); }
+        catch { return ""; }
+      })
       .join("\n");
     // pdf-lib écrit les drawText en chaînes hexadécimales WinAnsi
     const decoded = raw.replace(/<([0-9A-Fa-f]+)>/g, (_m, hex: string) =>
