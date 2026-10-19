@@ -435,6 +435,7 @@ export function RdvContextMenu({
 
             {/* Safe area padding for iOS + bottom nav */}
             <div className="h-20 sm:h-6" />
+            </div>
           </motion.div>
         </>
       )}
