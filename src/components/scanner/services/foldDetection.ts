@@ -107,14 +107,16 @@ export async function detectFoldLines(
           });
         }
 
-        if (folds.length === 0) {
+        const splitFold = selectSplitFold(folds);
+        if (!splitFold) {
           clearTimeout(timeout);
           resolve(null);
           return;
         }
 
-        // Build sub-quads from fold lines
-        const subQuads = buildSubQuads(crop, folds);
+        // Un seul pli central fiable → 2 pages (livret / feuille pliée).
+        // Les froissures d'un ticket ne doivent jamais découper en dizaines de bandes.
+        const subQuads = buildSubQuads(crop, [splitFold]);
 
         clearTimeout(timeout);
         resolve({ lines: folds, subQuads });
@@ -370,4 +372,16 @@ function buildSubQuads(
   }
 
   return quads;
+}
+
+/**
+ * Garde au plus un pli : le plus fiable, proche du centre, pour séparer deux pages.
+ * Rejette les froissures (positions excentrées ou confiance faible).
+ */
+export function selectSplitFold(folds: FoldLine[]): FoldLine | null {
+  const candidates = folds.filter(
+    (f) => f.confidence >= 0.6 && f.position >= 0.35 && f.position <= 0.65,
+  );
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, f) => (f.confidence > best.confidence ? f : best));
 }
