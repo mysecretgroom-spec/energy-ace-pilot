@@ -18,4 +18,4 @@
 - Satellite PV visuals are drawn deterministically (exact panel count, centred on the red marker, metric panel size); generative AI is only used for the study photo view, because it ignored the designated pan and count.
 - WhatsApp webhook acks Twilio immediately, dedupes by MessageSid and processes each user's messages sequentially in background (waitUntil), because concurrent messages raced on conversation state and hit 150s timeouts.
 
-- Burst scans (native iOS/Android camera via NativeBurstCapture, one photo per capture input, or in-app camera) are pre-cropped in one pass (services/scanPipeline) and reviewed together in BatchCropReview, then go straight to ReviewDocument; CropEditor opens per page on demand, because one-by-one queues and extra screens made the flow unnatural.
+- Burst scans default to the in-app camera, guard capture/finish synchronously and render outside transformed layouts; pages are pre-cropped once (services/scanPipeline) and reviewed in a height-bounded BatchCropReview carousel, then go to ReviewDocument with CropEditor per page on demand, preventing lost captures and clipped images.
