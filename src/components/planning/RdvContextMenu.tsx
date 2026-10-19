@@ -157,6 +157,7 @@ export function RdvContextMenu({
 
   return (
     <>
+      {createPortal(
       <AnimatePresence>
         {isOpen && (
           <>
@@ -439,7 +440,9 @@ export function RdvContextMenu({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+        document.body
+      )}
 
     {/* External Vente Dialog - outside AnimatePresence to avoid ref warnings */}
     <ExternalVenteDialog
