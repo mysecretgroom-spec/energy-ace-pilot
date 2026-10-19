@@ -5,6 +5,8 @@
 
 // We inline the needed utils here since workers can't import from the module system directly.
 
+import { detectPaperRegion, paperLikelihood } from "@/components/scanner/services/edgeDetectionLight";
+
 // ─── Quad utilities ───
 
 interface Point { x: number; y: number }
@@ -570,6 +572,37 @@ function applyFilterInPlace(d: Uint8ClampedArray, w: number, h: number, preset: 
   }
 }
 
+// ─── Live paper detection (shared with crop editor) ───
+
+const LIVE_DETECT_DIM = 360;
+
+function detectPaperLive(rgba: Uint8ClampedArray, width: number, height: number): { quad: Quad; confidence: number } | null {
+  const s = Math.min(1, LIVE_DETECT_DIM / Math.max(width, height));
+  const w = Math.max(8, Math.round(width * s));
+  const h = Math.max(8, Math.round(height * s));
+  const small = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const sy = Math.min(height - 1, Math.floor(y / s));
+    for (let x = 0; x < w; x++) {
+      const sx = Math.min(width - 1, Math.floor(x / s));
+      const si = (sy * width + sx) * 4, di = (y * w + x) * 4;
+      small[di] = rgba[si]; small[di + 1] = rgba[si + 1]; small[di + 2] = rgba[si + 2]; small[di + 3] = 255;
+    }
+  }
+  const found = detectPaperRegion(paperLikelihood(small), w, h);
+  if (!found) return null;
+  const toPx = (p: Point) => ({ x: p.x * width, y: p.y * height });
+  return {
+    quad: {
+      topLeft: toPx(found.topLeft),
+      topRight: toPx(found.topRight),
+      bottomRight: toPx(found.bottomRight),
+      bottomLeft: toPx(found.bottomLeft),
+    },
+    confidence: found.confidence,
+  };
+}
+
 // ─── Worker message handler ───
 
 const ctx = self as unknown as Worker;
@@ -579,6 +612,13 @@ ctx.onmessage = (e: MessageEvent) => {
 
   if (msg.type === "detect") {
     const { imageData, width, height } = msg;
+    // Primary: same color-neutral paper detector as the crop editor, so the live
+    // frame and the final crop agree and the desk/furniture is excluded.
+    const paper = detectPaperLive(imageData, width, height);
+    if (paper) {
+      ctx.postMessage({ type: "detect", quad: paper.quad, confidence: paper.confidence });
+      return;
+    }
     const gray = toGrayscale(imageData, width, height);
     const blurred = gaussianBlur5x5(gray, width, height);
     const { magnitude, direction } = sobelEdges(blurred, width, height);
