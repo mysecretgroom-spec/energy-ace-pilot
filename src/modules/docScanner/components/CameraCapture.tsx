@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { Camera, ImagePlus, X, Undo, Layers, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DetectionLight } from "@/components/scanner/DetectionLight";
 import { useCameraStream } from "../hooks/useCameraStream";
 import { useWorkerPipeline } from "../hooks/useWorkerPipeline";
 import { downscale, releaseCanvas } from "../utils/image";
@@ -160,27 +161,10 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
           muted
           autoPlay
         />
-        {renderQuadOverlay()}
-
-        {/* Detection badge */}
-        {isReady && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-            {isStable && confidence >= 0.75 ? (
-              <div className="bg-teal-500/90 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                Détection OK
-              </div>
-            ) : detectedQuad ? (
-              <div className="bg-amber-500/80 text-white px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
-                Détection... {Math.round(confidence * 100)}%
-              </div>
-            ) : (
-              <div className="bg-black/50 text-white/70 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm">
-                Cadrez le document
-              </div>
-            )}
-          </div>
-        )}
+        <DetectionLight
+          className="absolute top-5 left-4 z-20"
+          score={detectedQuad ? Math.min(1, confidence * (isStable ? 1 : 0.75)) : 0}
+        />
 
         {/* Close button */}
         <button onClick={onCancel} className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white">
