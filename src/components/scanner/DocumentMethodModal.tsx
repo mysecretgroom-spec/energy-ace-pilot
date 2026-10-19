@@ -106,7 +106,7 @@ export function DocumentMethodModal({
         <Button
           variant="outline"
           className="h-20 flex items-center justify-between px-4 border-2 hover:border-primary hover:bg-primary/5"
-          onClick={handleNativeScanClick}
+          onClick={() => onSelectMethod("scan")}
         >
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -190,9 +190,6 @@ export function DocumentMethodModal({
               Plusieurs pages, rognage auto
             </span>
           </div>
-          <span className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded-full">
-            Recommandé
-          </span>
         </Button>
 
         {/* External app scanner */}

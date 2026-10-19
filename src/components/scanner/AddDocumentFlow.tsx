@@ -32,7 +32,7 @@ export function AddDocumentFlow({
   onCancel,
   isOpen,
 }: AddDocumentFlowProps) {
-  const [step, setStep] = useState<FlowStep>(startWithCamera ? "native" : "method");
+  const [step, setStep] = useState<FlowStep>(startWithCamera ? "camera" : "method");
   const [pages, setPages] = useState<ScanPage[]>([]);
   const [currentCapture, setCurrentCapture] = useState<string | null>(null);
   const [importedFile, setImportedFile] = useState<File | null>(null);
@@ -42,11 +42,14 @@ export function AddDocumentFlow({
   const [batchImages, setBatchImages] = useState<string[]>([]);
 
   const resetFlow = useCallback(() => {
-    setStep("method");
+    setStep(startWithCamera ? "camera" : "method");
     setPages([]);
     setCurrentCapture(null);
     setImportedFile(null);
-  }, []);
+    setBatchImages([]);
+    setCropQueue([]);
+    setQueueTotal(0);
+  }, [startWithCamera]);
 
   const handleClose = useCallback(() => {
     resetFlow();
@@ -138,7 +141,7 @@ export function AddDocumentFlow({
   }, []);
 
   const handleAddPage = useCallback(() => {
-    setStep("native");
+    setStep("camera");
   }, []);
 
   const handleFinishScan = useCallback(() => {
@@ -207,7 +210,7 @@ export function AddDocumentFlow({
         <BatchCropReview
           images={batchImages}
           onDone={handleBatchDone}
-          onCancel={() => { setBatchImages([]); setStep(pages.length > 0 ? "review" : "native"); }}
+          onCancel={() => { setBatchImages([]); setStep(pages.length > 0 ? "review" : "camera"); }}
         />
       );
     case "pages":
