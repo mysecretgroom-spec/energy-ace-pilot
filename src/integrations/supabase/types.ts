@@ -4202,6 +4202,8 @@ export type Database = {
         Args: { p_app_access: string; p_user_id: string }
         Returns: undefined
       }
+      admin_get_metrics: { Args: { p_env?: string }; Returns: Json }
+      admin_get_user_360: { Args: { p_user_id: string }; Returns: Json }
       admin_grant_trial: {
         Args: { p_target_user_id: string; p_trial_days?: number }
         Returns: undefined
