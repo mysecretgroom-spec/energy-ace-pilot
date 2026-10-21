@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { oauthReturnPath } from "./oauth-return-path";
 describe("OAuth return paths", () => {
