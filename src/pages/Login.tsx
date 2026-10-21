@@ -307,6 +307,8 @@ const Login = () => {
               <Link to="/signup" className="text-primary font-medium hover:underline">
                 Créer un compte
               </Link>
+              {" · "}
+              <Link to="/tarifs" className="text-primary font-medium hover:underline">Voir les tarifs</Link>
             </p>
           </CardFooter>
         </Card>
