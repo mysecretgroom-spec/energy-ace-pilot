@@ -57,6 +57,8 @@ import {
   Pencil,
 } from "lucide-react";
 import { QuickPhotoButton } from "@/components/scanner/QuickPhotoButton";
+import { FieldSurveySection } from "@/components/etude/FieldSurveySection";
+import { emptyFieldSurvey, parseFieldSurvey, type FieldSurvey } from "@/lib/fieldSurvey";
 import { HejjaAidesEditor, AideManuelle } from "@/components/etude/HejjaAidesEditor";
 import { calculerMensualiteAvecReport, calculerFinancementAvantApresAides } from "@/lib/financingCalculation";
 import { ProductTypeSelector, PACFields, ITEFields, FinancialSectionPAC, FinancialSectionITE } from "@/components/etude";
@@ -233,6 +235,7 @@ const EtudeForm = () => {
   // MULTI-PRODUCT STATE - PV / PAC / ITE
   // ═══════════════════════════════════════════════════════════════════════════
   const [activeProducts, setActiveProducts] = useState<ProductType[]>(["PV"]);
+  const [fieldSurvey, setFieldSurvey] = useState<FieldSurvey>(emptyFieldSurvey);
   const [currentTab, setCurrentTab] = useState<ProductType>("PV");
   // productType is derived from currentTab for backward compatibility in calculations
   const productType = currentTab;
@@ -602,6 +605,7 @@ const EtudeForm = () => {
   }, [clientAdresse, clientCodePostal, adresseInstallation, codePostalInstallation]);
 
   const restoreFormFromDraft = (draft: Record<string, any>) => {
+    setFieldSurvey(parseFieldSurvey(draft.fieldSurvey));
     console.log("[EtudeForm] Restoring draft from sessionStorage");
     
     // Product type
@@ -985,6 +989,7 @@ const EtudeForm = () => {
       setModeHejjaPrix(etude.mode_hejja_prix || false);
       // Restore manual parameter overrides
       const overrides = (etude as any).param_overrides;
+      setFieldSurvey(parseFieldSurvey(overrides?.fieldSurvey));
       setRoofMapViewport(parseRoofMapViewport(overrides?.roofMapViewport));
       setMensualiteAidesManuelle(typeof overrides?.mensualiteAidesManuelle === "number" ? overrides.mensualiteAidesManuelle : "");
       if (overrides) {
@@ -1688,6 +1693,7 @@ const EtudeForm = () => {
       mode_hejja_prix: modeHejjaPrix,
       // Manual parameter overrides (per-etude)
       param_overrides: {
+        fieldSurvey,
         roofMapViewport,
         heuresEnsoleillement,
         usePshCalculation,
@@ -1981,6 +1987,7 @@ const EtudeForm = () => {
       // Overrides manuels : sans cette clé, la sauvegarde auto écrasait la
       // remise commerciale (et la gamme / les bouquets choisis) par 0.
       param_overrides: {
+        fieldSurvey,
         roofMapViewport,
         heuresEnsoleillement,
         usePshCalculation,
@@ -2024,7 +2031,7 @@ const EtudeForm = () => {
     remiseCommerciale, heuresEnsoleillement, usePshCalculation, prixInstallationManuel,
     selectedBouquetPV, selectedGammePV, selectedBouquetPAC, selectedBouquetITE,
     selectedBouquetCombo, precoMode,
-    adresseInstallation, codePostalInstallation, villeInstallation, roofLat, roofLng, roofMapViewport
+    adresseInstallation, codePostalInstallation, villeInstallation, roofLat, roofLng, roofMapViewport, fieldSurvey
   ]);
 
   // Perform auto-save
@@ -2108,6 +2115,7 @@ const EtudeForm = () => {
   // Build form data for sessionStorage draft
   const buildFormDataForDraft = useCallback(() => {
     return {
+      fieldSurvey,
       productType,
       consoAnnuelle,
       factureMensuelle,
@@ -2194,7 +2202,7 @@ const EtudeForm = () => {
     iteSurfaceOuvertures, iteFinition, iteEconomieChauffagePct, iteFactureChaufActuelle,
     itePrixManuel, aidesPAC, aidesITE, aidesManuelles, classification, classificationComment,
     r2DateHeure, r2Time, remiseCommerciale, selectedGammePV, selectedBouquetPV,
-    selectedBouquetPAC, selectedBouquetITE, selectedBouquetCombo, precoMode,
+    selectedBouquetPAC, selectedBouquetITE, selectedBouquetCombo, precoMode, fieldSurvey,
   ]);
 
   // Immediate save for important actions (photo upload, status change)
@@ -2239,7 +2247,7 @@ const EtudeForm = () => {
     classification, classificationComment, typeRaccordement, typeCompteurElectrique,
     numeroPdl, emplacementBoitier, rendementProductivite, surfaceInstallation,
     remiseCommerciale, selectedGammePV, selectedBouquetPV, prixInstallationManuel,
-    roofLat, roofLng, roofMapViewport
+    roofLat, roofLng, roofMapViewport, fieldSurvey
   ]);
 
 
@@ -3281,6 +3289,7 @@ const EtudeForm = () => {
                 </div>
               </div>
             )}
+            <FieldSurveySection product="ITE" value={fieldSurvey} onChange={setFieldSurvey} clientId={clientId} etudeId={currentEtudeId} onPhotoSaved={triggerImmediateSave} />
             <ITEFields
               data={{
                 iteSurfaceIsoler, iteTypeFacade, iteEpaisseurIsolant, iteTypeIsolant,
@@ -3330,6 +3339,7 @@ const EtudeForm = () => {
                 </div>
               </div>
             )}
+            <FieldSurveySection product="PAC" value={fieldSurvey} onChange={setFieldSurvey} clientId={clientId} etudeId={currentEtudeId} onPhotoSaved={triggerImmediateSave} />
             <PACFields
               data={{
                 pacSubtype, pacSurfaceChauffee, pacTypeEmetteurs, pacNombreUnitesInt,

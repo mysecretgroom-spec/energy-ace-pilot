@@ -1,0 +1,2 @@
+# Study components
+- PAC/ITE field survey answers live in the study's versioned param_overrides and draft; photo binaries stay in documents with stable subject context_source and explicit etude_id, so measurements and photo captions survive independent save paths.
