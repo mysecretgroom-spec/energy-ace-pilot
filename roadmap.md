@@ -66,3 +66,4 @@
 
 - [ ] Video: ajouter scenes SMS + agent IA copilote WhatsApp + enregistrement frais simplifie via WhatsApp
 - [ ] Video: montrer rapports d etude + exemples PDF reels
+- [x] Vidéo v5 : moins de calculs affichés, accent sur le formulaire d’étude comme mémoire du RDV, récap WhatsApp avec PDF montré, assistant IA perso et frais par photo de ticket (agent sub_5xnn5tf7 en cours)
