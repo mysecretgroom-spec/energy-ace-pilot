@@ -63,3 +63,6 @@
 - [x] Nom de doc avec heure:minute:seconde (éviter faux doublons)
 - [x] Long-press RDV : bouton ajouter/scanner docs au dossier client (si étude existe)
 - [x] Long-press RDV : bouton envoyer dossier complet WhatsApp (même que fin d'étude)
+
+- [ ] Video: ajouter scenes SMS + agent IA copilote WhatsApp + enregistrement frais simplifie via WhatsApp
+- [ ] Video: montrer rapports d etude + exemples PDF reels
