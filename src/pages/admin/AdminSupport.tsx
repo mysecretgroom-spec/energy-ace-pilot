@@ -1,323 +1,188 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { AdminLayout } from "./AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminPageHeader, MetricGrid, MetricTile, StatusPill, num } from "@/components/admin/AdminUI";
+import { PageError } from "@/components/common/PageState";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Loader2, Send, MessageSquare } from "lucide-react";
-import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Search, Loader2, Send, ChevronRight } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type TicketStatus = "open" | "in_progress" | "resolved" | "closed";
+interface SaasUser { user_id: string; email: string; first_name: string; last_name: string }
+interface Ticket { id: string; user_id: string; subject: string; message: string; status: string; created_at: string; updated_at: string; user?: SaasUser }
+interface Reply { id: string; is_admin: boolean; message: string; created_at: string }
 
-interface SupportTicket {
-  id: string;
-  user_id: string;
-  subject: string;
-  message: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  user?: SaasUser;
-}
-
-interface SaasUser {
-  user_id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
-
-interface TicketReply {
-  id: string;
-  ticket_id: string;
-  user_id: string;
-  is_admin: boolean;
-  message: string;
-  created_at: string;
-}
+const STATUS: Record<string, { label: string; tone: "info" | "warn" | "good" | "neutral" }> = {
+  open: { label: "Ouvert", tone: "info" }, in_progress: { label: "En cours", tone: "warn" },
+  resolved: { label: "Résolu", tone: "good" }, closed: { label: "Fermé", tone: "neutral" },
+};
+const FILTERS: { key: TicketStatus | "all"; label: string }[] = [
+  { key: "all", label: "Tous" }, { key: "open", label: "Ouverts" }, { key: "in_progress", label: "En cours" },
+  { key: "resolved", label: "Résolus" }, { key: "closed", label: "Fermés" },
+];
 
 export default function AdminSupport() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
-  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
-  const [replyText, setReplyText] = useState("");
+  const [filter, setFilter] = useState<TicketStatus | "all">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [reply, setReply] = useState("");
 
-  const { data: tickets, isLoading } = useQuery({
+  const { data: tickets, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-support-tickets"],
     queryFn: async () => {
-      const { data: ticketsData, error } = await supabase.rpc("get_all_support_tickets" as any);
-
+      const [{ data: t, error }, { data: users }] = await Promise.all([
+        supabase.rpc("get_all_support_tickets" as any),
+        supabase.rpc("get_saas_users" as any),
+      ]);
       if (error) throw error;
-
-      // Get user info for each ticket
-      const { data: users } = await supabase.rpc("get_saas_users" as any);
-
-      return (ticketsData as SupportTicket[])?.map((ticket) => ({
-        ...ticket,
-        user: (users as SaasUser[])?.find((u) => u.user_id === ticket.user_id),
-      }));
+      const byId = new Map(((users as SaasUser[]) ?? []).map((u) => [u.user_id, u]));
+      return ((t as Ticket[]) ?? []).map((x) => ({ ...x, user: byId.get(x.user_id) }));
     },
   });
+  const selected = tickets?.find((t) => t.id === selectedId) ?? null;
 
-  const { data: replies, refetch: refetchReplies } = useQuery({
-    queryKey: ["admin-ticket-replies", selectedTicket?.id],
+  const { data: replies, isLoading: loadingReplies, refetch: refetchReplies } = useQuery({
+    queryKey: ["admin-ticket-replies", selectedId],
+    enabled: !!selectedId,
     queryFn: async () => {
-      if (!selectedTicket?.id) return [];
-      
-      const { data, error } = await supabase.rpc("get_ticket_replies" as any, {
-        p_ticket_id: selectedTicket.id
-      });
-
+      const { data, error } = await supabase.rpc("get_ticket_replies" as any, { p_ticket_id: selectedId });
       if (error) throw error;
-      return data as TicketReply[];
+      return (data as Reply[]) ?? [];
     },
-    enabled: !!selectedTicket?.id,
   });
 
-  const replyMutation = useMutation({
+  const send = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc("add_ticket_reply" as any, {
-        p_ticket_id: selectedTicket?.id,
-        p_message: replyText,
-        p_is_admin: true
-      });
-
+      const { error } = await supabase.rpc("add_ticket_reply" as any, { p_ticket_id: selectedId, p_message: reply, p_is_admin: true });
       if (error) throw error;
     },
-    onSuccess: () => {
-      setReplyText("");
-      refetchReplies();
-      toast.success("Réponse envoyée");
-    },
-    onError: (error: any) => {
-      toast.error(`Erreur: ${error.message}`);
-    },
+    onSuccess: () => { setReply(""); refetchReplies(); toast.success("Réponse envoyée"); },
+    onError: (e: any) => toast.error(`Erreur : ${e.message}`),
   });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: async (newStatus: TicketStatus) => {
-      const { error } = await supabase.rpc("update_ticket_status" as any, {
-        p_ticket_id: selectedTicket?.id,
-        p_status: newStatus
-      });
-
+  const setStatus = useMutation({
+    mutationFn: async (s: TicketStatus) => {
+      const { error } = await supabase.rpc("update_ticket_status" as any, { p_ticket_id: selectedId, p_status: s });
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-support-tickets"] });
-      // Silent save
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-support-tickets"] }),
+    onError: () => toast.error("Statut non mis à jour"),
   });
 
-  const filteredTickets = tickets?.filter((ticket) => {
-    const matchesSearch = 
-      ticket.subject?.toLowerCase().includes(search.toLowerCase()) ||
-      ticket.user?.email?.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "open":
-        return <Badge className="bg-blue-500">Ouvert</Badge>;
-      case "in_progress":
-        return <Badge className="bg-yellow-500">En cours</Badge>;
-      case "resolved":
-        return <Badge className="bg-green-500">Résolu</Badge>;
-      case "closed":
-        return <Badge variant="secondary">Fermé</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) =>
+    [f.key, (tickets ?? []).filter((t) => f.key === "all" || t.status === f.key).length])), [tickets]);
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (tickets ?? []).filter((t) => (filter === "all" || t.status === filter) &&
+      (!q || t.subject?.toLowerCase().includes(q) || t.user?.email?.toLowerCase().includes(q)));
+  }, [tickets, filter, search]);
+  const oldestOpen = useMemo(() => (tickets ?? []).filter((t) => t.status === "open")
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))[0], [tickets]);
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Support</h1>
-          <p className="text-muted-foreground mt-1">Gérez les tickets de support</p>
-        </div>
+      <AdminPageHeader title="Support" description="Demandes des utilisateurs et réponses" />
+      {error ? <PageError onRetry={() => refetch()} /> : (
+        <div className="space-y-6">
+          <MetricGrid className="grid-cols-2 md:grid-cols-4">
+            <MetricTile label="Ouverts" loading={isLoading} value={num(counts.open ?? 0)} />
+            <MetricTile label="En cours" loading={isLoading} value={num(counts.in_progress ?? 0)} />
+            <MetricTile label="Résolus" loading={isLoading} value={num((counts.resolved ?? 0) + (counts.closed ?? 0))} />
+            <MetricTile label="Plus ancien ouvert" loading={isLoading}
+              value={oldestOpen ? formatDistanceToNow(new Date(oldestOpen.created_at), { locale: fr }) : "—"}
+              sub={oldestOpen ? "Sans réponse finale" : "Aucun en attente"} />
+          </MetricGrid>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  <SelectItem value="open">Ouvert</SelectItem>
-                  <SelectItem value="in_progress">En cours</SelectItem>
-                  <SelectItem value="resolved">Résolu</SelectItem>
-                  <SelectItem value="closed">Fermé</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Utilisateur</TableHead>
-                    <TableHead>Sujet</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTickets?.map((ticket) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell>
-                        {format(new Date(ticket.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
-                      </TableCell>
-                      <TableCell>{ticket.user?.email}</TableCell>
-                      <TableCell className="font-medium max-w-[300px] truncate">
-                        {ticket.subject}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(ticket.status)}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setSelectedTicket(ticket)}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Ticket Detail Dialog */}
-      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>{selectedTicket?.subject}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {selectedTicket?.user?.email}
-              </span>
-              <Select 
-                value={selectedTicket?.status} 
-                onValueChange={(v) => updateStatusMutation.mutate(v as TicketStatus)}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="open">Ouvert</SelectItem>
-                  <SelectItem value="in_progress">En cours</SelectItem>
-                  <SelectItem value="resolved">Résolu</SelectItem>
-                  <SelectItem value="closed">Fermé</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm">{selectedTicket?.message}</p>
-            </div>
-
-            <ScrollArea className="h-[300px] border rounded-lg p-4">
-              <div className="space-y-4">
-                {replies?.map((reply) => (
-                  <div 
-                    key={reply.id}
-                    className={`p-3 rounded-lg ${
-                      reply.is_admin 
-                        ? "bg-primary/10 ml-8" 
-                        : "bg-muted mr-8"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs font-medium">
-                        {reply.is_admin ? "Admin" : "Client"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(reply.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
-                      </span>
-                    </div>
-                    <p className="text-sm">{reply.message}</p>
-                  </div>
+          <section className="bg-card border rounded-md">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 p-3 border-b">
+              <div className="flex gap-1 overflow-x-auto">
+                {FILTERS.map((f) => (
+                  <button key={f.key} onClick={() => setFilter(f.key)}
+                    className={cn("h-8 px-3 rounded-md text-sm whitespace-nowrap transition-colors duration-100",
+                      filter === f.key ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                    {f.label} <span className="tabular-nums text-xs text-muted-foreground ml-1">{counts[f.key] ?? 0}</span>
+                  </button>
                 ))}
               </div>
-            </ScrollArea>
-
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Votre réponse..."
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                rows={2}
-                className="flex-1"
-              />
-              <Button 
-                onClick={() => replyMutation.mutate()}
-                disabled={!replyText || replyMutation.isPending}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              <div className="relative lg:ml-auto lg:w-72">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input placeholder="Sujet ou email…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 pl-8 text-sm" />
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            <ul>
+              {isLoading && [1, 2, 3].map((i) => <li key={i} className="border-b px-4 py-3"><Skeleton className="h-10 w-full" /></li>)}
+              {!isLoading && !rows.length && <li className="text-center py-12 text-sm text-muted-foreground">Aucune demande.</li>}
+              {rows.map((t) => (
+                <li key={t.id} onClick={() => setSelectedId(t.id)}
+                  className="flex items-center gap-3 border-b last:border-0 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors duration-100">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{t.subject}</span>
+                      <StatusPill tone={STATUS[t.status]?.tone ?? "neutral"}>{STATUS[t.status]?.label ?? t.status}</StatusPill>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{t.user?.email ?? "—"} · {t.message}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
+                    {formatDistanceToNow(new Date(t.updated_at || t.created_at), { locale: fr, addSuffix: true })}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
+
+      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+        <SheetContent className="w-full sm:max-w-lg flex flex-col gap-4">
+          {selected && (
+            <>
+              <SheetHeader className="text-left">
+                <SheetTitle className="font-display pr-6">{selected.subject}</SheetTitle>
+                <SheetDescription>
+                  {[selected.user?.first_name, selected.user?.last_name].filter(Boolean).join(" ")} {selected.user?.email} · {format(new Date(selected.created_at), "d MMM yyyy HH:mm", { locale: fr })}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex items-center justify-between gap-2 border rounded-md px-3 py-2">
+                <span className="text-sm text-muted-foreground">Statut</span>
+                <Select value={selected.status} onValueChange={(v) => setStatus.mutate(v as TicketStatus)}>
+                  <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(STATUS).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-3">
+                <Bubble mine={false} text={selected.message} at={selected.created_at} />
+                {loadingReplies && <Skeleton className="h-12 w-2/3" />}
+                {(replies ?? []).map((r) => <Bubble key={r.id} mine={r.is_admin} text={r.message} at={r.created_at} />)}
+              </div>
+              <div className="space-y-2 border-t pt-3">
+                <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Votre réponse…" rows={3} />
+                <Button className="w-full" onClick={() => send.mutate()} disabled={!reply.trim() || send.isPending}>
+                  {send.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Send className="h-4 w-4 mr-1.5" />}Envoyer
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </AdminLayout>
+  );
+}
+
+function Bubble({ mine, text, at }: { mine: boolean; text: string; at: string }) {
+  return (
+    <div className={cn("max-w-[85%] rounded-md border px-3 py-2 text-sm", mine ? "ml-auto bg-primary/10 border-primary/20" : "bg-muted/50")}>
+      <p className="whitespace-pre-wrap">{text}</p>
+      <p className="text-[10px] text-muted-foreground mt-1">{mine ? "Admin" : "Utilisateur"} · {format(new Date(at), "d MMM HH:mm", { locale: fr })}</p>
+    </div>
   );
 }
