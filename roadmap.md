@@ -3,8 +3,8 @@
 ## En cours
 - [ ] Contrôle terrain PAC/ITE avant les calculs : points de contrôle, photos légendées, mesures façade par façade, sauvegarde et vérification du parcours.
 - [x] Corriger les trois alertes critiques d’accès aux paramètres ; nouveau scan sans erreurs critiques, 3 tests de propriété et lectures connectées/anonymes vérifiés.
-- [x] Publication demandée ; tarifs, CGV, confidentialité et remboursement sur le domaine publié affichent MIWEHA, 49 rue d’Hauteville, 75010 Paris sans ALFRED.
-- [ ] Vérification vendeur paiements : contrôle des pages terminé (6 critères validés) ; formulaire vendeur à compléter par l’utilisateur dans Paiements, puis revue du prestataire.
+- [x] Publication demandée de nouveau ; déploiement programmé, confirmation de cette dernière version en ligne encore attendue. Les pages publiques contrôlées affichent MIWEHA, 49 rue d’Hauteville, 75010 Paris sans ALFRED.
+- [ ] Vérification vendeur paiements : statut revérifié après demande de publication, 6 critères validés ; Paddle attend encore la publication puis le formulaire vendeur MIWEHA, 49 rue d’Hauteville, 75010 Paris à compléter par l’utilisateur dans Paiements.
 - [x] Intégrations MCP : clients/RDV en lecture seule avec OAuth et droits du compte, retour connexion/inscription, lecture navigateur des RDV affichés, catalogue extrait et tests de protection ; essai consentement réel bloqué par origine localhost non autorisée.
 - [ ] Publication MCP demandée avec l’app ; parcours OAuth complet encore non vérifié sur le domaine publié (hors demande de vérification des paiements).
 - [x] Revérifier le rendu des aperçus : photos portrait/paysage, défilement, zoom, PDF 2 pages et réouverture sur téléphone simulé/ordinateur ; correction du zoom qui décalait la photo hors écran, 8 tests réussis et aucune erreur navigateur ; fichiers de contrôle seulement (aucun document accessible sur le compte), iPhone physique non vérifié.
