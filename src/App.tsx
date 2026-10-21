@@ -98,6 +98,7 @@ const AdminAuditLogs = React.lazy(() => import("./pages/admin/AdminAuditLogs"));
 const AdminPlans = React.lazy(() => import("./pages/admin/AdminPlans"));
 const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows"));
 const AdminUsers = React.lazy(() => import("./pages/admin/AdminUsers"));
+const AdminPayments = React.lazy(() => import("./pages/admin/AdminPayments"));
 
 // ─── QueryClient with optimized defaults + offline-first ───
 const queryClient = new QueryClient({
@@ -222,6 +223,7 @@ const App = () => {
                       <Route path="/admin/ai-workflows" element={<AdminAIWorkflows />} />
                       <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
                       <Route path="/admin/users" element={<AdminUsers />} />
+                      <Route path="/admin/payments" element={<AdminPayments />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>
