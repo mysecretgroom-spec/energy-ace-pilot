@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [ ] Intégrations MCP : lecture des clients/RDV avec OAuth, consentement et retour connexion/inscription, outils navigateur et validation ; publication requise pour activer la nouvelle version.
 - [x] Revérifier le rendu des aperçus : photos portrait/paysage, défilement, zoom, PDF 2 pages et réouverture sur téléphone simulé/ordinateur ; correction du zoom qui décalait la photo hors écran, 8 tests réussis et aucune erreur navigateur ; fichiers de contrôle seulement (aucun document accessible sur le compte), iPhone physique non vérifié.
 - [x] Téléchargements : enregistrement natif mobile, téléchargement système ordinateur et nouveau tap Enregistrer si préparation longue ; 8 tests réussis, PDF/PNG téléchargés et relus, appel natif simulé vérifié connecté ; feuille OS sur iPhone physique non vérifiée.
 - [x] Aperçus documents/photos unifiés (dossier client, scan, imports, factures, simulations) : miniature → plein écran sobre, défilement latéral, zoom et pages PDF ; 5 tests et parcours connecté avec documents de contrôle sur téléphone/ordinateur sans erreur ; appareil iPhone physique et fichiers privés réels non testés.
