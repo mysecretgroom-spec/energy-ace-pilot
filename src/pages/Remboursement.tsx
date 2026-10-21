@@ -4,6 +4,8 @@ const Remboursement = () => (
   <LegalPage title="Politique de remboursement" short="Remboursement" updated="15 octobre 2026">
     <Section title="Satisfait ou remboursé 30 jours">
       <p>Si {SELLER.trading} ne vous convient pas, vous pouvez demander le remboursement intégral de votre achat (abonnement Classique ou Premium, mensuel ou annuel, ou recharge IA) dans les 30 jours suivant la date de la commande.</p>
+      <p>Vendeur : {SELLER.name}, {SELLER.address}. Les commandes sont encaissées par Paddle, Merchant of Record.</p>
+
     </Section>
     <Section title="Comment demander un remboursement">
       <p>Les remboursements sont traités par notre revendeur Paddle, Merchant of Record de nos commandes. Rendez-vous sur <a className="text-primary underline" href="https://paddle.net" target="_blank" rel="noreferrer">paddle.net</a> avec l'adresse e-mail utilisée lors de l'achat, ou écrivez-nous à <Mail /> et nous transmettrons votre demande.</p>
