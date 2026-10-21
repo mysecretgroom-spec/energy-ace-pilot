@@ -29,6 +29,9 @@ interface QuickPhotoButtonProps {
   onPhotoSaved?: () => void;
   /** N'affiche que les icônes (gain de place dans l'outil d'étude) */
   iconOnly?: boolean;
+  /** Stable association for a field-survey subject, independent of its caption. */
+  contextSource?: string;
+  documentName?: string;
 }
 
 /** Maximum de photos par catégorie et par étude : elles doivent tenir sur une page du PDF. */
@@ -130,7 +133,7 @@ export async function mergeStudyPhotosIntoPdf(
       }
 
       const label =
-        doc.context_source === "simulation_pv"
+        doc.context_source?.startsWith("field_survey:") ? doc.nom.replace(/\.jpg$/i, "") : doc.context_source === "simulation_pv"
           ? "Projection panneaux solaires (simulation)"
           : categoryLabels[doc.type_document] || doc.nom;
 
@@ -173,7 +176,7 @@ export async function mergeStudyPhotosIntoPdf(
       const cellY = A4_HEIGHT - MARGIN - (row + 1) * cellH - row * GAP;
 
       // Label at top of the cell
-      page.drawText(label, {
+      page.drawText(label.slice(0, Math.max(18, Math.floor(cellW / 4))), {
         x: cellX,
         y: cellY + cellH - CELL_LABEL + 2,
         size: 8,
@@ -245,7 +248,10 @@ export function QuickPhotoButton({
   etudeId,
   onPhotoSaved,
   iconOnly = false,
+  contextSource,
+  documentName,
 }: QuickPhotoButtonProps) {
+  const source = contextSource || category;
   const [isUploading, setIsUploading] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [photoCount, setPhotoCount] = useState(0);
@@ -265,13 +271,13 @@ export function QuickPhotoButton({
       .select("id", { count: "exact", head: true })
       .eq("client_id", clientId)
       .eq("type_document", docType)
-      .eq("context_source", category);
+      .eq("context_source", source);
     if (etudeId) query = query.eq("etude_id", etudeId);
     const { count } = await query;
     const n = count ?? 0;
     setPhotoCount(n);
     setHasPhoto(n > 0);
-  }, [user, clientId, category, etudeId]);
+  }, [user, clientId, category, etudeId, source]);
 
   useEffect(() => {
     refreshCount();
@@ -311,11 +317,11 @@ export function QuickPhotoButton({
           const imageData = event.target?.result as string;
           await savePendingDocument({
             clientId,
-            nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
+            nom: documentName ? `${documentName}.jpg` : `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
             typeDocument: category as "photo_chantier",
             imageData,
             mimeType: "image/jpeg",
-            contextSource: category,
+            contextSource: source,
             etudeId: etudeId || null,
           });
           refreshCount();
@@ -360,12 +366,12 @@ export function QuickPhotoButton({
         user_id: user.id,
         client_id: clientId,
         etude_id: etudeId || null,
-        nom: `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
+        nom: documentName ? `${documentName}.jpg` : `${QUICK_PHOTO_LABELS[category]} - ${new Date().toLocaleDateString("fr-FR")}.jpg`,
         type_document: docType,
         url: urlData.publicUrl,
         taille_bytes: compressedBlob.size,
         mime_type: "image/jpeg",
-        context_source: category,
+        context_source: source,
       });
 
       if (dbError) {
