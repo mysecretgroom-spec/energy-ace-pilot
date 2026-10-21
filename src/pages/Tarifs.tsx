@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layout/Footer";
+import { SellerAddress } from "@/components/legal/LegalPage";
+
 import { PLANS, TOPUPS, formatEur, yearlySavings, type PlanTier } from "@/lib/plans";
 
 const TIERS: PlanTier[] = ["classique", "premium"];
@@ -55,9 +57,11 @@ export default function Tarifs() {
         </section>
 
         <p className="text-xs text-muted-foreground text-center">
-          Paiement sécurisé par Paddle.com, revendeur et Merchant of Record. Remboursement possible sous 30 jours —
-          voir la <Link to="/remboursement" className="underline">politique de remboursement</Link> et les <Link to="/cgv" className="underline">CGV</Link>.
+          <SellerAddress /> — paiement sécurisé par Paddle.com, revendeur et Merchant of Record. Remboursement possible
+          sous 30 jours — voir la <Link to="/remboursement" className="underline">politique de remboursement</Link> et
+          les <Link to="/cgv" className="underline">CGV</Link>.
         </p>
+
       </main>
       <Footer />
     </div>

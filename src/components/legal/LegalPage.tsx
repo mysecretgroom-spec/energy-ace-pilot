@@ -3,10 +3,20 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const SELLER = {
-  name: "ALFRED'S AGENCY",
+  name: "MIWEHA",
   trading: "DébalePro",
   email: "contact@miweha.com",
+  address: "49 rue d'Hauteville, 75010 Paris, France",
 };
+
+export function SellerAddress() {
+  return (
+    <span>
+      {SELLER.name} — {SELLER.address}
+    </span>
+  );
+}
+
 
 export function LegalPage({ title, short, updated, children }: { title: string; short: string; updated: string; children: ReactNode }) {
   return (

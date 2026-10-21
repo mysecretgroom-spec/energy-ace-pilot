@@ -3,7 +3,7 @@ import { LegalPage, Section, Mail, SELLER } from "@/components/legal/LegalPage";
 const Confidentialite = () => (
   <LegalPage title="Politique de confidentialité" short="Confidentialité" updated="15 octobre 2026">
     <Section title="Responsable du traitement">
-      <p>La société <strong>{SELLER.name}</strong> (nom commercial : {SELLER.trading}) est responsable du traitement de vos données personnelles. Contact : <Mail />.</p>
+      <p>La société <strong>{SELLER.name}</strong>, sise {SELLER.address} (nom commercial : {SELLER.trading}), est responsable du traitement de vos données personnelles. Contact : <Mail />.</p>
     </Section>
     <Section title="Données collectées et finalités">
       <ul className="list-disc pl-5 space-y-1">

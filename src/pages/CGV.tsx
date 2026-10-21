@@ -5,9 +5,11 @@ const CGV = () => (
   <LegalPage title="Conditions Générales" short="Conditions générales" updated="15 octobre 2026">
     <Section title="1. Le vendeur">
       <p>
-        Le service {SELLER.trading} est édité et vendu par la société <strong>{SELLER.name}</strong> (nom commercial :
-        {" "}{SELLER.trading}). En utilisant le service, vous contractez avec {SELLER.name}. Contact : <Mail />.
+        Le service {SELLER.trading} est édité et vendu par la société <strong>{SELLER.name}</strong>, sise{" "}
+        {SELLER.address} (nom commercial : {SELLER.trading}). En utilisant le service, vous contractez avec{" "}
+        {SELLER.name}. Contact : <Mail />.
       </p>
+
     </Section>
     <Section title="2. Acceptation">
       <p>En créant un compte ou en continuant à utiliser {SELLER.trading}, vous acceptez les présentes conditions. Si vous agissez pour une entreprise, vous déclarez avoir le pouvoir de l'engager ; si vous agissez à titre personnel, vous déclarez être majeur.</p>
