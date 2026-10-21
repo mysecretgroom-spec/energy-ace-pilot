@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [ ] Contrôle terrain PAC/ITE avant les calculs : points de contrôle, photos légendées, mesures façade par façade, sauvegarde et vérification du parcours.
 - [x] Corriger les trois alertes critiques d’accès aux paramètres ; nouveau scan sans erreurs critiques, 3 tests de propriété et lectures connectées/anonymes vérifiés.
 - [x] Publication demandée ; tarifs, CGV, confidentialité et remboursement sur le domaine publié affichent MIWEHA, 49 rue d’Hauteville, 75010 Paris sans ALFRED.
 - [ ] Vérification vendeur paiements : contrôle des pages terminé (6 critères validés) ; formulaire vendeur à compléter par l’utilisateur dans Paiements, puis revue du prestataire.
