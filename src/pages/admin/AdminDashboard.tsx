@@ -4,11 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "./AdminLayout";
 import { AdminPageHeader, Delta, MetricGrid, MetricTile, Panel, eur, num, pct } from "@/components/admin/AdminUI";
-import { PageState } from "@/components/common/PageState";
+import { PageError } from "@/components/common/PageState";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { getPaddleEnvironment } from "@/lib/paddle";
-import { PendingDocumentsWidget } from "@/components/admin/PendingDocumentsWidget";
+import PendingDocumentsWidget from "@/components/admin/PendingDocumentsWidget";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -83,7 +83,7 @@ export default function AdminDashboard() {
       />
 
       {error ? (
-        <PageState variant="error" title="Indicateurs indisponibles" description="Le chargement a échoué." onRetry={() => refetch()} />
+        <PageError title="Indicateurs indisponibles" onRetry={() => refetch()} />
       ) : (
         <div className="space-y-6">
           {/* Revenue */}
