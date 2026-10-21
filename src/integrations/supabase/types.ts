@@ -2593,6 +2593,48 @@ export type Database = {
           },
         ]
       }
+      manual_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          method: string
+          note: string | null
+          paid_at: string
+          period_label: string | null
+          recorded_by: string
+          reference: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method: string
+          note?: string | null
+          paid_at?: string
+          period_label?: string | null
+          recorded_by?: string
+          reference?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method?: string
+          note?: string | null
+          paid_at?: string
+          period_label?: string | null
+          recorded_by?: string
+          reference?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mfa_sessions: {
         Row: {
           created_at: string
