@@ -1,420 +1,246 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "./AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { 
-  Users, 
-  CreditCard, 
-  Clock, 
-  AlertTriangle, 
-  TrendingUp, 
-  UserPlus,
-  DollarSign,
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight,
-  CalendarDays,
-  Bell
-} from "lucide-react";
-import { Link } from "react-router-dom";
+import { AdminPageHeader, Delta, MetricGrid, MetricTile, Panel, eur, num, pct } from "@/components/admin/AdminUI";
+import { PageState } from "@/components/common/PageState";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { format, differenceInDays, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { RefreshCw } from "lucide-react";
+import { getPaddleEnvironment } from "@/lib/paddle";
+import { PendingDocumentsWidget } from "@/components/admin/PendingDocumentsWidget";
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
+import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
-import PendingDocumentsWidget from "@/components/admin/PendingDocumentsWidget";
 
-interface AccessState {
-  user_id: string;
-  app_access: string;
-  trial_ends_at: string;
-  trial_started_at: string;
+export interface AdminMetrics {
+  mrr: number; mrr_at_risk: number; paying: number; past_due: number; canceled_30d: number;
+  plan_split: Record<string, number>;
+  mrr_series: { d: string; mrr: number }[];
+  users_total: number; access: Record<string, number>; beta: number;
+  signups_series: { d: string; n: number }[]; signups_30d: number; signups_prev_30d: number;
+  active_users_7d: number; active_users_30d: number;
+  ai_cost_30d: number; ai_calls_30d: number; ai_top_functions: { f: string; n: number; c: number }[];
+  etudes_30d: number; docs_30d: number; rdv_30d: number; whatsapp_30d: number; jobs_failed_7d: number;
+  activity_series: { d: string; etudes: number; docs: number; rdv: number }[];
+  top_accounts: { user_id: string; email: string; name: string; rdv: number; etudes: number; ai: number }[];
 }
 
-interface Subscription {
-  status: string;
+export function useAdminMetrics() {
+  const env = getPaddleEnvironment();
+  return useQuery({
+    queryKey: ["admin-metrics", env],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_metrics" as any, { p_env: env });
+      if (error) throw error;
+      return data as unknown as AdminMetrics;
+    },
+  });
 }
 
-interface SaasUser {
-  user_id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  created_at: string;
-}
+const axis = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
+const tooltipStyle = {
+  contentStyle: { background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 12 },
+  labelStyle: { color: "hsl(var(--muted-foreground))" },
+};
+const dlabel = (d: string) => format(parseISO(d), "d MMM", { locale: fr });
+
+const PLAN_LABELS: Record<string, string> = {
+  classique_monthly: "Classique mensuel", classique_yearly: "Classique annuel",
+  premium_monthly: "Premium mensuel", premium_yearly: "Premium annuel",
+};
 
 export default function AdminDashboard() {
-  const { data: stats } = useQuery({
-    queryKey: ["admin-dashboard-stats"],
-    queryFn: async () => {
-      const { data: accessStates } = await supabase.rpc("get_all_saas_access_states");
-      const { data: subscriptions } = await supabase.rpc("get_all_saas_subscriptions");
-      const { data: users } = await supabase.rpc("get_saas_users");
+  const navigate = useNavigate();
+  const { data: m, isLoading, error, refetch, isFetching } = useAdminMetrics();
 
-      const accessCounts = {
-        trial: 0,
-        active: 0,
-        paywall: 0,
-        blocked: 0,
-      };
-
-      const subCounts = {
-        active: 0,
-        past_due: 0,
-        canceled: 0,
-      };
-
-      const now = new Date();
-      let trialEndingSoon = 0;
-      let newThisWeek = 0;
-      let newThisMonth = 0;
-
-      ((accessStates as AccessState[]) || []).forEach((state) => {
-        if (accessCounts[state.app_access as keyof typeof accessCounts] !== undefined) {
-          accessCounts[state.app_access as keyof typeof accessCounts]++;
-        }
-        
-        // Trials ending in 3 days
-        if (state.app_access === "trial" && state.trial_ends_at) {
-          const daysLeft = differenceInDays(new Date(state.trial_ends_at), now);
-          if (daysLeft >= 0 && daysLeft <= 3) {
-            trialEndingSoon++;
-          }
-        }
-      });
-
-      ((users as SaasUser[]) || []).forEach((user) => {
-        const createdAt = new Date(user.created_at);
-        if (differenceInDays(now, createdAt) <= 7) {
-          newThisWeek++;
-        }
-        if (createdAt >= startOfMonth(now) && createdAt <= endOfMonth(now)) {
-          newThisMonth++;
-        }
-      });
-
-      ((subscriptions as Subscription[]) || []).forEach((sub) => {
-        if (sub.status === "active") subCounts.active++;
-        if (sub.status === "past_due") subCounts.past_due++;
-        if (sub.status === "canceled") subCounts.canceled++;
-      });
-
-      return {
-        totalUsers: ((accessStates as any[]) || []).length,
-        accessCounts,
-        subCounts,
-        trialEndingSoon,
-        newThisWeek,
-        newThisMonth,
-      };
-    },
-  });
-
-  // Recent users
-  const { data: recentUsers } = useQuery({
-    queryKey: ["admin-recent-users"],
-    queryFn: async () => {
-      const { data: users } = await supabase.rpc("get_saas_users");
-      const { data: accessStates } = await supabase.rpc("get_all_saas_access_states");
-      
-      const accessMap = new Map((accessStates as AccessState[] || []).map(a => [a.user_id, a]));
-      
-      return ((users as SaasUser[]) || [])
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5)
-        .map(u => ({
-          ...u,
-          access: accessMap.get(u.user_id),
-        }));
-    },
-  });
-
-  const conversionRate = stats 
-    ? (stats.accessCounts.active / (stats.totalUsers || 1) * 100).toFixed(1)
-    : "0";
-
-  const churnRate = stats
-    ? ((stats.accessCounts.paywall + stats.accessCounts.blocked) / (stats.totalUsers || 1) * 100).toFixed(1)
-    : "0";
+  const derived = useMemo(() => {
+    if (!m) return null;
+    const arpa = m.paying ? m.mrr / m.paying : 0;
+    const trial = m.access?.trial ?? 0;
+    const conv = pct(m.paying, m.paying + trial + (m.access?.paywall ?? 0));
+    const churn = pct(m.canceled_30d, m.paying + m.canceled_30d);
+    const signupDelta = m.signups_prev_30d ? ((m.signups_30d - m.signups_prev_30d) / m.signups_prev_30d) * 100 : null;
+    const mrr30 = m.mrr_series?.[m.mrr_series.length - 31]?.mrr ?? 0;
+    const mrrDelta = mrr30 ? ((m.mrr - mrr30) / mrr30) * 100 : null;
+    const stickiness = pct(m.active_users_7d, m.active_users_30d);
+    return { arpa, trial, conv, churn, signupDelta, mrrDelta, stickiness };
+  }, [m]);
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Vue d'ensemble de votre SaaS</p>
-          </div>
-          <div className="flex gap-2">
-            <Link to="/admin/notifications">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Envoyer une notification
-              </Button>
-            </Link>
-          </div>
-        </div>
+      <AdminPageHeader
+        title="Tableau de bord"
+        description="Revenus, croissance et santé du produit en temps réel"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />Actualiser
+          </Button>
+        }
+      />
 
-        {/* Main KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Utilisateurs</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats?.totalUsers || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                +{stats?.newThisMonth || 0} ce mois
-              </p>
-              <div className="absolute bottom-0 right-0 opacity-10">
-                <Users className="h-24 w-24" />
+      {error ? (
+        <PageState variant="error" title="Indicateurs indisponibles" description="Le chargement a échoué." onRetry={() => refetch()} />
+      ) : (
+        <div className="space-y-6">
+          {/* Revenue */}
+          <MetricGrid className="grid-cols-2 lg:grid-cols-4">
+            <MetricTile label="MRR" loading={isLoading} value={eur(m?.mrr ?? 0)}
+              delta={<Delta value={derived?.mrrDelta ?? null} />} sub={`ARR ${eur((m?.mrr ?? 0) * 12)}`} />
+            <MetricTile label="Abonnés payants" loading={isLoading} value={num(m?.paying ?? 0)}
+              sub={`ARPA ${eur(derived?.arpa ?? 0, 2)} / mois`} onClick={() => navigate("/admin/subscriptions")} />
+            <MetricTile label="Conversion essai → payant" loading={isLoading}
+              value={derived?.conv == null ? "—" : `${derived.conv.toFixed(1)} %`} sub={`${num(derived?.trial ?? 0)} en essai`} />
+            <MetricTile label="MRR à risque" loading={isLoading} value={eur(m?.mrr_at_risk ?? 0)}
+              sub={`${num(m?.past_due ?? 0)} impayés · churn 30 j ${derived?.churn == null ? "—" : derived.churn.toFixed(1) + " %"}`} />
+          </MetricGrid>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Panel title="Évolution du MRR" description="90 derniers jours" className="lg:col-span-2" bodyClassName="p-2 pt-4">
+              <div className="h-64">
+                <ResponsiveContainer>
+                  <AreaChart data={m?.mrr_series ?? []} margin={{ left: 8, right: 16 }}>
+                    <defs>
+                      <linearGradient id="mrrFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.18} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="d" tickFormatter={dlabel} tick={axis} tickLine={false} axisLine={false} minTickGap={40} />
+                    <YAxis tick={axis} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => eur(v)} />
+                    <Tooltip {...tooltipStyle} labelFormatter={dlabel} formatter={(v: number) => [eur(v, 2), "MRR"]} />
+                    <Area type="monotone" dataKey="mrr" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#mrrFill)" />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Abonnés Actifs</CardTitle>
-              <CreditCard className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats?.accessCounts.active || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-green-500" />
-                {conversionRate}% de conversion
-              </p>
-              <div className="absolute bottom-0 right-0 opacity-10">
-                <CreditCard className="h-24 w-24" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">En Période d'Essai</CardTitle>
-              <Clock className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{stats?.accessCounts.trial || 0}</div>
-              {(stats?.trialEndingSoon || 0) > 0 && (
-                <p className="text-xs text-yellow-600 mt-1 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  {stats?.trialEndingSoon} expirent sous 3j
-                </p>
+            </Panel>
+            <Panel title="Répartition par offre" description="Abonnements actifs">
+              {isLoading ? null : Object.keys(m?.plan_split ?? {}).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Aucun abonnement payant pour l'instant.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {Object.entries(m!.plan_split).sort((a, b) => b[1] - a[1]).map(([k, n]) => {
+                    const share = pct(n, m!.paying + m!.past_due) ?? 0;
+                    return (
+                      <li key={k}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>{PLAN_LABELS[k] ?? k}</span>
+                          <span className="tabular-nums text-muted-foreground">{n} · {share.toFixed(0)} %</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-primary" style={{ width: `${share}%` }} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-              <div className="absolute bottom-0 right-0 opacity-10">
-                <Clock className="h-24 w-24" />
-              </div>
-            </CardContent>
-          </Card>
+            </Panel>
+          </div>
 
-          <Card className="relative overflow-hidden border-destructive/30">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Impayés / Bloqués</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-destructive">
-                {(stats?.subCounts.past_due || 0) + (stats?.accessCounts.blocked || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats?.accessCounts.paywall || 0} en paywall
-              </p>
-              <div className="absolute bottom-0 right-0 opacity-10">
-                <AlertTriangle className="h-24 w-24" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Growth */}
+          <MetricGrid className="grid-cols-2 lg:grid-cols-4">
+            <MetricTile label="Comptes" loading={isLoading} value={num(m?.users_total ?? 0)}
+              sub={`${num(m?.beta ?? 0)} bêta-testeurs`} onClick={() => navigate("/admin/users")} />
+            <MetricTile label="Inscriptions 30 j" loading={isLoading} value={num(m?.signups_30d ?? 0)}
+              delta={<Delta value={derived?.signupDelta ?? null} />} sub={`${num(m?.signups_prev_30d ?? 0)} les 30 j précédents`} />
+            <MetricTile label="Actifs 7 j / 30 j" loading={isLoading}
+              value={`${num(m?.active_users_7d ?? 0)} / ${num(m?.active_users_30d ?? 0)}`}
+              sub={`Rétention hebdo ${derived?.stickiness == null ? "—" : derived.stickiness.toFixed(0) + " %"}`} />
+            <MetricTile label="Coût IA 30 j" loading={isLoading} value={`${(m?.ai_cost_30d ?? 0).toFixed(2)} $`}
+              sub={`${num(m?.ai_calls_30d ?? 0)} appels`} />
+          </MetricGrid>
 
-        {/* Secondary Stats + Quick Actions + Pending Documents */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Pending Documents Widget */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Panel title="Inscriptions" description="Par jour, 90 jours" bodyClassName="p-2 pt-4">
+              <div className="h-56">
+                <ResponsiveContainer>
+                  <BarChart data={m?.signups_series ?? []} margin={{ left: 0, right: 16 }}>
+                    <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="d" tickFormatter={dlabel} tick={axis} tickLine={false} axisLine={false} minTickGap={40} />
+                    <YAxis tick={axis} tickLine={false} axisLine={false} width={28} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} labelFormatter={dlabel} formatter={(v: number) => [v, "Inscriptions"]} />
+                    <Bar dataKey="n" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Panel>
+            <Panel title="Usage produit" description="RDV, études et documents créés — 30 jours" bodyClassName="p-2 pt-4">
+              <div className="h-56">
+                <ResponsiveContainer>
+                  <AreaChart data={m?.activity_series ?? []} margin={{ left: 0, right: 16 }}>
+                    <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="d" tickFormatter={dlabel} tick={axis} tickLine={false} axisLine={false} minTickGap={40} />
+                    <YAxis tick={axis} tickLine={false} axisLine={false} width={28} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} labelFormatter={dlabel} />
+                    <Area type="monotone" dataKey="rdv" name="RDV" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.12)" strokeWidth={1.5} />
+                    <Area type="monotone" dataKey="etudes" name="Études" stroke="hsl(var(--warning))" fill="hsl(var(--warning) / 0.12)" strokeWidth={1.5} />
+                    <Area type="monotone" dataKey="docs" name="Documents" stroke="hsl(var(--muted-foreground))" fill="transparent" strokeWidth={1.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Panel>
+          </div>
+
+          {/* Product health */}
+          <MetricGrid className="grid-cols-2 lg:grid-cols-5">
+            <MetricTile label="RDV 30 j" loading={isLoading} value={num(m?.rdv_30d ?? 0)} />
+            <MetricTile label="Études 30 j" loading={isLoading} value={num(m?.etudes_30d ?? 0)} />
+            <MetricTile label="Documents 30 j" loading={isLoading} value={num(m?.docs_30d ?? 0)} />
+            <MetricTile label="Messages WhatsApp 30 j" loading={isLoading} value={num(m?.whatsapp_30d ?? 0)} />
+            <MetricTile label="Tâches en échec 7 j" loading={isLoading} value={num(m?.jobs_failed_7d ?? 0)}
+              sub={(m?.jobs_failed_7d ?? 0) > 0 ? "À surveiller" : "Aucun incident"} />
+          </MetricGrid>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Panel title="Comptes les plus actifs" description="30 derniers jours" className="lg:col-span-2" bodyClassName="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-[11px] uppercase tracking-widest text-muted-foreground">
+                      <th className="text-left font-semibold px-5 py-2.5">Compte</th>
+                      <th className="text-right font-semibold px-3 py-2.5">RDV</th>
+                      <th className="text-right font-semibold px-3 py-2.5">Études</th>
+                      <th className="text-right font-semibold px-5 py-2.5">Coût IA</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(m?.top_accounts ?? []).map((a) => (
+                      <tr key={a.user_id} className="border-b last:border-0 hover:bg-muted/40 cursor-pointer"
+                        onClick={() => navigate(`/admin/users?u=${a.user_id}`)}>
+                        <td className="px-5 py-2.5">
+                          <div className="font-medium truncate max-w-[260px]">{a.name || a.email}</div>
+                          {a.name && <div className="text-xs text-muted-foreground truncate max-w-[260px]">{a.email}</div>}
+                        </td>
+                        <td className="text-right px-3 tabular-nums">{a.rdv}</td>
+                        <td className="text-right px-3 tabular-nums">{a.etudes}</td>
+                        <td className="text-right px-5 tabular-nums">{Number(a.ai).toFixed(2)} $</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+            <Panel title="Coût IA par fonction" description="30 derniers jours">
+              <ul className="space-y-2.5">
+                {(m?.ai_top_functions ?? []).map((f) => (
+                  <li key={f.f} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate font-mono text-xs">{f.f}</span>
+                    <span className="tabular-nums text-muted-foreground whitespace-nowrap">{f.n} · {Number(f.c ?? 0).toFixed(2)} $</span>
+                  </li>
+                ))}
+                {!isLoading && !(m?.ai_top_functions ?? []).length && <p className="text-sm text-muted-foreground">Aucun appel IA.</p>}
+              </ul>
+            </Panel>
+          </div>
+
           <PendingDocumentsWidget />
-          {/* Funnel Overview */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Entonnoir de Conversion
-              </CardTitle>
-              <CardDescription>Répartition des utilisateurs par statut</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
-                      En Trial
-                    </span>
-                    <span className="font-medium">{stats?.accessCounts.trial || 0}</span>
-                  </div>
-                  <Progress value={(stats?.accessCounts.trial || 0) / (stats?.totalUsers || 1) * 100} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-green-500" />
-                      Actifs (Payants)
-                    </span>
-                    <span className="font-medium text-green-600">{stats?.accessCounts.active || 0}</span>
-                  </div>
-                  <Progress value={(stats?.accessCounts.active || 0) / (stats?.totalUsers || 1) * 100} className="h-2 [&>div]:bg-green-500" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      Paywall (Trial expiré)
-                    </span>
-                    <span className="font-medium text-yellow-600">{stats?.accessCounts.paywall || 0}</span>
-                  </div>
-                  <Progress value={(stats?.accessCounts.paywall || 0) / (stats?.totalUsers || 1) * 100} className="h-2 [&>div]:bg-yellow-500" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
-                      Bloqués
-                    </span>
-                    <span className="font-medium text-destructive">{stats?.accessCounts.blocked || 0}</span>
-                  </div>
-                  <Progress value={(stats?.accessCounts.blocked || 0) / (stats?.totalUsers || 1) * 100} className="h-2 [&>div]:bg-destructive" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">{conversionRate}%</p>
-                  <p className="text-xs text-muted-foreground">Taux de Conversion</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-destructive">{churnRate}%</p>
-                  <p className="text-xs text-muted-foreground">Taux de Churn</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions Rapides</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Link to="/admin/clients" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="h-4 w-4 mr-2" />
-                  Gérer les clients
-                  <ArrowUpRight className="h-4 w-4 ml-auto" />
-                </Button>
-              </Link>
-              
-              {(stats?.trialEndingSoon || 0) > 0 && (
-                <Link to="/admin/clients" className="block">
-                  <Button variant="outline" className="w-full justify-start border-yellow-500/50 text-yellow-600 hover:bg-yellow-50">
-                    <Clock className="h-4 w-4 mr-2" />
-                    {stats?.trialEndingSoon} trials à relancer
-                    <ArrowUpRight className="h-4 w-4 ml-auto" />
-                  </Button>
-                </Link>
-              )}
-
-              <Link to="/admin/notifications" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Envoyer une notification
-                  <ArrowUpRight className="h-4 w-4 ml-auto" />
-                </Button>
-              </Link>
-
-              <Link to="/admin/analytics" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Voir les analytics
-                  <ArrowUpRight className="h-4 w-4 ml-auto" />
-                </Button>
-              </Link>
-
-              <Link to="/admin/support" className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Activity className="h-4 w-4 mr-2" />
-                  Tickets support
-                  <ArrowUpRight className="h-4 w-4 ml-auto" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
         </div>
-
-        {/* Recent Users */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5" />
-                Dernières Inscriptions
-              </CardTitle>
-              <CardDescription>Les 5 derniers utilisateurs inscrits</CardDescription>
-            </div>
-            <Link to="/admin/clients">
-              <Button variant="outline" size="sm">
-                Voir tout
-                <ArrowUpRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentUsers?.map((user) => (
-                <div key={user.user_id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">
-                        {(user.first_name?.[0] || user.email[0]).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        {user.first_name || user.last_name 
-                          ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                          : user.email.split("@")[0]}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={user.access?.app_access === "active" ? "default" : "secondary"}>
-                      {user.access?.app_access || "trial"}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(user.created_at), "dd MMM yyyy", { locale: fr })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stripe Integration Placeholder */}
-        <Card className="border-dashed border-2">
-          <CardContent className="pt-6">
-            <div className="text-center text-muted-foreground">
-              <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">💰 Métriques de revenus (MRR, ARR, LTV)</p>
-              <p className="text-sm mt-2">
-                Connectez Stripe pour voir les métriques de revenus en temps réel
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </AdminLayout>
   );
 }
