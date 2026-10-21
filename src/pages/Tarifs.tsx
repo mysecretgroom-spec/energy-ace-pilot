@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layout/Footer";
+import { SellerAddress } from "@/components/legal/LegalPage";
+
 import { PLANS, TOPUPS, formatEur, yearlySavings, type PlanTier } from "@/lib/plans";
 
 const TIERS: PlanTier[] = ["classique", "premium"];
