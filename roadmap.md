@@ -2,9 +2,10 @@
 
 ## En cours
 - [x] Corriger les trois alertes critiques d’accès aux paramètres ; nouveau scan sans erreurs critiques, 3 tests de propriété et lectures connectées/anonymes vérifiés.
-- [ ] Publication et vérification paiements MIWEHA : publication demandée ; formulaire vendeur à compléter dans Paiements avec 49 rue d’Hauteville, 75010 Paris.
+- [x] Publication demandée ; tarifs, CGV, confidentialité et remboursement sur le domaine publié affichent MIWEHA, 49 rue d’Hauteville, 75010 Paris sans ALFRED.
+- [ ] Vérification vendeur paiements : contrôle des pages terminé (6 critères validés) ; formulaire vendeur à compléter par l’utilisateur dans Paiements, puis revue du prestataire.
 - [x] Intégrations MCP : clients/RDV en lecture seule avec OAuth et droits du compte, retour connexion/inscription, lecture navigateur des RDV affichés, catalogue extrait et tests de protection ; essai consentement réel bloqué par origine localhost non autorisée.
-- [ ] Activer la nouvelle version MCP : attend la republication par l’utilisateur ; vérifier ensuite le parcours OAuth complet sur l’adresse publiée.
+- [ ] Publication MCP demandée avec l’app ; parcours OAuth complet encore non vérifié sur le domaine publié (hors demande de vérification des paiements).
 - [x] Revérifier le rendu des aperçus : photos portrait/paysage, défilement, zoom, PDF 2 pages et réouverture sur téléphone simulé/ordinateur ; correction du zoom qui décalait la photo hors écran, 8 tests réussis et aucune erreur navigateur ; fichiers de contrôle seulement (aucun document accessible sur le compte), iPhone physique non vérifié.
 - [x] Téléchargements : enregistrement natif mobile, téléchargement système ordinateur et nouveau tap Enregistrer si préparation longue ; 8 tests réussis, PDF/PNG téléchargés et relus, appel natif simulé vérifié connecté ; feuille OS sur iPhone physique non vérifiée.
 - [x] Aperçus documents/photos unifiés (dossier client, scan, imports, factures, simulations) : miniature → plein écran sobre, défilement latéral, zoom et pages PDF ; 5 tests et parcours connecté avec documents de contrôle sur téléphone/ordinateur sans erreur ; appareil iPhone physique et fichiers privés réels non testés.
@@ -52,7 +53,7 @@
 - [x] Offres Classique / Premium (mensuel + annuel 2 mois offerts), recharges IA 5/20/50 €
 - [x] Montée immédiate / baisse à l'échéance, portail de gestion, quotas IA 10/15 €
 - [x] Suppression des anciens liens Stripe, verrouillage des fonctions de changement d'accès
-- [ ] Pages légales (CGV/remboursement/confidentialité) conformes — en attente de la raison sociale
+- [x] Pages légales publiques : vendeur MIWEHA, 49 rue d’Hauteville, 75010 Paris ; critères de préparation paiements validés.
 - [ ] Test d'achat manuel en aperçu avec carte de test
 
 ## Latence (audit 19/10)
