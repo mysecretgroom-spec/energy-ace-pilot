@@ -1,0 +1,12 @@
+DROP POLICY IF EXISTS "Authenticated users can read data_psh" ON public.data_psh;
+DROP POLICY IF EXISTS "Authenticated users can view data_zones_climatiques" ON public.data_zones_climatiques;
+CREATE POLICY "Users can view shared or own climate zones" ON public.data_zones_climatiques FOR SELECT TO authenticated USING (user_id IS NULL OR user_id = (SELECT auth.uid()));
+ALTER POLICY "Users can update own zones climatiques" ON public.data_zones_climatiques TO authenticated USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+ALTER POLICY "Users can insert own zones climatiques" ON public.data_zones_climatiques TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
+ALTER POLICY "Users can delete own zones climatiques" ON public.data_zones_climatiques TO authenticated USING (user_id = (SELECT auth.uid()));
+ALTER POLICY "Users can update own PSH data" ON public.data_psh TO authenticated USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
+ALTER POLICY "Everyone can view config" ON public.config_commissions TO authenticated USING ((SELECT auth.uid()) IS NOT NULL);
+COMMENT ON TABLE public.config_commissions IS 'Shared non-personal commission calculation defaults: authenticated users read the singleton configuration; only role-checked admins may modify it. Agency-specific settings live separately in regies.';
+REVOKE ALL ON public.config_commissions, public.data_psh, public.data_zones_climatiques FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.config_commissions, public.data_psh, public.data_zones_climatiques TO authenticated;
+GRANT ALL ON public.config_commissions, public.data_psh, public.data_zones_climatiques TO service_role;
