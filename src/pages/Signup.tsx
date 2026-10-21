@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,9 @@ const Signup = () => {
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const { signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = oauthReturnPath(params.get("next"));
+  const loginPath = next === "/" ? "/login" : "/login?next=" + encodeURIComponent(next);
   const { toast } = useToast();
 
   const checkDuplicates = async (): Promise<boolean> => {
@@ -108,7 +112,7 @@ const Signup = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, firstName, lastName);
+    const { error } = await signUp(email, password, firstName, lastName, next);
 
     if (error) {
       toast({
@@ -130,7 +134,7 @@ const Signup = () => {
 
       setShowSuccess(true);
       setTimeout(() => {
-        navigate("/");
+        navigate(next);
       }, 1500);
     }
 
@@ -139,7 +143,7 @@ const Signup = () => {
 
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
-    const { error } = await signInWithGoogle();
+    const { error } = await signInWithGoogle(next);
     
     if (error) {
       toast({
@@ -174,7 +178,7 @@ const Signup = () => {
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="flex flex-col gap-2">
                 <span>{duplicateError}</span>
-                <Link to="/login" className="text-sm font-medium underline">
+                <Link to={loginPath} className="text-sm font-medium underline">
                   → Se connecter
                 </Link>
               </AlertDescription>
@@ -319,7 +323,7 @@ const Signup = () => {
         <CardFooter>
           <p className="text-sm text-muted-foreground text-center w-full">
             Déjà un compte ?{" "}
-            <Link to="/login" className="text-primary font-medium hover:underline">
+            <Link to={loginPath} className="text-primary font-medium hover:underline">
               Se connecter
             </Link>
           </p>

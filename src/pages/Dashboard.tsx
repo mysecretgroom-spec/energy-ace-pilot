@@ -41,6 +41,8 @@ import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { DashboardKPISkeleton, DashboardRdvListSkeleton } from "@/components/common/DashboardSkeletons";
 import { DashboardQuickActions } from "@/components/common/QuickActions";
 import { OnboardingBanner } from "@/components/onboarding/OnboardingBanner";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 
 interface DashboardStats {
   // Ventes
@@ -183,6 +185,14 @@ const Dashboard = () => {
   const [regies, setRegies] = useState<{ id: string; nom: string; couleur: string }[]>([]);
   const [regieFilter, setRegieFilter] = useState<string[]>([]);
   const [period, setPeriod] = useState<PeriodValue>(() => makeMonthPeriod(new Date()));
+  useWebMCP({
+    name: "read_visible_appointments",
+    description: "Read only the next appointments displayed on the current dashboard, without contact details or hidden records.",
+    enabled: Boolean(user) && !loading,
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: () => runWebMCPTool("read_visible_appointments", () =>
+      prochainsRdv.length === 0 ? "Aucun rendez-vous affiché." : prochainsRdv.map(rdv => `${rdv.id} : ${rdv.client_nom} ${rdv.client_prenom ?? ""} — ${rdv.date_heure} — ${rdv.status}`).join("\n")),
+  });
   
   // Dialog state
   const [statDialogOpen, setStatDialogOpen] = useState(false);
