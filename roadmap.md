@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [ ] Corriger les trois alertes critiques d’accès aux paramètres, vérifier puis publier l’app et contrôler la vérification paiements MIWEHA (49 rue d’Hauteville, 75010 Paris).
 - [x] Intégrations MCP : clients/RDV en lecture seule avec OAuth et droits du compte, retour connexion/inscription, lecture navigateur des RDV affichés, catalogue extrait et tests de protection ; essai consentement réel bloqué par origine localhost non autorisée.
 - [ ] Activer la nouvelle version MCP : attend la republication par l’utilisateur ; vérifier ensuite le parcours OAuth complet sur l’adresse publiée.
 - [x] Revérifier le rendu des aperçus : photos portrait/paysage, défilement, zoom, PDF 2 pages et réouverture sur téléphone simulé/ordinateur ; correction du zoom qui décalait la photo hors écran, 8 tests réussis et aucune erreur navigateur ; fichiers de contrôle seulement (aucun document accessible sur le compte), iPhone physique non vérifié.
