@@ -35,6 +35,7 @@ const Signup = React.lazy(() => import("./pages/Signup"));
 const NotFound = React.lazy(() => import("./pages/NotFound"));
 const Install = React.lazy(() => import("./pages/Install"));
 const AuthCallback = React.lazy(() => import("./pages/AuthCallback"));
+const OAuthConsent = React.lazy(() => import("./pages/OAuthConsent"));
 
 // Settings sub-pages
 const GmailAutoSync = React.lazy(() => import("./pages/settings/GmailAutoSync"));
@@ -150,6 +151,7 @@ const App = () => {
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/login" element={<Login />} />
+                      <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                       <Route path="/presentation" element={<PresentationVideo />} />
                       <Route path="/tarifs" element={<Tarifs />} />
                       <Route path="/signup" element={<Signup />} />

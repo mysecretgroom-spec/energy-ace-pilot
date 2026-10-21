@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session, AuthenticatorAssuranceLevels } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { clearMFASession } from "@/lib/mfaSessionCache";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 import {
   clearCorruptedAuthStorage,
   hasMalformedAuthTokenError,
@@ -14,9 +15,9 @@ interface AuthContextType {
   loading: boolean;
   mfaRequired: boolean;
   currentLevel: AuthenticatorAssuranceLevels | null;
-  signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, firstName?: string, lastName?: string, next?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string, stayConnected?: boolean) => Promise<{ error: Error | null; mfaRequired?: boolean }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithGoogle: (next?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   checkMFAStatus: () => Promise<{ mfaRequired: boolean; currentLevel: AuthenticatorAssuranceLevels | null }>;
 }
@@ -176,13 +177,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
+  const signUp = async (email: string, password: string, firstName?: string, lastName?: string, next?: string) => {
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: new URL(oauthReturnPath(next), window.location.origin).href,
           data: {
             first_name: firstName,
             last_name: lastName,
@@ -244,12 +245,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (next?: string) => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: new URL(next ? oauthReturnPath(next) : "/auth/callback", window.location.origin).href,
           scopes: "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.file",
           queryParams: {
             access_type: "offline",

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { oauthReturnPath } from "@/lib/oauth-return-path";
 import { useAuth } from "@/hooks/useAuth";
 import { useBiometricLogin, BiometricAccount } from "@/hooks/useBiometricLogin";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,8 @@ const Login = () => {
   const { signIn, signInWithGoogle } = useAuth();
   const { isSupported: biometricSupported, savedAccounts, authenticateAccount, removeAccount, updateStoredToken } = useBiometricLogin();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = oauthReturnPath(params.get("next"));
   const { toast } = useToast();
 
   // Load saved email on mount
@@ -102,14 +105,14 @@ const Login = () => {
       
       // Navigate after animation
       setTimeout(() => {
-        navigate("/");
+        navigate(next);
       }, 1500);
     }
   };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    const { error } = await signInWithGoogle();
+    const { error } = await signInWithGoogle(next);
     
     if (error) {
       toast({
@@ -148,7 +151,7 @@ const Login = () => {
         setShowSuccess(true);
         
         setTimeout(() => {
-          navigate("/");
+          navigate(next);
         }, 1500);
       } else {
         // Biometric verified but session couldn't be restored
@@ -304,7 +307,7 @@ const Login = () => {
           <CardFooter>
             <p className="text-sm text-muted-foreground text-center w-full">
               Pas encore de compte ?{" "}
-              <Link to="/signup" className="text-primary font-medium hover:underline">
+              <Link to={next === "/" ? "/signup" : "/signup?next=" + encodeURIComponent(next)} className="text-primary font-medium hover:underline">
                 Créer un compte
               </Link>
               {" · "}
