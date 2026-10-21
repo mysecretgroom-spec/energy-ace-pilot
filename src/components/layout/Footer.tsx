@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { SellerAddress } from "@/components/legal/LegalPage";
+
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -16,7 +18,7 @@ export const Footer = () => {
           Documents légaux
         </Link>
         <p className="text-center">
-          © {currentYear} DébalePro. Tous droits réservés.
+          © {currentYear} <SellerAddress />. Tous droits réservés.
         </p>
       </div>
     </footer>
