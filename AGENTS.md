@@ -21,3 +21,4 @@
 - WhatsApp webhook acks Twilio immediately, dedupes by MessageSid and processes each user's messages sequentially in background (waitUntil), because concurrent messages raced on conversation state and hit 150s timeouts.
 
 - Burst scans default to the in-app camera, guard capture/finish synchronously and render outside transformed layouts; pages are pre-cropped once (services/scanPipeline) and reviewed in a height-bounded BatchCropReview carousel, then go to ReviewDocument with CropEditor per page on demand, preventing lost captures and clipped images.
+- Admin console metrics come from security-definer RPCs (admin_get_metrics, admin_get_user_360) that check is_saas_admin and aggregate server-side; admin pages share src/components/admin/AdminUI primitives for a consistent dense layout.
