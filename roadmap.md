@@ -1,6 +1,7 @@
 # Roadmap
 
 ## En cours
+- [ ] Mettre à jour les dépendances vulnérables de l'app (jspdf critique, pdfjs-dist, @lovable.dev/mcp-js, @supabase/supabase-js) ; PHP non utilisé dans ce projet.
 - [ ] Contrôle terrain PAC/ITE avant les calculs : points de contrôle, photos légendées, mesures façade par façade, sauvegarde et vérification du parcours.
 - [x] Corriger les trois alertes critiques d’accès aux paramètres ; nouveau scan sans erreurs critiques, 3 tests de propriété et lectures connectées/anonymes vérifiés.
 - [x] Publication demandée de nouveau ; déploiement programmé, confirmation de cette dernière version en ligne encore attendue. Les pages publiques contrôlées affichent MIWEHA, 49 rue d’Hauteville, 75010 Paris sans ALFRED.
