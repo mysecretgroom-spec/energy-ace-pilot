@@ -3185,6 +3185,7 @@ export type Database = {
           siret: string | null
           updated_at: string
           user_id: string
+          ville: string | null
         }
         Insert: {
           actif?: boolean
@@ -3203,6 +3204,7 @@ export type Database = {
           siret?: string | null
           updated_at?: string
           user_id: string
+          ville?: string | null
         }
         Update: {
           actif?: boolean
@@ -3221,6 +3223,7 @@ export type Database = {
           siret?: string | null
           updated_at?: string
           user_id?: string
+          ville?: string | null
         }
         Relationships: []
       }

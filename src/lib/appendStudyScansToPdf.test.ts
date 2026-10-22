@@ -21,13 +21,13 @@ describe("study scan annexes", () => {
     expect(studyScanAssociation("study-1")).toEqual({ etude_id: "study-1", context_source: "study_scan" });
     expect(studyScanAssociation()).toEqual({});
   });
-  it("adds every scan page after the study without changing page dimensions", async () => {
+  it("adds every scan page after the study in the report's uniform format", async () => {
     state.data = [{ id: "scan-1", nom: "RIB", url: "https://example.test/scan.pdf" }];
     const scan = await pdf(420, 2);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(scan)));
     const result = await appendStudyScansToPdf(await pdf(595), "user-1", "client-1", "study-1");
     const merged = await PDFDocument.load(await result.arrayBuffer());
-    expect(merged.getPages().map(p => p.getWidth())).toEqual([595, 420, 420]);
+    expect(merged.getPages().map(p => p.getWidth())).toEqual([595, 595, 595]);
     expect(state.filters).toEqual([["user_id", "user-1"], ["client_id", "client-1"], ["etude_id", "study-1"], ["context_source", "study_scan"]]);
   });
   it("keeps a study without scans unchanged", async () => {

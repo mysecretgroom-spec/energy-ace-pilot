@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -247,7 +248,7 @@ export function QuickR2Dialog({
         return sc ? { id: sc.id, nom: sc.nom, code: sc.code, prix: calcSurcoutPrice(sc) } : null;
       }).filter(Boolean);
 
-      const etudeUpdate: Record<string, unknown> = {
+      const etudeUpdate: Database["public"]["Tables"]["etudes"]["Update"] = {
         puissance_kwc: productType !== "ITE" ? puissanceNum : null,
         prix_total: prixTTCNum,
         prix_installation: parseFloat(prixHT) || null,

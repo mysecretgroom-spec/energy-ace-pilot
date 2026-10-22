@@ -1,0 +1,1 @@
+ALTER TABLE public.regies ADD COLUMN IF NOT EXISTS ville text;

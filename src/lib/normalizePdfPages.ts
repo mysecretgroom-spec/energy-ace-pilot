@@ -29,6 +29,11 @@ export async function appendPagesUniform(target: PDFDocument, source: PDFDocumen
   const ref = target.getPageCount() > 0 ? target.getPage(0).getSize() : { width: 595.28, height: 841.89 };
   const pages = source.getPages();
   if (!pages.length) return;
+  // A page with no content stream cannot be embedded by pdf-lib: give empty
+  // pages an invisible mark so they are shared instead of breaking the export.
+  pages.forEach((p) => {
+    if (!p.node.Contents()) p.drawRectangle({ x: 0, y: 0, width: 0.5, height: 0.5, opacity: 0 });
+  });
   const embedded = await target.embedPages(pages);
   embedded.forEach((ep) => {
     const page = target.addPage([ref.width, ref.height]);
