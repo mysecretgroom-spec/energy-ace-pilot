@@ -84,6 +84,9 @@
     "zod": "^3.25.76"
   },
   "overrides": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "@modelcontextprotocol/server": "^2.3.0",
+    "js-yaml": "^4.3.2",
     "tar": "^7.5.22",
     "brace-expansion": "^2.1.6",
     "@isaacs/brace-expansion": "^5.0.1",
