@@ -23,6 +23,11 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     force: mode === "development",
   },
+  // Le worker du scanner est bundlé en module ES : le format IIFE par défaut
+  // échoue avec le Rollup actuel (« Transforming destructuring … not supported »).
+  worker: {
+    format: "es" as const,
+  },
   plugins: [
     react(),
     mcpPlugin(),
