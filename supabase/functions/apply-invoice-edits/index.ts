@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
-import { visitorWriteGuard } from "../_shared/visitorWriteGuard.ts";
+import { visitorWriteGuard } from "../_shared/visitorGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

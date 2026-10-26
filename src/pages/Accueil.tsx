@@ -71,7 +71,7 @@ export default function Accueil() {
               <Button asChild size="lg"><Link to="/essai-gratuit">Essayer 10 jours gratuits</Link></Button>
               <VisitorButton size="lg" variant="outline" />
             </div>
-            <p className="text-xs text-muted-foreground">Sans engagement · Mode visiteur sans compte : études, planning et CRM avec données fictives, IA désactivée</p>
+            <p className="text-xs text-muted-foreground">Sans engagement · Mode visiteur sans compte : études, planning et CRM avec données fictives, IA incluse</p>
           </div>
           <div className="grid grid-cols-4 gap-2 md:gap-3">
             {SCREENS.map(({ src, label, alt }) => (

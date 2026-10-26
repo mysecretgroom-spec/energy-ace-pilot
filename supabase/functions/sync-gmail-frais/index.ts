@@ -12,7 +12,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, getUserIdFromAuth, getValidAccessToken } from "../_shared/google-auth.ts";
-import { visitorWriteGuard } from "../_shared/visitorWriteGuard.ts";
+import { visitorWriteGuard } from "../_shared/visitorGuard.ts";
 
 const GMAIL_API_BASE = "https://www.googleapis.com/gmail/v1";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
