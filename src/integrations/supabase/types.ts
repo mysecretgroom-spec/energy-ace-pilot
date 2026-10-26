@@ -4067,6 +4067,39 @@ export type Database = {
           },
         ]
       }
+      whatsapp_image_archives: {
+        Row: {
+          created_at: string
+          id: string
+          image_count: number
+          period_end: string | null
+          period_start: string | null
+          size_bytes: number
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_count?: number
+          period_end?: string | null
+          period_start?: string | null
+          size_bytes?: number
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_count?: number
+          period_end?: string | null
+          period_start?: string | null
+          size_bytes?: number
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_messages: {
         Row: {
           action_taken: string | null

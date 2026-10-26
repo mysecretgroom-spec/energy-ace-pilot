@@ -85,6 +85,13 @@
       "when": 1793014592069,
       "tag": "0011_keep_whatsapp_images",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793014677038,
+      "tag": "0012_whatsapp_image_archives",
+      "breakpoints": true
     }
   ]
 }
