@@ -157,6 +157,7 @@ export function useBackgroundJobs() {
       .subscribe();
 
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [userId, fetchPendingJobs, toast]);
