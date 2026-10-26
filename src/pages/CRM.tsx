@@ -50,7 +50,7 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { VenteStatus, isCancellationStatus } from "@/lib/venteStatusConfig";
-import { israeliWeekRange, shiftWeek, formatWeekLabel } from "@/lib/israeliWeek";
+import { israeliWeekRange, shiftWeek, formatWeekLabel, monthRange, shiftMonth, formatMonthLabel } from "@/lib/israeliWeek";
 
 interface Regie {
   id: string;
@@ -128,8 +128,9 @@ const CRM = () => {
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientsError, setClientsError] = useState(false);
   const [showActiveOnly, setShowActiveOnly] = useState(true);
-  // Week view (Sun–Sat): clients with an RDV this week, loaded in one request
-  const [weekAnchor, setWeekAnchor] = useState<Date | null>(() => new Date());
+  // Période clients : tous, semaine (dim–sam) ou mois ; chargés en une requête
+  const [periodMode, setPeriodMode] = useState<"all" | "week" | "month">("week");
+  const [periodAnchor, setPeriodAnchor] = useState<Date>(() => new Date());
   const [clientCategoryFilters, setClientCategoryFilters] = useState<string[]>([]);
   
   // Client-RDV status mapping (loaded with clients)
@@ -221,7 +222,7 @@ const CRM = () => {
       fetchVentes();
       fetchRegies();
     }
-  }, [user, showActiveOnly, weekAnchor]);
+  }, [user, showActiveOnly, periodMode, periodAnchor]);
 
   const fetchRegies = async () => {
     if (!user) return;
@@ -240,8 +241,8 @@ const CRM = () => {
     setClientsError(false);
     try {
     
-    if (weekAnchor) {
-      const { start, end } = israeliWeekRange(weekAnchor);
+    if (periodMode !== "all") {
+      const { start, end } = periodMode === "week" ? israeliWeekRange(periodAnchor) : monthRange(periodAnchor);
       const { data, error } = await supabase
         .from("rdv")
         .select("client_id, status, date_heure, clients!inner(*, ventes(status))")
