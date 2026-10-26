@@ -504,8 +504,35 @@ body.etude-theme {
       inset 0 -1px 0 hsl(var(--glass-shade) / 0.12),
       inset 1px 0 0 hsl(var(--glass-highlight) / 0.20),
       inset -1px 0 0 hsl(var(--glass-highlight) / 0.20);
+    position: relative;
+    isolation: isolate;
   }
   .btn-glass:hover {
     background: linear-gradient(180deg, hsl(var(--accent) / 0.95) 0%, hsl(var(--accent) / 0.85) 100%);
+  }
+
+  /* Distorsion lumineuse sur les bords uniquement : liseré réfracté,
+     sans voile sur la surface, sans ombre et sans animation. */
+  .btn-glass-primary::before,
+  .btn-glass-destructive::before,
+  .btn-glass-secondary::before,
+  .btn-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from 210deg,
+      hsl(var(--glass-highlight) / 0.80) 0deg,
+      hsl(var(--glass-highlight) / 0.10) 70deg,
+      hsl(var(--glass-shade) / 0.30) 160deg,
+      hsl(var(--glass-highlight) / 0.40) 250deg,
+      hsl(var(--glass-highlight) / 0.80) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: -1;
   }
 }
