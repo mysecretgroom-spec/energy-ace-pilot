@@ -577,7 +577,7 @@ const Planning = () => {
             onValueChange={(v) => setViewMode(v as ViewMode)}
             className="flex-1"
           >
-            <TabsList className="w-full grid grid-cols-3">
+            <TabsList className="w-full grid grid-cols-3 h-auto">
               <TabsTrigger value="jour" className="text-sm sm:text-base touch-action-manipulation">Jour</TabsTrigger>
               <TabsTrigger value="semaine" className="text-sm sm:text-base touch-action-manipulation">Semaine</TabsTrigger>
               <TabsTrigger value="mois" className="text-sm sm:text-base touch-action-manipulation">Mois</TabsTrigger>
