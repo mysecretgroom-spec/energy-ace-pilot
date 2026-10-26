@@ -11,3 +11,5 @@
 - [x] Choisir les études et documents gardés hors ligne (Paramètres > Disponible hors ligne)
 - [x] Auto hors ligne : études + documents clients des RDV de la semaine (dim→sam)
 - [ ] Stockage Google Drive de chaque utilisateur — en attente : config Google (URI, API Drive, publication)
+- [x] Audit textes/polices/alignements (33 pages, clair + sombre)
+- [x] Vue « Envois Google Drive » (Paramètres) — se remplira quand l’envoi Drive sera branché

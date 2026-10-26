@@ -230,7 +230,7 @@ const DataIsolationPAC = () => {
                         <Input
                           value={item.niveau_isolation}
                           onChange={(e) => handleChange(item.id, "niveau_isolation", e.target.value)}
-                          className="h-8 text-xs font-mono"
+                          className="h-8 text-xs tabular-nums"
                           disabled={item.isGlobal}
                         />
                       </div>

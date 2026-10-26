@@ -233,7 +233,7 @@ const DataPSH = () => {
                       <Input
                         value={item.department_code}
                         onChange={(e) => handleFieldChange(item.id, "department_code", e.target.value)}
-                        className="h-8 w-16 font-mono text-xs"
+                        className="h-8 w-16 tabular-nums text-xs"
                         placeholder="Code"
                       />
                       <Input
