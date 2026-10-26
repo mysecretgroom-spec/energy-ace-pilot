@@ -94,7 +94,7 @@ export function BlurOverlay({
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className={`absolute inset-0 z-20 flex items-center justify-center rounded-xl cursor-pointer ${
+            className={`absolute inset-0 z-20 flex items-start justify-center rounded-xl cursor-pointer ${
               opaque ? "bg-background/80" : "bg-background/40"
             }`}
             style={{ 
@@ -112,7 +112,7 @@ export function BlurOverlay({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: 0.2 }}
-              className="text-center"
+              className="text-center sticky top-[35vh] mt-[20vh]"
             >
               <div className={`rounded-2xl px-6 py-4 shadow-lg border border-border ${
                 opaque ? "bg-card" : "bg-card/95 backdrop-blur-sm"
