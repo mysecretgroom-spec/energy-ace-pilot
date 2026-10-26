@@ -4,6 +4,7 @@
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { visitorGuard } from "../_shared/visitorGuard.ts";
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
@@ -18,6 +19,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  { const __visitor = visitorGuard(req, corsHeaders); if (__visitor) return __visitor; }
 
   const authorization = req.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) return json({ error: "Connexion requise" }, 401);

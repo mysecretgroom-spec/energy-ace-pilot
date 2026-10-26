@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { visitorGuard } from "../_shared/visitorGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -250,6 +251,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  { const __visitor = visitorGuard(req, corsHeaders); if (__visitor) return __visitor; }
 
   try {
     const body = (await req.json()) as OCRRequest;

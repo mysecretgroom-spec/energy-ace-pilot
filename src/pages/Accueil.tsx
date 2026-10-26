@@ -3,6 +3,7 @@ import { ClipboardList, ScanLine, MessageCircle, WifiOff, Check } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layout/Footer";
 import Tarifs from "@/pages/Tarifs";
+import { VisitorButton } from "@/components/auth/VisitorButton";
 import shotEtudes from "@/assets/capture-etudes.jpg";
 import shotScanner from "@/assets/capture-scanner.jpg";
 import shotWhatsapp from "@/assets/capture-whatsapp.jpg";
@@ -68,9 +69,9 @@ export default function Accueil() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild size="lg"><Link to="/signup">Essayer 10 jours gratuits</Link></Button>
-              <Button asChild size="lg" variant="outline"><a href="#fonctionnalites">Découvrir</a></Button>
+              <VisitorButton size="lg" variant="outline" />
             </div>
-            <p className="text-xs text-muted-foreground">Sans engagement · Résiliable à tout moment</p>
+            <p className="text-xs text-muted-foreground">Sans engagement · Mode visiteur sans compte : études, planning et CRM avec données fictives, IA désactivée</p>
           </div>
           <div className="grid grid-cols-4 gap-2 md:gap-3">
             {SCREENS.map(({ src, label, alt }) => (

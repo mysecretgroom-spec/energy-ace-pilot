@@ -5,6 +5,8 @@ import { useSaasAccess } from "@/hooks/useSaasAccess";
 import { PaywallScreen } from "@/components/saas/PaywallScreen";
 import { TrialBanner } from "@/components/saas/TrialBanner";
 import { PageError, PageLoading } from "@/components/common/PageState";
+import { VisitorBanner } from "@/components/auth/VisitorBanner";
+import { isVisitorPathAllowed, isVisitorUser } from "@/lib/visitorMode";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -35,6 +37,16 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isVisitorUser(user.id)) {
+    if (!isVisitorPathAllowed(location.pathname)) return <Navigate to="/planning" replace />;
+    return (
+      <>
+        <VisitorBanner />
+        {children}
+      </>
+    );
   }
 
   if (accessError || (isSaasLoading && saasTimedOut)) {

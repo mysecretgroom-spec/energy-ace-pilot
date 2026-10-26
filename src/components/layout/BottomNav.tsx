@@ -4,6 +4,8 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { BackgroundJobsIndicator } from "./BackgroundJobsIndicator";
 import { useRoutePrefetch } from "@/hooks/useRoutePrefetch";
+import { useAuth } from "@/hooks/useAuth";
+import { isVisitorUser, VISITOR_NAV_PATHS } from "@/lib/visitorMode";
 
 const navItems = [
   { icon: Home, label: "Accueil", path: "/" },
@@ -17,6 +19,9 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
   (props, ref) => {
     const location = useLocation();
     const prefetch = useRoutePrefetch();
+    const { user } = useAuth();
+    const visitor = isVisitorUser(user?.id);
+    const items = visitor ? navItems.filter((i) => VISITOR_NAV_PATHS.includes(i.path)) : navItems;
 
     return (
       <nav
@@ -29,8 +34,8 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
         <div className="absolute -top-10 right-2">
           <BackgroundJobsIndicator />
         </div>
-        <div className="grid grid-cols-5 h-16 max-w-lg md:max-w-2xl mx-auto">
-          {navItems.map(({ icon: Icon, label, path }) => {
+        <div className={cn("grid h-16", visitor ? "grid-cols-2" : "grid-cols-5", " max-w-lg md:max-w-2xl mx-auto")}>
+          {items.map(({ icon: Icon, label, path }) => {
             const isActive = location.pathname === path;
             return (
               <Link

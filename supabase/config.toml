@@ -58,3 +58,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.archive-whatsapp-images]
 verify_jwt = false
+
+[functions.visitor-session]
+verify_jwt = false
