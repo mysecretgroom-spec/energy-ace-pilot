@@ -28,8 +28,14 @@ async function savePins(userId: string, pins: Pin[]) {
   window.dispatchEvent(new Event(PINS_EVENT));
 }
 
-async function cacheFile(url: string): Promise<number> {
-  const res = await fetch(await resolvePreviewUrl(url));
+async function cacheFile(url: string, bucket?: string): Promise<number> {
+  let href: string;
+  if (bucket && !/^https?:/.test(url)) {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(url, 600);
+    if (error || !data) throw error ?? new Error("Lien introuvable");
+    href = data.signedUrl;
+  } else href = await resolvePreviewUrl(url);
+  const res = await fetch(href);
   if (!res.ok) throw new Error(`Téléchargement impossible (${res.status})`);
   const blob = await res.blob();
   await kvSet(fileKey(url), blob);
@@ -55,7 +61,7 @@ export async function pinEtude(userId: string, etude: { id: string; label: strin
   const fileUrls: string[] = [];
   let bytes = JSON.stringify(res.data).length;
   const pdf = (res.data as { pdf_url?: string | null }).pdf_url;
-  if (pdf) { try { bytes += await cacheFile(pdf); fileUrls.push(pdf); } catch (e) { console.warn("[PinEtude] PDF", e); } }
+  if (pdf) { try { bytes += await cacheFile(pdf, "etudes-pdf"); fileUrls.push(pdf); } catch (e) { console.warn("[PinEtude] PDF", e); } }
   const { data: docs } = await supabase.from("documents").select("url").eq("etude_id", etude.id).limit(60);
   for (const d of docs ?? []) {
     try { bytes += await cacheFile(d.url); fileUrls.push(d.url); } catch { /* fichier manquant : on continue */ }
