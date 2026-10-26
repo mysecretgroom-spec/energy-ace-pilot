@@ -155,11 +155,11 @@ const DataEconomiesITE = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-green-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
-                        <Badge className="text-[10px] bg-green-100 text-green-700">-{item.economie_chauffage_pct}%</Badge>
+                        <Badge className="text-xs bg-green-100 text-green-700">-{item.economie_chauffage_pct}%</Badge>
                         <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
                       </div>
                       {!item.isGlobal && (
@@ -171,21 +171,21 @@ const DataEconomiesITE = () => {
 
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Gain R min</label>
+                        <label className="text-xs text-muted-foreground">Gain R min</label>
                         <Input type="number" step="0.5" value={item.gain_r_min} onChange={(e) => handleChange(item.id, "gain_r_min", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Gain R max</label>
+                        <label className="text-xs text-muted-foreground">Gain R max</label>
                         <Input type="number" step="0.5" value={item.gain_r_max} onChange={(e) => handleChange(item.id, "gain_r_max", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Économie %</label>
+                        <label className="text-xs text-muted-foreground">Économie %</label>
                         <Input type="number" value={item.economie_chauffage_pct} onChange={(e) => handleChange(item.id, "economie_chauffage_pct", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Description</label>
+                      <label className="text-xs text-muted-foreground">Description</label>
                       <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                     </div>
                   </div>

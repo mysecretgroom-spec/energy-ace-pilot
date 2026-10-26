@@ -287,7 +287,7 @@ export function SurcoutsExtractor({
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Catégorie</label>
+                        <label className="text-xs text-muted-foreground">Catégorie</label>
                         <Select
                           value={s.categorie}
                           onValueChange={(value) => update(index, "categorie", value)}
@@ -305,7 +305,7 @@ export function SurcoutsExtractor({
                         </Select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Code</label>
+                        <label className="text-xs text-muted-foreground">Code</label>
                         <Input
                           value={s.code}
                           onChange={(e) => update(index, "code", e.target.value)}
@@ -315,7 +315,7 @@ export function SurcoutsExtractor({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground flex items-center gap-1">
                           <Euro className="h-3 w-3" />
                           Prix
                         </label>
@@ -327,7 +327,7 @@ export function SurcoutsExtractor({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Type calcul</label>
+                        <label className="text-xs text-muted-foreground">Type calcul</label>
                         <Select
                           value={s.type_calcul}
                           onValueChange={(value) => update(index, "type_calcul", value as ExtractedSurcout["type_calcul"])}

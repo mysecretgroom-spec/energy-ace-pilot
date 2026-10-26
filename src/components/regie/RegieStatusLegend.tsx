@@ -131,7 +131,7 @@ export const RegieStatusLegend = ({ ventes }: RegieStatusLegendProps) => {
                       className="flex items-center justify-between text-sm py-1 px-2 rounded hover:bg-accent/30"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${groupColors[group]}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded border ${groupColors[group]}`}>
                           {groupLabels[group]}
                         </span>
                         <span className="truncate">{VENTE_STATUS_LABELS[status]}</span>

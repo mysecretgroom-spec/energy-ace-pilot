@@ -180,7 +180,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
             <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5 min-w-0">
               <GripVertical className="hidden sm:block h-2.5 w-2.5 shrink-0 text-muted-foreground/50" />
               <Clock className={cn("h-2.5 w-2.5", getRdvTypeStyle(typeRdv).clockIconClass)} />
-              <span className={cn("text-[10px] font-semibold", getRdvTypeStyle(typeRdv).clockTextClass)}>
+              <span className={cn("text-[11px] font-semibold", getRdvTypeStyle(typeRdv).clockTextClass)}>
                 {time}
               </span>
               {typeRdv === "installation" && (
@@ -195,16 +195,16 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
                 <RefreshCw className="h-2.5 w-2.5 text-status-r2" />
               )}
             </div>
-            <p className="text-[10px] font-medium leading-tight text-foreground line-clamp-2 break-words sm:truncate sm:block">
+            <p className="text-[11px] font-medium leading-tight text-foreground line-clamp-2 break-words sm:truncate sm:block">
               {client}
             </p>
             <div className="mt-0.5 flex items-center gap-1 flex-wrap">
               {typeRdv === "installation" ? (
-                <span className="commission-badge text-[8px] px-1.5 py-0 rounded-full font-semibold">
+                <span className="commission-badge text-[11px] px-1.5 py-0 rounded-full font-semibold">
                   {commissionNette != null ? `${commissionNette.toLocaleString("fr-FR")} €` : "Pose"}
                 </span>
               ) : (
-                <StatusBadge status={status} className="text-[8px] px-1 py-0" />
+                <StatusBadge status={status} className="text-[11px] px-1 py-0" />
               )}
               {regieNom && (
                 <span

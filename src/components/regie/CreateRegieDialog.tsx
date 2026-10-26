@@ -286,7 +286,7 @@ export function CreateRegieDialog({
                         />
                         {regie.nom}
                         {regie.is_hejja && (
-                          <Badge variant="destructive" className="text-[10px] h-4">
+                          <Badge variant="destructive" className="text-xs h-4">
                             HEJJA
                           </Badge>
                         )}

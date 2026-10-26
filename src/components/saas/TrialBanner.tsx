@@ -50,7 +50,7 @@ export function TrialBanner({ daysLeft }: TrialBannerProps) {
               {label}
             </span>
             {endDate && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-xs text-muted-foreground truncate">
                 Fin le {endDate}
               </span>
             )}

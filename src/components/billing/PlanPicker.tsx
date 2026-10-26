@@ -24,7 +24,7 @@ export function PlanPicker({ currentPriceId, busy, onSelect }: Props) {
             className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${cycle === c ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
           >
             {c === "monthly" ? "Mensuel" : "Annuel"}
-            {c === "yearly" && <Badge className="ml-1.5 text-[10px] px-1.5 py-0">2 mois offerts</Badge>}
+            {c === "yearly" && <Badge className="ml-1.5 text-xs px-1.5 py-0">2 mois offerts</Badge>}
           </button>
         ))}
       </div>

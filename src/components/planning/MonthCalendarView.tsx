@@ -177,7 +177,7 @@ export function MonthCalendarView({
                       activeRdvs.map((rdv) => (
                         <div
                           key={rdv.id}
-                          className={`text-[9px] px-1 py-0.5 rounded truncate select-none ${
+                          className={`text-[11px] px-1 py-0.5 rounded truncate select-none ${
                             rdv.typeRdv === "external_installation"
                               ? "bg-secondary/25 text-secondary-foreground dark:text-secondary"
 
@@ -192,7 +192,7 @@ export function MonthCalendarView({
                     ) : (
                       <Badge
                         variant="secondary"
-                        className={`text-[9px] h-4 w-full justify-center ${getStatusColor(
+                        className={`text-[11px] h-4 w-full justify-center ${getStatusColor(
                           activeRdvs
                         )} text-white`}
                       >

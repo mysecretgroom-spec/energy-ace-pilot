@@ -353,7 +353,7 @@ const AgentMemoryManager = () => {
                         <Icon className="h-3 w-3 mr-1" />
                         {info.label}
                       </Badge>
-                      <Badge variant="outline" className="text-[10px] font-normal">
+                      <Badge variant="outline" className="text-xs font-normal">
                         {memory.scope === "global"
                           ? "Commun"
                           : memory.scope === "regie"

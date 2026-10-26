@@ -27,7 +27,7 @@ export const ClientMapEmbed = React.memo(function ClientMapEmbed({ address }: Cl
   return (
     <div className="pt-2 border-t space-y-2">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
           <MapPin className="h-3 w-3" />
           Localisation
         </span>
@@ -35,7 +35,7 @@ export const ClientMapEmbed = React.memo(function ClientMapEmbed({ address }: Cl
           href={openUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+          className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
         >
           Ouvrir dans Maps
           <ExternalLink className="h-3 w-3" />

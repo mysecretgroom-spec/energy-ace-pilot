@@ -158,9 +158,9 @@ const DataEnergiesPrix = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-orange-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-orange-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
                         <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
                       </div>
@@ -173,17 +173,17 @@ const DataEnergiesPrix = () => {
 
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Type d'énergie</label>
+                        <label className="text-xs text-muted-foreground">Type d'énergie</label>
                         <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Prix (€/kWh)</label>
+                        <label className="text-xs text-muted-foreground">Prix (€/kWh)</label>
                         <Input type="number" step="0.001" value={item.prix_kwh} onChange={(e) => handleChange(item.id, "prix_kwh", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Description</label>
+                      <label className="text-xs text-muted-foreground">Description</label>
                       <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                     </div>
                   </div>

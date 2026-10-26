@@ -124,7 +124,7 @@ function QuickAction({
           {title}
           {highlight && <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />}
         </h4>
-        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{description}</p>
+        <p className="text-xs sm:text-xs text-muted-foreground truncate">{description}</p>
       </div>
       {path && <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />}
     </div>

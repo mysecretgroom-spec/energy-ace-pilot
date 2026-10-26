@@ -605,7 +605,7 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
                   <span className="text-muted-foreground">Surface × Isolation</span>
                   <p className="font-medium">{surface} m² × {besoinsKwhM2} kWh/m²</p>
                   {iteReductionPct > 0 && (
-                    <p className="text-[10px] text-orange-600 font-medium mt-0.5">
+                    <p className="text-xs text-orange-600 font-medium mt-0.5">
                       ITE appliquée: -{iteReductionPct}%
                     </p>
                   )}
@@ -614,7 +614,7 @@ export const PACFieldsEnhanced = ({ data, departement, onChange, iteReductionPct
                   <span className="text-muted-foreground">Besoins annuels</span>
                   <p className="font-bold text-blue-600">{besoinsChauffageKwh.toLocaleString("fr-FR")} kWh/an</p>
                   {iteReductionPct > 0 && (
-                    <p className="text-[10px] text-muted-foreground line-through">
+                    <p className="text-xs text-muted-foreground line-through">
                       {besoinsTotauxBrut.toLocaleString("fr-FR")} kWh/an
                     </p>
                   )}

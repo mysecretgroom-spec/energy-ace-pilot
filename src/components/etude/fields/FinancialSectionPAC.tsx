@@ -175,7 +175,7 @@ export const FinancialSectionPAC = ({
               <PiggyBank className="h-3 w-3 text-green-600" />
               AIDES PAC
               {modeHejja && (
-                <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                <Badge variant="outline" className="text-xs h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
                   HEJJA
                 </Badge>
               )}
@@ -213,7 +213,7 @@ export const FinancialSectionPAC = ({
               </>
             ) : (
               <>
-                <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded">
+                <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
                   ⚠️ PAC Air/Air : non éligible MaPrimeRénov'
                 </div>
                 <div className="flex justify-between items-center">
@@ -392,7 +392,7 @@ export const FinancialSectionPAC = ({
             <span className="text-blue-700">{Number(mensualite).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€/mois</span>
           </div>
           
-          <div className="text-[10px] text-muted-foreground text-center">
+          <div className="text-xs text-muted-foreground text-center">
             Durée totale : {resultatFinancement.dureeTotaleMois} mois ({(resultatFinancement.dureeTotaleMois / 12).toFixed(1)} ans)
           </div>
         </CardContent>
@@ -411,17 +411,17 @@ export const FinancialSectionPAC = ({
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div className="bg-red-50 rounded-lg p-2 border border-red-200 text-center">
               <TrendingDown className="h-4 w-4 text-red-500 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Fossile supprimé</p>
+              <p className="text-xs text-muted-foreground">Fossile supprimé</p>
               <p className="font-bold text-red-600">-{(factureChauf / 12).toFixed(0)}€</p>
             </div>
             <div className="bg-amber-50 rounded-lg p-2 border border-amber-200 text-center">
               <Zap className="h-4 w-4 text-amber-500 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Élec PAC</p>
+              <p className="text-xs text-muted-foreground">Élec PAC</p>
               <p className="font-bold text-amber-600">+{(surcoutElec / 12).toFixed(0)}€</p>
             </div>
             <div className="bg-blue-50 rounded-lg p-2 border border-blue-200 text-center">
               <CreditCard className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Mensualité</p>
+              <p className="text-xs text-muted-foreground">Mensualité</p>
               <p className="font-bold text-blue-600">-{Number(mensualite).toFixed(0)}€</p>
             </div>
           </div>
@@ -472,7 +472,7 @@ export const FinancialSectionPAC = ({
             <p className={`font-bold text-lg ${economieAnnuelle * (nbMois / 12) - prixAidesDéduites >= 0 ? "text-green-600" : "text-red-600"}`}>
               {(economieAnnuelle * (nbMois / 12) - prixAidesDéduites).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €
             </p>
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               COP moyen utilisé : {copMoyen.toFixed(1)}
             </p>
           </div>

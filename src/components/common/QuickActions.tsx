@@ -39,7 +39,7 @@ export function DashboardQuickActions() {
           onClick={action.onClick}
         >
           <action.icon className="h-5 w-5" />
-          <span className="text-[10px] font-medium">{action.label}</span>
+          <span className="text-xs font-medium">{action.label}</span>
         </Button>
       ))}
     </div>

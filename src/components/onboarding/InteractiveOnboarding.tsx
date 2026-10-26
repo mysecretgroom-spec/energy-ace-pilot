@@ -100,7 +100,7 @@ function FeaturesContent() {
           </div>
           <div>
             <p className="text-xs font-medium">{title}</p>
-            <p className="text-[10px] text-muted-foreground">{desc}</p>
+            <p className="text-xs text-muted-foreground">{desc}</p>
           </div>
         </div>
       ))}
@@ -116,11 +116,11 @@ function AIContent() {
           <Bot className="h-4 w-4 text-green-600" />
           <span className="text-xs font-semibold text-green-700 dark:text-green-400">Assistant IA 24h/24</span>
         </div>
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
+        <p className="text-xs text-muted-foreground leading-relaxed">
           Posez vos questions, obtenez des analyses et automatisez vos tâches répétitives.
         </p>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Zap className="h-3 w-3 text-amber-500" />
         <span>Accessible via le bouton chat en bas à droite</span>
       </div>
@@ -136,11 +136,11 @@ function HejjaContent() {
           <Flame className="h-4 w-4 text-orange-600" />
           <span className="text-xs font-semibold text-orange-700 dark:text-orange-400">Mode HEJJA</span>
         </div>
-        <p className="text-[10px] text-muted-foreground leading-relaxed">
+        <p className="text-xs text-muted-foreground leading-relaxed">
           Accès aux fonctionnalités avancées : données sensibles, prix sans plafond, mode sombre.
         </p>
       </div>
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Shield className="h-3 w-3 text-red-500" />
         <span>Protégé par code PIN • Bouton 🔥 en bas à gauche</span>
       </div>
@@ -477,7 +477,7 @@ function OnboardingOverlay() {
                   transition={{ duration: 0.5 }}
                 />
               </div>
-              <span className="text-[10px] text-muted-foreground font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 {currentStepIndex + 1}/{steps.length}
               </span>
             </div>
@@ -506,12 +506,12 @@ function OnboardingOverlay() {
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   {currentStep.title}
                   {isPresentation && (
-                    <span className="text-[10px] font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-medium text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">
                       Intro
                     </span>
                   )}
                   {!isPresentation && completedSteps.includes(currentStep.id) && (
-                    <span className="text-[10px] font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-medium text-green-600 bg-green-500/10 px-1.5 py-0.5 rounded">
                       ✓ Fait
                     </span>
                   )}
@@ -522,7 +522,7 @@ function OnboardingOverlay() {
                 {currentStep.estimatedTime && !completedSteps.includes(currentStep.id) && (
                   <div className="flex items-center gap-1 mt-1">
                     <Clock className="h-3 w-3 text-muted-foreground/70" />
-                    <span className="text-[10px] text-muted-foreground/70">
+                    <span className="text-xs text-muted-foreground/70">
                       ~{currentStep.estimatedTime}
                     </span>
                   </div>

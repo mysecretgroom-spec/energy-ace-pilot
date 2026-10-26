@@ -193,7 +193,7 @@ export function RoofPointMap({ address, lat, lng, onChange, viewport, onViewport
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs sm:text-xs font-semibold text-muted-foreground">
           <MapPin className="h-3 w-3" />
           {lat != null ? "Toiture repérée" : "Touchez la toiture concernée"}
         </span>
@@ -234,7 +234,7 @@ export function RoofPointMap({ address, lat, lng, onChange, viewport, onViewport
       <div className="rounded-sm border border-border overflow-hidden bg-muted">
         <div ref={containerRef} className="w-full h-56 sm:h-64" style={{ zIndex: 0 }} />
       </div>
-      <p className="text-[10px] text-muted-foreground truncate">
+      <p className="text-xs text-muted-foreground truncate">
         {geoError ? "Adresse introuvable — déplacez la carte manuellement" : address}
       </p>
     </div>

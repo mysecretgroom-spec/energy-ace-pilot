@@ -236,7 +236,7 @@ export function WeekCalendarView({
                     : "bg-muted/50 hover:bg-muted"
                 }`}
               >
-                <p className="text-[10px] font-medium text-muted-foreground uppercase">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase">
                   {format(day, "EEE", { locale: fr })}
                 </p>
                 <p
@@ -252,7 +252,7 @@ export function WeekCalendarView({
               <ScrollArea className="flex-1 p-1">
                 <div className="space-y-1">
                   {dayRdvs.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground text-center py-2">
+                    <p className="text-[11px] text-muted-foreground text-center py-2">
                       —
                     </p>
                   ) : (
@@ -299,7 +299,7 @@ export function WeekCalendarView({
                 const activeCount = dayRdvs.filter(r => r.status !== 'annule' && r.status !== 'reporte' && r.status !== 'porte').length;
                 return activeCount > 0 ? (
                   <div className="px-1 pb-1 text-center">
-                    <Badge variant="secondary" className="text-[9px] h-4 px-1">
+                    <Badge variant="secondary" className="text-[11px] h-4 px-1">
                       {activeCount} RDV
                     </Badge>
                   </div>

@@ -33,7 +33,7 @@ export function MetricTile({ label, value, sub, delta, loading, children, onClic
   return (
     <div onClick={onClick} className={cn("bg-card p-5 flex flex-col gap-2 min-w-0", onClick && "cursor-pointer hover:bg-muted/40 transition-colors duration-100")}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground truncate">{label}</span>
         {delta}
       </div>
       {loading ? <Skeleton className="h-8 w-28" /> : (
@@ -77,7 +77,7 @@ export function StatusPill({ tone = "neutral", children }: { tone?: "neutral" | 
     bad: "bg-destructive/10 text-destructive border-destructive/20",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap", tones[tone])}>
+    <span className={cn("inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs font-medium whitespace-nowrap", tones[tone])}>
       {children}
     </span>
   );

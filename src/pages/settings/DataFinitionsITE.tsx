@@ -177,11 +177,11 @@ const DataFinitionsITE = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
                             <Globe className="h-3 w-3" /> Global
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-orange-50">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-orange-50">
                             <User className="h-3 w-3" /> Perso
                           </Badge>
                         )}
@@ -205,7 +205,7 @@ const DataFinitionsITE = () => {
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="col-span-2">
-                        <label className="text-[10px] text-muted-foreground">Type de finition</label>
+                        <label className="text-xs text-muted-foreground">Type de finition</label>
                         <Input
                           value={item.type_finition}
                           onChange={(e) => handleChange(item.id, "type_finition", e.target.value)}
@@ -214,7 +214,7 @@ const DataFinitionsITE = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Prix / m²</label>
+                        <label className="text-xs text-muted-foreground">Prix / m²</label>
                         <Input
                           type="number"
                           step="1"
@@ -227,7 +227,7 @@ const DataFinitionsITE = () => {
                     </div>
 
                     <div className="mt-2">
-                      <label className="text-[10px] text-muted-foreground">Description</label>
+                      <label className="text-xs text-muted-foreground">Description</label>
                       <Input
                         value={item.description || ""}
                         onChange={(e) => handleChange(item.id, "description", e.target.value)}

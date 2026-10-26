@@ -128,11 +128,11 @@ export function GmailSync({ onSyncComplete, variant = "ghost" }: GmailSyncProps)
             {lastResult && !syncing && (
               <span className="absolute -top-1 -right-1">
                 {lastResult.imported + lastResult.updated > 0 ? (
-                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[10px] bg-green-500">
+                  <Badge variant="default" className="h-4 min-w-4 px-1 text-[11px] bg-green-500">
                     {lastResult.imported + lastResult.updated}
                   </Badge>
                 ) : lastResult.errors > 0 ? (
-                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]">
+                  <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[11px]">
                     !
                   </Badge>
                 ) : null}
@@ -227,9 +227,9 @@ function SyncResultContent({
                 <li key={i} className="text-xs rounded-md border bg-muted/30 p-2 space-y-1">
                   <div className="font-medium truncate">{detail.subject || detail.sender}</div>
                   {detail.sender && detail.subject && (
-                    <div className="text-[10px] text-muted-foreground truncate">{detail.sender}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">{detail.sender}</div>
                   )}
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] border ${tone}`}>
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] border ${tone}`}>
                     {label}
                   </span>
                 </li>

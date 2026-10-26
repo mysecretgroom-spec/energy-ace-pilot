@@ -198,7 +198,7 @@ export function FeaturesStep() {
               </motion.div>
             ))}
             {feature.highlights.length > 3 && (
-              <p className="text-[10px] text-muted-foreground text-center sm:hidden">
+              <p className="text-xs text-muted-foreground text-center sm:hidden">
                 +{feature.highlights.length - 3} autres...
               </p>
             )}
@@ -221,7 +221,7 @@ export function FeaturesStep() {
 
           {/* Tip - compact on mobile */}
           <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-primary/10 border border-primary/20">
-            <p className="text-[11px] sm:text-sm text-primary font-medium leading-snug">
+            <p className="text-xs sm:text-sm text-primary font-medium leading-snug">
               {feature.tip}
             </p>
           </div>

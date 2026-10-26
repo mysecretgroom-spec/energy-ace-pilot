@@ -313,7 +313,7 @@ export function ProductBouquetsSection({
                     <span className="hidden sm:inline">{cfg.label}</span>
                     <span className="sm:hidden">{type}</span>
                     {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                         {count}
                       </Badge>
                     )}
@@ -467,7 +467,7 @@ export function ProductBouquetsSection({
                     return (
                       <div key={bouquet.id} className="space-y-2">
                       {showHeader && (
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
                           {label}
                         </p>
                       )}
@@ -497,7 +497,7 @@ export function ProductBouquetsSection({
                               </Select>
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                  <label className="text-[10px] text-muted-foreground">{cfg.unit}</label>
+                                  <label className="text-xs text-muted-foreground">{cfg.unit}</label>
                                   <Input
                                     type="number"
                                     step={productType === "ITE" ? "10" : "0.1"}
@@ -507,7 +507,7 @@ export function ProductBouquetsSection({
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-muted-foreground">Prix reco. TTC</label>
+                                  <label className="text-xs text-muted-foreground">Prix reco. TTC</label>
                                   <Input
                                     type="number"
                                     value={editForm.prix_recommande}
@@ -516,7 +516,7 @@ export function ProductBouquetsSection({
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-muted-foreground">Commission HT</label>
+                                  <label className="text-xs text-muted-foreground">Commission HT</label>
                                   <Input
                                     type="number"
                                     value={editForm.commission_fixe}
@@ -542,12 +542,12 @@ export function ProductBouquetsSection({
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-sm">{bouquet.nom_bouquet}</p>
                                     {bouquet.isGlobal && (
-                                      <Badge variant="outline" className="text-[10px] h-4">
+                                      <Badge variant="outline" className="text-xs h-4">
                                         Par défaut
                                       </Badge>
                                     )}
                                     {!bouquet.actif && (
-                                      <Badge variant="secondary" className="text-[10px] h-4 bg-destructive/10 text-destructive">
+                                      <Badge variant="secondary" className="text-xs h-4 bg-destructive/10 text-destructive">
                                         Désactivé
                                       </Badge>
                                     )}
@@ -581,13 +581,13 @@ export function ProductBouquetsSection({
                               </div>
                               <div className="flex gap-4 mt-3">
                                 <div className="flex-1">
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Prix reco.</p>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Prix reco.</p>
                                   <p className="text-sm font-semibold text-foreground">
                                     {formatCurrency(bouquet.prix_recommande)}
                                   </p>
                                 </div>
                                 <div className="flex-1">
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Commission HT</p>
+                                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Commission HT</p>
                                   <p className="text-sm font-semibold text-success">
                                     {formatCurrency(bouquet.commission_fixe)}
                                   </p>

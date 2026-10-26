@@ -182,7 +182,7 @@ export function BatchCropReview({ images, onDone, onCancel }: Props) {
             {it.status === "ready"
               ? <img src={(!it.noCrop && it.croppedThumb) || it.originalThumb || it.original} alt="" className="h-full w-full object-cover" />
               : <Loader2 className="m-auto mt-5 h-4 w-4 animate-spin text-muted-foreground" />}
-            <span className="absolute bottom-0 right-0 bg-background/80 px-1 text-[10px]">{i + 1}</span>
+            <span className="absolute bottom-0 right-0 bg-background/80 px-1 text-xs">{i + 1}</span>
           </Button>
         ))}
       </div>

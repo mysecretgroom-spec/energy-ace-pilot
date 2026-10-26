@@ -328,21 +328,21 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
             <Euro className="h-3.5 w-3.5" />
             Bouquets
             {bouquets.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{bouquets.length}</Badge>
+              <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">{bouquets.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="surcouts" className="gap-1 text-xs">
             <Wrench className="h-3.5 w-3.5" />
             Surcoûts
             {surcouts.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{surcouts.length}</Badge>
+              <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">{surcouts.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="financements" className="gap-1 text-xs">
             <CreditCard className="h-3.5 w-3.5" />
             Financement
             {financements.length > 0 && (
-              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{financements.length}</Badge>
+              <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">{financements.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -359,20 +359,20 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
                     <Checkbox checked={b.selected} onCheckedChange={() => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{formatProductType(b.product_type)}</Badge>
+                        <Badge variant="outline" className="text-xs">{formatProductType(b.product_type)}</Badge>
                         <Input value={b.nom_bouquet} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, nom_bouquet: e.target.value } : x))} className="h-7 text-sm font-medium" />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[10px] text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" />{b.product_type === "ITE" ? "m²" : "kWc"}</label>
+                          <label className="text-xs text-muted-foreground flex items-center gap-1"><Zap className="h-3 w-3" />{b.product_type === "ITE" ? "m²" : "kWc"}</label>
                           <Input type="number" step="0.5" value={b.puissance_kwc} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, puissance_kwc: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
                         </div>
                         <div>
-                          <label className="text-[10px] text-muted-foreground flex items-center gap-1"><Euro className="h-3 w-3" />Prix reco.</label>
+                          <label className="text-xs text-muted-foreground flex items-center gap-1"><Euro className="h-3 w-3" />Prix reco.</label>
                           <Input type="number" value={b.prix_recommande} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, prix_recommande: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
                         </div>
                         <div>
-                          <label className="text-[10px] text-green-600 flex items-center gap-1"><Euro className="h-3 w-3" />Commission</label>
+                          <label className="text-xs text-green-600 flex items-center gap-1"><Euro className="h-3 w-3" />Commission</label>
                           <Input type="number" value={b.commission_fixe} onChange={(e) => setBouquets(prev => prev.map((x, j) => j === i ? { ...x, commission_fixe: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs border-green-500/30" />
                         </div>
                       </div>
@@ -396,9 +396,9 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
                     <Checkbox checked={s.selected} onCheckedChange={() => setSurcouts(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))} className="mt-1" />
                     <div className="flex-1 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-[10px]">{formatProductType(s.product_type)}</Badge>
-                        <Badge variant="secondary" className="text-[10px]">{humanise(s.categorie)}</Badge>
-                        <Badge className="text-[10px] bg-muted text-muted-foreground">{formatTypeCalcul(s.type_calcul)}</Badge>
+                        <Badge variant="outline" className="text-xs">{formatProductType(s.product_type)}</Badge>
+                        <Badge variant="secondary" className="text-xs">{humanise(s.categorie)}</Badge>
+                        <Badge className="text-xs bg-muted text-muted-foreground">{formatTypeCalcul(s.type_calcul)}</Badge>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
@@ -433,15 +433,15 @@ export function RegieAIConfigImport({ regieId, userId, onComplete }: RegieAIConf
                       <Input value={f.nom} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, nom: e.target.value } : x))} className="h-7 text-sm font-medium" placeholder="Nom" />
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[10px] text-muted-foreground">Durée (mois)</label>
+                          <label className="text-xs text-muted-foreground">Durée (mois)</label>
                           <Input type="number" value={f.duree_mois} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, duree_mois: parseInt(e.target.value) || 1 } : x))} className="h-7 text-xs" />
                         </div>
                         <div>
-                          <label className="text-[10px] text-muted-foreground">Taux eff. %</label>
+                          <label className="text-xs text-muted-foreground">Taux eff. %</label>
                           <Input type="number" step="0.01" value={f.taux_effectif} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, taux_effectif: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
                         </div>
                         <div>
-                          <label className="text-[10px] text-muted-foreground">TAEG %</label>
+                          <label className="text-xs text-muted-foreground">TAEG %</label>
                           <Input type="number" step="0.01" value={f.taeg} onChange={(e) => setFinancements(prev => prev.map((x, j) => j === i ? { ...x, taeg: parseFloat(e.target.value) || 0 } : x))} className="h-7 text-xs" />
                         </div>
                       </div>

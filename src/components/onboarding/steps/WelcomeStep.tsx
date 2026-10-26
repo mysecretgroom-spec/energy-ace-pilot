@@ -75,7 +75,7 @@ export function WelcomeStep() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.6 }}
-        className="flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground"
+        className="flex items-center justify-center gap-3 sm:gap-4 text-xs sm:text-xs text-muted-foreground"
       >
         <div className="flex items-center gap-1">
           <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
@@ -121,7 +121,7 @@ function FeatureCard({
         <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
       </div>
       <h3 className="font-semibold text-xs sm:text-sm">{title}</h3>
-      <p className="text-[10px] sm:text-xs text-muted-foreground">{description}</p>
+      <p className="text-xs sm:text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }

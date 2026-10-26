@@ -465,7 +465,7 @@ export function QuickPhotoButton({
         )}
         {!iconOnly && label}
         {photoCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-signed px-1 text-[10px] font-semibold text-primary-foreground">
+          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-signed px-1 text-xs font-semibold text-primary-foreground">
             {photoCount}
           </span>
         )}

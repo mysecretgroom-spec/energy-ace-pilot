@@ -127,7 +127,7 @@ export function OnboardingDialog() {
           
           {/* Step label */}
           <div className="text-center">
-            <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">
+            <span className="text-xs sm:text-xs font-medium text-muted-foreground">
               {currentStep + 1}/{STEPS.length} • {STEPS[currentStep].label}
             </span>
           </div>

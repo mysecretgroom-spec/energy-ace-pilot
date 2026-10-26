@@ -133,10 +133,10 @@ const AgentLearnings = () => {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="text-xs">
                           {skill.user_id ? "Appris pour vous" : "Intégré"}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           utilisé {skill.usage_count ?? 0}x
                         </span>
                       </div>
@@ -145,7 +145,7 @@ const AgentLearnings = () => {
                     {skill.triggers && skill.triggers.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {skill.triggers.slice(0, 6).map((t) => (
-                          <Badge key={t} variant="outline" className="text-[10px] font-normal">
+                          <Badge key={t} variant="outline" className="text-xs font-normal">
                             {t}
                           </Badge>
                         ))}
@@ -158,10 +158,10 @@ const AgentLearnings = () => {
 
                     {examples.length > 0 && (
                       <div className="bg-muted/50 rounded-md p-2">
-                        <p className="text-[11px] font-medium mb-1">Exemples</p>
+                        <p className="text-xs font-medium mb-1">Exemples</p>
                         <ul className="space-y-0.5">
                           {examples.slice(0, 3).map((ex, i) => (
-                            <li key={i} className="text-[11px] text-muted-foreground">
+                            <li key={i} className="text-xs text-muted-foreground">
                               • {ex}
                             </li>
                           ))}
@@ -202,14 +202,14 @@ const AgentLearnings = () => {
                 {session.sujets_ouverts && session.sujets_ouverts.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">
                     {session.sujets_ouverts.map((s) => (
-                      <Badge key={s} variant="outline" className="text-[10px] font-normal">
+                      <Badge key={s} variant="outline" className="text-xs font-normal">
                         {s}
                       </Badge>
                     ))}
                   </div>
                 )}
                 {session.updated_at && (
-                  <p className="text-[11px] text-muted-foreground pt-1 border-t">
+                  <p className="text-xs text-muted-foreground pt-1 border-t">
                     Mis à jour le {format(new Date(session.updated_at), "dd MMM à HH:mm", { locale: fr })}
                   </p>
                 )}

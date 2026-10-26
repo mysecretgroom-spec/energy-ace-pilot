@@ -575,7 +575,7 @@ const CommissionsSettings = () => {
                     Annuler
                   </Button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Un brouillon n'a aucun effet sur les commissions tant qu'il n'est pas activé. À l'activation,
                   le modèle actuel est archivé et reste restaurable depuis l'historique.
                 </p>
@@ -617,7 +617,7 @@ const CommissionsSettings = () => {
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge
                       variant={v.statut === "actif" ? "default" : "outline"}
-                      className="text-[10px]"
+                      className="text-xs"
                     >
                       {v.statut === "actif" ? "Activé" : v.statut === "brouillon" ? "Brouillon" : "Archivé"}
                     </Badge>
@@ -634,7 +634,7 @@ const CommissionsSettings = () => {
                 </div>
               </div>
             ))}
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Restaurer une version archive le modèle en cours et réactive celui-ci. Si une règle est incohérente,
               le calcul revient automatiquement à la méthode historique (bouquet / pourcentage / pose externe).
             </p>
@@ -738,23 +738,23 @@ const CommissionsSettings = () => {
                       {rule.part_appliquee_pct !== 100 && ` · part ${rule.part_appliquee_pct}%`}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      <Badge variant="outline" className="text-[10px]">{regieName(rule.regie_id)}</Badge>
+                      <Badge variant="outline" className="text-xs">{regieName(rule.regie_id)}</Badge>
                       {rule.product_type && (
-                        <Badge variant="outline" className="text-[10px]">{rule.product_type}</Badge>
+                        <Badge variant="outline" className="text-xs">{rule.product_type}</Badge>
                       )}
-                      {rule.gamme && <Badge variant="outline" className="text-[10px]">{rule.gamme}</Badge>}
+                      {rule.gamme && <Badge variant="outline" className="text-xs">{rule.gamme}</Badge>}
                       {rule.source !== "manuel" && (
-                        <Badge variant="secondary" className="text-[10px]">IA</Badge>
+                        <Badge variant="secondary" className="text-xs">IA</Badge>
                       )}
                       {rule.schema_nom && (
-                        <Badge variant="secondary" className="text-[10px]">{rule.schema_nom}</Badge>
+                        <Badge variant="secondary" className="text-xs">{rule.schema_nom}</Badge>
                       )}
                       {rule.version != null && (
-                        <Badge variant="outline" className="text-[10px]">v{rule.version}</Badge>
+                        <Badge variant="outline" className="text-xs">v{rule.version}</Badge>
                       )}
                       <Badge
                         variant={(rule.statut ?? "actif") === "actif" ? "default" : "outline"}
-                        className="text-[10px] cursor-pointer"
+                        className="text-xs cursor-pointer"
                         onClick={() => toggleStatut(rule)}
                       >
                         {(rule.statut ?? "actif") === "actif"

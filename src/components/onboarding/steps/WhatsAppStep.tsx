@@ -99,7 +99,7 @@ export function WhatsAppStep() {
         <div className="flex items-center justify-between p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-muted/50">
           <div>
             <Label className="text-xs sm:text-sm font-medium">Activer WhatsApp</Label>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
+            <p className="text-xs sm:text-xs text-muted-foreground">
               Notifications confirmateur
             </p>
           </div>

@@ -41,7 +41,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] sm:text-xs font-semibold text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-xs sm:text-xs font-semibold text-muted-foreground">
           <Satellite className="h-3 w-3" />
           {label}
         </span>
@@ -49,7 +49,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
           <button
             type="button"
             onClick={() => setZoom((z) => Math.max(16, z - 1))}
-            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            className="px-1.5 text-xs sm:text-xs font-semibold text-primary hover:underline"
             title="Dézoomer (image plus nette)"
           >
             −
@@ -57,7 +57,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
           <button
             type="button"
             onClick={() => setZoom((z) => Math.min(20, z + 1))}
-            className="px-1.5 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            className="px-1.5 text-xs sm:text-xs font-semibold text-primary hover:underline"
             title="Zoomer"
           >
             +
@@ -65,7 +65,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
           <button
             type="button"
             onClick={() => setSatellite((s) => !s)}
-            className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            className="flex items-center gap-1 text-xs sm:text-xs font-semibold text-primary hover:underline"
             title={satellite ? "Afficher le plan" : "Afficher le satellite"}
           >
             {satellite ? <MapIcon className="h-3 w-3" /> : <Satellite className="h-3 w-3" />}
@@ -75,7 +75,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
             href={openUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-primary hover:underline"
+            className="flex items-center gap-1 text-xs sm:text-xs font-semibold text-primary hover:underline"
           >
             Maps
             <ExternalLink className="h-3 w-3" />
@@ -93,7 +93,7 @@ export const SatelliteMapEmbed = React.memo(function SatelliteMapEmbed({
           allowFullScreen
         />
       </div>
-      <p className="text-[10px] text-muted-foreground truncate">{address}</p>
+      <p className="text-xs text-muted-foreground truncate">{address}</p>
     </div>
   );
 });

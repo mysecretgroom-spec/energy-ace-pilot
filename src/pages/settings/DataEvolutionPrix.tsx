@@ -178,9 +178,9 @@ const DataEvolutionPrix = () => {
                           {energyLabels[item.type_energie] || item.type_energie}
                         </span>
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-orange-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-orange-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -195,22 +195,22 @@ const DataEvolutionPrix = () => {
 
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Type d'énergie</label>
+                        <label className="text-xs text-muted-foreground">Type d'énergie</label>
                         <Input value={item.type_energie} onChange={(e) => handleChange(item.id, "type_energie", e.target.value)} className="h-8 text-xs" />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Taux annuel (%)</label>
+                        <label className="text-xs text-muted-foreground">Taux annuel (%)</label>
                         <Input type="number" step="0.1" value={item.taux_augmentation_annuel} onChange={(e) => handleChange(item.id, "taux_augmentation_annuel", parseFloat(e.target.value) || 0)} className="h-8 text-xs font-bold text-destructive" />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Description / Source</label>
+                      <label className="text-xs text-muted-foreground">Description / Source</label>
                       <Input value={item.description || ""} onChange={(e) => handleChange(item.id, "description", e.target.value)} className="h-8 text-xs" />
                     </div>
 
                     {/* Mini preview: projection on 10 years */}
-                    <div className="mt-2 text-[10px] text-muted-foreground">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       Projection : prix x{(Math.pow(1 + item.taux_augmentation_annuel / 100, 10)).toFixed(2)} en 10 ans
                       ({((Math.pow(1 + item.taux_augmentation_annuel / 100, 10) - 1) * 100).toFixed(0)}% d'augmentation cumulée)
                     </div>

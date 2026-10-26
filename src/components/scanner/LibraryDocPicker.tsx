@@ -170,7 +170,7 @@ export function LibraryDocPicker({
                   {/* Info */}
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm text-white/90 truncate">{doc.nom}</p>
-                    <p className="text-[10px] text-white/40 mt-0.5">
+                    <p className="text-xs text-white/40 mt-0.5">
                       {doc.type_document.replace(/_/g, " ")} •{" "}
                       {new Date(doc.created_at).toLocaleDateString("fr-FR", {
                         day: "numeric",

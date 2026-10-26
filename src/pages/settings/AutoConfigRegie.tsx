@@ -109,11 +109,11 @@ export default function AutoConfigRegie() {
 
                 {selectedRegie && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    <Badge variant="secondary" className="text-[10px]">PV</Badge>
-                    <Badge variant="secondary" className="text-[10px]">PAC</Badge>
-                    <Badge variant="secondary" className="text-[10px]">ITE</Badge>
-                    <Badge variant="outline" className="text-[10px]">Surcoûts</Badge>
-                    <Badge variant="outline" className="text-[10px]">Financements</Badge>
+                    <Badge variant="secondary" className="text-xs">PV</Badge>
+                    <Badge variant="secondary" className="text-xs">PAC</Badge>
+                    <Badge variant="secondary" className="text-xs">ITE</Badge>
+                    <Badge variant="outline" className="text-xs">Surcoûts</Badge>
+                    <Badge variant="outline" className="text-xs">Financements</Badge>
                   </div>
                 )}
               </>

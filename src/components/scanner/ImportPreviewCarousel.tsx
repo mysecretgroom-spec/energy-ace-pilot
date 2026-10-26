@@ -454,7 +454,7 @@ export function ImportPreviewCarousel({
                           <span className="text-lg">{filter.icon}</span>
                         )}
                       </div>
-                      <span className={`text-[10px] pb-1 ${
+                      <span className={`text-xs pb-1 ${
                         isActive ? "text-primary font-semibold" : "text-white/60"
                       }`}>
                         {filter.label}
@@ -475,7 +475,7 @@ export function ImportPreviewCarousel({
             onClick={onAddMore}
           >
             <ImageIcon className="h-5 w-5" />
-            <span className="text-[10px]">Importer</span>
+            <span className="text-xs">Importer</span>
           </button>
 
           {onAddFromLibrary && (
@@ -484,7 +484,7 @@ export function ImportPreviewCarousel({
               onClick={onAddFromLibrary}
             >
               <Library className="h-5 w-5" />
-              <span className="text-[10px]">Biblio</span>
+              <span className="text-xs">Biblio</span>
             </button>
           )}
 
@@ -493,7 +493,7 @@ export function ImportPreviewCarousel({
             onClick={() => currentDoc && handleRotate(currentDoc.id)}
           >
             <RotateCcw className="h-5 w-5" />
-            <span className="text-[10px]">Rotation</span>
+            <span className="text-xs">Rotation</span>
           </button>
 
           <button
@@ -501,7 +501,7 @@ export function ImportPreviewCarousel({
             onClick={() => currentDoc && onCrop(currentDoc.id)}
           >
             <Crop className="h-5 w-5" />
-            <span className="text-[10px]">Recadrer</span>
+            <span className="text-xs">Recadrer</span>
           </button>
 
           <button
@@ -516,7 +516,7 @@ export function ImportPreviewCarousel({
             ) : (
               <Sparkles className="h-5 w-5" />
             )}
-            <span className="text-[10px]">IA Crop</span>
+            <span className="text-xs">IA Crop</span>
           </button>
 
           {onAiEnhance && (
@@ -532,7 +532,7 @@ export function ImportPreviewCarousel({
               ) : (
                 <Wand2 className="h-5 w-5" />
               )}
-              <span className="text-[10px]">IA Nettoyer</span>
+              <span className="text-xs">IA Nettoyer</span>
             </button>
           )}
 
@@ -550,7 +550,7 @@ export function ImportPreviewCarousel({
               }}
             >
               <Undo2 className="h-5 w-5" />
-              <span className="text-[10px]">Annuler</span>
+              <span className="text-xs">Annuler</span>
             </button>
           )}
 
@@ -564,7 +564,7 @@ export function ImportPreviewCarousel({
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary" />
               )}
             </div>
-            <span className="text-[10px]">Type</span>
+            <span className="text-xs">Type</span>
           </button>
 
           <button
@@ -572,7 +572,7 @@ export function ImportPreviewCarousel({
             onClick={() => currentDoc && onReplace(currentDoc.id)}
           >
             <Camera className="h-5 w-5" />
-            <span className="text-[10px]">Remplacer</span>
+            <span className="text-xs">Remplacer</span>
           </button>
 
           {/* Save FAB — always enabled, AI classifies untyped docs */}
@@ -594,7 +594,7 @@ export function ImportPreviewCarousel({
         </div>
 
         {/* Status text */}
-        <p className="text-center text-[10px] text-white/30 px-4">
+        <p className="text-center text-xs text-white/30 px-4">
           {allTyped
             ? `${documents.length} document${documents.length > 1 ? "s" : ""} prêt${documents.length > 1 ? "s" : ""}`
             : `${typedCount}/${documents.length} typé${typedCount > 1 ? "s" : ""} — les non-typés seront classés par IA`

@@ -96,7 +96,7 @@ export function SettingsStep() {
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-xs sm:text-sm">{section.title}</h4>
-              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{section.description}</p>
+              <p className="text-xs sm:text-xs text-muted-foreground truncate">{section.description}</p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </motion.button>
@@ -105,7 +105,7 @@ export function SettingsStep() {
 
       {/* Tip - compact on mobile */}
       <div className="p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-amber-500/10 border border-amber-500/20">
-        <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+        <p className="text-xs sm:text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
           Configurez vos régies pour attribuer les RDV et suivre vos commissions.
         </p>
       </div>

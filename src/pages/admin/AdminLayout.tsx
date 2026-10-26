@@ -56,13 +56,13 @@ function AdminSidebar() {
         <div className="h-7 w-7 rounded-sm bg-primary text-primary-foreground grid place-items-center font-display text-xs font-bold">DP</div>
         <div className="min-w-0">
           <p className="font-display text-sm font-semibold leading-tight">DébalePro</p>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Console admin</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Console admin</p>
         </div>
       </div>
       <SidebarContent className="py-2">
         {navGroups.map((g) => (
           <SidebarGroup key={g.label} className="py-1">
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-widest">{g.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs uppercase tracking-widest">{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {g.items.map((item) => (
@@ -131,7 +131,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               >
                 <Search className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline flex-1 text-left">Rechercher…</span>
-                <kbd className="hidden sm:inline text-[10px] font-mono border rounded px-1">⌘K</kbd>
+                <kbd className="hidden sm:inline text-xs font-mono border rounded px-1">⌘K</kbd>
               </button>
             </header>
             <main className="flex-1 overflow-auto">

@@ -293,7 +293,7 @@ const WhatsAppAgentSettings = () => {
                           if (highlights.length === 0) return null;
                           return (
                             <div className="bg-blue-500/5 border border-blue-500/20 rounded-md p-2 space-y-1">
-                              <p className="text-[11px] font-medium text-blue-700 uppercase tracking-wide">
+                              <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">
                                 Interprété comme
                               </p>
                               <div className="flex flex-wrap gap-1.5">

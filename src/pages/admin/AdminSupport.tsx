@@ -182,7 +182,7 @@ function Bubble({ mine, text, at }: { mine: boolean; text: string; at: string })
   return (
     <div className={cn("max-w-[85%] rounded-md border px-3 py-2 text-sm", mine ? "ml-auto bg-primary/10 border-primary/20" : "bg-muted/50")}>
       <p className="whitespace-pre-wrap">{text}</p>
-      <p className="text-[10px] text-muted-foreground mt-1">{mine ? "Admin" : "Utilisateur"} · {format(new Date(at), "d MMM HH:mm", { locale: fr })}</p>
+      <p className="text-xs text-muted-foreground mt-1">{mine ? "Admin" : "Utilisateur"} · {format(new Date(at), "d MMM HH:mm", { locale: fr })}</p>
     </div>
   );
 }

@@ -185,11 +185,11 @@ const DataIsolantsITE = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
                             <Globe className="h-3 w-3" /> Global
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-orange-50">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-orange-50">
                             <User className="h-3 w-3" /> Perso
                           </Badge>
                         )}
@@ -198,7 +198,7 @@ const DataIsolantsITE = () => {
                           onCheckedChange={(checked) => handleChange(item.id, "actif", checked)}
                           disabled={item.isGlobal}
                         />
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="text-xs">
                           R@100mm = {calculateR(item.lambda)}
                         </Badge>
                       </div>
@@ -216,7 +216,7 @@ const DataIsolantsITE = () => {
 
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div className="col-span-2">
-                        <label className="text-[10px] text-muted-foreground">Type d'isolant</label>
+                        <label className="text-xs text-muted-foreground">Type d'isolant</label>
                         <Input
                           value={item.type_isolant}
                           onChange={(e) => handleChange(item.id, "type_isolant", e.target.value)}
@@ -225,7 +225,7 @@ const DataIsolantsITE = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Lambda (λ)</label>
+                        <label className="text-xs text-muted-foreground">Lambda (λ)</label>
                         <Input
                           type="number"
                           step="0.001"
@@ -239,7 +239,7 @@ const DataIsolantsITE = () => {
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Prix / m²</label>
+                        <label className="text-xs text-muted-foreground">Prix / m²</label>
                         <Input
                           type="number"
                           step="1"
@@ -250,7 +250,7 @@ const DataIsolantsITE = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Description</label>
+                        <label className="text-xs text-muted-foreground">Description</label>
                         <Input
                           value={item.description || ""}
                           onChange={(e) => handleChange(item.id, "description", e.target.value)}

@@ -68,15 +68,15 @@
               <p className="text-xs font-semibold text-primary tabular-nums leading-tight">
                 {format(rdvDate, "HH:mm")}
               </p>
-              <p className="text-[9px] text-muted-foreground tabular-nums uppercase">
+              <p className="text-[11px] text-muted-foreground tabular-nums uppercase">
                 {format(rdvDate, "dd/MM")}
               </p>
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-[13px] uppercase tracking-tight truncate">
                 {rdv.client_nom}
-                {rdv.needs_reconfirmation && <span className="ml-2 text-[9px] text-amber-600 dark:text-amber-400 font-bold tracking-wider">À CONFIRMER</span>}
-                {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-[9px] text-primary font-bold tracking-wider">EN COURS</span>}
+                {rdv.needs_reconfirmation && <span className="ml-2 text-[11px] text-amber-600 dark:text-amber-400 font-bold tracking-wider">À CONFIRMER</span>}
+                {isOngoing && !rdv.needs_reconfirmation && <span className="ml-2 text-[11px] text-primary font-bold tracking-wider">EN COURS</span>}
               </p>
               <p className="text-[11px] text-muted-foreground tabular-nums">
                 {format(rdvDate, "EEEE d MMMM", { locale: fr })}
@@ -87,7 +87,7 @@
            {rdv.regie_nom && (
               <Badge 
                 variant="outline" 
-                className="text-[9px] px-1.5 rounded-sm uppercase tracking-wider font-bold"
+                className="text-[11px] px-1.5 rounded-sm uppercase tracking-wider font-bold"
                style={{ 
                  borderColor: rdv.regie_couleur || undefined,
                  color: rdv.regie_couleur || undefined,

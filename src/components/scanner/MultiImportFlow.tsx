@@ -977,7 +977,7 @@ export function MultiImportFlow({
                         <div className="w-full h-full flex items-center justify-center"><FileText className="h-6 w-6 text-muted-foreground" /></div>
                       )}
                       {editableIdx >= 0 && (
-                        <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-[10px] font-bold rounded-br px-1.5 py-0.5">
+                        <span className="absolute top-0 left-0 bg-primary text-primary-foreground text-xs font-bold rounded-br px-1.5 py-0.5">
                           #{editableIdx + 1}
                         </span>
                       )}
@@ -1019,7 +1019,7 @@ export function MultiImportFlow({
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">Modifier avec l'IA</span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   Référencez les factures par leur numéro
                 </span>
               </div>

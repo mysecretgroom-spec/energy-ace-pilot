@@ -167,7 +167,7 @@ export const FinancialSectionITE = ({
               <PiggyBank className="h-3 w-3 text-green-600" />
               AIDES ITE
               {modeHejja && (
-                <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                <Badge variant="outline" className="text-xs h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
                   HEJJA
                 </Badge>
               )}
@@ -224,7 +224,7 @@ export const FinancialSectionITE = ({
             </div>
             
             {surfaceIsoler > 0 && (
-              <div className="text-[10px] text-muted-foreground bg-muted/50 p-2 rounded mt-2">
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded mt-2">
                 <p>Surface isolée : {surfaceIsoler} m²</p>
                 <p>Aides estimées selon barèmes 2024-2025</p>
               </div>
@@ -291,7 +291,7 @@ export const FinancialSectionITE = ({
             </div>
             
             {/* Info report 6 mois */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[10px] mt-2">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs mt-2">
               <div className="flex items-center gap-1 text-amber-700 font-medium mb-1">
                 <Clock className="h-3 w-3" />
                 Report 6 mois

@@ -973,7 +973,7 @@ const RegiesSettings = () => {
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-foreground truncate">{regie.nom}</h3>
                           {regie.is_hejja && (
-                            <Badge className="text-[10px] h-4 bg-red-500 text-white">
+                            <Badge className="text-xs h-4 bg-red-500 text-white">
                               HEJJA
                             </Badge>
                           )}
@@ -1403,7 +1403,7 @@ const RegiesSettings = () => {
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-medium">{contact.nom}</p>
                               {contact.is_principal && (
-                                <Badge className="text-[10px] px-1.5 py-0 bg-primary">
+                                <Badge className="text-xs px-1.5 py-0 bg-primary">
                                   <Star className="h-2.5 w-2.5 mr-0.5" />
                                   Principal
                                 </Badge>
@@ -1558,7 +1558,7 @@ const RegiesSettings = () => {
                         <div className="flex items-center justify-between rounded-md border p-2">
                           <div>
                             <p className="text-xs font-medium">Calcul automatique</p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               Mensualité avant et après aides calculée automatiquement dans l'étude
                             </p>
                           </div>
@@ -1594,7 +1594,7 @@ const RegiesSettings = () => {
                                 />
                                 <div className="grid grid-cols-3 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Taux débiteur fixe %</label>
+                                    <label className="text-xs text-muted-foreground">Taux débiteur fixe %</label>
                                     <Input
                                       type="number"
                                       step="0.01"
@@ -1604,7 +1604,7 @@ const RegiesSettings = () => {
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">TAEG %</label>
+                                    <label className="text-xs text-muted-foreground">TAEG %</label>
                                     <Input
                                       type="number"
                                       step="0.01"
@@ -1614,7 +1614,7 @@ const RegiesSettings = () => {
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Durée (mois)</label>
+                                    <label className="text-xs text-muted-foreground">Durée (mois)</label>
                                     <Input
                                       type="number"
                                       value={editFinancementForm.duree_mois}
@@ -1625,7 +1625,7 @@ const RegiesSettings = () => {
                                  </div>
                                  <div className="grid grid-cols-3 gap-2">
                                    <div>
-                                     <label className="text-[10px] text-muted-foreground">Mode</label>
+                                     <label className="text-xs text-muted-foreground">Mode</label>
                                      <select
                                        className="w-full h-8 rounded-md border border-input bg-background px-1 text-xs"
                                        value={editFinancementForm.mode_calcul}
@@ -1636,7 +1636,7 @@ const RegiesSettings = () => {
                                      </select>
                                    </div>
                                    <div>
-                                     <label className="text-[10px] text-muted-foreground">Report (mois)</label>
+                                     <label className="text-xs text-muted-foreground">Report (mois)</label>
                                      <Input
                                        type="number"
                                        value={editFinancementForm.duree_report_mois}
@@ -1646,7 +1646,7 @@ const RegiesSettings = () => {
                                      />
                                    </div>
                                    <div>
-                                     <label className="text-[10px] text-muted-foreground">Frais dossier %</label>
+                                     <label className="text-xs text-muted-foreground">Frais dossier %</label>
                                      <Input
                                        type="number"
                                        step="0.01"
@@ -1657,7 +1657,7 @@ const RegiesSettings = () => {
                                    </div>
                                  </div>
                                  <div className="flex items-center justify-between rounded-md border p-2">
-                                   <p className="text-[11px] font-medium">Calcul auto avant / après aides</p>
+                                   <p className="text-xs font-medium">Calcul auto avant / après aides</p>
                                    <Switch
                                      checked={editFinancementForm.calcul_auto}
                                      onCheckedChange={(v) => setEditFinancementForm({ ...editFinancementForm, calcul_auto: v })}
@@ -1679,7 +1679,7 @@ const RegiesSettings = () => {
                                   <p className="text-xs text-muted-foreground mt-0.5">
                                     Taux débiteur fixe {financement.taux_effectif}% • TAEG {financement.taeg}% • {financement.duree_mois ?? 180} mois
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  <p className="text-xs text-muted-foreground mt-0.5">
                                     {(financement.mode_calcul ?? "report_interets") === "amortissement_direct"
                                       ? "Amortissement direct"
                                       : `Report ${financement.duree_report_mois ?? 6} mois`}

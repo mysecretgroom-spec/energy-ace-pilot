@@ -152,7 +152,7 @@ export function OnboardingBanner() {
                   return (
                     <span
                       key={item.id}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background/80 border border-border text-[11px] font-medium text-foreground"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background/80 border border-border text-xs font-medium text-foreground"
                     >
                       <Icon className="h-3 w-3 text-primary" />
                       {item.label}
