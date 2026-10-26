@@ -10,9 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "btn-glass-primary text-primary-foreground font-bold tracking-tight",
-        destructive: "bg-destructive text-destructive-foreground shadow-[inset_0_1px_0_hsl(var(--glass-highlight)/0.35),0_8px_20px_-6px_hsl(var(--destructive)/0.5)] hover:bg-destructive/90",
+        destructive: "btn-glass-destructive text-destructive-foreground font-semibold tracking-tight",
         outline: "btn-glass text-foreground hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-[inset_0_1px_0_hsl(var(--glass-highlight)/0.6),0_6px_16px_-6px_hsl(var(--secondary)/0.7)] hover:brightness-105",
+        secondary: "btn-glass-secondary text-secondary-foreground font-semibold tracking-tight",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
