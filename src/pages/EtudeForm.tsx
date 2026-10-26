@@ -411,21 +411,6 @@ const EtudeForm = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string>("");
 
-  // Force light mode on Etude page - restore previous theme on unmount
-  useLayoutEffect(() => {
-    const previousTheme = localStorage.getItem("theme") || "light";
-    const wasDark = document.documentElement.classList.contains("dark");
-    
-    // Force light mode
-    document.documentElement.classList.remove("dark");
-    
-    return () => {
-      // Restore previous theme when leaving
-      if (wasDark || previousTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      }
-    };
-  }, []);
 
   // Classification du dossier
   const [classification, setClassification] = useState<string>("");
@@ -2651,11 +2636,11 @@ const EtudeForm = () => {
 
       <div className="space-y-3 sm:space-y-4">
         {/* Official Header with logos - Sticky - Compact on mobile */}
-        <div className="bg-white border-b-2 sm:border-b-4 border-[#000091] px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-40 shadow-md">
+        <div className="bg-white dark:bg-card border-b-2 sm:border-b-4 border-[#000091] px-3 sm:px-4 py-2 sm:py-3 sticky top-0 z-40 shadow-md">
           {/* Tricolor band - thinner on mobile */}
           <div className="flex h-0.5 sm:h-1 mb-2 sm:mb-3 rounded-full overflow-hidden">
             <div className="flex-1 bg-[#000091]" />
-            <div className="flex-1 bg-white border-y border-gray-200" />
+            <div className="flex-1 bg-white border-y border-gray-200 dark:border-border" />
             <div className="flex-1 bg-[#E1000F]" />
           </div>
           
@@ -2667,7 +2652,7 @@ const EtudeForm = () => {
               className="h-10 sm:h-16 object-contain"
             /> : <div className="w-10 sm:w-16" />}
             <div className="flex-1 text-center min-w-0">
-              <h1 className="text-sm sm:text-lg font-bold text-[#000091] tracking-tight truncate">
+              <h1 className="text-sm sm:text-lg font-bold text-[#000091] dark:text-sky-300 tracking-tight truncate">
                 ÉTUDE ÉNERGÉTIQUE
               </h1>
               <p className="text-sm text-gray-500 uppercase tracking-wider truncate">
@@ -2847,7 +2832,7 @@ const EtudeForm = () => {
               <div className="pt-1 sm:pt-2">
                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] dark:text-sky-300 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">
                     Situation énergétique actuelle
                   </h2>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
@@ -3284,7 +3269,7 @@ const EtudeForm = () => {
               <div className="pt-1 sm:pt-2">
                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] dark:text-sky-300 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
                 </div>
               </div>
@@ -3334,7 +3319,7 @@ const EtudeForm = () => {
               <div className="pt-1 sm:pt-2">
                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] dark:text-sky-300 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
                 </div>
               </div>
@@ -3473,7 +3458,7 @@ const EtudeForm = () => {
               <div className="pt-1 sm:pt-2">
                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-[#000091] dark:text-sky-300 uppercase tracking-wider px-2 sm:px-3 whitespace-nowrap">Diagnostic</h2>
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
                 </div>
               </div>
@@ -4341,7 +4326,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-blue-700">PAC</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Réduction déperditions (ITE)</span>
                       <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct) || 0}%</span>
@@ -4384,7 +4369,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-amber-600">PV</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     {pacEconomiesCalculees && (
                       <>
                         <div className="flex justify-between">
@@ -4427,7 +4412,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-amber-600">PV</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Réduction chauffage (ITE)</span>
                       <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct)}%</span>
@@ -5359,7 +5344,7 @@ const EtudeForm = () => {
         {activeProducts.length > 1 && (
           <Card className="shadow-card border-2 border-[#000091]/30">
             <CardHeader className="pb-2 bg-[#000091]/10 px-3 sm:px-6 py-2 sm:py-3">
-              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-[#000091]">
+              <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-[#000091] dark:text-sky-300">
                 <Calculator className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Récapitulatif Global ({activeProducts.join(" + ")})
               </CardTitle>

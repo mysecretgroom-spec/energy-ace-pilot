@@ -110,7 +110,7 @@ export const FinancialSectionPAC = ({
       <div className="pt-4">
         <div className="flex items-center gap-2 justify-center mb-4">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />
-          <h2 className="text-sm font-bold text-[#000091] uppercase tracking-wider px-3">
+          <h2 className="text-sm font-bold text-[#000091] dark:text-sky-300 uppercase tracking-wider px-3">
             Pré-étude Financière PAC
           </h2>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#000091]/30 to-transparent" />

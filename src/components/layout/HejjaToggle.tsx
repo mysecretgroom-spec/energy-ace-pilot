@@ -38,11 +38,8 @@ export function HejjaToggle() {
       // Deactivate immediately on Etude page, otherwise after animation starts
       setTimeout(() => {
         deactivate();
-        // Don't change theme on Etude page (it's always light there)
-        if (!isOnEtudePage) {
-          document.documentElement.classList.remove("dark");
-          localStorage.setItem("theme", "light");
-        }
+        document.documentElement.classList.remove("dark");
+        localStorage.setItem("theme", "light");
       }, isOnEtudePage ? 0 : 500);
     } else {
       // Check if user has premium access for HEJJA
@@ -60,6 +57,9 @@ export function HejjaToggle() {
   };
 
   const handlePinSuccess = () => {
+    // Dark mode follows HEJJA everywhere, including the study
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
     // Skip animation on Etude page
     if (!isOnEtudePage) {
       // Trigger haptic vibration on mobile
@@ -70,9 +70,6 @@ export function HejjaToggle() {
       // Trigger fire animation
       setShowFireAnimation(true);
       
-      // Enable dark mode (not on Etude page - it stays light)
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
       
       // Hide fire animation after 1.5 seconds
       setTimeout(() => {
