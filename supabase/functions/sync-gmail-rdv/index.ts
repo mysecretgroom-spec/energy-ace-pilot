@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { corsHeaders, getUserIdFromAuth, getValidAccessToken } from "../_shared/google-auth.ts";
 import { validateJson, isoDate } from "../_shared/zodHttp.ts";
-import { visitorGuard } from "../_shared/visitorGuard.ts";
+import { visitorWriteGuard } from "../_shared/visitorWriteGuard.ts";
 
 // Bounded body schema — defends against injection / DoS via huge windows.
 const SyncBodySchema = z.object({
@@ -643,7 +643,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  { const __visitor = visitorGuard(req, corsHeaders); if (__visitor) return __visitor; }
+  { const __visitor = visitorWriteGuard(req, corsHeaders); if (__visitor) return __visitor; }
 
   try {
     const v = await validateJson(req, SyncBodySchema, corsHeaders, { allowEmpty: true });

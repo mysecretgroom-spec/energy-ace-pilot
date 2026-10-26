@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { checkUsageBudget, logUsage, resolveUserId, HARD_CAP_MESSAGE } from "../_shared/aiUsage.ts";
-import { visitorGuard } from "../_shared/visitorGuard.ts";
+import { visitorWriteGuard } from "../_shared/visitorWriteGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +37,7 @@ interface Patch {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  { const __visitor = visitorGuard(req, corsHeaders); if (__visitor) return __visitor; }
+  { const __visitor = visitorWriteGuard(req, corsHeaders); if (__visitor) return __visitor; }
 
   try {
     const body = await req.json();
