@@ -20,16 +20,17 @@ export interface RdvTypeStyle {
 const STYLES: Record<RdvTypeKey, RdvTypeStyle> = {
   installation: {
     cardClass: "halo-multicolor",
-    clockIconClass: "text-secondary",
-    clockTextClass: "text-secondary",
-    clockContainerClass: "bg-secondary/20 text-secondary ring-1 ring-secondary/40",
+    clockIconClass: "text-install-foreground",
+    clockTextClass: "text-install-foreground",
+    clockContainerClass: "bg-secondary/20 text-install-foreground ring-1 ring-secondary/40",
   },
   external_installation: {
     cardClass: "halo-multicolor",
-    clockIconClass: "text-secondary-foreground dark:text-secondary",
-    clockTextClass: "text-secondary-foreground dark:text-secondary",
-    clockContainerClass: "bg-secondary/30 text-secondary-foreground dark:text-secondary ring-1 ring-secondary/40",
+    clockIconClass: "text-install-foreground",
+    clockTextClass: "text-install-foreground",
+    clockContainerClass: "bg-secondary/30 text-install-foreground ring-1 ring-secondary/40",
   },
+
   standard: {
     cardClass: "",
     clockIconClass: "text-primary",
