@@ -152,7 +152,7 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
         <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-amber-500/20 rounded-l-lg z-0">
           <div className="flex flex-col items-center gap-0.5">
             <ChevronLeft className="h-4 w-4 text-amber-600" />
-            <span className="text-[9px] font-medium text-amber-600">{STATUS_LABELS[prevStatus!]}</span>
+            <span className="text-xs font-medium text-amber-600">{STATUS_LABELS[prevStatus!]}</span>
           </div>
         </div>
       )}
@@ -160,7 +160,7 @@ export function SwipeableVenteCard({ vente, commission, regies, selectionMode, i
         <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-green-500/20 rounded-r-lg z-0">
           <div className="flex flex-col items-center gap-0.5">
             <ChevronRight className="h-4 w-4 text-green-600" />
-            <span className="text-[9px] font-medium text-green-600">{STATUS_LABELS[nextStatus!]}</span>
+            <span className="text-xs font-medium text-green-600">{STATUS_LABELS[nextStatus!]}</span>
           </div>
         </div>
       )}

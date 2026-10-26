@@ -164,11 +164,11 @@ const DataZonesClimatiques = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-blue-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
-                        <Badge className={`text-[10px] ${getZoneColor(item.zone_climatique)}`}>{item.zone_climatique}</Badge>
+                        <Badge className={`text-xs ${getZoneColor(item.zone_climatique)}`}>{item.zone_climatique}</Badge>
                         <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
                       </div>
                       {!item.isGlobal && (
@@ -180,15 +180,15 @@ const DataZonesClimatiques = () => {
 
                     <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Dépt</label>
+                        <label className="text-xs text-muted-foreground">Dépt</label>
                         <Input value={item.department_code} onChange={(e) => handleChange(item.id, "department_code", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div className="col-span-2">
-                        <label className="text-[10px] text-muted-foreground">Département</label>
+                        <label className="text-xs text-muted-foreground">Département</label>
                         <Input value={item.department_name} onChange={(e) => handleChange(item.id, "department_name", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">DJU</label>
+                        <label className="text-xs text-muted-foreground">DJU</label>
                         <Input type="number" value={item.dju_base18} onChange={(e) => handleChange(item.id, "dju_base18", parseInt(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>

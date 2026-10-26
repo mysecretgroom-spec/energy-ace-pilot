@@ -305,7 +305,7 @@ export function ProductSurcoutsSection({
                 <span className="hidden sm:inline">{cfg.label}</span>
                 <span className="sm:hidden">{type}</span>
                 {count > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                     {count}
                   </Badge>
                 )}
@@ -419,7 +419,7 @@ export function ProductSurcoutsSection({
                               <div className="space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Catégorie</label>
+                                    <label className="text-xs text-muted-foreground">Catégorie</label>
                                     <Select
                                       value={editForm.categorie}
                                       onValueChange={(value) => setEditForm({ ...editForm, categorie: value })}
@@ -435,7 +435,7 @@ export function ProductSurcoutsSection({
                                     </Select>
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Code</label>
+                                    <label className="text-xs text-muted-foreground">Code</label>
                                     <Input
                                       value={editForm.code}
                                       onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
@@ -445,7 +445,7 @@ export function ProductSurcoutsSection({
                                 </div>
                                 <div className="grid grid-cols-3 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Nom</label>
+                                    <label className="text-xs text-muted-foreground">Nom</label>
                                     <Input
                                       value={editForm.nom}
                                       onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
@@ -453,7 +453,7 @@ export function ProductSurcoutsSection({
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Prix €</label>
+                                    <label className="text-xs text-muted-foreground">Prix €</label>
                                     <Input
                                       type="number"
                                       value={editForm.prix}
@@ -462,7 +462,7 @@ export function ProductSurcoutsSection({
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-muted-foreground">Type calcul</label>
+                                    <label className="text-xs text-muted-foreground">Type calcul</label>
                                     <Select
                                       value={editForm.type_calcul}
                                       onValueChange={(value) => setEditForm({ ...editForm, type_calcul: value })}
@@ -494,7 +494,7 @@ export function ProductSurcoutsSection({
                                   <div className="flex items-center gap-2">
                                     <p className="font-medium text-sm">{surcout.nom}</p>
                                     {surcout.isGlobal && (
-                                      <Badge variant="outline" className="text-[10px] h-4">
+                                      <Badge variant="outline" className="text-xs h-4">
                                         Par défaut
                                       </Badge>
                                     )}

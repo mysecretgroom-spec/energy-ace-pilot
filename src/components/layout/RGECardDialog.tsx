@@ -346,7 +346,7 @@ export const RGECardDialog = () => {
                       )}
                     </div>
                     {!profile?.avatar_url && (
-                      <div className="absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap text-[6px] sm:text-[8px] lg:text-xs">
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 px-1 rounded text-white whitespace-nowrap text-[6px] sm:text-xs lg:text-xs">
                         Photo manquante
                       </div>
                     )}
@@ -359,7 +359,7 @@ export const RGECardDialog = () => {
                     ) : (
                       <div className="mb-0.5">
                         <p className="text-white/50 italic text-sm sm:text-xl lg:text-2xl">Nom Prénom</p>
-                        <p className="text-amber-400 text-[8px] sm:text-xs">À renseigner dans le profil</p>
+                        <p className="text-amber-400 text-xs sm:text-xs">À renseigner dans le profil</p>
                       </div>
                     )}
                     <p className="text-white/80 text-xs sm:text-sm lg:text-base">Technicien agréé</p>
@@ -394,7 +394,7 @@ export const RGECardDialog = () => {
                   <div className="shrink-0 flex flex-col items-center gap-1 sm:gap-2 w-24 sm:w-36 lg:w-44">
                     {/* Agrément number - ratio 6:3 (2:1) */}
                     <div className="bg-white/15 rounded-lg text-center w-full aspect-[2/1] flex flex-col justify-center p-1.5 sm:p-3 lg:p-4">
-                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-[8px] sm:text-xs">
+                      <p className="text-white/70 uppercase tracking-wider mb-0.5 text-xs sm:text-xs">
                         N° d'Agrément
                       </p>
                       {profile?.numero_agrement ? (
@@ -402,7 +402,7 @@ export const RGECardDialog = () => {
                           {profile.numero_agrement}
                         </p>
                       ) : (
-                        <p className="text-white/50 italic text-[9px] sm:text-sm">Non renseigné</p>
+                        <p className="text-white/50 italic text-xs sm:text-sm">Non renseigné</p>
                       )}
                     </div>
 

@@ -173,7 +173,7 @@ export const VentesGroupedList = memo(function VentesGroupedList({
                 <span className="text-sm font-semibold text-foreground">
                   {regie.nom}
                 </span>
-                <Badge variant="secondary" className="text-[10px] h-5">
+                <Badge variant="secondary" className="text-xs h-5">
                   {groupVentes.length}
                 </Badge>
               </div>

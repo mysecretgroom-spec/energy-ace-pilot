@@ -153,7 +153,7 @@ export default function AdminPayments() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <tr className="border-b text-xs uppercase tracking-widest text-muted-foreground">
                     <th className="text-left font-semibold px-4 py-2.5">Date</th>
                     <th className="text-left font-semibold px-3 py-2.5">Compte</th>
                     <th className="text-left font-semibold px-3 py-2.5">Moyen</th>

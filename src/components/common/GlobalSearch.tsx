@@ -213,7 +213,7 @@ export function GlobalSearch() {
                       </p>
                     )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
+                  <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
                     {typeLabel[r.type]}
                   </span>
                 </button>

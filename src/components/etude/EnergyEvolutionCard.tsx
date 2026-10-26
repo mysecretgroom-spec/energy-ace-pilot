@@ -79,23 +79,23 @@ export const EnergyEvolutionCard = ({
         
         {/* SITUATION ACTUELLE */}
         <div className="rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">
+          <p className="text-xs sm:text-xs font-bold text-muted-foreground uppercase tracking-wide mb-2">
             📊 Situation actuelle
           </p>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="bg-background rounded p-2 border">
               <Zap className="h-3.5 w-3.5 text-amber-500 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Électricité</p>
-              <p className="font-bold">{factureMensElecAvant.toFixed(0)}€<span className="text-[9px] font-normal">/mois</span></p>
+              <p className="text-xs text-muted-foreground">Électricité</p>
+              <p className="font-bold">{factureMensElecAvant.toFixed(0)}€<span className="text-xs font-normal">/mois</span></p>
             </div>
             <div className="bg-background rounded p-2 border">
               <Flame className="h-3.5 w-3.5 text-orange-500 mx-auto mb-1" />
-              <p className="text-[10px] text-muted-foreground">Chauffage</p>
-              <p className="font-bold">{factureMensChauffAvant.toFixed(0)}€<span className="text-[9px] font-normal">/mois</span></p>
+              <p className="text-xs text-muted-foreground">Chauffage</p>
+              <p className="font-bold">{factureMensChauffAvant.toFixed(0)}€<span className="text-xs font-normal">/mois</span></p>
             </div>
             <div className="bg-background rounded p-2 border border-red-200">
-              <p className="text-[10px] text-muted-foreground">Total</p>
-              <p className="font-bold text-red-600">{totalMensuelAvant.toFixed(0)}€<span className="text-[9px] font-normal">/mois</span></p>
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="font-bold text-red-600">{totalMensuelAvant.toFixed(0)}€<span className="text-xs font-normal">/mois</span></p>
             </div>
           </div>
         </div>
@@ -105,7 +105,7 @@ export const EnergyEvolutionCard = ({
           <>
             <div className="flex items-center justify-center gap-2">
               <ArrowDown className="h-4 w-4 text-orange-500" />
-              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-[10px]">
+              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs">
                 <Home className="h-3 w-3 mr-1" />
                 Après ITE (−{iteEconomiePct}% déperditions)
               </Badge>
@@ -113,17 +113,17 @@ export const EnergyEvolutionCard = ({
             <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-3">
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Électricité</p>
+                  <p className="text-xs text-muted-foreground">Électricité</p>
                   <p className="font-bold">{factureMensElecAvant.toFixed(0)}€</p>
-                  <p className="text-[9px] text-muted-foreground">inchangée</p>
+                  <p className="text-xs text-muted-foreground">inchangée</p>
                 </div>
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Chauffage</p>
+                  <p className="text-xs text-muted-foreground">Chauffage</p>
                   <p className="font-bold">{factureMensChauffApresITE.toFixed(0)}€</p>
-                  <p className="text-[9px] text-green-600 font-medium">−{(factureMensChauffAvant - factureMensChauffApresITE).toFixed(0)}€</p>
+                  <p className="text-xs text-green-600 font-medium">−{(factureMensChauffAvant - factureMensChauffApresITE).toFixed(0)}€</p>
                 </div>
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Total</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                   <p className="font-bold">{(factureMensElecAvant + factureMensChauffApresITE).toFixed(0)}€</p>
                 </div>
               </div>
@@ -136,7 +136,7 @@ export const EnergyEvolutionCard = ({
           <>
             <div className="flex items-center justify-center gap-2">
               <ArrowDown className="h-4 w-4 text-blue-500" />
-              <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px]">
+              <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
                 <Thermometer className="h-3 w-3 mr-1" />
                 Après PAC (fossile → électrique)
               </Badge>
@@ -144,20 +144,20 @@ export const EnergyEvolutionCard = ({
             <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Électricité</p>
+                  <p className="text-xs text-muted-foreground">Électricité</p>
                   <p className="font-bold">{factureMensElecApresPAC.toFixed(0)}€</p>
-                  <p className="text-[9px] text-amber-600 font-medium">+{(pacSurcoutElecEuros / 12).toFixed(0)}€ (PAC)</p>
+                  <p className="text-xs text-amber-600 font-medium">+{(pacSurcoutElecEuros / 12).toFixed(0)}€ (PAC)</p>
                 </div>
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Chauffage fossile</p>
+                  <p className="text-xs text-muted-foreground">Chauffage fossile</p>
                   <p className="font-bold text-green-600">0€</p>
-                  <p className="text-[9px] text-green-600 font-medium">supprimé ✓</p>
+                  <p className="text-xs text-green-600 font-medium">supprimé ✓</p>
                 </div>
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Total</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                   <p className="font-bold">{totalMensuelApresPAC.toFixed(0)}€</p>
                   <p className={cn(
-                    "text-[9px] font-medium",
+                    "text-xs font-medium",
                     totalMensuelApresPAC < totalMensuelAvant ? "text-green-600" : "text-amber-600"
                   )}>
                     {totalMensuelApresPAC < totalMensuelAvant ? "−" : "+"}{Math.abs(totalMensuelAvant - totalMensuelApresPAC).toFixed(0)}€ vs avant
@@ -173,7 +173,7 @@ export const EnergyEvolutionCard = ({
           <>
             <div className="flex items-center justify-center gap-2">
               <ArrowDown className="h-4 w-4 text-amber-500" />
-              <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
+              <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
                 <Sun className="h-3 w-3 mr-1" />
                 Après PV (production solaire)
               </Badge>
@@ -181,19 +181,19 @@ export const EnergyEvolutionCard = ({
             <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3">
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Autoconsommation</p>
+                  <p className="text-xs text-muted-foreground">Autoconsommation</p>
                   <p className="font-bold text-green-600">−{pvAutoconsoEuros.toFixed(0)}€</p>
-                  <p className="text-[9px] text-muted-foreground">/mois</p>
+                  <p className="text-xs text-muted-foreground">/mois</p>
                 </div>
                 <div className="bg-background rounded p-2 border">
-                  <p className="text-[10px] text-muted-foreground">Revente surplus</p>
+                  <p className="text-xs text-muted-foreground">Revente surplus</p>
                   <p className="font-bold text-green-600">+{pvReventeEuros.toFixed(0)}€</p>
-                  <p className="text-[9px] text-muted-foreground">/mois</p>
+                  <p className="text-xs text-muted-foreground">/mois</p>
                 </div>
                 <div className="bg-background rounded p-2 border border-green-200">
-                  <p className="text-[10px] text-muted-foreground">Facture nette</p>
+                  <p className="text-xs text-muted-foreground">Facture nette</p>
                   <p className="font-bold text-green-600">{Math.max(0, totalMensuelFinal).toFixed(0)}€</p>
-                  <p className="text-[9px] text-muted-foreground">/mois</p>
+                  <p className="text-xs text-muted-foreground">/mois</p>
                 </div>
               </div>
             </div>
@@ -208,14 +208,14 @@ export const EnergyEvolutionCard = ({
           economiePct >= 20 ? "bg-amber-100 border border-amber-300" : 
           "bg-muted/50 border"
         )}>
-          <p className="text-[10px] sm:text-xs text-muted-foreground mb-1">Économie globale sur vos factures d'énergie</p>
+          <p className="text-xs sm:text-xs text-muted-foreground mb-1">Économie globale sur vos factures d'énergie</p>
           <div className="flex items-center justify-center gap-3">
             <span className="font-bold text-xl sm:text-2xl text-green-600">
               −{economieGlobaleMensuelle.toFixed(0)}€<span className="text-sm font-normal">/mois</span>
             </span>
             <Badge className="bg-green-600 text-white">{economiePct}%</Badge>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             De {totalMensuelAvant.toFixed(0)}€/mois à {Math.max(0, totalMensuelFinal).toFixed(0)}€/mois (soit −{(economieGlobaleMensuelle * 12).toFixed(0)}€/an)
           </p>
         </div>

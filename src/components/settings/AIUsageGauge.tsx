@@ -85,7 +85,7 @@ export function AIUsageGauge() {
           />
         </div>
 
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
+        <div className="flex items-center justify-between text-xs text-muted-foreground tabular-nums">
           <span>0</span>
           <span style={{ marginLeft: `${warningPos - 8}%` }}>
             ⚠ {formatTokens(data.warning_tokens)}
@@ -105,7 +105,7 @@ export function AIUsageGauge() {
 
         {top3.length > 0 && (
           <div className="pt-2 border-t border-border space-y-1">
-            <p className="text-[10px] uppercase font-medium text-muted-foreground tracking-wide">
+            <p className="text-xs uppercase font-medium text-muted-foreground tracking-wide">
               Détail
             </p>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">

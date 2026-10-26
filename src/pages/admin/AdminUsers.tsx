@@ -200,7 +200,7 @@ export default function AdminUsers() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <tr className="border-b text-xs uppercase tracking-widest text-muted-foreground">
                     <th className="text-left font-semibold px-4 py-2.5">Compte</th>
                     <th className="text-left font-semibold px-3 py-2.5">Accès</th>
                     <th className="text-left font-semibold px-3 py-2.5 hidden md:table-cell">Échéance</th>
@@ -256,12 +256,12 @@ export default function AdminUsers() {
               </SheetHeader>
 
               <div>
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Usage</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">Usage</h3>
                 <MetricGrid className="grid-cols-3">
                   {[["RDV", u360?.rdv_total], ["RDV 30 j", u360?.rdv_30d], ["Clients", u360?.clients], ["Études", u360?.etudes],
                     ["Ventes", u360?.ventes], ["Documents", u360?.documents]].map(([l, v]) => (
                     <div key={l as string} className="bg-card p-3">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{l}</p>
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground">{l}</p>
                       {loading360 ? <Skeleton className="h-5 w-10 mt-1" /> : <p className="font-display text-lg font-semibold tabular-nums">{num(Number(v ?? 0))}</p>}
                     </div>
                   ))}
@@ -285,7 +285,7 @@ export default function AdminUsers() {
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Actions</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Actions</h3>
                 <div className="border rounded-md p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <div><p className="text-sm font-medium">Bêta-testeur</p><p className="text-xs text-muted-foreground">Accès gratuit pour la durée choisie</p></div>

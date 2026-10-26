@@ -88,7 +88,7 @@ export function FiltersPanel({ imageSrc, activeFilter, onSelectFilter }: Filters
               <div className="w-full h-full bg-muted animate-pulse" />
             )}
           </div>
-          <span className={`text-[10px] font-medium ${
+          <span className={`text-xs font-medium ${
             activeFilter === key ? "text-primary" : "text-muted-foreground"
           }`}>
             {label}

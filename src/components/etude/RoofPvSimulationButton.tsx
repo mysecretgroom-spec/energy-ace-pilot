@@ -235,7 +235,7 @@ export function RoofPvSimulationButton({
                     type="button"
                     variant={installationType === t.value ? "default" : "outline"}
                     size="sm"
-                    className="text-[11px] h-7"
+                    className="text-xs h-7"
                     onClick={() => setInstallationType(t.value)}
                   >
                     {t.label}
@@ -251,7 +251,7 @@ export function RoofPvSimulationButton({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-[11px] h-7"
+                    className="text-xs h-7"
                     onClick={() => setSurfaceConstraint(preset.value)}
                   >
                     {preset.label}

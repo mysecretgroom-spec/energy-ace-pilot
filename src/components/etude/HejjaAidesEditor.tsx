@@ -195,7 +195,7 @@ export function HejjaAidesEditor({
               <>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{aide.nom}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {typeCalculLabels[aide.type_calcul]}: {aide.valeur}
                   </p>
                 </div>

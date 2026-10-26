@@ -203,7 +203,7 @@ export function RetapeDialog({
                         />
                         <span>{regie.nom}</span>
                         {regie.is_hejja && (
-                          <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30">
+                          <Badge variant="outline" className="text-xs h-4 bg-red-500/10 text-red-500 border-red-500/30">
                             HEJJA
                           </Badge>
                         )}

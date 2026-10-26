@@ -37,7 +37,7 @@ export function PagesTray({
             className="w-full h-full object-cover"
           />
           {/* Page number */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center text-[9px] py-0.5">
+          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center text-xs py-0.5">
             {index + 1}
           </div>
           {/* Remove button */}

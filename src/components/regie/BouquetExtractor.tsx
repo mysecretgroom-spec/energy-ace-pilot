@@ -369,7 +369,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                     
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className={`text-[10px] flex items-center gap-1 ${productConfig[productType].color}`}>
+                        <label className={`text-xs flex items-center gap-1 ${productConfig[productType].color}`}>
                           {productType === "PV" && <Zap className="h-3 w-3" />}
                           {productType === "PAC" && <Thermometer className="h-3 w-3" />}
                           {productType === "ITE" && <Home className="h-3 w-3" />}
@@ -387,7 +387,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground flex items-center gap-1">
                           <Euro className="h-3 w-3" />
                           Prix reco.
                         </label>
@@ -401,7 +401,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground text-green-600 flex items-center gap-1">
+                        <label className="text-xs text-muted-foreground text-green-600 flex items-center gap-1">
                           <Euro className="h-3 w-3" />
                           Commission
                         </label>
@@ -420,7 +420,7 @@ export function BouquetExtractor({ regieId, userId, onBouquetsCreated, productTy
                       <p className="text-xs text-muted-foreground italic">{bouquet.description}</p>
                     )}
                     {!bouquet.description && (
-                      <p className="text-[10px] text-muted-foreground/50">{productConfig[productType].hints}</p>
+                      <p className="text-xs text-muted-foreground/50">{productConfig[productType].hints}</p>
                     )}
                   </div>
                 </div>

@@ -189,11 +189,11 @@ const DataIsolationPAC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
                             <Globe className="h-3 w-3" /> Global
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-blue-50">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50">
                             <User className="h-3 w-3" /> Perso
                           </Badge>
                         )}
@@ -217,7 +217,7 @@ const DataIsolationPAC = () => {
 
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Label</label>
+                        <label className="text-xs text-muted-foreground">Label</label>
                         <Input
                           value={item.label}
                           onChange={(e) => handleChange(item.id, "label", e.target.value)}
@@ -226,7 +226,7 @@ const DataIsolationPAC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Code</label>
+                        <label className="text-xs text-muted-foreground">Code</label>
                         <Input
                           value={item.niveau_isolation}
                           onChange={(e) => handleChange(item.id, "niveau_isolation", e.target.value)}
@@ -238,7 +238,7 @@ const DataIsolationPAC = () => {
 
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Déperdition (W/m².K)</label>
+                        <label className="text-xs text-muted-foreground">Déperdition (W/m².K)</label>
                         <Input
                           type="number"
                           step="0.1"
@@ -249,7 +249,7 @@ const DataIsolationPAC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Besoins (kWh/m²/an)</label>
+                        <label className="text-xs text-muted-foreground">Besoins (kWh/m²/an)</label>
                         <Input
                           type="number"
                           value={item.besoins_kwh_m2_an}
@@ -259,7 +259,7 @@ const DataIsolationPAC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Ordre</label>
+                        <label className="text-xs text-muted-foreground">Ordre</label>
                         <Input
                           type="number"
                           value={item.ordre}
@@ -271,7 +271,7 @@ const DataIsolationPAC = () => {
                     </div>
 
                     <div>
-                      <label className="text-[10px] text-muted-foreground">Description</label>
+                      <label className="text-xs text-muted-foreground">Description</label>
                       <Input
                         value={item.description || ""}
                         onChange={(e) => handleChange(item.id, "description", e.target.value)}

@@ -155,11 +155,11 @@ const DataMursITE = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-amber-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-amber-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
-                        <Badge variant="secondary" className="text-[10px]">R={item.r_initial}</Badge>
+                        <Badge variant="secondary" className="text-xs">R={item.r_initial}</Badge>
                         <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
                       </div>
                       {!item.isGlobal && (
@@ -171,22 +171,22 @@ const DataMursITE = () => {
 
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Type de mur</label>
+                        <label className="text-xs text-muted-foreground">Type de mur</label>
                         <Input value={item.type_mur} onChange={(e) => handleChange(item.id, "type_mur", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Épaisseur (cm)</label>
+                        <label className="text-xs text-muted-foreground">Épaisseur (cm)</label>
                         <Input type="number" value={item.epaisseur_cm || ""} onChange={(e) => handleChange(item.id, "epaisseur_cm", parseInt(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">R initial (m².K/W)</label>
+                        <label className="text-xs text-muted-foreground">R initial (m².K/W)</label>
                         <Input type="number" step="0.01" value={item.r_initial} onChange={(e) => handleChange(item.id, "r_initial", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">U initial (W/m².K)</label>
+                        <label className="text-xs text-muted-foreground">U initial (W/m².K)</label>
                         <Input type="number" step="0.01" value={item.u_initial} onChange={(e) => handleChange(item.id, "u_initial", parseFloat(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>

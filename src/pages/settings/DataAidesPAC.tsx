@@ -181,11 +181,11 @@ const DataAidesPAC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-purple-50"><User className="h-3 w-3" /> Perso</Badge>
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-purple-50"><User className="h-3 w-3" /> Perso</Badge>
                         )}
-                        <Badge className={`text-[10px] ${getTypeColor(item.type_aide)}`}>{item.type_aide.toUpperCase()}</Badge>
+                        <Badge className={`text-xs ${getTypeColor(item.type_aide)}`}>{item.type_aide.toUpperCase()}</Badge>
                         <Switch checked={item.actif} onCheckedChange={(checked) => handleChange(item.id, "actif", checked)} disabled={item.isGlobal} />
                       </div>
                       {!item.isGlobal && (
@@ -197,14 +197,14 @@ const DataAidesPAC = () => {
 
                     <div className="grid grid-cols-2 gap-2 mb-2">
                       <div className="col-span-2">
-                        <label className="text-[10px] text-muted-foreground">Nom de l'aide</label>
+                        <label className="text-xs text-muted-foreground">Nom de l'aide</label>
                         <Input value={item.nom} onChange={(e) => handleChange(item.id, "nom", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Profil</label>
+                        <label className="text-xs text-muted-foreground">Profil</label>
                         <Select value={item.profil_revenus || "all"} onValueChange={(val) => handleChange(item.id, "profil_revenus", val === "all" ? null : val)} disabled={item.isGlobal}>
                           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -217,11 +217,11 @@ const DataAidesPAC = () => {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Montant (€)</label>
+                        <label className="text-xs text-muted-foreground">Montant (€)</label>
                         <Input type="number" value={item.montant_fixe || ""} onChange={(e) => handleChange(item.id, "montant_fixe", parseFloat(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Plafond (€)</label>
+                        <label className="text-xs text-muted-foreground">Plafond (€)</label>
                         <Input type="number" value={item.montant_plafond || ""} onChange={(e) => handleChange(item.id, "montant_plafond", parseFloat(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
                       </div>
                     </div>

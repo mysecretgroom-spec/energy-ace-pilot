@@ -174,10 +174,10 @@ const DataEstimateurCoefficients = () => {
                         <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
                           <div className="text-left">
                             <p className="text-sm font-medium">{cat.label}</p>
-                            <p className="text-[10px] text-muted-foreground">{cat.description}</p>
+                            <p className="text-xs text-muted-foreground">{cat.description}</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">{items.length}</Badge>
+                            <Badge variant="outline" className="text-xs">{items.length}</Badge>
                             <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                           </div>
                         </div>
@@ -188,9 +188,9 @@ const DataEstimateurCoefficients = () => {
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 {item.isGlobal ? (
-                                  <Badge variant="outline" className="text-[10px] flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
+                                  <Badge variant="outline" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Global</Badge>
                                 ) : (
-                                  <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-primary/10"><User className="h-3 w-3" /> Perso</Badge>
+                                  <Badge variant="outline" className="text-xs flex items-center gap-1 bg-primary/10"><User className="h-3 w-3" /> Perso</Badge>
                                 )}
                                 <span className="text-xs font-medium">{item.label || item.code}</span>
                                 <Switch checked={item.actif} onCheckedChange={v => handleChange(item.id, "actif", v)} disabled={item.isGlobal} />
@@ -203,7 +203,7 @@ const DataEstimateurCoefficients = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-2 mb-2">
                               <div>
-                                <label className="text-[10px] text-muted-foreground">Valeur</label>
+                                <label className="text-xs text-muted-foreground">Valeur</label>
                                 <Input
                                   type="number"
                                   step="any"
@@ -214,7 +214,7 @@ const DataEstimateurCoefficients = () => {
                                 />
                               </div>
                               <div>
-                                <label className="text-[10px] text-muted-foreground">Unité</label>
+                                <label className="text-xs text-muted-foreground">Unité</label>
                                 <Input
                                   value={item.unite}
                                   onChange={e => handleChange(item.id, "unite", e.target.value)}
@@ -224,7 +224,7 @@ const DataEstimateurCoefficients = () => {
                               </div>
                             </div>
                             {item.description && (
-                              <p className="text-[10px] text-muted-foreground">{item.description}</p>
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
                             )}
                           </div>
                         ))}

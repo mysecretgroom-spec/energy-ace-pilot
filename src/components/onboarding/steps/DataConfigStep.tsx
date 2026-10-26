@@ -64,7 +64,7 @@ export function DataConfigStep() {
           <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary mt-0.5 shrink-0" />
           <div>
             <p className="text-xs sm:text-sm font-medium">Valeurs par défaut pré-configurées</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
               Personnalisables dans les paramètres
             </p>
           </div>
@@ -84,7 +84,7 @@ export function DataConfigStep() {
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-xs sm:text-sm">{section.title}</h4>
-              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{section.description}</p>
+              <p className="text-xs sm:text-xs text-muted-foreground truncate">{section.description}</p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </button>
@@ -92,7 +92,7 @@ export function DataConfigStep() {
       </div>
 
       {/* Skip hint */}
-      <p className="text-[10px] sm:text-xs text-center text-muted-foreground">
+      <p className="text-xs sm:text-xs text-center text-muted-foreground">
         Modifiable dans Paramètres → Tables DATA
       </p>
     </div>

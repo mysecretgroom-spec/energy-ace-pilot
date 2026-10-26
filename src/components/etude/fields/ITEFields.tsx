@@ -213,7 +213,7 @@ export const ITEFields = ({ data, onChange, isolantLambda = 0.038, linkedPacActi
             <TrendingDown className="h-4 w-4 text-orange-600" />
             Facture de chauffage
             {linkedPacActive && (
-              <Badge variant="outline" className="text-[10px] ml-auto border-blue-300 text-blue-600 bg-blue-50">
+              <Badge variant="outline" className="text-xs ml-auto border-blue-300 text-blue-600 bg-blue-50">
                 <Link2 className="h-3 w-3 mr-1" />
                 Synchronisé PAC
               </Badge>

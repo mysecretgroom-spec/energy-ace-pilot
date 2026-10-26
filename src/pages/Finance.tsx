@@ -1398,7 +1398,7 @@ const Finance = () => {
                       <ChevronRight className="h-3 w-3" />
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-xs text-muted-foreground leading-tight">
                     {isToday ? "Aujourd'hui" : selectedDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}
                   </p>
                 </CardContent>
@@ -1435,7 +1435,7 @@ const Finance = () => {
                       <ChevronRight className="h-3 w-3" />
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
+                  <p className="text-xs text-muted-foreground leading-tight">
                     {isCurrentWeek ? "Cette semaine" : `${selectedWeekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(selectedWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
                   </p>
                 </CardContent>
@@ -1453,7 +1453,7 @@ const Finance = () => {
                   <p className={cn("text-lg font-bold pt-1", selectedPeriod === 'mois' ? "text-primary" : "text-foreground")}>
                     {totaux.mois.toFixed(0)} €
                   </p>
-                  <p className="text-[10px] text-muted-foreground leading-tight capitalize">
+                  <p className="text-xs text-muted-foreground leading-tight capitalize">
                     {isCurrentMonth ? "Ce mois" : selectedDate.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })}
                   </p>
                 </CardContent>

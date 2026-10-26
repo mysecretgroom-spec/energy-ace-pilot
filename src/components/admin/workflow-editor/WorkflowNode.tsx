@@ -94,7 +94,7 @@ function WorkflowNodeComponent({ id, data, selected }: NodeProps) {
             id="failure"
             className="!w-3 !h-3 !bg-red-500 !border-2 !border-background !left-3/4"
           />
-          <div className="flex justify-between text-[10px] text-muted-foreground mt-2 px-1">
+          <div className="flex justify-between text-[11px] text-muted-foreground mt-2 px-1">
             <span>✓ Oui</span>
             <span>✗ Non</span>
           </div>

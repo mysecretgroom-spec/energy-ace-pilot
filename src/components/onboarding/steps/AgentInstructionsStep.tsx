@@ -72,15 +72,15 @@ export function AgentInstructionsStep() {
 
       {/* Channels - compact on mobile */}
       <div className="flex justify-center gap-2 sm:gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-green-500/10 text-green-600 text-[10px] sm:text-xs font-medium">
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-green-500/10 text-green-600 text-xs sm:text-xs font-medium">
           <MessageCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           WhatsApp
         </div>
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 text-primary text-[10px] sm:text-xs font-medium">
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-xs font-medium">
           <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Chat
         </div>
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-500/10 text-blue-600 text-[10px] sm:text-xs font-medium">
+        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-500/10 text-blue-600 text-xs sm:text-xs font-medium">
           <Mic className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Vocal
         </div>
@@ -94,7 +94,7 @@ export function AgentInstructionsStep() {
               key={cap.title}
               onClick={() => setActiveTab(index)}
               className={cn(
-                "flex-1 px-1.5 sm:px-2 py-1.5 rounded-md text-[10px] sm:text-xs font-medium transition-colors touch-manipulation",
+                "flex-1 px-1.5 sm:px-2 py-1.5 rounded-md text-xs sm:text-xs font-medium transition-colors touch-manipulation",
                 activeTab === index 
                   ? "bg-background shadow text-foreground" 
                   : "text-muted-foreground"
@@ -122,7 +122,7 @@ export function AgentInstructionsStep() {
             </div>
             <div className="space-y-1">
               {AGENT_CAPABILITIES[activeTab].examples.slice(0, 2).map((example, i) => (
-                <div key={i} className="flex items-start gap-1.5 text-[10px] sm:text-xs">
+                <div key={i} className="flex items-start gap-1.5 text-xs sm:text-xs">
                   <span className="text-muted-foreground">→</span>
                   <span className="italic text-muted-foreground line-clamp-1">"{example}"</span>
                 </div>
@@ -134,15 +134,15 @@ export function AgentInstructionsStep() {
 
       {/* Key commands - 2x2 grid on mobile */}
       <div className="space-y-1.5 sm:space-y-2">
-        <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground flex items-center gap-1">
+        <h4 className="text-xs sm:text-xs font-semibold text-muted-foreground flex items-center gap-1">
           <Lightbulb className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Commandes clés
         </h4>
         <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
           {KEY_COMMANDS.map((cmd) => (
             <div key={cmd.command} className="p-1.5 sm:p-2 rounded bg-muted/50">
-              <p className="text-[9px] sm:text-xs font-mono text-primary truncate">{cmd.command}</p>
-              <p className="text-[9px] sm:text-[10px] text-muted-foreground">{cmd.desc}</p>
+              <p className="text-xs sm:text-xs font-mono text-primary truncate">{cmd.command}</p>
+              <p className="text-xs sm:text-xs text-muted-foreground">{cmd.desc}</p>
             </div>
           ))}
         </div>
@@ -150,7 +150,7 @@ export function AgentInstructionsStep() {
 
       {/* Tip - compact on mobile */}
       <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-primary/5 border border-primary/10">
-        <p className="text-[10px] sm:text-xs text-muted-foreground leading-relaxed">
+        <p className="text-xs sm:text-xs text-muted-foreground leading-relaxed">
           💬 <strong>L'agent apprend</strong> de vos habitudes et mémorise vos préférences.
         </p>
       </div>

@@ -159,10 +159,10 @@ function ServiceCard({
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="font-medium text-xs">{title}</h4>
-        <p className="text-[10px] text-muted-foreground truncate">{description}</p>
+        <p className="text-xs text-muted-foreground truncate">{description}</p>
       </div>
       {connected && (
-        <Badge variant="outline" className="text-green-600 border-green-500/30 text-[10px] px-1.5 shrink-0">
+        <Badge variant="outline" className="text-green-600 border-green-500/30 text-xs px-1.5 shrink-0">
           <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
           OK
         </Badge>

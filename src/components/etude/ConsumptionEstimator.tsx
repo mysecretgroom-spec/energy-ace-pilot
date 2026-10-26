@@ -447,7 +447,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
           <>
             {/* ── Isolation (from data_pac_isolation) ── */}
             <div>
-              <Label className="text-[10px] sm:text-xs">Niveau d'isolation</Label>
+              <Label className="text-xs sm:text-xs">Niveau d'isolation</Label>
               <Select value={isolation} onValueChange={setIsolation}>
                 <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                   <SelectValue />
@@ -465,17 +465,17 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
             {/* ── Heating zones ── */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-[10px] sm:text-xs">Zones de chauffage</Label>
-                <button type="button" onClick={addZone} className="flex items-center gap-1 text-[10px] text-primary hover:underline">
+                <Label className="text-xs sm:text-xs">Zones de chauffage</Label>
+                <button type="button" onClick={addZone} className="flex items-center gap-1 text-xs text-primary hover:underline">
                   <Plus className="h-3 w-3" /> Ajouter
                 </button>
               </div>
               {heatingZones.map((zone, idx) => (
                 <div key={zone.id} className="flex items-end gap-1.5 bg-muted/30 rounded-lg p-2">
                   <div className="flex-1 min-w-0">
-                    <Label className="text-[9px] text-muted-foreground">Type {idx + 1}</Label>
+                    <Label className="text-xs text-muted-foreground">Type {idx + 1}</Label>
                     <Select value={zone.type} onValueChange={v => updateZone(zone.id, "type", v)}>
-                      <SelectTrigger className="h-7 sm:h-8 text-[10px] sm:text-xs">
+                      <SelectTrigger className="h-7 sm:h-8 text-xs sm:text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -486,16 +486,16 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                     </Select>
                   </div>
                   <div className="w-20 shrink-0">
-                    <Label className="text-[9px] text-muted-foreground">Surface</Label>
+                    <Label className="text-xs text-muted-foreground">Surface</Label>
                     <div className="flex items-center gap-0.5">
                       <Input
                         type="number"
                         value={zone.surface}
                         onChange={e => updateZone(zone.id, "surface", e.target.value ? Number(e.target.value) : "")}
-                        className="h-7 sm:h-8 text-[10px] sm:text-xs px-1.5"
+                        className="h-7 sm:h-8 text-xs sm:text-xs px-1.5"
                         placeholder="m²"
                       />
-                      <span className="text-[9px] text-muted-foreground">m²</span>
+                      <span className="text-xs text-muted-foreground">m²</span>
                     </div>
                   </div>
                   {heatingZones.length > 1 && (
@@ -506,14 +506,14 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                 </div>
               ))}
               {zonesTotal > 0 && (
-                <p className="text-[9px] text-muted-foreground text-right">Total couvert: {zonesTotal} m²</p>
+                <p className="text-xs text-muted-foreground text-right">Total couvert: {zonesTotal} m²</p>
               )}
             </div>
 
             {/* ── ECS + Occupants ── */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-[10px] sm:text-xs">Eau chaude</Label>
+                <Label className="text-xs sm:text-xs">Eau chaude</Label>
                 <Select value={ecsType} onValueChange={setEcsType}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -528,7 +528,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Nb occupants</Label>
+                <Label className="text-xs sm:text-xs">Nb occupants</Label>
                 <Input
                   type="number" min={1} max={12}
                   value={occupants}
@@ -540,7 +540,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
 
             {/* ── Custom energy prices ── */}
             <div className="space-y-1.5">
-              <Label className="text-[10px] sm:text-xs block">Prix de l'énergie du client <span className="text-muted-foreground font-normal">(laisser vide = prix par défaut)</span></Label>
+              <Label className="text-xs sm:text-xs block">Prix de l'énergie du client <span className="text-muted-foreground font-normal">(laisser vide = prix par défaut)</span></Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 {(() => {
                   // Determine which energy types are used
@@ -572,7 +572,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                     const defaultPrice = prixEnergies[dbKeyMap[energy]] || 0;
                     return (
                       <div key={energy}>
-                        <Label className="text-[9px] text-muted-foreground">{labels[energy]} (€/kWh)</Label>
+                        <Label className="text-xs text-muted-foreground">{labels[energy]} (€/kWh)</Label>
                         <Input
                           type="number"
                           step="0.001"
@@ -583,7 +583,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                             ...prev,
                             [energy]: e.target.value ? parseFloat(e.target.value) : "",
                           }))}
-                          className="h-7 sm:h-8 text-[10px] sm:text-xs"
+                          className="h-7 sm:h-8 text-xs sm:text-xs"
                         />
                       </div>
                     );
@@ -594,7 +594,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
 
             {/* ── Appliances ── */}
             <div className="space-y-2">
-              <Label className="text-[10px] sm:text-xs block">Équipements énergivores</Label>
+              <Label className="text-xs sm:text-xs block">Équipements énergivores</Label>
               <div className="flex flex-wrap gap-1.5">
                 {APPLIANCE_DEFS.map(def => {
                   const active = appliances.some(a => a.id === def.id);
@@ -602,7 +602,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                     <button
                       key={def.id} type="button" onClick={() => toggleAppliance(def.id)}
                       className={cn(
-                        "flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] sm:text-xs transition-colors",
+                        "flex items-center gap-1 px-2 py-1 rounded-full border text-xs sm:text-xs transition-colors",
                         active
                           ? "bg-primary/10 border-primary text-primary font-medium"
                           : "border-muted-foreground/20 text-muted-foreground hover:border-primary/40"
@@ -621,20 +621,20 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                 return (
                   <div key={cfg.id} className="bg-muted/30 rounded-lg p-2 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] sm:text-xs font-medium text-foreground flex items-center gap-1">
+                      <span className="text-xs sm:text-xs font-medium text-foreground flex items-center gap-1">
                         {def.icon} {def.label}
                       </span>
-                      <span className="text-[10px] font-semibold text-primary">{kwh.toLocaleString("fr-FR")} kWh/an</span>
+                      <span className="text-xs font-semibold text-primary">{kwh.toLocaleString("fr-FR")} kWh/an</span>
                     </div>
                     {/* Piscine mode selector */}
                     {cfg.id === "piscine" && (
                       <div>
-                        <Label className="text-[9px] text-muted-foreground">Mode</Label>
+                        <Label className="text-xs text-muted-foreground">Mode</Label>
                         <Select
                           value={cfg.details.mode === 1 ? "filtree_seule" : "chauffee_filtree"}
                           onValueChange={v => updateApplianceDetail(cfg.id, "mode", v === "filtree_seule" ? 1 : 0)}
                         >
-                          <SelectTrigger className="h-6 sm:h-7 text-[10px] sm:text-xs">
+                          <SelectTrigger className="h-6 sm:h-7 text-xs sm:text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -648,15 +648,15 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
                     <div className="grid grid-cols-3 gap-1.5">
                       {def.detailFields.map(field => (
                         <div key={field.key}>
-                          <Label className="text-[9px] text-muted-foreground">{field.label}</Label>
+                          <Label className="text-xs text-muted-foreground">{field.label}</Label>
                           <div className="flex items-center gap-0.5">
                             <Input
                               type="number" min={field.min} max={field.max} step={field.step || 1}
                               value={cfg.details[field.key] ?? field.defaultValue}
                               onChange={e => updateApplianceDetail(cfg.id, field.key, Number(e.target.value) || 0)}
-                              className="h-6 sm:h-7 text-[10px] px-1.5"
+                              className="h-6 sm:h-7 text-xs px-1.5"
                             />
-                            {field.unit && <span className="text-[9px] text-muted-foreground shrink-0">{field.unit}</span>}
+                            {field.unit && <span className="text-xs text-muted-foreground shrink-0">{field.unit}</span>}
                           </div>
                         </div>
                       ))}
@@ -668,12 +668,12 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
 
             {/* ── Results ── */}
             <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <p className="text-[10px] sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <p className="text-xs sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <Zap className="h-3.5 w-3.5 text-primary" />
                 Estimation prévisionnelle
               </p>
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] sm:text-xs">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Électricité</span>
                   <span className="font-semibold">{estimation.elecKwh.toLocaleString("fr-FR")} kWh/an</span>
@@ -699,7 +699,7 @@ export const ConsumptionEstimator = ({ productType, onApply }: ConsumptionEstima
               </div>
 
               {/* Breakdown */}
-              <div className="pt-1.5 border-t border-muted-foreground/10 space-y-0.5 text-[9px] sm:text-[10px] text-muted-foreground">
+              <div className="pt-1.5 border-t border-muted-foreground/10 space-y-0.5 text-xs sm:text-xs text-muted-foreground">
                 <div className="grid grid-cols-2 gap-x-4">
                   <span>Chauffage: {estimation.totalChauffageKwh.toLocaleString("fr-FR")} kWh</span>
                   <span>ECS: {estimation.ecsKwh.toLocaleString("fr-FR")} kWh</span>

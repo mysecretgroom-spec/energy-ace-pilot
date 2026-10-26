@@ -74,7 +74,7 @@ export function OCRPanel({ page, onFieldsExtracted }: OCRPanelProps) {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">OCR / Analyse</h3>
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
           ☁️ Envoyé au serveur
         </div>
       </div>
@@ -109,7 +109,7 @@ export function OCRPanel({ page, onFieldsExtracted }: OCRPanelProps) {
           <div className="space-y-1">
             {Object.entries(fields).map(([key, value]) => (
               <div key={key} className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
-                <span className="text-[10px] text-muted-foreground uppercase font-medium min-w-[80px]">{key}</span>
+                <span className="text-xs text-muted-foreground uppercase font-medium min-w-[80px]">{key}</span>
                 <span className="text-xs text-foreground select-text">{value}</span>
               </div>
             ))}

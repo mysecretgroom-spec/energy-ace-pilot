@@ -29,7 +29,7 @@ export function QualitySelector({ value, onChange }: QualitySelectorProps) {
           <div className={`text-sm font-medium ${value === key ? "text-primary" : "text-foreground"}`}>
             {label}
           </div>
-          <div className="text-[10px] text-muted-foreground">{desc}</div>
+          <div className="text-xs text-muted-foreground">{desc}</div>
         </button>
       ))}
     </div>

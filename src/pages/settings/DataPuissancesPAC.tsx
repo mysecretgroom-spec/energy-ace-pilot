@@ -182,11 +182,11 @@ const DataPuissancesPAC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {item.isGlobal ? (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
                             <Globe className="h-3 w-3" /> Global
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] flex items-center gap-1 bg-blue-50">
+                          <Badge variant="outline" className="text-xs flex items-center gap-1 bg-blue-50">
                             <User className="h-3 w-3" /> Perso
                           </Badge>
                         )}
@@ -210,7 +210,7 @@ const DataPuissancesPAC = () => {
 
                     <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Type PAC</label>
+                        <label className="text-xs text-muted-foreground">Type PAC</label>
                         <Select
                           value={item.pac_subtype}
                           onValueChange={(val) => handleChange(item.id, "pac_subtype", val)}
@@ -226,7 +226,7 @@ const DataPuissancesPAC = () => {
                         </Select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Surface min (m²)</label>
+                        <label className="text-xs text-muted-foreground">Surface min (m²)</label>
                         <Input
                           type="number"
                           value={item.surface_min}
@@ -236,7 +236,7 @@ const DataPuissancesPAC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Surface max (m²)</label>
+                        <label className="text-xs text-muted-foreground">Surface max (m²)</label>
                         <Input
                           type="number"
                           value={item.surface_max}
@@ -246,7 +246,7 @@ const DataPuissancesPAC = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-muted-foreground">Puissance (kW)</label>
+                        <label className="text-xs text-muted-foreground">Puissance (kW)</label>
                         <Input
                           type="number"
                           step="0.5"

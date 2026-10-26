@@ -133,11 +133,11 @@ export function RoofAiVisualization({ clientId, etudeId, lat, lng, viewport, pui
               {v.u ? (
                 <Button variant="ghost" aria-label={`Aperçu ${v.l}`} className="relative p-0 h-auto w-full" onClick={() => setPreviewIndex(previewItems.findIndex((item) => item.url === v.u))}>
                   <img src={v.u} alt={`Visualisation IA ${v.l}`} className="w-full rounded-md border border-border object-cover aspect-video" />
-                  <span aria-label="Visuel généré par IA" className="absolute right-1.5 top-1.5 rounded bg-foreground/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-background">IA</span>
+                  <span aria-label="Visuel généré par IA" className="absolute right-1.5 top-1.5 rounded bg-foreground/85 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-background">IA</span>
                 </Button>
               )
                 : <div className="aspect-video rounded-md border border-dashed border-border" />}
-              <p className="text-[10px] text-muted-foreground">{v.l} — généré par IA</p>
+              <p className="text-xs text-muted-foreground">{v.l} — généré par IA</p>
             </div>
           ))}
         </div>

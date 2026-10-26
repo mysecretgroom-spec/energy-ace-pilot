@@ -83,10 +83,10 @@ export function HejjaModeStep() {
       >
         <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 mt-0.5 shrink-0" />
         <div>
-          <p className="text-[10px] sm:text-xs font-medium text-amber-700 dark:text-amber-400">
+          <p className="text-xs sm:text-xs font-medium text-amber-700 dark:text-amber-400">
             Mode restreint
           </p>
-          <p className="text-[9px] sm:text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-0.5">
+          <p className="text-xs sm:text-xs text-amber-600/80 dark:text-amber-500/80 mt-0.5">
             Bouton HEJJA en bas à gauche
           </p>
         </div>
@@ -110,19 +110,19 @@ export function HejjaModeStep() {
             <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg ${feature.bgColor} flex items-center justify-center mb-1 sm:mb-2`}>
               <feature.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${feature.color}`} />
             </div>
-            <h4 className="font-medium text-[10px] sm:text-xs">{feature.title}</h4>
-            <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{feature.description}</p>
+            <h4 className="font-medium text-xs sm:text-xs">{feature.title}</h4>
+            <p className="text-xs sm:text-xs text-muted-foreground mt-0.5 line-clamp-2">{feature.description}</p>
           </motion.div>
         ))}
       </motion.div>
 
       {/* Visibility explanation - compact on mobile */}
       <div className="space-y-1.5 sm:space-y-2">
-        <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground flex items-center gap-1">
+        <h4 className="text-xs sm:text-xs font-semibold text-muted-foreground flex items-center gap-1">
           <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           Quand HEJJA est actif
         </h4>
-        <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-muted/30 space-y-1.5 sm:space-y-2 text-[10px] sm:text-xs">
+        <div className="p-2 sm:p-3 rounded-md sm:rounded-lg bg-muted/30 space-y-1.5 sm:space-y-2 text-xs sm:text-xs">
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-green-600 shrink-0" />
             <span>Régies/bouquets HEJJA <strong>visibles</strong></span>

@@ -220,10 +220,10 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                   <div className={`text-xs font-bold ${data.pacProfilMpr === profil.value ? profil.textColor : ""}`}>
                     {profil.label}
                   </div>
-                  <div className={`text-[10px] mt-0.5 ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-80" : "text-muted-foreground"}`}>
+                  <div className={`text-xs mt-0.5 ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-80" : "text-muted-foreground"}`}>
                     {profil.desc}
                   </div>
-                  <div className={`text-[8px] mt-0.5 font-medium ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-90" : "text-muted-foreground"}`}>
+                  <div className={`text-xs mt-0.5 font-medium ${data.pacProfilMpr === profil.value ? profil.textColor + " opacity-90" : "text-muted-foreground"}`}>
                     {seuils[profil.value]}
                   </div>
                 </button>
@@ -257,7 +257,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                 <Trash2 className="h-4 w-4 text-orange-600" />
                 <div>
                   <p className="text-xs font-medium">Dépose chaudière fossile</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Bonus si retrait d'une chaudière gaz/fioul
                     {data.pacProfilMpr === "bleu" ? " : 3 500€" : data.pacProfilMpr === "jaune" ? " : 2 500€" : " : 1 500€"}
                   </p>
@@ -277,7 +277,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                 <Droplets className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-xs font-medium">Ballon thermodynamique (CET)</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Toujours inclus avec la PAC
                     {data.pacProfilMpr !== "rose" && (
                       <span className="font-medium text-blue-600 ml-1">
@@ -287,7 +287,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="text-[10px] bg-blue-100 text-blue-700 border-blue-300">
+              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
                 Inclus
               </Badge>
             </div>
@@ -300,7 +300,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
                 <Link2 className="h-4 w-4 text-emerald-600" />
                 <div>
                   <p className="text-xs font-medium">Raccordement réseau chaleur/froid</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Réseau de chaleur et/ou de froid
                     {data.pacProfilMpr === "bleu" ? " : 1 200€" : data.pacProfilMpr === "jaune" ? " : 800€" : " : 400€"}
                   </p>
@@ -434,7 +434,7 @@ export const PACFields = ({ data, onChange, calculatedCop, iteReductionPct = 0, 
             <Flame className="h-4 w-4 text-orange-600" />
             Factures énergétiques actuelles
             {linkedIteActive && (
-              <Badge variant="outline" className="text-[10px] ml-auto border-orange-300 text-orange-600 bg-orange-50">
+              <Badge variant="outline" className="text-xs ml-auto border-orange-300 text-orange-600 bg-orange-50">
                 <Link2 className="h-3 w-3 mr-1" />
                 Synchronisé ITE
               </Badge>

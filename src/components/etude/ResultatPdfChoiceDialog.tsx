@@ -48,7 +48,7 @@ export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: Re
               <ShieldCheck className="h-8 w-8 text-primary" />
               <div className="text-center">
                 <p className="font-semibold text-sm">Kasher</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Sans logos partenaires</p>
+                <p className="text-xs text-muted-foreground mt-1">Sans logos partenaires</p>
               </div>
             </Button>
 
@@ -62,7 +62,7 @@ export function ResultatPdfChoiceDialog({ open, onClose, onChoose, loading }: Re
               <ShieldOff className="h-8 w-8 text-red-500" />
               <div className="text-center">
                 <p className="font-semibold text-sm text-red-600 dark:text-red-400">Hejja</p>
-                <p className="text-[10px] text-muted-foreground mt-1">{hejjaActive ? "Avec logos partenaires" : "Activez le mode HEJJA"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{hejjaActive ? "Avec logos partenaires" : "Activez le mode HEJJA"}</p>
               </div>
             </Button>
           </div>

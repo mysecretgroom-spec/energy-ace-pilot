@@ -1124,14 +1124,14 @@ export function AgentChat({ externalOpen, onExternalOpenChange }: AgentChatProps
 
             {/* Quick action: cancel any pending workflow */}
             <div className="px-4 pt-2 pb-1 border-t bg-muted/20 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 Une question en attente bloquée&nbsp;?
               </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
                 onClick={() => {
                   setReplyingTo(null);
                   sendMessage("/annule");

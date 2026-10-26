@@ -130,7 +130,7 @@ export function ProfileConfigStep({ onComplete }: ProfileConfigStepProps) {
           onChange={(e) => setFormData((s) => ({ ...s, phone: e.target.value }))}
           className="h-9 text-sm"
         />
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Utilisé pour l'agent WhatsApp et les notifications
         </p>
       </div>

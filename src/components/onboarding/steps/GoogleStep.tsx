@@ -105,7 +105,7 @@ export function GoogleStep() {
         <div className="p-3 sm:p-4 rounded-lg sm:rounded-xl bg-green-500/10 border border-green-500/20 text-center">
           <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 mx-auto mb-1.5 sm:mb-2" />
           <p className="font-medium text-sm sm:text-base text-green-700">Compte connecté</p>
-          <p className="text-[10px] sm:text-xs text-green-600/80 mt-0.5 sm:mt-1">
+          <p className="text-xs sm:text-xs text-green-600/80 mt-0.5 sm:mt-1">
             Services prêts à l'emploi
           </p>
         </div>
@@ -133,7 +133,7 @@ export function GoogleStep() {
         </Button>
       )}
 
-      <p className="text-[10px] sm:text-xs text-center text-muted-foreground">
+      <p className="text-xs sm:text-xs text-center text-muted-foreground">
         Configurable plus tard dans les paramètres
       </p>
     </div>
@@ -158,10 +158,10 @@ function ServiceCard({
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="font-medium text-xs sm:text-sm">{title}</h4>
-        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{description}</p>
+        <p className="text-xs sm:text-xs text-muted-foreground truncate">{description}</p>
       </div>
       {connected && (
-        <Badge variant="outline" className="text-green-600 border-green-500/30 text-[10px] sm:text-xs px-1.5 sm:px-2 shrink-0">
+        <Badge variant="outline" className="text-green-600 border-green-500/30 text-xs sm:text-xs px-1.5 sm:px-2 shrink-0">
           <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1" />
           OK
         </Badge>
