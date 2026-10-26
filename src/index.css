@@ -127,7 +127,7 @@ body {
   }
 
   .dark {
-    /* Cobalt & ardoise — version sombre */
+    /* Teal profond & sable — version sombre */
     --background: 183 42% 7%;
     --foreground: 40 30% 94%;
 
@@ -137,18 +137,18 @@ body {
     --popover: 182 32% 11%;
     --popover-foreground: 40 30% 94%;
 
-    /* Cobalt (dark) */
+    /* Teal profond (dark) */
     --primary: 173 70% 42%;
     --gradient-hero: linear-gradient(135deg, hsl(173 66% 46%) 0%, hsl(175 70% 36%) 100%);
     --primary-foreground: 183 45% 7%;
 
-    /* Ambre solaire */
-    --secondary: 41 63% 62%;
+    /* Sable */
+    --secondary: 38 45% 66%;
     --secondary-foreground: 183 45% 7%;
 
     /* Neutres sombres */
     --muted: 182 25% 16%;
-    --muted-foreground: 40 12% 68%;
+    --muted-foreground: 38 16% 72%;
 
     /* Accent */
     --accent: 182 28% 18%;
@@ -158,7 +158,7 @@ body {
     --destructive: 4 68% 52%;
     --destructive-foreground: 0 0% 100%;
     --warning: 38 90% 58%;
-    --warning-foreground: 224 45% 10%;
+    --warning-foreground: 183 45% 7%;
 
     /* Bordures */
     --border: 182 22% 21%;
@@ -176,11 +176,11 @@ body {
 
     /* Sidebar dark */
     --sidebar-background: 183 42% 7%;
-    --sidebar-foreground: 220 25% 94%;
+    --sidebar-foreground: 40 30% 94%;
     --sidebar-primary: 173 70% 42%;
     --sidebar-primary-foreground: 183 45% 7%;
     --sidebar-accent: 182 28% 18%;
-    --sidebar-accent-foreground: 220 25% 94%;
+    --sidebar-accent-foreground: 40 30% 94%;
     --sidebar-border: 182 22% 21%;
     --sidebar-ring: 173 70% 42%;
   }
