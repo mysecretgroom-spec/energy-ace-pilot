@@ -102,6 +102,7 @@ const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows
 const AdminUsers = React.lazy(() => import("./pages/admin/AdminUsers"));
 const AdminPayments = React.lazy(() => import("./pages/admin/AdminPayments"));
 const Tarifs = React.lazy(() => import("./pages/Tarifs"));
+const EssaiGratuit = React.lazy(() => import("./pages/EssaiGratuit"));
 
 // ─── QueryClient with optimized defaults + offline-first ───
 const queryClient = new QueryClient({
@@ -155,6 +156,7 @@ const App = () => {
                       <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                       <Route path="/presentation" element={<PresentationVideo />} />
                       <Route path="/tarifs" element={<Tarifs />} />
+                      <Route path="/essai-gratuit" element={<EssaiGratuit />} />
                       <Route path="/signup" element={<Signup />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/reset-password" element={<ResetPassword />} />

@@ -52,7 +52,7 @@ export default function Accueil() {
           <nav className="flex gap-2">
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex"><a href="#tarifs">Tarifs</a></Button>
             <Button asChild variant="ghost" size="sm"><Link to="/login">Se connecter</Link></Button>
-            <Button asChild size="sm"><Link to="/signup">Essai gratuit</Link></Button>
+            <Button asChild size="sm"><Link to="/essai-gratuit">Essai gratuit</Link></Button>
           </nav>
         </div>
       </header>
@@ -68,7 +68,7 @@ export default function Accueil() {
               DébalePro réunit études, scanner, planning et récap WhatsApp dans une seule application, même sans réseau.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg"><Link to="/signup">Essayer 10 jours gratuits</Link></Button>
+              <Button asChild size="lg"><Link to="/essai-gratuit">Essayer 10 jours gratuits</Link></Button>
               <VisitorButton size="lg" variant="outline" />
             </div>
             <p className="text-xs text-muted-foreground">Sans engagement · Mode visiteur sans compte : études, planning et CRM avec données fictives, IA désactivée</p>
