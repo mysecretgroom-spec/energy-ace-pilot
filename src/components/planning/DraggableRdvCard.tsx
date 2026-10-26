@@ -184,7 +184,7 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
                 {time}
               </span>
               {typeRdv === "installation" && (
-                <HardHat className="h-2.5 w-2.5 text-install" />
+                <HardHat className="h-2.5 w-2.5 text-secondary" />
               )}
               {typeRdv === "external_installation" && (
                 <Wrench className="h-2.5 w-2.5 text-secondary-foreground dark:text-secondary" />

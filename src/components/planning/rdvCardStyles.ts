@@ -20,9 +20,9 @@ export interface RdvTypeStyle {
 const STYLES: Record<RdvTypeKey, RdvTypeStyle> = {
   installation: {
     cardClass: "halo-multicolor",
-    clockIconClass: "text-install",
-    clockTextClass: "text-install",
-    clockContainerClass: "bg-install/15 text-install ring-1 ring-install/30",
+    clockIconClass: "text-secondary",
+    clockTextClass: "text-secondary",
+    clockContainerClass: "bg-secondary/20 text-secondary ring-1 ring-secondary/40",
   },
   external_installation: {
     cardClass: "halo-multicolor",
