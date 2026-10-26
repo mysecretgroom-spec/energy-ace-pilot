@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, Component, ErrorInfo, ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { PageError, PageLoading } from "@/components/common/PageState";
 import { StatusBadge, RdvStatus } from "@/components/ui/status-badge";
@@ -242,7 +242,12 @@ const ClientDetailInner = () => {
   const [ventesRegies, setVentesRegies] = useState<ClientRegie2[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("info");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = searchParams.get("tab");
+    const map: Record<string, string> = { documents: "docs", docs: "docs", photos: "docs", rdv: "rdv", etudes: "etudes", ventes: "ventes" };
+    return (t && map[t]) || "info";
+  });
   const [showMultiImport, setShowMultiImport] = useState(false);
   const [showLiveScanner, setShowLiveScanner] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -579,7 +584,7 @@ const ClientDetailInner = () => {
             <TabsTrigger value="rdv">RDV ({rdvs.length})</TabsTrigger>
             <TabsTrigger value="ventes">Ventes ({ventes.length})</TabsTrigger>
             <TabsTrigger value="etudes">Études ({etudes.length})</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Photos ({documents.length})</TabsTrigger>
+            <TabsTrigger value="docs" className="text-xs">Docs ({documents.length})</TabsTrigger>
           </TabsList>
 
           {/* Tab Info */}
