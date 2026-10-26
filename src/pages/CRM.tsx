@@ -31,7 +31,6 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronDown,
-  CalendarDays,
   Plus,
   Euro,
   FileText,
@@ -709,25 +708,48 @@ const CRM = () => {
               />
             </div>
 
-            {/* Week navigation */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant={weekAnchor ? "default" : "outline"}
-                
-                onClick={() => setWeekAnchor(weekAnchor ? null : new Date())}
-              >
-                <CalendarDays className="h-4 w-4 mr-1" />
-                {weekAnchor ? "Semaine" : "Tous"}
-              </Button>
-              {weekAnchor && (
-                <div className="flex items-center gap-1 flex-1 justify-between bg-muted/50 rounded-lg px-1">
-                  <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Semaine précédente" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, -1))}>
+            {/* Période : tous, semaine ou mois */}
+            <div className="space-y-2">
+              <div className="flex gap-1 rounded-xl bg-muted/50 p-1">
+                {([
+                  { key: "all", label: "Tous" },
+                  { key: "week", label: "Semaine" },
+                  { key: "month", label: "Mois" },
+                ] as const).map((opt) => (
+                  <Button
+                    key={opt.key}
+                    size="sm"
+                    variant={periodMode === opt.key ? "default" : "ghost"}
+                    className="flex-1"
+                    onClick={() => setPeriodMode(opt.key)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+              {periodMode !== "all" && (
+                <div className="flex items-center gap-1 justify-between bg-muted/50 rounded-lg px-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11"
+                    aria-label={periodMode === "week" ? "Semaine précédente" : "Mois précédent"}
+                    onClick={() => setPeriodAnchor(periodMode === "week" ? shiftWeek(periodAnchor, -1) : shiftMonth(periodAnchor, -1))}
+                  >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <button className="text-xs font-medium" onClick={() => setWeekAnchor(new Date())}>
-                    {formatWeekLabel(israeliWeekRange(weekAnchor).start)}
+                  <button className="text-xs font-medium" onClick={() => setPeriodAnchor(new Date())}>
+                    {periodMode === "week"
+                      ? formatWeekLabel(israeliWeekRange(periodAnchor).start)
+                      : formatMonthLabel(periodAnchor)}
                   </button>
-                  <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Semaine suivante" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, 1))}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11"
+                    aria-label={periodMode === "week" ? "Semaine suivante" : "Mois suivant"}
+                    onClick={() => setPeriodAnchor(periodMode === "week" ? shiftWeek(periodAnchor, 1) : shiftMonth(periodAnchor, 1))}
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
