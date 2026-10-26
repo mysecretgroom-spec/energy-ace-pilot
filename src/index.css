@@ -426,6 +426,7 @@ body {
 /* Module d'étude : boutons verts (le reste de l'app reste bleu).
    Classe posée sur <body> pour couvrir aussi les fenêtres et menus. */
 body.etude-theme {
+  /* green study accent, also used in dark mode */
   --primary: 152 70% 32%;
   --ring: 152 70% 32%;
   --gradient-hero: linear-gradient(135deg, hsl(152 65% 38%) 0%, hsl(152 75% 26%) 100%);
@@ -533,4 +534,9 @@ body.etude-theme {
     pointer-events: none;
     z-index: -1;
   }
+}
+
+.dark body.etude-theme {
+  --primary: 152 55% 42%;
+  --ring: 152 55% 42%;
 }
