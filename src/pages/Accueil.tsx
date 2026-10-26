@@ -3,7 +3,17 @@ import { ClipboardList, ScanLine, MessageCircle, WifiOff, Check } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layout/Footer";
 import Tarifs from "@/pages/Tarifs";
-import hero from "@/assets/accueil-hero.jpg";
+import shotEtudes from "@/assets/capture-etudes.jpg";
+import shotScanner from "@/assets/capture-scanner.jpg";
+import shotWhatsapp from "@/assets/capture-whatsapp.jpg";
+import shotOffline from "@/assets/capture-hors-ligne.jpg";
+
+const SCREENS = [
+  { src: shotEtudes, label: "Études", alt: "Écran Étude énergétique combinée PV, PAC et ITE" },
+  { src: shotScanner, label: "Scanner", alt: "Scanner de documents de l'app en train de cadrer une facture" },
+  { src: shotWhatsapp, label: "WhatsApp", alt: "Réglages de l'assistant IA WhatsApp" },
+  { src: shotOffline, label: "Hors-ligne", alt: "Planning consultable en mode hors-ligne" },
+];
 
 const FEATURES = [
   {
@@ -62,7 +72,14 @@ export default function Accueil() {
             </div>
             <p className="text-xs text-muted-foreground">Sans engagement · Résiliable à tout moment</p>
           </div>
-          <img src={hero} alt="Aperçu de DébalePro sur téléphone et tablette : étude solaire, document scanné et récap WhatsApp" width={1600} height={1008} className="w-full rounded-lg border shadow-lg" />
+          <div className="grid grid-cols-4 gap-2 md:gap-3">
+            {SCREENS.map(({ src, label, alt }) => (
+              <figure key={label} className="space-y-1.5">
+                <img src={src} alt={alt} width={600} height={1200} loading="eager" className="w-full rounded-lg border bg-card shadow-md" />
+                <figcaption className="text-center text-xs font-medium text-muted-foreground">{label}</figcaption>
+              </figure>
+            ))}
+          </div>
         </section>
 
         <section id="fonctionnalites" className="border-t bg-muted/40">
