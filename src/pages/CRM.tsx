@@ -44,6 +44,7 @@ import {
   Building2,
   Tag,
   MessageCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -147,6 +148,7 @@ const CRM = () => {
   const [regies, setRegies] = useState<Regie[]>([]);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [qontoDialogOpen, setQontoDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1179,23 +1181,36 @@ const CRM = () => {
               onOpenChange={setQontoDialogOpen}
             />
 
-            {/* Actions bar */}
+            {/* Actions bar: filters toggle + compact selection */}
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="space-y-3">
             <div className="flex gap-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="flex-1">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" />
+                  Filtres
+                  {(statusFilters.length + regieFilters.length + (typeFilter !== "all" ? 1 : 0) + (dateFrom || dateTo ? 1 : 0)) > 0 && (
+                    <span className="ml-2 rounded-full bg-primary text-primary-foreground px-2 text-xs">
+                      {statusFilters.length + regieFilters.length + (typeFilter !== "all" ? 1 : 0) + (dateFrom || dateTo ? 1 : 0)}
+                    </span>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
               <Button 
                 variant={selectionMode ? "default" : "outline"} 
-                className="flex-1"
+                className={selectionMode ? "flex-1" : "shrink-0"}
+                aria-label={selectionMode ? "Annuler sélection" : "Sélectionner des ventes"}
                 onClick={() => {
                   setSelectionMode(!selectionMode);
                   if (selectionMode) setSelectedVenteIds([]);
                 }}
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                {selectionMode ? "Annuler sélection" : "Sélectionner"}
+                <CheckCircle2 className="h-4 w-4" />
+                {selectionMode && <span className="ml-2">Annuler sélection</span>}
               </Button>
             </div>
 
             {/* Filters section */}
-            <div className="space-y-3">
+            <CollapsibleContent className="space-y-3">
               {/* Status and Regie multi-select filters */}
               <div className="flex flex-wrap gap-2">
                 <MultiSelectFilter
@@ -1281,6 +1296,9 @@ const CRM = () => {
                   </Button>
                 )}
               </div>
+            </CollapsibleContent>
+            </Collapsible>
+            <div className="space-y-3">
 
               {/* Active filters summary */}
               {(statusFilters.length > 0 || regieFilters.length > 0) && (
