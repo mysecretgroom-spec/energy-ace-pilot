@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import AgentActionsHistory from "@/components/settings/AgentActionsHistory";
 import AgentMemoryManager from "@/components/settings/AgentMemoryManager";
 import AgentPromptsManager from "@/components/settings/AgentPromptsManager";
+import WhatsAppImageArchives from "@/components/settings/WhatsAppImageArchives";
 import { 
   Bot, 
   MessageCircle, 
@@ -343,6 +344,7 @@ const WhatsAppAgentSettings = () => {
             </Card>
           </TabsContent>
         </Tabs>
+        <div className="mt-4"><WhatsAppImageArchives /></div>
       </div>
     </MobileLayout>
   );
