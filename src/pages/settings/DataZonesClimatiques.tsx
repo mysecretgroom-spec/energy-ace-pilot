@@ -178,7 +178,7 @@ const DataZonesClimatiques = () => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Dépt</label>
                         <Input value={item.department_code} onChange={(e) => handleChange(item.id, "department_code", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />

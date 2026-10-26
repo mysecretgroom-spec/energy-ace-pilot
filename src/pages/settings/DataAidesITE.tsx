@@ -193,7 +193,7 @@ const DataAidesITE = () => {
                       <Input value={item.nom} onChange={(e) => handleChange(item.id, "nom", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Profil</label>
                         <Select value={item.profil_revenus || "all"} onValueChange={(val) => handleChange(item.id, "profil_revenus", val === "all" ? null : val)} disabled={item.isGlobal}>
