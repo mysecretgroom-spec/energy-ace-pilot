@@ -1,3 +1,4 @@
+import { PublicHomeGate } from "@/components/auth/PublicHomeGate";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -158,7 +159,7 @@ const App = () => {
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/reset-password" element={<ResetPassword />} />
                       <Route path="/index" element={<Navigate to="/" replace />} />
-                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/" element={<PublicHomeGate><Dashboard /></PublicHomeGate>} />
                       <Route path="/planning" element={<ProtectedRoute><Planning /></ProtectedRoute>} />
                       <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
                       <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
