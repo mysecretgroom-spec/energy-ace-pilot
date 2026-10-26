@@ -5,3 +5,5 @@
 - [ ] Revue du domaine Paddle + formulaire vendeur MIWEHA — bloqué : à soumettre par l'utilisateur dans Paiements
 - [x] IA activée aussi en mode visiteur (actions d'écriture toujours bloquées)
 - [x] Inscriptions essai gratuit suivies dans la console admin (/admin/trials)
+- [x] RDV d'installation : cartes vertes (liseré sable), style plus marqué
+

@@ -35,6 +35,11 @@ export default {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
         },
+        install: {
+          DEFAULT: "hsl(var(--install))",
+          foreground: "hsl(var(--install-foreground))",
+        },
+
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
