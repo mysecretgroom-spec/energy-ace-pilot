@@ -1,3 +1,4 @@
+import { IconLabel } from "@/components/layout/IconLabel";
 import { isInstallationHidden } from "@/lib/installationStatus";
 import { NextRdvOfflineCard } from "@/components/planning/NextRdvOfflineCard";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -692,8 +693,8 @@ const Planning = () => {
                 <Map className="h-5 w-5" />
               </Button>
             )}
-            <GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
-            <GmailSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} />
+            <IconLabel label="Agenda"><GoogleCalendarSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} /></IconLabel>
+            <IconLabel label="Gmail"><GmailSync onSyncComplete={() => { fetchRdvs(); refetchRoutes(); }} /></IconLabel>
           </div>
         </div>
 

@@ -205,17 +205,13 @@ export const DraggableRdvCard = forwardRef<HTMLDivElement, DraggableRdvCardProps
                 <StatusBadge status={status} className="text-[8px] px-1 py-0" />
               )}
               {regieNom && (
-                <span 
-                  className="text-[8px] px-1.5 py-0 rounded-full border truncate max-w-[60px]"
-                  style={{ 
-                    backgroundColor: regieCouleur ? `${regieCouleur}15` : undefined,
-                    color: regieCouleur || undefined,
-                    borderColor: regieCouleur ? `${regieCouleur}40` : undefined,
-                  }}
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-border"
+                  style={{ backgroundColor: regieCouleur || undefined }}
                   title={regieNom}
-                >
-                  {regieNom}
-                </span>
+                  aria-label={`Régie ${regieNom}`}
+                  role="img"
+                />
               )}
             </div>
           </>
