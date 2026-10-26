@@ -382,7 +382,7 @@ export const ITEFieldsEnhanced = ({ data, departement, onChange, onCalculationsR
           <CardContent className="space-y-4">
             {/* Économie chauffage */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-lg p-3 border">
+              <div className="bg-card rounded-lg p-3 border">
                 <p className="text-xs text-muted-foreground">Réduction déperditions</p>
                 <p className="text-2xl font-bold text-green-600">{economiePctCalculee}%</p>
                 <p className="text-xs text-muted-foreground">
@@ -390,7 +390,7 @@ export const ITEFieldsEnhanced = ({ data, departement, onChange, onCalculationsR
                 </p>
               </div>
               {Number(data.iteFactureChaufActuelle) > 0 && (
-                <div className="bg-white rounded-lg p-3 border">
+                <div className="bg-card rounded-lg p-3 border">
                   <p className="text-xs text-muted-foreground">Économie annuelle</p>
                   <p className="text-2xl font-bold text-green-600">{economieAnnuelle.toFixed(0)} €</p>
                   <p className="text-xs text-muted-foreground">
@@ -402,7 +402,7 @@ export const ITEFieldsEnhanced = ({ data, departement, onChange, onCalculationsR
 
             {/* Prix estimé */}
             {prixEstime > 0 && (
-              <div className="bg-white rounded-lg p-3 border">
+              <div className="bg-card rounded-lg p-3 border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calculator className="h-4 w-4 text-primary" />

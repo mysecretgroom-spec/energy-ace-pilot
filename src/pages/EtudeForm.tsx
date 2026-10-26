@@ -4326,7 +4326,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-blue-700">PAC</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Réduction déperditions (ITE)</span>
                       <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct) || 0}%</span>
@@ -4369,7 +4369,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-amber-600">PV</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     {pacEconomiesCalculees && (
                       <>
                         <div className="flex justify-between">
@@ -4412,7 +4412,7 @@ const EtudeForm = () => {
                       <span className="text-xs font-bold text-amber-600">PV</span>
                     </div>
                   </div>
-                  <div className="bg-white/80 rounded p-2 text-xs space-y-1">
+                  <div className="bg-card/80 rounded p-2 text-xs space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Réduction chauffage (ITE)</span>
                       <span className="font-bold text-orange-600">-{Number(iteEconomieChauffagePct)}%</span>
