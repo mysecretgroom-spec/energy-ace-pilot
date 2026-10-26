@@ -6,6 +6,7 @@ import { AdminMFAGate } from "@/components/admin/AdminMFAGate";
 import {
   Users, CreditCard, Bell, MessageSquare, Lightbulb, LayoutDashboard, LogOut, Loader2,
   BarChart3, ScrollText, Bot, Building2, Package, Search, ArrowLeft, Wallet,
+  Hourglass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
