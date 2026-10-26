@@ -193,7 +193,7 @@ body {
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     font-size: 16px;
     line-height: 1.5;
     letter-spacing: 0;
@@ -201,7 +201,7 @@ body {
 
   /* Compact professional typography hierarchy */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     letter-spacing: -0.02em;
     font-weight: 600;
   }
