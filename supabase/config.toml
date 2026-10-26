@@ -56,3 +56,5 @@ verify_jwt = false
 
 [functions.saas-billing-delinquency-check]
 verify_jwt = false
+[functions.archive-whatsapp-images]
+verify_jwt = false
