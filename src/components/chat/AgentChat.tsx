@@ -36,6 +36,8 @@ import { toast } from "sonner";
 import { useAgentConversations, AgentMessage } from "@/hooks/useAgentConversations";
 import { ConversationHistory } from "./ConversationHistory";
 import { useTrialFeatures, TRIAL_AGENT_FACTURE_LIMIT } from "@/hooks/useTrialFeatures";
+import { isVisitorUser } from "@/lib/visitorMode";
+import { getVisitorAssistantReply } from "@/lib/visitorAssistant";
 
 interface Message {
   id: string;
@@ -233,7 +235,18 @@ export function AgentChat({ externalOpen, onExternalOpenChange }: AgentChatProps
     setLocalMessages((prev) => [...prev, userMessage]);
     setInput("");
     setReplyingTo(null);
+
+    if (isVisitorUser(user.id)) {
+      setIsLoading(true);
+      await new Promise((r) => setTimeout(r, 600));
+      setLocalMessages((prev) => [...prev, {
+        id: crypto.randomUUID(), role: "assistant", content: getVisitorAssistantReply(text), timestamp: new Date(),
+      }]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
+
 
     try {
       // Save user message to DB with reply reference
@@ -601,6 +614,15 @@ export function AgentChat({ externalOpen, onExternalOpenChange }: AgentChatProps
 
   const sendMultiFileMessage = async () => {
     if (!user || (pendingFiles.length === 0 && !input.trim())) return;
+    if (isVisitorUser(user.id)) {
+      const t = input.trim() || "frais ticket";
+      setPendingFiles([]);
+      setLocalMessages((p) => [...p,
+        { id: crypto.randomUUID(), role: "user", content: input.trim() || "📎 Fichier", timestamp: new Date() },
+        { id: crypto.randomUUID(), role: "assistant", content: getVisitorAssistantReply(t), timestamp: new Date() }]);
+      setInput("");
+      return;
+    }
 
     const replyContext = replyingTo;
     const replyToId = replyContext?.id || null;
