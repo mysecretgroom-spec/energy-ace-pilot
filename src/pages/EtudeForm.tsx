@@ -901,11 +901,9 @@ const EtudeForm = () => {
   const loadExistingEtude = async (financements: DataFinancement[]) => {
     if (!etudeId) return;
 
-    const { data: etude } = await supabase
-      .from("etudes")
-      .select("*")
-      .eq("id", etudeId)
-      .maybeSingle();
+    const { cachedQuery } = await import("@/lib/offline/network");
+    const { etudeQueryKey, qEtudeFull } = await import("@/lib/offline/pinned");
+    const { data: etude } = await cachedQuery(etudeQueryKey(etudeId), () => qEtudeFull(etudeId));
 
     if (etude) {
       setCurrentEtudeId(etude.id);

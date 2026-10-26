@@ -20,6 +20,11 @@ export function previewKind(item: PreviewMedia): "pdf" | "image" | "unknown" {
 
 export async function resolvePreviewUrl(url: string): Promise<string> {
   if (/^(data:|blob:|\/)/.test(url)) return url;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    const { getPinnedFile } = await import("@/lib/offline/pinned");
+    const blob = await getPinnedFile(url);
+    if (blob) return URL.createObjectURL(blob);
+  }
   const match = url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/([^?]+)/);
   if (match) {
     const { data, error } = await supabase.storage.from(match[1]).createSignedUrl(decodeURIComponent(match[2]), 3600);
