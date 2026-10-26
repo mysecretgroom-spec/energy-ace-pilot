@@ -1,5 +1,7 @@
 import { deliverFile } from "@/lib/fileDelivery";
 import { etudeRef } from "@/lib/offline/etudeQueries";
+import { cachedQuery } from "@/lib/offline/network";
+import { etudeQueryKey, qEtudeFull } from "@/lib/offline/pinned";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import franceRenovLogo from "@/assets/logos/france-renov.png";
 import ministereTransitionLogo from "@/assets/logos/ministere-transition-energetique.png";
@@ -901,8 +903,6 @@ const EtudeForm = () => {
   const loadExistingEtude = async (financements: DataFinancement[]) => {
     if (!etudeId) return;
 
-    const { cachedQuery } = await import("@/lib/offline/network");
-    const { etudeQueryKey, qEtudeFull } = await import("@/lib/offline/pinned");
     const { data: etude } = await cachedQuery(etudeQueryKey(etudeId), () => qEtudeFull(etudeId));
 
     if (etude) {
