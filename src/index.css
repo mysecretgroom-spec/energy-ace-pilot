@@ -257,7 +257,8 @@ body {
   }
 
   /* Compact touch targets for professional UI */
-  button:not(.touch-compact), 
+  /* Interrupteurs, cases et boutons radio gardent leur forme : la zone tactile vient de leur ligne. */
+  button:not(.touch-compact):not([role="switch"]):not([role="checkbox"]):not([role="radio"]),
   [role="button"]:not(.touch-compact) {
     min-height: 44px;
     min-width: 44px;

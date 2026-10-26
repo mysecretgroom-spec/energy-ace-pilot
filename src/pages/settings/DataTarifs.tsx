@@ -35,6 +35,8 @@ const typeLabels: Record<string, string> = {
   revente_totale: "Revente totale",
   revente_surplus: "Revente surplus",
   autoconsommation: "Autoconsommation",
+  surplus: "Revente surplus",
+  totale: "Revente totale",
 };
 
 const DataTarifs = () => {
@@ -228,7 +230,7 @@ const DataTarifs = () => {
                           value={item.type_revente}
                           onValueChange={(v) => handleFieldChange(item.id, "type_revente", v)}
                         >
-                          <SelectTrigger className="w-36 h-8 text-xs">
+                          <SelectTrigger className="w-full h-11 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -243,7 +245,7 @@ const DataTarifs = () => {
                             step="0.1"
                             value={item.puissance_min}
                             onChange={(e) => handleFieldChange(item.id, "puissance_min", parseFloat(e.target.value) || 0)}
-                            className="w-16 h-8 text-xs"
+                            className="w-20 h-11 text-sm"
                             placeholder="Min"
                           />
                           <span className="text-xs">-</span>
@@ -252,10 +254,10 @@ const DataTarifs = () => {
                             step="0.1"
                             value={item.puissance_max}
                             onChange={(e) => handleFieldChange(item.id, "puissance_max", parseFloat(e.target.value) || 0)}
-                            className="w-16 h-8 text-xs"
+                            className="w-20 h-11 text-sm"
                             placeholder="Max"
                           />
-                          <span className="text-xs text-muted-foreground">kWc</span>
+                          <span className="text-sm text-muted-foreground">kWc</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Input
@@ -263,9 +265,9 @@ const DataTarifs = () => {
                             step="0.001"
                             value={item.prix_kwh}
                             onChange={(e) => handleFieldChange(item.id, "prix_kwh", parseFloat(e.target.value) || 0)}
-                            className="w-20 h-8 text-xs"
+                            className="w-24 h-11 text-sm"
                           />
-                          <span className="text-xs text-muted-foreground">€/kWh</span>
+                          <span className="text-sm text-muted-foreground">€/kWh</span>
                         </div>
                         {item.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
                         {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
@@ -275,10 +277,10 @@ const DataTarifs = () => {
                           type="date"
                           value={item.date_effet}
                           onChange={(e) => handleFieldChange(item.id, "date_effet", e.target.value)}
-                          className="w-36 h-8 text-xs"
+                          className="w-40 h-11 text-sm"
                         />
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Actif</span>
+                          <span className="text-sm text-muted-foreground">Actif</span>
                           <Switch
                             checked={item.actif}
                             onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
@@ -287,7 +289,7 @@ const DataTarifs = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive ml-auto"
+                          className="h-11 w-11 text-destructive ml-auto"
                           onClick={() => handleDelete(item.id)}
                         >
                           <Trash2 className="h-3 w-3" />

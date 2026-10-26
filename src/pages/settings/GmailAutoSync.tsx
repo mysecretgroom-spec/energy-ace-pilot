@@ -234,7 +234,7 @@ export default function GmailAutoSync() {
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     Intervalle de synchronisation
                   </Label>
-                  <Badge variant="secondary" className="font-mono">
+                  <Badge variant="secondary" className="tabular-nums">
                     {settings.gmail_sync_interval_minutes} min
                   </Badge>
                 </div>
