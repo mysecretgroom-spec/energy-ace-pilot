@@ -6,4 +6,5 @@
 - [x] IA activée aussi en mode visiteur (actions d'écriture toujours bloquées)
 - [x] Inscriptions essai gratuit suivies dans la console admin (/admin/trials)
 - [x] RDV d'installation : cartes vertes (liseré sable), style plus marqué
+- [x] CRM : filtre de période « Mois » ajouté à côté de Semaine et Tous
 
