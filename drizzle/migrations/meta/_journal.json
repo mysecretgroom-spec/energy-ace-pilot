@@ -78,6 +78,13 @@
       "when": 1793014280269,
       "tag": "0010_batched_nightly_purge",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793014592069,
+      "tag": "0011_keep_whatsapp_images",
+      "breakpoints": true
     }
   ]
 }
