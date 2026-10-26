@@ -71,6 +71,7 @@ const DataEstimateurCoefficients = React.lazy(() => import("./pages/settings/Dat
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
 const OfflineSelectionSettings = React.lazy(() => import("./pages/settings/OfflineSelectionSettings"));
 const DriveUploadsSettings = React.lazy(() => import("./pages/settings/DriveUploadsSettings"));
+const GoogleDriveReturn = React.lazy(() => import("./pages/GoogleDriveReturn"));
 const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
 const AgentLearnings = React.lazy(() => import("./pages/settings/AgentLearnings"));
 const DataEvolutionPrix = React.lazy(() => import("./pages/settings/DataEvolutionPrix"));
@@ -210,6 +211,7 @@ const App = () => {
                       <Route path="/parametres/apprentissages" element={<ProtectedRoute><AgentLearnings /></ProtectedRoute>} />
                       <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
                       <Route path="/parametres/hors-ligne" element={<ProtectedRoute><OfflineSelectionSettings /></ProtectedRoute>} />
+                      <Route path="/oauth/google-drive/return" element={<ProtectedRoute><GoogleDriveReturn /></ProtectedRoute>} />
                       <Route path="/parametres/envois-drive" element={<ProtectedRoute><DriveUploadsSettings /></ProtectedRoute>} />
                       <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
