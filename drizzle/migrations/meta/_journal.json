@@ -71,6 +71,13 @@
       "when": 1792676160429,
       "tag": "0009_add_regie_ville",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793014280269,
+      "tag": "0010_batched_nightly_purge",
+      "breakpoints": true
     }
   ]
 }

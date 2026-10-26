@@ -109,8 +109,13 @@ export function useBackgroundJobs() {
 
     fetchPendingJobs();
 
+    // Re-read only when the app comes back to the foreground; realtime covers the rest.
+    const onVisible = () => { if (document.visibilityState === "visible") fetchPendingJobs(); };
+    document.addEventListener("visibilitychange", onVisible);
+
+    // Unique name per hook instance: a shared name made instances collide and resubscribe.
     const channel = supabase
-      .channel("background-jobs-changes")
+      .channel(`background-jobs-${userId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

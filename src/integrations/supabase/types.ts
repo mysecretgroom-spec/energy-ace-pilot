@@ -4567,6 +4567,7 @@ export type Database = {
         }
         Returns: string
       }
+      purge_expired_data_batched: { Args: never; Returns: undefined }
       search_client_fuzzy: {
         Args: { p_limit?: number; p_query: string; p_user_id: string }
         Returns: Json
