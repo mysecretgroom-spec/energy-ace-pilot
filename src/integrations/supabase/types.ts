@@ -1801,6 +1801,51 @@ export type Database = {
           },
         ]
       }
+      drive_uploads: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          document_id: string | null
+          drive_file_id: string | null
+          drive_link: string | null
+          error: string | null
+          etude_id: string | null
+          file_name: string
+          id: string
+          source: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          drive_file_id?: string | null
+          drive_link?: string | null
+          error?: string | null
+          etude_id?: string | null
+          file_name: string
+          id?: string
+          source?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          document_id?: string | null
+          drive_file_id?: string | null
+          drive_link?: string | null
+          error?: string | null
+          etude_id?: string | null
+          file_name?: string
+          id?: string
+          source?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_frais_filtres: {
         Row: {
           actif: boolean
