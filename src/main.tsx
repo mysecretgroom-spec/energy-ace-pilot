@@ -87,6 +87,8 @@ const isChunkLoadError = (msg: string) =>
     msg || ""
   );
 const tryReload = () => {
+  // Hors ligne, recharger afficherait la page « pas d'internet » : on garde l'app ouverte.
+  if (navigator.onLine === false) return;
   try {
     const last = Number(sessionStorage.getItem(RELOAD_KEY) || "0");
     if (Date.now() - last > 10000) {
