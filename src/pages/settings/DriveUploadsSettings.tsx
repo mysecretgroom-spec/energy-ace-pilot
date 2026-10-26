@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink, FileText, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { GoogleDriveConnect } from "@/components/settings/GoogleDriveConnect";
 
 type Row = {
   id: string; file_name: string; drive_link: string | null; status: string;
@@ -20,13 +21,14 @@ const DriveUploadsSettings = () => {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [search, setSearch] = useState("");
 
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!user) return;
     supabase.from("drive_uploads")
       .select("id, file_name, drive_link, status, error, created_at, source, clients:client_id(nom, prenom)")
       .eq("user_id", user.id).order("created_at", { ascending: false }).limit(300)
       .then(({ data }) => setRows((data ?? []) as unknown as Row[]));
-  }, [user]);
+  }, [user, tick]);
 
   const name = (r: Row) => r.clients ? [r.clients.prenom, r.clients.nom].filter(Boolean).join(" ") : "Sans client";
   const list = rows?.filter((r) => `${r.file_name} ${name(r)}`.toLowerCase().includes(search.toLowerCase()));
@@ -40,6 +42,8 @@ const DriveUploadsSettings = () => {
             <CardDescription>Chaque fichier envoyé sur ton Google Drive, avec la date, le client et le lien.</CardDescription>
           </CardHeader>
         </Card>
+
+        <GoogleDriveConnect onSynced={() => setTick((t) => t + 1)} />
 
         <Input placeholder="Rechercher un client ou un fichier" value={search} onChange={(e) => setSearch(e.target.value)} />
 
