@@ -8,6 +8,9 @@ export const Footer = () => {
   return (
     <footer className="py-4 px-4 border-t border-border bg-background/80 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
+        <Link to="/essai-gratuit" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
+          Essai gratuit 10 jours
+        </Link>
         <Link to="/tarifs" className="hover:text-foreground transition-colors underline-offset-4 hover:underline">
           Tarifs
         </Link>
