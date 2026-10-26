@@ -476,6 +476,8 @@ body.etude-theme {
       inset 0 -1px 0 hsl(var(--glass-shade) / 0.30),
       inset 1px 0 0 hsl(var(--glass-highlight) / 0.12),
       inset -1px 0 0 hsl(var(--glass-highlight) / 0.12);
+    position: relative;
+    isolation: isolate;
   }
   .btn-glass-destructive:hover { filter: brightness(1.05); }
 
@@ -487,6 +489,8 @@ body.etude-theme {
       inset 0 -1px 0 hsl(var(--glass-shade) / 0.22),
       inset 1px 0 0 hsl(var(--glass-highlight) / 0.18),
       inset -1px 0 0 hsl(var(--glass-highlight) / 0.18);
+    position: relative;
+    isolation: isolate;
   }
   .btn-glass-secondary:hover { filter: brightness(1.05); }
 
