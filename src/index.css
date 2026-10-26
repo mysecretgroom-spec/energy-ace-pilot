@@ -67,8 +67,8 @@ body {
     --secondary: 41 63% 66%;
     --secondary-foreground: 184 38% 14%;
 
-    /* Vert installation (posé) — même vert que le module d'étude */
-    --install: 152 70% 32%;
+    /* Turquoise installation (posé) — même turquoise que le reste du design */
+    --install: 178 70% 26%;
     --install-foreground: 0 0% 100%;
 
 
@@ -151,8 +151,8 @@ body {
     --secondary: 38 45% 66%;
     --secondary-foreground: 183 45% 7%;
 
-    /* Vert installation (posé) — version sombre */
-    --install: 152 62% 42%;
+    /* Turquoise installation (posé) — version sombre */
+    --install: 173 70% 42%;
     --install-foreground: 0 0% 100%;
 
 
