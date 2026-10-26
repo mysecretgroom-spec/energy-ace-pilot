@@ -237,6 +237,7 @@ const DataTarifs = () => {
                             <SelectItem value="revente_totale">Revente totale</SelectItem>
                             <SelectItem value="revente_surplus">Revente surplus</SelectItem>
                             <SelectItem value="autoconsommation">Autoconsommation</SelectItem>
+                            {item.type_revente === "surplus" && <SelectItem value="surplus">Revente surplus</SelectItem>}
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-1">
