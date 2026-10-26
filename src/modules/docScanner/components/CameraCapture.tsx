@@ -131,7 +131,7 @@ export function CameraCapture({ onCapture, onImport, onCancel, pageCount, thumbn
       <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6 gap-4">
         <Camera className="w-12 h-12 text-muted-foreground" />
         <p className="text-center text-muted-foreground">{error}</p>
-        <div className="flex gap-3">
+        <div className="flex w-full max-w-sm flex-col gap-3 [&>button]:w-full">
           <Button variant="outline" onClick={onCancel}>Annuler</Button>
           <Button variant="secondary" onClick={() => photoInputRef.current?.click()}>
             <Camera className="w-4 h-4 mr-2" />Photo haute résolution
