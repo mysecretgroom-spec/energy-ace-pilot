@@ -2670,7 +2670,7 @@ const EtudeForm = () => {
               <h1 className="text-sm sm:text-lg font-bold text-[#000091] tracking-tight truncate">
                 ÉTUDE ÉNERGÉTIQUE
               </h1>
-              <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider truncate">
+              <p className="text-xs sm:text-xs text-gray-500 uppercase tracking-wider truncate">
                 {activeProducts.length > 1 
                   ? activeProducts.map(p => p === "PV" ? "Photovoltaïque" : p === "PAC" ? "PAC" : "ITE").join(" + ")
                   : currentTab === "PV" ? "Photovoltaïque" : currentTab === "PAC" ? "Pompe à Chaleur" : "Isolation Thermique"
@@ -2699,7 +2699,7 @@ const EtudeForm = () => {
                 <Badge 
                   variant="outline" 
                   className={cn(
-                    "text-[9px] sm:text-[10px] font-medium shrink-0 px-1.5 py-0.5",
+                    "text-xs sm:text-xs font-medium shrink-0 px-1.5 py-0.5",
                     isEditMode 
                       ? "bg-amber-500/10 text-amber-600 border-amber-300" 
                       : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
@@ -2710,7 +2710,7 @@ const EtudeForm = () => {
                 {regieNom && (
                   <Badge 
                     variant="outline" 
-                    className="text-[9px] sm:text-[10px] font-medium shrink-0 bg-primary/10 text-primary border-primary/30 px-1.5 py-0.5 hidden sm:inline-flex"
+                    className="text-xs sm:text-xs font-medium shrink-0 bg-primary/10 text-primary border-primary/30 px-1.5 py-0.5 hidden sm:inline-flex"
                   >
                     {regieNom}
                   </Badge>
@@ -2718,11 +2718,11 @@ const EtudeForm = () => {
               </div>
               {clientVille && (
                 <div className="flex items-center gap-2">
-                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                  <p className="text-xs sm:text-xs text-gray-500 truncate">
                     {clientCodePostal} {clientVille}
                   </p>
                   {numeroCadastre && (
-                    <Badge variant="outline" className="text-[8px] sm:text-[9px] bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
+                    <Badge variant="outline" className="text-xs sm:text-xs bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
                       📐 {numeroCadastre}
                     </Badge>
                   )}
@@ -2732,7 +2732,7 @@ const EtudeForm = () => {
                 </div>
               )}
               {adresseInstallation && (
-                <p className="text-[10px] sm:text-xs text-amber-600 truncate">
+                <p className="text-xs sm:text-xs text-amber-600 truncate">
                   Installation : {adresseInstallation} {codePostalInstallation} {villeInstallation}
                 </p>
               )}
@@ -2742,7 +2742,7 @@ const EtudeForm = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={() => setShowClientDialog(true)}
                 aria-label="Modifier les informations client"
                 title="Modifier les informations client"
@@ -2775,7 +2775,7 @@ const EtudeForm = () => {
                 )}
               />
               {modeHejjaActive && (
-                <span className="text-[9px] sm:text-[10px] font-bold text-red-500 uppercase">H</span>
+                <span className="text-xs sm:text-xs font-bold text-red-500 uppercase">H</span>
               )}
             </div>
           </div>
@@ -2864,7 +2864,7 @@ const EtudeForm = () => {
                 <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
                   <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <div>
-                      <Label className="text-[10px] sm:text-xs">Conso. élec annuelle</Label>
+                      <Label className="text-xs sm:text-xs">Conso. élec annuelle</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -2873,11 +2873,11 @@ const EtudeForm = () => {
                           onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
                           className="h-8 sm:h-9 text-xs sm:text-sm"
                         />
-                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
+                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-[10px] sm:text-xs">Facture élec/mois</Label>
+                      <Label className="text-xs sm:text-xs">Facture élec/mois</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -2886,7 +2886,7 @@ const EtudeForm = () => {
                           onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
                           className="h-8 sm:h-9 text-xs sm:text-sm"
                         />
-                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
+                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
                       </div>
                     </div>
                   </div>
@@ -2894,11 +2894,11 @@ const EtudeForm = () => {
                   {/* Prix unitaire calculé */}
                   {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
                     <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">Prix kWh</p>
+                      <p className="text-xs sm:text-xs text-muted-foreground">Prix kWh</p>
                       <p className="font-bold text-sm sm:text-base text-primary">
                         {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                       </p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
                         Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
                       </p>
                     </div>
@@ -2907,7 +2907,7 @@ const EtudeForm = () => {
                   {/* Facture chauffage fossile si PAC ou ITE */}
                   {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && (
                     <div>
-                      <Label className="text-[10px] sm:text-xs">Facture chauffage fossile/an (gaz, fioul…)</Label>
+                      <Label className="text-xs sm:text-xs">Facture chauffage fossile/an (gaz, fioul…)</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -2920,7 +2920,7 @@ const EtudeForm = () => {
                           }}
                           className="h-8 sm:h-9 text-xs sm:text-sm"
                         />
-                        <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€/an</span>
+                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€/an</span>
                       </div>
                     </div>
                   )}
@@ -2955,7 +2955,7 @@ const EtudeForm = () => {
                             <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
                               <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                               Évolution future de la facture
-                              <Badge variant="outline" className="ml-auto text-[10px] h-4 border-destructive/30 text-destructive">
+                              <Badge variant="outline" className="ml-auto text-xs h-4 border-destructive/30 text-destructive">
                                 +{tauxAugmentationEnergie}%/an
                               </Badge>
                               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
@@ -2984,7 +2984,7 @@ const EtudeForm = () => {
                                         <tr key={annee} className={cn("border-b border-dashed last:border-0", (annee === 10 || annee === 20) && "font-semibold")}>
                                           <td className="py-1.5 text-muted-foreground">
                                             An {annee}
-                                            <span className="text-[10px] text-muted-foreground/60 ml-1">({new Date().getFullYear() + annee})</span>
+                                            <span className="text-xs text-muted-foreground/60 ml-1">({new Date().getFullYear() + annee})</span>
                                           </td>
                                           <td className="text-right py-1.5">
                                             {factureProjetee.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
@@ -2999,7 +2999,7 @@ const EtudeForm = () => {
                                 </tbody>
                               </table>
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
+                            <p className="text-xs text-muted-foreground mt-2 text-center italic">
                               Source : CRE — Projection indicative à +{tauxAugmentationEnergie}%/an composé
                             </p>
                           </CardContent>
@@ -3009,7 +3009,7 @@ const EtudeForm = () => {
                   )}
 
                   {/* En multi-produit : tout est affiché à la suite */}
-                  <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-[10px] sm:text-xs text-muted-foreground">
+                  <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-xs sm:text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">📋 Étude unifiée : Saisie technique ({activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""}) → Résultats cumulés → Bilan financier global</p>
                   </div>
                 </CardContent>
@@ -3033,7 +3033,7 @@ const EtudeForm = () => {
                   <Button
                     type="button"
                     variant={precoMode === "global" ? "default" : "outline"}
-                    size="sm"
+                    
                     className="w-full text-xs gap-1.5"
                     onClick={() => setPrecoMode("global")}
                   >
@@ -3043,7 +3043,7 @@ const EtudeForm = () => {
                   <Button
                     type="button"
                     variant={precoMode === "sur_mesure" ? "default" : "outline"}
-                    size="sm"
+                    
                     className="w-full text-xs gap-1.5"
                     onClick={() => setPrecoMode("sur_mesure")}
                   >
@@ -3068,7 +3068,7 @@ const EtudeForm = () => {
                         <>
                           {activeProducts.includes("PV") && gammesGlobal.length > 0 && (
                             <div>
-                              <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
+                              <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
                                 <Tag className="h-3 w-3" /> Gamme PV
                               </Label>
                               <Select value={selectedGammePV || "all"} onValueChange={(v) => {
@@ -3118,14 +3118,14 @@ const EtudeForm = () => {
                               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-center space-y-1">
                                 <p className="text-sm font-bold text-primary">{combo.nom_bouquet}</p>
                                 <p className="text-2xl font-bold text-primary">{combo.prix_recommande.toLocaleString("fr-FR")}€ <span className="text-xs font-normal">TTC</span></p>
-                                <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                                   {activeProducts.map(p => (
-                                    <Badge key={p} variant="secondary" className="text-[10px]">
+                                    <Badge key={p} variant="secondary" className="text-xs">
                                       {p === "PV" ? "☀️ PV" : p === "PAC" ? "❄️ PAC" : "🧱 ITE"}
                                     </Badge>
                                   ))}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground pt-1">
+                                <p className="text-xs text-muted-foreground pt-1">
                                   Les saisies techniques restent nécessaires pour le dimensionnement
                                 </p>
                               </div>
@@ -3136,7 +3136,7 @@ const EtudeForm = () => {
                             <div className="bg-muted/30 border-dashed border rounded-lg p-4 text-center">
                               <Tag className="h-6 w-6 mx-auto mb-2 text-muted-foreground/50" />
                               <p className="text-xs text-muted-foreground">Aucun bouquet configuré pour cette régie</p>
-                              <p className="text-[10px] text-muted-foreground mt-1">Passez en mode "Sur mesure" ou ajoutez des bouquets dans les paramètres</p>
+                              <p className="text-xs text-muted-foreground mt-1">Passez en mode "Sur mesure" ou ajoutez des bouquets dans les paramètres</p>
                             </div>
                           )}
                         </>
@@ -3156,7 +3156,7 @@ const EtudeForm = () => {
                         <>
                           {activeProducts.includes("ITE") && iteBouquetsLocal.length > 0 && (
                             <div>
-                              <Label className="text-[10px] uppercase text-orange-600 tracking-wider flex items-center gap-1">
+                              <Label className="text-xs uppercase text-orange-600 tracking-wider flex items-center gap-1">
                                 <Home className="h-3 w-3" /> Bouquet ITE
                               </Label>
                               <Select value={selectedBouquetITE} onValueChange={(v) => {
@@ -3182,7 +3182,7 @@ const EtudeForm = () => {
                           )}
                           {activeProducts.includes("PAC") && pacBouquetsLocal.length > 0 && (
                             <div>
-                              <Label className="text-[10px] uppercase text-blue-600 tracking-wider flex items-center gap-1">
+                              <Label className="text-xs uppercase text-blue-600 tracking-wider flex items-center gap-1">
                                 <Thermometer className="h-3 w-3" /> Bouquet PAC
                               </Label>
                               <Select value={selectedBouquetPAC} onValueChange={(v) => {
@@ -3211,7 +3211,7 @@ const EtudeForm = () => {
                             if (gammesLocal.length < 1) return null;
                             return (
                               <div>
-                                <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                                <Label className="text-xs uppercase text-amber-600 tracking-wider flex items-center gap-1">
                                   <Tag className="h-3 w-3" /> Gamme PV
                                 </Label>
                                 <Select value={selectedGammePV || "all"} onValueChange={(v) => {
@@ -3234,7 +3234,7 @@ const EtudeForm = () => {
                           })()}
                           {activeProducts.includes("PV") && pvBouquetsLocal.length > 0 && (
                             <div>
-                              <Label className="text-[10px] uppercase text-amber-600 tracking-wider flex items-center gap-1">
+                              <Label className="text-xs uppercase text-amber-600 tracking-wider flex items-center gap-1">
                                 <Sun className="h-3 w-3" /> Bouquet PV
                               </Label>
                               <Select value={selectedBouquetPV} onValueChange={(v) => {
@@ -3258,7 +3258,7 @@ const EtudeForm = () => {
                         </>
                       );
                     })()}
-                    <p className="text-[10px] text-muted-foreground text-center italic">
+                    <p className="text-xs text-muted-foreground text-center italic">
                       Sélectionnez un bouquet par produit ou saisissez les prix manuellement dans la partie financière
                     </p>
                   </div>
@@ -3513,7 +3513,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Ombre</Label>
+                <Label className="text-xs sm:text-xs">Ombre</Label>
                 <Select value={ombreToiture} onValueChange={setOmbreToiture}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3527,7 +3527,7 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Surface</Label>
+                <Label className="text-xs sm:text-xs">Surface</Label>
                 <Select value={surfaceToiture} onValueChange={setSurfaceToiture}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3542,7 +3542,7 @@ const EtudeForm = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Type</Label>
+                <Label className="text-xs sm:text-xs">Type</Label>
                 <Select value={typeToiture} onValueChange={setTypeToiture}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3557,7 +3557,7 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">État</Label>
+                <Label className="text-xs sm:text-xs">État</Label>
                 <Select value={etatToiture} onValueChange={setEtatToiture}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3572,7 +3572,7 @@ const EtudeForm = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Orientation</Label>
+                <Label className="text-xs sm:text-xs">Orientation</Label>
                 <Select value={orientation} onValueChange={setOrientation}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3587,7 +3587,7 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Inclinaison</Label>
+                <Label className="text-xs sm:text-xs">Inclinaison</Label>
                 <Select value={String(inclinaison)} onValueChange={(v) => setInclinaison(Number(v))}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3628,7 +3628,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Type</Label>
+                <Label className="text-xs sm:text-xs">Type</Label>
                 <Select value={typeCompteurElectrique} onValueChange={setTypeCompteurElectrique}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3641,7 +3641,7 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Raccordement</Label>
+                <Label className="text-xs sm:text-xs">Raccordement</Label>
                 <Select value={typeRaccordement} onValueChange={setTypeRaccordement}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3654,7 +3654,7 @@ const EtudeForm = () => {
               </div>
             </div>
             <div>
-              <Label className="text-[10px] sm:text-xs">N° PDL</Label>
+              <Label className="text-xs sm:text-xs">N° PDL</Label>
               <Input
                 type="text"
                 placeholder="ex: 16271345864078"
@@ -3664,7 +3664,7 @@ const EtudeForm = () => {
               />
             </div>
             <div>
-              <Label className="text-[10px] sm:text-xs flex items-center gap-1">
+              <Label className="text-xs sm:text-xs flex items-center gap-1">
                 📐 N° Cadastre
                 {cadastreLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               </Label>
@@ -3725,7 +3725,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Ampérage</Label>
+                <Label className="text-xs sm:text-xs">Ampérage</Label>
                 <Select value={String(amperageDisjoncteur)} onValueChange={(v) => setAmperageDisjoncteur(Number(v))}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3740,7 +3740,7 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Emplacement</Label>
+                <Label className="text-xs sm:text-xs">Emplacement</Label>
                 <Select value={emplacementBoitier} onValueChange={setEmplacementBoitier}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -3771,7 +3771,7 @@ const EtudeForm = () => {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-3 px-3 sm:px-6 space-y-2">
-                  <p className="text-[11px] text-muted-foreground">Photos complémentaires (système de chauffage, ballon, combles…) — 9 maximum, jointes au rapport.</p>
+                  <p className="text-xs text-muted-foreground">Photos complémentaires (système de chauffage, ballon, combles…) — 9 maximum, jointes au rapport.</p>
                   <QuickPhotoButton
                     clientId={clientId}
                     category="autre"
@@ -3795,7 +3795,7 @@ const EtudeForm = () => {
           </CardHeader>
           <CardContent className="pt-3 sm:pt-4 px-3 sm:px-6">
             <div>
-              <Label className="text-[10px] sm:text-xs">Potentiel (PFT)</Label>
+              <Label className="text-xs sm:text-xs">Potentiel (PFT)</Label>
               <Select value={potentielFaisabilite} onValueChange={setPotentielFaisabilite}>
                 <SelectTrigger className={cn(
                   "h-9 sm:h-10 text-xs sm:text-sm",
@@ -3833,7 +3833,7 @@ const EtudeForm = () => {
                 Consommations
               </CardTitle>
               {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && (
-                <Badge variant="outline" className="text-[10px] h-5 border-blue-300 text-blue-600 bg-blue-50">
+                <Badge variant="outline" className="text-xs h-5 border-blue-300 text-blue-600 bg-blue-50">
                   <Link2 className="h-3 w-3 mr-1" />
                   Partagé {activeProducts.filter(p => p !== "PV").join(" + ")}
                 </Badge>
@@ -3843,13 +3843,13 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             {/* Sync info banner */}
             {activeProducts.includes("PAC") && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-[10px] sm:text-xs text-blue-700 flex items-center gap-2">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs sm:text-xs text-blue-700 flex items-center gap-2">
                 <Link2 className="h-3.5 w-3.5 shrink-0" />
                 <span>La facture électrique et le prix du kWh sont synchronisés avec l'onglet PAC</span>
               </div>
             )}
             {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-[10px] sm:text-xs text-orange-700 flex items-center gap-2">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs sm:text-xs text-orange-700 flex items-center gap-2">
                 <Home className="h-3.5 w-3.5 shrink-0" />
                 <span>L'ITE réduit les besoins en chauffage, impactant le dimensionnement PV</span>
               </div>
@@ -3857,7 +3857,7 @@ const EtudeForm = () => {
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Conso. annuelle</Label>
+                <Label className="text-xs sm:text-xs">Conso. annuelle</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
@@ -3866,11 +3866,11 @@ const EtudeForm = () => {
                     onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
-                  <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
+                  <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
                 </div>
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs flex items-center gap-1">
+                <Label className="text-xs sm:text-xs flex items-center gap-1">
                   Facture/mois
                   {activeProducts.includes("PAC") && <Link2 className="h-2.5 w-2.5 text-blue-500" />}
                 </Label>
@@ -3882,14 +3882,14 @@ const EtudeForm = () => {
                     onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
                     className="h-8 sm:h-9 text-xs sm:text-sm"
                   />
-                  <span className="flex items-center text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
+                  <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
                 </div>
               </div>
             </div>
             {/* Prix unitaire calculé */}
             {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
               <div className="bg-muted/50 rounded-lg p-2 text-center">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                <p className="text-xs sm:text-xs text-muted-foreground">
                   Prix kWh
                   {activeProducts.includes("PAC") && (
                     <span className="text-blue-500 ml-1">→ PAC</span>
@@ -3898,7 +3898,7 @@ const EtudeForm = () => {
                 <p className="font-bold text-sm sm:text-base text-primary">
                   {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                 </p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
                   Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
                 </p>
               </div>
@@ -3907,17 +3907,17 @@ const EtudeForm = () => {
             {/* Impact multi-produit sur le dimensionnement */}
             {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && consoAnnuelle && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 space-y-1">
-                <p className="text-[10px] sm:text-xs font-medium text-primary flex items-center gap-1">
+                <p className="text-xs sm:text-xs font-medium text-primary flex items-center gap-1">
                   <TrendingUp className="h-3 w-3" />
                   Impact sur le dimensionnement PV
                 </p>
                 {activeProducts.includes("PAC") && pacEconomiesCalculees?.consoElecPacKwh ? (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-xs text-muted-foreground">
                     + {Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an (conso PAC ajoutée)
                   </p>
                 ) : null}
                 {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && iteEconomieChauffagePct ? (
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-xs text-muted-foreground">
                     − {Math.round(Number(consoAnnuelle) * 0.6 * (Number(iteEconomieChauffagePct) / 100)).toLocaleString("fr-FR")} kWh/an (économies ITE sur chauffage)
                   </p>
                 ) : null}
@@ -3949,45 +3949,45 @@ const EtudeForm = () => {
             {/* Détail estimation sauvegardé */}
             {estimationDetailsDisplay && (
               <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
-                <p className="text-[10px] sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <p className="text-xs sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <Calculator className="h-3 w-3 text-primary" />
                   Détail de l'estimation
                 </p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   <span>Isolation : <strong className="text-foreground">{
                     ({ faible: "Faible", moyen: "Moyen", bon: "Bon", tres_bon: "Très bon", passif: "Passif/RT2012+" } as Record<string, string>)[estimationDetailsDisplay.isolation] || estimationDetailsDisplay.isolation
                   }</strong></span>
                   <span>Occupants : <strong className="text-foreground">{estimationDetailsDisplay.occupants}</strong></span>
                 </div>
                 {estimationDetailsDisplay.heatingZones?.map((z: any, i: number) => (
-                  <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
+                  <div key={i} className="text-xs text-muted-foreground flex justify-between">
                     <span>🔥 {z.label} ({z.surface} m²)</span>
                     <span className="font-medium text-foreground">{z.kwh?.toLocaleString("fr-FR")} kWh</span>
                   </div>
                 ))}
-                <div className="text-[10px] text-muted-foreground flex justify-between">
+                <div className="text-xs text-muted-foreground flex justify-between">
                   <span>💧 ECS ({
                     ({ electrique: "Élec.", gaz: "Gaz", fioul: "Fioul", thermodynamique: "Thermo.", propane: "Propane" } as Record<string, string>)[estimationDetailsDisplay.ecsType] || estimationDetailsDisplay.ecsType
                   })</span>
                   <span className="font-medium text-foreground">{estimationDetailsDisplay.ecsKwh?.toLocaleString("fr-FR")} kWh</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground flex justify-between">
+                <div className="text-xs text-muted-foreground flex justify-between">
                   <span>⚡ Base électrique</span>
                   <span className="font-medium text-foreground">{estimationDetailsDisplay.baseElecKwh?.toLocaleString("fr-FR")} kWh</span>
                 </div>
                 {estimationDetailsDisplay.appliances?.map((app: any, i: number) => (
-                  <div key={i} className="text-[10px] text-muted-foreground flex justify-between">
+                  <div key={i} className="text-xs text-muted-foreground flex justify-between">
                     <span>⚙️ {app.label}</span>
                     <span className="font-medium text-foreground">{app.kwh?.toLocaleString("fr-FR")} kWh</span>
                   </div>
                 ))}
                 <Separator className="my-1" />
-                <div className="flex justify-between text-[10px] font-semibold">
+                <div className="flex justify-between text-xs font-semibold">
                   <span className="text-foreground">Total élec.</span>
                   <span className="text-primary">{estimationDetailsDisplay.totalElecKwh?.toLocaleString("fr-FR")} kWh/an</span>
                 </div>
                 {estimationDetailsDisplay.totalCombustibleKwh > 0 && (
-                  <div className="flex justify-between text-[10px] font-semibold">
+                  <div className="flex justify-between text-xs font-semibold">
                     <span className="text-foreground">Total combustible</span>
                     <span className="text-orange-500">{estimationDetailsDisplay.totalCombustibleKwh?.toLocaleString("fr-FR")} kWh/an</span>
                   </div>
@@ -4006,7 +4006,7 @@ const EtudeForm = () => {
                   <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
                     <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                     Évolution future de la facture
-                    <Badge variant="outline" className="ml-auto text-[10px] h-4 border-destructive/30 text-destructive">
+                    <Badge variant="outline" className="ml-auto text-xs h-4 border-destructive/30 text-destructive">
                       +{tauxAugmentationEnergie}%/an
                     </Badge>
                     <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
@@ -4037,7 +4037,7 @@ const EtudeForm = () => {
                               <tr key={annee} className={cn("border-b border-dashed last:border-0", (annee === 10 || annee === 20) && "font-semibold")}>
                                 <td className="py-1.5 text-muted-foreground">
                                   An {annee}
-                                  <span className="text-[10px] text-muted-foreground/60 ml-1">({new Date().getFullYear() + annee})</span>
+                                  <span className="text-xs text-muted-foreground/60 ml-1">({new Date().getFullYear() + annee})</span>
                                 </td>
                                 <td className="text-right py-1.5">
                                   {factureProjetee.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}€
@@ -4052,7 +4052,7 @@ const EtudeForm = () => {
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
+                  <p className="text-xs text-muted-foreground mt-2 text-center italic">
                     Source : Commission de Régulation de l'Énergie (CRE) — Projection indicative à +{tauxAugmentationEnergie}%/an composé
                   </p>
                 </CardContent>
@@ -4072,7 +4072,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Puissance (kWc)</Label>
+                <Label className="text-xs sm:text-xs">Puissance (kWc)</Label>
                 <Input
                   type="number"
                   step="0.5"
@@ -4084,7 +4084,7 @@ const EtudeForm = () => {
                 />
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Revente</Label>
+                <Label className="text-xs sm:text-xs">Revente</Label>
                 <Select value={typeRevente} onValueChange={setTypeRevente}>
                   <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                     <SelectValue placeholder="Type" />
@@ -4105,7 +4105,7 @@ const EtudeForm = () => {
               </div>
             </div>
             <div>
-              <Label className="text-[10px] sm:text-xs">Support</Label>
+              <Label className="text-xs sm:text-xs">Support</Label>
               <Select value={supportInstallation} onValueChange={setSupportInstallation}>
                 <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
                   <SelectValue />
@@ -4134,16 +4134,16 @@ const EtudeForm = () => {
             <div className="flex items-center justify-between p-1.5 sm:p-2 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
-                <span className="text-[10px] sm:text-xs font-medium">Calcul</span>
+                <span className="text-xs sm:text-xs font-medium">Calcul</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className={`text-[10px] sm:text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>H</span>
+                <span className={`text-xs sm:text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>H</span>
                 <Switch
                   checked={usePshCalculation}
                   onCheckedChange={setUsePshCalculation}
                   className="h-4 w-7 sm:h-5 sm:w-9"
                 />
-                <span className={`text-[10px] sm:text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
+                <span className={`text-xs sm:text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
               </div>
             </div>
             
@@ -4152,8 +4152,8 @@ const EtudeForm = () => {
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 sm:p-3">
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
-                    <span className="text-[10px] sm:text-xs text-muted-foreground">PSH</span>
-                    <span className="text-[10px] sm:text-xs text-amber-600/70 truncate max-w-[100px]">
+                    <span className="text-xs sm:text-xs text-muted-foreground">PSH</span>
+                    <span className="text-xs sm:text-xs text-amber-600/70 truncate max-w-[100px]">
                       {dataPsh.find(p => p.department_code === departement)?.department_name ?? "—"}
                     </span>
                   </div>
@@ -4164,7 +4164,7 @@ const EtudeForm = () => {
               </div>
             ) : (
               <div>
-                <Label className="text-[10px] sm:text-xs">Heures ensoleillement</Label>
+                <Label className="text-xs sm:text-xs">Heures ensoleillement</Label>
                 <Input
                   type="number"
                   value={heuresEnsoleillement}
@@ -4176,7 +4176,7 @@ const EtudeForm = () => {
             
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-[10px] sm:text-xs">Surface (m²)</Label>
+                <Label className="text-xs sm:text-xs">Surface (m²)</Label>
                 <Input
                   type="number"
                   value={surfaceInstallation}
@@ -4185,7 +4185,7 @@ const EtudeForm = () => {
                 />
               </div>
               <div>
-                <Label className="text-[10px] sm:text-xs">Rendement</Label>
+                <Label className="text-xs sm:text-xs">Rendement</Label>
                 <Input
                   type="number"
                   value={rendementProductivite}
@@ -4193,7 +4193,7 @@ const EtudeForm = () => {
                   className="h-8 sm:h-9 text-xs sm:text-sm bg-muted/30"
                   readOnly
                 />
-                <p className="text-[9px] sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
                   {orientation}/{inclinaison}°
                 </p>
               </div>
@@ -4213,12 +4213,12 @@ const EtudeForm = () => {
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
                 <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Production</p>
-                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-[10px] sm:text-xs font-normal">kWh</span></p>
+                  <p className="text-xs sm:text-xs text-muted-foreground">Production</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-xs sm:text-xs font-normal">kWh</span></p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Surplus</p>
-                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-[10px] sm:text-xs font-normal">kWh</span></p>
+                  <p className="text-xs sm:text-xs text-muted-foreground">Surplus</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-xs sm:text-xs font-normal">kWh</span></p>
                 </div>
               </div>
               <div className={cn(
@@ -4227,11 +4227,11 @@ const EtudeForm = () => {
                 calculatedResults.autoconsoPct >= 80 && calculatedResults.autoconsoPct < 100 && "bg-status-reported/10",
                 calculatedResults.autoconsoPct < 80 && "bg-muted/50"
               )}>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Autoconsommation</p>
+                <p className="text-xs sm:text-xs text-muted-foreground">Autoconsommation</p>
                 <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                   <span className="font-bold text-lg sm:text-xl">{calculatedResults.autoconsoPct.toFixed(1)}%</span>
                   {calculatedResults.autoconsoPct >= 100 && (
-                    <Badge className="bg-status-signed text-white text-[10px] sm:text-xs px-1.5 py-0.5">OK</Badge>
+                    <Badge className="bg-status-signed text-white text-xs sm:text-xs px-1.5 py-0.5">OK</Badge>
                   )}
                 </div>
               </div>
@@ -4332,7 +4332,7 @@ const EtudeForm = () => {
                     </div>
                     <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
                       <div className="h-px flex-1 bg-orange-300" />
-                      <span className="text-[10px] font-semibold text-orange-500 whitespace-nowrap px-1">alimente</span>
+                      <span className="text-xs font-semibold text-orange-500 whitespace-nowrap px-1">alimente</span>
                       <div className="h-px flex-1 bg-orange-300" />
                       <span className="text-orange-400">→</span>
                     </div>
@@ -4358,7 +4358,7 @@ const EtudeForm = () => {
                         </div>
                       </>
                     )}
-                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-orange-100">
+                    <p className="text-xs text-muted-foreground/80 pt-1 border-t border-orange-100">
                       L'isolation diminue les pertes thermiques, réduisant la puissance et la consommation électrique de la PAC.
                     </p>
                   </div>
@@ -4375,7 +4375,7 @@ const EtudeForm = () => {
                     </div>
                     <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
                       <div className="h-px flex-1 bg-blue-300" />
-                      <span className="text-[10px] font-semibold text-blue-500 whitespace-nowrap px-1">alimente</span>
+                      <span className="text-xs font-semibold text-blue-500 whitespace-nowrap px-1">alimente</span>
                       <div className="h-px flex-1 bg-blue-300" />
                       <span className="text-blue-400">→</span>
                     </div>
@@ -4401,7 +4401,7 @@ const EtudeForm = () => {
                         </div>
                       </>
                     )}
-                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-blue-100">
+                    <p className="text-xs text-muted-foreground/80 pt-1 border-t border-blue-100">
                       La conso électrique de la PAC est ajoutée au besoin du foyer pour dimensionner le PV et maximiser l'autoconsommation.
                     </p>
                   </div>
@@ -4418,7 +4418,7 @@ const EtudeForm = () => {
                     </div>
                     <div className="flex-1 flex items-center gap-1 px-1 min-w-0">
                       <div className="h-px flex-1 bg-emerald-300" />
-                      <span className="text-[10px] font-semibold text-emerald-500 whitespace-nowrap px-1">optimise</span>
+                      <span className="text-xs font-semibold text-emerald-500 whitespace-nowrap px-1">optimise</span>
                       <div className="h-px flex-1 bg-emerald-300" />
                       <span className="text-emerald-400">→</span>
                     </div>
@@ -4440,7 +4440,7 @@ const EtudeForm = () => {
                       <span>→ Conso réduite pour PV</span>
                       <span className="font-bold">-{Math.round(Number(consoAnnuelle) * 0.6 * Number(iteEconomieChauffagePct) / 100).toLocaleString("fr-FR")} kWh/an</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground/80 pt-1 border-t border-emerald-100">
+                    <p className="text-xs text-muted-foreground/80 pt-1 border-t border-emerald-100">
                       L'isolation réduit la consommation de chauffage, permettant un dimensionnement PV plus adapté au besoin réel.
                     </p>
                   </div>
@@ -4450,7 +4450,7 @@ const EtudeForm = () => {
               {/* Résumé chaîne triple */}
               {activeProducts.includes("ITE") && activeProducts.includes("PAC") && activeProducts.includes("PV") && (
                 <div className="bg-primary/5 rounded-lg p-2.5 border border-primary/20">
-                  <p className="text-[10px] sm:text-xs text-center text-primary font-medium">
+                  <p className="text-xs sm:text-xs text-center text-primary font-medium">
                     <strong>Chaîne complète :</strong> ITE réduit déperditions (-{Number(iteEconomieChauffagePct) || 0}%) → PAC consomme moins
                     {pacEconomiesCalculees ? ` (${Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""} → PV dimensionné sur conso réelle
                     {pacEconomiesCalculees ? ` (${Math.round(Number(consoAnnuelle) + pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""}
@@ -4485,19 +4485,19 @@ const EtudeForm = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Production</p>
+                        <p className="text-xs text-muted-foreground">Production</p>
                         <p className="font-bold text-sm">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")}</p>
-                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                        <p className="text-xs text-muted-foreground">kWh/an</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Autoconso</p>
+                        <p className="text-xs text-muted-foreground">Autoconso</p>
                         <p className="font-bold text-sm">{calculatedResults.autoconsoPct.toFixed(1)}%</p>
-                        <p className="text-[10px] text-muted-foreground">{(calculatedResults.productionAnnuelle - calculatedResults.surplusProduction).toLocaleString("fr-FR")} kWh</p>
+                        <p className="text-xs text-muted-foreground">{(calculatedResults.productionAnnuelle - calculatedResults.surplusProduction).toLocaleString("fr-FR")} kWh</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Surplus</p>
+                        <p className="text-xs text-muted-foreground">Surplus</p>
                         <p className="font-bold text-sm">{calculatedResults.surplusProduction.toLocaleString("fr-FR")}</p>
-                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                        <p className="text-xs text-muted-foreground">kWh/an</p>
                       </div>
                     </div>
                   </CardContent>
@@ -4514,19 +4514,19 @@ const EtudeForm = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Besoins chauf.</p>
+                        <p className="text-xs text-muted-foreground">Besoins chauf.</p>
                         <p className="font-bold text-sm">{Math.round(pacEconomiesCalculees.besoinsChauffageKwh).toLocaleString("fr-FR")}</p>
-                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                        <p className="text-xs text-muted-foreground">kWh/an</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Conso PAC</p>
+                        <p className="text-xs text-muted-foreground">Conso PAC</p>
                         <p className="font-bold text-sm">{Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")}</p>
-                        <p className="text-[10px] text-muted-foreground">kWh/an</p>
+                        <p className="text-xs text-muted-foreground">kWh/an</p>
                       </div>
                       <div className="bg-green-50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Économie nette</p>
+                        <p className="text-xs text-muted-foreground">Économie nette</p>
                         <p className="font-bold text-sm text-green-600">{Math.round(pacEconomiesCalculees.economieNetteEuros).toLocaleString("fr-FR")}€</p>
-                        <p className="text-[10px] text-muted-foreground">/an</p>
+                        <p className="text-xs text-muted-foreground">/an</p>
                       </div>
                     </div>
                   </CardContent>
@@ -4543,20 +4543,20 @@ const EtudeForm = () => {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Surface</p>
+                        <p className="text-xs text-muted-foreground">Surface</p>
                         <p className="font-bold text-sm">{Number(iteSurfaceIsoler).toLocaleString("fr-FR")}</p>
-                        <p className="text-[10px] text-muted-foreground">m²</p>
+                        <p className="text-xs text-muted-foreground">m²</p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Économie chauf.</p>
+                        <p className="text-xs text-muted-foreground">Économie chauf.</p>
                         <p className="font-bold text-sm text-orange-600">-{Number(iteEconomieChauffagePct)}%</p>
                       </div>
                       <div className="bg-green-50 rounded-lg p-2">
-                        <p className="text-[10px] text-muted-foreground">Gain annuel</p>
+                        <p className="text-xs text-muted-foreground">Gain annuel</p>
                         <p className="font-bold text-sm text-green-600">
                           {Math.round(Number(iteFactureChaufActuelle || pacFactureChauffageEuros || 0) * Number(iteEconomieChauffagePct) / 100).toLocaleString("fr-FR")}€
                         </p>
-                        <p className="text-[10px] text-muted-foreground">/an</p>
+                        <p className="text-xs text-muted-foreground">/an</p>
                       </div>
                     </div>
                   </CardContent>
@@ -4678,7 +4678,7 @@ const EtudeForm = () => {
             if (gammes.length < 1) return null;
             return (
               <div className="mb-3">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
+                <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
                   <Tag className="h-3 w-3" /> Gamme
                 </Label>
                 <Select value={selectedGammePV || "all"} onValueChange={(v) => {
@@ -4704,7 +4704,7 @@ const EtudeForm = () => {
           {/* Also add selector for PV-only mode */}
           {!isMulti && pvBouquets.length > 1 && (
             <div className="mb-3">
-              <Label className="text-[10px] uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
+              <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1 mb-1">
                 <Tag className="h-3 w-3" /> Bouquet PV
               </Label>
               <Select value={selectedBouquetPV} onValueChange={(v) => {
@@ -4744,7 +4744,7 @@ const EtudeForm = () => {
                   <>
                     {activeProducts.includes("ITE") && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-orange-600 uppercase">ITE</p>
+                        <p className="text-xs font-bold text-orange-600 uppercase">ITE</p>
                         <div className="flex justify-between items-center">
                           <span>Prix ITE TTC</span>
                           <Input
@@ -4759,7 +4759,7 @@ const EtudeForm = () => {
                     )}
                     {activeProducts.includes("PAC") && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-blue-600 uppercase">PAC</p>
+                        <p className="text-xs font-bold text-blue-600 uppercase">PAC</p>
                         <div className="flex justify-between items-center">
                           <span>Prix PAC TTC</span>
                           <Input
@@ -4774,7 +4774,7 @@ const EtudeForm = () => {
                     )}
                     {activeProducts.includes("PV") && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-amber-600 uppercase">PV</p>
+                        <p className="text-xs font-bold text-amber-600 uppercase">PV</p>
                         <div className="flex justify-between items-center">
                           <span>Prix PV TTC</span>
                           <Input
@@ -4786,7 +4786,7 @@ const EtudeForm = () => {
                           />
                         </div>
                         {(surcoutSupport > 0 || surcoutCompteur > 0 || surcoutEmplacement > 0) && (
-                          <div className="text-[10px] text-muted-foreground pl-2">
+                          <div className="text-xs text-muted-foreground pl-2">
                             {surcoutSupport > 0 && <p>+ Support: {surcoutSupport.toFixed(0)}€</p>}
                             {surcoutCompteur > 0 && <p>+ Compteur: {surcoutCompteur.toFixed(0)}€</p>}
                             {surcoutEmplacement > 0 && <p>+ Empl.: {surcoutEmplacement.toFixed(0)}€</p>}
@@ -4902,7 +4902,7 @@ const EtudeForm = () => {
                   <PiggyBank className="h-3 w-3 text-status-signed" />
                   {isMulti ? "AIDES GLOBALES" : "AIDES"}
                   {modeHejjaActive && (
-                    <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                    <Badge variant="outline" className="text-xs h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
                       HEJJA
                     </Badge>
                   )}
@@ -4914,20 +4914,20 @@ const EtudeForm = () => {
                     {/* Aides ITE */}
                     {activeProducts.includes("ITE") && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-orange-600">ITE</p>
+                        <p className="text-xs font-bold text-orange-600">ITE</p>
                         <div className="flex justify-between items-center">
                           <span>MaPrimeRénov'</span>
-                          <Input type="number" value={aidesITE.maPrimeRenov} onChange={(e) => setAidesITE({ ...aidesITE, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          <Input type="number" value={aidesITE.maPrimeRenov} onChange={(e) => setAidesITE({ ...aidesITE, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span>CEE</span>
-                          <Input type="number" value={aidesITE.cee} onChange={(e) => setAidesITE({ ...aidesITE, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          <Input type="number" value={aidesITE.cee} onChange={(e) => setAidesITE({ ...aidesITE, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span>ECO TVA</span>
-                          <Input type="number" value={aidesITE.ecoTva} onChange={(e) => setAidesITE({ ...aidesITE, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          <Input type="number" value={aidesITE.ecoTva} onChange={(e) => setAidesITE({ ...aidesITE, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                         </div>
-                        <div className="flex justify-between text-[10px] font-medium text-orange-600">
+                        <div className="flex justify-between text-xs font-medium text-orange-600">
                           <span>Sous-total ITE</span>
                           <span>{totalAidesITE.toLocaleString("fr-FR")}€</span>
                         </div>
@@ -4936,40 +4936,40 @@ const EtudeForm = () => {
                     {/* Aides PAC */}
                     {activeProducts.includes("PAC") && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-blue-600">PAC</p>
+                        <p className="text-xs font-bold text-blue-600">PAC</p>
                         {pacSubtype === "air_eau" && (
                           <div className="flex justify-between items-center">
                             <span>MaPrimeRénov'</span>
-                            <Input type="number" value={aidesPAC.maPrimeRenov} onChange={(e) => setAidesPAC({ ...aidesPAC, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                            <Input type="number" value={aidesPAC.maPrimeRenov} onChange={(e) => setAidesPAC({ ...aidesPAC, maPrimeRenov: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                           </div>
                         )}
                         <div className="flex justify-between items-center">
                           <span>CEE</span>
-                          <Input type="number" value={aidesPAC.cee} onChange={(e) => setAidesPAC({ ...aidesPAC, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          <Input type="number" value={aidesPAC.cee} onChange={(e) => setAidesPAC({ ...aidesPAC, cee: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                         </div>
                         {(aidesPAC.deposeChaudiere || 0) > 0 && (
                           <div className="flex justify-between items-center">
                             <span>Dépose chaudière</span>
-                            <Input type="number" value={aidesPAC.deposeChaudiere} onChange={(e) => setAidesPAC({ ...aidesPAC, deposeChaudiere: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                            <Input type="number" value={aidesPAC.deposeChaudiere} onChange={(e) => setAidesPAC({ ...aidesPAC, deposeChaudiere: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                           </div>
                         )}
                         {activeProducts.includes("PAC") && (
                           <div className="flex justify-between items-center">
                             <span>BTD (ballon thermo)</span>
-                            <Input type="number" value={aidesPAC.ballonThermo} onChange={(e) => setAidesPAC({ ...aidesPAC, ballonThermo: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                            <Input type="number" value={aidesPAC.ballonThermo} onChange={(e) => setAidesPAC({ ...aidesPAC, ballonThermo: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                           </div>
                         )}
                         {(aidesPAC.raccordementReseau || 0) > 0 && (
                           <div className="flex justify-between items-center">
                             <span>Raccord. réseau</span>
-                            <Input type="number" value={aidesPAC.raccordementReseau} onChange={(e) => setAidesPAC({ ...aidesPAC, raccordementReseau: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                            <Input type="number" value={aidesPAC.raccordementReseau} onChange={(e) => setAidesPAC({ ...aidesPAC, raccordementReseau: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                           </div>
                         )}
                         <div className="flex justify-between items-center">
                           <span>ECO TVA</span>
-                          <Input type="number" value={aidesPAC.ecoTva} onChange={(e) => setAidesPAC({ ...aidesPAC, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-[10px]" />
+                          <Input type="number" value={aidesPAC.ecoTva} onChange={(e) => setAidesPAC({ ...aidesPAC, ecoTva: Number(e.target.value) || 0 })} className="h-5 w-16 text-right text-xs" />
                         </div>
-                        <div className="flex justify-between text-[10px] font-medium text-blue-600">
+                        <div className="flex justify-between text-xs font-medium text-blue-600">
                           <span>Sous-total PAC</span>
                           <span>{totalAidesPAC.toLocaleString("fr-FR")}€</span>
                         </div>
@@ -4978,7 +4978,7 @@ const EtudeForm = () => {
                     {/* Aides PV */}
                     {activeProducts.includes("PV") && calculatedResults && (
                       <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-amber-600">PV</p>
+                        <p className="text-xs font-bold text-amber-600">PV</p>
                         {modeHejjaActive ? (
                           <HejjaAidesEditor
                             aides={aidesManuelles}
@@ -5000,7 +5000,7 @@ const EtudeForm = () => {
                             </div>
                           </>
                         )}
-                        <div className="flex justify-between text-[10px] font-medium text-amber-600">
+                        <div className="flex justify-between text-xs font-medium text-amber-600">
                           <span>Sous-total PV</span>
                           <span>{totalAidesPV.toLocaleString("fr-FR")}€</span>
                         </div>
@@ -5013,7 +5013,7 @@ const EtudeForm = () => {
                         const v = Number(e.target.value) || 0;
                         setAidesPAC(prev => ({ ...prev, aideLocale: v }));
                         setAidesITE(prev => ({ ...prev, aideLocale: 0 }));
-                      }} className="h-5 w-16 text-right text-[10px]" />
+                      }} className="h-5 w-16 text-right text-xs" />
                     </div>
                     <Separator className="my-1" />
                     <div className="flex justify-between font-bold text-status-signed bg-status-signed/10 rounded p-1">
@@ -5109,7 +5109,7 @@ const EtudeForm = () => {
                   />
                 </div>
                 {/* Report 6 mois */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-1.5 text-[10px] mt-1">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-1.5 text-xs mt-1">
                   <div className="flex items-center gap-1 text-amber-700 font-medium">
                     Report 6 mois: {resultatFinGlobal.mensualiteReport.toFixed(0)}€/mois
                   </div>
@@ -5134,7 +5134,7 @@ const EtudeForm = () => {
                     className="h-7 text-xs"
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Sur reste à charge {montantAidesDeduites.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€ · {nbMois} mois
                 </p>
               </CardContent>
@@ -5246,7 +5246,7 @@ const EtudeForm = () => {
                       })()}€/mois
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Financement global incluant {activeProducts.map(p => p === "PV" ? "PV" : p === "PAC" ? "PAC" : "ITE").join(" + ")}
                   </p>
                 </div>
@@ -5271,7 +5271,7 @@ const EtudeForm = () => {
                     "bg-status-negative/10";
                 })()
               )}>
-                <p className="text-[10px] sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1.5 sm:mb-2">
                   {activeProducts.length > 1 ? "Bilan Mensuel Global" : "Transfert de Charge"}
                 </p>
                 <div className="flex items-center justify-center gap-2 sm:gap-3">
@@ -5314,7 +5314,7 @@ const EtudeForm = () => {
               {/* Aides globales en multi-produit */}
               {activeProducts.length > 1 && (
                 <div className="bg-emerald-50 rounded-lg p-2 text-xs space-y-1">
-                  <p className="text-[10px] font-bold text-emerald-700 uppercase">Aides globales du projet</p>
+                  <p className="text-xs font-bold text-emerald-700 uppercase">Aides globales du projet</p>
                   {activeProducts.includes("PV") && (
                     <div className="flex justify-between text-emerald-600">
                       <span>PV</span>
@@ -5408,7 +5408,7 @@ const EtudeForm = () => {
               
               {/* Aides combinées */}
               <div className="bg-emerald-50 rounded-lg p-2.5 sm:p-3">
-                <p className="text-[10px] sm:text-xs font-bold text-emerald-700 mb-1.5">AIDES CUMULÉES</p>
+                <p className="text-xs sm:text-xs font-bold text-emerald-700 mb-1.5">AIDES CUMULÉES</p>
                 <div className="space-y-1 text-xs">
                   {activeProducts.includes("PV") && calculatedResults && (
                     <div className="flex justify-between text-emerald-600">
@@ -5446,7 +5446,7 @@ const EtudeForm = () => {
               
               {/* Économies annuelles combinées */}
               <div className="bg-amber-50 rounded-lg p-2.5 sm:p-3">
-                <p className="text-[10px] sm:text-xs font-bold text-amber-700 mb-1.5">ÉCONOMIES ANNUELLES COMBINÉES</p>
+                <p className="text-xs sm:text-xs font-bold text-amber-700 mb-1.5">ÉCONOMIES ANNUELLES COMBINÉES</p>
                 <div className="space-y-1 text-xs">
                   {activeProducts.includes("PV") && calculatedResults && (
                     <div className="flex justify-between text-amber-600">
@@ -5489,7 +5489,7 @@ const EtudeForm = () => {
 
               {/* Coût net global */}
               <div className="bg-primary/10 rounded-lg p-2.5 sm:p-3 text-center">
-                <p className="text-[10px] sm:text-xs text-muted-foreground">Coût net après aides</p>
+                <p className="text-xs sm:text-xs text-muted-foreground">Coût net après aides</p>
                 <p className="font-bold text-lg sm:text-xl text-primary">
                   {(() => {
                     let totalPrix = 0;
@@ -5529,7 +5529,7 @@ const EtudeForm = () => {
             <CollapsibleContent>
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div>
-                <Label className="text-[10px] sm:text-xs">Statut</Label>
+                <Label className="text-xs sm:text-xs">Statut</Label>
                 <Select value={classification} onValueChange={setClassification}>
                   <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
                     <SelectValue placeholder="Choisir" />
@@ -5784,7 +5784,7 @@ const EtudeForm = () => {
             <div className="p-4 pt-2 border-t flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                size="sm"
+                
                 className="gap-1"
                 onClick={handleExportPdf}
                 disabled={exporting}
@@ -5798,7 +5798,7 @@ const EtudeForm = () => {
               </Button>
               <Button
                 variant="outline"
-                size="sm"
+                
                 className="gap-1"
                 onClick={handleShare}
               >
@@ -5807,7 +5807,7 @@ const EtudeForm = () => {
               </Button>
               {classification === "r2_prestudy" && (
                 <Button
-                  size="sm"
+                  
                   className="gap-1 bg-[#25D366] hover:bg-[#20BD5A] text-white"
                   onClick={handleWhatsAppShare}
                 >
@@ -5834,7 +5834,7 @@ const EtudeForm = () => {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 sm:h-10 sm:w-10"
+            className="h-11 w-11 sm:h-10 sm:w-10"
             onClick={handlePreview}
             disabled={!calculatedResults}
             aria-label="Aperçu du rapport"
@@ -5845,7 +5845,7 @@ const EtudeForm = () => {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 sm:h-10 sm:w-10"
+            className="h-11 w-11 sm:h-10 sm:w-10"
             onClick={handleExportPdf}
             disabled={!calculatedResults || exporting}
             aria-label="Télécharger le PDF"
@@ -5860,7 +5860,7 @@ const EtudeForm = () => {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 sm:h-10 sm:w-10"
+            className="h-11 w-11 sm:h-10 sm:w-10"
             onClick={handleShare}
             disabled={!calculatedResults}
             aria-label="Partager l'étude"

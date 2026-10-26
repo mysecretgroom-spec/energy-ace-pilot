@@ -176,8 +176,8 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                     {rdv.etudeId && (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="h-7 px-2.5 text-xs hover:bg-status-r2/10 text-status-r2"
+                        
+                        className="h-11 px-2.5 text-xs hover:bg-status-r2/10 text-status-r2"
                         onClick={() => handleNavigate(`/etude/edit?etude=${rdv.etudeId}&client=${rdv.clientId}`)}
                       >
                         <FileText className="h-3 w-3 mr-1.5" />

@@ -254,7 +254,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
               </div>
               <Progress value={r2Rate} className="h-1.5 [&>div]:bg-blue-500" />
               {rdvStats.r2 > 0 && (
-                <div className="flex items-center justify-between text-[11px] pl-4 text-muted-foreground">
+                <div className="flex items-center justify-between text-xs pl-4 text-muted-foreground">
                   <span>↳ R2 → Signé</span>
                   <span className="font-medium text-green-600">
                     {rdvStats.r2Signe}/{rdvStats.r2} ({Math.round((rdvStats.r2Signe / rdvStats.r2) * 100)}%)
@@ -297,7 +297,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                 </>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground pt-1 border-t">
+            <p className="text-xs text-muted-foreground pt-1 border-t">
               Total: {rdvStats.total} RDV • Effectués: {totalEffectif} • Non faits: {rdvStats.nonFait} (hors R2)
             </p>
           </CardContent>
@@ -316,15 +316,15 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
           <div className="grid grid-cols-3 gap-2">
             <div className="text-center p-2 rounded-lg bg-green-500/10">
               <p className="text-lg font-bold text-green-600">{conversionRate}%</p>
-              <p className="text-[10px] text-muted-foreground">Conversion</p>
+              <p className="text-xs text-muted-foreground">Conversion</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-red-500/10">
               <p className="text-lg font-bold text-red-600">{cancellationRate}%</p>
-              <p className="text-[10px] text-muted-foreground">Annulations</p>
+              <p className="text-xs text-muted-foreground">Annulations</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-primary/10">
               <p className="text-lg font-bold text-primary">{totalSigned}</p>
-              <p className="text-[10px] text-muted-foreground">Total pipeline</p>
+              <p className="text-xs text-muted-foreground">Total pipeline</p>
             </div>
           </div>
 
@@ -346,7 +346,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">{formatCurrency(item.value)}</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 bg-red-100 text-red-700">
+                        <Badge variant="secondary" className="text-xs px-1.5 bg-red-100 text-red-700">
                           {item.count} ({pct}%)
                         </Badge>
                       </div>
@@ -483,7 +483,7 @@ export const PipelineKanban = memo(function PipelineKanban({ ventes, onRefresh }
                       </span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant="outline" className="text-[10px] border-red-200 text-red-600">
+                      <Badge variant="outline" className="text-xs border-red-200 text-red-600">
                         {meta.label}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
