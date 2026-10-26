@@ -4582,6 +4582,7 @@ export type Database = {
         Returns: boolean
       }
       is_saas_admin: { Args: { p_user_id: string }; Returns: boolean }
+      is_visitor: { Args: never; Returns: boolean }
       log_admin_action: {
         Args: {
           p_action: string
