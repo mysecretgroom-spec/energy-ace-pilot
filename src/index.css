@@ -444,7 +444,8 @@ body.etude-theme {
   color: hsl(var(--foreground));
 }
 
-/* Liquid glass buttons — tokens only, no hover sweep (lisibilité) */
+/* Boutons — surfaces en dégradé, effet "liquid glass" limité aux bords
+   (liseré lumineux périphérique, pas de voile sur la surface). */
 :root {
   --glass-highlight: 0 0% 100%;
   --glass-shade: 184 38% 14%;
@@ -456,35 +457,65 @@ body.etude-theme {
 @layer components {
   .btn-glass-primary {
     background: var(--gradient-hero);
+    border: 1px solid hsl(var(--glass-highlight) / 0.30);
     box-shadow:
-      inset 0 1px 0 hsl(var(--glass-highlight) / 0.45),
-      inset 0 -2px 6px hsl(var(--glass-shade) / 0.25),
-      0 1px 0 hsl(var(--glass-highlight) / 0.2),
-      0 8px 20px -6px hsl(var(--primary) / 0.55);
+      inset 0 1px 0 hsl(var(--glass-highlight) / 0.38),
+      inset 0 -1px 0 hsl(var(--glass-shade) / 0.30),
+      inset 1px 0 0 hsl(var(--glass-highlight) / 0.14),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.14),
+      0 1px 0 hsl(var(--glass-highlight) / 0.20),
+      0 10px 24px -8px hsl(var(--primary) / 0.55);
     position: relative;
     isolation: isolate;
   }
-  .btn-glass-primary::before {
-    content: "";
-    position: absolute;
-    inset: 1px 1px 50% 1px;
-    border-radius: inherit;
-    background: linear-gradient(180deg, hsl(var(--glass-highlight) / 0.32), hsl(var(--glass-highlight) / 0));
-    pointer-events: none;
-    z-index: -1;
-  }
-  .btn-glass-primary:hover { filter: brightness(1.06) saturate(1.05); box-shadow:
-      inset 0 1px 0 hsl(var(--glass-highlight) / 0.5),
-      inset 0 -2px 6px hsl(var(--glass-shade) / 0.25),
-      0 12px 26px -6px hsl(var(--primary) / 0.65); }
-  .btn-glass {
-    background: hsl(var(--card) / 0.9);
-    -webkit-backdrop-filter: blur(14px) saturate(1.6);
-    backdrop-filter: blur(14px) saturate(1.6);
-    border: 1px solid hsl(var(--border) / 0.9);
+  .btn-glass-primary:hover {
+    filter: brightness(1.06) saturate(1.05);
     box-shadow:
-      inset 0 1px 0 hsl(var(--glass-highlight) / 0.7),
+      inset 0 1px 0 hsl(var(--glass-highlight) / 0.45),
+      inset 0 -1px 0 hsl(var(--glass-shade) / 0.30),
+      inset 1px 0 0 hsl(var(--glass-highlight) / 0.16),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.16),
+      0 1px 0 hsl(var(--glass-highlight) / 0.22),
+      0 12px 28px -8px hsl(var(--primary) / 0.65);
+  }
+
+  .btn-glass-destructive {
+    background: linear-gradient(135deg, hsl(var(--destructive)) 0%, color-mix(in oklab, hsl(var(--destructive)), black 16%) 100%);
+    border: 1px solid hsl(var(--glass-highlight) / 0.28);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--glass-highlight) / 0.35),
+      inset 0 -1px 0 hsl(var(--glass-shade) / 0.30),
+      inset 1px 0 0 hsl(var(--glass-highlight) / 0.12),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.12),
+      0 10px 24px -8px hsl(var(--destructive) / 0.5);
+  }
+  .btn-glass-destructive:hover { filter: brightness(1.05); }
+
+  .btn-glass-secondary {
+    background: var(--gradient-premium);
+    border: 1px solid hsl(var(--glass-highlight) / 0.38);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--glass-highlight) / 0.5),
+      inset 0 -1px 0 hsl(var(--glass-shade) / 0.22),
+      inset 1px 0 0 hsl(var(--glass-highlight) / 0.18),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.18),
+      0 8px 20px -8px hsl(var(--secondary) / 0.7);
+  }
+  .btn-glass-secondary:hover { filter: brightness(1.05); }
+
+  .btn-glass {
+    background: linear-gradient(180deg, hsl(var(--card) / 0.95) 0%, hsl(var(--muted) / 0.80) 100%);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid hsl(var(--glass-highlight) / 0.45);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--glass-highlight) / 0.65),
+      inset 0 -1px 0 hsl(var(--glass-shade) / 0.12),
+      inset 1px 0 0 hsl(var(--glass-highlight) / 0.20),
+      inset -1px 0 0 hsl(var(--glass-highlight) / 0.20),
       0 4px 14px -6px hsl(var(--glass-shade) / 0.18);
   }
-  .btn-glass:hover { background: hsl(var(--accent) / 0.95); }
+  .btn-glass:hover {
+    background: linear-gradient(180deg, hsl(var(--accent) / 0.95) 0%, hsl(var(--accent) / 0.85) 100%);
+  }
 }
