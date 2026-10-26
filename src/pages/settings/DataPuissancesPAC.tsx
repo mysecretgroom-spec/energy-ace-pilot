@@ -208,7 +208,7 @@ const DataPuissancesPAC = () => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Type PAC</label>
                         <Select
@@ -216,7 +216,7 @@ const DataPuissancesPAC = () => {
                           onValueChange={(val) => handleChange(item.id, "pac_subtype", val)}
                           disabled={item.isGlobal}
                         >
-                          <SelectTrigger className="h-8 text-xs">
+                          <SelectTrigger className="h-11 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -231,7 +231,7 @@ const DataPuissancesPAC = () => {
                           type="number"
                           value={item.surface_min}
                           onChange={(e) => handleChange(item.id, "surface_min", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                           disabled={item.isGlobal}
                         />
                       </div>
@@ -241,7 +241,7 @@ const DataPuissancesPAC = () => {
                           type="number"
                           value={item.surface_max}
                           onChange={(e) => handleChange(item.id, "surface_max", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                           disabled={item.isGlobal}
                         />
                       </div>
@@ -252,7 +252,7 @@ const DataPuissancesPAC = () => {
                           step="0.5"
                           value={item.puissance_recommandee}
                           onChange={(e) => handleChange(item.id, "puissance_recommandee", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-xs"
+                          className="h-11 text-sm"
                           disabled={item.isGlobal}
                         />
                       </div>

@@ -190,14 +190,14 @@ const DataAidesITE = () => {
 
                     <div className="mb-2">
                       <label className="text-xs text-muted-foreground">Nom de l'aide</label>
-                      <Input value={item.nom} onChange={(e) => handleChange(item.id, "nom", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                      <Input value={item.nom} onChange={(e) => handleChange(item.id, "nom", e.target.value)} className="h-11 text-sm" disabled={item.isGlobal} />
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Profil</label>
                         <Select value={item.profil_revenus || "all"} onValueChange={(val) => handleChange(item.id, "profil_revenus", val === "all" ? null : val)} disabled={item.isGlobal}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-11 text-sm"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Tous</SelectItem>
                             <SelectItem value="tres_modeste">Très modeste</SelectItem>
@@ -208,15 +208,15 @@ const DataAidesITE = () => {
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">€/m²</label>
-                        <Input type="number" value={item.montant_m2 || ""} onChange={(e) => handleChange(item.id, "montant_m2", parseFloat(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input type="number" value={item.montant_m2 || ""} onChange={(e) => handleChange(item.id, "montant_m2", parseFloat(e.target.value) || null)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Plafond (€)</label>
-                        <Input type="number" value={item.montant_plafond || ""} onChange={(e) => handleChange(item.id, "montant_plafond", parseFloat(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input type="number" value={item.montant_plafond || ""} onChange={(e) => handleChange(item.id, "montant_plafond", parseFloat(e.target.value) || null)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Surf. min</label>
-                        <Input type="number" value={item.surface_min || ""} onChange={(e) => handleChange(item.id, "surface_min", parseFloat(e.target.value) || null)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input type="number" value={item.surface_min || ""} onChange={(e) => handleChange(item.id, "surface_min", parseFloat(e.target.value) || null)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                     </div>
                   </div>
