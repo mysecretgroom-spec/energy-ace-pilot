@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">energy-ace-pilot</string>
+    <string name="title_activity_main">energy-ace-pilot</string>
+    <string name="package_name">app.lovable.fdcd1698fd4a4278bd398e8b51039a6a</string>
+    <string name="custom_url_scheme">app.lovable.fdcd1698fd4a4278bd398e8b51039a6a</string>
+</resources>
