@@ -181,15 +181,15 @@ const DataZonesClimatiques = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Dépt</label>
-                        <Input value={item.department_code} onChange={(e) => handleChange(item.id, "department_code", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input value={item.department_code} onChange={(e) => handleChange(item.id, "department_code", e.target.value)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                       <div className="col-span-2">
                         <label className="text-xs text-muted-foreground">Département</label>
-                        <Input value={item.department_name} onChange={(e) => handleChange(item.id, "department_name", e.target.value)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input value={item.department_name} onChange={(e) => handleChange(item.id, "department_name", e.target.value)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">DJU</label>
-                        <Input type="number" value={item.dju_base18} onChange={(e) => handleChange(item.id, "dju_base18", parseInt(e.target.value) || 0)} className="h-8 text-xs" disabled={item.isGlobal} />
+                        <Input type="number" value={item.dju_base18} onChange={(e) => handleChange(item.id, "dju_base18", parseInt(e.target.value) || 0)} className="h-11 text-sm" disabled={item.isGlobal} />
                       </div>
                     </div>
                   </div>

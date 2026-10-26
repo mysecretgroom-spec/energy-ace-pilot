@@ -199,11 +199,11 @@ const DataCompteurs = () => {
                     key={item.id}
                     className={`p-4 space-y-2 ${item.isModified ? "bg-amber-500/5" : ""}`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <Input
                         value={item.type_compteur}
                         onChange={(e) => handleFieldChange(item.id, "type_compteur", e.target.value)}
-                        className="h-8 font-medium text-sm w-32"
+                        className="h-11 font-medium text-sm flex-1 min-w-0"
                         placeholder="Type"
                       />
                       <div className="flex items-center gap-1">
@@ -211,13 +211,13 @@ const DataCompteurs = () => {
                           type="number"
                           value={item.montant}
                           onChange={(e) => handleFieldChange(item.id, "montant", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-sm w-24"
+                          className="h-11 text-sm w-20"
                         />
                         <span className="text-sm text-muted-foreground">€</span>
                       </div>
                       {item.isNew && <Badge className="bg-green-500 text-xs">Nouveau</Badge>}
                       {item.isModified && !item.isNew && <Badge variant="outline" className="border-amber-500 text-amber-600 text-xs">Modifié</Badge>}
-                      <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex items-center gap-1 ml-auto shrink-0">
                         <Switch
                           checked={item.actif}
                           onCheckedChange={(c) => handleFieldChange(item.id, "actif", c)}
