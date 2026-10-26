@@ -8,10 +8,10 @@ import { PLANS, TOPUPS, formatEur, yearlySavings, type PlanTier } from "@/lib/pl
 
 const TIERS: PlanTier[] = ["classique", "premium"];
 
-export default function Tarifs() {
+export default function Tarifs({ embedded = false }: { embedded?: boolean }) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b">
+    <div className={embedded ? "" : "min-h-screen bg-background flex flex-col"}>
+      {!embedded && <header className="border-b">
         <div className="max-w-5xl mx-auto flex items-center justify-between h-14 px-4">
           <Link to="/login" className="font-display font-semibold text-foreground">DébalePro</Link>
           <div className="flex gap-2">
@@ -19,9 +19,9 @@ export default function Tarifs() {
             <Button asChild size="sm"><Link to="/signup">Essai gratuit</Link></Button>
           </div>
         </div>
-      </header>
+      </header>}
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 space-y-10">
+      <main id="tarifs" className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 space-y-10">
         <div className="text-center space-y-2">
           <h1 className="font-display text-3xl font-semibold tracking-tight">Tarifs</h1>
           <p className="text-muted-foreground">10 jours d'essai gratuit, sans engagement. Prix TTC, résiliable à tout moment.</p>
@@ -63,7 +63,7 @@ export default function Tarifs() {
         </p>
 
       </main>
-      <Footer />
+      {!embedded && <Footer />}
     </div>
   );
 }
