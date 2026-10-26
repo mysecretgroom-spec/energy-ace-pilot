@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
 import { AgentChat } from "@/components/chat/AgentChat";
 import { HejjaToggle } from "@/components/layout/HejjaToggle";
+import { IconLabel } from "./IconLabel";
 import { useOfflineDocuments } from "@/hooks/useOfflineDocuments";
 import { useOfflineData } from "@/hooks/useOfflineData";
 
@@ -94,17 +95,18 @@ export const MobileLayout = ({
             </h1>
             <div className="flex items-center gap-1">
               {/* Hejja Toggle - fixed in header */}
-              <HejjaToggle />
+              <IconLabel label="HEJJA"><HejjaToggle /></IconLabel>
               {/* Agent Chat button - fixed in header */}
               {shouldShowAgent && (
-                <Button
+                <IconLabel label="Assistant"><Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Assistant IA"
                   onClick={() => setAgentOpen(true)}
                   className="h-9 w-9 rounded-full hover:bg-muted"
                 >
                   <span className="text-base">🤖</span>
-                </Button>
+                </Button></IconLabel>
               )}
               {!isOnline && (
                 <button
@@ -126,8 +128,8 @@ export const MobileLayout = ({
                   )}
                 </button>
               )}
-              <NotificationBell />
-              {shouldShowRGECard && <RGECardDialog />}
+              <IconLabel label="Alertes"><NotificationBell /></IconLabel>
+              {shouldShowRGECard && <IconLabel label="Carte RGE"><RGECardDialog /></IconLabel>}
             </div>
           </div>
         </header>
