@@ -9,4 +9,5 @@
 - [x] CRM : filtre de période « Mois » ajouté à côté de Semaine et Tous
 
 - [x] Choisir les études et documents gardés hors ligne (Paramètres > Disponible hors ligne)
+- [x] Auto hors ligne : études + documents clients des RDV de la semaine (dim→sam)
 - [ ] Stockage Google Drive de chaque utilisateur — en attente : config Google (URI, API Drive, publication)
