@@ -47,7 +47,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                   "relative flex flex-col items-center justify-center gap-1 transition-colors duration-100 touch-action-manipulation",
                   isActive
                     ? "text-primary"
-                    : "text-muted-foreground/70 hover:text-foreground active:text-foreground"
+                    : "text-muted-foreground hover:text-foreground active:text-foreground"
                 )}
               >
                 {/* Active indicator — trait supérieur */}
@@ -58,12 +58,12 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                   )}
                 />
                 <Icon
-                  className="h-5 w-5"
+                  className="h-6 w-6"
                   strokeWidth={isActive ? 2.25 : 1.75}
                 />
                 <span
                   className={cn(
-                    "text-[9px] font-bold uppercase tracking-tighter leading-none",
+                    "text-xs font-semibold leading-none",
                     !isActive && "font-medium"
                   )}
                 >

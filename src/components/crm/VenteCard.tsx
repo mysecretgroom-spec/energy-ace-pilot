@@ -148,7 +148,7 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
               </span>
               {regie && (
                 <span 
-                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium text-white"
                   style={{ backgroundColor: regie.couleur }}
                 >
                   {regie.nom}
@@ -157,7 +157,7 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
             </div>
             <div className="flex items-center gap-1">
               {isExternalInstallation && (
-                <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-[10px]">
+                <Badge className="bg-amber-500/10 text-amber-700 border-amber-200 text-xs">
                   <Wrench className="h-2.5 w-2.5 mr-0.5" />
                   Externe
                 </Badge>
@@ -263,8 +263,8 @@ export const VenteCard = ({ vente, commission, regies, selectionMode, isSelected
                 {!selectionMode && !isExternalInstallation && (
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    
+                    className="h-11 px-2 text-xs text-muted-foreground hover:text-destructive"
                     onClick={handleDecomClick}
                   >
                     <MinusCircle className="h-3 w-3 mr-1" />

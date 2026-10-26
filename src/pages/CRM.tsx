@@ -710,7 +710,7 @@ const CRM = () => {
             <div className="flex items-center gap-2">
               <Button
                 variant={weekAnchor ? "default" : "outline"}
-                size="sm"
+                
                 onClick={() => setWeekAnchor(weekAnchor ? null : new Date())}
               >
                 <CalendarDays className="h-4 w-4 mr-1" />
@@ -718,13 +718,13 @@ const CRM = () => {
               </Button>
               {weekAnchor && (
                 <div className="flex items-center gap-1 flex-1 justify-between bg-muted/50 rounded-lg px-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Semaine précédente" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, -1))}>
+                  <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Semaine précédente" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, -1))}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <button className="text-xs font-medium" onClick={() => setWeekAnchor(new Date())}>
                     {formatWeekLabel(israeliWeekRange(weekAnchor).start)}
                   </button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Semaine suivante" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, 1))}>
+                  <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Semaine suivante" onClick={() => setWeekAnchor(shiftWeek(weekAnchor, 1))}>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -777,7 +777,7 @@ const CRM = () => {
                 {showActiveOnly && " actif" + (filteredClients.length > 1 ? "s" : "")}
                 {clientCategoryFilters.length > 0 && ` • ${clientCategoryFilters.length} filtre${clientCategoryFilters.length > 1 ? 's' : ''}`}
               </span>
-              <Button size="sm" className="bg-gradient-hero gap-1" onClick={() => setNewClientDialogOpen(true)}>
+              <Button  className="bg-gradient-hero gap-1" onClick={() => setNewClientDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Nouveau
               </Button>
@@ -824,7 +824,7 @@ const CRM = () => {
                             {(() => {
                               const badge = getClientStatusBadge(client.id);
                               return badge ? (
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${badge.color} ${badge.bgColor}`}>
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold ${badge.color} ${badge.bgColor}`}>
                                   {badge.label}
                                 </span>
                               ) : null;
@@ -833,7 +833,7 @@ const CRM = () => {
                               const regie = regies.find(r => r.id === client.regie_id);
                               return regie ? (
                                 <span 
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium text-white"
                                   style={{ backgroundColor: regie.couleur }}
                                 >
                                   {regie.nom}
@@ -841,7 +841,7 @@ const CRM = () => {
                               ) : null;
                             })()}
                             {client.is_retape && (
-                              <Badge variant="outline" className="text-[10px] h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
+                              <Badge variant="outline" className="text-xs h-5 bg-orange-500/10 text-orange-500 border-orange-500/30">
                                 RETAPE
                               </Badge>
                             )}
@@ -872,9 +872,9 @@ const CRM = () => {
                             <div className="flex items-center gap-1.5 pt-1">
                               {client.telephone && (
                                 <Button
-                                  size="sm"
+                                  
                                   variant="outline"
-                                  className="h-7 px-2 text-xs gap-1"
+                                  className="h-11 px-2 text-xs gap-1"
                                   onClick={(e) => { e.stopPropagation(); window.open(`tel:${client.telephone}`, "_self"); }}
                                 >
                                   <Phone className="h-3 w-3" />
@@ -883,9 +883,9 @@ const CRM = () => {
                               )}
                               {client.telephone && (
                                 <Button
-                                  size="sm"
+                                  
                                   variant="outline"
-                                  className="h-7 px-2 text-xs gap-1"
+                                  className="h-11 px-2 text-xs gap-1"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const clean = client.telephone!.replace(/\D/g, "");
@@ -898,9 +898,9 @@ const CRM = () => {
                               )}
                               {(client.adresse || client.ville) && (
                                 <Button
-                                  size="sm"
+                                  
                                   variant="outline"
-                                  className="h-7 px-2 text-xs gap-1"
+                                  className="h-11 px-2 text-xs gap-1"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const addr = [client.adresse, client.code_postal, client.ville].filter(Boolean).join(",");
@@ -1273,7 +1273,7 @@ const CRM = () => {
                 {(dateFrom || dateTo) && (
                   <Button 
                     variant="ghost" 
-                    size="sm"
+                    
                     onClick={() => { setDateFrom(""); setDateTo(""); }}
                     className="px-2"
                   >
@@ -1293,8 +1293,8 @@ const CRM = () => {
                   </span>
                   <Button 
                     variant="ghost" 
-                    size="sm" 
-                    className="h-6 px-2 text-xs"
+                     
+                    className="h-11 px-2 text-xs"
                     onClick={() => {
                       setStatusFilters([]);
                       setRegieFilters([]);

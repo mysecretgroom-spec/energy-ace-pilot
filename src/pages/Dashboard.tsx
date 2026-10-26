@@ -805,14 +805,14 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-primary mb-1">
                 <Euro className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">CA Mois</span>
+                <span className="text-xs font-bold uppercase tracking-widest">CA Mois</span>
               </div>
               <p className="text-lg font-bold tabular-nums tracking-tight">{formatCurrency(stats.caMois)}</p>
               <Progress 
                 value={getProgressPercent(stats.caMois, stats.objectifCA)} 
                 className="h-1 mt-2"
               />
-              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+              <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                 Obj : {formatCurrency(stats.objectifCA)}
               </p>
             </CardContent>
@@ -825,14 +825,14 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-status-signed mb-1">
                 <FileText className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Ventes</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Ventes</span>
               </div>
               <p className="text-lg font-bold tabular-nums tracking-tight">{stats.ventesSignesMois}</p>
               <Progress 
                 value={getProgressPercent(stats.ventesSignesMois, stats.objectifVentes)} 
                 className="h-1 mt-2"
               />
-              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+              <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                 Obj : {stats.objectifVentes} ventes
               </p>
             </CardContent>
@@ -845,10 +845,10 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-status-new mb-1">
                 <Calendar className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">RDV Aujourd'hui</span>
+                <span className="text-xs font-bold uppercase tracking-widest">RDV Aujourd'hui</span>
               </div>
               <p className="text-lg font-bold tabular-nums tracking-tight">{stats.rdvAujourd}</p>
-              <p className="text-[10px] text-muted-foreground tabular-nums">
+              <p className="text-xs text-muted-foreground tabular-nums">
                 {stats.rdvSemaine} cette semaine
               </p>
             </CardContent>
@@ -862,10 +862,10 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
                 <HardHat className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Poses</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Poses</span>
               </div>
               <p className="text-lg font-bold tabular-nums tracking-tight">{stats.posesPlanifiees}</p>
-              <p className="text-[10px] text-muted-foreground tabular-nums">
+              <p className="text-xs text-muted-foreground tabular-nums">
                 planifiées · {stats.posesRealisees} réalisées
               </p>
             </CardContent>
@@ -877,11 +877,11 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-status-reported mb-1">
                 <TrendingUp className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Commissions</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Commissions</span>
               </div>
               <p className="text-lg font-bold tabular-nums tracking-tight">{formatCurrency(commissionData.commissionsMois)}</p>
               <p 
-                className="text-[10px] text-muted-foreground underline cursor-pointer tabular-nums"
+                className="text-xs text-muted-foreground underline cursor-pointer tabular-nums"
                 onClick={(e) => { e.stopPropagation(); openStatDialog('commissionsAttente'); }}
               >
                 {formatCurrency(commissionData.commissionsEnAttente)} en attente
@@ -897,23 +897,23 @@ const Dashboard = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-1.5 text-primary mb-1">
                 <Target className="h-3.5 w-3.5" />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Transformation</span>
+                <span className="text-xs font-bold uppercase tracking-widest">Transformation</span>
               </div>
               <div className="flex items-baseline gap-3">
                 <div>
                   <p className="text-lg font-bold tabular-nums tracking-tight">{stats.nbVentesSignees}</p>
-                  <p className="text-[10px] text-muted-foreground">signés</p>
+                  <p className="text-xs text-muted-foreground">signés</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold tabular-nums tracking-tight">{stats.nbVentesInstallees}</p>
-                  <p className="text-[10px] text-muted-foreground">installés</p>
+                  <p className="text-xs text-muted-foreground">installés</p>
                 </div>
                 <div>
                   <p className="text-lg font-bold tabular-nums tracking-tight">{stats.ventesEnCours}</p>
-                  <p className="text-[10px] text-muted-foreground">en cours</p>
+                  <p className="text-xs text-muted-foreground">en cours</p>
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+              <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                 {stats.tauxSignature}% signé · {stats.tauxInstallation}% installé
               </p>
             </CardContent>
@@ -929,7 +929,7 @@ const Dashboard = () => {
                 <div className="flex items-center gap-2 text-red-500 mb-1">
                   <Flame className="h-4 w-4" />
                   <span className="text-xs font-medium">Commission HEJJA</span>
-                  <Badge variant="outline" className="text-[10px] h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
+                  <Badge variant="outline" className="text-xs h-4 bg-red-500/10 text-red-500 border-red-500/30 ml-auto">
                     RETAPES
                   </Badge>
                 </div>
@@ -949,8 +949,8 @@ const Dashboard = () => {
         <Card className="rounded-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Prochains RDV</CardTitle>
-              <Button variant="ghost" size="sm" className="text-[11px] font-semibold text-primary h-7" onClick={() => navigate("/planning")}>
+              <CardTitle className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Prochains RDV</CardTitle>
+              <Button variant="ghost"  className="text-xs font-semibold text-primary h-11" onClick={() => navigate("/planning")}>
                 Voir tout <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
@@ -1013,7 +1013,7 @@ const Dashboard = () => {
             
             {/* Badge Booking */}
             <div className="absolute bottom-2 right-3">
-              <span className="text-[10px] text-blue-300/60 font-medium tracking-wide">
+              <span className="text-xs text-blue-300/60 font-medium tracking-wide">
                 via Booking.com
               </span>
             </div>
@@ -1025,7 +1025,7 @@ const Dashboard = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Pipeline Ventes</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate("/crm")}>
+              <Button variant="ghost"  onClick={() => navigate("/crm")}>
                 Gérer <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
