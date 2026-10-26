@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { visitorGuard } from "../_shared/visitorGuard.ts";
+import { visitorWriteGuard } from "../_shared/visitorGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -312,7 +312,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  { const __visitor = visitorGuard(req, corsHeaders); if (__visitor) return __visitor; }
+  { const __visitor = visitorWriteGuard(req, corsHeaders); if (__visitor) return __visitor; }
 
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {

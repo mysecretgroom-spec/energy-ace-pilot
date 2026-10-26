@@ -101,6 +101,7 @@ const AdminPlans = React.lazy(() => import("./pages/admin/AdminPlans"));
 const AdminAIWorkflows = React.lazy(() => import("./pages/admin/AdminAIWorkflows"));
 const AdminUsers = React.lazy(() => import("./pages/admin/AdminUsers"));
 const AdminPayments = React.lazy(() => import("./pages/admin/AdminPayments"));
+const AdminTrials = React.lazy(() => import("./pages/admin/AdminTrials"));
 const Tarifs = React.lazy(() => import("./pages/Tarifs"));
 const EssaiGratuit = React.lazy(() => import("./pages/EssaiGratuit"));
 const Paiement = React.lazy(() => import("./pages/Paiement"));
@@ -233,6 +234,7 @@ const App = () => {
                       <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
                       <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="/admin/payments" element={<AdminPayments />} />
+                      <Route path="/admin/trials" element={<AdminTrials />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>

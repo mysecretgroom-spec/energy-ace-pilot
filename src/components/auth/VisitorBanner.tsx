@@ -14,7 +14,7 @@ export function VisitorBanner() {
       <div className="max-w-5xl mx-auto px-3 py-2 flex flex-wrap items-center gap-2 text-sm">
         <Eye className="h-4 w-4 shrink-0" />
         <span className="flex-1 min-w-0">
-          <strong>Mode visiteur</strong> · données fictives, IA désactivée, rien n'est enregistré.
+          <strong>Mode visiteur</strong> · données fictives, IA incluse, rien n'est enregistré.
         </span>
         <Button size="sm" variant="ghost" onClick={() => leave("/")}>Quitter</Button>
         <Button size="sm" onClick={() => leave("/signup")}>Créer un compte</Button>
