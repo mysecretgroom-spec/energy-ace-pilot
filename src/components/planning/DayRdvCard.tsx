@@ -147,14 +147,14 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 )}
                 
                 {isInstallation && (
-                  <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
+                  <Badge className="bg-primary hover:bg-primary text-primary-foreground text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full">
                     <HardHat className="h-3 w-3" />
                     Pose
                   </Badge>
                 )}
 
                 {isExternalInstallation && (
-                  <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full shadow-sm">
+                  <Badge className="bg-secondary hover:bg-secondary text-secondary-foreground text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full">
                     <Wrench className="h-3 w-3" />
                     Installation Externe
                   </Badge>
@@ -206,7 +206,7 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 </span>
                 {!isInstallation && <StatusBadge status={rdv.status} />}
                 {isInstallation && rdv.commissionNette != null && (
-                  <Badge className="commission-badge text-xs px-2.5 py-1 rounded-full shadow-sm">
+                  <Badge className="commission-badge text-xs px-2.5 py-1 rounded-full">
                     Com: {rdv.commissionNette.toLocaleString("fr-FR")} €
                   </Badge>
                 )}

@@ -20,15 +20,15 @@ export interface RdvTypeStyle {
 const STYLES: Record<RdvTypeKey, RdvTypeStyle> = {
   installation: {
     cardClass: "halo-multicolor",
-    clockIconClass: "text-indigo-500",
-    clockTextClass: "text-indigo-600 dark:text-indigo-400",
-    clockContainerClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    clockIconClass: "text-primary",
+    clockTextClass: "text-primary",
+    clockContainerClass: "bg-primary/10 text-primary",
   },
   external_installation: {
     cardClass: "halo-multicolor",
-    clockIconClass: "text-amber-500",
-    clockTextClass: "text-amber-600 dark:text-amber-400",
-    clockContainerClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    clockIconClass: "text-primary",
+    clockTextClass: "text-primary",
+    clockContainerClass: "bg-secondary/30 text-secondary-foreground dark:text-secondary",
   },
   standard: {
     cardClass: "",
