@@ -5908,7 +5908,7 @@ const EtudeForm = () => {
         <Button
           onClick={handleSave}
           disabled={saving || (productType === "PV" && !calculatedResults)}
-          className="h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
+          className="h-12 w-12 sm:h-14 sm:w-14 rounded-full"
           size="icon"
           aria-label="Sauvegarder l'étude"
         >
