@@ -17,6 +17,7 @@ import {
   Sun,
   Compass,
   Clock,
+  Download,
   Zap,
   Gauge,
   Gift,
@@ -107,6 +108,7 @@ const settingsSections = [
     title: "Planning",
     items: [
       { icon: Clock, label: "Jours travaillés", description: "Jours affichés dans la vue semaine", path: "/parametres/jours-travailles" },
+      { icon: Download, label: "Disponible hors ligne", description: "Études et documents gardés sur le téléphone", path: "/parametres/hors-ligne" },
     ],
   },
   {

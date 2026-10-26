@@ -69,6 +69,7 @@ const DataMursITE = React.lazy(() => import("./pages/settings/DataMursITE"));
 const DataEconomiesITE = React.lazy(() => import("./pages/settings/DataEconomiesITE"));
 const DataEstimateurCoefficients = React.lazy(() => import("./pages/settings/DataEstimateurCoefficients"));
 const WorkingDaysSettings = React.lazy(() => import("./pages/settings/WorkingDaysSettings"));
+const OfflineSelectionSettings = React.lazy(() => import("./pages/settings/OfflineSelectionSettings"));
 const AgentNotificationsSettings = React.lazy(() => import("./pages/settings/AgentNotificationsSettings"));
 const AgentLearnings = React.lazy(() => import("./pages/settings/AgentLearnings"));
 const DataEvolutionPrix = React.lazy(() => import("./pages/settings/DataEvolutionPrix"));
@@ -207,6 +208,7 @@ const App = () => {
                       <Route path="/parametres/agent-notifications" element={<ProtectedRoute><AgentNotificationsSettings /></ProtectedRoute>} />
                       <Route path="/parametres/apprentissages" element={<ProtectedRoute><AgentLearnings /></ProtectedRoute>} />
                       <Route path="/parametres/jours-travailles" element={<ProtectedRoute><WorkingDaysSettings /></ProtectedRoute>} />
+                      <Route path="/parametres/hors-ligne" element={<ProtectedRoute><OfflineSelectionSettings /></ProtectedRoute>} />
                       <Route path="/regies/:id" element={<ProtectedRoute><RegieDashboard /></ProtectedRoute>} />
                       <Route path="/profil" element={<ProtectedRoute><Profil /></ProtectedRoute>} />
                       <Route path="/install" element={<Install />} />
