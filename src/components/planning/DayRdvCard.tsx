@@ -147,11 +147,12 @@ export function DayRdvCard({ rdv, index, onRefresh, onBeforeNavigate }: DayRdvCa
                 )}
                 
                 {isInstallation && (
-                  <Badge className="bg-primary hover:bg-primary text-primary-foreground text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full">
+                  <Badge className="bg-install hover:bg-install text-install-foreground text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full">
                     <HardHat className="h-3 w-3" />
                     Pose
                   </Badge>
                 )}
+
 
                 {isExternalInstallation && (
                   <Badge className="bg-secondary hover:bg-secondary text-secondary-foreground text-xs px-2.5 py-1 flex items-center gap-1.5 rounded-full">

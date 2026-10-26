@@ -42,7 +42,7 @@ export function PlanningLegend() {
             </h4>
             <div className="space-y-2">
               <div className="flex items-start gap-2.5">
-                <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-2 py-0.5 flex items-center gap-1 rounded-full shrink-0">
+                <Badge className="bg-install hover:bg-install text-install-foreground text-xs px-2 py-0.5 flex items-center gap-1 rounded-full shrink-0">
                   <HardHat className="h-3 w-3" />
                   Pose
                 </Badge>
@@ -53,7 +53,7 @@ export function PlanningLegend() {
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
-                <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2 py-0.5 flex items-center gap-1 rounded-full shrink-0">
+                <Badge className="bg-secondary hover:bg-secondary text-secondary-foreground text-xs px-2 py-0.5 flex items-center gap-1 rounded-full shrink-0">
                   <Wrench className="h-3 w-3" />
                   Externe
                 </Badge>

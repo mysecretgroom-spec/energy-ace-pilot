@@ -67,6 +67,11 @@ body {
     --secondary: 41 63% 66%;
     --secondary-foreground: 184 38% 14%;
 
+    /* Vert installation (posé) — même vert que le module d'étude */
+    --install: 152 70% 32%;
+    --install-foreground: 0 0% 100%;
+
+
     /* Neutres froids */
     --muted: 40 22% 91%;
     --muted-foreground: 182 12% 36%;
@@ -145,6 +150,11 @@ body {
     /* Sable */
     --secondary: 38 45% 66%;
     --secondary-foreground: 183 45% 7%;
+
+    /* Vert installation (posé) — version sombre */
+    --install: 152 62% 42%;
+    --install-foreground: 0 0% 100%;
+
 
     /* Neutres sombres */
     --muted: 182 25% 16%;
@@ -369,26 +379,27 @@ body {
     to { opacity: 1; }
   }
 
-  /* Remplissage or pour les RDV de pose - lisibilité garantie sur tous thèmes */
-  /* RDV d'installation : surface sable, liseré teal lumineux sur les bords, sans ombre */
+  /* RDV d'installation (pose) : surface verte, liseré sable lumineux sur les bords, sans ombre */
   .halo-multicolor {
     position: relative;
-    background: linear-gradient(135deg, hsl(var(--secondary) / 0.28) 0%, hsl(var(--secondary) / 0.12) 100%) !important;
-    border: 1px solid hsl(var(--primary) / 0.45) !important;
-    border-left: 3px solid hsl(var(--primary)) !important;
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.35) !important;
+    background: linear-gradient(135deg, hsl(var(--install) / 0.32) 0%, hsl(var(--install) / 0.15) 100%) !important;
+    border: 1px solid hsl(var(--secondary) / 0.6) !important;
+    border-left: 5px solid hsl(var(--secondary)) !important;
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.35), inset 0 0 0 1px hsl(var(--install) / 0.14) !important;
   }
   .dark .halo-multicolor {
-    background: linear-gradient(135deg, hsl(var(--secondary) / 0.16) 0%, hsl(var(--card)) 100%) !important;
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.06) !important;
+    background: linear-gradient(135deg, hsl(var(--install) / 0.36) 0%, hsl(var(--install) / 0.13) 100%) !important;
+    border-color: hsl(var(--secondary) / 0.5) !important;
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.08), inset 0 0 0 1px hsl(var(--install) / 0.24) !important;
   }
-  /* Badge commission : marron foncé, texte blanc, prioritaire sur le halo */
+  /* Badge commission : sable, texte foncé, prioritaire sur le fond vert */
   .commission-badge {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: hsl(var(--secondary)) !important;
+    color: hsl(var(--secondary-foreground)) !important;
     text-shadow: none !important;
     border: 0 !important;
   }
+
 }
 
 /* Module d'étude : boutons verts (le reste de l'app reste bleu).

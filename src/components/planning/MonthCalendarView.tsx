@@ -91,7 +91,8 @@ export function MonthCalendarView({
       return "bg-red-500";
     if (rdvs.some((r) => r.isR2)) return "bg-status-r2";
     if (rdvs.some((r) => r.typeRdv === "external_installation"))
-      return "bg-amber-500";
+      return "bg-secondary";
+
     return "bg-primary";
   };
 
@@ -159,8 +160,9 @@ export function MonthCalendarView({
                   {hasRdvs && (
                     <div className="flex gap-0.5">
                       {hasInstallation && (
-                        <Wrench className="h-2.5 w-2.5 text-amber-500" />
+                        <Wrench className="h-2.5 w-2.5 text-secondary" />
                       )}
+
                       {hasR2 && (
                         <RefreshCw className="h-2.5 w-2.5 text-status-r2" />
                       )}
@@ -177,7 +179,8 @@ export function MonthCalendarView({
                           key={rdv.id}
                           className={`text-[9px] px-1 py-0.5 rounded truncate select-none ${
                             rdv.typeRdv === "external_installation"
-                              ? "bg-amber-500/20 text-amber-700"
+                              ? "bg-secondary/25 text-secondary-foreground dark:text-secondary"
+
                               : rdv.isR2
                               ? "bg-status-r2/20 text-status-r2"
                               : "bg-primary/20 text-primary"
