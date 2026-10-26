@@ -55,7 +55,7 @@ export async function pinEtude(userId: string, etude: { id: string; label: strin
   const fileUrls: string[] = [];
   let bytes = JSON.stringify(res.data).length;
   const pdf = (res.data as { pdf_url?: string | null }).pdf_url;
-  if (pdf) { bytes += await cacheFile(pdf); fileUrls.push(pdf); }
+  if (pdf) { try { bytes += await cacheFile(pdf); fileUrls.push(pdf); } catch (e) { console.warn("[PinEtude] PDF", e); } }
   const { data: docs } = await supabase.from("documents").select("url").eq("etude_id", etude.id).limit(60);
   for (const d of docs ?? []) {
     try { bytes += await cacheFile(d.url); fileUrls.push(d.url); } catch { /* fichier manquant : on continue */ }
@@ -108,6 +108,12 @@ export function syncWeekEtudes(userId: string): Promise<void> {
     const wanted = new Map<string, string>();
     for (const r of rdvs) if (r.etude_id) wanted.set(r.etude_id, names.get(r.id)!);
     for (const e of linked ?? []) wanted.set(e.id, names.get(e.rdv_id!) ?? "Client");
+    const weekClientIds = [...new Set(rdvs.map((r) => r.client_id).filter(Boolean))] as string[];
+    if (weekClientIds.length) {
+      const clientName = new Map(rdvs.map((r: any) => [r.client_id, names.get(r.id)!]));
+      const { data: ce } = await supabase.from("etudes").select("id, client_id").in("client_id", weekClientIds);
+      for (const e of ce ?? []) if (!wanted.has(e.id)) wanted.set(e.id, clientName.get(e.client_id) ?? "Client");
+    }
 
     const clientIds = [...new Set(rdvs.map((r) => r.client_id).filter(Boolean))] as string[];
     const { data: docs } = clientIds.length
@@ -121,13 +127,13 @@ export function syncWeekEtudes(userId: string): Promise<void> {
       if (p.kind === "etude" && !wanted.has(p.id)) await unpin(userId, "etude", p.id);
       if (p.kind === "document" && !wantedDocs.has(p.id)) await unpin(userId, "document", p.id);
     }
-    for (const [id, d] of wantedDocs) {
-      if (pins.some((p) => p.kind === "document" && p.id === id)) continue;
-      try { await pinDocument(userId, d, true); } catch (e) { console.warn("[WeekDocs]", e); }
-    }
     for (const [id, name] of wanted) {
       if (pins.some((p) => p.kind === "etude" && p.id === id)) continue;
       try { await pinEtude(userId, { id, label: `${name} — RDV de la semaine` }, true); } catch (e) { console.warn("[WeekEtudes]", e); }
+    }
+    for (const [id, d] of wantedDocs) {
+      if (pins.some((p) => p.kind === "document" && p.id === id)) continue;
+      try { await pinDocument(userId, d, true); } catch (e) { console.warn("[WeekDocs]", e); }
     }
   })().catch((e) => console.warn("[WeekEtudes]", e)).finally(() => { weekRunning = null; });
   return weekRunning;
