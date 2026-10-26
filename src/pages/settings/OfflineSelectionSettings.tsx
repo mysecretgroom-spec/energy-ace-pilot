@@ -76,7 +76,7 @@ const OfflineSelectionSettings = () => {
           <CardHeader>
             <CardTitle className="text-lg">Disponible sans connexion</CardTitle>
             <CardDescription>
-              Choisis les études et documents à garder sur ce téléphone. Ils s'ouvriront même sans réseau.
+              Choisis les études et documents à garder sur ce téléphone. Les études et documents des clients de tes RDV de la semaine sont gardés automatiquement.
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
@@ -105,7 +105,7 @@ const OfflineSelectionSettings = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{row.title}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {row.subtitle}{pin ? ` · ${formatBytes(pin.bytes)}` : ""}
+                      {row.subtitle}{pin ? ` · ${formatBytes(pin.bytes)}${pin.auto ? " · semaine" : ""}` : ""}
                     </p>
                   </div>
                   {busy === row.id ? <Loader2 className="h-5 w-5 animate-spin text-primary" />

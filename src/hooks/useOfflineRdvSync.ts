@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { preloadDayPack, getDayPack, PACK_EVENT, type DayPack } from "@/lib/offline/dayPack";
+import { syncWeekEtudes } from "@/lib/offline/pinned";
 import { flushOutbox, listOutbox, OUTBOX_EVENT } from "@/lib/offline/outbox";
 
 const REFRESH_MS = 15 * 60 * 1000;
@@ -13,7 +14,7 @@ export function useOfflineRdvSync() {
   useEffect(() => {
     if (!user) return;
     const refresh = () => listOutbox().then((o) => setOutboxCount(o.length));
-    const online = async () => { await flushOutbox(); preloadDayPack(user.id); };
+    const online = async () => { await flushOutbox(); await preloadDayPack(user.id); syncWeekEtudes(user.id); };
     online();
     refresh();
     const t = setInterval(online, REFRESH_MS);
