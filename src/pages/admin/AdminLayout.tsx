@@ -28,6 +28,7 @@ const navGroups = [
     { path: "/admin/users", label: "Comptes", icon: Users },
     { path: "/admin/clients", label: "Clients", icon: Building2 },
     { path: "/admin/subscriptions", label: "Abonnements", icon: CreditCard },
+    { path: "/admin/trials", label: "Essais gratuits", icon: Hourglass },
     { path: "/admin/payments", label: "Paiements manuels", icon: Wallet },
     { path: "/admin/plans", label: "Offres", icon: Package },
   ]},
