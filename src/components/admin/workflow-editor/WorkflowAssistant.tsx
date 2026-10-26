@@ -321,7 +321,7 @@ export function WorkflowAssistantTrigger({ onClick }: { onClick: () => void }) {
   return (
     <Button
       onClick={onClick}
-      className="fixed right-4 bottom-4 h-12 w-12 rounded-full shadow-lg z-40"
+      className="fixed right-4 bottom-4 h-12 w-12 rounded-full z-40"
       size="icon"
     >
       <Sparkles className="h-5 w-5" />
