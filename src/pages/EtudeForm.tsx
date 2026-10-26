@@ -2670,7 +2670,7 @@ const EtudeForm = () => {
               <h1 className="text-sm sm:text-lg font-bold text-[#000091] tracking-tight truncate">
                 ÉTUDE ÉNERGÉTIQUE
               </h1>
-              <p className="text-xs sm:text-xs text-gray-500 uppercase tracking-wider truncate">
+              <p className="text-sm text-gray-500 uppercase tracking-wider truncate">
                 {activeProducts.length > 1 
                   ? activeProducts.map(p => p === "PV" ? "Photovoltaïque" : p === "PAC" ? "PAC" : "ITE").join(" + ")
                   : currentTab === "PV" ? "Photovoltaïque" : currentTab === "PAC" ? "Pompe à Chaleur" : "Isolation Thermique"
@@ -2699,7 +2699,7 @@ const EtudeForm = () => {
                 <Badge 
                   variant="outline" 
                   className={cn(
-                    "text-xs sm:text-xs font-medium shrink-0 px-1.5 py-0.5",
+                    "text-sm font-medium shrink-0 px-1.5 py-0.5",
                     isEditMode 
                       ? "bg-amber-500/10 text-amber-600 border-amber-300" 
                       : "bg-emerald-500/10 text-emerald-600 border-emerald-300"
@@ -2710,7 +2710,7 @@ const EtudeForm = () => {
                 {regieNom && (
                   <Badge 
                     variant="outline" 
-                    className="text-xs sm:text-xs font-medium shrink-0 bg-primary/10 text-primary border-primary/30 px-1.5 py-0.5 hidden sm:inline-flex"
+                    className="text-sm font-medium shrink-0 bg-primary/10 text-primary border-primary/30 px-1.5 py-0.5 hidden sm:inline-flex"
                   >
                     {regieNom}
                   </Badge>
@@ -2718,11 +2718,11 @@ const EtudeForm = () => {
               </div>
               {clientVille && (
                 <div className="flex items-center gap-2">
-                  <p className="text-xs sm:text-xs text-gray-500 truncate">
+                  <p className="text-sm text-gray-500 truncate">
                     {clientCodePostal} {clientVille}
                   </p>
                   {numeroCadastre && (
-                    <Badge variant="outline" className="text-xs sm:text-xs bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
+                    <Badge variant="outline" className="text-sm bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 shrink-0">
                       📐 {numeroCadastre}
                     </Badge>
                   )}
@@ -2732,7 +2732,7 @@ const EtudeForm = () => {
                 </div>
               )}
               {adresseInstallation && (
-                <p className="text-xs sm:text-xs text-amber-600 truncate">
+                <p className="text-sm text-amber-600 truncate">
                   Installation : {adresseInstallation} {codePostalInstallation} {villeInstallation}
                 </p>
               )}
@@ -2775,7 +2775,7 @@ const EtudeForm = () => {
                 )}
               />
               {modeHejjaActive && (
-                <span className="text-xs sm:text-xs font-bold text-red-500 uppercase">H</span>
+                <span className="text-sm font-bold text-red-500 uppercase">H</span>
               )}
             </div>
           </div>
@@ -2864,29 +2864,29 @@ const EtudeForm = () => {
                 <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
                   <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <div>
-                      <Label className="text-xs sm:text-xs">Conso. élec annuelle</Label>
+                      <Label className="text-sm">Conso. élec annuelle</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
                           placeholder="11600"
                           value={consoAnnuelle}
                           onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                          className="h-12 text-base"
                         />
-                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
+                        <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">kWh</span>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-xs sm:text-xs">Facture élec/mois</Label>
+                      <Label className="text-sm">Facture élec/mois</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
                           placeholder="230"
                           value={factureMensuelle}
                           onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                          className="h-12 text-base"
                         />
-                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
+                        <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">€</span>
                       </div>
                     </div>
                   </div>
@@ -2894,11 +2894,11 @@ const EtudeForm = () => {
                   {/* Prix unitaire calculé */}
                   {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
                     <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-xs sm:text-xs text-muted-foreground">Prix kWh</p>
+                      <p className="text-sm text-muted-foreground">Prix kWh</p>
                       <p className="font-bold text-sm sm:text-base text-primary">
                         {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                       </p>
-                      <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
+                      <p className="text-sm text-muted-foreground mt-0.5">
                         Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
                       </p>
                     </div>
@@ -2907,7 +2907,7 @@ const EtudeForm = () => {
                   {/* Facture chauffage fossile si PAC ou ITE */}
                   {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && (
                     <div>
-                      <Label className="text-xs sm:text-xs">Facture chauffage fossile/an (gaz, fioul…)</Label>
+                      <Label className="text-sm">Facture chauffage fossile/an (gaz, fioul…)</Label>
                       <div className="flex gap-1">
                         <Input
                           type="number"
@@ -2918,9 +2918,9 @@ const EtudeForm = () => {
                             if (activeProducts.includes("PAC")) setPacFactureChauffageEuros(val);
                             if (activeProducts.includes("ITE")) setIteFactureChaufActuelle(val);
                           }}
-                          className="h-8 sm:h-9 text-xs sm:text-sm"
+                          className="h-12 text-base"
                         />
-                        <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€/an</span>
+                        <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">€/an</span>
                       </div>
                     </div>
                   )}
@@ -3009,7 +3009,7 @@ const EtudeForm = () => {
                   )}
 
                   {/* En multi-produit : tout est affiché à la suite */}
-                  <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-xs sm:text-xs text-muted-foreground">
+                  <div className="bg-muted/40 border border-border rounded-lg p-2.5 text-sm text-muted-foreground">
                     <p className="font-medium text-foreground">📋 Étude unifiée : Saisie technique ({activeProducts.includes("ITE") ? "ITE" : ""}{activeProducts.includes("ITE") && activeProducts.includes("PAC") ? " → " : ""}{activeProducts.includes("PAC") ? "PAC" : ""}{(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && activeProducts.includes("PV") ? " → " : ""}{activeProducts.includes("PV") ? "PV" : ""}) → Résultats cumulés → Bilan financier global</p>
                   </div>
                 </CardContent>
@@ -3513,9 +3513,9 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Ombre</Label>
+                <Label className="text-sm">Ombre</Label>
                 <Select value={ombreToiture} onValueChange={setOmbreToiture}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3527,9 +3527,9 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Surface</Label>
+                <Label className="text-sm">Surface</Label>
                 <Select value={surfaceToiture} onValueChange={setSurfaceToiture}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3542,9 +3542,9 @@ const EtudeForm = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Type</Label>
+                <Label className="text-sm">Type</Label>
                 <Select value={typeToiture} onValueChange={setTypeToiture}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3557,9 +3557,9 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">État</Label>
+                <Label className="text-sm">État</Label>
                 <Select value={etatToiture} onValueChange={setEtatToiture}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3572,9 +3572,9 @@ const EtudeForm = () => {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Orientation</Label>
+                <Label className="text-sm">Orientation</Label>
                 <Select value={orientation} onValueChange={setOrientation}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3587,9 +3587,9 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Inclinaison</Label>
+                <Label className="text-sm">Inclinaison</Label>
                 <Select value={String(inclinaison)} onValueChange={(v) => setInclinaison(Number(v))}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3628,9 +3628,9 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Type</Label>
+                <Label className="text-sm">Type</Label>
                 <Select value={typeCompteurElectrique} onValueChange={setTypeCompteurElectrique}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3641,9 +3641,9 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Raccordement</Label>
+                <Label className="text-sm">Raccordement</Label>
                 <Select value={typeRaccordement} onValueChange={setTypeRaccordement}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3654,17 +3654,17 @@ const EtudeForm = () => {
               </div>
             </div>
             <div>
-              <Label className="text-xs sm:text-xs">N° PDL</Label>
+              <Label className="text-sm">N° PDL</Label>
               <Input
                 type="text"
                 placeholder="ex: 16271345864078"
                 value={numeroPdl}
                 onChange={(e) => setNumeroPdl(e.target.value)}
-                className="h-8 sm:h-9 text-xs sm:text-sm"
+                className="h-12 text-base"
               />
             </div>
             <div>
-              <Label className="text-xs sm:text-xs flex items-center gap-1">
+              <Label className="text-sm flex items-center gap-1">
                 📐 N° Cadastre
                 {cadastreLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               </Label>
@@ -3673,7 +3673,7 @@ const EtudeForm = () => {
                 placeholder={cadastreLoading ? "Recherche..." : "ex: DN 0113"}
                 value={numeroCadastre}
                 onChange={(e) => setNumeroCadastre(e.target.value)}
-                className="h-8 sm:h-9 text-xs sm:text-sm"
+                className="h-12 text-base"
               />
             </div>
             <RoofPointMap
@@ -3725,9 +3725,9 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Ampérage</Label>
+                <Label className="text-sm">Ampérage</Label>
                 <Select value={String(amperageDisjoncteur)} onValueChange={(v) => setAmperageDisjoncteur(Number(v))}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3740,9 +3740,9 @@ const EtudeForm = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Emplacement</Label>
+                <Label className="text-sm">Emplacement</Label>
                 <Select value={emplacementBoitier} onValueChange={setEmplacementBoitier}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3795,7 +3795,7 @@ const EtudeForm = () => {
           </CardHeader>
           <CardContent className="pt-3 sm:pt-4 px-3 sm:px-6">
             <div>
-              <Label className="text-xs sm:text-xs">Potentiel (PFT)</Label>
+              <Label className="text-sm">Potentiel (PFT)</Label>
               <Select value={potentielFaisabilite} onValueChange={setPotentielFaisabilite}>
                 <SelectTrigger className={cn(
                   "h-9 sm:h-10 text-xs sm:text-sm",
@@ -3843,13 +3843,13 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             {/* Sync info banner */}
             {activeProducts.includes("PAC") && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs sm:text-xs text-blue-700 flex items-center gap-2">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700 flex items-center gap-2">
                 <Link2 className="h-3.5 w-3.5 shrink-0" />
                 <span>La facture électrique et le prix du kWh sont synchronisés avec l'onglet PAC</span>
               </div>
             )}
             {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs sm:text-xs text-orange-700 flex items-center gap-2">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-sm text-orange-700 flex items-center gap-2">
                 <Home className="h-3.5 w-3.5 shrink-0" />
                 <span>L'ITE réduit les besoins en chauffage, impactant le dimensionnement PV</span>
               </div>
@@ -3857,20 +3857,20 @@ const EtudeForm = () => {
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Conso. annuelle</Label>
+                <Label className="text-sm">Conso. annuelle</Label>
                 <div className="flex gap-1">
                   <Input
                     type="number"
                     placeholder="11600"
                     value={consoAnnuelle}
                     onChange={(e) => { setConsoAnnuelle(e.target.value ? Number(e.target.value) : ""); }}
-                    className="h-8 sm:h-9 text-xs sm:text-sm"
+                    className="h-12 text-base"
                   />
-                  <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">kWh</span>
+                  <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">kWh</span>
                 </div>
               </div>
               <div>
-                <Label className="text-xs sm:text-xs flex items-center gap-1">
+                <Label className="text-sm flex items-center gap-1">
                   Facture/mois
                   {activeProducts.includes("PAC") && <Link2 className="h-2.5 w-2.5 text-blue-500" />}
                 </Label>
@@ -3880,16 +3880,16 @@ const EtudeForm = () => {
                     placeholder="230"
                     value={factureMensuelle}
                     onChange={(e) => { setFactureMensuelle(e.target.value ? Number(e.target.value) : ""); }}
-                    className="h-8 sm:h-9 text-xs sm:text-sm"
+                    className="h-12 text-base"
                   />
-                  <span className="flex items-center text-xs sm:text-xs text-muted-foreground whitespace-nowrap">€</span>
+                  <span className="flex items-center text-sm text-muted-foreground whitespace-nowrap">€</span>
                 </div>
               </div>
             </div>
             {/* Prix unitaire calculé */}
             {consoAnnuelle && factureMensuelle && Number(consoAnnuelle) > 0 && (
               <div className="bg-muted/50 rounded-lg p-2 text-center">
-                <p className="text-xs sm:text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Prix kWh
                   {activeProducts.includes("PAC") && (
                     <span className="text-blue-500 ml-1">→ PAC</span>
@@ -3898,7 +3898,7 @@ const EtudeForm = () => {
                 <p className="font-bold text-sm sm:text-base text-primary">
                   {((Number(factureMensuelle) * 12) / Number(consoAnnuelle)).toFixed(4)} €/kWh
                 </p>
-                <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   Annuel: {(Number(factureMensuelle) * 12).toLocaleString("fr-FR")}€
                 </p>
               </div>
@@ -3907,17 +3907,17 @@ const EtudeForm = () => {
             {/* Impact multi-produit sur le dimensionnement */}
             {(activeProducts.includes("PAC") || activeProducts.includes("ITE")) && consoAnnuelle && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-2 space-y-1">
-                <p className="text-xs sm:text-xs font-medium text-primary flex items-center gap-1">
+                <p className="text-sm font-medium text-primary flex items-center gap-1">
                   <TrendingUp className="h-3 w-3" />
                   Impact sur le dimensionnement PV
                 </p>
                 {activeProducts.includes("PAC") && pacEconomiesCalculees?.consoElecPacKwh ? (
-                  <p className="text-xs sm:text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     + {Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh/an (conso PAC ajoutée)
                   </p>
                 ) : null}
                 {activeProducts.includes("ITE") && !activeProducts.includes("PAC") && iteEconomieChauffagePct ? (
-                  <p className="text-xs sm:text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     − {Math.round(Number(consoAnnuelle) * 0.6 * (Number(iteEconomieChauffagePct) / 100)).toLocaleString("fr-FR")} kWh/an (économies ITE sur chauffage)
                   </p>
                 ) : null}
@@ -3949,7 +3949,7 @@ const EtudeForm = () => {
             {/* Détail estimation sauvegardé */}
             {estimationDetailsDisplay && (
               <div className="bg-muted/40 border border-border rounded-lg p-2.5 space-y-1.5">
-                <p className="text-xs sm:text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                   <Calculator className="h-3 w-3 text-primary" />
                   Détail de l'estimation
                 </p>
@@ -4072,7 +4072,7 @@ const EtudeForm = () => {
           <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Puissance (kWc)</Label>
+                <Label className="text-sm">Puissance (kWc)</Label>
                 <Input
                   type="number"
                   step="0.5"
@@ -4080,13 +4080,13 @@ const EtudeForm = () => {
                   onChange={(e) => {
                     setPuissanceKwc(e.target.value ? Number(e.target.value) : "");
                   }}
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                  className="h-12 text-base"
                 />
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Revente</Label>
+                <Label className="text-sm">Revente</Label>
                 <Select value={typeRevente} onValueChange={setTypeRevente}>
-                  <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -4105,9 +4105,9 @@ const EtudeForm = () => {
               </div>
             </div>
             <div>
-              <Label className="text-xs sm:text-xs">Support</Label>
+              <Label className="text-sm">Support</Label>
               <Select value={supportInstallation} onValueChange={setSupportInstallation}>
-                <SelectTrigger className="h-8 sm:h-9 text-xs sm:text-sm">
+                <SelectTrigger className="h-12 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -4134,16 +4134,16 @@ const EtudeForm = () => {
             <div className="flex items-center justify-between p-1.5 sm:p-2 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
-                <span className="text-xs sm:text-xs font-medium">Calcul</span>
+                <span className="text-sm font-medium">Calcul</span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className={`text-xs sm:text-xs ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>H</span>
+                <span className={`text-sm ${!usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>H</span>
                 <Switch
                   checked={usePshCalculation}
                   onCheckedChange={setUsePshCalculation}
                   className="h-4 w-7 sm:h-5 sm:w-9"
                 />
-                <span className={`text-xs sm:text-xs ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
+                <span className={`text-sm ${usePshCalculation ? "font-bold text-primary" : "text-muted-foreground"}`}>PSH</span>
               </div>
             </div>
             
@@ -4152,8 +4152,8 @@ const EtudeForm = () => {
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 sm:p-3">
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
-                    <span className="text-xs sm:text-xs text-muted-foreground">PSH</span>
-                    <span className="text-xs sm:text-xs text-amber-600/70 truncate max-w-[100px]">
+                    <span className="text-sm text-muted-foreground">PSH</span>
+                    <span className="text-sm text-amber-600/70 truncate max-w-[100px]">
                       {dataPsh.find(p => p.department_code === departement)?.department_name ?? "—"}
                     </span>
                   </div>
@@ -4164,28 +4164,28 @@ const EtudeForm = () => {
               </div>
             ) : (
               <div>
-                <Label className="text-xs sm:text-xs">Heures ensoleillement</Label>
+                <Label className="text-sm">Heures ensoleillement</Label>
                 <Input
                   type="number"
                   value={heuresEnsoleillement}
                   onChange={(e) => setHeuresEnsoleillement(Number(e.target.value) || 2890)}
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                  className="h-12 text-base"
                 />
               </div>
             )}
             
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div>
-                <Label className="text-xs sm:text-xs">Surface (m²)</Label>
+                <Label className="text-sm">Surface (m²)</Label>
                 <Input
                   type="number"
                   value={surfaceInstallation}
                   onChange={(e) => setSurfaceInstallation(e.target.value ? Number(e.target.value) : "")}
-                  className="h-8 sm:h-9 text-xs sm:text-sm"
+                  className="h-12 text-base"
                 />
               </div>
               <div>
-                <Label className="text-xs sm:text-xs">Rendement</Label>
+                <Label className="text-sm">Rendement</Label>
                 <Input
                   type="number"
                   value={rendementProductivite}
@@ -4193,7 +4193,7 @@ const EtudeForm = () => {
                   className="h-8 sm:h-9 text-xs sm:text-sm bg-muted/30"
                   readOnly
                 />
-                <p className="text-xs sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {orientation}/{inclinaison}°
                 </p>
               </div>
@@ -4213,12 +4213,12 @@ const EtudeForm = () => {
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div className="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
                 <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
-                  <p className="text-xs sm:text-xs text-muted-foreground">Production</p>
-                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-xs sm:text-xs font-normal">kWh</span></p>
+                  <p className="text-sm text-muted-foreground">Production</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.productionAnnuelle.toLocaleString("fr-FR")} <span className="text-sm font-normal">kWh</span></p>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
-                  <p className="text-xs sm:text-xs text-muted-foreground">Surplus</p>
-                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-xs sm:text-xs font-normal">kWh</span></p>
+                  <p className="text-sm text-muted-foreground">Surplus</p>
+                  <p className="font-bold text-sm sm:text-lg">{calculatedResults.surplusProduction.toLocaleString("fr-FR")} <span className="text-sm font-normal">kWh</span></p>
                 </div>
               </div>
               <div className={cn(
@@ -4227,11 +4227,11 @@ const EtudeForm = () => {
                 calculatedResults.autoconsoPct >= 80 && calculatedResults.autoconsoPct < 100 && "bg-status-reported/10",
                 calculatedResults.autoconsoPct < 80 && "bg-muted/50"
               )}>
-                <p className="text-xs sm:text-xs text-muted-foreground">Autoconsommation</p>
+                <p className="text-sm text-muted-foreground">Autoconsommation</p>
                 <div className="flex items-center justify-center gap-1.5 sm:gap-2">
                   <span className="font-bold text-lg sm:text-xl">{calculatedResults.autoconsoPct.toFixed(1)}%</span>
                   {calculatedResults.autoconsoPct >= 100 && (
-                    <Badge className="bg-status-signed text-white text-xs sm:text-xs px-1.5 py-0.5">OK</Badge>
+                    <Badge className="bg-status-signed text-white text-sm px-1.5 py-0.5">OK</Badge>
                   )}
                 </div>
               </div>
@@ -4450,7 +4450,7 @@ const EtudeForm = () => {
               {/* Résumé chaîne triple */}
               {activeProducts.includes("ITE") && activeProducts.includes("PAC") && activeProducts.includes("PV") && (
                 <div className="bg-primary/5 rounded-lg p-2.5 border border-primary/20">
-                  <p className="text-xs sm:text-xs text-center text-primary font-medium">
+                  <p className="text-sm text-center text-primary font-medium">
                     <strong>Chaîne complète :</strong> ITE réduit déperditions (-{Number(iteEconomieChauffagePct) || 0}%) → PAC consomme moins
                     {pacEconomiesCalculees ? ` (${Math.round(pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""} → PV dimensionné sur conso réelle
                     {pacEconomiesCalculees ? ` (${Math.round(Number(consoAnnuelle) + pacEconomiesCalculees.consoElecPacKwh).toLocaleString("fr-FR")} kWh)` : ""}
@@ -5408,7 +5408,7 @@ const EtudeForm = () => {
               
               {/* Aides combinées */}
               <div className="bg-emerald-50 rounded-lg p-2.5 sm:p-3">
-                <p className="text-xs sm:text-xs font-bold text-emerald-700 mb-1.5">AIDES CUMULÉES</p>
+                <p className="text-sm font-bold text-emerald-700 mb-1.5">AIDES CUMULÉES</p>
                 <div className="space-y-1 text-xs">
                   {activeProducts.includes("PV") && calculatedResults && (
                     <div className="flex justify-between text-emerald-600">
@@ -5446,7 +5446,7 @@ const EtudeForm = () => {
               
               {/* Économies annuelles combinées */}
               <div className="bg-amber-50 rounded-lg p-2.5 sm:p-3">
-                <p className="text-xs sm:text-xs font-bold text-amber-700 mb-1.5">ÉCONOMIES ANNUELLES COMBINÉES</p>
+                <p className="text-sm font-bold text-amber-700 mb-1.5">ÉCONOMIES ANNUELLES COMBINÉES</p>
                 <div className="space-y-1 text-xs">
                   {activeProducts.includes("PV") && calculatedResults && (
                     <div className="flex justify-between text-amber-600">
@@ -5489,7 +5489,7 @@ const EtudeForm = () => {
 
               {/* Coût net global */}
               <div className="bg-primary/10 rounded-lg p-2.5 sm:p-3 text-center">
-                <p className="text-xs sm:text-xs text-muted-foreground">Coût net après aides</p>
+                <p className="text-sm text-muted-foreground">Coût net après aides</p>
                 <p className="font-bold text-lg sm:text-xl text-primary">
                   {(() => {
                     let totalPrix = 0;
@@ -5529,9 +5529,9 @@ const EtudeForm = () => {
             <CollapsibleContent>
             <CardContent className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 px-3 sm:px-6">
               <div>
-                <Label className="text-xs sm:text-xs">Statut</Label>
+                <Label className="text-sm">Statut</Label>
                 <Select value={classification} onValueChange={setClassification}>
-                  <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
+                  <SelectTrigger className="h-12 text-base">
                     <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
                   <SelectContent>
