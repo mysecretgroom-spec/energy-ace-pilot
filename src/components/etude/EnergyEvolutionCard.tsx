@@ -70,7 +70,7 @@ export const EnergyEvolutionCard = ({
   return (
     <Card className="shadow-card border-2 border-primary/30 overflow-hidden">
       <CardHeader className="pb-2 bg-gradient-to-r from-orange-50 via-blue-50 to-amber-50 px-3 sm:px-6 py-2 sm:py-3">
-        <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-[#000091]">
+        <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2 text-[#000091] dark:text-sky-300">
           <TrendingDown className="h-4 w-4" />
           Évolution de vos factures d'énergie
         </CardTitle>
