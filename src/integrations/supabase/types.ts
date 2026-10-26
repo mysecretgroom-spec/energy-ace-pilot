@@ -4287,6 +4287,20 @@ export type Database = {
         Returns: undefined
       }
       admin_list_subscriptions: { Args: { p_env?: string }; Returns: Json }
+      admin_list_trials: {
+        Args: never
+        Returns: {
+          app_access: string
+          converted: boolean
+          converted_at: string
+          email: string
+          plan_price_id: string
+          signed_up_at: string
+          trial_ends_at: string
+          trial_started_at: string
+          user_id: string
+        }[]
+      }
       admin_update_access_state: {
         Args: { p_app_access: string; p_target_user_id: string }
         Returns: undefined
