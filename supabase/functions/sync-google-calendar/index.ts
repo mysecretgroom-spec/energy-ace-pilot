@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { corsHeaders, getUserIdFromAuth, getValidAccessToken } from "../_shared/google-auth.ts";
 
-const CALENDAR_API_BASE = "https://gateway.lovable.dev/google_calendar/calendar/v3";
+const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
 interface CalendarEvent {
   id: string;
@@ -281,8 +281,19 @@ serve(async (req) => {
 
       if (!calendarResponse.ok) {
         const error = await calendarResponse.text();
-        console.error("Calendar API error:", error);
-        throw new Error("Failed to fetch calendar events");
+        console.error(`Calendar API error [${calendarResponse.status}]:`, error);
+        const needsReconnect = calendarResponse.status === 401 || calendarResponse.status === 403;
+        return new Response(
+          JSON.stringify({
+            error: needsReconnect
+              ? "Accès Google Agenda expiré ou incomplet. Reconnectez votre compte Google."
+              : "Impossible de lire Google Agenda.",
+            code: needsReconnect ? "GOOGLE_NOT_CONNECTED" : "GOOGLE_API_ERROR",
+            status: calendarResponse.status,
+            details: error,
+          }),
+          { status: needsReconnect ? 400 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       const calendarData = await calendarResponse.json();
