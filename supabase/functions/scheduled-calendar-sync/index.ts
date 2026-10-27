@@ -35,7 +35,7 @@ serve(async (req) => {
 
   try {
     // Get all users with Google tokens
-    const { data: tokens, error: tokensError } = await supabase
+    const { data: legacyTokens, error: tokensError } = await supabase
       .from("google_tokens")
       .select("user_id");
 
@@ -44,7 +44,10 @@ serve(async (req) => {
       throw tokensError;
     }
 
-    if (!tokens || tokens.length === 0) {
+    const { data: unifiedTokens, error: unifiedError } = await supabase.from("google_oauth_connections").select("user_id").eq("reconnect_required", false);
+    if (unifiedError) throw unifiedError;
+    const tokens = [...new Set([...(legacyTokens ?? []), ...(unifiedTokens ?? [])].map(row => row.user_id))].map(user_id => ({ user_id }));
+    if (tokens.length === 0) {
       console.log("No users with Google tokens found");
       return new Response(
         JSON.stringify({ success: true, message: "No users to sync", synced: 0 }),

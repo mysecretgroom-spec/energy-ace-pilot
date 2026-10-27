@@ -1,3 +1,4 @@
+import { callGoogleAccount } from "@/lib/googleConnection";
 import { supabase } from "@/integrations/supabase/client";
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -181,6 +182,8 @@ export async function checkGoogleConnection(): Promise<boolean> {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return false;
 
+    const status = await callGoogleAccount({ action: "status" });
+    if (status.connected) return true;
     const { data, error } = await supabase
       .from("google_tokens")
       .select("id, expires_at")

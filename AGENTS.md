@@ -26,3 +26,5 @@
 - Burst scans default to the in-app camera, guard capture/finish synchronously and render outside transformed layouts; pages are pre-cropped once (services/scanPipeline) and reviewed in a height-bounded BatchCropReview carousel, then go to ReviewDocument with CropEditor per page on demand, preventing lost captures and clipped images.
 - Admin console metrics come from security-definer RPCs (admin_get_metrics, admin_get_user_360) that check is_saas_admin and aggregate server-side; admin pages share src/components/admin/AdminUI primitives for a consistent dense layout.
 - Visitor mode signs into the shared demo account (src/lib/visitorMode, visitor-session function); RLS restrictive policies make it read-only and AI functions reject it via _shared/visitorGuard, so a public demo cannot write data or spend AI budget.
+
+- Google product access uses the explicitly chosen custom unified OAuth flow with one Gmail/Drive/Calendar grant, PKCE and single-use auth-bound server state; provider tokens stay encrypted server-side. Existing connector credentials remain connector-bound and legacy accounts remain until explicit reconnect.

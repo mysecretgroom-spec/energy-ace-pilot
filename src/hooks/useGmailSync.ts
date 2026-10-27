@@ -1,3 +1,4 @@
+import { callGoogleAccount } from "@/lib/googleConnection";
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -33,20 +34,10 @@ export function useGmailSync() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return false;
 
-      // Check if user has Google linked (either as main provider or linked identity)
-      const provider = session.user.app_metadata?.provider;
-      const providers = session.user.app_metadata?.providers as string[] | undefined;
-      if (provider === "google" || providers?.includes("google")) {
-        return true;
-      }
-
-      // Fallback: check if we have tokens in the database
-      const { data, error } = await supabase
-        .from("google_tokens")
-        .select("id, expires_at")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
+      const status = await callGoogleAccount({ action: "status" });
+      if (status.connected) return true;
+      // Preserve legacy Gmail/Agenda accounts until they explicitly reconnect.
+      const { data, error } = await supabase.from("google_tokens").select("id").eq("user_id", session.user.id).maybeSingle();
       return !!data && !error;
     } catch {
       return false;
