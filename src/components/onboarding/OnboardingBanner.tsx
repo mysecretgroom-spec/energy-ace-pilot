@@ -1,3 +1,4 @@
+import { callGoogleAccount } from "@/lib/googleConnection";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,11 +53,7 @@ export function OnboardingBanner() {
             .from("regies")
             .select("id", { count: "exact", head: true })
             .eq("user_id", user.id),
-          supabase
-            .from("google_tokens")
-            .select("id")
-            .eq("user_id", user.id)
-            .maybeSingle(),
+          callGoogleAccount({ action: "status" }),
         ]);
 
         if (cancelled) return;
@@ -71,7 +68,7 @@ export function OnboardingBanner() {
         if ((regieRes.count ?? 0) === 0) {
           items.push({ id: "regie", label: "Régie", icon: Building2 });
         }
-        if (!googleRes.data) {
+        if (!googleRes.connected) {
           items.push({ id: "google", label: "Google", icon: Mail });
         }
 

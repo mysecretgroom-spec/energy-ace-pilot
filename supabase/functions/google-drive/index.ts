@@ -9,6 +9,7 @@ import {
 } from "../_shared/appUserConnections.ts";
 import { DRIVE_CONNECTOR, GATEWAY_BASE_URL, GOOGLE_DRIVE_SCOPES } from "../_shared/appUserScopes.ts";
 import { getAuthUser } from "../_shared/authUser.ts";
+import { getUnifiedGoogleConnection, getUnifiedGoogleToken } from "../_shared/googleUnified.ts";
 import { VISITOR_USER_ID } from "../_shared/visitorGuard.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -27,17 +28,23 @@ const BATCH_DOCS = 15;
 const BATCH_ETUDES = 5;
 
 class ReconnectError extends Error {}
+type DriveCredential = { kind: "connector" | "direct"; value: string };
 
-function driveCall(key: string, path: string, init?: RequestInit) {
+function driveCall(key: DriveCredential, path: string, init?: RequestInit) {
+  if (key.kind === "direct") {
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${key.value}`);
+    return fetch(`https://www.googleapis.com${path}`, { ...init, headers });
+  }
   return callAsAppUser({
-    gatewayBaseUrl: GATEWAY_BASE_URL, connectionAPIKey: key, connectorId: DRIVE_CONNECTOR,
+    gatewayBaseUrl: GATEWAY_BASE_URL, connectionAPIKey: key.value, connectorId: DRIVE_CONNECTOR,
     path, init, requiredScopes: GOOGLE_DRIVE_SCOPES,
   });
 }
 
-async function driveJson<T>(key: string, path: string, init?: RequestInit): Promise<T> {
+async function driveJson<T>(key: DriveCredential, path: string, init?: RequestInit): Promise<T> {
   const res = await driveCall(key, path, init);
-  if (await appUserReconnectRequired(res)) throw new ReconnectError("reconnect");
+  if ((key.kind === "direct" && res.status === 401) || await appUserReconnectRequired(res)) throw new ReconnectError("reconnect");
   const text = await res.text();
   if (!res.ok) throw new Error(`Drive [${res.status}]: ${text.slice(0, 300)}`);
   return JSON.parse(text) as T;
@@ -45,7 +52,7 @@ async function driveJson<T>(key: string, path: string, init?: RequestInit): Prom
 
 const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
-async function ensureFolder(key: string, name: string, parent?: string): Promise<string> {
+async function ensureFolder(key: DriveCredential, name: string, parent?: string): Promise<string> {
   const q = `name='${esc(name)}' and mimeType='${FOLDER}' and trashed=false` + (parent ? ` and '${parent}' in parents` : "");
   const found = await driveJson<{ files: { id: string }[] }>(key, `/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`);
   if (found.files?.[0]) return found.files[0].id;
@@ -56,7 +63,7 @@ async function ensureFolder(key: string, name: string, parent?: string): Promise
   return created.id;
 }
 
-async function uploadFile(key: string, parent: string, name: string, blob: Blob) {
+async function uploadFile(key: DriveCredential, parent: string, name: string, blob: Blob) {
   const boundary = `dbp${crypto.randomUUID()}`;
   const meta = JSON.stringify({ name, parents: [parent] });
   const body = new Blob([
@@ -92,15 +99,22 @@ async function download(url: string, bucket: string): Promise<Blob> {
 const clientLabel = (c: { nom?: string | null; prenom?: string | null } | null) =>
   (c ? [c.nom, c.prenom].filter(Boolean).join(" ") : "") || "Sans client";
 
-async function sync(userId: string, key: string, rootFolderId: string | null) {
+async function sync(userId: string, key: DriveCredential, rootFolderId: string | null) {
   const db = adminClient();
   const root = rootFolderId ?? await ensureFolder(key, "DébalePro");
-  if (!rootFolderId) await updateConnection(userId, DRIVE_CONNECTOR, { root_folder_id: root });
+  if (!rootFolderId) {
+    if (key.kind === "direct") {
+      const { error } = await db.from("google_oauth_connections").update({ root_folder_id: root }).eq("user_id", userId);
+      if (error) throw error;
+    } else await updateConnection(userId, DRIVE_CONNECTOR, { root_folder_id: root });
+  }
   const folders = new Map<string, string>();
   const folderFor = async (clientId: string | null, label: string) => {
     const k = clientId ?? "none";
     if (!folders.has(k)) folders.set(k, await ensureFolder(key, label, root));
-    return folders.get(k)!;
+    const folder = folders.get(k);
+    if (!folder) throw new Error("Dossier Drive introuvable");
+    return folder;
   };
 
   const { data: sent } = await db.from("drive_uploads").select("document_id, etude_id").eq("user_id", userId).eq("status", "sent");
@@ -138,7 +152,8 @@ async function sync(userId: string, key: string, rootFolderId: string | null) {
   for (const e of todoEtudes) {
     const name = `Étude ${e.product_type ?? ""} - ${clientLabel(e.clients as never)}.pdf`.replace(/\s+/g, " ");
     try {
-      const blob = await download(e.pdf_url!, "etudes-pdf");
+      if (!e.pdf_url) throw new Error("PDF indisponible");
+      const blob = await download(e.pdf_url, "etudes-pdf");
       const parent = await folderFor(e.client_id, clientLabel(e.clients as never));
       const f = await uploadFile(key, parent, name, new Blob([blob], { type: "application/pdf" }));
       await log({ client_id: e.client_id, etude_id: e.id, source: "etude", file_name: name, drive_file_id: f.id, drive_link: f.webViewLink, status: "sent" });
@@ -185,6 +200,21 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    const unified = await getUnifiedGoogleConnection(user.id);
+    if (unified && (body.action === "status" || body.action === "sync")) {
+      const token = await getUnifiedGoogleToken(user.id);
+      if (!token) return json({ connected: false, reconnectRequired: true });
+      if (body.action === "status") return json({ connected: true, email: unified.email });
+      try {
+        return json({ connected: true, ...await sync(user.id, { kind: "direct", value: token }, unified.root_folder_id) });
+      } catch (e) {
+        if (e instanceof ReconnectError) {
+          await adminClient().from("google_oauth_connections").update({ reconnect_required: true }).eq("user_id", user.id);
+          return json({ connected: false, reconnectRequired: true });
+        }
+        throw e;
+      }
+    }
     const conn = await getConnectionForUser(user.id, DRIVE_CONNECTOR);
     if (!conn) return json({ connected: false });
 
@@ -198,10 +228,10 @@ Deno.serve(async (req) => {
 
     try {
       if (body.action === "status") {
-        const about = await driveJson<{ user?: { emailAddress?: string } }>(conn.key, "/drive/v3/about?fields=user(emailAddress)");
+        const about = await driveJson<{ user?: { emailAddress?: string } }>({ kind: "connector", value: conn.key }, "/drive/v3/about?fields=user(emailAddress)");
         return json({ connected: true, email: about.user?.emailAddress ?? null });
       }
-      const result = await sync(user.id, conn.key, conn.rootFolderId);
+      const result = await sync(user.id, { kind: "connector", value: conn.key }, conn.rootFolderId);
       return json({ connected: true, ...result });
     } catch (e) {
       if (e instanceof ReconnectError) {

@@ -1,3 +1,4 @@
+import { callGoogleAccount } from "@/lib/googleConnection";
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
@@ -244,12 +245,7 @@ export function InteractiveOnboardingProvider({ children }: { children: ReactNod
       estimatedTime: "1 min",
       completionCheck: async () => {
         if (!user) return false;
-        const { data } = await supabase
-          .from("google_tokens")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        return !!data;
+        return (await callGoogleAccount({ action: "status" })).connected;
       },
     },
     {

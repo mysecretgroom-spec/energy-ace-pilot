@@ -1,3 +1,5 @@
+import { callGoogleAccount, connectGoogleAccount } from "@/lib/googleConnection";
+import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +15,7 @@ import {
 } from "lucide-react";
 
 export function GoogleStep() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const [isGoogleConnected, setIsGoogleConnected] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -28,28 +30,16 @@ export function GoogleStep() {
       return;
     }
 
-    // Check if user has Google provider or tokens
-    const provider = user.app_metadata?.provider;
-    const providers = user.app_metadata?.providers as string[] | undefined;
-    const hasGoogleProvider = provider === "google" || providers?.includes("google");
-
-    const { data: tokens } = await supabase
-      .from("google_tokens")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    setIsGoogleConnected(!!hasGoogleProvider || !!tokens);
-    setLoading(false);
+    try { setIsGoogleConnected((await callGoogleAccount({ action: "status" })).connected); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Google indisponible"); }
+    finally { setLoading(false); }
   };
 
   const handleConnect = async () => {
     setConnecting(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
-      console.error("Google connection error:", error);
-    }
-    setConnecting(false);
+    try { await connectGoogleAccount(); await checkConnection(); toast.success("Gmail, Drive et Agenda connectés"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Connexion interrompue"); }
+    finally { setConnecting(false); }
   };
 
   if (loading) {
@@ -113,7 +103,7 @@ export function GoogleStep() {
         <Button
           onClick={handleConnect}
           disabled={connecting}
-          className="w-full h-11 sm:h-12 gap-2 sm:gap-3 touch-manipulation active:scale-[0.98] transition-transform"
+          className="w-full h-11 sm:h-12 gap-2 sm:gap-3 touch-manipulation "
           size="lg"
         >
           {connecting ? (

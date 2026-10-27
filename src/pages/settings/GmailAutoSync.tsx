@@ -1,3 +1,4 @@
+import { callGoogleAccount } from "@/lib/googleConnection";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MobileLayout } from "@/components/layout/MobileLayout";
@@ -85,7 +86,8 @@ export default function GmailAutoSync() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      setIsGoogleConnected(!!googleToken);
+      const googleStatus = await callGoogleAccount({ action: "status" });
+      setIsGoogleConnected(googleStatus.connected || !!googleToken);
 
       // Check authorized emails
       const { data: emails } = await supabase
