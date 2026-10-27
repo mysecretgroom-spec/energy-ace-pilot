@@ -216,14 +216,14 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // La semaine de frais va du dimanche au samedi (format israélien)
+  // La semaine de frais va du samedi au vendredi
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
-    // Reculer jusqu'au dimanche précédent (ou aujourd'hui si dimanche)
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - dayOfWeek);
-    return sunday;
+    // Reculer jusqu'au samedi précédent (ou aujourd'hui si samedi)
+    const saturday = new Date(now);
+    saturday.setDate(now.getDate() - (dayOfWeek >= 6 ? dayOfWeek - 6 : dayOfWeek + 1));
+    return saturday;
   });
   
   // Period selection for chart/stats
@@ -265,13 +265,13 @@ const Finance = () => {
   const isCurrentWeek = (() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    // Calculer le dimanche de la semaine courante (format israélien)
-    const currentSunday = new Date(now);
-    currentSunday.setDate(now.getDate() - dayOfWeek);
-    currentSunday.setHours(0, 0, 0, 0);
-    const selectedSundayCopy = new Date(selectedWeekStart);
-    selectedSundayCopy.setHours(0, 0, 0, 0);
-    return currentSunday.getTime() === selectedSundayCopy.getTime();
+    // Calculer le samedi de la semaine courante (semaine samedi → vendredi)
+    const currentSaturday = new Date(now);
+    currentSaturday.setDate(now.getDate() - (dayOfWeek >= 6 ? dayOfWeek - 6 : dayOfWeek + 1));
+    currentSaturday.setHours(0, 0, 0, 0);
+    const selectedSaturdayCopy = new Date(selectedWeekStart);
+    selectedSaturdayCopy.setHours(0, 0, 0, 0);
+    return currentSaturday.getTime() === selectedSaturdayCopy.getTime();
   })();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
@@ -836,11 +836,11 @@ const Finance = () => {
       // Jour sélectionné
       const selectedDayStr = formatLocalDate(selectedDate);
       
-      // Semaine sélectionnée (dimanche au samedi = 7 jours)
+      // Semaine sélectionnée (samedi au vendredi = 7 jours)
       const weekStart = new Date(selectedWeekStart);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Dimanche + 6 jours = Samedi
+      weekEnd.setDate(weekStart.getDate() + 6); // Samedi + 6 jours = Vendredi
       const weekStartStr = formatLocalDate(weekStart);
       const weekEndStr = formatLocalDate(weekEnd);
 
